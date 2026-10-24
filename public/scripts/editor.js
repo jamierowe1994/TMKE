@@ -422,10 +422,24 @@ import { createResizeEngine } from "./resize-engine.js";
 
   function toast(msg, durationMs) {
     toastEl.textContent = msg;
+    toastEl.classList.remove("has-action");
     toastEl.hidden = false;
     toastEl.classList.add("is-show");
     clearTimeout(toast._t);
     toast._t = setTimeout(() => { toastEl.classList.remove("is-show"); toastEl.hidden = true; }, durationMs || 1800);
+  }
+
+  // A message with one thing you can do about it, held long enough to read.
+  function toastAction(msg, label, fn, durationMs) {
+    toast(msg, durationMs || 7000);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ed-toast-btn";
+    b.textContent = label;
+    b.addEventListener("click", () => { toastEl.classList.remove("is-show"); toastEl.hidden = true; fn(); });
+    toastEl.appendChild(document.createTextNode(" "));
+    toastEl.appendChild(b);
+    toastEl.classList.add("has-action");
   }
 
   // ---------- Context-bar helpers ----------
@@ -7048,6 +7062,28 @@ import { createResizeEngine } from "./resize-engine.js";
     fullRender();
   }
 
+  /* A plain, square-cornered box centred where you clicked, for you to drag
+     onto the screen yourself: a screen you were on moves there, a photo gets
+     a new one, sized to a good share of it. */
+  function placeScreenBox(target, cx, cy) {
+    // Sized to the photo you clicked on: the one you chose, or for a screen,
+    // the topmost photo under the click.
+    const host = target.type !== "screen" ? target
+      : state.elements.slice().reverse().find((e) => e && e.type === "image" && e.src && !e.hidden &&
+          cx >= e.x && cx <= e.x + e.w && cy >= e.y && cy <= e.y + e.h) || null;
+    const w = Math.round(host ? host.w * 0.45 : target.w), h = Math.round(host ? w * 0.62 : target.h);
+    let x = cx - w / 2, y = cy - h / 2;
+    if (host) {
+      x = Math.min(Math.max(x, host.x), host.x + host.w - w);
+      y = Math.min(Math.max(y, host.y), host.y + host.h - h);
+    }
+    const scr = screenFor(target);
+    setScreenQuad(scr, [{ x: x, y: y }, { x: x + w, y: y }, { x: x + w, y: y + h }, { x: x, y: y + h }]);
+    state.selectedIds = [scr.id];
+    fullRender();
+    toast("Drag each corner onto a corner of the screen.", 4000);
+  }
+
   function startScreenPick(el) {
     screenPick = el.type === "screen" ? { screenId: el.id } : { imageId: el.id };
     canvasEl.classList.add("is-picking-screen");
@@ -7069,17 +7105,20 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!el) return;
     const rect = canvasEl.getBoundingClientRect();
     const cx = (ev.clientX - rect.left) / state.zoom, cy = (ev.clientY - rect.top) / state.zoom;
+    // When it can't find the edges (a screen half out of shot, or wonky), the
+    // way on is a plain box where you clicked, to drag yourself (Dani, 24 Oct).
+    const offerBox = (msg) => toastAction(msg, "Put a box there instead", () => placeScreenBox(el, cx, cy));
     try {
       const { canvas: r, scale } = await screenPhotoRaster(1000);
       const img = r.getContext("2d").getImageData(0, 0, r.width, r.height);
       const sx = Math.min(r.width - 1, Math.max(0, Math.round(cx * scale)));
       const sy = Math.min(r.height - 1, Math.max(0, Math.round(cy * scale)));
       const found = findScreenAtPoint(img, r.width, r.height, sx, sy);
-      if (found.error) { toast(found.error); return; }
+      if (found.error) { offerBox(found.error); return; }
       setScreenQuad(screenFor(el), found.corners.map((p) => ({ x: p.x / scale, y: p.y / scale })));
       toast("Corners set. Drag any of them to fine-tune.");
     } catch (_) {
-      toast("Couldn't read the photo here. Try Find it with Claude.");
+      offerBox("Couldn't read the photo here.");
     }
   }, true);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && screenPick) { endScreenPick(); toast("Cancelled"); } });
