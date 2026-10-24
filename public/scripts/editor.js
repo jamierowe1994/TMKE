@@ -6729,6 +6729,309 @@ import { createResizeEngine } from "./resize-engine.js";
     fullRender();
   }
 
+  /* ---------- Finding the screen in the photo (Dani, 24 Oct) ----------
+     Dragging four corners onto a laptop at an odd angle is the slow part of a
+     mockup. Two ways to do it for you, both landing the corners where you can
+     still drag them:
+
+       Click the screen   you click once on a plain screen (black, white,
+                          green). The Studio grows outwards over every pixel
+                          of that colour, fits a quad round what it covered,
+                          and straightens each side along the screen's edge.
+       Find it with Claude  the photo goes to Claude, which gives back the four
+                          corners of what you asked for, close rather than
+                          exact; each side is then snapped onto the nearest
+                          strong edge in the photo.
+
+     Both look at the page as drawn without its screens: the photo and
+     everything else on it, so a screen already over the photo can't hide it. */
+  let screenPickId = null;
+
+  async function screenPhotoRaster(maxEdge) {
+    const cw = state.canvas.width, ch = state.canvas.height;
+    const full = await _renderDesignToCanvas({ page: { canvas: state.canvas, elements: state.elements.filter((e) => e && e.type !== "screen") } });
+    const k = Math.min(1, maxEdge / Math.max(cw, ch));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(cw * k));
+    c.height = Math.max(1, Math.round(ch * k));
+    c.getContext("2d").drawImage(full, 0, 0, c.width, c.height);
+    return { canvas: c, scale: k };
+  }
+
+  // Every pixel joined to the seed by small steps that also stay near the
+  // seed's own colour (within seedTol): the steps follow a gradient across a
+  // lit screen, the seed limit stops it walking off down the bezel.
+  function growScreenRegion(d, w, h, sx, sy, seedTol) {
+    const seen = new Uint8Array(w * h), q = new Int32Array(w * h);
+    let sr = 0, sg = 0, sb = 0, n = 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const x = Math.min(w - 1, Math.max(0, sx + dx)), y = Math.min(h - 1, Math.max(0, sy + dy)), i = (y * w + x) * 4;
+      sr += d[i]; sg += d[i + 1]; sb += d[i + 2]; n++;
+    }
+    sr /= n; sg /= n; sb /= n;
+    const SEED = seedTol * seedTol, STEP = 14 * 14;
+    const dist2 = (i, r, g, b) => (d[i] - r) ** 2 + (d[i + 1] - g) ** 2 + (d[i + 2] - b) ** 2;
+    let head = 0, tail = 0;
+    const start = sy * w + sx;
+    seen[start] = 1; q[tail++] = start;
+    while (head < tail) {
+      const p = q[head++], px = p % w, py = (p - px) / w, pi = p * 4;
+      const nb = [px > 0 ? p - 1 : -1, px < w - 1 ? p + 1 : -1, py > 0 ? p - w : -1, py < h - 1 ? p + w : -1];
+      for (let k = 0; k < 4; k++) {
+        const o = nb[k];
+        if (o < 0 || seen[o]) continue;
+        const oi = o * 4;
+        if (dist2(oi, sr, sg, sb) > SEED || dist2(oi, d[pi], d[pi + 1], d[pi + 2]) > STEP) continue;
+        seen[o] = 1; q[tail++] = o;
+      }
+    }
+    return { mask: seen, count: tail };
+  }
+
+  function convexHull(pts) {
+    const p = pts.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const lower = [], upper = [];
+    for (const v of p) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], v) <= 0) lower.pop(); lower.push(v); }
+    for (let i = p.length - 1; i >= 0; i--) { const v = p[i]; while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], v) <= 0) upper.pop(); upper.push(v); }
+    upper.pop(); lower.pop();
+    return lower.concat(upper);
+  }
+  const quadArea = (q) => Math.abs(q.reduce((s, a, i) => { const b = q[(i + 1) % 4]; return s + a.x * b.y - b.x * a.y; }, 0)) / 2;
+
+  // The largest quad on the hull, started from its four diagonal extremes and
+  // improved one corner at a time. Corners come back TL, TR, BR, BL.
+  function hullQuad(hull) {
+    const by = (f) => hull.reduce((best, p) => (f(p) > f(best) ? p : best), hull[0]);
+    const q = [by((p) => -p.x - p.y), by((p) => p.x - p.y), by((p) => p.x + p.y), by((p) => -p.x + p.y)];
+    for (let round = 0; round < 3; round++) {
+      for (let k = 0; k < 4; k++) {
+        let best = q[k], bestA = quadArea(q);
+        for (const p of hull) { const t = q.slice(); t[k] = p; const a = quadArea(t); if (a > bestA && screenIsConvex(t)) { bestA = a; best = p; } }
+        q[k] = best;
+      }
+    }
+    return q;
+  }
+
+  function lineThrough(pts) {   // total least squares: a point and a direction
+    const mx = pts.reduce((s, p) => s + p.x, 0) / pts.length, my = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+    let sxx = 0, syy = 0, sxy = 0;
+    pts.forEach((p) => { sxx += (p.x - mx) ** 2; syy += (p.y - my) ** 2; sxy += (p.x - mx) * (p.y - my); });
+    const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    return { p: { x: mx, y: my }, d: { x: Math.cos(ang), y: Math.sin(ang) } };
+  }
+  function meetLines(a, b) {
+    const den = a.d.x * b.d.y - a.d.y * b.d.x;
+    if (Math.abs(den) < 1e-9) return null;
+    const t = ((b.p.x - a.p.x) * b.d.y - (b.p.y - a.p.y) * b.d.x) / den;
+    return { x: a.p.x + a.d.x * t, y: a.p.y + a.d.y * t };
+  }
+  // New corners where four side lines meet, unless one of them lands far from
+  // where it was: a side line that fitted the wrong thing.
+  function cornersFromLines(lines, q, w, h) {
+    const out = [0, 1, 2, 3].map((k) => meetLines(lines[(k + 3) % 4], lines[k]));
+    const lim = 0.06 * Math.hypot(w, h);
+    if (out.some((p, k) => !p || Math.hypot(p.x - q[k].x, p.y - q[k].y) > lim) || !screenIsConvex(out)) return q;
+    return out;
+  }
+
+  // Straighten each side along the region's own edge, leaving the ends out so
+  // a rounded corner doesn't bend the line. Side k runs corner k to k+1.
+  function straightenSides(q, edge, w, h) {
+    const lines = [0, 1, 2, 3].map((k) => {
+      const A = q[k], B = q[(k + 1) % 4], L = Math.hypot(B.x - A.x, B.y - A.y) || 1;
+      const ux = (B.x - A.x) / L, uy = (B.y - A.y) / L;
+      const near = edge.filter((p) => {
+        const t = ((p.x - A.x) * ux + (p.y - A.y) * uy) / L;
+        return t > 0.12 && t < 0.88 && Math.abs((p.x - A.x) * uy - (p.y - A.y) * ux) < 3;
+      });
+      return near.length >= 12 ? lineThrough(near) : { p: A, d: { x: ux, y: uy } };
+    });
+    return cornersFromLines(lines, q, w, h);
+  }
+
+  // A 5 x 5 average, so a grainy photo's noise doesn't break the screen up.
+  function softenPixels(img, w, h) {
+    const src = img.data, tmp = new Float32Array(w * h * 3), out = new Float32Array(w * h * 4);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) for (let c = 0; c < 3; c++) {
+      let s = 0, n = 0;
+      for (let k = -2; k <= 2; k++) { const xx = x + k; if (xx >= 0 && xx < w) { s += src[(y * w + xx) * 4 + c]; n++; } }
+      tmp[(y * w + x) * 3 + c] = s / n;
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) for (let c = 0; c < 3; c++) {
+      let s = 0, n = 0;
+      for (let k = -2; k <= 2; k++) { const yy = y + k; if (yy >= 0 && yy < h) { s += tmp[(yy * w + x) * 3 + c]; n++; } }
+      out[(y * w + x) * 4 + c] = s / n;
+    }
+    return out;
+  }
+
+  function regionEdge(mask, w, h) {
+    const edge = [];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (!mask[i]) continue;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1 || !mask[i - 1] || !mask[i + 1] || !mask[i - w] || !mask[i + w]) edge.push({ x: x + 0.5, y: y + 0.5 });
+    }
+    return edge;
+  }
+
+  /* How far the colour may stray from where you clicked is tried at several
+     settings, tightest first. Too tight and a lit screen's glow is lost; too
+     loose and a black screen runs on into a black keyboard. A screen fills
+     the quad round it and stays inside it (fill near 1: above 1 means it has
+     spilled past its own corners), and a spill shows as a sudden jump in what
+     it covers, so the search stops at the first jump and keeps the widest
+     setting before it that still fills its quad. */
+  function findScreenAtPoint(img, w, h, sx, sy) {
+    const d = softenPixels(img, w, h);
+    let best = null, fallback = null, prev = 0;
+    for (const tol of [10, 14, 18, 26, 36, 48, 62, 80]) {
+      const { mask, count } = growScreenRegion(d, w, h, sx, sy, tol);
+      if (best && count > 1.15 * prev) break;   // it had the screen, and now it has spilled
+      prev = count;
+      if (count < 0.002 * w * h || count > 0.7 * w * h) continue;
+      const edge = regionEdge(mask, w, h), hull = convexHull(edge);
+      if (hull.length < 4) continue;
+      const q = hullQuad(hull), fill = count / quadArea(q);
+      if (fill > 1.03) break;
+      const found = { q, edge, count, fill };
+      if (fill >= 0.9) best = found;
+      if (!fallback || fill > fallback.fill) fallback = found;
+    }
+    const pick = best || (fallback && fallback.fill >= 0.7 ? fallback : null);
+    if (!pick) return { error: "That doesn't look like a flat, plain screen. Try Find it with Claude." };
+    return { corners: straightenSides(pick.q, pick.edge, w, h) };
+  }
+
+  // Brightness change at every pixel (Sobel), for snapping sides to edges.
+  function edgeStrength(img, w, h) {
+    const d = img.data, Y = new Float32Array(w * h), G = new Float32Array(w * h);
+    for (let i = 0; i < w * h; i++) Y[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      const gx = Y[i - w + 1] + 2 * Y[i + 1] + Y[i + w + 1] - Y[i - w - 1] - 2 * Y[i - 1] - Y[i + w - 1];
+      const gy = Y[i + w - 1] + 2 * Y[i + w] + Y[i + w + 1] - Y[i - w - 1] - 2 * Y[i - w] - Y[i - w + 1];
+      G[i] = Math.hypot(gx, gy);
+    }
+    return G;
+  }
+
+  // Move each end of each side across the line, within a small range, onto
+  // the NEAREST clear edge in the photo. Nearest, not strongest: the strongest
+  // is usually the device against the wall behind it, a bezel's width outside
+  // the screen. Claude's corners are already close, so the range is small. A
+  // side mostly off the photo, or with no clear edge nearby, stays put.
+  function snapQuadToEdges(q, img, w, h) {
+    const G = edgeStrength(img, w, h);
+    const range = Math.max(4, Math.round(0.012 * Math.hypot(w, h)));
+    const at = (x, y) => { const xi = Math.round(x), yi = Math.round(y); return xi > 0 && yi > 0 && xi < w - 1 && yi < h - 1 ? G[yi * w + xi] : -1; };
+    const lines = [0, 1, 2, 3].map((k) => {
+      const A = q[k], B = q[(k + 1) % 4], L = Math.hypot(B.x - A.x, B.y - A.y) || 1;
+      const nx = -(B.y - A.y) / L, ny = (B.x - A.x) / L;
+      const score = (a, b) => {
+        let s = 0, n = 0;
+        for (let j = 0; j <= 40; j++) {
+          const t = 0.15 + 0.7 * j / 40, o = a + (b - a) * t;
+          const v = at(A.x + (B.x - A.x) * t + nx * o, A.y + (B.y - A.y) * t + ny * o);
+          if (v >= 0) { s += v; n++; }
+        }
+        return n >= 12 ? s / n : -1;
+      };
+      let a = 0, b = 0;
+      if (score(0, 0) >= 0) {
+        const n = 2 * range + 1, S = new Float32Array(n * n);
+        let top = 0;
+        for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const v = score(i - range, j - range); S[i * n + j] = v; if (v > top) top = v; }
+        let pick = null;
+        for (let i = 1; i < n - 1; i++) for (let j = 1; j < n - 1; j++) {
+          const v = S[i * n + j];
+          if (v < 40 || v < 0.45 * top) continue;
+          let peak = true;
+          for (let di = -1; di <= 1 && peak; di++) for (let dj = -1; dj <= 1; dj++) if ((di || dj) && S[(i + di) * n + j + dj] > v) { peak = false; break; }
+          if (!peak) continue;   // a clear peak, nearest to where Claude put it
+          const dist = Math.abs(i - range) + Math.abs(j - range);
+          if (!pick || dist < pick.dist) pick = { a: i - range, b: j - range, dist };
+        }
+        if (pick) { a = pick.a; b = pick.b; }
+      }
+      const P = { x: A.x + nx * a, y: A.y + ny * a }, Q = { x: B.x + nx * b, y: B.y + ny * b };
+      const LL = Math.hypot(Q.x - P.x, Q.y - P.y) || 1;
+      return { p: P, d: { x: (Q.x - P.x) / LL, y: (Q.y - P.y) / LL } };
+    });
+    return cornersFromLines(lines, q, w, h);
+  }
+
+  // Put the screen's corners on four canvas points, TL TR BR BL.
+  function setScreenQuad(el, pts) {
+    const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+    const minX = Math.min.apply(null, xs), minY = Math.min.apply(null, ys);
+    const w = Math.max(1, Math.max.apply(null, xs) - minX), h = Math.max(1, Math.max.apply(null, ys) - minY);
+    el.rotation = 0; el.flipX = false; el.flipY = false;
+    el.x = minX; el.y = minY; el.w = w; el.h = h;
+    el.corners = pts.map((p) => ({ x: (p.x - minX) / w, y: (p.y - minY) / h }));
+    pushHistory();
+    fullRender();
+  }
+
+  function startScreenPick(el) {
+    screenPickId = el.id;
+    canvasEl.classList.add("is-picking-screen");
+    toast("Click on the blank screen in the photo. Escape to cancel.");
+  }
+  function endScreenPick() {
+    screenPickId = null;
+    canvasEl.classList.remove("is-picking-screen");
+  }
+  // The click that finds the screen is not a click on the canvas: it selects
+  // nothing and moves nothing, so it is taken before anything else sees it.
+  canvasEl.addEventListener("pointerdown", async function (ev) {
+    if (!screenPickId) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const el = state.elements.find((e) => e && e.id === screenPickId);
+    endScreenPick();
+    if (!el) return;
+    const rect = canvasEl.getBoundingClientRect();
+    const cx = (ev.clientX - rect.left) / state.zoom, cy = (ev.clientY - rect.top) / state.zoom;
+    try {
+      const { canvas: r, scale } = await screenPhotoRaster(1000);
+      const img = r.getContext("2d").getImageData(0, 0, r.width, r.height);
+      const sx = Math.min(r.width - 1, Math.max(0, Math.round(cx * scale)));
+      const sy = Math.min(r.height - 1, Math.max(0, Math.round(cy * scale)));
+      const found = findScreenAtPoint(img, r.width, r.height, sx, sy);
+      if (found.error) { toast(found.error); return; }
+      setScreenQuad(el, found.corners.map((p) => ({ x: p.x / scale, y: p.y / scale })));
+      toast("Corners set. Drag any of them to fine-tune.");
+    } catch (_) {
+      toast("Couldn't read the photo here. Try Find it with Claude.");
+    }
+  }, true);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && screenPickId) { endScreenPick(); toast("Cancelled"); } });
+
+  async function findScreenWithClaude(el, what, btn) {
+    if (typeof window.__TMKE_FIND_SCREEN__ !== "function") { toast("Finding the screen isn't available here."); return; }
+    const label = btn ? btn.textContent : "";
+    if (btn) { btn.disabled = true; btn.textContent = "Looking…"; }
+    try {
+      const { canvas: r, scale } = await screenPhotoRaster(1600);
+      const out = await window.__TMKE_FIND_SCREEN__({ image: r.toDataURL("image/jpeg", 0.88), width: r.width, height: r.height, what: what || "the screen" });
+      if (!out || out.error) { toast(out && out.error ? out.error : "Claude didn't answer. Try again."); return; }
+      if (!out.found) { toast("Claude couldn't find it" + (out.note ? ": " + out.note : ".")); return; }
+      const img = r.getContext("2d").getImageData(0, 0, r.width, r.height);
+      let q = out.corners;
+      if (!screenIsConvex(q)) { toast("Claude's corners crossed over. Try again, or describe it differently."); return; }
+      q = snapQuadToEdges(q, img, r.width, r.height);
+      setScreenQuad(el, q.map((p) => ({ x: p.x / scale, y: p.y / scale })));
+      toast("Corners set. Drag any of them to fine-tune.");
+    } catch (_) {
+      toast("Couldn't reach Claude. Try again.");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+    }
+  }
+
   function addFrame(kind) {
     const p = FRAME_PRESETS[kind] || FRAME_PRESETS.square;
     addElement({
@@ -8895,6 +9198,17 @@ import { createResizeEngine } from "./resize-engine.js";
       // Six, not a picker. The guide only has to stand out from the photo
       // underneath it, and picking a colour from a spectrum to solve "I can't
       // see it against black" is more work than the problem deserves.
+      // Finding the screen for you: the Admin Studio only, for now (Dani, 24 Oct).
+      if (isAdminMode()) html.push(
+          '<div class="ed-props-section"><h4>Find the screen</h4>' +
+            '<p class="ed-props-hint">Let the Studio put the corners on the screen in your photo. You can still drag them afterwards.</p>' +
+            '<button class="ed-btn-ghost" id="ed-sc-pick" style="background:rgba(28,29,34,0.06);width:100%">Click the screen</button>' +
+            '<p class="ed-props-hint">For a plain screen: black, white or a solid colour. Click it, then click anywhere on that screen in the photo.</p>' +
+            '<div class="ed-props-field" style="margin-top:10px"><label>Or describe it</label>' +
+              '<input type="text" id="ed-sc-what" value="the laptop screen" maxlength="120"></div>' +
+            '<button class="ed-btn-ghost" id="ed-sc-claude" style="background:rgba(28,29,34,0.06);width:100%">Find it with Claude</button>' +
+            '<p class="ed-props-hint">For anything else: a screen showing a picture, a book cover, a poster. It takes a few seconds.</p>' +
+          '</div>');
       html.push(
           '<div class="ed-props-section"><h4>Guide</h4>' +
             '<div class="ed-props-field"><label>Colour <span class="ed-props-hint ed-props-hint--block">It appears while you position the guide and is never exported.</span></label>' +
@@ -9319,6 +9633,11 @@ import { createResizeEngine } from "./resize-engine.js";
         ));
       }
       body.querySelector("#ed-sc-reset")?.addEventListener("click", () => resetScreenCorners(el));
+      body.querySelector("#ed-sc-pick")?.addEventListener("click", () => startScreenPick(el));
+      body.querySelector("#ed-sc-claude")?.addEventListener("click", (e) => {
+        const what = (body.querySelector("#ed-sc-what")?.value || "").trim();
+        findScreenWithClaude(el, what, e.currentTarget);
+      });
       body.querySelector("#ed-sc-recentre")?.addEventListener("click", () => {
         el.imgRotation = 0; el.imgScale = 1; el.imgOffsetX = 0; el.imgOffsetY = 0;
         pushHistory(); fullRender(); renderProps();

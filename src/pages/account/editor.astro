@@ -4735,6 +4735,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       margin: 8px 0 0; font-family: var(--sans); font-size: var(--ws-t-meta);
       line-height: 1.45; color: rgba(255,255,255,0.72);
     }
+    /* Waiting for the click that finds a screen in the photo. */
+    .ed-canvas.is-picking-screen, .ed-canvas.is-picking-screen * { cursor: crosshair !important; }
     .ed-fields-restore {
       appearance: none; cursor: pointer; width: 100%;
       margin-top: 2px; padding: 9px 12px; border-radius: 8px;
@@ -5852,6 +5854,21 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
     const params = new URLSearchParams(location.search);
     const wantAdmin = params.get('mode') === 'admin';
+
+    /* Find a screen in a mockup photo with Claude (worker /studio/find-screen,
+       staff only). editor.js sends the photo and what to look for. */
+    window.__TMKE_FIND_SCREEN__ = async (payload) => {
+      const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+      if (!WORKER) return { error: "The Worker isn't configured here." };
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { error: 'Sign in again, then try.' };
+      const r = await fetch(WORKER + '/studio/find-screen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify(payload),
+      });
+      return await r.json().catch(() => ({ error: 'Claude\'s answer couldn\'t be read.' }));
+    };
 
     /* Designing as, in the admin studio (docs/admin-brand-picker-brief.md).
        Every brand's kit at once - staff only - so a TPE postcard is drawn in

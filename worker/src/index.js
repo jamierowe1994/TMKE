@@ -10781,6 +10781,72 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
          would open with -- same conversion, same shapes -- so what is on the
          canvas is what they will get. Staff only: it is every brand at once,
          which is not a thing any member should be able to ask for. */
+      /* Find a screen in a mockup photo (Dani, 24 Oct): the Studio sends the
+         photo and what to look for ("the laptop screen", "the book cover"),
+         Claude returns its four corners in the photo's pixels. The Studio then
+         snaps each side onto the nearest edge in the photo, so this only has
+         to be close. Admin Studio only for now. */
+      if (path.endsWith("/studio/find-screen") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured." }, 503, request, env);
+        const b = await request.json().catch(() => ({}));
+        const m = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(String(b.image || ""));
+        const W = Math.round(Number(b.width)), H = Math.round(Number(b.height));
+        if (!m || !(W > 0 && H > 0)) return json({ error: "Send the photo as an image and its size." }, 400, request, env);
+        const what = String(b.what || "the screen").slice(0, 120);
+        const pt = { type: "object", properties: { x: { type: "number" }, y: { type: "number" } }, required: ["x", "y"], additionalProperties: false };
+        const schema = {
+          type: "object",
+          properties: {
+            found: { type: "boolean" },
+            topLeft: pt, topRight: pt, bottomRight: pt, bottomLeft: pt,
+            note: { type: "string" },
+          },
+          required: ["found", "topLeft", "topRight", "bottomRight", "bottomLeft", "note"],
+          additionalProperties: false,
+        };
+        const prompt =
+          `This photo is ${W} x ${H} pixels. Find ${what} in it: the flat surface a design will be placed onto in a mockup.\n\n` +
+          "Give the four corners of that surface in this photo's pixel coordinates (x across from the left edge, y down from the top edge), " +
+          "as they appear in the photo, in perspective.\n" +
+          "- For a laptop, phone, tablet or monitor, it is the display area itself (the glass that shows the picture), inside the bezel, not the outer edge of the device.\n" +
+          "- Where the display's corners are rounded, give the point where its straight edges would meet.\n" +
+          "- If the surface runs off the edge of the photo, carry its edges on and give the corners where they would be, even if that is outside the photo (negative, or beyond the width or height).\n" +
+          "- topLeft is the corner that is top left as the surface is meant to be read, and the rest follow clockwise.\n" +
+          `If there is no ${what}, set found to false. In note, say in a few words what you found.`;
+        let res, out;
+        try {
+          res = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "server-side-fallback-2026-07-01", "content-type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-opus-5-5",
+              max_tokens: 16000,
+              fallbacks: "default",
+              output_config: { effort: "high", format: { type: "json_schema", schema } },
+              messages: [{ role: "user", content: [
+                { type: "image", source: { type: "base64", media_type: m[1], data: m[2] } },
+                { type: "text", text: prompt },
+              ] }],
+            }),
+          });
+          out = await res.json().catch(() => null);
+        } catch (e) {
+          return json({ error: "Couldn't reach Claude: " + (e.message || e) }, 502, request, env);
+        }
+        if (!res.ok || !out) return json({ error: (out && out.error && out.error.message) || ("Claude said " + res.status) }, 502, request, env);
+        if (out.stop_reason === "refusal") return json({ error: "Claude declined to look at this photo." }, 422, request, env);
+        const text = (out.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+        let r = null;
+        try { r = JSON.parse(text); } catch (_) {}
+        if (!r) return json({ error: "Claude's answer couldn't be read." }, 502, request, env);
+        if (!r.found) return json({ ok: true, found: false, note: r.note || "" }, 200, request, env);
+        const corners = [r.topLeft, r.topRight, r.bottomRight, r.bottomLeft].map((p) => ({ x: Number(p.x), y: Number(p.y) }));
+        if (corners.some((p) => !isFinite(p.x) || !isFinite(p.y))) return json({ error: "Claude's corners weren't numbers." }, 502, request, env);
+        return json({ ok: true, found: true, corners, note: r.note || "" }, 200, request, env);
+      }
+
       if (path.endsWith("/studio/brand-kits") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
