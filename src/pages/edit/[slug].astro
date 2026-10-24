@@ -159,16 +159,18 @@ function gbp(pence) {
          Studio), and a small, quiet buying panel on the right (after Studio
          Blanche). Danielle, 24 Oct 2026. -->
     <section class="pd-hero">
+      <div class="pd-left">
       <div class="pd-reel" aria-label={`Templates from ${pack.title}`}>
         {reelItems.length > 0 ? (
-          <div class="pd-reel-track" style={`--pd-dur:${Math.max(30, reelItems.length * 7)}s`}>
-            {[...reelItems, ...reelItems].map((it, i) => (
+          <div class="pd-reel-track" data-count={reelItems.length}>
+            {[...reelItems, ...reelItems, ...reelItems].map((it, i) => (
               <button
                 type="button"
                 class="pd-reel-item"
                 data-zoomto={it.zoom}
                 aria-label={i < reelItems.length ? `Enlarge ${it.name}` : undefined}
                 aria-hidden={i >= reelItems.length ? "true" : undefined}
+                data-copy={i >= reelItems.length ? "" : undefined}
                 tabindex={i >= reelItems.length ? "-1" : undefined}
               >
                 <img src={sized(it.src, 640)} alt="" loading={i < 6 ? "eager" : "lazy"} />
@@ -180,7 +182,20 @@ function gbp(pence) {
         ) : null}
       </div>
 
-      <aside class="pd-panel">
+      {mockups.length > 0 && (
+        <div class="pd-mocks" aria-label="The pack in use">
+          <div class={`pd-mocks-grid n${mockups.length}`}>
+            {mockups.map((src, i) => (
+              <figure class="pd-mock" data-zoom data-set="mock" data-full={sized(src, 1600)} data-name={pack.title} tabindex="0" role="button" aria-label={`Enlarge image ${i + 1}`}>
+                <img src={sized(src, 700)} alt="" loading="lazy" />
+              </figure>
+            ))}
+          </div>
+        </div>
+      )}
+      </div>
+
+      <aside class="pd-panel"><div class="pd-panel-in">
         <a href="/edit" class="pd-back">&larr; The Edit</a>
         {pack.category && <div class="pd-cat">{pack.category}</div>}
         <h1 class="pd-title">{pack.title}</h1>
@@ -211,21 +226,8 @@ function gbp(pence) {
             <p class="pd-note">Once you've paid, the pack is unlocked in your TMKE Studio. Open any template there to change the photos, words and colours to suit your business, then download it ready to post. It's yours to keep.</p>
           </details>
         </div>
-      </aside>
+      </div></aside>
     </section>
-
-    <!-- ============================== MOCKUPS -->
-    {mockups.length > 0 && (
-      <section class="pd-mocks wrap" aria-label="The pack in use">
-        <div class={`pd-mocks-grid n${mockups.length}`}>
-          {mockups.map((src, i) => (
-            <figure class="pd-mock" data-zoom data-set="mock" data-full={sized(src, 1600)} data-name={pack.title} tabindex="0" role="button" aria-label={`Enlarge image ${i + 1}`}>
-              <img src={sized(src, 900)} alt="" loading="lazy" />
-            </figure>
-          ))}
-        </div>
-      </section>
-    )}
 
     <!-- ============================== PREVIEWS -->
     <section class="pack-previews" id="pack-previews">
@@ -352,49 +354,39 @@ function gbp(pence) {
        overscroll where the browser lets us. */
     html { background: var(--english-violet); overscroll-behavior-y: none; }
 
-    /* ---- HERO: sliding strip | buying panel ---- */
+    /* ---- HERO: sliding strip and mockups | buying panel ----
+       The panel runs the full height of this part, down to Inside this
+       pack, with its content held in view as you scroll (Studio Blanche). */
     .pd-hero {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 420px;
+      grid-template-columns: minmax(0, 1fr) clamp(420px, 34vw, 540px);
       border-top: 1px solid rgba(28,29,34,0.08);
-      border-bottom: 1px solid rgba(28,29,34,0.08);
     }
+    .pd-left { min-width: 0; }
+    /* Just over three templates in view on a dark band (Moyo Studio). The
+       item width comes from the band's own width, so it holds at any size. */
     .pd-reel {
-      position: relative; overflow: hidden; min-height: 480px;
-      background: #e7e0dc;
+      position: relative; overflow: hidden;
+      background: #4a3a40;
+      padding: 44px 0;
+      container-type: inline-size;
     }
-    /* Kept compact on purpose: the templates are seen, not supersized. */
-    .pd-reel-track {
-      position: absolute; left: 0; top: 50%;
-      height: clamp(300px, 26vw, 380px);
-      display: flex; gap: 18px; width: max-content;
-      transform: translate(0, -50%);
-      animation: pd-slide var(--pd-dur, 40s) linear infinite;
-    }
-    .pd-reel:hover .pd-reel-track, .pd-reel:focus-within .pd-reel-track { animation-play-state: paused; }
-    @keyframes pd-slide {
-      from { transform: translate(0, -50%); }
-      to   { transform: translate(calc(-50% - 9px), -50%); }
-    }
+    .pd-reel-track { display: flex; gap: 18px; width: max-content; will-change: transform; }
     .pd-reel-item {
-      height: 100%; aspect-ratio: 3 / 4; flex: none;
+      width: calc((100cqw - 3 * 18px) / 3.3); aspect-ratio: 3 / 4; flex: none;
       padding: 0; border: 0; background: #fff; cursor: zoom-in;
-      box-shadow: 0 18px 40px -24px rgba(28,29,34,0.45);
-      transition: transform 0.35s cubic-bezier(.2,.7,.2,1);
+      box-shadow: 0 22px 44px -26px rgba(0,0,0,0.6);
     }
-    .pd-reel-item:hover { transform: translateY(-4px); }
-    .pd-reel-item:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
+    .pd-reel-item:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
     .pd-reel-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .pd-reel-single { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-    @media (prefers-reduced-motion: reduce) {
-      .pd-reel { overflow-x: auto; }
-      .pd-reel-track { animation: none; padding: 0 24px; }
-    }
+    .pd-reel-single { display: block; width: 100%; max-height: 520px; object-fit: cover; }
+    @media (prefers-reduced-motion: reduce) { .pd-reel { overflow-x: auto; } }
 
-    .pd-panel {
-      padding: 26px max(36px, calc((100vw - 1280px) / 2 + 36px)) 30px 40px;
+    .pd-panel { background: var(--paper); border-left: 1px solid rgba(28,29,34,0.1); }
+    .pd-panel-in {
+      position: sticky; top: 78px;
+      padding: 28px max(36px, calc((100vw - 1280px) / 2 + 36px)) 36px 44px;
       display: flex; flex-direction: column; gap: 10px;
-      background: var(--paper);
     }
     .pd-back {
       font-family: var(--sans); font-size: 11px; font-weight: 700;
@@ -467,28 +459,31 @@ function gbp(pence) {
     .pd-spec dd { margin: 0; font-family: var(--sans); font-size: 13.5px; color: var(--ink); font-variant-numeric: tabular-nums; }
     .pd-note { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.72); margin: 0 0 14px; }
 
-    @media (max-width: 960px) {
-      .pd-hero { grid-template-columns: 1fr; }
-      .pd-reel { min-height: 330px; }
-      .pd-reel-track { height: 270px; }
-      .pd-panel { padding: 22px 16px 26px; }
-    }
-
-    /* ---- MOCKUPS ---- */
-    .pd-mocks { padding-top: 56px; padding-bottom: 8px; }
-    .pd-mocks-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    /* The mockups, under the strip: four small, a row. */
+    .pd-mocks { padding: 28px 44px 44px max(36px, calc((100vw - 1280px) / 2 + 36px)); }
+    .pd-mocks-grid { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .pd-mocks-grid.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .pd-mocks-grid.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .pd-mocks-grid.n1 { grid-template-columns: minmax(0, 640px); }
-    @media (max-width: 720px) { .pd-mocks-grid, .pd-mocks-grid.n3 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+    .pd-mocks-grid.n1 { grid-template-columns: minmax(0, 360px); }
     .pd-mock { margin: 0; aspect-ratio: 4 / 5; overflow: hidden; background: #e7e0dc; cursor: zoom-in; }
     .pd-mock img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); }
     .pd-mock:hover img { transform: scale(1.03); }
     .pd-mock:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
 
-    /* PREVIEWS */
+    /* Stacked: the strip, the panel, then the mockups. */
+    @media (max-width: 960px) {
+      .pd-hero { grid-template-columns: 1fr; }
+      .pd-left { display: contents; }
+      .pd-reel { order: 1; padding: 28px 0; }
+      .pd-reel-item { width: calc((100cqw - 18px) / 1.6); }
+      .pd-panel { order: 2; border-left: 0; }
+      .pd-panel-in { position: static; padding: 22px 16px 10px; }
+      .pd-mocks { order: 3; padding: 18px 16px 36px; }
+      .pd-mocks-grid, .pd-mocks-grid.n3 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    }
+
     /* A dark band, as the reference's collection grid sits on. */
-    .pack-previews { background: #241319; color: var(--paper); padding: 52px 0 64px; margin-top: 56px; }
+    .pack-previews { background: #241319; color: var(--paper); padding: 52px 0 64px; }
     .pack-previews-head {
       display: flex; justify-content: space-between; align-items: end;
       gap: 24px; flex-wrap: wrap;
@@ -767,6 +762,38 @@ function gbp(pence) {
         else if (e.key === 'ArrowLeft' && multiple) go(-1);
         else if (e.key === 'ArrowRight' && multiple) go(1);
       });
+    })();
+
+    // The strip moves one template along, waits two seconds, and moves again
+    // (as Moyo Studio's does), rather than drifting. Three copies of the set
+    // sit in the track, so after a full set it jumps back unseen. Paused while
+    // the pointer or keyboard is on it; still for reduced motion.
+    (function () {
+      var reel = document.querySelector('.pd-reel');
+      var track = reel && reel.querySelector('.pd-reel-track');
+      if (!track) return;
+      var n = Number(track.getAttribute('data-count')) || 0;
+      if (n < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      var i = 0, paused = false, SLIDE = 900, WAIT = 2000;
+      function stepWidth() {
+        var a = track.children[0], b = track.children[1];
+        return b.getBoundingClientRect().left - a.getBoundingClientRect().left;
+      }
+      function step() {
+        if (paused || document.hidden) return;
+        i += 1;
+        track.style.transition = 'transform ' + SLIDE + 'ms cubic-bezier(.65,0,.35,1)';
+        track.style.transform = 'translateX(' + (-i * stepWidth()) + 'px)';
+        if (i >= n) setTimeout(function () {
+          track.style.transition = 'none'; i = 0; track.style.transform = 'translateX(0)';
+        }, SLIDE + 30);
+      }
+      setInterval(step, SLIDE + WAIT);
+      reel.addEventListener('mouseenter', function () { paused = true; });
+      reel.addEventListener('mouseleave', function () { paused = false; });
+      reel.addEventListener('focusin', function () { paused = true; });
+      reel.addEventListener('focusout', function () { paused = false; });
+      window.addEventListener('resize', function () { track.style.transition = 'none'; track.style.transform = 'translateX(' + (-i * stepWidth()) + 'px)'; });
     })();
 
     // "You might also like" / "Recently viewed": this browser remembers the
