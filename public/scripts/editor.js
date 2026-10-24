@@ -2897,7 +2897,8 @@ import { createResizeEngine } from "./resize-engine.js";
     const cur = state.pages[state.currentPage].canvas;
     state.pages.splice(state.currentPage + 1, 0, {
       id: uid("page"), name: "Page " + (state.pages.length + 1),
-      canvas: { width: cur.width, height: cur.height, background: cur.background },
+      // A mockup's pages are all mockups (Dani, 24 Oct: page 2 lost the option).
+      canvas: Object.assign({ width: cur.width, height: cur.height, background: cur.background }, cur.mockup ? { mockup: true } : {}),
       elements: [],
     });
     loadPage(state.currentPage + 1);
@@ -4319,7 +4320,7 @@ import { createResizeEngine } from "./resize-engine.js";
       node.style.setProperty("--sc-bg", el.bgFill || "transparent");
       // Clipped to the quad, so a warped image never leaks outside the shape
       // it is supposed to be sitting in.
-      const pct = screenCorners(el).map((c) => (c.x * 100).toFixed(3) + "% " + (c.y * 100).toFixed(3) + "%");
+      const pct = screenOutline(el).map((p) => (p.x / el.w * 100).toFixed(3) + "% " + (p.y / el.h * 100).toFixed(3) + "%");
       node.style.clipPath = "polygon(" + pct.join(",") + ")";
       node.style.overflow = "hidden";
     }
@@ -6598,6 +6599,42 @@ import { createResizeEngine } from "./resize-engine.js";
     return "matrix3d(" + [a, d, 0, g, b, e, 0, h, 0, 0, 1, 0, m.c, m.f, 0, 1].join(",") + ")";
   }
 
+  /* The screen's outline in its own box: the quad, or with its corners
+     rounded (Dani, 24 Oct: a phone is rounded all round, a laptop only at the
+     top). The corners use the Studio's corner radius (el.radius, and
+     el.radii for each one), measured along the screen's own edges, and are
+     drawn round in the screen's perspective, so a tilted laptop's corner
+     curves the way the real one does. */
+  function screenOutline(el) {
+    const local = screenCorners(el).map((c) => ({ x: c.x * el.w, y: c.y * el.h }));
+    const R = ["tl", "tr", "br", "bl"].map((k) => Math.max(0, Number(cornerRadius(el, k)) || 0));
+    if (!R.some((r) => r > 0)) return local;
+    const m = screenHomography(local);
+    if (!m) return local;
+    const len = (a, b) => Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const top = len(local[0], local[1]), right = len(local[1], local[2]);
+    const bottom = len(local[3], local[2]), left = len(local[0], local[3]);
+    const cap = (v) => Math.min(0.5, v);
+    // Each corner: its radius across (u) and down (v) in the unit square,
+    // the centre of its arc, and where the quarter-turn starts.
+    const arcs = [
+      { u: cap(R[0] / top), v: cap(R[0] / left), cx: 0, cy: 0, a0: Math.PI },
+      { u: cap(R[1] / top), v: cap(R[1] / right), cx: 1, cy: 0, a0: 1.5 * Math.PI },
+      { u: cap(R[2] / bottom), v: cap(R[2] / right), cx: 1, cy: 1, a0: 0 },
+      { u: cap(R[3] / bottom), v: cap(R[3] / left), cx: 0, cy: 1, a0: 0.5 * Math.PI },
+    ];
+    const pts = [];
+    arcs.forEach((c) => {
+      const ox = c.cx ? 1 - c.u : c.u, oy = c.cy ? 1 - c.v : c.v;
+      const steps = c.u > 0 && c.v > 0 ? 10 : 0;
+      for (let s = 0; s <= steps; s++) {
+        const a = c.a0 + (Math.PI / 2) * (steps ? s / steps : 0);
+        pts.push(screenProject(m, ox + c.u * Math.cos(a), oy + c.v * Math.sin(a)));
+      }
+    });
+    return pts;
+  }
+
   /* The artwork's own placement inside the screen.
 
      It used to be stretched to the quad, which only looks right when the
@@ -6745,6 +6782,11 @@ import { createResizeEngine } from "./resize-engine.js";
 
      Both look at the page as drawn without its screens: the photo and
      everything else on it, so a screen already over the photo can't hide it. */
+  // A design made on the Mockups tab: marked on its canvas, on any page.
+  function isMockupDesign() {
+    return !!((state.canvas && state.canvas.mockup) || (state.pages || []).some((p) => p && p.canvas && p.canvas.mockup));
+  }
+
   // What the next click on the canvas is for: { screenId } to place that
   // screen, or { imageId } to make a new screen over a photo (a mockup).
   let screenPick = null;
@@ -6904,7 +6946,22 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     const pick = best || (fallback && fallback.fill >= 0.7 ? fallback : null);
     if (!pick) return { error: "That doesn't look like a flat, plain screen. Try Find it with Claude." };
-    return { corners: straightenSides(pick.q, pick.edge, w, h) };
+    // Softening blurs the screen's edge, so the colour stops about two pixels
+    // short of it all round: that showed as a white border (Dani, 24 Oct).
+    return { corners: growQuad(straightenSides(pick.q, pick.edge, w, h), 2.5) };
+  }
+
+  // Move every side of a quad outwards by d pixels, keeping its angle.
+  function growQuad(q, d) {
+    const cx = q.reduce((s, p) => s + p.x, 0) / 4, cy = q.reduce((s, p) => s + p.y, 0) / 4;
+    const lines = [0, 1, 2, 3].map((k) => {
+      const A = q[k], B = q[(k + 1) % 4], L = Math.hypot(B.x - A.x, B.y - A.y) || 1;
+      let nx = -(B.y - A.y) / L, ny = (B.x - A.x) / L;
+      if ((A.x - cx) * nx + (A.y - cy) * ny < 0) { nx = -nx; ny = -ny; }
+      return { p: { x: A.x + nx * d, y: A.y + ny * d }, d: { x: (B.x - A.x) / L, y: (B.y - A.y) / L } };
+    });
+    const out = [0, 1, 2, 3].map((k) => meetLines(lines[(k + 3) % 4], lines[k]));
+    return out.some((p) => !p) ? q : out;
   }
 
   // Brightness change at every pixel (Sobel), for snapping sides to edges.
@@ -8646,11 +8703,11 @@ import { createResizeEngine } from "./resize-engine.js";
     // it is the surface itself, and on a Fit-ed design it is most of what you
     // see at the edges.
     if (el.bgFill) {
-      const q0 = screenCorners(el).map((c) => ({ x: c.x * el.w, y: c.y * el.h }));
+      const q0 = screenOutline(el);
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(q0[0].x, q0[0].y);
-      for (let k = 1; k < 4; k++) ctx.lineTo(q0[k].x, q0[k].y);
+      for (let k = 1; k < q0.length; k++) ctx.lineTo(q0[k].x, q0[k].y);
       ctx.closePath();
       ctx.fillStyle = el.bgFill;
       ctx.fill();
@@ -8689,10 +8746,10 @@ import { createResizeEngine } from "./resize-engine.js";
     ctx.save();
     // The artwork may now be rotated or zoomed inside the plane, so it can
     // reach past the quad. The quad is the window; clip to it.
-    const q = screenCorners(el).map((c) => ({ x: c.x * el.w, y: c.y * el.h }));
+    const q = screenOutline(el);
     ctx.beginPath();
     ctx.moveTo(q[0].x, q[0].y);
-    for (let k = 1; k < 4; k++) ctx.lineTo(q[k].x, q[k].y);
+    for (let k = 1; k < q.length; k++) ctx.lineTo(q[k].x, q[k].y);
     ctx.closePath();
     ctx.clip();
     for (let i = 0; i < N; i++) {
@@ -9166,7 +9223,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
     /* A photo in a mockup (a design made on the Mockups tab): the way to turn
        it into one, by finding the screen in it (Dani, 24 Oct). */
-    if (el.type === "image" && el.src && !el.svgKey && isAdminMode() && state.canvas && state.canvas.mockup) {
+    if (el.type === "image" && el.src && !el.svgKey && isAdminMode() && isMockupDesign()) {
       html.push(
         '<div class="ed-props-section"><h4>Make it a mockup</h4>' +
           '<p class="ed-props-hint">Put a screen on this photo for the artwork to go in. You can drag its corners afterwards.</p>' +
@@ -9255,6 +9312,8 @@ import { createResizeEngine } from "./resize-engine.js";
               '<span>Hide the guide <span class="ed-props-hint ed-props-hint--block">Hide it to view and sample the photo underneath.</span></span></label>' +
             '<button class="ed-btn-ghost" id="ed-sc-reset" style="background:rgba(28,29,34,0.06);width:100%">Reset corners</button>' +
           '</div>');
+      // Rounded corners, in the screen's own perspective (screenOutline).
+      html.push(cornerRadiusSectionHtml());
       if (el.src) {
         html.push(
           '<div class="ed-props-section"><h4>Artwork</h4>' +

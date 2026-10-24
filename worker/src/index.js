@@ -894,6 +894,17 @@ function cheapValid(request) {
 }
 
 // Validate the Supabase session token. Returns the user object or null.
+/* What a person is told when Claude can't answer (Dani, 24 Oct). An empty
+   API credit balance, or Claude being busy, is ours to sort out rather than
+   theirs, so they get a friendly line and the raw reason stays in `detail`
+   for us. Anything else still says what happened. */
+function aiFailMessage(status, raw) {
+  const t = String(raw || "").toLowerCase();
+  if (t.includes("credit balance") || status === 429 || status === 529 || t.includes("overloaded"))
+    return "Our AI helper is taking a short break. Please try again later.";
+  return "AI request failed (" + status + ").";
+}
+
 async function getUser(request, env) {
   const auth = request.headers.get("Authorization") || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
@@ -6841,7 +6852,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
           });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
-        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: "AI request failed (" + aiRes.status + ").", detail: t.slice(0, 300) }, 502, request, env); }
+        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: aiFailMessage(aiRes.status, t), detail: t.slice(0, 300) }, 502, request, env); }
         const dataRes = await aiRes.json();
         const text = (dataRes.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
         let out;
@@ -6940,7 +6951,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 600, system, messages: turns }),
           });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
-        if (!aiRes.ok) return json({ error: "AI request failed (" + aiRes.status + ")." }, 502, request, env);
+        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: aiFailMessage(aiRes.status, t), detail: t.slice(0, 300) }, 502, request, env); }
         const dataRes = await aiRes.json();
         const text = (dataRes.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
         let out;
@@ -6996,7 +7007,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
         if (!aiRes.ok) {
           const t = await aiRes.text().catch(() => "");
-          return json({ error: "AI request failed (" + aiRes.status + ").", detail: t.slice(0, 300) }, 502, request, env);
+          return json({ error: aiFailMessage(aiRes.status, t), detail: t.slice(0, 300) }, 502, request, env);
         }
         const data = await aiRes.json();
         const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
@@ -8988,7 +8999,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 500, messages: [{ role: "user", content: prompt }] }),
           });
           const j = await aiRes.json().catch(() => ({}));
-          if (!aiRes.ok) return json({ error: (j.error && j.error.message) || "AI request failed." }, 502, request, env);
+          if (!aiRes.ok) return json({ error: aiFailMessage(aiRes.status, j.error && j.error.message), detail: (j.error && j.error.message) || "" }, 502, request, env);
           text = ((j.content || []).find((p) => p.type === "text") || {}).text || "";
         } catch (_) { return json({ error: "AI request failed." }, 502, request, env); }
         // Belt and braces: the box shows plain text, so strip any markdown the
@@ -10835,7 +10846,11 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         } catch (e) {
           return json({ error: "Couldn't reach Claude: " + (e.message || e) }, 502, request, env);
         }
-        if (!res.ok || !out) return json({ error: (out && out.error && out.error.message) || ("Claude said " + res.status) }, 502, request, env);
+        if (!res.ok || !out) {
+          const why = (out && out.error && out.error.message) || "";
+          if (/credit balance/i.test(why)) return json({ error: "The Claude API credit has run out. Top it up at console.anthropic.com, under Billing." }, 502, request, env);
+          return json({ error: why || ("Claude said " + res.status) }, 502, request, env);
+        }
         if (out.stop_reason === "refusal") return json({ error: "Claude declined to look at this photo." }, 422, request, env);
         const text = (out.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
         let r = null;
@@ -12469,7 +12484,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             }),
           });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
-        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: "AI request failed (" + aiRes.status + ").", detail: t.slice(0, 300) }, 502, request, env); }
+        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: aiFailMessage(aiRes.status, t), detail: t.slice(0, 300) }, 502, request, env); }
         const dataRes = await aiRes.json();
         const text = (dataRes.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
         let parsed;
@@ -12595,7 +12610,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
           });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
-        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: "AI request failed (" + aiRes.status + ").", detail: t.slice(0, 300) }, 502, request, env); }
+        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: aiFailMessage(aiRes.status, t), detail: t.slice(0, 300) }, 502, request, env); }
         const dataRes = await aiRes.json();
         const answer = (dataRes.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
         return json({ ok: true, answer: answer || "(no answer)" }, 200, request, env);
@@ -12788,7 +12803,7 @@ VOICE (insights and priorities): the account manager talking to the client, "we"
             body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 3000, messages: [{ role: "user", content: prompt }] }),
           });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
-        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: "AI request failed (" + aiRes.status + ").", detail: t.slice(0, 300) }, 502, request, env); }
+        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: aiFailMessage(aiRes.status, t), detail: t.slice(0, 300) }, 502, request, env); }
         const out = await aiRes.json();
         const text = (out.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
         let parsed;
