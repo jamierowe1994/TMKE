@@ -929,6 +929,20 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         </label>
         <div class="ed-photo-grid" id="ed-upload-grid"></div>
 
+        <!-- Admin-only: the Studio's own templates as pictures (Dani, 25 Oct),
+             as the email editor has them: click to add one, or drag it onto a
+             frame or a mockup's screen. Closed to start; loads when opened. -->
+        <details class="ed-tplimg" id="ed-tplimg" hidden>
+          <summary class="ed-section-title">Your templates</summary>
+          <p class="ed-brand-hint">Add a template as a picture, or drag one onto a frame or a mockup&rsquo;s screen.</p>
+          <div class="ed-stock-search">
+            <input type="search" id="ed-tplimg-q" placeholder="Search templates…" autocomplete="off" />
+            <select id="ed-tplimg-pack" class="ed-tplimg-pack" aria-label="Filter by pack"><option value="">All packs</option></select>
+          </div>
+          <p class="ed-stock-status" id="ed-tplimg-status">Loading your templates…</p>
+          <div class="ed-photo-grid ed-tplimg-grid" id="ed-tplimg-grid"></div>
+        </details>
+
         <!-- Admin-only: bulk-import Canva page exports. Shown via JS in ?mode=admin. -->
         <div class="ed-canva" id="ed-canva-import" hidden>
           <div class="ed-canva-sep"><span>Import from Canva</span></div>
@@ -2229,6 +2243,20 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-stock-search input[type="search"]:focus {
       border-color: var(--english-violet);
     }
+    /* Your templates (admin): a fold like the others in the panel. */
+    .ed-tplimg { margin-top: 22px; }
+    .ed-tplimg > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+    .ed-tplimg > summary::-webkit-details-marker { display: none; }
+    .ed-tplimg > summary::after { content: ""; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); margin-right: 4px; transition: transform 0.2s; }
+    .ed-tplimg[open] > summary::after { transform: rotate(-135deg); }
+    .ed-tplimg-pack {
+      width: 100%; padding: 10px 30px 10px 12px; border: 1px solid rgba(28,29,34,0.18); border-radius: 4px;
+      font: inherit; font-size: var(--ws-t-body); color: var(--ink); cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23371e28' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>") no-repeat right 10px center / 14px 14px;
+    }
+    .ed-tplimg-pack:focus { outline: none; border-color: var(--english-violet); }
+    .ed-tplimg-grid button { aspect-ratio: 3 / 4; }
     .ed-stock-sources {
       display: flex; gap: 12px;
       font-size: var(--ws-t-label);
@@ -7709,6 +7737,55 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     // nothing is doubled up. (Backgrounds alone still work: you just get blank
     // pages to type on.) ----
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    // ---- Your templates as pictures (admin; Dani, 25 Oct) ----
+    if (isAdmin) {
+      const fold = document.getElementById("ed-tplimg");
+      const grid = document.getElementById("ed-tplimg-grid");
+      const status = document.getElementById("ed-tplimg-status");
+      const q = document.getElementById("ed-tplimg-q");
+      const packSel = document.getElementById("ed-tplimg-pack");
+      let items = null;
+      const escT = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      const draw = () => {
+        if (!items) return;
+        const text = (q.value || "").trim().toLowerCase(), pk = packSel.value;
+        const list = items.filter((t) => (!pk || t.pack === pk) && (!text || (t.name + " " + t.packName).toLowerCase().includes(text)));
+        status.textContent = list.length ? "" : "Nothing matches that. Try another name or pack.";
+        status.hidden = !!list.length;
+        grid.innerHTML = list.slice(0, 300).map((t, i) =>
+          `<button type="button" draggable="true" data-i="${i}" title="${escT(t.name)}${t.packName ? " · " + escT(t.packName) : ""}"><img src="${escT(t.thumb)}" alt="" loading="lazy" /></button>`).join("");
+        grid.querySelectorAll("button").forEach((b) => {
+          const t = list[Number(b.dataset.i)];
+          b.addEventListener("click", () => window.__TMKE_ADD_PHOTO__ && window.__TMKE_ADD_PHOTO__(t.url));
+          // Dropped like an upload: onto a frame, a screen, or the canvas.
+          b.addEventListener("dragstart", (e) => {
+            if (!e.dataTransfer) return;
+            e.dataTransfer.setData("text/uri-list", t.url);
+            e.dataTransfer.setData("text/plain", t.url);
+            e.dataTransfer.effectAllowed = "copy";
+          });
+        });
+      };
+      if (fold) {
+        fold.hidden = false;
+        fold.addEventListener("toggle", async () => {
+          if (!fold.open || items) return;
+          const [t, p] = await Promise.all([
+            supabase.from("templates").select("id,name,thumb_url,render_url,pack_id,status,updated_at").not("thumb_url", "is", null).neq("status", "archived").order("updated_at", { ascending: false }).range(0, 1999),
+            supabase.from("packs").select("id,title").order("title"),
+          ]);
+          if (t.error) { status.textContent = "Your templates couldn't be loaded: " + t.error.message; return; }
+          const packs = p.data || [], names = Object.fromEntries(packs.map((x) => [x.id, x.title]));
+          // The full-size render goes in when there is one; the thumbnail shows.
+          items = (t.data || []).map((x) => ({ name: x.name || "Untitled", thumb: x.thumb_url, url: x.render_url || x.thumb_url, pack: x.pack_id || "", packName: names[x.pack_id] || "" }));
+          packSel.innerHTML = `<option value="">All packs</option>` + packs.map((x) => `<option value="${escT(x.id)}">${escT(x.title)}</option>`).join("");
+          draw();
+        });
+        q.addEventListener("input", draw);
+        packSel.addEventListener("change", draw);
+      }
+    }
+
     if (isAdmin) {
       const canvaWrap = document.getElementById("ed-canva-import");
       const cstatus = document.getElementById("ed-canva-status");
