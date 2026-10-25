@@ -4,10 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/mockup_printed_posts_size.sql — the two printed-posts mockups at 1600 x 2000, screens enlarged with them, size kept when opened (25 Oct)
+- [ ] supabase/mockup_printed_posts.sql — run again: resets both printed-posts mockups, fresh, at 1600 x 2000 (25 Oct)
 
 ## Done
 
+- [x] supabase/mockup_printed_posts_size.sql — printed-posts mockups to 1600 x 2000 (25 Oct)
 - [x] supabase/mockup_printed_posts.sql — two printed-posts mockups, eight and fifteen, on the Mockups tab (25 Oct)
 - [x] supabase/pack_story.sql — pack story text (24 Oct)
 - [x] supabase/smm_leaving_date.sql — leaving dates for social media clients (23 Oct)
