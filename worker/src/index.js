@@ -5846,19 +5846,27 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         }
         _lastDeployAt = now;
         try {
-          const r = await fetch("https://backboard.railway.com/graphql/v2", {
+          // An account or workspace token goes as a Bearer; a project token
+          // has its own header. Try the first, then the second, so either works.
+          const redeploy = (auth) => fetch("https://backboard.railway.com/graphql/v2", {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.RAILWAY_API_TOKEN}` },
+            headers: { "Content-Type": "application/json", ...auth },
             body: JSON.stringify({
               query: "mutation Redeploy($e: String!, $s: String!) { serviceInstanceRedeploy(environmentId: $e, serviceId: $s) }",
               variables: { e: env.RAILWAY_ENVIRONMENT_ID, s: env.RAILWAY_SERVICE_ID },
             }),
           });
-          const out = await r.json().catch(() => ({}));
+          let r = await redeploy({ Authorization: `Bearer ${env.RAILWAY_API_TOKEN}` });
+          let out = await r.json().catch(() => ({}));
+          if (!r.ok || (out && out.errors && out.errors.length)) {
+            r = await redeploy({ "Project-Access-Token": env.RAILWAY_API_TOKEN });
+            out = await r.json().catch(() => ({}));
+          }
           if (!r.ok || (out && out.errors && out.errors.length)) {
             _lastDeployAt = 0; // allow a retry
             const msg = (out && out.errors && out.errors[0] && out.errors[0].message) || ("Railway API returned " + r.status);
-            return json({ ok: false, error: msg }, 502, request, env);
+            const expired = /not authori[sz]ed|unauthori[sz]ed|invalid token/i.test(msg) || r.status === 401;
+            return json({ ok: false, error: expired ? "the Railway token on the Worker has expired or been revoked - make a new one in Railway and set it with wrangler secret put RAILWAY_API_TOKEN." : msg }, 502, request, env);
           }
         } catch (e) {
           _lastDeployAt = 0;
