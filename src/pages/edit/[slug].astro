@@ -89,13 +89,9 @@ const lockedAll = templates.slice(reveal);
 // you have to scroll past to reach the CTA. The page is static, so all six render
 // and CSS drops the extras below 720px — the count hint still reports the TRUE
 // number that unlock on purchase either way.
-// One row (Danielle, 25 Oct): the open previews and two locked ones after
-// them, eight across for a pack that opens six, so the section stays small.
-const lockedTpls = lockedAll.slice(0, 2);
-const gridCols = Math.max(1, Math.min(8, previewTpls.length + lockedTpls.length));
-// "You might also like" / "Recently viewed" are off until there are more
-// packs: with three to show they were too big (Danielle, 25 Oct).
-const SHOW_MORE_PACKS = false;
+// Two rows of six: the open previews, then six locked (a phone keeps two).
+const lockedTpls = lockedAll.slice(0, 6);
+const LOCKED_ON_MOBILE = 2;
 const lockedCount = lockedAll.length;
 const contents = Array.isArray(pack.contents) ? pack.contents : [];
 // The big cover: an explicit cover image if set, otherwise fall back to the
@@ -160,6 +156,7 @@ function gbp(pence) {
   title={`${pack.title} — The Edit · TMKE`}
   description={pack.description || `${pack.title} — a curated TMKE pack of editable templates for UK property professionals.`}
   ogImage={pack.cover_image_url || undefined}
+  hideFooter
 >
   <article class="pack-detail">
     <!-- ============================== HERO
@@ -208,6 +205,58 @@ function gbp(pence) {
           </div>
         </div>
       )}
+
+      <!-- ============================== PREVIEWS: in the left column, so
+           the panel runs beside it to the foot of the page (25 Oct) -->
+    <section class="pack-previews" id="pack-previews">
+      <div class="pp-wrap">
+        <header class="pack-previews-head">
+          <h2 class="pp-h">Inside this pack</h2>
+          <span class="pp-count">{pad2(1)}–{pad2(previewTpls.length)} of {templates.length}{sizes[0] ? ` · ${sizes[0].replace(" px", "")}` : ""}</span>
+          <button type="button" class="pp-btn" data-buy={pack.id}>{lockedCount > 0 ? `Unlock all ${templates.length}` : "Buy this pack"}</button>
+        </header>
+
+        <div class="pack-tpl-grid">
+          {previewTpls.map((t, i) => (
+            <figure
+              class="pack-tpl pack-tpl--open"
+              data-zoom={(t.render_url || t.thumb_url) ? "" : undefined}
+              data-set="tpl"
+              data-full={sized(t.render_url || t.thumb_url, 1600) || undefined}
+              data-name={t.name}
+              tabindex={(t.render_url || t.thumb_url) ? "0" : undefined}
+              role={(t.render_url || t.thumb_url) ? "button" : undefined}
+              aria-label={(t.render_url || t.thumb_url) ? `Enlarge ${t.name}` : undefined}
+            >
+              {(t.thumb_url || t.render_url)
+                ? <img src={sized(t.thumb_url || t.render_url, 700)} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
+                : <div class="pack-tpl-empty"></div>}
+              <figcaption><span class="pack-tpl-num">{pad2(i + 1)}</span><span class="pack-tpl-name">{shortName(t.name)}</span></figcaption>
+            </figure>
+          ))}
+
+          {lockedTpls.map((t, i) => (
+            <figure
+              class:list={["pack-tpl", "pack-tpl--locked", i >= LOCKED_ON_MOBILE && "pack-tpl--locked-xtra"]}
+              aria-label="Locked: buy the pack to unlock"
+            >
+              {(t.thumb_url || t.render_url)
+                ? <img src={sized(t.thumb_url || t.render_url, 500)} alt="" loading="lazy" />
+                : <div class="pack-tpl-empty"></div>}
+              <div class="pack-tpl-lock-overlay">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </div>
+              <figcaption><span class="pack-tpl-num">{pad2(previewTpls.length + i + 1)}</span><span class="pack-tpl-name">Locked</span></figcaption>
+            </figure>
+          ))}
+        </div>
+
+      </div>
+    </section>
+
       </div>
 
       <aside class="pd-panel"><div class="pd-panel-in">
@@ -252,82 +301,42 @@ function gbp(pence) {
           <p class="pd-note">Set up your brand kit with your logo, colours and fonts, then apply it across your designs to keep everything consistent.</p>
           <p class="pd-note">And because it's built specifically for property marketing, you'll find templates designed around the content estate agents actually need.</p>
         </div>
+
+        {related.length > 0 && (
+          <div class="pd-section pd-rel">
+            <div class="pd-section-h">You might also be interested in</div>
+            <div class="pd-rel-grid">
+              {related.slice(0, 3).map((c) => (
+                <a class="pd-rel-card" href={`/edit/${c.slug}`}>
+                  <span class="pd-rel-img">{c.cover && <img src={sized(c.cover, 400)} alt="" loading="lazy" />}</span>
+                  <span class="pd-rel-title">{c.title}</span>
+                  <span class="pd-rel-price">{gbp(c.price_pence)} +VAT</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div></aside>
     </section>
 
-    <!-- ============================== PREVIEWS -->
-    <section class="pack-previews" id="pack-previews">
-      <div class="pp-wrap">
-        <header class="pack-previews-head">
-          <h2 class="pp-h">Inside this pack</h2>
-          <span class="pp-count">{pad2(1)}–{pad2(previewTpls.length)} of {templates.length}{sizes[0] ? ` · ${sizes[0].replace(" px", "")}` : ""}</span>
-          <button type="button" class="pp-btn" data-buy={pack.id}>{lockedCount > 0 ? `Unlock all ${templates.length}` : "Buy this pack"}</button>
-        </header>
-
-        <div class="pack-tpl-grid" style={`--cols:${gridCols}`}>
-          {previewTpls.map((t, i) => (
-            <figure
-              class="pack-tpl pack-tpl--open"
-              data-zoom={(t.render_url || t.thumb_url) ? "" : undefined}
-              data-set="tpl"
-              data-full={sized(t.render_url || t.thumb_url, 1600) || undefined}
-              data-name={t.name}
-              tabindex={(t.render_url || t.thumb_url) ? "0" : undefined}
-              role={(t.render_url || t.thumb_url) ? "button" : undefined}
-              aria-label={(t.render_url || t.thumb_url) ? `Enlarge ${t.name}` : undefined}
-            >
-              {(t.thumb_url || t.render_url)
-                ? <img src={sized(t.thumb_url || t.render_url, 700)} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
-                : <div class="pack-tpl-empty"></div>}
-              <figcaption><span class="pack-tpl-num">{pad2(i + 1)}</span><span class="pack-tpl-name">{shortName(t.name)}</span></figcaption>
-            </figure>
-          ))}
-
-          {lockedTpls.map((t, i) => (
-            <figure
-              class:list={["pack-tpl", "pack-tpl--locked"]}
-              aria-label="Locked: buy the pack to unlock"
-            >
-              {(t.thumb_url || t.render_url)
-                ? <img src={sized(t.thumb_url || t.render_url, 500)} alt="" loading="lazy" />
-                : <div class="pack-tpl-empty"></div>}
-              <div class="pack-tpl-lock-overlay">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2"/>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-              </div>
-              <figcaption><span class="pack-tpl-num">{pad2(previewTpls.length + i + 1)}</span><span class="pack-tpl-name">Locked</span></figcaption>
-            </figure>
-          ))}
-        </div>
-
-      </div>
-    </section>
-
-    <!-- ============================== MORE PACKS
-         Related packs, and the packs you've looked at recently (kept in this
-         browser only), after Studio Blanche. -->
-    {SHOW_MORE_PACKS && cards.length > 1 && (
-      <section class="pd-more" id="pd-more">
-        <div class="pd-tabs" role="tablist">
-          <button type="button" class="pd-tab is-on" role="tab" aria-selected="true" data-tab="related">You might also like</button>
-          <button type="button" class="pd-tab" role="tab" aria-selected="false" data-tab="recent" hidden>Recently viewed</button>
-        </div>
-        <div class="pd-cards" data-panel="related" style={`--n:${Math.max(1, related.length)}`}>
-          {related.map((c) => (
-            <a class="pd-card" href={`/edit/${c.slug}`}>
-              <span class="pd-card-img">{c.cover && <img src={sized(c.cover, 600)} alt="" loading="lazy" />}</span>
-              <span class="pd-card-text"><span class="pd-card-title">{c.title}</span><span class="pd-card-price">{gbp(c.price_pence)} +VAT</span></span>
-            </a>
-          ))}
-        </div>
-        <div class="pd-cards" data-panel="recent" hidden></div>
-        <script type="application/json" id="pd-cards-data" set:html={JSON.stringify(cards.map((c) => ({ ...c, cover: c.cover ? sized(c.cover, 600) : null, price: gbp(c.price_pence) })))}></script>
-        <span id="pd-current" data-slug={pack.slug} hidden></span>
-      </section>
-    )}
   </article>
+
+  <!-- The shop's own foot instead of the full footer (Danielle, 25 Oct): a
+       grey band that breaks the wine, back to The Edit, and our socials. -->
+  <footer class="pd-foot">
+    <a href="/edit" class="pd-foot-back">&larr; Back to The Edit</a>
+    <div class="pd-foot-social">
+      <a href="https://www.instagram.com/tmke_propertymarketing/" aria-label="Instagram" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="0.8" fill="currentColor" /></svg>
+      </a>
+      <a href="https://uk.linkedin.com/company/tmke-property-marketing-experts" aria-label="LinkedIn" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 014 0v4M12 10v7" /></svg>
+      </a>
+      <a href="https://www.facebook.com/tmkepropertymarketing/" aria-label="Facebook" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" /></svg>
+      </a>
+    </div>
+  </footer>
 
   <!-- Lightbox — click any preview to bring it up large, then flip through the
        rest with the arrows (or ← →). -->
@@ -361,7 +370,7 @@ function gbp(pence) {
     /* The page's bottom is the wine footer. On a touch screen the rubber-band
        past it revealed white; paint the root the same wine and stop the
        overscroll where the browser lets us. */
-    html { background: var(--english-violet); overscroll-behavior-y: none; }
+    html { background: #e3dedb; overscroll-behavior-y: none; }
 
     /* ---- HERO: sliding strip and mockups | buying panel ----
        The panel runs the full height of this part, down to Inside this
@@ -509,13 +518,15 @@ function gbp(pence) {
       .pd-panel-in { position: static; padding: 22px 16px 10px; }
       .pd-story { order: 3; padding: 36px 20px 32px; }
       .pd-mocks { order: 4; padding: 0 0 28px; }
+      .pack-previews { order: 5; }
+      .pp-wrap { padding: 0 16px; }
       .pd-mocks-grid { gap: 8px; }
     }
 
     /* The whole pack on the wine (Danielle, 24 Oct), headed the way Moyo
        Studio heads its collection: a small label, the count, one button. */
-    .pack-previews { background: var(--english-violet); color: var(--paper); padding: 52px 0 60px; }
-    .pp-wrap { max-width: 1560px; margin: 0 auto; padding: 0 36px; }
+    .pack-previews { background: var(--english-violet); color: var(--paper); padding: 52px 0 64px; }
+    .pp-wrap { padding: 0 40px 0 max(36px, calc((100vw - 1280px) / 2 + 36px)); }
     @media (max-width: 720px) { .pp-wrap { padding: 0 16px; } }
     .pack-previews-head {
       display: flex; align-items: center; gap: 18px 56px; flex-wrap: wrap;
@@ -539,14 +550,17 @@ function gbp(pence) {
     .pp-btn:hover { background: var(--paper); color: var(--english-violet); }
     @media (max-width: 720px) { .pp-btn { margin-left: 0; width: 100%; } }
 
-    /* One row: every tile the pack shows, side by side. */
+    /* Two rows of six. */
     .pack-tpl-grid {
       display: grid;
-      grid-template-columns: repeat(var(--cols, 8), minmax(0, 1fr));
-      gap: 24px 14px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 28px 16px;
     }
-    @media (max-width: 1000px) { .pack-tpl-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-    @media (max-width: 460px)  { .pack-tpl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 10px; } }
+    @media (max-width: 1100px) { .pack-tpl-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @media (max-width: 720px)  {
+      .pack-tpl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px 10px; }
+      .pack-tpl--locked-xtra { display: none; }
+    }
     .pack-tpl {
       position: relative;
       margin: 0;
@@ -664,35 +678,30 @@ function gbp(pence) {
       font-style: normal;
     }
 
-    /* ---- MORE PACKS: related and recently viewed ----
-       Studio Blanche's way: two centred tabs, then the packs' images edge to
-       edge, a quiet line of text under each. Fewer than four sit centred at
-       the same size rather than stretching. */
-    .pd-more { padding: 64px 0 0; }
-    .pd-tabs { display: flex; justify-content: center; gap: 40px; margin-bottom: 36px; }
-    .pd-tab {
-      background: none; border: 0; padding: 0 0 6px; cursor: pointer;
-      border-bottom: 1px solid transparent;
-      font-family: var(--serif); font-size: 15px; font-weight: 400; letter-spacing: 0.06em;
-      text-transform: uppercase; color: rgba(28,29,34,0.5);
+    /* ---- In the panel: a few other packs ---- */
+    .pd-rel { padding-top: 30px; }
+    .pd-rel-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 4px; }
+    .pd-rel-card { display: flex; flex-direction: column; gap: 3px; color: var(--ink); }
+    .pd-rel-img { display: block; aspect-ratio: 3 / 4; overflow: hidden; background: #e7e0dc; margin-bottom: 6px; }
+    .pd-rel-img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); }
+    .pd-rel-card:hover .pd-rel-img img { transform: scale(1.03); }
+    .pd-rel-title { font-family: var(--serif); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.35; }
+    .pd-rel-price { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); }
+
+    /* ---- The shop's foot: a grey band, back link and socials in wine ---- */
+    .pd-foot {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      background: #e3dedb; padding: 26px max(36px, calc((100vw - 1280px) / 2 + 36px));
     }
-    .pd-tab[hidden] { display: none; }
-    .pd-tab.is-on { color: var(--ink); border-bottom-color: var(--ink); }
-    .pd-tab:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
-    .pd-cards {
-      display: grid; gap: 6px;
-      grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr));
-      width: calc(100% * min(var(--n, 4), 4) / 4); margin: 0 auto;
+    .pd-foot-back {
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--english-violet);
     }
-    .pd-cards[hidden] { display: none; }
-    @media (max-width: 860px) { .pd-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; } }
-    .pd-card { display: block; color: var(--ink); }
-    .pd-card-img { display: block; aspect-ratio: 3 / 4; overflow: hidden; background: #e7e0dc; }
-    .pd-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.8s cubic-bezier(.2,.7,.2,1); }
-    .pd-card:hover .pd-card-img img { transform: scale(1.025); }
-    .pd-card-text { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px 30px; }
-    .pd-card-title { font-family: var(--serif); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
-    .pd-card-price { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); white-space: nowrap; }
+    .pd-foot-back:hover { text-decoration: underline; text-underline-offset: 4px; }
+    .pd-foot-social { display: flex; gap: 18px; }
+    .pd-foot-social a { color: var(--english-violet); display: inline-flex; transition: opacity 0.2s; }
+    .pd-foot-social a:hover { opacity: 0.65; }
+    @media (max-width: 720px) { .pd-foot { padding: 22px 16px; } }
   </style>
 
   <script is:inline>
@@ -821,38 +830,5 @@ function gbp(pence) {
       document.querySelectorAll('.pd-acc details').forEach(function (d) { d.addEventListener('toggle', fit); });
     })();
 
-    // "You might also like" / "Recently viewed": this browser remembers the
-    // packs it has opened (nothing leaves the device), newest first.
-    (function () {
-      var cur = document.getElementById('pd-current');
-      var dataEl = document.getElementById('pd-cards-data');
-      if (!cur || !dataEl) return;
-      var slug = cur.getAttribute('data-slug');
-      var KEY = 'tmke-recent-packs';
-      var seen = [];
-      try { seen = JSON.parse(localStorage.getItem(KEY) || '[]'); if (!Array.isArray(seen)) seen = []; } catch (e) { seen = []; }
-      try { localStorage.setItem(KEY, JSON.stringify([slug].concat(seen.filter(function (s) { return s !== slug; })).slice(0, 8))); } catch (e) {}
-      var cards = [];
-      try { cards = JSON.parse(dataEl.textContent || '[]'); } catch (e) {}
-      var bySlug = {}; cards.forEach(function (c) { bySlug[c.slug] = c; });
-      var recent = seen.filter(function (s) { return s !== slug && bySlug[s]; }).slice(0, 4).map(function (s) { return bySlug[s]; });
-      if (!recent.length) return;
-      var esc = function (t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); };
-      var panel = document.querySelector('[data-panel="recent"]');
-      panel.style.setProperty('--n', String(recent.length));
-      panel.innerHTML = recent.map(function (c) {
-        return '<a class="pd-card" href="/edit/' + encodeURIComponent(c.slug) + '">' +
-          '<span class="pd-card-img">' + (c.cover ? '<img src="' + esc(c.cover) + '" alt="" loading="lazy" />' : '') + '</span>' +
-          '<span class="pd-card-text"><span class="pd-card-title">' + esc(c.title) + '</span><span class="pd-card-price">' + esc(c.price) + ' +VAT</span></span></a>';
-      }).join('');
-      var tabs = document.querySelectorAll('.pd-tab');
-      document.querySelector('.pd-tab[data-tab="recent"]').hidden = false;
-      tabs.forEach(function (t) {
-        t.addEventListener('click', function () {
-          tabs.forEach(function (x) { var on = x === t; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
-          document.querySelectorAll('.pd-cards[data-panel]').forEach(function (p) { p.hidden = p.getAttribute('data-panel') !== t.getAttribute('data-tab'); });
-        });
-      });
-    })();
   </script>
 </BaseLayout>
