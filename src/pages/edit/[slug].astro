@@ -89,8 +89,13 @@ const lockedAll = templates.slice(reveal);
 // you have to scroll past to reach the CTA. The page is static, so all six render
 // and CSS drops the extras below 720px — the count hint still reports the TRUE
 // number that unlock on purchase either way.
-const lockedTpls = lockedAll.slice(0, 6);
-const LOCKED_ON_MOBILE = 2;
+// One row (Danielle, 25 Oct): the open previews and two locked ones after
+// them, eight across for a pack that opens six, so the section stays small.
+const lockedTpls = lockedAll.slice(0, 2);
+const gridCols = Math.max(1, Math.min(8, previewTpls.length + lockedTpls.length));
+// "You might also like" / "Recently viewed" are off until there are more
+// packs: with three to show they were too big (Danielle, 25 Oct).
+const SHOW_MORE_PACKS = false;
 const lockedCount = lockedAll.length;
 const contents = Array.isArray(pack.contents) ? pack.contents : [];
 // The big cover: an explicit cover image if set, otherwise fall back to the
@@ -259,7 +264,7 @@ function gbp(pence) {
           <button type="button" class="pp-btn" data-buy={pack.id}>{lockedCount > 0 ? `Unlock all ${templates.length}` : "Buy this pack"}</button>
         </header>
 
-        <div class="pack-tpl-grid">
+        <div class="pack-tpl-grid" style={`--cols:${gridCols}`}>
           {previewTpls.map((t, i) => (
             <figure
               class="pack-tpl pack-tpl--open"
@@ -280,7 +285,7 @@ function gbp(pence) {
 
           {lockedTpls.map((t, i) => (
             <figure
-              class:list={["pack-tpl", "pack-tpl--locked", i >= LOCKED_ON_MOBILE && "pack-tpl--locked-xtra"]}
+              class:list={["pack-tpl", "pack-tpl--locked"]}
               aria-label="Locked: buy the pack to unlock"
             >
               {(t.thumb_url || t.render_url)
@@ -303,7 +308,7 @@ function gbp(pence) {
     <!-- ============================== MORE PACKS
          Related packs, and the packs you've looked at recently (kept in this
          browser only), after Studio Blanche. -->
-    {cards.length > 1 && (
+    {SHOW_MORE_PACKS && cards.length > 1 && (
       <section class="pd-more" id="pd-more">
         <div class="pd-tabs" role="tablist">
           <button type="button" class="pd-tab is-on" role="tab" aria-selected="true" data-tab="related">You might also like</button>
@@ -486,7 +491,7 @@ function gbp(pence) {
     /* The mockups: two by two, large, edge to edge (Studio Blanche). */
     /* The grid's own gap above it too, so it never butts up against the
        strip on a pack with no story. */
-    .pd-mocks { padding: 14px 0; }
+    .pd-mocks { padding: 14px 0 64px; }
     .pd-mocks-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .pd-mocks-grid.n1 { grid-template-columns: minmax(0, 1fr); }
     .pd-mock { margin: 0; aspect-ratio: 4 / 5; overflow: hidden; background: #e7e0dc; cursor: zoom-in; }
@@ -509,7 +514,7 @@ function gbp(pence) {
 
     /* The whole pack on the wine (Danielle, 24 Oct), headed the way Moyo
        Studio heads its collection: a small label, the count, one button. */
-    .pack-previews { background: var(--english-violet); color: var(--paper); padding: 64px 0 80px; }
+    .pack-previews { background: var(--english-violet); color: var(--paper); padding: 52px 0 60px; }
     .pp-wrap { max-width: 1560px; margin: 0 auto; padding: 0 36px; }
     @media (max-width: 720px) { .pp-wrap { padding: 0 16px; } }
     .pack-previews-head {
@@ -534,21 +539,14 @@ function gbp(pence) {
     .pp-btn:hover { background: var(--paper); color: var(--english-violet); }
     @media (max-width: 720px) { .pp-btn { margin-left: 0; width: 100%; } }
 
+    /* One row: every tile the pack shows, side by side. */
     .pack-tpl-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 36px 20px;
+      grid-template-columns: repeat(var(--cols, 8), minmax(0, 1fr));
+      gap: 24px 14px;
     }
-    /* Five across between laptop and phone: four made each tile a quarter of
-       the screen, which read as big rather than as a grid of previews. */
-    @media (max-width: 1100px) { .pack-tpl-grid { grid-template-columns: repeat(5, 1fr); gap: 12px; } }
-    @media (max-width: 720px)  {
-      .pack-tpl-grid { grid-template-columns: repeat(3, 1fr); }
-      /* Six locked teasers is one tidy row at 6-across, but two rows of blurred tiles
-         at 3-across — so a phone keeps only the first two and goes to the CTA. */
-      .pack-tpl--locked-xtra { display: none; }
-    }
-    @media (max-width: 460px)  { .pack-tpl-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 1000px) { .pack-tpl-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @media (max-width: 460px)  { .pack-tpl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 10px; } }
     .pack-tpl {
       position: relative;
       margin: 0;
