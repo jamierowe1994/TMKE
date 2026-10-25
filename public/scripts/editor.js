@@ -6761,12 +6761,23 @@ import { createResizeEngine } from "./resize-engine.js";
   function screenImageFit(el) {
     const nw = el.imgNaturalW, nh = el.imgNaturalH;
     if (!nw || !nh) return { baseW: el.w, baseH: el.h };
-    const ar = nw / nh, planeAr = el.w / el.h;
+    /* Fitted to the surface's own shape, measured along its edges, not to the
+       upright box round it. On a tilted screen that box is far squarer than
+       the screen (a phone turned 30 degrees), and the artwork was cropped to
+       it: an Instagram layout lost its header (Dani, 25 Oct). The fit is
+       worked out on the surface, then carried into the plane the homography
+       maps onto the quad. A screen that sits straight measures the same
+       either way, so it is unchanged. */
+    const p = screenPoints(el), d = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+    const sw = (d(p[0], p[1]) + d(p[3], p[2])) / 2 || el.w, sh = (d(p[0], p[3]) + d(p[1], p[2])) / 2 || el.h;
+    const kx = el.w / sw, ky = el.h / sh;
+    const ar = nw / nh, surfaceAr = sw / sh;
     const contain = el.imgFit === "contain";
     // Fill matches the longer side, Fit matches the shorter one. Same two
     // cases, opposite choice.
-    if (contain ? ar > planeAr : ar < planeAr) { const w = el.w; return { baseW: w, baseH: w / ar }; }
-    const h = el.h; return { baseW: h * ar, baseH: h };
+    let w, h;
+    if (contain ? ar > surfaceAr : ar < surfaceAr) { w = sw; h = sw / ar; } else { h = sh; w = sh * ar; }
+    return { baseW: w * kx, baseH: h * ky };
   }
   // The artwork's affine transform, in plane coordinates.
   function screenImageAffine(el) {
