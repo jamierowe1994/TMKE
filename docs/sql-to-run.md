@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/mockup_printed_posts_size.sql — puts the two printed-posts mockups back to 1080 x 1350 so their screens sit on the posts (25 Oct)
+- [ ] supabase/mockup_printed_posts_size.sql — the two printed-posts mockups at 1600 x 2000, screens enlarged with them, size kept when opened (25 Oct)
 
 ## Done
 
