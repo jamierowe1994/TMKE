@@ -712,7 +712,24 @@ import "../../../styles/admin.css";
     }
     /* Belt-and-braces: each tile is a fixed 4/5 block so cards can never collapse
        to zero height (and stack on top of each other) if aspect-ratio is ignored. */
-    .tpl-picker-grid .tpl-pick-card { aspect-ratio: 4 / 5; min-height: 180px; }
+    /* Rows as tall as their cards: in a grid of fixed height they were
+       squeezed to fit instead, and ran into each other (Dani, 25 Oct). */
+    .tpl-picker-grid { grid-auto-rows: max-content; }
+    .tpl-picker-grid .tpl-pick-card {
+      aspect-ratio: auto; min-height: auto; display: flex; flex-direction: column;
+      background: none; overflow: visible;
+    }
+    /* The picture's height from its width by padding (125% = 4:5): a grid row
+       sizes itself before an aspect-ratio box has a height, so the cards
+       collapsed and the rows ran into each other, hiding the names. */
+    .tpl-picker-grid .tpl-pick-img {
+      display: block; width: 100%; height: 0; padding-top: 125%; border-radius: 2px;
+      background: rgba(var(--violet-rgb),0.08) center / cover no-repeat;
+    }
+    .tpl-picker-grid .tpl-pick-label {
+      display: block; padding: 7px 2px 2px; font-family: var(--sans); font-size: 12px;
+      line-height: 1.35; color: var(--ink);
+    }
 
     /* Multi-select footer (gallery mode) */
     .tpl-picker-foot {
@@ -1291,12 +1308,14 @@ import "../../../styles/admin.css";
           || (p.t.category || "").toLowerCase().includes(q));
       pickerEmpty.hidden = visible.length > 0;
       const multi = pickerMode === "gallery";
+      // The picture, and its name under it (not over it), so a row always
+      // makes room for its cards and every name, page numbers included, shows.
       pickerGrid.innerHTML = visible.map((p) => `
         <div class="tpl-pick-card ${multi && pickerSelected.has(p.key) ? "is-selected" : ""}" data-pull="${escapeHtml(p.key)}"
-             style="background-image:url('${escapeHtml(p.img)}')"
              role="button" tabindex="0" aria-pressed="${multi && pickerSelected.has(p.key) ? "true" : "false"}">
+          <span class="tpl-pick-img" style="background-image:url('${escapeHtml(p.img)}')"></span>
           ${multi ? '<span class="tpl-pick-tick" aria-hidden="true"></span>' : ""}
-          <span class="tpl-pick-name">${escapeHtml(p.name)}</span>
+          <span class="tpl-pick-label">${escapeHtml(p.name)}</span>
         </div>
       `).join("");
     }
