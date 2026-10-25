@@ -91,6 +91,10 @@ import { createResizeEngine } from "./resize-engine.js";
   // Lazy-load a Google Font's CSS. Idempotent — only the first call per font
   // adds a <link>; subsequent calls are no-ops.
   const _loadedGoogleFonts = new Set();
+  // Each family's stylesheet, as a promise that settles when it has arrived:
+  // until then the browser has no face to load, and a render drew with a
+  // stand-in (a bolder sans for Montserrat, in a thumbnail; Dani, 25 Oct).
+  const _googleFontSheets = new Map();
   function loadGoogleFont(name) {
     if (!name) return;
     if (_loadedGoogleFonts.has(name)) return;
@@ -102,6 +106,10 @@ import { createResizeEngine } from "./resize-engine.js";
     link.href = "https://fonts.googleapis.com/css2?family=" +
       encodeURIComponent(name).replace(/%20/g, "+") +
       ":ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,700&display=swap";
+    _googleFontSheets.set(name, new Promise(function (done) {
+      link.addEventListener("load", done); link.addEventListener("error", done);
+      setTimeout(done, 5000);   // a slow sheet delays a render, never stops one
+    }));
     document.head.appendChild(link);
   }
 
@@ -7804,6 +7812,18 @@ import { createResizeEngine } from "./resize-engine.js";
       }
     }
     } catch (err) { console.warn("[fonts] could not work out the fonts to load", err); }
+    // The stylesheets first: document.fonts.load() finds nothing for a family
+    // whose sheet has not arrived, and says so by quietly loading nothing.
+    try {
+      const names = new Set();
+      pages.forEach(function (pg) { (pg.elements || []).forEach(function (el) {
+        if (!el || el.type !== "text") return;
+        if (el.font) names.add(el.font);
+        if (Array.isArray(el.runs)) el.runs.forEach(function (r) { if (r && r.font) names.add(r.font); });
+      }); });
+      names.forEach(function (n) { loadGoogleFont(n); });
+      await Promise.all([...names].map(function (n) { return _googleFontSheets.get(n); }).filter(Boolean));
+    } catch (_) {}
     try {
       await Promise.all([...specs].map(([s, text]) => document.fonts.load(s, (text || "") + " ").catch(function () {})));
       await document.fonts.ready;
@@ -8135,15 +8155,17 @@ import { createResizeEngine } from "./resize-engine.js";
      those lines at those positions. Wrapping, leading, centring and fitting all
      come from the engine that draws the card you see.
 
-     Social is untouched and still uses the computed path. Turn this off with
-     ?domtext=0 to compare the two. Dani, 11 Oct. */
+     Social designs use it too since 25 Oct: a post's justified paragraph came
+     out ragged and on four lines in its thumbnail, three in the Studio (Dani,
+     "Felt Like Home"). Justified lines are drawn word by word at the places
+     the browser put each word. Turn this off with ?domtext=0 to compare the
+     two. Dani, 11 Oct. */
   const DOM_TEXT_FOR_PRINT = !/[?&]domtext=0/.test(location.search);
   let _domText = null;          // Map(elementId -> {lines, font, fill, align}) for the page being drawn
 
   function measureDomText(src) {
     const out = new Map();
     if (!DOM_TEXT_FOR_PRINT || !src || !src.canvas) return out;
-    if (sizeFamily(src.canvas.width, src.canvas.height) !== "print") return out;
     const texts = (src.elements || []).filter(function (e) {
       return e && e.type === "text" && !e.hidden && e.text && !hasRuns(e);
     });
@@ -8212,11 +8234,28 @@ import { createResizeEngine } from "./resize-engine.js";
         const _wt = cs.fontWeight || 400;
         const _sty = (cs.fontStyle && cs.fontStyle !== "normal") ? cs.fontStyle + " " : "";
         const _ls = parseFloat(cs.letterSpacing);
+        /* Justified: where each word starts, so the canvas can spread a line
+           exactly as the browser did. */
+        if (cs.textAlign === "justify") lines.forEach(function (ln) {
+          ln.words = [];
+          let w = null;
+          for (let i = ln.start; i < ln.start + ln.text.length; i++) {
+            const ch = text[i];
+            if (/\s/.test(ch)) { w = null; continue; }
+            if (!w) {
+              range.setStart(tnode, i); range.setEnd(tnode, i + 1);
+              const r = range.getBoundingClientRect();
+              w = { text: "", x: r.left - box.left };
+              ln.words.push(w);
+            }
+            w.text += ch;
+          }
+        });
         out.set(e.id, {
           font: _sty + _wt + " " + _sizePx + "px " + _fam,
           letterSpacing: (isFinite(_ls) ? _ls : 0) + "px",
           lines: lines.map(function (ln) {
-            return { text: ln.text, x: ln.left - box.left, baseline: ln.baseline };
+            return { text: ln.text, x: ln.left - box.left, baseline: ln.baseline, words: ln.words || null };
           }),
         });
       });
@@ -8251,10 +8290,16 @@ import { createResizeEngine } from "./resize-engine.js";
         ctx.lineWidth = el.textOutline.width * 2;
         ctx.strokeStyle = el.textOutline.color || "#1c1d22";
         ctx.lineJoin = "round";
-        measured.lines.forEach(function (ln) { ctx.strokeText(ln.text, ln.x, ln.baseline); });
+        measured.lines.forEach(function (ln) {
+          if (ln.words) ln.words.forEach(function (w) { ctx.strokeText(w.text, w.x, ln.baseline); });
+          else ctx.strokeText(ln.text, ln.x, ln.baseline);
+        });
         ctx.restore();
       }
-      measured.lines.forEach(function (ln) { ctx.fillText(ln.text, ln.x, ln.baseline); });
+      measured.lines.forEach(function (ln) {
+        if (ln.words) ln.words.forEach(function (w) { ctx.fillText(w.text, w.x, ln.baseline); });
+        else ctx.fillText(ln.text, ln.x, ln.baseline);
+      });
       ctx.restore();
       return;
     }

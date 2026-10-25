@@ -10,6 +10,25 @@ export function escapeHtml(s) {
   }[c]));
 }
 
+import { GOOGLE_FONTS_ALL } from '../data/google-fonts-all.js';
+
+/* A preview draws its text in the design's own font, so it has to load it.
+   It never did: only uploaded brand fonts were loaded, and a Google font such
+   as Montserrat fell to whatever the browser had, a heavier face that made a
+   card look bold beside its design (Dani, 25 Oct). The same families and
+   weights the Studio loads (editor.js loadGoogleFont), once each. */
+const GOOGLE_SET = new Set(GOOGLE_FONTS_ALL);
+const _loaded = new Set();
+export function loadPreviewFont(name) {
+  if (typeof document === 'undefined' || !name || _loaded.has(name) || !GOOGLE_SET.has(name)) return;
+  _loaded.add(name);
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=' + encodeURIComponent(name).replace(/%20/g, '+') +
+    ':ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,700&display=swap';
+  document.head.appendChild(link);
+}
+
 export function fontStack(f) {
   const s = String(f || '');
   return /garamond|seasons|helios|times|serif/i.test(s)
@@ -40,6 +59,7 @@ export function renderEl(el, W, H) {
     return `<div style="${pos}${rot}background:${escapeHtml(el.fill || 'transparent')};opacity:${el.opacity ?? 1};${rad}"></div>`;
   }
   if (el.type === 'text') {
+    loadPreviewFont(el.font);
     const fs = (Number(el.size) || 16) / W * 100;
     const ls = (Number(el.letterSpacing) || 0) / W * 100;
     return `<div style="${pos}${rot}color:${escapeHtml(el.color || '#1c1d22')};font-family:${fontStack(el.font)};font-size:${fs.toFixed(3)}cqw;font-weight:${el.weight || 400};font-style:${el.italic ? 'italic' : 'normal'};text-align:${el.align || 'left'};letter-spacing:${ls.toFixed(3)}cqw;line-height:${el.lineHeight || 1.2};overflow:hidden;">${escapeHtml(el.text || '')}</div>`;
