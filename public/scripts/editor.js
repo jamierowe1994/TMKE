@@ -11228,6 +11228,10 @@ import { createResizeEngine } from "./resize-engine.js";
     return { canvas: deep(pg.canvas), elements: deep(pg.elements) };
   };
   // Page two of the design on screen, for its back preview; null if it has one page.
+  // Every page of the open design, for a picture of each (Regenerate previews).
+  window.__TMKE_OPEN_PAGES__ = function () {
+    return (state.pages || []).map(function (pg) { return { canvas: deep(pg.canvas), elements: deep(pg.elements) }; });
+  };
   window.__TMKE_OPEN_PAGE_TWO__ = function () {
     const pg = state.pages && state.pages[1];
     return pg ? { canvas: deep(pg.canvas), elements: deep(pg.elements) } : null;

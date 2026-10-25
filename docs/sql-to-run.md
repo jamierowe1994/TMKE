@@ -4,10 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/mockup_printed_posts_eight_fresh.sql — deletes Printed posts - Eight and puts it back fresh, new id, 1600 x 2000 (25 Oct)
+- [ ] supabase/template_page_images.sql — a picture of every page, so a pack's gallery can pull each page of a design (25 Oct)
 
 ## Done
 
+- [x] supabase/mockup_printed_posts_eight_fresh.sql — Printed posts - Eight put back fresh (25 Oct)
 - [x] supabase/mockup_printed_posts_size.sql — printed-posts mockups to 1600 x 2000 (25 Oct)
 - [x] supabase/mockup_printed_posts.sql — two printed-posts mockups, eight and fifteen, on the Mockups tab (25 Oct)
 - [x] supabase/pack_story.sql — pack story text (24 Oct)

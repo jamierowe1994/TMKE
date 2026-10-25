@@ -1096,11 +1096,14 @@ import "../../../styles/admin.css";
 
     // ============ Template multi-select ============
     async function loadTemplates() {
-      const { data, error } = await supabase
+      const tq = (cols) => supabase
         .from("templates")
-        .select("id, name, category, thumb_url, canvas, pack_id, status, sort_order")
+        .select(cols)
         .neq("status", "archived")
         .order("created_at", { ascending: false });   // newest first so just-made templates show up top
+      let { data, error } = await tq("id, name, category, thumb_url, canvas, pack_id, status, sort_order, page_images");
+      // A database without page_images yet (supabase/template_page_images.sql).
+      if (error) ({ data, error } = await tq("id, name, category, thumb_url, canvas, pack_id, status, sort_order"));
       if (error) {
         tplLoading.textContent = `Couldn't load templates: ${error.message}`;
         return;
@@ -1266,21 +1269,34 @@ import "../../../styles/admin.css";
       pickerBackdrop.hidden = true;
       document.body.style.overflow = "";
     }
+    /* What can be pulled: one picture per template, or for a design with
+       several pages (page_images, from Regenerate previews) one per page, so
+       four mockups on four pages are four pictures (Dani, 25 Oct). */
+    let pickables = new Map();
+    function pickableList() {
+      const out = [];
+      allTemplates.forEach((t) => {
+        const pages = Array.isArray(t.page_images) ? t.page_images.filter((pg) => pg && (pg.thumb || pg.render)) : [];
+        if (pages.length > 1) pages.forEach((pg, i) => out.push({ key: t.id + "#" + i, t, name: (t.name || "(untitled)") + " · page " + (i + 1), img: pg.thumb || pg.render }));
+        else if (tplPreview(t)) out.push({ key: t.id, t, name: t.name || "(untitled)", img: tplPreview(t) });
+      });
+      pickables = new Map(out.map((p) => [p.key, p]));
+      return out;
+    }
     function renderTemplatePicker() {
       const q = pickerSearch.value.toLowerCase();
-      const visible = allTemplates
-        .filter((t) => tplPreview(t)) // needs some image (thumb or page background)
-        .filter((t) => !q
-          || (t.name || "").toLowerCase().includes(q)
-          || (t.category || "").toLowerCase().includes(q));
+      const visible = pickableList()
+        .filter((p) => !q
+          || p.name.toLowerCase().includes(q)
+          || (p.t.category || "").toLowerCase().includes(q));
       pickerEmpty.hidden = visible.length > 0;
       const multi = pickerMode === "gallery";
-      pickerGrid.innerHTML = visible.map((t) => `
-        <div class="tpl-pick-card ${multi && pickerSelected.has(t.id) ? "is-selected" : ""}" data-pull="${escapeHtml(t.id)}"
-             style="background-image:url('${escapeHtml(tplPreview(t))}')"
-             role="button" tabindex="0" aria-pressed="${multi && pickerSelected.has(t.id) ? "true" : "false"}">
+      pickerGrid.innerHTML = visible.map((p) => `
+        <div class="tpl-pick-card ${multi && pickerSelected.has(p.key) ? "is-selected" : ""}" data-pull="${escapeHtml(p.key)}"
+             style="background-image:url('${escapeHtml(p.img)}')"
+             role="button" tabindex="0" aria-pressed="${multi && pickerSelected.has(p.key) ? "true" : "false"}">
           ${multi ? '<span class="tpl-pick-tick" aria-hidden="true"></span>' : ""}
-          <span class="tpl-pick-name">${escapeHtml(t.name || "(untitled)")}</span>
+          <span class="tpl-pick-name">${escapeHtml(p.name)}</span>
         </div>
       `).join("");
     }
@@ -1715,13 +1731,13 @@ import "../../../styles/admin.css";
       const card = e.target instanceof HTMLElement ? e.target.closest("[data-pull]") : null;
       if (!card) return;
       const id = card.getAttribute("data-pull");
-      const t = allTemplates.find((x) => x.id === id);
-      const img = t ? tplPreview(t) : "";
+      const p = pickables.get(id);
+      const img = p ? p.img : "";
       if (!img) return;
       if (pickerMode === "cover") {
         // A cover is a single image — pick and close.
         setCover(img);
-        if (coverStatus) coverStatus.textContent = `Cover set from "${t.name}".`;
+        if (coverStatus) coverStatus.textContent = `Cover set from "${p.name}".`;
         closePicker();
         return;
       }
@@ -1737,8 +1753,8 @@ import "../../../styles/admin.css";
     pickerAdd?.addEventListener("click", () => {
       let added = 0, skipped = 0;
       pickerSelected.forEach((id) => {
-        const t = allTemplates.find((x) => x.id === id);
-        const img = t ? tplPreview(t) : "";
+        const p = pickables.get(id);
+        const img = p ? p.img : "";
         if (!img) return;
         if (galleryUrls.includes(img)) { skipped++; return; }
         galleryUrls = [...galleryUrls, img];

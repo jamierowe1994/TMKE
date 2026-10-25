@@ -6215,7 +6215,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
            made, the photo taken out again -- so redrawing them from the saved
            design would put the empty frames back (Dani, 13 Oct). One is
            redrawn only from its own design, open on screen (`fromOpen`). */
-        window.__TMKE_REGEN_ALL__ = async function (onProgress, onlyId, fromOpen, fromOpenBack, backOnly) {
+        window.__TMKE_REGEN_ALL__ = async function (onProgress, onlyId, fromOpen, fromOpenBack, backOnly, openPages) {
           let query = supabase.from('templates').select('id, canvas, elements, pages');
           if (onlyId) query = query.eq('id', onlyId);
           const { data: rows, error } = await query;
@@ -6253,6 +6253,25 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
                     if (bErr) { console.error('[regen back]', t.id, bErr.message); if (backOnly) failed++; }
                   } else if (backOnly) failed++;
                 } catch (e) { console.error('[regen back]', t.id, e); if (backOnly) failed++; }
+              }
+              /* A picture of every page, for a design with two or more (Dani,
+                 25 Oct: four mockups on four pages for a pack's gallery). Its
+                 own write, so a database without page_images yet
+                 (supabase/template_page_images.sql) keeps everything else. */
+              const pagesNow = (onlyId && Array.isArray(openPages) && openPages.length) ? openPages : (Array.isArray(t.pages) ? t.pages : []);
+              if (pagesNow.length > 1 && typeof window.__TMKE_RENDER_PAIR_FROM__ === 'function') {
+                const imgs = [];
+                for (const pg of pagesNow) {
+                  try {
+                    const pr = await window.__TMKE_RENDER_PAIR_FROM__(pg.canvas, pg.elements);
+                    const one = {};
+                    if (pr && typeof pr.thumb === 'string' && pr.thumb.startsWith('data:')) one.thumb = await externUploadDataUrl(pr.thumb);
+                    if (pr && typeof pr.render === 'string' && pr.render.startsWith('data:')) one.render = await externUploadDataUrl(pr.render);
+                    imgs.push(one);
+                  } catch (e) { console.error('[regen page]', t.id, e); imgs.push({}); }
+                }
+                const { error: pErr } = await supabase.from('templates').update({ page_images: imgs }).eq('id', t.id);
+                if (pErr) console.error('[regen pages]', t.id, pErr.message);
               }
             } catch (e) { failed++; console.error('[regen render]', t.id, e); }
             done++;
@@ -7685,9 +7704,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
            back for its picture, and the front preview, made already, is left
            exactly as it is. */
         const pageInfo = typeof window.__TMKE_PAGE_INFO__ === "function" ? window.__TMKE_PAGE_INFO__() : null;
-        const backOnly = !!(onlyId && pageInfo && pageInfo.count > 1 && pageInfo.current === 1);
+        // Front and back is print's (a postcard); any other design with pages
+        // has a picture of each page redone, whichever page is open.
+        const backOnly = !!(onlyId && printOpen && pageInfo && pageInfo.count > 1 && pageInfo.current === 1);
         // Say which side it's about to redo, so it's never a surprise.
-        if (onlyId && pageInfo && pageInfo.count > 1 && !confirm(backOnly
+        if (onlyId && pageInfo && pageInfo.count > 1 && !confirm(!printOpen
+          ? "Redo the previews of all " + pageInfo.count + " pages, from the design as it is on screen?"
+          : backOnly
           ? "Redo the back preview only?\n\nThe front stays exactly as it is."
           : "Redo the front and back previews, from the design as it is on screen?\n\nTo redo only the back, go to page two first.")) return;
         const orig = regenBtn.textContent;
@@ -7695,7 +7718,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         try {
           const res = await window.__TMKE_REGEN_ALL__((done, total) => {
             regenBtn.textContent = onlyId ? "Regenerating…" : `Regenerating ${done}/${total}…`;
-          }, onlyId, fromOpen, fromOpenBack, backOnly);
+          }, onlyId, fromOpen, fromOpenBack, backOnly,
+            (onlyId && typeof window.__TMKE_OPEN_PAGES__ === "function") ? window.__TMKE_OPEN_PAGES__() : null);
           const ok = res.done - res.failed;
           regenBtn.textContent = `Done ✓`;
           if (onlyId) {
@@ -7703,6 +7727,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
               ? "That preview could not be regenerated — see the console."
               : backOnly
                 ? "The back preview has been regenerated. The front preview is unchanged.\n\nOn page one, Regenerate previews does the front and the back."
+                : !printOpen && pageInfo && pageInfo.count > 1
+                ? "The previews of all " + pageInfo.count + " pages have been regenerated. Each page can now be pulled into a pack's gallery on its own."
                 : "This template's preview has been regenerated" + (pageInfo && pageInfo.count > 1 ? ", front and back" : "") + ".\n\nOn page two, it does the back only. Hold Shift and click to do the whole catalogue.");
           } else {
             alert(`Regenerated ${ok} of ${res.total} previews.` + (res.failed ? ` ${res.failed} failed — see the console.` : " Re-publishing covers will now use the crisp versions."));
@@ -7785,14 +7811,23 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         fold.hidden = false;
         fold.addEventListener("toggle", async () => {
           if (!fold.open || items) return;
-          const [t, p] = await Promise.all([
-            supabase.from("templates").select("id,name,thumb_url,render_url,pack_id,status,updated_at").not("thumb_url", "is", null).neq("status", "archived").order("updated_at", { ascending: false }).range(0, 1999),
+          const tq = (cols) => supabase.from("templates").select(cols).not("thumb_url", "is", null).neq("status", "archived").order("updated_at", { ascending: false }).range(0, 1999);
+          let [t, p] = await Promise.all([
+            tq("id,name,thumb_url,render_url,pack_id,status,updated_at,page_images"),
             supabase.from("packs").select("id,title").order("title"),
           ]);
+          // A database without page_images yet (supabase/template_page_images.sql).
+          if (t.error) t = await tq("id,name,thumb_url,render_url,pack_id,status,updated_at");
           if (t.error) { status.textContent = "Your templates couldn't be loaded: " + t.error.message; return; }
           const packs = p.data || [], names = Object.fromEntries(packs.map((x) => [x.id, x.title]));
           // The full-size render goes in when there is one; the thumbnail shows.
-          items = (t.data || []).map((x) => ({ name: x.name || "Untitled", thumb: x.thumb_url, url: x.render_url || x.thumb_url, pack: x.pack_id || "", packName: names[x.pack_id] || "" }));
+          // Every page of a design with several (page_images), each its own picture.
+          items = (t.data || []).flatMap((x) => {
+            const base = { pack: x.pack_id || "", packName: names[x.pack_id] || "" };
+            const pages = Array.isArray(x.page_images) ? x.page_images.filter((pg) => pg && (pg.thumb || pg.render)) : [];
+            if (pages.length > 1) return pages.map((pg, i) => Object.assign({ name: (x.name || "Untitled") + " · page " + (i + 1), thumb: pg.thumb || pg.render, url: pg.render || pg.thumb }, base));
+            return [Object.assign({ name: x.name || "Untitled", thumb: x.thumb_url, url: x.render_url || x.thumb_url }, base)];
+          });
           packSel.innerHTML = `<option value="">All packs</option>` + packs.map((x) => `<option value="${escT(x.id)}">${escT(x.title)}</option>`).join("");
           draw();
         });
