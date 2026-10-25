@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-Nothing waiting.
+- [ ] supabase/mockup_printed_posts.sql — two printed-posts mockups, eight and fifteen, on the Mockups tab (25 Oct)
 
 ## Done
 
