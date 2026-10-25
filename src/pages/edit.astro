@@ -2173,6 +2173,27 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         + `</div></section>`;
       html += '<div class="stk-foot" aria-hidden="true"></div>';
       stk.innerHTML = html;
+      // The shop panel scrolls inside itself once there are more packs than
+      // fit. The wheel scrolls it first, to its last pack, and only then moves
+      // the page on; scrolling up, back to its first pack before the page
+      // goes back. Without this the smooth scroll took every wheel and skipped
+      // the panel's last row (Danielle, 25 Oct).
+      const shopPane = document.getElementById('stk-body-shop');
+      if (shopPane) shopPane.addEventListener('wheel', (e) => {
+        // Only once the page has settled on the shop panel: while it's still
+        // opening, the wheel belongs to the stack.
+        const pane = shopPane.closest('.stk-p');
+        if (!pane || !pane.classList.contains('is-open') || snapping) return;
+        if (!isMobile() && Math.abs(window.scrollY - (wrapTop + Number(pane.dataset.i) * stepCache)) > 8) return;
+        const room = shopPane.scrollHeight - shopPane.clientHeight;
+        if (room <= 1 || e.ctrlKey) return;
+        const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+        const atTop = shopPane.scrollTop <= 0, atEnd = shopPane.scrollTop >= room - 1;
+        if ((dy > 0 && atEnd) || (dy < 0 && atTop)) return;   // let the page carry on
+        e.preventDefault();
+        e.stopPropagation();
+        shopPane.scrollTop += dy;
+      }, { passive: false });
       stk.style.setProperty('--cols', String(cols));
 
       // ---- Conveyor: the packs cycle endlessly in ONE direction ----------------
