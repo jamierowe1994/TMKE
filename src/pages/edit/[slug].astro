@@ -89,8 +89,9 @@ const lockedAll = templates.slice(reveal);
 // you have to scroll past to reach the CTA. The page is static, so all six render
 // and CSS drops the extras below 720px — the count hint still reports the TRUE
 // number that unlock on purchase either way.
-// Two rows of six: the open previews, then six locked (a phone keeps two).
-const lockedTpls = lockedAll.slice(0, 6);
+// Two rows of five (Danielle, 25 Oct): the open previews, then locked ones
+// to make ten (a phone keeps two locked).
+const lockedTpls = lockedAll.slice(0, Math.max(0, 10 - previewTpls.length));
 const LOCKED_ON_MOBILE = 2;
 const lockedCount = lockedAll.length;
 const contents = Array.isArray(pack.contents) ? pack.contents : [];
@@ -125,9 +126,6 @@ const related = cards.filter((c) => c.slug !== pack.slug)
   .map((c) => ({ c, score: (c.kind === (pack.kind || "social") ? 2 : 0) + (c.category && c.category === pack.category ? 1 : 0) }))
   .sort((a, b) => b.score - a.score).slice(0, 4).map((x) => x.c);
 const pad2 = (n) => String(n).padStart(2, "0");
-// "Coming Soon - Property - Static" -> "Coming Soon": the caption names the
-// design; the category and format are the Studio's filing.
-const shortName = (n) => String(n || "").split(" - ")[0].trim() || n;
 
 // Pack images are uploaded full size (previews up to 21 MB PNGs), so the page
 // never loads them as they are: Supabase resizes on the fly to the width the
@@ -231,7 +229,7 @@ function gbp(pence) {
               {(t.thumb_url || t.render_url)
                 ? <img src={sized(t.thumb_url || t.render_url, 700)} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
                 : <div class="pack-tpl-empty"></div>}
-              <figcaption><span class="pack-tpl-num">{pad2(i + 1)}</span><span class="pack-tpl-name">{shortName(t.name)}</span></figcaption>
+              <figcaption><span class="pack-tpl-num">{pad2(i + 1)}</span></figcaption>
             </figure>
           ))}
 
@@ -526,7 +524,8 @@ function gbp(pence) {
     /* The whole pack on the wine (Danielle, 24 Oct), headed the way Moyo
        Studio heads its collection: a small label, the count, one button. */
     .pack-previews { background: var(--english-violet); color: var(--paper); padding: 52px 0 64px; }
-    .pp-wrap { padding: 0 40px 0 max(36px, calc((100vw - 1280px) / 2 + 36px)); }
+    /* Left edge on the same line as the TMKE wordmark in the nav. */
+    .pp-wrap { padding: 0 40px 0 var(--page-gutter); }
     @media (max-width: 720px) { .pp-wrap { padding: 0 16px; } }
     .pack-previews-head {
       display: flex; align-items: center; gap: 18px 56px; flex-wrap: wrap;
@@ -550,15 +549,14 @@ function gbp(pence) {
     .pp-btn:hover { background: var(--paper); color: var(--english-violet); }
     @media (max-width: 720px) { .pp-btn { margin-left: 0; width: 100%; } }
 
-    /* Two rows of six. */
+    /* Two rows of five, numbers only under them. */
     .pack-tpl-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 28px 16px;
     }
-    @media (max-width: 1100px) { .pack-tpl-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
     @media (max-width: 720px)  {
-      .pack-tpl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px 10px; }
+      .pack-tpl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 10px; }
       .pack-tpl--locked-xtra { display: none; }
     }
     .pack-tpl {
