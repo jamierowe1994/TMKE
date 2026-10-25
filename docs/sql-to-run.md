@@ -4,10 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/mockup_printed_posts.sql — two printed-posts mockups, eight and fifteen, on the Mockups tab (25 Oct)
+- [ ] supabase/mockup_printed_posts_size.sql — puts the two printed-posts mockups back to 1080 x 1350 so their screens sit on the posts (25 Oct)
 
 ## Done
 
+- [x] supabase/mockup_printed_posts.sql — two printed-posts mockups, eight and fifteen, on the Mockups tab (25 Oct)
 - [x] supabase/pack_story.sql — pack story text (24 Oct)
 - [x] supabase/smm_leaving_date.sql — leaving dates for social media clients (23 Oct)
 - [x] supabase/pack_free_window.sql — free packs for a limited time, e.g. Halloween (22 Oct)
