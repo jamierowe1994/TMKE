@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/mockup_printed_posts.sql — run again: resets both printed-posts mockups, fresh, at 1600 x 2000 (25 Oct)
+- [ ] supabase/mockup_printed_posts_eight_fresh.sql — deletes Printed posts - Eight and puts it back fresh, new id, 1600 x 2000 (25 Oct)
 
 ## Done
 
