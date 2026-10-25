@@ -4121,13 +4121,22 @@ import { createResizeEngine } from "./resize-engine.js";
     } else if (el.type === "screen") {
       // The artwork is warped by a CSS matrix3d, so what is on the canvas is
       // the same projection the export computes - not an approximation of it.
-      if (el.src) {
+      // An Instagram screen's artwork is its drawn layout (the last one drawn
+      // while a new one is made, so editing it doesn't flash).
+      let art = el.src;
+      if (el.layout) {
+        const ig = _igDone.get(igKey(el)) || _igLast.get(el.id) || null;
+        if (!_igDone.has(igKey(el))) igComposite(el).then(() => { if (state.elements.includes(el)) fullRender(); });
+        art = ig ? ig.url : null;
+        if (ig) { el.imgNaturalW = ig.w; el.imgNaturalH = ig.h; }
+      }
+      if (art) {
         node.classList.add("is-filled");
         const plane = document.createElement("div");
         plane.className = "sc-plane";
         const img = document.createElement("img");
         img.decoding = "async";
-        img.src = el.src;
+        img.src = art;
         img.draggable = false;
         img.alt = "";
         img.crossOrigin = "anonymous";
@@ -4144,6 +4153,8 @@ import { createResizeEngine } from "./resize-engine.js";
           el.imgNaturalH = img.naturalHeight;
           applyScreenTransform(node, el);
         });
+        // An Instagram screen takes each picture on the space it's dropped on.
+        if (el.layout) node.title = "Drop a picture on a space to fill it";
       } else {
         const ph = document.createElement("div");
         ph.className = "sc-placeholder";
@@ -4172,6 +4183,13 @@ import { createResizeEngine } from "./resize-engine.js";
         if (!src) return;
         e.preventDefault();
         e.stopPropagation();
+        if (el.layout) {
+          const key = igSlotAt(el, e.clientX, e.clientY);
+          if (!key) { toast("Drop it on one of the picture spaces."); return; }
+          el.igSlots = Object.assign({}, el.igSlots || {}, { [key]: src });
+          pushHistory(); fullRender();
+          return;
+        }
         fillScreen(el, src);
       });
       if (el.src) {
@@ -7114,15 +7132,20 @@ import { createResizeEngine } from "./resize-engine.js";
   /* The screen a find lands in: the one you were on, or for a photo in a
      mockup (Dani, 24 Oct) a new screen over it, made only once the corners
      are found, so a miss leaves nothing behind to tidy up. */
-  function screenFor(target) {
-    if (target.type === "screen") return target;
-    addElement({
+  function screenFor(target, extra) {
+    if (target.type === "screen") { if (extra) Object.assign(target, extra); return target; }
+    addElement(Object.assign({
       type: "screen", x: target.x, y: target.y, w: target.w, h: target.h, rotation: 0, opacity: 1,
       corners: SCREEN_CORNERS.map(([x, y]) => ({ x: x, y: y })), guide: "#00c2a8",
       src: null, imgNaturalW: 0, imgNaturalH: 0,
       imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, imgRotation: 0, imgFit: "cover",
-    });
+    }, extra || {}));
     return state.elements[state.elements.length - 1];
+  }
+  // The topmost photo under a point on the canvas, if any.
+  function photoUnder(cx, cy) {
+    return state.elements.slice().reverse().find((e) => e && e.type === "image" && e.src && !e.hidden &&
+      cx >= e.x && cx <= e.x + e.w && cy >= e.y && cy <= e.y + e.h) || null;
   }
 
   // Put the screen's corners on four canvas points, TL TR BR BL.
@@ -7140,23 +7163,169 @@ import { createResizeEngine } from "./resize-engine.js";
   /* A plain, square-cornered box centred where you clicked, for you to drag
      onto the screen yourself: a screen you were on moves there, a photo gets
      a new one, sized to a good share of it. */
-  function placeScreenBox(target, cx, cy) {
+  function placeScreenBox(target, cx, cy, extra) {
     // Sized to the photo you clicked on: the one you chose, or for a screen,
     // the topmost photo under the click.
-    const host = target.type !== "screen" ? target
-      : state.elements.slice().reverse().find((e) => e && e.type === "image" && e.src && !e.hidden &&
-          cx >= e.x && cx <= e.x + e.w && cy >= e.y && cy <= e.y + e.h) || null;
+    const host = target.type !== "screen" ? target : photoUnder(cx, cy);
     const w = Math.round(host ? host.w * 0.45 : target.w), h = Math.round(host ? w * 0.62 : target.h);
     let x = cx - w / 2, y = cy - h / 2;
     if (host) {
       x = Math.min(Math.max(x, host.x), host.x + host.w - w);
       y = Math.min(Math.max(y, host.y), host.y + host.h - h);
     }
-    const scr = screenFor(target);
+    const scr = screenFor(target, extra);
     setScreenQuad(scr, [{ x: x, y: y }, { x: x + w, y: y }, { x: x + w, y: y + h }, { x: x, y: y + h }]);
     state.selectedIds = [scr.id];
     fullRender();
     toast("Drag each corner onto a corner of the screen.", 4000);
+  }
+
+  /* ---------- Instagram screens (Dani, 25 Oct) ----------
+     A screen that draws an Instagram post or profile grid instead of one
+     picture: two extra frames under Elements in the Admin Studio. Click the
+     phone's screen to place one; drop pictures on its spaces. It is laid out
+     flat at the shape of the screen it sits in, then carried onto the quad
+     like any artwork, so the name and labels are typed, not baked into a
+     picture, and different phones simply get a taller or shorter layout.
+     Laid out on a 1080-wide page, after Dani's two Canva drafts. */
+  const IG_W = 1080;
+  function igProps(kind) {
+    return {
+      layout: kind, igSlots: {}, igName: "TMKE_Propertymarketing",
+      igLabels: kind === "grid" ? ["Team", "Marketing", "The Edit", "The Studio", "Services"] : undefined,
+      src: null, imgFit: "cover", imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, imgRotation: 0,
+    };
+  }
+  function startIgPlace(kind) {
+    if (!isAdminMode()) return;
+    screenPick = { layout: kind };
+    canvasEl.classList.add("is-picking-screen");
+    toast("Click the phone's screen in your photo. Escape to cancel.", 4000);
+  }
+  // The screen's own proportions (height over width), in steps of 0.02 so a
+  // nudged corner doesn't redraw the layout.
+  function igAspect(el) {
+    const p = screenPoints(el), d = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+    const r = ((d(p[0], p[3]) + d(p[1], p[2])) / 2) / (((d(p[0], p[1]) + d(p[3], p[2])) / 2) || 1);
+    return Math.max(1, Math.min(2.6, Math.round(r * 50) / 50));
+  }
+  // Where the pictures go, on the 1080-wide page: [key, x, y, w, h, round].
+  function igGeometry(kind, H) {
+    const s = [];
+    if (kind === "post") {
+      s.push({ key: "avatar", x: 34, y: 299, w: 80, h: 80, round: true });
+      s.push({ key: "p0", x: 34, y: 423, w: 1012, h: 1349 });
+      s.push({ key: "avatar", x: 34, y: 2091, w: 80, h: 80, round: true });
+      s.push({ key: "p1", x: 34, y: 2215, w: 1012, h: 1349 });
+      return s;
+    }
+    [108, 323, 537, 752, 966].forEach((cx, i) => s.push({ key: "hl" + i, x: cx - 59, y: 116, w: 118, h: 118, round: true }));
+    const mx = 12, gx = 9, gy = 12, tw = (IG_W - 2 * mx - 2 * gx) / 3, th = tw * 4 / 3;
+    for (let r = 0, y = 440; y < H; r++, y += th + gy) for (let c = 0; c < 3; c++) s.push({ key: "g" + (r * 3 + c), x: mx + c * (tw + gx), y: y, w: tw, h: th });
+    return s;
+  }
+  const IG_ICONS = {
+    heart: "M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z",
+    comment: "M7.9 20A9 9 0 1 0 4 16.1L2 22Z",
+    send: "M22 2 15 22 11 13 2 9Z M22 2 11 13",
+    save: "M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z",
+    back: "M15 18l-6-6 6-6",
+    grid: "M3 3h18v18H3z M3 9h18 M3 15h18 M9 3v18 M15 3v18",
+    reels: "M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z M3 8h18 M8 3l3 5 M14 3l3 5 M10 12v5l4-2.5z",
+    tagged: "M4 4h16v16H4z M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M7 20a5 5 0 0 1 10 0",
+  };
+  function igIcon(ctx, name, x, y, size) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(size / 24, size / 24);
+    ctx.lineWidth = 1.5; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.strokeStyle = "#1c1d22";
+    ctx.stroke(new Path2D(IG_ICONS[name])); ctx.restore();
+  }
+  function igCover(ctx, img, s) {
+    ctx.save(); ctx.beginPath();
+    if (s.round) ctx.arc(s.x + s.w / 2, s.y + s.h / 2, s.w / 2, 0, Math.PI * 2); else ctx.rect(s.x, s.y, s.w, s.h);
+    ctx.clip();
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, k = Math.max(s.w / iw, s.h / ih);
+    ctx.drawImage(img, s.x + (s.w - iw * k) / 2, s.y + (s.h - ih * k) / 2, iw * k, ih * k);
+    ctx.restore();
+  }
+  function igDraw(ctx, el, W, H, slots, imgs) {
+    const SANS = '"Helvetica Neue", Helvetica, Arial, sans-serif', WINE = "#371e28";
+    ctx.fillStyle = "#f1f1f1"; ctx.fillRect(0, 0, W, H);
+    // The pictures first, so the interface sits over any edge of them.
+    slots.forEach((s) => {
+      const img = imgs[s.key];
+      if (img) { igCover(ctx, img, s); return; }
+      ctx.fillStyle = s.key === "avatar" ? WINE : s.round ? "#d6cfca" : "#c8d1da";
+      ctx.beginPath();
+      if (s.round) ctx.arc(s.x + s.w / 2, s.y + s.h / 2, s.w / 2, 0, Math.PI * 2); else ctx.rect(s.x, s.y, s.w, s.h);
+      ctx.fill();
+    });
+    ctx.textBaseline = "middle";
+    const dots = (x, y, col) => { ctx.fillStyle = col; [0, 26, 52].forEach((dx) => { ctx.beginPath(); ctx.arc(x + dx, y, 9, 0, Math.PI * 2); ctx.fill(); }); };
+    if (el.layout === "post") {
+      ctx.fillStyle = "#1c1d22"; ctx.font = '74px "Grand Hotel", cursive'; ctx.textBaseline = "alphabetic";
+      ctx.fillText("Instagram", 30, 196);
+      ctx.textBaseline = "middle";
+      ctx.strokeStyle = "#cfc6c2"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, 236); ctx.lineTo(W, 236); ctx.stroke();
+      slots.filter((s) => s.key === "avatar").forEach((s) => {
+        const cy = s.y + s.h / 2;
+        ctx.fillStyle = WINE; ctx.font = "400 30px " + SANS; ctx.fillText(el.igName || "", 127, cy);
+        dots(984, cy - 4, "#cbbcbc");
+      });
+      const iy = 423 + 1349 + 45;
+      igIcon(ctx, "heart", 34, iy, 68); igIcon(ctx, "comment", 150, iy, 64); igIcon(ctx, "send", 262, iy, 64); igIcon(ctx, "save", 984, iy, 64);
+      ctx.fillStyle = "#e8e4e2";
+      [[34, 1925, 442], [34, 1972, 1012], [34, 2019, 1012]].forEach(([x, y, w]) => ctx.fillRect(x, y, w, 40));
+    } else {
+      igIcon(ctx, "back", 8, 26, 48);
+      ctx.fillStyle = "#1c1d22"; ctx.font = "700 40px " + SANS; ctx.textAlign = "center"; ctx.fillText(el.igName || "", W / 2, 50); ctx.textAlign = "left";
+      dots(1004, 36, "#1c1d22");
+      const labels = el.igLabels || [];
+      ctx.font = "400 26px " + SANS; ctx.textAlign = "center"; ctx.fillStyle = "#1c1d22";
+      slots.filter((s) => /^hl/.test(s.key)).forEach((s, i) => ctx.fillText(labels[i] || "", s.x + s.w / 2, 268));
+      ctx.textAlign = "left";
+      igIcon(ctx, "grid", 151, 352, 48); igIcon(ctx, "reels", 516, 352, 48); igIcon(ctx, "tagged", 867, 352, 48);
+    }
+  }
+  const _igDone = new Map(), _igWork = new Map(), _igLast = new Map();
+  const igKey = (el) => JSON.stringify([el.layout, igAspect(el), el.igSlots || {}, el.igName || "", el.igLabels || []]);
+  function igComposite(el) {
+    const key = igKey(el);
+    if (_igDone.has(key)) return Promise.resolve(_igDone.get(key));
+    if (_igWork.has(key)) return _igWork.get(key);
+    const job = (async () => {
+      const W = IG_W, H = Math.round(IG_W * igAspect(el));
+      try {
+        loadGoogleFont("Grand Hotel");
+        await (_googleFontSheets.get("Grand Hotel") || Promise.resolve());
+        await document.fonts.load('74px "Grand Hotel"', "Instagram");
+      } catch (_) {}
+      const map = el.igSlots || {}, imgs = {};
+      await Promise.all(Object.keys(map).map(async (k) => { if (map[k]) { try { imgs[k] = await loadImage(map[k]); } catch (_) {} } }));
+      const c = document.createElement("canvas"); c.width = W; c.height = H;
+      igDraw(c.getContext("2d"), el, W, H, igGeometry(el.layout, H), imgs);
+      let url = ""; try { url = c.toDataURL("image/jpeg", 0.92); } catch (_) {}
+      const out = { canvas: c, url: url, w: W, h: H };
+      _igDone.set(key, out); _igWork.delete(key); _igLast.set(el.id, out);
+      if (_igDone.size > 40) _igDone.delete(_igDone.keys().next().value);
+      return out;
+    })();
+    _igWork.set(key, job);
+    return job;
+  }
+  // Which space a point on the canvas falls in, through the screen's perspective.
+  function igSlotAt(el, clientX, clientY) {
+    const rect = canvasEl.getBoundingClientRect();
+    const px = (clientX - rect.left) / state.zoom - el.x, py = (clientY - rect.top) / state.zoom - el.y;
+    const m = screenHomography(screenCorners(el).map((c) => ({ x: c.x * el.w, y: c.y * el.h })));
+    if (!m) return null;
+    // Invert x = (a u + b v + c) / (g u + h v + 1), y likewise, for (u, v).
+    const A = [[m.a - m.g * px, m.b - m.h * px], [m.d - m.g * py, m.e - m.h * py]], B = [px - m.c, py - m.f];
+    const det = A[0][0] * A[1][1] - A[0][1] * A[1][0];
+    if (!det) return null;
+    const u = (B[0] * A[1][1] - A[0][1] * B[1]) / det, v = (A[0][0] * B[1] - B[0] * A[1][0]) / det;
+    const H = Math.round(IG_W * igAspect(el)), fx = u * IG_W, fy = v * H;
+    const hit = igGeometry(el.layout, H).find((s) => fx >= s.x && fx <= s.x + s.w && fy >= s.y && fy <= s.y + s.h);
+    return hit ? hit.key : null;
   }
 
   function startScreenPick(el) {
@@ -7174,15 +7343,20 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!screenPick) return;
     ev.preventDefault();
     ev.stopPropagation();
-    const pickId = screenPick.screenId || screenPick.imageId;
-    const el = state.elements.find((e) => e && e.id === pickId);
+    const pick = screenPick;
+    const pickId = pick.screenId || pick.imageId;
     endScreenPick();
-    if (!el) return;
     const rect = canvasEl.getBoundingClientRect();
     const cx = (ev.clientX - rect.left) / state.zoom, cy = (ev.clientY - rect.top) / state.zoom;
+    // An Instagram screen is placed by clicking the phone: whatever photo is
+    // under the click (or the page itself) hosts it.
+    const el = pickId ? state.elements.find((e) => e && e.id === pickId)
+      : (photoUnder(cx, cy) || { type: "image", x: 0, y: 0, w: state.canvas.width, h: state.canvas.height });
+    if (!el) return;
+    const extra = pick.layout ? igProps(pick.layout) : null;
     // When it can't find the edges (a screen half out of shot, or wonky), the
     // way on is a plain box where you clicked, to drag yourself (Dani, 24 Oct).
-    const offerBox = (msg) => toastAction(msg, "Put a box there instead", () => placeScreenBox(el, cx, cy));
+    const offerBox = (msg) => toastAction(msg, "Put a box there instead", () => placeScreenBox(el, cx, cy, extra));
     try {
       const { canvas: r, scale } = await screenPhotoRaster(1000);
       const img = r.getContext("2d").getImageData(0, 0, r.width, r.height);
@@ -7190,8 +7364,8 @@ import { createResizeEngine } from "./resize-engine.js";
       const sy = Math.min(r.height - 1, Math.max(0, Math.round(cy * scale)));
       const found = findScreenAtPoint(img, r.width, r.height, sx, sy);
       if (found.error) { offerBox(found.error); return; }
-      setScreenQuad(screenFor(el), found.corners.map((p) => ({ x: p.x / scale, y: p.y / scale })));
-      toast("Corners set. Drag any of them to fine-tune.");
+      setScreenQuad(screenFor(el, extra), found.corners.map((p) => ({ x: p.x / scale, y: p.y / scale })));
+      toast(extra ? "Instagram is on the screen. Drag pictures from Images onto its spaces." : "Corners set. Drag any of them to fine-tune.", extra ? 5000 : undefined);
     } catch (_) {
       offerBox("Couldn't read the photo here.");
     }
@@ -8891,10 +9065,14 @@ import { createResizeEngine } from "./resize-engine.js";
       ctx.fill();
       ctx.restore();
     }
-    if (!el.src) return;
+    if (!el.src && !el.layout) return;
     let img;
-    try { img = await loadImage(el.src); } catch (_) { return; }
-    const iw = img.naturalWidth, ih = img.naturalHeight;
+    if (el.layout) {
+      try { const ig = await igComposite(el); img = ig.canvas; el.imgNaturalW = ig.w; el.imgNaturalH = ig.h; } catch (_) { return; }
+    } else {
+      try { img = await loadImage(el.src); } catch (_) { return; }
+    }
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
     if (!iw || !ih) return;
 
     // Corners in the element's own space; the caller has already translated
@@ -9489,6 +9667,17 @@ import { createResizeEngine } from "./resize-engine.js";
       // Six, not a picker. The guide only has to stand out from the photo
       // underneath it, and picking a colour from a spectrum to solve "I can't
       // see it against black" is more work than the problem deserves.
+      // An Instagram screen: its name, its labels, its pictures (Dani, 25 Oct).
+      if (el.layout) html.push(
+          '<div class="ed-props-section"><h4>Instagram ' + (el.layout === "grid" ? "grid" : "post") + '</h4>' +
+            '<p class="ed-props-hint">Drag pictures from Images onto the spaces in the screen' + (el.layout === "post" ? ', and one onto the round profile picture.' : ', including the round highlights.') + '</p>' +
+            '<div class="ed-props-field"><label>Name</label><input type="text" id="ed-ig-name" maxlength="40" value="' + escapeHtml(el.igName || "") + '"></div>' +
+            (el.layout === "grid"
+              ? '<div class="ed-props-field"><label>Highlights</label>' + (el.igLabels || []).map((l, i) =>
+                  '<input type="text" data-ig-label="' + i + '" maxlength="14" value="' + escapeHtml(l || "") + '" style="margin-top:' + (i ? 6 : 0) + 'px">').join("") + '</div>'
+              : '') +
+            '<button class="ed-btn-ghost" id="ed-ig-clear" style="background:rgba(28,29,34,0.06);width:100%">Clear the pictures</button>' +
+          '</div>');
       // Finding the screen for you: the Admin Studio only, for now (Dani, 24 Oct).
       if (isAdminMode()) html.push(
           '<div class="ed-props-section"><h4>Find the screen</h4>' +
@@ -9516,7 +9705,7 @@ import { createResizeEngine } from "./resize-engine.js";
           '</div>');
       // Rounded corners, in the screen's own perspective (screenOutline).
       html.push(cornerRadiusSectionHtml());
-      if (el.src) {
+      if (el.src && !el.layout) {
         html.push(
           '<div class="ed-props-section"><h4>Artwork</h4>' +
             '<div class="ed-props-field"><label>How it sits</label>' +
@@ -9562,6 +9751,8 @@ import { createResizeEngine } from "./resize-engine.js";
             '<div class="ed-props-field" style="margin-top:10px"><label>Or pick one</label>' +
               '<div data-mount="sc-bg-pick"></div></div>' +
           '</div>');
+      }
+      if (el.src || el.layout) {
         html.push(
           '<div class="ed-props-section"><h4>Light on the screen</h4>' +
             '<p class="ed-props-hint">A little glare and shade is what makes a screen look like it is in the room, not pasted on.</p>' +
@@ -9949,6 +10140,11 @@ import { createResizeEngine } from "./resize-engine.js";
       if (dimMount) dimMount.appendChild(sliderNumberRow("Dim", "", 0, 100, 1,
         () => Number(el.screenDim) || 0, (v) => { el.screenDim = v; }, live));
       body.querySelector("#ed-sc-light")?.addEventListener("click", (e) => suggestScreenLight(el, e.currentTarget));
+      body.querySelector("#ed-ig-name")?.addEventListener("change", (e) => { el.igName = e.target.value.trim(); pushHistory(); fullRender(); });
+      body.querySelectorAll("[data-ig-label]").forEach((inp) => inp.addEventListener("change", () => {
+        const l = (el.igLabels || []).slice(); l[Number(inp.dataset.igLabel)] = inp.value.trim(); el.igLabels = l; pushHistory(); fullRender();
+      }));
+      body.querySelector("#ed-ig-clear")?.addEventListener("click", () => { el.igSlots = {}; pushHistory(); fullRender(); });
       body.querySelector("#ed-sc-reset")?.addEventListener("click", () => resetScreenCorners(el));
       body.querySelector("#ed-sc-pick")?.addEventListener("click", () => startScreenPick(el));
       body.querySelector("#ed-sc-claude")?.addEventListener("click", (e) => {
@@ -13666,7 +13862,8 @@ import { createResizeEngine } from "./resize-engine.js";
   // data-frame (photo frame presets), or data-svg (SVG shape / icon).
   document.querySelectorAll(".ed-shape").forEach((btn) => {
     btn.addEventListener("click", () => {
-      if (btn.dataset.screen) addScreen();
+      if (btn.dataset.iglayout) startIgPlace(btn.dataset.iglayout);
+      else if (btn.dataset.screen) addScreen();
       else if (btn.dataset.frame) addFrame(btn.dataset.frame);
       else if (btn.dataset.svg) addSvgShape(btn.dataset.svg);
       else if (btn.dataset.gradient) addGradient(btn.dataset.gradient);

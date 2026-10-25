@@ -805,6 +805,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             <div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6.5l18-3v17l-18-3z"/><path d="M3 6.5v14.5"/></svg></div>
             <span>Screen</span>
           </button>
+          <!-- Admin only (shown by the admin script): an Instagram screen for a
+               phone mockup. Click it, then click the phone's screen. -->
+          <button class="ed-shape" data-iglayout="post" title="Instagram post, for a phone screen" hidden>
+            <div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="2" width="12" height="20" rx="2"/><rect x="8" y="7" width="8" height="9"/><circle cx="8.8" cy="5" r=".8"/></svg></div>
+            <span>Instagram post</span>
+          </button>
+          <button class="ed-shape" data-iglayout="grid" title="Instagram grid, for a phone screen" hidden>
+            <div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M8 9h8v10H8z M10.7 9v10 M13.3 9v10 M8 14h8"/></svg></div>
+            <span>Instagram grid</span>
+          </button>
         </div>
         </div>
         <div class="ed-ttab-pane" data-etab-pane="personal">
@@ -4777,6 +4787,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       margin: 8px 0 0; font-family: var(--sans); font-size: var(--ws-t-meta);
       line-height: 1.45; color: rgba(255,255,255,0.72);
     }
+    .ed-shape[hidden] { display: none !important; }
     /* Waiting for the click that finds a screen in the photo. */
     .ed-canvas.is-picking-screen, .ed-canvas.is-picking-screen * { cursor: crosshair !important; }
     .ed-fields-restore {
@@ -7404,7 +7415,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
     if (isAdmin) {
       if (scheduleBtn) scheduleBtn.hidden = true;          // posting is a customer action
-      if (downloadWrap) downloadWrap.style.display = "none"; // buried — admins publish, not download
+      // Download stays: mockups are made to be downloaded, and a test
+      // download is how a design is checked (Dani, 25 Oct).
+      void downloadWrap;
       if (publishBtn) publishBtn.hidden = false;
       // Admins don't need the customer-facing help widget.
       document.getElementById("ask-expert-trigger")?.remove();
@@ -7738,6 +7751,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     // pages to type on.) ----
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     // ---- Your templates as pictures (admin; Dani, 25 Oct) ----
+    // The Instagram screens under Elements are the Admin Studio's.
+    if (isAdmin) document.querySelectorAll("[data-iglayout]").forEach((b) => { b.hidden = false; });
     if (isAdmin) {
       const fold = document.getElementById("ed-tplimg");
       const grid = document.getElementById("ed-tplimg-grid");
