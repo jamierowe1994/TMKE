@@ -2642,7 +2642,9 @@ import { createResizeEngine } from "./resize-engine.js";
     const fix = (cv, els) => {
       // 1080x1350 is Facebook Portrait now. A canvas someone chose that size
       // for (a new design or a resize) is marked, and left exactly as it is.
-      if (!cv || cv.sizeChosen || cv.width !== 1080 || cv.height !== 1350) return;
+      // A mockup is never upgraded: its photo and screens are measured to the
+      // size it was made at (Dani, 25 Oct).
+      if (!cv || cv.sizeChosen || cv.mockup || cv.width !== 1080 || cv.height !== 1350) return;
       cv.height = 1440;
       (els || []).forEach((el) => {
         if (el && el.y === 0 && el.h === 1350 && (el.type === "image" || el.type === "rect" || el.type === "frame")) el.h = 1440;
