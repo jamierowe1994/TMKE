@@ -9667,6 +9667,19 @@ import { createResizeEngine } from "./resize-engine.js";
       // Six, not a picker. The guide only has to stand out from the photo
       // underneath it, and picking a colour from a spectrum to solve "I can't
       // see it against black" is more work than the problem deserves.
+      /* What the screen shows: one picture, or an Instagram post or grid, for
+         a screen already lined up by hand (Dani, 25 Oct). Admin Studio only,
+         like the Instagram frames under Elements. */
+      if (isAdminMode()) {
+        const igBtn = (k, label) => '<button class="ed-btn-ghost' + (el.layout === k ? ' is-on' : '') + '" data-ig-apply="' + k + '" style="background:' +
+          (el.layout === k ? 'var(--english-violet);color:#fff' : 'rgba(28,29,34,0.06)') + ';width:100%">' + label + '</button>';
+        html.push(
+          '<div class="ed-props-section"><h4>Show on this screen</h4>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' + igBtn("post", "Instagram post") + igBtn("grid", "Instagram grid") + '</div>' +
+            (el.layout ? '<button class="ed-btn-ghost" data-ig-apply="none" style="background:rgba(28,29,34,0.06);width:100%;margin-top:8px">Back to a plain screen</button>' : '') +
+            '<p class="ed-props-hint">Puts an Instagram ' + (el.layout ? 'layout' : 'post or profile grid') + ' on this screen, keeping its corners. Then drag pictures onto its spaces.</p>' +
+          '</div>');
+      }
       // An Instagram screen: its name, its labels, its pictures (Dani, 25 Oct).
       if (el.layout) html.push(
           '<div class="ed-props-section"><h4>Instagram ' + (el.layout === "grid" ? "grid" : "post") + '</h4>' +
@@ -10145,6 +10158,18 @@ import { createResizeEngine } from "./resize-engine.js";
         const l = (el.igLabels || []).slice(); l[Number(inp.dataset.igLabel)] = inp.value.trim(); el.igLabels = l; pushHistory(); fullRender();
       }));
       body.querySelector("#ed-ig-clear")?.addEventListener("click", () => { el.igSlots = {}; pushHistory(); fullRender(); });
+      body.querySelectorAll("[data-ig-apply]").forEach((b) => b.addEventListener("click", () => {
+        const k = b.dataset.igApply;
+        if (k === "none") { delete el.layout; delete el.igSlots; delete el.igLabels; }
+        else if (el.layout !== k) {
+          // The name and any pictures already dropped carry across.
+          const keep = { igName: el.igName, igSlots: el.igSlots };
+          Object.assign(el, igProps(k));
+          if (keep.igName) el.igName = keep.igName;
+          if (keep.igSlots) el.igSlots = keep.igSlots;
+        }
+        pushHistory(); fullRender(); renderProps();
+      }));
       body.querySelector("#ed-sc-reset")?.addEventListener("click", () => resetScreenCorners(el));
       body.querySelector("#ed-sc-pick")?.addEventListener("click", () => startScreenPick(el));
       body.querySelector("#ed-sc-claude")?.addEventListener("click", (e) => {
