@@ -1,0 +1,138 @@
+---
+/* A seasonal landing page (Dani, 26 Oct): a promotion as a one-page sign-up,
+   laid out like /join. Everything on it comes from src/data/seasonal.js. */
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import SignupDrawer from "../../components/SignupDrawer.astro";
+import { SEASONAL } from "../../data/seasonal.js";
+
+export function getStaticPaths() {
+  return SEASONAL.map((s) => ({ params: { slug: s.slug }, props: { s } }));
+}
+const { s } = Astro.props;
+---
+
+<BaseLayout
+  dashboard
+  title={s.title}
+  description={s.description}
+  ogImage={s.og}
+  hideNav={true}
+  hideFooter={true}
+>
+  <main class="jn sn" data-ends={s.endsAt}>
+    <header class="jn-top">
+      <a href="/" class="jn-top-back" aria-label="Back to site"><span aria-hidden="true">&larr;</span> Back</a>
+      <a href="/" class="jn-top-mark" aria-label="TMKE — home">TMKE</a>
+    </header>
+
+    <section class="sn-lead">
+      <div class="sn-cell sn-hero">
+        <img src={s.hero.src} alt={s.hero.alt} width="1920" height="1080" fetchpriority="high" />
+      </div>
+      <div class="sn-cell sn-copy">
+        <div class="chapter">{s.chapter}</div>
+        <h1 class="sn-h">{s.heading}</h1>
+        {s.body.map((p) => <p class="sn-p">{p}</p>)}
+        <button type="button" class="btn btn--solid sn-btn sn-guest" data-signup-open><span>{s.button}</span> <span class="btn-arrow">&rarr;</span></button>
+        <a class="btn btn--solid sn-btn sn-member" href={s.next} data-member-link><span>{s.memberButton}</span> <span class="btn-arrow">&rarr;</span></a>
+        <p class="sn-ends">{s.endsNote}</p>
+      </div>
+    </section>
+
+    <p class="sn-line">{s.templatesLine}</p>
+    <div class="jn-grid sn-grid">
+      {s.templates.map((t) => (
+        <a class="jn-cell jn-cell--tile" href={s.next} data-signup-open data-member-link aria-label={`${t.name}: ${s.button}`}>
+          <span class="jn-tile-inner">
+            <span class="jn-thumb"><img class="jn-thumb-img" src={t.img} alt="" loading="lazy" /></span>
+            <span class="jn-cap"><span class="jn-cap-key chapter">{t.name}</span></span>
+          </span>
+        </a>
+      ))}
+    </div>
+
+    <div class="jn-cursor" id="jn-cursor" aria-hidden="true"><span>[ Click to join ]</span></div>
+
+    <SignupDrawer chapter={s.panel.chapter} heading={s.panel.heading} sub={s.panel.sub} next={s.next} redirectSignedIn={false} />
+  </main>
+
+  <style>
+    main.jn { --jn-line: rgba(28,29,34,0.12); background: var(--paper); min-height: 100vh; display: flex; flex-direction: column; }
+    .jn-top { display: flex; align-items: center; justify-content: space-between; padding: 16px clamp(18px, 2.4vw, 34px); flex: none; }
+    .jn-top-back { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .jn-top-back:hover { color: var(--ink); }
+    .jn-top-mark { font-family: var(--serif); font-size: 22px; letter-spacing: 0.08em; color: var(--ink); }
+
+    /* ---- The photo and the offer, ruled like /join's grid ---- */
+    .sn-lead { display: grid; grid-template-columns: 7fr 5fr; border-top: 1px solid var(--jn-line); border-left: 1px solid var(--jn-line); }
+    .sn-cell { border-right: 1px solid var(--jn-line); border-bottom: 1px solid var(--jn-line); }
+    .sn-hero { padding: clamp(24px, 3vw, 48px); display: flex; align-items: center; }
+    .sn-hero img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
+    .sn-copy { padding: clamp(32px, 4vw, 64px) clamp(26px, 3.4vw, 56px); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
+    .sn-copy .chapter { margin-bottom: 26px; }
+    .sn-h { font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 3.4vw, 46px); line-height: 1.04; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 22px; }
+    .sn-p { font-family: var(--sans); font-size: 16px; font-weight: 500; line-height: 1.5; color: rgba(28,29,34,0.68); margin: 0 0 12px; max-width: 34em; }
+    .sn-btn { margin-top: 18px; padding: 15px 22px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+    .sn-member { display: none; }
+    :global(html.is-signed-in) .sn-guest { display: none; }
+    :global(html.is-signed-in) .sn-member { display: inline-flex; }
+    .sn-ends { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 14px 0 0; }
+
+    /* ---- The four templates, as /join's tiles ---- */
+    .sn-line { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin: 0; padding: 18px clamp(18px, 2.4vw, 34px); border-left: 1px solid var(--jn-line); border-right: 1px solid var(--jn-line); }
+    .jn-grid { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--jn-line); border-left: 1px solid var(--jn-line); }
+    .jn-cell { border-right: 1px solid var(--jn-line); border-bottom: 1px solid var(--jn-line); min-height: clamp(320px, 36vh, 440px); position: relative; text-decoration: none; }
+    /* Top-aligned: a name on three lines must not lift its picture above the others. */
+    .jn-cell--tile { display: flex; align-items: flex-start; justify-content: center; padding: clamp(30px, 3vw, 44px) 24px; cursor: pointer; background: none; }
+    .jn-tile-inner { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; width: min(70%, 230px); }
+    .jn-thumb { position: relative; width: 100%; aspect-ratio: 1080 / 1440; overflow: visible; }
+    .jn-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; will-change: filter; transition: filter 0.5s ease, opacity 0.5s ease; }
+    .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: blur(11px); opacity: 0.5; }
+    .jn-cap { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; width: 100%; }
+    .jn-cap-key { margin: 0; color: var(--english-violet); line-height: 1.35; }
+    .jn-cell--tile:focus-visible { outline: 2px solid var(--english-violet); outline-offset: -2px; }
+
+    .jn-cursor { position: fixed; top: 0; left: 0; z-index: 2500; pointer-events: none; opacity: 0; transition: opacity 0.18s ease; }
+    .jn-cursor.is-on { opacity: 1; }
+    .jn-cursor span { position: absolute; transform: translate(-50%, -50%); color: var(--english-violet); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap; }
+    .jn.jn-has-cursor .jn-grid, .jn.jn-has-cursor .jn-cell--tile { cursor: none; }
+    @media (hover: none) { .jn-cursor { display: none; } }
+
+    @media (max-width: 960px) {
+      .sn-lead { grid-template-columns: 1fr; }
+      .jn-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .sn-hero { padding: 16px; }
+      .sn-copy { padding: 30px 16px 34px; }
+      .sn-btn { width: 100%; justify-content: center; }
+      .sn-line { padding: 16px; }
+      .jn-cell { min-height: clamp(200px, 44vw, 280px); }
+      .jn-cell--tile { padding: 22px 14px; }
+      .jn-tile-inner { width: min(86%, 160px); gap: 12px; }
+      .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: none; opacity: 1; }
+    }
+  </style>
+
+  <script>
+    // Once the offer has ended, an old post lands on /join instead.
+    const sn = document.querySelector(".sn");
+    const ends = sn && Date.parse(sn.dataset.ends || "");
+    if (ends && Date.now() >= ends) location.replace("/join");
+
+    // The "[ Click to join ]" cursor over the templates, as on /join; not for
+    // a member, for whom they open the Studio.
+    const grid = document.querySelector(".jn-grid");
+    const cursor = document.getElementById("jn-cursor");
+    if (sn && grid && cursor && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      const guest = () => !document.documentElement.classList.contains("is-signed-in");
+      grid.addEventListener("mousemove", (e) => {
+        if (!guest()) return;
+        sn.classList.add("jn-has-cursor");
+        cursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+        if (!document.getElementById("jn-drawer")?.classList.contains("is-open")) cursor.classList.add("is-on");
+      });
+      grid.addEventListener("mouseleave", () => cursor.classList.remove("is-on"));
+    }
+  </script>
+</BaseLayout>

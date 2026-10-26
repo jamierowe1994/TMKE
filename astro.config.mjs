@@ -25,6 +25,8 @@ export default defineConfig({
         // Sign-in plumbing and one-off links sent to a person: nothing to find
         // in search, and "forgot password" ranking for the brand looks broken.
         !/\/(auth|forgot-password|reset-password|manage|edits|leave-a-review|review)(\/|$)/.test(page) &&
+        // /seasonal only forwards to the current seasonal page.
+        !/\/seasonal\/?$/.test(page) &&
         !/\/privacy(\/|$)/.test(page) &&
         !/\/cookies(\/|$)/.test(page),
     }),
