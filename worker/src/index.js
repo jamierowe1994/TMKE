@@ -5028,6 +5028,7 @@ async function runAutomationsTick(env) {
   // every five minutes and crowd out the funnels that are running.
   const paused = ((await sbGet(env, "automations", "status=eq.paused&select=id")) || []).map((a) => a.id);
   const notPaused = paused.length ? `&automation_id=not.in.(${paused.map(encodeURIComponent).join(",")})` : "";
+  try { await retimeDatedSends(env); } catch (_) {}
   const due = (await sbGet(env, "automation_enrollments", `status=eq.active&next_run_at=lte.${encodeURIComponent(nowISO())}${notPaused}&select=*&order=next_run_at.asc&limit=50`)) || [];
   for (const enr of due) {
     try { await advanceEnrollment(env, enr); }
@@ -5035,6 +5036,26 @@ async function runAutomationsTick(env) {
   }
   if (due.length) await notifyCampaignSends(env);
   return due.length;
+}
+
+/* A dated email's date or time changed after people reached it (Danielle,
+   26 Oct: the Halloween member email moved from 2 Nov to 26 Oct 11:00, and
+   the 44 already waiting kept 2 Nov 09:00, because a hold is worked out once,
+   on arrival). Each tick, anyone held at a dated send step later than that
+   step's moment is brought forward to it. A moment moved later needs nothing:
+   the step re-checks its hold when they reach it. */
+async function retimeDatedSends(env) {
+  const autos = (await sbGet(env, "automations", "status=eq.active&select=id,graph")) || [];
+  for (const a of autos) {
+    for (const n of ((a.graph && a.graph.nodes) || [])) {
+      if (n.type !== "send_email" || !n.config || !/^\d{4}-\d{2}-\d{2}$/.test(String(n.config.send_on || ""))) continue;
+      const target = new Date(Date.now() + msUntilSendMoment(n.config.send_on, n.config.send_at));
+      const late = new Date(target.getTime() + 60000).toISOString();
+      await sbPatch(env, "automation_enrollments",
+        `automation_id=eq.${encodeURIComponent(a.id)}&current_node_id=eq.${encodeURIComponent(n.id)}&status=eq.active&next_run_at=gt.${encodeURIComponent(late)}`,
+        { next_run_at: target.toISOString() });
+    }
+  }
 }
 
 // "Autumn Edit: email 3 has gone out", to Danielle and Sam, once a dated
