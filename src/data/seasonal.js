@@ -20,7 +20,7 @@ export const SEASONAL = [
     endsAt: "2026-11-01T00:00:00Z",   // the end of 31 October, UK time
     og: "/images/seasonal/halloween/og.jpg",   // the link preview, 1200 x 630
     hero: { src: "/images/seasonal/halloween/hero.webp", alt: "Someone in a Halloween mask holding up a TMKE Happy Halloween sign on a zebra crossing" },
-    eyebrow: "Halloween",
+    eyebrow: "Halloween at TMKE",
     board: "Happy Halloween",                 // pressed into the board
     boardLink: "Get your free templates",
     featureLabel: "Your Freebies",
@@ -40,7 +40,7 @@ export const SEASONAL = [
       { name: "It's Pumpkin Picking Season", img: "/images/seasonal/halloween/t1.webp" },
       { name: "Love at First Fright", img: "/images/seasonal/halloween/t2.webp" },
       { name: "Property Nightmares", img: "/images/seasonal/halloween/t3.webp" },
-      { name: "The Scariest Thing About Selling Your Home", img: "/images/seasonal/halloween/t4.webp" },
+      { name: "The Scariest Thing About Selling", img: "/images/seasonal/halloween/t4.webp" },
     ],
     panel: {
       chapter: "Your Free Templates",
@@ -51,7 +51,7 @@ export const SEASONAL = [
     more: {
       label: "And There's More",
       heading: "Your Marketing, All in One Place",
-      intro: "The Studio is where you'll edit your Halloween templates, with templates, tools and your brand kit ready to go. It's part of the TMKE Member Hub, where you can also map out your month, browse ready-made template packs in The Edit, sharpen your marketing with guides and mini-courses, and book a videography shoot or discovery call. Your orders, services and bookings are kept together too, so you can see everything at a glance.",
+      intro: "The Studio is where you'll edit your Halloween templates, with tools and your brand kit ready to go. It's part of the TMKE Member Hub, where you can also map out your month, browse ready-made template packs in The Edit, sharpen your marketing with guides and mini-courses, and book a videography shoot or discovery call. Your orders, services and bookings are kept together too, so you can see everything at a glance.",
       button: "Join the Studio",
       memberButton: "Go to the Studio",
       tiles: [
