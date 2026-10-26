@@ -5041,18 +5041,25 @@ async function runAutomationsTick(env) {
 /* A dated email's date or time changed after people reached it (Danielle,
    26 Oct: the Halloween member email moved from 2 Nov to 26 Oct 11:00, and
    the 44 already waiting kept 2 Nov 09:00, because a hold is worked out once,
-   on arrival). Each tick, anyone held at a dated send step later than that
-   step's moment is brought forward to it. A moment moved later needs nothing:
-   the step re-checks its hold when they reach it. */
-async function retimeDatedSends(env) {
-  const autos = (await sbGet(env, "automations", "status=eq.active&select=id,graph")) || [];
+   on arrival). On each tick, and straight after a funnel is saved, anyone
+   held at a dated send step is moved to that step's current moment, earlier
+   or later, so what the screens say is when it goes. */
+async function retimeDatedSends(env, onlyId) {
+  const autos = (await sbGet(env, "automations", onlyId
+    ? `id=eq.${encodeURIComponent(onlyId)}&select=id,graph`
+    : "status=eq.active&select=id,graph")) || [];
   for (const a of autos) {
     for (const n of ((a.graph && a.graph.nodes) || [])) {
       if (n.type !== "send_email" || !n.config || !/^\d{4}-\d{2}-\d{2}$/.test(String(n.config.send_on || ""))) continue;
       const target = new Date(Date.now() + msUntilSendMoment(n.config.send_on, n.config.send_at));
-      const late = new Date(target.getTime() + 60000).toISOString();
+      // Whole seconds: a filter value inside or() reads more safely without the dot.
+      const iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
+      const late = iso(new Date(target.getTime() + 60000));
+      const early = iso(new Date(target.getTime() - 60000));
+      const nowIso = iso(new Date());
       await sbPatch(env, "automation_enrollments",
-        `automation_id=eq.${encodeURIComponent(a.id)}&current_node_id=eq.${encodeURIComponent(n.id)}&status=eq.active&next_run_at=gt.${encodeURIComponent(late)}`,
+        `automation_id=eq.${encodeURIComponent(a.id)}&current_node_id=eq.${encodeURIComponent(n.id)}&status=eq.active`
+        + `&or=(next_run_at.gt.${encodeURIComponent(late)},and(next_run_at.lt.${encodeURIComponent(early)},next_run_at.gt.${encodeURIComponent(nowIso)}))`,
         { next_run_at: target.toISOString() });
     }
   }
@@ -8979,6 +8986,25 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         }
         const done = sent + failed + skipped;
         return json({ ok: true, found: todo.length, sent, failed, skipped, remaining: Math.max(0, todo.length - done), error: lastError }, 200, request, env);
+      }
+
+      // ---- A funnel just saved: re-time anyone waiting at its dated emails, and
+      // say who's waiting at each step and when they next move (Danielle, 26 Oct).
+      if (path.endsWith("/automations/retime") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        if (!b.automation_id) return json({ error: "No automation id." }, 400, request, env);
+        try { await retimeDatedSends(env, b.automation_id); } catch (_) {}
+        const rows = (await sbGetAll(env, "automation_enrollments", `automation_id=eq.${encodeURIComponent(b.automation_id)}&status=eq.active&select=current_node_id,next_run_at`)) || [];
+        const steps = {};
+        for (const r of rows) {
+          const k = r.current_node_id || "";
+          const st = steps[k] || (steps[k] = { waiting: 0, next_at: null });
+          st.waiting += 1;
+          if (r.next_run_at && (!st.next_at || r.next_run_at < st.next_at)) st.next_at = r.next_run_at;
+        }
+        return json({ ok: true, steps }, 200, request, env);
       }
 
       if (path.endsWith("/automations/insights") && request.method === "POST") {

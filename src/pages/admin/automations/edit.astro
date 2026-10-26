@@ -243,6 +243,7 @@ import "../../../styles/admin.css";
     .af-node-kind { font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 4px; }
     .af-node-title { font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.3; }
     .af-node-sub { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin-top: 4px; line-height: 1.4; }
+    .af-node-next { margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(28,29,34,0.08); font-family: var(--sans); font-size: 11.5px; font-weight: 700; color: var(--english-violet); }
     .af-node.is-trigger { border-color: var(--english-violet); background: linear-gradient(180deg,#fff,rgba(55,30,40,0.04)); }
     .af-node-del { position: absolute; top: 8px; right: 10px; border: 0; background: none; color: rgba(28,29,34,0.35); font-size: 16px; cursor: pointer; line-height: 1; }
     .af-node-del:hover { color: #a05a3c; }
@@ -549,6 +550,23 @@ import "../../../styles/admin.css";
       return "";
     }
 
+    /* Who's waiting at each step and when they next move, from the Worker,
+       which first re-times anyone held at a dated email to its current date
+       and time (Danielle, 26 Oct: a changed send time has to actually change
+       when it goes). Loaded on open and after every save. */
+    let stepStats = {};
+    async function loadStepStats() {
+      if (!automationId) return;
+      try { const d = await workerPost("/automations/retime", { automation_id: automationId }); stepStats = d.steps || {}; render(); } catch (_) {}
+    }
+    function nextSendLine(n) {
+      const st = stepStats[n.id];
+      if (!st || !st.waiting) return "";
+      const due = st.next_at && new Date(st.next_at) <= new Date();
+      const when = st.next_at ? new Date(st.next_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }) : "";
+      return `<div class="af-node-next">${due ? "Sending now" : `Next send ${esc(when)}`} · ${st.waiting} waiting</div>`;
+    }
+
     function render() {
       // nodes
       nodesEl.innerHTML = graph.nodes.map((n) => `
@@ -558,6 +576,7 @@ import "../../../styles/admin.css";
           <div class="af-node-kind">${n.type === "trigger" ? "Trigger" : (NODE_TYPES.find((t) => t.type === n.type)?.group || "Step")}</div>
           <div class="af-node-title">${esc(nodeTitle(n))}</div>
           <div class="af-node-sub">${esc(nodeSub(n))}</div>
+          ${n.type === "send_email" ? nextSendLine(n) : ""}
         </div>`).join("");
       // Bind node interactions, then draw edges + add-buttons. offsetLeft/Top
       // force a synchronous reflow, so positions are ready immediately — no need
@@ -1095,6 +1114,7 @@ import "../../../styles/admin.css";
       btn.disabled = false; btn.textContent = "Save";
       if (saveErr) { alert("Couldn't save: " + saveErr.message); return; }
       btn.textContent = "Saved ✓"; setTimeout(() => (btn.textContent = "Save"), 1500);
+      loadStepStats();
       // (Enrolling an audience now happens when the funnel goes live - see
       // goLive() - rather than on every save.)
       if (false) {
@@ -1115,6 +1135,7 @@ import "../../../styles/admin.css";
     (async () => {
       if (!DEV) { const s = await requireAdmin(); if (!s) return; }
       await load();
+      loadStepStats();
     })();
   </script>
 </AdminShell>

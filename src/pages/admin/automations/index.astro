@@ -73,6 +73,8 @@ import "../../../styles/admin.css";
     .auto-badge.paused { color: #b78a2e; background: rgba(183,138,46,0.14); }
     .auto-badge.archived { color: rgba(28,29,34,0.4); background: rgba(28,29,34,0.06); }
     .auto-card-meta { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); line-height: 1.5; }
+    .auto-next { margin-top: -4px; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); }
+    .auto-next strong { color: var(--english-violet); }
     .auto-card-meta strong { color: var(--english-violet); font-weight: 700; }
     .auto-card-foot { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
     .auto-rowbtn { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid rgba(28,29,34,0.2); background: transparent; color: var(--english-violet); border-radius: 5px; padding: 6px 10px; cursor: pointer; }
@@ -145,6 +147,20 @@ import "../../../styles/admin.css";
       return `<div class="auto-warn"><strong>Nobody left for email ${sends.indexOf(next) + 1}.</strong> It's due ${esc(when)}${next.config.send_at ? ` at ${esc(next.config.send_at)}` : ""}, but nobody is in this funnel to receive it.</div>`;
     }
 
+    /* The next email this funnel sends: the earliest moment anyone waiting at
+       a send step moves on (Danielle, 26 Oct). Times are re-checked against
+       each email's date and time on every run, so this is when it goes. */
+    function nextSendLine(a, live) {
+      const sendIds = new Set(((a.graph && a.graph.nodes) || []).filter((n) => n.type === "send_email").map((n) => n.id));
+      const at = live.filter((e) => e.status === "active" && sendIds.has(e.current_node_id) && e.next_run_at);
+      if (!at.length || a.status !== "active") return "";
+      const first = at.reduce((m, e) => (e.next_run_at < m ? e.next_run_at : m), at[0].next_run_at);
+      const same = at.filter((e) => Math.abs(new Date(e.next_run_at) - new Date(first)) < 60000).length;
+      const due = new Date(first) <= new Date();
+      const when = new Date(first).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
+      return `<div class="auto-next">${due ? "<strong>Sending now</strong>" : `Next send <strong>${esc(when)}</strong>`} · ${same} ${same === 1 ? "person" : "people"}</div>`;
+    }
+
     function card(a) {
       const live = LIVE.get(a.id) || [];
       const kind = kindOf(a);
@@ -161,6 +177,7 @@ import "../../../styles/admin.css";
             Trigger: <strong>${esc(TRIGGER_LABELS[a.trigger_type] || "Not set")}</strong><br>
             <strong>${live.length}</strong> in the funnel now · edited ${esc(fmtDate(a.updated_at))}
           </div>
+          ${nextSendLine(a, live)}
           ${emptyFunnelWarning(a, live)}
           ${live.length ? `
           <button type="button" class="auto-rowbtn auto-who" data-who="${esc(a.id)}">See who &darr;</button>
