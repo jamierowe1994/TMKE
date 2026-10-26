@@ -1405,8 +1405,11 @@ import { createResizeEngine } from "./resize-engine.js";
   // Draft → gradient model the onGradient callback expects. We keep from/to in
   // sync (first/last stop) so any 2-stop-only consumer still works.
   function cpDraftToGrad(d) {
+    /* Each stop keeps its opacity. It was dropped here, so a shape filled
+       from the panel - its colour fading to the same colour at 0% - came out
+       as one flat box, radial or not (Dani, 26 Oct). */
     const stops = (d.stops || []).slice().sort(function (a, b) { return a.pos - b.pos; })
-      .map(function (s) { return { color: s.color, pos: s.pos }; });
+      .map(function (s) { const o = { color: s.color, pos: s.pos }; if (s.a != null && s.a < 1) o.a = s.a; return o; });
     const first = stops[0] || { color: "#371E28", pos: 0 };
     const last = stops[stops.length - 1] || { color: "#B9826A", pos: 100 };
     return {
@@ -1469,7 +1472,11 @@ import { createResizeEngine } from "./resize-engine.js";
         '<input type="range" min="0" max="100" class="ed-cpg-range" data-cpg="selPos" value="' + (selStop.pos || 0) + '">' +
         '<span class="ed-cpg-val" data-out="selPos">' + (selStop.pos || 0) + '%</span></div>' +
       '<div class="ed-cpg-sub">Style</div>' +
-      '<div class="ed-cpg-styles">' + styleBtns + '</div>' +
+      /* Invert turns it inside out: the centre gradient's clear middle and
+         dark edges become a dark middle fading out (Dani, 26 Oct). */
+      '<div class="ed-cpg-styles">' + styleBtns +
+        '<button type="button" class="ed-cpg-invert" data-cpg="invert" title="Swap the inside and the outside">Invert</button>' +
+      '</div>' +
       '<div class="ed-cpg-row' + (isLin ? "" : " is-hidden") + '" data-cpg="angleRow"><span class="ed-cpg-lbl">Angle</span>' +
         '<input type="range" min="0" max="360" class="ed-cpg-range" data-cpg="angle" value="' + (d.angle != null ? d.angle : 135) + '">' +
         '<span class="ed-cpg-val" data-out="angle">' + (d.angle != null ? d.angle : 135) + '°</span></div>' +
@@ -1694,6 +1701,10 @@ import { createResizeEngine } from "./resize-engine.js";
         const st = CPG_STYLES.find(function (x) { return x.key === styleBtn.dataset.style; });
         if (st) { d.type = st.type; d.angle = st.angle; cpRerender(); cpCommit(); }
         return;
+      }
+      if (e.target.closest('[data-cpg="invert"]') && d) {
+        d.stops = d.stops.map(function (s) { return Object.assign({}, s, { pos: 100 - (s.pos || 0) }); });
+        cpRerender(); cpCommit(); return;
       }
       // Select a stop swatch to edit it.
       const stopBtn = e.target.closest(".ed-cpg-stop");
