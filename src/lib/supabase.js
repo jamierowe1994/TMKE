@@ -116,26 +116,42 @@ const onAdminSide = typeof window !== 'undefined' && adminPlace(window.location.
 const inTrainingWindow = typeof window !== 'undefined' && !!window.__TMKE_TRAINING_WINDOW__;
 const activeKey = inTrainingWindow ? 'tmke-training-auth' : onAdminSide ? ADMIN_KEY : MEMBER_KEY;
 
-/* Members signed in before the split have their session in the old shared
-   slot, which is now the admin one. On their first hub page it is MOVED to
-   the member slot -- moved, not copied: one session in two slots would be
-   refreshed twice, and Supabase treats a refresh token used twice as stolen
-   and ends the session. Staff are the exception: a staff session stays where
-   it is, on the admin side, and staff sign in to the hub once, separately --
-   which is the point. Checked by email, the same rule as admin-gate.js. */
-try {
-  if (typeof window !== 'undefined' && !onAdminSide && !localStorage.getItem(MEMBER_KEY)) {
-    const raw = localStorage.getItem(ADMIN_KEY);
-    if (raw) {
-      const email = String((JSON.parse(raw) || {}).user?.email || '').toLowerCase().trim();
-      const staff = email.endsWith('@tmke.co.uk') || email === 'james@therecruitmentexperts.co.uk';
-      if (!staff) {
-        localStorage.setItem(MEMBER_KEY, raw);
-        localStorage.removeItem(ADMIN_KEY);
-      }
+/* Until 26 Oct a session found in the admin slot was MOVED to the member slot
+   on any non-admin page, if the member slot was empty and the email wasn't on
+   tmke.co.uk - the one-off move for members signed in before the split on
+   12 Oct. Staff whose email is elsewhere (Dani's) are admins only by the
+   admins table, which that check couldn't see, so opening the website with
+   the hub signed out took their admin session away. The move had done its
+   job; it's gone. */
+
+/* The browser's storage is shared with the admin Studio's local copies of
+   designs, which can fill it. When it is full, the session can't be written:
+   signing in works on the page and is gone on the next, so the admin centre
+   sent Dani back to sign in every time (26 Oct). A session always gets its
+   place: the Studio's put-aside copies go first (tmke.editor.backup.*), then
+   its oldest local copies, until the write fits. */
+function makeRoom(needKey) {
+  try {
+    const keys = Object.keys(localStorage);
+    const backups = keys.filter((k) => k.indexOf('tmke.editor.backup.') === 0).sort();
+    const savedAt = (k) => { try { return (JSON.parse(localStorage.getItem(k) || 'null') || {}).savedAt || 0; } catch (_) { return 0; } };
+    const drafts = keys
+      .filter((k) => /^tmke\.editor\.(?!backup\.|favFonts|recentFonts)/.test(k) && k !== needKey)
+      .map((k) => [k, savedAt(k)]).sort((x, y) => x[1] - y[1]).map((x) => x[0]);
+    return backups.concat(drafts);
+  } catch (_) { return []; }
+}
+const roomyStorage = typeof window === 'undefined' ? undefined : {
+  getItem: (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } },
+  removeItem: (k) => { try { localStorage.removeItem(k); } catch (_) {} },
+  setItem: (k, v) => {
+    try { localStorage.setItem(k, v); return; } catch (_) {}
+    for (const old of makeRoom(k)) {
+      try { localStorage.removeItem(old); } catch (_) {}
+      try { localStorage.setItem(k, v); console.warn('[TMKE] Browser storage was full; cleared old Studio copies to keep you signed in.'); return; } catch (_) {}
     }
-  }
-} catch (_) {}
+  },
+};
 
 export const supabase = isConfigured
   ? createClient(url, anonKey, {
@@ -143,6 +159,7 @@ export const supabase = isConfigured
         persistSession: true,
         autoRefreshToken: true,
         storageKey: activeKey,
+        ...(roomyStorage ? { storage: roomyStorage } : {}),
       },
     })
   : makeStubClient();

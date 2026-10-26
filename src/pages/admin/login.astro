@@ -99,7 +99,7 @@ import AdminBack from "../../components/AdminBack.astro";
   </style>
 
   <script>
-    import { supabase } from '../../lib/supabase.js';
+    import { supabase, AUTH_STORAGE_KEY } from '../../lib/supabase.js';
     import { isAdminUser } from '../../lib/admin-gate.js';
 
     const form = document.getElementById('login-form');
@@ -161,6 +161,16 @@ import AdminBack from "../../components/AdminBack.astro";
         submitBtn.removeAttribute('disabled');
         labelEl.textContent = 'Sign in';
         showDenied();
+        return;
+      }
+      /* Signed in, but if the browser couldn't keep the session, the next page
+         won't see it and you'd be back here with no reason given (26 Oct). */
+      let kept = false;
+      try { kept = !!localStorage.getItem(AUTH_STORAGE_KEY); } catch (_) {}
+      if (!kept) {
+        submitBtn.removeAttribute('disabled');
+        labelEl.textContent = 'Sign in';
+        showError("You're signed in, but this browser won't keep it: its storage is full or blocked. Try a private window, or clear this site's data in the browser settings.");
         return;
       }
       location.replace(params.get('next') || '/admin');

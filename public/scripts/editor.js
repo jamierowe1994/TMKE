@@ -2451,8 +2451,10 @@ import { createResizeEngine } from "./resize-engine.js";
   function autosaveDraft() {
     if (!ADMIN_MODE_URL) return;
     if (!state.templateId) state.templateId = "draft-" + Date.now(); // new / imported designs get a stable key
+    const key = "tmke.editor." + state.templateId;
+    let raw;
     try {
-      localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify({
+      raw = JSON.stringify({
         templateId: state.templateId,
         filename: filenameEl ? filenameEl.value : "Draft",
         canvas: state.canvas,
@@ -2461,7 +2463,17 @@ import { createResizeEngine } from "./resize-engine.js";
         guides: deep(state.guides || []),
         savedAt: Date.now(),
         baseAt: state.baseAt || null,
-      }));
+      });
+    } catch (_) { return; }
+    try { localStorage.setItem(key, raw); return; } catch (_) {}
+    /* Full (26 Oct: a full browser also cost Dani her admin sign-in). The
+       put-aside copies go first, oldest first, then this copy tries again. */
+    try {
+      const backups = Object.keys(localStorage).filter(function (k) { return k.indexOf("tmke.editor.backup.") === 0; }).sort();
+      for (let i = 0; i < backups.length; i++) {
+        localStorage.removeItem(backups[i]);
+        try { localStorage.setItem(key, raw); return; } catch (_) {}
+      }
     } catch (_) {}
   }
   // Also persist to the Supabase `templates` row when the cloud hook is up. On
