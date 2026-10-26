@@ -6223,7 +6223,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           const fam = (c) => (typeof window.__TMKE_SIZE_FAMILY__ === 'function' && c) ? window.__TMKE_SIZE_FAMILY__(c.width, c.height) : null;
           const list = onlyId ? rows : rows.filter((t) => fam(t.canvas) !== 'print');
           if (onlyId && fromOpen && list[0]) Object.assign(list[0], fromOpen);
-          let done = 0, failed = 0;
+          let done = 0, failed = 0, pagesFailed = 0;
           for (const t of list) {
             try {
               const pair = backOnly ? { thumb: null, render: null } : (typeof window.__TMKE_RENDER_PAIR_FROM__ === 'function')
@@ -6263,23 +6263,29 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
               const pagesNow = (onlyId && Array.isArray(openPages) && openPages.length) ? openPages : (Array.isArray(t.pages) ? t.pages : []);
               if (fam(t.canvas) !== 'print' && pagesNow.length > 1 && typeof window.__TMKE_RENDER_PAIR_FROM__ === 'function') {
                 const imgs = [];
+                let pageMissed = false;
                 for (const pg of pagesNow) {
+                  if (onProgress) onProgress(done, list.length, failed, imgs.length + 1, pagesNow.length);
                   try {
                     const pr = await window.__TMKE_RENDER_PAIR_FROM__(pg.canvas, pg.elements);
                     const one = {};
                     if (pr && typeof pr.thumb === 'string' && pr.thumb.startsWith('data:')) one.thumb = await externUploadDataUrl(pr.thumb);
                     if (pr && typeof pr.render === 'string' && pr.render.startsWith('data:')) one.render = await externUploadDataUrl(pr.render);
+                    if (!one.thumb && !one.render) pageMissed = true;
                     imgs.push(one);
-                  } catch (e) { console.error('[regen page]', t.id, e); imgs.push({}); }
+                  } catch (e) { console.error('[regen page]', t.id, e); imgs.push({}); pageMissed = true; }
                 }
+                /* It said "all 4 pages" even when this write never landed, so a
+                   design came out with its cover and nothing else (Dani, 26 Oct). */
                 const { error: pErr } = await supabase.from('templates').update({ page_images: imgs }).eq('id', t.id);
-                if (pErr) console.error('[regen pages]', t.id, pErr.message);
+                if (pErr) { console.error('[regen pages]', t.id, pErr.message); pageMissed = true; }
+                if (pageMissed) pagesFailed++;
               }
             } catch (e) { failed++; console.error('[regen render]', t.id, e); }
             done++;
             if (onProgress) onProgress(done, list.length, failed);
           }
-          return { total: list.length, done, failed };
+          return { total: list.length, done, failed, pagesFailed };
         };
 
         // Brand-kit links point at the customer profile (/profile). In admin we
@@ -7717,9 +7723,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           : "Redo the front and back previews, from the design as it is on screen?\n\nTo redo only the back, go to page two first.")) return;
         const orig = regenBtn.textContent;
         regenBtn.disabled = true;
+        // Leaving mid-run keeps the cover but loses the page pictures, which are drawn last.
+        const holdPage = (e) => { e.preventDefault(); e.returnValue = ""; };
+        window.addEventListener("beforeunload", holdPage);
         try {
-          const res = await window.__TMKE_REGEN_ALL__((done, total) => {
-            regenBtn.textContent = onlyId ? "Regenerating…" : `Regenerating ${done}/${total}…`;
+          const res = await window.__TMKE_REGEN_ALL__((done, total, _f, page, pages) => {
+            regenBtn.textContent = onlyId
+              ? (page ? `Page ${page} of ${pages}…` : "Regenerating…")
+              : `Regenerating ${done}/${total}…`;
           }, onlyId, fromOpen, fromOpenBack, backOnly,
             (onlyId && typeof window.__TMKE_OPEN_PAGES__ === "function") ? window.__TMKE_OPEN_PAGES__() : null);
           const ok = res.done - res.failed;
@@ -7727,18 +7738,22 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           if (onlyId) {
             alert(res.failed
               ? "That preview could not be regenerated — see the console."
+              : res.pagesFailed
+                ? "The cover has been regenerated, but the pictures of each page didn't all save, so the pack can't offer every page yet. Click Regenerate previews again and stay on this page until it says Done."
               : backOnly
                 ? "The back preview has been regenerated. The front preview is unchanged.\n\nOn page one, Regenerate previews does the front and the back."
                 : !printOpen && pageInfo && pageInfo.count > 1
                 ? "The previews of all " + pageInfo.count + " pages have been regenerated. Each page can now be pulled into a pack's gallery on its own."
                 : "This template's preview has been regenerated" + (pageInfo && pageInfo.count > 1 ? ", front and back" : "") + ".\n\nOn page two, it does the back only. Hold Shift and click to do the whole catalogue.");
           } else {
-            alert(`Regenerated ${ok} of ${res.total} previews.` + (res.failed ? ` ${res.failed} failed — see the console.` : " Re-publishing covers will now use the crisp versions."));
+            alert(`Regenerated ${ok} of ${res.total} previews.` + (res.failed ? ` ${res.failed} failed — see the console.` : " Re-publishing covers will now use the crisp versions.")
+              + (res.pagesFailed ? ` ${res.pagesFailed} ${res.pagesFailed === 1 ? "design's" : "designs'"} page pictures didn't all save - open ${res.pagesFailed === 1 ? "it" : "each"} and regenerate again.` : ""));
           }
         } catch (e) {
           console.error("[regen]", e);
           alert("Regenerate failed: " + (e.message || e));
         } finally {
+          window.removeEventListener("beforeunload", holdPage);
           regenBtn.disabled = false;
           setTimeout(() => { regenBtn.textContent = orig; }, 3000);
         }
