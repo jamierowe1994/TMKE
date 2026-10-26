@@ -9246,7 +9246,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
          only ever counted what had been paid for, which is not how a pack
          drawn for a brand reaches its agents. */
       // Every brand they are in -- an agent in two sees both brands' packs.
-      const { ownedPacks, memberBrandsFor } = await import("../../lib/pack-access.js");
+      const { ownedPacks, memberBrandsFor, openNow } = await import("../../lib/pack-access.js");
       const memberBrand = await memberBrandsFor(supabase);
       const owned = ownedPacks(allPacks, ownedIds, memberBrand);
 
@@ -9256,10 +9256,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         // "demo" isn't an id: it means whichever pack is flagged as the demo
         // pack in the admin. The training walkthroughs link to it that way so
         // they keep working if that flag moves to another pack.
+        /* "free" is whichever members pack is free right now (a seasonal
+           page links that way, Dani 26 Oct), so a page never has to be told
+           a pack's id; the newest if two overlap. */
+        const freeNow = () => owned
+          .filter((x) => x.access === "members" && x.available_until && openNow(x))
+          .sort((a, b) => String(b.available_from || "").localeCompare(String(a.available_from || "")))[0];
         const p = packParam === "demo"
           ? (owned.find((x) => x.demo === true) || allPacks.find((x) => x.demo === true))
-          // Its slug works too, so a page can link to a pack by name
-          // (/seasonal: ?pack=happy-halloween, Dani 26 Oct).
+          : packParam === "free" ? freeNow()
+          // Its slug works too, so a link can name a pack.
           : (owned.find((x) => x.id === packParam || x.slug === packParam) || allPacks.find((x) => x.id === packParam || x.slug === packParam));
         if (p) {
           grid.innerHTML = packGridHtml(owned);

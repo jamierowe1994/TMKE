@@ -9,7 +9,8 @@
    endsAt  after this the page sends people to /join instead, so an old post
            never promises something that has gone.
    next    where a new member lands once signed up: the pack in the Studio.
-           ?pack= takes a pack's slug or its id. */
+           ?pack=free is whichever members pack is free right now, so this
+           needn't change when the pack does; a slug or an id works too. */
 export const SEASONAL = [
   {
     slug: "halloween",
@@ -33,7 +34,7 @@ export const SEASONAL = [
       "But be quick. They won't be haunting the Studio for long.",
     ],
     button: "Create your free account",
-    memberButton: "Open your Halloween templates",
+    memberButton: "Discover your free Halloween templates",
     endsNote: "The free week ends on 31 October.",
     templates: [
       { name: "It's Pumpkin Picking Season", img: "/images/seasonal/halloween/t1.webp" },
@@ -51,19 +52,20 @@ export const SEASONAL = [
       label: "And There's More",
       heading: "Your Marketing, All in One Place",
       intro: "The Studio is where you'll edit your Halloween templates, with templates, tools and your brand kit ready to go. It's part of the TMKE Member Hub, where you can also map out your month, browse ready-made template packs in The Edit, sharpen your marketing with guides and mini-courses, and book a videography shoot or discovery call. Your orders, services and bookings are kept together too, so you can see everything at a glance.",
-      button: "Create your free account",
+      button: "Join the Studio",
+      memberButton: "Go to the Studio",
       tiles: [
-        { key: "Design",   a: "Create scroll-stopping content in the Studio.", img: "/assets/signup/2.webp" },
+        { key: "Design",   a: "Create scroll-stopping content.", img: "/assets/signup/2.webp" },
         { key: "Plan",     a: "Map out your month in one view.",                 img: "/assets/signup/7.webp" },
         { key: "Shop",     a: "Browse The Edit.",                                img: "/assets/signup/9.webp" },
         { key: "Learn",    a: "Guides and mini-courses.",                        img: "/assets/signup/3.webp" },
-        { key: "Book",     a: "Discover our videography packages.",              img: "/assets/signup/4.webp" },
-        { key: "Track",    a: "See exactly what's working.",                     img: "/assets/signup/5.webp" },
+        { key: "Book",     a: "Discover our property packages.",              img: "/assets/signup/4.webp" },
+        { key: "Trends",   a: "See what's working on social.",                     img: "/assets/signup/5.webp" },
         { key: "Manage",   a: "Everything in one place.",                        img: "/assets/signup/8.webp" },
         { key: "Discover", a: "Explore what's possible.",                        img: "/assets/signup/6.webp" },
       ],
     },
-    next: "/account/editor?pack=happy-halloween",
+    next: "/account/editor?pack=free",
   },
 ];
 
