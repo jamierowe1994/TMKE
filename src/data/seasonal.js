@@ -19,6 +19,12 @@ export const SEASONAL = [
     endsAt: "2026-11-01T00:00:00Z",   // the end of 31 October, UK time
     og: "/images/seasonal/halloween/og.jpg",   // the link preview, 1200 x 630
     hero: { src: "/images/seasonal/halloween/hero.webp", alt: "Someone in a Halloween mask holding up a TMKE Happy Halloween sign on a zebra crossing" },
+    eyebrow: "Halloween",
+    board: "Happy Halloween",                 // pressed into the board
+    boardLink: "Get your free templates",
+    featureLabel: "Your Freebies",
+    featureBody: "You've probably had enough marketing nightmares this year, so we're giving you something a little nicer. For one week only, four Halloween templates from The Autumn Edit, our paid autumn pack, are free to TMKE members. You'll need an account to get them, but it's free to create. Once you've joined, they'll be waiting in the Studio, ready to edit. But be quick, they won't be haunting it for long.",
+    templatesLabel: "Waiting in the Studio",
     chapter: "Free for Halloween",
     heading: "No Tricks, Just Free Templates",
     body: [
@@ -29,7 +35,6 @@ export const SEASONAL = [
     button: "Create your free account",
     memberButton: "Open your Halloween templates",
     endsNote: "The free week ends on 31 October.",
-    templatesLine: "Here's what's waiting for you in the Studio.",
     templates: [
       { name: "It's Pumpkin Picking Season", img: "/images/seasonal/halloween/t1.webp" },
       { name: "Love at First Fright", img: "/images/seasonal/halloween/t2.webp" },
@@ -40,6 +45,23 @@ export const SEASONAL = [
       chapter: "Your Free Templates",
       heading: "Four Treats, Ready to Edit",
       sub: "Create your free TMKE account and the four Halloween templates from The Autumn Edit will be waiting for you in the Studio.",
+    },
+    // "And there's more": the rest of the hub, its tiles as /join's.
+    more: {
+      label: "And There's More",
+      heading: "Your Marketing, All in One Place",
+      intro: "The Studio is where you'll edit your Halloween templates, with templates, tools and your brand kit ready to go. It's part of the TMKE Member Hub, where you can also map out your month, browse ready-made template packs in The Edit, sharpen your marketing with guides and mini-courses, and book a videography shoot or discovery call. Your orders, services and bookings are kept together too, so you can see everything at a glance.",
+      button: "Create your free account",
+      tiles: [
+        { key: "Design",   a: "Create scroll-stopping content in the Studio.", img: "/assets/signup/2.webp" },
+        { key: "Plan",     a: "Map out your month in one view.",                 img: "/assets/signup/7.webp" },
+        { key: "Shop",     a: "Browse The Edit.",                                img: "/assets/signup/9.webp" },
+        { key: "Learn",    a: "Guides and mini-courses.",                        img: "/assets/signup/3.webp" },
+        { key: "Book",     a: "Discover our videography packages.",              img: "/assets/signup/4.webp" },
+        { key: "Track",    a: "See exactly what's working.",                     img: "/assets/signup/5.webp" },
+        { key: "Manage",   a: "Everything in one place.",                        img: "/assets/signup/8.webp" },
+        { key: "Discover", a: "Explore what's possible.",                        img: "/assets/signup/6.webp" },
+      ],
     },
     next: "/account/editor?pack=happy-halloween",
   },

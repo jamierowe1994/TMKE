@@ -1,138 +1,486 @@
 ---
-/* A seasonal landing page (Dani, 26 Oct): a promotion as a one-page sign-up,
-   laid out like /join. Everything on it comes from src/data/seasonal.js. */
+/* A seasonal landing page (Dani, 26 Oct): a promotion as a one-page sign-up.
+   Laid out as Insights is (/blog): one sideways scroll in four sections - the
+   embossed board, the offer under its photo, what they get, and the rest of
+   the hub. The board turns over to the sign-up, as Insights' does.
+   Everything on it comes from src/data/seasonal.js. */
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import SignupDrawer from "../../components/SignupDrawer.astro";
 import { SEASONAL } from "../../data/seasonal.js";
 
 export function getStaticPaths() {
   return SEASONAL.map((s) => ({ params: { slug: s.slug }, props: { s } }));
 }
 const { s } = Astro.props;
+const num = (i) => String(i + 1).padStart(2, "0");
 ---
 
-<BaseLayout
-  dashboard
-  title={s.title}
-  description={s.description}
-  ogImage={s.og}
-  hideNav={true}
-  hideFooter={true}
->
-  <main class="jn sn" data-ends={s.endsAt}>
-    <header class="jn-top">
-      <a href="/" class="jn-top-back" aria-label="Back to site"><span aria-hidden="true">&larr;</span> Back</a>
-      <a href="/" class="jn-top-mark" aria-label="TMKE — home">TMKE</a>
-    </header>
+<BaseLayout title={s.title} description={s.description} ogImage={s.og} hideFooter>
+  <section class="sn" data-lenis-prevent data-ends={s.endsAt} data-next={s.next}>
+    <div class="sn-rail" id="sn-rail">
 
-    <section class="sn-lead">
-      <div class="sn-cell sn-hero">
-        <img src={s.hero.src} alt={s.hero.alt} width="1920" height="1080" fetchpriority="high" />
-      </div>
-      <div class="sn-cell sn-copy">
-        <div class="chapter">{s.chapter}</div>
-        <h1 class="sn-h">{s.heading}</h1>
-        {s.body.map((p) => <p class="sn-p">{p}</p>)}
-        <button type="button" class="btn btn--solid sn-btn sn-guest" data-signup-open><span>{s.button}</span> <span class="btn-arrow">&rarr;</span></button>
-        <a class="btn btn--solid sn-btn sn-member" href={s.next} data-member-link><span>{s.memberButton}</span> <span class="btn-arrow">&rarr;</span></a>
-        <p class="sn-ends">{s.endsNote}</p>
-      </div>
-    </section>
+      <!-- ===== 1 and 2: the board, and the offer under its photo ===== -->
+      <div class="sn-home">
+        <div class="sn-board" id="sn-board">
+          <span class="sn-eyebrow">{s.eyebrow}</span>
+          <span class="sn-emboss" aria-hidden="true">{s.board}</span>
 
-    <p class="sn-line">{s.templatesLine}</p>
-    <div class="jn-grid sn-grid">
-      {s.templates.map((t) => (
-        <a class="jn-cell jn-cell--tile" href={s.next} data-signup-open data-member-link aria-label={`${t.name}: ${s.button}`}>
-          <span class="jn-tile-inner">
-            <span class="jn-thumb"><img class="jn-thumb-img" src={t.img} alt="" loading="lazy" /></span>
-            <span class="jn-cap"><span class="jn-cap-key chapter">{t.name}</span></span>
-          </span>
-        </a>
-      ))}
+          <div class="sn-member" id="sn-member" hidden>
+            <button type="button" class="sn-member-x" id="sn-member-x" aria-label="Back">&times;</button>
+            <div class="sn-member-top">
+              <h2 class="sn-member-h">{s.panel.heading}</h2>
+              <p class="sn-member-lede">{s.panel.sub}</p>
+              <form class="sn-form" id="sn-join" novalidate>
+                <label class="sn-field"><span>Full name</span>
+                  <input type="text" name="full_name" autocomplete="name" required placeholder="Jane Smith" /></label>
+                <label class="sn-field"><span>Email</span>
+                  <input type="email" name="email" autocomplete="email" required placeholder="you@agency.co.uk" /></label>
+                <label class="sn-field"><span>Password</span>
+                  <input type="password" name="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" /></label>
+                <label class="sn-check">
+                  <input type="checkbox" name="marketing" />
+                  <span>Keep me updated with tips, guides and offers. Unsubscribe anytime.</span>
+                </label>
+                <button type="submit" class="sn-join-btn"><span data-label>Create account</span> <span aria-hidden="true">&rarr;</span></button>
+                <p class="sn-join-err" id="sn-join-err" hidden></p>
+              </form>
+              <div class="sn-done" id="sn-done" hidden>
+                <p class="sn-member-lede">Check your inbox. We&rsquo;ve sent a confirmation link &mdash; open it in this browser to activate your account. If it hasn&rsquo;t arrived in a minute or two, check your spam or quarantine folder.</p>
+                <p class="sn-member-alt">Didn&rsquo;t arrive? <button type="button" class="sn-linkbtn" id="sn-resend">Send it again</button></p>
+                <p class="sn-member-alt" id="sn-resend-msg" hidden></p>
+              </div>
+              <p class="sn-member-alt" id="sn-alt">Already a member? <a href={`/login?next=${encodeURIComponent(s.next)}`}>Sign in here</a></p>
+            </div>
+          </div>
+
+          <button type="button" class="sn-unlock sn-guest" data-join>{s.boardLink} <span aria-hidden="true">&rsaquo;</span></button>
+          <a class="sn-unlock sn-mem" href={s.next}>{s.memberButton} <span aria-hidden="true">&rsaquo;</span></a>
+        </div>
+
+        <div class="sn-feature">
+          <span class="sn-label">{s.featureLabel}</span>
+          <div class="sn-feature-card">
+            <span class="sn-feature-media"><img src={s.hero.src} alt={s.hero.alt} fetchpriority="high" /></span>
+            <span class="sn-feature-title">{s.heading}</span>
+            <span class="sn-feature-foot">
+              <span class="sn-feature-meta">{s.chapter}  ·  {s.endsNote}</span>
+              <span class="sn-feature-stand">{s.featureBody}</span>
+            </span>
+            <button type="button" class="sn-btn sn-guest" data-join>{s.button} <span aria-hidden="true">&rarr;</span></button>
+            <a class="sn-btn sn-mem" href={s.next}>{s.memberButton} <span aria-hidden="true">&rarr;</span></a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 3: the templates, where Insights has its archive ===== -->
+      <div class="sn-panel sn-templates">
+        <span class="sn-label">{s.templatesLabel}</span>
+        <div class="sn-band sn-tpl-row">
+          {s.templates.map((t, i) => (
+            <a class="sn-tpl" href={s.next} data-join aria-label={t.name}>
+              <span class="sn-tpl-img"><img src={t.img} alt="" loading="lazy" /></span>
+              <span class="sn-cap">
+                <span class="sn-cap-num">Template {num(i)}</span>
+                <span class="sn-cap-name">{t.name}</span>
+              </span>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      <!-- ===== 4: and there's more - the rest of the hub ===== -->
+      <div class="sn-panel sn-more">
+        <span class="sn-label">{s.more.label}</span>
+        <div class="sn-band sn-more-band">
+          <div class="sn-more-intro">
+            <h2 class="sn-more-h">{s.more.heading}</h2>
+            <p class="sn-more-p">{s.more.intro}</p>
+            <button type="button" class="sn-btn sn-guest" data-join>{s.more.button} <span aria-hidden="true">&rarr;</span></button>
+            <a class="sn-btn sn-mem" href={s.next}>{s.memberButton} <span aria-hidden="true">&rarr;</span></a>
+          </div>
+          <div class="sn-more-grid">
+            {s.more.tiles.map((t) => (
+              <div class="sn-hub">
+                <span class="sn-hub-img"><img src={t.img} alt="" loading="lazy" /></span>
+                <span class="sn-cap">
+                  <span class="sn-cap-num">{t.key}</span>
+                  <span class="sn-hub-line">{t.a}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="jn-cursor" id="jn-cursor" aria-hidden="true"><span>[ Click to join ]</span></div>
-
-    <SignupDrawer chapter={s.panel.chapter} heading={s.panel.heading} sub={s.panel.sub} next={s.next} redirectSignedIn={false} />
-  </main>
+    <button class="sn-back" id="sn-back" type="button" aria-label="Back to the start">&times;</button>
+  </section>
 
   <style>
-    main.jn { --jn-line: rgba(28,29,34,0.12); background: var(--paper); min-height: 100vh; display: flex; flex-direction: column; }
-    .jn-top { display: flex; align-items: center; justify-content: space-between; padding: 16px clamp(18px, 2.4vw, 34px); flex: none; }
-    .jn-top-back { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
-    .jn-top-back:hover { color: var(--ink); }
-    .jn-top-mark { font-family: var(--serif); font-size: 22px; letter-spacing: 0.08em; color: var(--ink); }
+    /* The nav carries the mark and the menu only, as on Insights. */
+    :global(.nav-cta) { display: none; }
 
-    /* ---- The photo and the offer, ruled like /join's grid ---- */
-    .sn-lead { display: grid; grid-template-columns: 7fr 5fr; border-top: 1px solid var(--jn-line); border-left: 1px solid var(--jn-line); }
-    .sn-cell { border-right: 1px solid var(--jn-line); border-bottom: 1px solid var(--jn-line); }
-    .sn-hero { padding: clamp(24px, 3vw, 48px); display: flex; align-items: center; }
-    .sn-hero img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
-    .sn-copy { padding: clamp(32px, 4vw, 64px) clamp(26px, 3.4vw, 56px); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
-    .sn-copy .chapter { margin-bottom: 26px; }
-    .sn-h { font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 3.4vw, 46px); line-height: 1.04; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 22px; }
-    .sn-p { font-family: var(--sans); font-size: 16px; font-weight: 500; line-height: 1.5; color: rgba(28,29,34,0.68); margin: 0 0 12px; max-width: 34em; }
-    .sn-btn { margin-top: 18px; padding: 15px 22px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
-    .sn-member { display: none; }
-    :global(html.is-signed-in) .sn-guest { display: none; }
-    :global(html.is-signed-in) .sn-member { display: inline-flex; }
-    .sn-ends { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 14px 0 0; }
-
-    /* ---- The four templates, as /join's tiles ---- */
-    .sn-line { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin: 0; padding: 18px clamp(18px, 2.4vw, 34px); border-left: 1px solid var(--jn-line); border-right: 1px solid var(--jn-line); }
-    .jn-grid { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--jn-line); border-left: 1px solid var(--jn-line); }
-    .jn-cell { border-right: 1px solid var(--jn-line); border-bottom: 1px solid var(--jn-line); min-height: clamp(320px, 36vh, 440px); position: relative; text-decoration: none; }
-    /* Top-aligned: a name on three lines must not lift its picture above the others. */
-    .jn-cell--tile { display: flex; align-items: flex-start; justify-content: center; padding: clamp(30px, 3vw, 44px) 24px; cursor: pointer; background: none; }
-    .jn-tile-inner { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; width: min(70%, 230px); }
-    .jn-thumb { position: relative; width: 100%; aspect-ratio: 1080 / 1440; overflow: visible; }
-    .jn-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; will-change: filter; transition: filter 0.5s ease, opacity 0.5s ease; }
-    .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: blur(11px); opacity: 0.5; }
-    .jn-cap { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; width: 100%; }
-    .jn-cap-key { margin: 0; color: var(--english-violet); line-height: 1.35; }
-    .jn-cell--tile:focus-visible { outline: 2px solid var(--english-violet); outline-offset: -2px; }
-
-    .jn-cursor { position: fixed; top: 0; left: 0; z-index: 2500; pointer-events: none; opacity: 0; transition: opacity 0.18s ease; }
-    .jn-cursor.is-on { opacity: 1; }
-    .jn-cursor span { position: absolute; transform: translate(-50%, -50%); color: var(--english-violet); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap; }
-    .jn.jn-has-cursor .jn-grid, .jn.jn-has-cursor .jn-cell--tile { cursor: none; }
-    @media (hover: none) { .jn-cursor { display: none; } }
-
-    @media (max-width: 960px) {
-      .sn-lead { grid-template-columns: 1fr; }
-      .jn-grid { grid-template-columns: repeat(2, 1fr); }
+    .sn {
+      --peek: 232px;                                  /* how much of section 3 shows at rest, as Insights */
+      --inset: clamp(68px, 9vh, 100px);               /* top of every section: clears the nav */
+      --bottom: clamp(36px, 5.5vh, 80px);
+      --hairline: rgba(28,29,34,0.16);
+      --band-h: calc(100vh - var(--inset) - var(--bottom) - 56px);   /* under a label and its rule */
+      position: relative; height: 100vh; overflow: hidden;
+      background: var(--paper); color: var(--ink);
     }
-    @media (max-width: 640px) {
-      .sn-hero { padding: 16px; }
-      .sn-copy { padding: 30px 16px 34px; }
-      .sn-btn { width: 100%; justify-content: center; }
-      .sn-line { padding: 16px; }
-      .jn-cell { min-height: clamp(200px, 44vw, 280px); }
-      .jn-cell--tile { padding: 22px 14px; }
-      .jn-tile-inner { width: min(86%, 160px); gap: 12px; }
-      .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: none; opacity: 1; }
+    .sn-rail { display: flex; height: 100%; will-change: transform; }
+
+    .sn-label, .sn-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
+    }
+
+    /* ----- 1 and 2 ----- */
+    .sn-home {
+      flex: 0 0 calc(100vw - var(--peek)); height: 100%; box-sizing: border-box;
+      display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr); gap: clamp(28px, 3.4vw, 60px);
+      padding: var(--inset) 21px var(--bottom) var(--page-gutter);
+    }
+
+    /* The board: Insights' blank board, with this season's words pressed into
+       it as live type rather than baked into the artwork, so the next season
+       is a change of words. */
+    .sn-board {
+      position: relative; overflow: hidden; min-width: 0;
+      display: flex; flex-direction: column; justify-content: space-between; gap: 14px;
+      background: var(--english-violet) url("/images/insights-board-blank.webp") center / cover;
+      color: var(--paper); padding: 21px; border-radius: 2px;
+    }
+    .sn-board > * { position: relative; z-index: 1; }
+    .sn-board .sn-eyebrow { color: rgba(244,242,241,0.62); }
+    .sn-emboss {
+      position: absolute !important; inset: 0; z-index: 0 !important;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      padding: 0 8%; pointer-events: none;
+      font-family: var(--subhead); font-weight: 400; text-transform: uppercase;
+      font-size: clamp(34px, 4.6vw, 76px); line-height: 1.08; letter-spacing: 0.01em;
+      /* Pressed in: the ground's own colour a shade darker, lit from above -
+         a dark lip at the top of each letter, a pale one at the bottom. */
+      color: #2f1922;
+      text-shadow: 0 -1px 1px rgba(0,0,0,0.55), 0 1.5px 0.5px rgba(255,235,240,0.085);
+      transition: opacity 0.6s ease;
+    }
+    .sn-board.is-member .sn-emboss { opacity: 0; }
+
+    .sn-unlock {
+      align-self: center; display: inline-flex; align-items: center; gap: 9px;
+      appearance: none; background: none; border: 0; padding: 10px 2px; cursor: pointer; text-decoration: none;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(244,242,241,0.78); transition: color 0.25s ease, gap 0.25s ease, opacity 0.35s ease;
+    }
+    .sn-unlock:hover { color: var(--paper); gap: 15px; }
+    .sn-board .sn-eyebrow { transition: opacity 0.35s ease; }
+    .sn-board.is-quiet .sn-eyebrow, .sn-board.is-quiet .sn-unlock { opacity: 0; pointer-events: none; }
+
+    /* The sign-up, once the board has turned over (as Insights). */
+    .sn-member {
+      flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px;
+      margin-top: calc(-0.5 * (1.2em - 1cap));
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    .sn-member.is-on { opacity: 1; }
+    .sn-member[hidden], .sn-form[hidden], .sn-done[hidden] { display: none; }
+    .sn-member-top {
+      flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none;
+      display: flex; flex-direction: column; gap: 13px;
+    }
+    .sn-member-top::-webkit-scrollbar { width: 0; display: none; }
+    .sn-member-x {
+      position: absolute; top: 0; right: 0; z-index: 2;
+      appearance: none; background: none; border: 0; padding: 4px 6px; cursor: pointer;
+      font-size: 20px; line-height: 1; color: rgba(244,242,241,0.6);
+    }
+    .sn-member-x:hover { color: var(--paper); }
+    .sn-member-h {
+      margin: 0; max-width: 75%; font-family: var(--subhead); font-weight: 700;
+      font-size: clamp(20px, 1.6vw, 25px); line-height: 1.2; letter-spacing: -0.01em; color: var(--paper);
+    }
+    .sn-member-lede { margin: 0; font-family: var(--sans); font-size: clamp(13.5px, 1vw, 15px); line-height: 1.55; color: rgba(244,242,241,0.82); }
+    .sn-form { display: flex; flex-direction: column; gap: 11px; }
+    .sn-field { display: flex; flex-direction: column; gap: 5px; }
+    .sn-field > span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(244,242,241,0.55); }
+    .sn-field input {
+      appearance: none; background: none; border: 0; border-bottom: 1px solid rgba(244,242,241,0.3);
+      padding: 7px 0; color: var(--paper); font-family: var(--sans); font-size: 14px;
+    }
+    .sn-field input::placeholder { color: rgba(244,242,241,0.35); }
+    .sn-field input:focus { outline: none; border-bottom-color: var(--paper); }
+    .sn-check { display: flex; align-items: flex-start; gap: 9px; margin-top: 2px; font-family: var(--sans); font-size: 12px; line-height: 1.45; color: rgba(244,242,241,0.6); }
+    .sn-check input { margin: 2px 0 0; accent-color: var(--paper); }
+    .sn-join-btn {
+      align-self: flex-start; margin-top: 4px; display: inline-flex; align-items: center; gap: 10px;
+      cursor: pointer; padding: 10px 26px; border-radius: 6px;
+      background: var(--paper); color: var(--english-violet); border: 1px solid var(--paper);
+      font-family: var(--sans); font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
+      transition: background 0.25s, color 0.25s, transform 0.25s;
+    }
+    .sn-join-btn:hover { background: transparent; color: var(--paper); transform: translateY(-2px); }
+    .sn-join-btn[disabled] { opacity: 0.55; cursor: default; transform: none; }
+    .sn-join-err { margin: 0; font-family: var(--sans); font-size: 12.5px; line-height: 1.45; color: #f2c6c6; }
+    .sn-join-err a { color: var(--paper); text-decoration: underline; }
+    .sn-member-alt { margin: 2px 0 0; font-family: var(--sans); font-size: 12.5px; color: rgba(244,242,241,0.6); }
+    .sn-member-alt a, .sn-linkbtn { color: var(--paper); text-decoration: underline; text-underline-offset: 3px; }
+    .sn-linkbtn { appearance: none; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+
+    /* The offer, laid out as Insights' featured article. */
+    .sn-feature { position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .sn-feature::before, .sn-feature::after {
+      content: ""; position: absolute; z-index: 0; pointer-events: none; width: 1px;
+      top: calc(-1 * var(--inset)); height: 100vh; background: var(--hairline);
+    }
+    .sn-feature::before { left: -20px; }
+    .sn-feature::after { left: calc(100% + 20px); }
+    .sn-feature-card {
+      flex: 1; min-height: 0; display: flex; flex-direction: column; gap: clamp(10px, 1.4vh, 18px);
+      border-top: 1px solid var(--hairline); padding-top: clamp(14px, 1.8vh, 22px);
+    }
+    .sn-feature-media { flex: 1; min-height: 0; display: block; overflow: hidden; border-radius: 3px; background: rgba(28,29,34,0.05); }
+    .sn-feature-media img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; display: block; }
+    .sn-feature-title { font-family: var(--sans); font-weight: 400; font-size: clamp(20px, 1.8vw, 27px); line-height: 1.08; color: var(--ink); }
+    .sn-feature-foot { display: flex; flex-direction: column; gap: 6px; }
+    .sn-feature-meta { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .sn-feature-stand { font-family: var(--sans); font-size: clamp(12.5px, 0.95vw, 13.5px); line-height: 1.5; color: rgba(28,29,34,0.72); }
+
+    /* The site's button, in wine on paper. */
+    .sn-btn {
+      align-self: flex-start; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; text-decoration: none;
+      padding: 10px 24px; border-radius: 6px; background: var(--english-violet); color: var(--paper);
+      border: 1px solid var(--english-violet); font-family: var(--sans); font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
+      transition: background 0.25s, color 0.25s, transform 0.25s;
+    }
+    .sn-btn:hover { background: transparent; color: var(--english-violet); transform: translateY(-2px); }
+
+    /* Signed in, the joining bits give way to the way in. */
+    .sn-mem { display: none !important; }
+    :global(html.is-signed-in) .sn .sn-guest { display: none !important; }
+    :global(html.is-signed-in) .sn .sn-mem { display: inline-flex !important; }
+
+    /* ----- 3 and 4: sections across, each a label over a rule ----- */
+    .sn-panel {
+      flex: 0 0 auto; box-sizing: border-box; height: 100%;
+      padding: var(--inset) clamp(28px, 3vw, 48px) var(--bottom) 20px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .sn-panel + .sn-panel { border-left: 1px solid var(--hairline); padding-left: clamp(28px, 3vw, 48px); }
+    .sn-band { border-top: 1px solid var(--hairline); padding-top: clamp(14px, 1.8vh, 22px); }
+
+    .sn-tpl-row { display: flex; gap: 10px; height: var(--band-h); }
+    .sn-tpl { display: flex; flex-direction: column; gap: 12px; text-decoration: none; color: var(--english-violet); cursor: pointer; }
+    .sn-tpl-img { display: block; height: calc(var(--band-h) * 0.86 - 52px); aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px; background: rgba(28,29,34,0.06); }
+    .sn-tpl-img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 1.2s cubic-bezier(.2,.7,.2,1); }
+    .sn-tpl:hover .sn-tpl-img img { transform: scale(1.035); }
+    .sn-cap { display: flex; flex-direction: column; gap: 4px; max-width: 100%; }
+    .sn-cap-num { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
+    .sn-cap-name { font-family: var(--sans); font-weight: 400; font-size: 15px; line-height: 1.15; color: var(--english-violet); }
+    .sn-tpl .sn-cap { width: 0; min-width: 100%; }   /* wraps to the picture's width */
+
+    .sn-more-band { display: flex; gap: clamp(28px, 3vw, 48px); height: var(--band-h); }
+    .sn-more-intro { flex: 0 0 clamp(260px, 22vw, 340px); display: flex; flex-direction: column; gap: 14px; }
+    .sn-more-h { margin: 0; font-family: var(--sans); font-weight: 400; font-size: clamp(20px, 1.8vw, 27px); line-height: 1.08; letter-spacing: normal; color: var(--ink); }
+    .sn-more-p { margin: 0; font-family: var(--sans); font-size: clamp(12.5px, 0.95vw, 13.5px); line-height: 1.5; color: rgba(28,29,34,0.72); }
+    .sn-more-intro .sn-btn { margin-top: 6px; }
+    .sn-more-grid { display: grid; grid-template-columns: repeat(4, auto); grid-auto-rows: max-content; gap: 14px 10px; align-content: start; }
+    .sn-hub { display: flex; flex-direction: column; gap: 8px; }
+    .sn-hub-img { display: block; height: calc((var(--band-h) - 14px) / 2 - 58px); aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px; background: rgba(28,29,34,0.06); }
+    .sn-hub-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .sn-hub .sn-cap { width: 0; min-width: 100%; }
+    .sn-hub-line { font-family: var(--sans); font-size: 12.5px; line-height: 1.3; color: rgba(28,29,34,0.66); }
+
+    .sn-back {
+      position: fixed; top: calc(var(--inset) - 15px); right: clamp(16px, 3vw, 34px); z-index: 160;
+      width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.2);
+      background: var(--paper); color: var(--ink); font-size: 19px; line-height: 1; cursor: pointer;
+      display: grid; place-items: center; opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease, background 0.25s, color 0.25s, transform 0.4s;
+    }
+    .sn-back:hover { background: var(--ink); color: var(--paper); transform: rotate(90deg); }
+    :global(.nav-logo) { transition: opacity 0.3s ease; }
+    :global(body.sn-across .nav-logo) { opacity: 0; pointer-events: none; }
+
+    /* ----- Narrower screens: the sections stack and scroll down ----- */
+    @media (max-width: 1000px) {
+      .sn { height: auto; overflow: visible; --band-h: auto; }
+      .sn-rail { flex-direction: column; transform: none !important; height: auto; }
+      .sn-feature::before, .sn-feature::after { display: none; }
+      .sn-home { flex: none; width: 100%; height: auto; grid-template-columns: 1fr; gap: 40px; padding: 90px 24px 48px; }
+      .sn-board { min-height: 72vh; }
+      .sn-feature-media { flex: none; aspect-ratio: 4 / 3; }
+      .sn-panel, .sn-panel + .sn-panel { flex: none; width: 100%; height: auto; border-left: 0; padding: 8px 24px 48px; }
+      .sn-tpl-row, .sn-more-band { height: auto; }
+      .sn-tpl-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 10px; }
+      .sn-tpl-img, .sn-hub-img { height: auto; width: 100%; }
+      .sn-more-band { flex-direction: column; }
+      .sn-more-intro { flex: none; }
+      .sn-more-grid { grid-template-columns: repeat(2, 1fr); gap: 18px 10px; }
+      .sn-back { display: none; }
+    }
+    @media (max-width: 600px) {
+      .sn-home { padding: 84px 16px 40px; }
+      .sn-panel, .sn-panel + .sn-panel { padding: 8px 16px 40px; }
+      .sn-board { min-height: 64vh; }
     }
   </style>
 
   <script>
-    // Once the offer has ended, an old post lands on /join instead.
+    import { supabase } from "../../lib/supabase.js";
+    import { signUpMember } from "../../lib/member-signup.js";
+    import { track } from "../../lib/track.js";
+
     const sn = document.querySelector(".sn");
+    const NEXT = (sn && sn.dataset.next) || "/account";
+
+    // Once the offer has ended, an old post lands on /join instead.
     const ends = sn && Date.parse(sn.dataset.ends || "");
     if (ends && Date.now() >= ends) location.replace("/join");
 
-    // The "[ Click to join ]" cursor over the templates, as on /join; not for
-    // a member, for whom they open the Studio.
-    const grid = document.querySelector(".jn-grid");
-    const cursor = document.getElementById("jn-cursor");
-    if (sn && grid && cursor && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
-      const guest = () => !document.documentElement.classList.contains("is-signed-in");
-      grid.addEventListener("mousemove", (e) => {
-        if (!guest()) return;
-        sn.classList.add("jn-has-cursor");
-        cursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
-        if (!document.getElementById("jn-drawer")?.classList.contains("is-open")) cursor.classList.add("is-on");
+    // A member sees the way in rather than the way to join; the page stays
+    // put, so Dani and Sam can look at it signed in.
+    let signedIn = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (data && data.session) { signedIn = true; document.documentElement.classList.add("is-signed-in"); }
+    });
+
+    // ----- Across: the scroll moves the rail sideways (as Insights) -----
+    const rail = document.getElementById("sn-rail");
+    const backBtn = document.getElementById("sn-back");
+    const desktop = window.matchMedia("(min-width: 1001px)");
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let at = 0, target = 0, max = 0;
+    const measure = () => { max = rail && sn ? Math.max(0, rail.scrollWidth - sn.clientWidth) : 0; target = Math.min(target, max); };
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("load", measure);
+    (function frame() {
+      at += (target - at) * (reduce ? 1 : 0.3);
+      if (Math.abs(target - at) < 0.3) at = target;
+      if (rail) rail.style.transform = desktop.matches ? `translate3d(${(-at).toFixed(1)}px,0,0)` : "";
+      const across = desktop.matches && at > 80;
+      if (backBtn) { backBtn.style.opacity = across ? "1" : "0"; backBtn.style.pointerEvents = across ? "auto" : "none"; }
+      document.body.classList.toggle("sn-across", across);
+      requestAnimationFrame(frame);
+    })();
+    window.addEventListener("wheel", (e) => {
+      if (!desktop.matches) return;
+      const inForm = e.target.closest && e.target.closest(".sn-member-top");
+      if (inForm && inForm.scrollHeight > inForm.clientHeight) return;   // the form scrolls itself
+      e.preventDefault();
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      target = Math.min(max, Math.max(0, target + d));
+    }, { passive: false });
+    window.addEventListener("keydown", (e) => {
+      if (!desktop.matches || (e.target.closest && e.target.closest("input, textarea, button, a"))) return;
+      const step = { ArrowRight: 120, ArrowDown: 120, PageDown: 600, " ": 600, ArrowLeft: -120, ArrowUp: -120, PageUp: -600 }[e.key];
+      if (step === undefined) return;
+      e.preventDefault();
+      target = Math.min(max, Math.max(0, target + step));
+    });
+    if (backBtn) backBtn.addEventListener("click", () => { target = 0; });
+
+    // ----- The board turns over to the sign-up (as Insights) -----
+    const board = document.getElementById("sn-board");
+    const member = document.getElementById("sn-member");
+    const form = document.getElementById("sn-join");
+    const errEl = document.getElementById("sn-join-err");
+    const doneEl = document.getElementById("sn-done");
+    const altEl = document.getElementById("sn-alt");
+    let busy = false;
+    const open = () => {
+      if (busy || board.classList.contains("is-member")) return;
+      busy = true;
+      board.classList.add("is-quiet");
+      setTimeout(() => {
+        member.hidden = false;
+        void member.offsetWidth;
+        board.classList.add("is-member");
+        setTimeout(() => {
+          member.classList.add("is-on");
+          busy = false;
+          const f = form.querySelector('input[name="full_name"]');
+          if (f && desktop.matches) f.focus({ preventScroll: true });
+        }, 240);
+      }, 300);
+    };
+    const close = () => {
+      if (busy || !board.classList.contains("is-member")) return;
+      busy = true;
+      member.classList.remove("is-on");
+      setTimeout(() => {
+        board.classList.remove("is-member");
+        setTimeout(() => board.classList.remove("is-quiet"), 180);
+        setTimeout(() => { member.hidden = true; busy = false; }, 620);
+      }, 240);
+    };
+    // Anything that joins: back to the board if it is off to the side, then over.
+    document.querySelectorAll("[data-join]").forEach((el) => el.addEventListener("click", (e) => {
+      if (signedIn) return;                      // a template link just opens the Studio
+      e.preventDefault();
+      if (desktop.matches) { target = 0; setTimeout(open, at > 40 ? 420 : 0); }
+      else { board.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); open(); }
+    }));
+    document.getElementById("sn-member-x").addEventListener("click", close);
+    board.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errEl.hidden = true;
+      const data = new FormData(form);
+      const btn = form.querySelector('button[type="submit"]');
+      const label = btn.querySelector("[data-label]");
+      const orig = label.textContent;
+      btn.setAttribute("disabled", "true");
+      label.textContent = "Creating…";
+      const res = await signUpMember({
+        fullName: data.get("full_name"), email: data.get("email"),
+        password: data.get("password"), marketing: !!data.get("marketing"), next: NEXT,
       });
-      grid.addEventListener("mouseleave", () => cursor.classList.remove("is-on"));
-    }
+      btn.removeAttribute("disabled");
+      label.textContent = orig;
+      if (res.error) {
+        if (res.existing) {
+          const em = encodeURIComponent(String(data.get("email") || "").trim());
+          errEl.innerHTML = res.error + ' <a href="/login?email=' + em + '&next=' + encodeURIComponent(NEXT) + '">Sign in instead</a>';
+        } else errEl.textContent = res.error;
+        errEl.hidden = false;
+        return;
+      }
+      track("member_joined", { confirm_needed: !!res.needsConfirm, from: location.pathname });
+      if (res.needsConfirm) {
+        form.hidden = true; altEl.hidden = true; doneEl.hidden = false;
+        document.getElementById("sn-resend").dataset.email = String(data.get("email") || "").trim();
+        return;
+      }
+      if (typeof window.tmkeSplash === "function") window.tmkeSplash(NEXT);
+      else location.href = NEXT;
+    });
+
+    // A confirmation that never lands: send a sign-in link instead (as /join).
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+    const resendBtn = document.getElementById("sn-resend");
+    const resendMsg = document.getElementById("sn-resend-msg");
+    resendBtn.addEventListener("click", async () => {
+      const email = resendBtn.dataset.email || "";
+      if (!email) return;
+      resendBtn.setAttribute("disabled", "true");
+      let failed = false;
+      try {
+        const r = await fetch(`${WORKER}/auth/reset-link`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+        failed = !r.ok;
+      } catch (_) { failed = true; }
+      resendMsg.hidden = false;
+      if (failed) { resendBtn.removeAttribute("disabled"); resendMsg.textContent = "We couldn't send that just now — try again in a moment."; return; }
+      resendBtn.textContent = "Sent";
+      resendMsg.textContent = "On its way. It'll let you set your password and go straight in.";
+    });
+  </script>
+  <script>
+    import { addPasswordEyes } from "../../lib/password-eye.js";
+    addPasswordEyes();
   </script>
 </BaseLayout>
