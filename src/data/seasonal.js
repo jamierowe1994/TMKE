@@ -35,7 +35,7 @@ export const SEASONAL = [
     ],
     button: "Create your free account",
     memberButton: "Discover your free Halloween templates",
-    endsNote: "The free week ends on 31 October.",
+    endsNote: "Ends on 31st October",
     templates: [
       { name: "It's Pumpkin Picking Season", img: "/images/seasonal/halloween/t1.webp" },
       { name: "Love at First Fright", img: "/images/seasonal/halloween/t2.webp" },
