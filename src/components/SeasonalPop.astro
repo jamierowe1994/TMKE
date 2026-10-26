@@ -1,0 +1,212 @@
+---
+/**
+ * The current seasonal page, offered in the corner of the public site (Dani,
+ * 26 Oct). After 30 seconds on the site (counted across pages while the tab
+ * is visible) a wine card rises in the corner and the season's templates fan
+ * out from behind it. It asks a question with two answers: one goes to the
+ * page, the other gets a reply first (for Halloween, trick or treat).
+ *
+ * Once per visit; closed, it stays away for the rest of that promotion. Never
+ * on the hub, sign-in pages or the seasonal page itself, and it goes when the
+ * promotion ends (endsAt in src/data/seasonal.js).
+ */
+import { currentSeasonal } from "../data/seasonal.js";
+const s = currentSeasonal();
+const p = s && s.popout;
+const live = !!(p && (!s.endsAt || Date.parse(s.endsAt) > Date.now()));
+---
+{live && (
+  <aside class="spop" id="spop" hidden aria-label={p.heading} data-key={s.slug} data-ends={s.endsAt} data-href={`/seasonal/${s.slug}`}>
+    <div class="spop-fan" aria-hidden="true">
+      {s.templates.map((t, i) => <span class={`spop-card spop-card-${i}`} style={`background-image:url('${t.img}')`}></span>)}
+    </div>
+    <div class="spop-board">
+      <button type="button" class="spop-x" data-spop-close aria-label={p.close}>&times;</button>
+      <span class="spop-eyebrow">{s.eyebrow}</span>
+      <div class="spop-faces">
+        <div class="spop-face spop-ask">
+          <p class="spop-h">{p.heading}</p>
+          <p class="spop-line">{p.line}</p>
+          <div class="spop-btns">
+            <button type="button" class="spop-btn spop-btn--ghost" data-spop-trick>{p.trick}</button>
+            <a class="spop-btn" href={`/seasonal/${s.slug}`} data-spop-go>{p.treat}</a>
+          </div>
+        </div>
+        <div class="spop-face spop-reply" aria-live="polite">
+          <p class="spop-h">{p.replyHeading}</p>
+          <p class="spop-line">{p.replyLine}</p>
+          <div class="spop-btns">
+            <a class="spop-btn" href={`/seasonal/${s.slug}`} data-spop-go tabindex="-1">{p.replyButton} <span aria-hidden="true">&rarr;</span></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+)}
+
+<style>
+  .spop {
+    --spop-w: 316px;
+    position: fixed; right: clamp(14px, 2vw, 28px); bottom: var(--spop-bottom, clamp(14px, 2vw, 28px)); z-index: 9500;
+    width: var(--spop-w); max-width: calc(100vw - 28px);
+    pointer-events: none;
+  }
+  .spop[hidden] { display: none; }
+  .spop > * { pointer-events: auto; }
+
+  /* The board rises in with a little overshoot, as if set down. */
+  .spop-board {
+    position: relative; z-index: 2; box-sizing: border-box;
+    padding: 18px 20px 20px; border-radius: 4px;
+    background: var(--english-violet) url("/images/insights-board-blank.webp") center / cover;
+    color: var(--paper);
+    box-shadow: 0 30px 70px -24px rgba(28,29,34,0.55), 0 8px 20px -10px rgba(28,29,34,0.35);
+    transform: translateY(calc(100% + 60px)) rotate(4deg); opacity: 0;
+    transition: transform 0.9s cubic-bezier(.2,1.3,.35,1), opacity 0.4s ease;
+  }
+  .spop.is-in .spop-board { transform: none; opacity: 1; }
+
+  /* The templates, tucked behind the board, fan out once it has landed. */
+  .spop-fan { position: absolute; left: 50%; bottom: calc(100% - 46px); width: 0; height: 0; z-index: 1; }
+  .spop-card {
+    position: absolute; left: -38px; bottom: 0; width: 76px; aspect-ratio: 3 / 4;
+    background: #2a1820 center / cover no-repeat; border-radius: 3px;
+    box-shadow: 0 10px 24px -10px rgba(28,29,34,0.6);
+    transform-origin: 50% 140%;
+    transform: translateY(40px) rotate(0deg); opacity: 0;
+    transition: transform 0.75s cubic-bezier(.2,1.25,.35,1), opacity 0.3s ease;
+  }
+  .spop.is-fanned .spop-card { opacity: 1; }
+  .spop.is-fanned .spop-card-0 { transform: translate(-78px, 6px) rotate(-16deg); transition-delay: 0.02s; }
+  .spop.is-fanned .spop-card-1 { transform: translate(-27px, -6px) rotate(-5deg); transition-delay: 0.08s; }
+  .spop.is-fanned .spop-card-2 { transform: translate(27px, -6px) rotate(5deg); transition-delay: 0.14s; }
+  .spop.is-fanned .spop-card-3 { transform: translate(78px, 6px) rotate(16deg); transition-delay: 0.2s; }
+  .spop.is-fanned:hover .spop-card-0 { transform: translate(-84px, -2px) rotate(-19deg); }
+  .spop.is-fanned:hover .spop-card-3 { transform: translate(84px, -2px) rotate(19deg); }
+  /* A trick: the cards shuffle once. */
+  .spop.is-tricked .spop-fan { animation: spop-shuffle 0.6s ease; }
+  @keyframes spop-shuffle {
+    0%, 100% { transform: none; }
+    25% { transform: translateX(-6px) rotate(-3deg); }
+    60% { transform: translateX(6px) rotate(3deg); }
+  }
+
+  .spop-x {
+    position: absolute; top: 8px; right: 8px; width: 28px; height: 28px;
+    appearance: none; background: none; border: 0; cursor: pointer; padding: 0;
+    font-size: 20px; line-height: 1; color: rgba(244,242,241,0.6);
+  }
+  .spop-x:hover { color: var(--paper); }
+  .spop-eyebrow {
+    display: block; font-family: var(--sans); font-size: 10px; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase; color: rgba(244,242,241,0.62);
+  }
+
+  /* Two faces in one cell, so turning over never changes the size. */
+  .spop-faces { display: grid; margin-top: 14px; }
+  .spop-face { grid-area: 1 / 1; display: flex; flex-direction: column; transition: opacity 0.35s ease, transform 0.45s ease; }
+  .spop-reply { opacity: 0; transform: translateY(8px); pointer-events: none; }
+  .spop.is-tricked .spop-ask { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+  .spop.is-tricked .spop-reply { opacity: 1; transform: none; pointer-events: auto; }
+
+  .spop-h {
+    margin: 0; font-family: var(--subhead); font-weight: 400; text-transform: uppercase;
+    font-size: 26px; line-height: 1.05; letter-spacing: 0.01em; color: var(--paper);
+  }
+  .spop-line { margin: 8px 0 0; font-family: var(--sans); font-size: 14px; font-weight: 500; line-height: 1.45; color: rgba(244,242,241,0.8); }
+  .spop-btns { display: flex; gap: 8px; margin-top: auto; padding-top: 16px; }
+  .spop-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex: 1 1 0;
+    padding: 8px 14px; border-radius: 5px; cursor: pointer; text-decoration: none;
+    background: var(--paper); color: var(--english-violet); border: 1px solid var(--paper);
+    font-family: var(--sans); font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
+    transition: background 0.25s, color 0.25s, transform 0.25s;
+  }
+  .spop-btn:hover { background: transparent; color: var(--paper); transform: translateY(-2px); }
+  .spop-btn--ghost { background: transparent; color: var(--paper); border-color: rgba(244,242,241,0.45); }
+  .spop-btn--ghost:hover { border-color: var(--paper); }
+
+  @media (max-width: 600px) {
+    .spop { --spop-w: calc(100vw - 28px); left: 14px; right: 14px; }
+    .spop-card { width: 62px; left: -31px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spop-board, .spop-card, .spop-face { transition: opacity 0.2s ease !important; }
+    .spop-board, .spop.is-fanned .spop-card { transform: none !important; }
+    .spop.is-fanned .spop-card-0 { transform: translate(-78px, 6px) rotate(-16deg) !important; }
+    .spop.is-fanned .spop-card-1 { transform: translate(-27px, -6px) rotate(-5deg) !important; }
+    .spop.is-fanned .spop-card-2 { transform: translate(27px, -6px) rotate(5deg) !important; }
+    .spop.is-fanned .spop-card-3 { transform: translate(78px, 6px) rotate(16deg) !important; }
+    .spop.is-tricked .spop-fan { animation: none; }
+  }
+</style>
+
+<script>
+  import { track } from "../lib/track.js";
+
+  (function () {
+    const pop = document.getElementById("spop");
+    if (!pop) return;
+    const AFTER = 30;                                  // seconds on the site, across pages
+    const ends = Date.parse(pop.dataset.ends || "");
+    if (ends && Date.now() >= ends) return;
+    // Not on the hub, the sign-in pages, or the page it points at.
+    if (/^\/(account|admin|seasonal|join|login|auth|demo|editor|studio|dashboard|profile|edits|deliver|review|manage|forgot-password|reset-password|leave-a-review)(\/|$)/.test(location.pathname)) return;
+
+    const key = "tmke_spop_" + (pop.dataset.key || "season");
+    const get = (st, k) => { try { return st.getItem(k); } catch (_) { return null; } };
+    const set = (st, k, v) => { try { st.setItem(k, v); } catch (_) {} };
+    if (get(localStorage, key + "_done")) return;       // closed or followed: not again this promotion
+    if (get(sessionStorage, key + "_shown")) return;    // once a visit
+
+    // Sit above the cookie banner while it is up, rather than under it.
+    const banner = document.getElementById("cc-banner");
+    const place = () => {
+      const up = banner && !banner.hidden && banner.offsetHeight > 0;
+      pop.style.setProperty("--spop-bottom", up ? (banner.getBoundingClientRect().height + 14) + "px" : "");
+    };
+
+    const show = () => {
+      set(sessionStorage, key + "_shown", "1");
+      place();
+      pop.hidden = false;
+      requestAnimationFrame(() => requestAnimationFrame(() => pop.classList.add("is-in")));
+      setTimeout(() => pop.classList.add("is-fanned"), 650);
+      track("seasonal_pop", { action: "shown", promo: pop.dataset.key });
+    };
+    const close = (why) => {
+      set(localStorage, key + "_done", "1");
+      pop.classList.remove("is-in", "is-fanned");
+      setTimeout(() => { pop.hidden = true; }, 600);
+      track("seasonal_pop", { action: why, promo: pop.dataset.key });
+    };
+
+    pop.querySelector("[data-spop-close]").addEventListener("click", () => close("closed"));
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && pop.classList.contains("is-in")) close("closed"); });
+    pop.querySelector("[data-spop-trick]").addEventListener("click", () => {
+      pop.classList.add("is-tricked");
+      const go = pop.querySelector(".spop-reply [data-spop-go]");
+      go.removeAttribute("tabindex");
+      setTimeout(() => go.focus({ preventScroll: true }), 350);
+      track("seasonal_pop", { action: "trick", promo: pop.dataset.key });
+    });
+    pop.querySelectorAll("[data-spop-go]").forEach((a) => a.addEventListener("click", () => {
+      set(localStorage, key + "_done", "1");
+      track("seasonal_pop", { action: pop.classList.contains("is-tricked") ? "followed_after_trick" : "followed", promo: pop.dataset.key });
+    }));
+    if (banner) new MutationObserver(place).observe(banner, { attributes: true, attributeFilter: ["hidden", "class", "style"] });
+    window.addEventListener("resize", () => { if (!pop.hidden) place(); });
+
+    // Seconds on the site, carried across pages, while the tab is in view.
+    let t = Number(get(sessionStorage, key + "_t") || 0);
+    const timer = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      t += 1; set(sessionStorage, key + "_t", String(t));
+      if (t < AFTER) return;
+      // Not over the phone newsletter, the homepage opening or a menu that is open.
+      if (document.getElementById("hi-open") || document.querySelector(".npop:not([hidden]), .msheet.is-open, .npanel.is-open, .sms-sheet.is-open, .reader.is-open")) return;
+      clearInterval(timer);
+      show();
+    }, 1000);
+  })();
+</script>

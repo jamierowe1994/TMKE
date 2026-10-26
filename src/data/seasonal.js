@@ -47,6 +47,17 @@ export const SEASONAL = [
       heading: "Four Treats, Ready to Edit",
       sub: "Create your free TMKE account and the four Halloween templates from The Autumn Edit will be waiting for you in the Studio.",
     },
+    // The pop-out in the corner of the public site (src/components/SeasonalPop.astro).
+    popout: {
+      heading: "Trick or Treat?",
+      line: "We've got a little surprise for you.",
+      trick: "Trick",
+      treat: "Treat",
+      replyHeading: "No Tricks Here",
+      replyLine: "We've got four Halloween templates for estate agents, and they're free this week only.",
+      replyButton: "Get your free templates",
+      close: "Close",
+    },
     // "And there's more": the rest of the hub, its tiles as /join's.
     more: {
       label: "And There's More",
