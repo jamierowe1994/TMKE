@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-Nothing waiting.
+- [ ] [supabase/smm_video_notes.sql](../supabase/smm_video_notes.sql) — videography notes on a social media client, shown on every shoot booked for them until marked done. Added 27 Oct 2026.
 
 ## Done
 

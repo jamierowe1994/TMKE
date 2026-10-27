@@ -794,6 +794,14 @@ import "../../styles/admin.css";
     .vid-note.is-audit { background: rgba(var(--violet-rgb), 0.06); border-color: rgba(var(--violet-rgb), 0.18); }
     .vid-note-meta { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.5); margin-bottom: 5px; }
     .vid-note-meta strong { color: var(--english-violet); font-weight: 700; }
+    .vid-clientnotes { margin-bottom: 22px; }
+    .vid-note.is-client { background: rgba(var(--violet-rgb),0.05); border-color: rgba(var(--violet-rgb),0.2); }
+    .vid-note-done {
+      margin-top: 8px; padding: 4px 11px; border: 0; border-radius: 6px; cursor: pointer;
+      background: var(--english-violet); color: #fff; font-family: var(--sans); font-size: 11.5px; font-weight: 600;
+    }
+    .vid-note-done:hover { opacity: 0.9; }
+    .vid-note-done:disabled { opacity: 0.5; cursor: default; }
     .vid-note-body { font-family: var(--sans); font-size: 13px; line-height: 1.55; color: var(--ink); }
     .vid-mention { color: var(--english-violet); font-weight: 700; }
     .vid-note-compose { position: relative; display: flex; flex-direction: column; gap: 9px; align-items: flex-start; }
@@ -1462,6 +1470,7 @@ import "../../styles/admin.css";
 
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
+    import { listVideoNotes, setVideoNoteDone, noteAuthor } from "../../lib/video-notes.js";
     import { archiveFolderName } from "../../lib/archive-folder.js";
     import { makeThumb, putThumb, thumbKeyFor } from "../../lib/thumbs.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
@@ -3535,6 +3544,33 @@ import "../../styles/admin.css";
       return adminList;
     }
 
+    /* A social media client's notes for the shoots (Danielle, 27 Oct): kept on
+       the client, written in their file's Videography tab, and shown here on
+       every shoot booked for them until someone marks them done. */
+    async function renderClientVideoNotes(b) {
+      const host = document.getElementById("vid-clientnotes");
+      if (!host) return;
+      const { notes, error } = await listVideoNotes(supabase, b.smm_lead_id, { openOnly: true });
+      if (error || !notes.length) { host.hidden = true; return; }
+      host.hidden = false;
+      host.innerHTML = `
+        <h4>From the social media client file</h4>
+        <p class="vid-hint" style="margin-bottom:12px">Notes about this client's shoots. They show on every shoot booked for them until marked done.</p>
+        <div class="vid-notes">${notes.map((n) => `
+          <div class="vid-note is-client">
+            <div class="vid-note-meta"><strong>${escapeHtml(noteAuthor(n.created_by))}</strong><span>${escapeHtml(fmtWhen(n.created_at) || "")}</span></div>
+            <div class="vid-note-body">${escapeHtml(n.body || "")}</div>
+            <button type="button" class="vid-note-done" data-cndone="${escapeHtml(n.id)}">Mark done</button>
+          </div>`).join("")}</div>`;
+      host.querySelectorAll("[data-cndone]").forEach((btn) => btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        const by = (await supabase.auth.getSession()).data.session?.user?.email || null;
+        const e = await setVideoNoteDone(supabase, btn.getAttribute("data-cndone"), true, by);
+        if (e) { btn.disabled = false; btn.textContent = "Couldn't save"; return; }
+        renderClientVideoNotes(b);
+      }));
+    }
+
     function renderNotes(b, notes) {
       const host = document.getElementById("vid-cand-notes");
       if (!host) return;
@@ -3548,6 +3584,7 @@ import "../../styles/admin.css";
       }).join("") || `<p class="vid-loading">No notes yet.</p>`;
 
       host.innerHTML = `
+        ${b.smm_lead_id ? `<div class="vid-clientnotes" id="vid-clientnotes" hidden></div>` : ""}
         <h4>Notes</h4>
         <p class="vid-hint" style="margin-bottom:12px">Internal only — the client never sees these. Type @ to tag a colleague.</p>
         <div class="vid-notes">${rows}</div>
@@ -3557,6 +3594,7 @@ import "../../styles/admin.css";
           <button type="button" class="admin-btn admin-btn-primary" id="vid-note-add">Add note</button>
         </div>`;
       document.getElementById("vid-note-add")?.addEventListener("click", () => addNote(b));
+      if (b.smm_lead_id) renderClientVideoNotes(b);
       wireMentions(document.getElementById("vid-note-body"));
       loadAdmins();
     }
