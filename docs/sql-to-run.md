@@ -4,10 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] [supabase/smm_video_notes.sql](../supabase/smm_video_notes.sql) — videography notes on a social media client, shown on every shoot booked for them until marked done. Added 27 Oct 2026.
+Nothing waiting.
 
 ## Done
 
+- [x] supabase/smm_video_notes.sql — videography notes on social media clients (27 Oct)
 - [x] supabase/template_page_images.sql — a picture of every page (25 Oct)
 - [x] supabase/mockup_printed_posts_eight_fresh.sql — Printed posts - Eight put back fresh (25 Oct)
 - [x] supabase/mockup_printed_posts_size.sql — printed-posts mockups to 1600 x 2000 (25 Oct)
