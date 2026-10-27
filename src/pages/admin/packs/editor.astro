@@ -852,6 +852,7 @@ import "../../../styles/admin.css";
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase, slugify } from "../../../lib/supabase.js";
     import { rebuildSite } from "../../../lib/site-rebuild.js";
+    import { calendarTemplateIds } from "../../../lib/content-months.js";
     import { BRAND_ORDER, brandRank as BRAND_RANK } from "../../../data/brands.js";
 
     const PACK_IMAGES_BUCKET = "pack-images";
@@ -1125,7 +1126,9 @@ import "../../../styles/admin.css";
         tplLoading.textContent = `Couldn't load templates: ${error.message}`;
         return;
       }
-      allTemplates = data || [];
+      // Content Calendar templates never go in a pack (Danielle, 27 Oct).
+      const calendarIds = await calendarTemplateIds(supabase);
+      allTemplates = (data || []).filter((t) => !calendarIds.has(t.id));
       try {
         const { data: pk } = await supabase.from("packs").select("id, title");
         packTitles = new Map((pk || []).map((p) => [p.id, p.title || "another pack"]));

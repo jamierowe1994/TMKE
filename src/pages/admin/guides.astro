@@ -44,6 +44,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         <label class="gadm-f"><span>Topic</span><select id="g-topic">{GUIDE_TOPICS.map((t) => (<option value={t.slug}>{t.label}</option>))}</select></label>
         <label class="gadm-f"><span>Type</span><select id="g-kind"><option value="guide">Article</option><option value="course">Course</option></select></label>
         <label class="gadm-f"><span>Audience</span><select id="g-audience"><option value="members">All members</option><option value="public">Everyone (public)</option><option value="teg">The Experts Group agents only</option></select></label>
+        <label class="gadm-f" title="Which Content Calendar level includes it. Everything is Free until the subscription launches."><span>Level</span><select id="g-level"><option value="free">Free</option><option value="calendar">Content Calendar</option><option value="scheduling">Calendar + Scheduling</option><option value="done_for_you">Done For You</option></select></label>
         <label class="gadm-f"><span>Est. minutes</span><input id="g-mins" type="number" min="1" max="240" placeholder="6" /></label>
       </div>
       <p class="gadm-muted gadm-typehint" id="g-type-hint"></p>
@@ -111,7 +112,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .gadm-f > span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
     .gadm-f input, .gadm-f select, .gadm-f textarea { font-family: var(--sans); font-size: 14px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; background: #fff; color: var(--ink); width: 100%; }
     .gadm-f input:focus, .gadm-f select:focus, .gadm-f textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
-    .gadm-f4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .gadm-f4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
     .gadm-typehint { margin: 8px 0 0; }
     @media (max-width: 640px) { .gadm-f4 { grid-template-columns: 1fr 1fr; } }
     .gadm-lessons-head { display: flex; align-items: baseline; gap: 12px; margin-top: 6px; }
@@ -191,6 +192,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       $("#g-topic").value = guide?.topic || "getting-started";
       $("#g-kind").value = guide?.kind || "guide";
       $("#g-audience").value = guide?.audience || "members";
+      $("#g-level").value = guide?.level || "free";
       $("#g-mins").value = guide?.est_minutes ?? "";
       $("#g-summary").value = guide?.summary || "";
       $("#g-cover").value = guide?.cover_url || "";
@@ -200,7 +202,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       dirty = false;
       document.querySelectorAll(".gadm-item").forEach((el) => el.classList.toggle("is-active", el.dataset.id === (cur||"")));
     }
-    ["g-title","g-slug","g-topic","g-kind","g-audience","g-mins","g-summary","g-cover"].forEach((id) => {
+    ["g-title","g-slug","g-topic","g-kind","g-audience","g-level","g-mins","g-summary","g-cover"].forEach((id) => {
       const el = $("#"+id); const ev = el.tagName === "SELECT" ? "change" : "input";
       el.addEventListener(ev, () => { if(id==="g-title" && !$("#g-slug").value) $("#g-slug").value = slugify($("#g-title").value); if(id==="g-kind") updateTypeHint(); markDirty(); });
     });
@@ -224,6 +226,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         title: ($("#g-title").value || "").trim() || "Untitled guide",
         slug: slugify($("#g-slug").value || $("#g-title").value || "guide-" + Date.now()),
         topic: $("#g-topic").value, kind: $("#g-kind").value, audience: $("#g-audience").value,
+        level: $("#g-level").value,
         est_minutes: $("#g-mins").value ? Number($("#g-mins").value) : null,
         summary: ($("#g-summary").value || "").trim() || null,
         cover_url: ($("#g-cover").value || "").trim() || null,
@@ -239,7 +242,14 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       const q = cur
         ? supabase.from("guides").update(payload).eq("id", cur).select().maybeSingle()
         : supabase.from("guides").insert(payload).select().maybeSingle();
-      const { data, error } = await q;
+      let { data, error } = await q;
+      // Before supabase/content_calendar_months.sql has run there is no level column.
+      if (error && /level/i.test(error.message || "")) {
+        delete payload.level;
+        ({ data, error } = await (cur
+          ? supabase.from("guides").update(payload).eq("id", cur).select().maybeSingle()
+          : supabase.from("guides").insert(payload).select().maybeSingle()));
+      }
       if (error) { toast("Save failed: " + error.message); return; }
       cur = data.id; dirty = false; $("#g-saved").textContent = "All changes saved";
       toast(newStatus === "published" ? "Published ✓" : "Saved ✓");

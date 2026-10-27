@@ -446,6 +446,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       escapeHtml, renderEl, renderBlockPreview, blockBoxOf, VARIANT_LABEL,
     } from '../../lib/design-preview.js';
     import { STUDIO_SIZES } from '../../data/studio-sizes.js';
+    import { calendarTemplateIds } from '../../lib/content-months.js';
 
     const els = {
       grid: document.getElementById('tpl-grid'),
@@ -469,6 +470,8 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
     let PRINT_PACKS = new Set();
     // Pack titles by id, so each card can say which pack it's in (Danielle, 24 Oct).
     let PACK_TITLES = {};
+    // Content Calendar templates live on their own tab (Danielle, 27 Oct).
+    let CALENDAR_IDS = new Set();
     const VIEW_Q = new URLSearchParams(location.search).get('view');
     const VIEW = VIEW_Q === 'print' ? 'print' : VIEW_Q === 'mockups' ? 'mockups' : 'social';
     // A mockup is a design marked canvas.mockup: it lives on the Mockups tab only.
@@ -603,7 +606,9 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
         return;
       }
 
-      ALL = tpls;
+      CALENDAR_IDS = await calendarTemplateIds(supabase);
+      ALL = tpls.filter((t) => !CALENDAR_IDS.has(t.id));
+      tpls = ALL;
       const active = tpls.filter((t) => t.status === 'active').length;
       els.count.textContent = `${active} active · ${tpls.length} total`;
       els.seedBtn.hidden = tpls.length !== 0 || defaultLibrary.length === 0;

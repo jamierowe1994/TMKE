@@ -1,0 +1,840 @@
+---
+// Admin › Design studio › Content calendar (Danielle, 27 Oct 2026).
+//
+// The month builder for the Content Calendar subscription: one month per
+// edition, about twenty posts, each linked to a template the way a pack's
+// designs are. Draft until published, like Trending month. Below the sheet,
+// the templates drawn for the calendar (templates.collection = 'calendar'),
+// which stay off the Templates tab and out of packs and the shop.
+//
+// Tables: content_months, content_month_posts (supabase/content_calendar_months.sql).
+// The build list is docs/content-calendar-build.md. Members see none of this
+// until the subscription launches.
+import AdminShell from "../../components/admin/AdminShell.astro";
+import StudioBar from "../../components/admin/StudioBar.astro";
+import "../../styles/admin.css";
+import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FILL_INS } from "../../lib/content-months.js";
+---
+
+<AdminShell active="studio" title="Design studio" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Design studio</div>
+          <div class="page-header-sub">Templates that power the customer-facing edit-your-own studio.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ash-panel ash-page">
+  <StudioBar active="calendar" countId="cc-count">
+    <Fragment slot="filters">
+      <select class="tpl-filter" id="cc-edition" aria-label="Edition">
+        {EDITIONS.map((e) => <option value={e.key}>{e.label}</option>)}
+      </select>
+      <select class="tpl-filter" id="cc-month" aria-label="Month"></select>
+    </Fragment>
+    <Fragment slot="actions">
+      <button type="button" id="cc-new-tpl" class="admin-btn admin-btn-ghost">+ New template</button>
+      <button type="button" id="cc-new-month" class="admin-btn admin-btn-primary">+ New month</button>
+    </Fragment>
+  </StudioBar>
+
+  <p class="cc-note" id="cc-loading">Loading the Content Calendar…</p>
+  <div class="cc-missing" id="cc-missing" hidden>
+    <p><strong>The Content Calendar tables aren't in the database yet.</strong></p>
+    <p>Run <code>supabase/content_calendar_months.sql</code> in the Supabase SQL editor, then reload this page.</p>
+  </div>
+  <div class="cc-missing" id="cc-none" hidden>
+    <p><strong>No months for this edition yet.</strong></p>
+    <p>Click <strong>+ New month</strong> to start one. A month stays a draft until you publish it.</p>
+  </div>
+
+  <section class="cc-month" id="cc-month-panel" hidden>
+    <div class="cc-head">
+      <div class="cc-head-l">
+        <h2 class="cc-title" id="cc-title"></h2>
+        <span class="cc-pill" id="cc-pill" data-status="draft">Draft</span>
+        <span class="cc-saved" id="cc-saved"></span>
+      </div>
+      <div class="cc-head-r">
+        <button type="button" class="admin-btn admin-btn-ghost" id="cc-fill">Fill the weekdays</button>
+        <button type="button" class="admin-btn admin-btn-ghost" id="cc-copy">Copy posts from…</button>
+        <button type="button" class="admin-btn admin-btn-ghost" id="cc-delete-month">Delete month</button>
+        <button type="button" class="admin-btn admin-btn-primary" id="cc-publish">Publish</button>
+      </div>
+    </div>
+    <label class="cc-f cc-intro"><span>About this month</span><input id="cc-intro" placeholder="A line about the month: what it's built around." /></label>
+    <p class="cc-note cc-pubnote">Publishing marks a month ready. Members won't see it until the subscription launches.</p>
+
+    <div class="cc-sheet-wrap">
+      <table class="cc-sheet">
+        <thead>
+          <tr><th>Date</th><th>Design</th><th>Post</th><th>Type</th><th>Pillar</th><th>Caption</th><th>Platforms</th></tr>
+        </thead>
+        <tbody id="cc-rows"></tbody>
+      </table>
+    </div>
+    <button type="button" class="cc-add" id="cc-add">+ Add a post</button>
+  </section>
+
+  <section class="cc-tpls" id="cc-tpls" hidden>
+    <div class="cc-tpls-head">
+      <h3>Content Calendar templates</h3>
+      <span class="cc-note" id="cc-tpl-count"></span>
+    </div>
+    <div class="cc-grid" id="cc-grid"></div>
+  </section>
+  </div>
+
+  <!-- One post, all its fields. -->
+  <div class="cc-shade" id="cc-shade" hidden></div>
+  <aside class="cc-drawer" id="cc-drawer" hidden aria-label="Post" data-lenis-prevent>
+    <div class="cc-drawer-bar">
+      <strong id="cc-d-head">Post</strong>
+      <span class="cc-saved" id="cc-d-saved"></span>
+      <button type="button" class="cc-x" id="cc-d-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="cc-drawer-body">
+      <div class="cc-f2">
+        <label class="cc-f"><span>Date</span><input type="date" id="cc-d-date" /></label>
+        <label class="cc-f"><span>Type</span><select id="cc-d-type">{POST_TYPES.map((t) => <option value={t.key}>{t.label}</option>)}</select></label>
+      </div>
+      <label class="cc-check"><input type="checkbox" id="cc-d-tied" /> This post belongs to its day</label>
+      <label class="cc-f" id="cc-d-occ-wrap"><span>The day it's for</span><input id="cc-d-occ" list="cc-occasions" placeholder="e.g. Bonfire Night" /><datalist id="cc-occasions"></datalist></label>
+      <p class="cc-hint" id="cc-d-occ-hint">If an agent plans it for another date, they're asked: "This post is for <span id="cc-d-occ-name">that day</span>. Are you sure you want to post it on another day?"</p>
+      <label class="cc-f"><span>Title</span><input id="cc-d-title" placeholder="e.g. Five things buyers notice first" /></label>
+      <label class="cc-f"><span>Content pillar</span><input id="cc-d-pillar" list="cc-pillars" placeholder="e.g. Market insight" /><datalist id="cc-pillars"></datalist></label>
+
+      <div class="cc-f">
+        <span>Design</span>
+        <div class="cc-d-tpl" id="cc-d-tpl"></div>
+      </div>
+
+      <div class="cc-f">
+        <span>Captions <em>(up to {MAX_CAPTIONS}; the first is the example)</em></span>
+        <div class="cc-tags" id="cc-tags">
+          {CAPTION_TAGS.map((t) => <button type="button" data-tag={`{${t}}`}>{`{${t}}`}</button>)}
+          {CAPTION_FILL_INS.map((t) => <button type="button" class="is-fill" data-tag={t}>{t}</button>)}
+        </div>
+        <p class="cc-hint">Curly brackets fill in from the agent's brand kit. Square brackets are for the agent to type, and they're warned if any are left.</p>
+        {Array.from({ length: MAX_CAPTIONS }, (_, i) => (
+          <textarea class="cc-cap" data-cap={i} rows="5" placeholder={i === 0 ? "Caption" : `Caption ${i + 1} (optional)`}></textarea>
+        ))}
+      </div>
+
+      <label class="cc-f"><span>How to edit it</span><textarea id="cc-d-how" rows="4" placeholder="What the agent changes: the photo, the price, the street…"></textarea></label>
+      <label class="cc-f"><span>Reel prompt</span><textarea id="cc-d-reel" rows="3" placeholder="For a reel: what to film and say."></textarea></label>
+
+      <div class="cc-f">
+        <span>Platforms</span>
+        <div class="cc-plats" id="cc-d-plats">
+          {PLATFORMS.map((p) => <label class="cc-check"><input type="checkbox" value={p.key} /> {p.label}</label>)}
+        </div>
+      </div>
+
+      <button type="button" class="cc-del" id="cc-d-delete">Delete this post</button>
+    </div>
+  </aside>
+
+  <!-- Choose a design for a post. -->
+  <div class="cc-modal" id="cc-pick" hidden>
+    <div class="cc-modal-box cc-modal-wide" data-lenis-prevent>
+      <div class="cc-drawer-bar">
+        <strong>Choose a design</strong>
+        <input type="search" id="cc-pick-q" class="cc-pick-q" placeholder="Search…" />
+        <button type="button" class="cc-x" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="cc-pick-grid" id="cc-pick-grid"></div>
+    </div>
+  </div>
+
+  <!-- New month. -->
+  <div class="cc-modal" id="cc-new" hidden>
+    <div class="cc-modal-box">
+      <div class="cc-drawer-bar"><strong>New month</strong><button type="button" class="cc-x" data-close aria-label="Close">&times;</button></div>
+      <div class="cc-modal-body">
+        <label class="cc-f"><span>Month</span><input type="month" id="cc-new-m" /></label>
+        <label class="cc-f"><span>Edition</span><select id="cc-new-e">{EDITIONS.map((e) => <option value={e.key}>{e.label}</option>)}</select></label>
+        <label class="cc-check"><input type="checkbox" id="cc-new-fill" checked /> Add a post for every weekday</label>
+        <div class="cc-modal-foot"><button type="button" class="admin-btn admin-btn-primary" id="cc-new-go">Create month</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Copy posts from another edition's same month. -->
+  <div class="cc-modal" id="cc-copybox" hidden>
+    <div class="cc-modal-box">
+      <div class="cc-drawer-bar"><strong>Copy posts from…</strong><button type="button" class="cc-x" data-close aria-label="Close">&times;</button></div>
+      <div class="cc-modal-body">
+        <p class="cc-hint">Dates, titles, captions, how to edit, pillars and platforms come across. Designs don't, because each edition has its own.</p>
+        <label class="cc-f"><span>From</span><select id="cc-copy-from"></select></label>
+        <div class="cc-modal-foot"><button type="button" class="admin-btn admin-btn-primary" id="cc-copy-go">Copy posts</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New template. -->
+  <div class="cc-modal" id="cc-newtpl" hidden>
+    <div class="cc-modal-box">
+      <div class="cc-drawer-bar"><strong>New Content Calendar template</strong><button type="button" class="cc-x" data-close aria-label="Close">&times;</button></div>
+      <div class="cc-modal-body">
+        <label class="cc-f"><span>Name</span><input id="cc-newtpl-name" placeholder="e.g. November – Bonfire Night" /></label>
+        <p class="cc-hint" id="cc-newtpl-for" hidden></p>
+        <p class="cc-hint">Drawn at 1080 &times; 1440, the posts' 3:4 shape. It opens in the Studio.</p>
+        <div class="cc-modal-foot"><button type="button" class="admin-btn admin-btn-primary" id="cc-newtpl-go">Create and open</button></div>
+      </div>
+    </div>
+  </div>
+
+  <style is:global>
+    .cc-note { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin: 0; }
+    .cc-missing { padding: 28px 32px; border: 1px dashed rgba(55,30,40,0.4); border-radius: 2px; font-family: var(--sans); color: rgba(28,29,34,0.75); max-width: 640px; }
+    .cc-missing p { margin: 0 0 8px; line-height: 1.55; }
+    .cc-missing p:last-child { margin: 0; }
+
+    .cc-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+    .cc-head-l, .cc-head-r { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .cc-title { font-family: var(--sans); font-size: 20px; font-weight: 600; color: var(--english-violet); margin: 0; }
+    .cc-pill { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: rgba(202,166,60,0.16); color: #8a6d1e; }
+    .cc-pill[data-status="published"] { background: rgba(63,148,104,0.16); color: #2d6a44; }
+    .cc-saved { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); }
+    .cc-intro { max-width: 760px; }
+    .cc-pubnote { margin: 8px 0 22px; }
+
+    .cc-f { display: flex; flex-direction: column; gap: 6px; }
+    .cc-f > span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .cc-f > span em { font-style: normal; font-weight: 500; letter-spacing: 0.04em; text-transform: none; }
+    .cc-f input, .cc-f select, .cc-f textarea, .cc-pick-q { font-family: var(--sans); font-size: 14px; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.16); border-radius: 6px; background: #fff; color: var(--ink); width: 100%; box-sizing: border-box; }
+    .cc-f textarea { resize: vertical; line-height: 1.5; }
+    .cc-f input:focus, .cc-f select:focus, .cc-f textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
+    .cc-f2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .cc-check { display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
+    .cc-check input { accent-color: var(--english-violet); }
+    .cc-hint { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); margin: 0; }
+
+    /* The sheet: ruled top and bottom, a row per post. */
+    .cc-sheet-wrap { overflow-x: auto; border-top: 1px solid rgba(55,30,40,0.35); border-bottom: 1px solid rgba(55,30,40,0.35); }
+    .cc-sheet { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
+    .cc-sheet th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); padding: 10px 12px; border-bottom: 1px solid rgba(28,29,34,0.12); white-space: nowrap; }
+    .cc-sheet td { padding: 8px 12px; border-bottom: 1px solid rgba(28,29,34,0.08); vertical-align: middle; color: var(--ink); }
+    .cc-sheet tr:last-child td { border-bottom: 0; }
+    .cc-sheet tbody tr { cursor: pointer; }
+    .cc-sheet tbody tr:hover td { background: rgba(55,30,40,0.04); }
+    .cc-sheet tbody tr.is-open td { background: rgba(55,30,40,0.07); }
+    .cc-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .cc-date small { display: block; font-size: 11px; color: rgba(28,29,34,0.5); }
+    .cc-occ { display: inline-block; margin-top: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--english-violet); }
+    .cc-thumb { width: 42px; aspect-ratio: 3 / 4; border-radius: 2px; background: #eeeae7 center / cover no-repeat; border: 1px solid rgba(28,29,34,0.1); }
+    .cc-thumb.is-none { display: flex; align-items: center; justify-content: center; font-size: 16px; color: rgba(28,29,34,0.3); border-style: dashed; }
+    .cc-ttl { font-weight: 600; }
+    .cc-empty-cell { color: rgba(28,29,34,0.38); }
+    .cc-cap-cell { max-width: 320px; color: rgba(28,29,34,0.75); }
+    .cc-cap-cell small { color: rgba(28,29,34,0.45); }
+    .cc-plat-cell { white-space: nowrap; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: rgba(28,29,34,0.6); }
+    .cc-weekend td:first-child small { color: #a05a3c; }
+    .cc-add { margin-top: 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); background: #fff; border: 1px solid var(--english-violet); border-radius: 4px; height: 30px; padding: 0 14px; cursor: pointer; }
+    .cc-add:hover { background: rgba(55,30,40,0.06); }
+
+    /* Templates drawn for the calendar. */
+    .cc-tpls { margin-top: 44px; }
+    .cc-tpls-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px; }
+    .cc-tpls-head h3 { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); margin: 0; }
+    .cc-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+    @media (max-width: 1280px) { .cc-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @media (max-width: 760px) { .cc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .cc-card { display: flex; flex-direction: column; text-decoration: none; color: var(--ink); border: 1px solid rgba(55,30,40,0.3); border-radius: 2px; background: rgba(255,255,255,0.5); overflow: hidden; }
+    .cc-card:hover { border-color: rgba(55,30,40,0.6); }
+    .cc-card.is-draft { border-style: dashed; }
+    .cc-card-img { aspect-ratio: 3 / 4; background: #eeeae7 center / cover no-repeat; }
+    .cc-card-b { padding: 9px 10px 11px; font-family: var(--sans); }
+    .cc-card-n { font-size: 13px; font-weight: 600; line-height: 1.3; }
+    .cc-card-m { font-size: 11px; color: rgba(28,29,34,0.55); margin-top: 3px; }
+
+    /* Drawer and pop-outs. */
+    .cc-shade { position: fixed; inset: 0; background: rgba(28,29,34,0.28); z-index: 80; }
+    .cc-shade[hidden], .cc-drawer[hidden], .cc-modal[hidden] { display: none; }
+    .cc-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: #fff; z-index: 81; display: flex; flex-direction: column; box-shadow: -20px 0 50px -30px rgba(28,29,34,0.5); }
+    .cc-drawer-bar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid rgba(28,29,34,0.1); font-family: var(--sans); font-size: 14px; color: var(--english-violet); }
+    .cc-drawer-bar .cc-x { margin-left: auto; }
+    .cc-x { border: 0; background: none; font-size: 24px; line-height: 1; color: rgba(28,29,34,0.5); cursor: pointer; padding: 0 4px; }
+    .cc-x:hover { color: var(--ink); }
+    .cc-drawer-body { overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+    .cc-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .cc-tags button { font-family: var(--sans); font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(55,30,40,0.25); background: #fff; color: var(--english-violet); cursor: pointer; }
+    .cc-tags button.is-fill { color: #8a5a2c; border-color: rgba(160,110,60,0.35); }
+    .cc-tags button:hover { background: rgba(55,30,40,0.06); }
+    .cc-cap + .cc-cap { margin-top: 8px; }
+    .cc-plats { display: flex; flex-wrap: wrap; gap: 14px; }
+    .cc-d-tpl { display: flex; align-items: center; gap: 14px; }
+    .cc-d-tpl .cc-thumb { width: 72px; }
+    .cc-d-tpl-b { display: flex; flex-direction: column; gap: 8px; font-family: var(--sans); font-size: 13px; }
+    .cc-d-tpl-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+    .cc-d-tpl-acts .admin-btn { padding: 6px 12px; font-size: 12px; }
+    .cc-del { align-self: flex-start; margin-top: 6px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: #a05a3c; background: #fff; border: 1px solid rgba(160,90,60,0.4); border-radius: 4px; height: 30px; padding: 0 14px; cursor: pointer; }
+    .cc-del:hover { background: rgba(160,90,60,0.08); }
+
+    .cc-modal { position: fixed; inset: 0; z-index: 90; background: rgba(28,29,34,0.35); display: flex; align-items: flex-start; justify-content: center; padding: 90px 16px 24px; }
+    .cc-modal-box { background: #fff; border-radius: 8px; width: min(440px, 100%); max-height: calc(100vh - 120px); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 30px 60px -30px rgba(28,29,34,0.5); }
+    .cc-modal-wide { width: min(980px, 100%); }
+    .cc-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+    .cc-modal-foot { display: flex; justify-content: flex-end; }
+    .cc-pick-q { max-width: 260px; margin-left: 12px; }
+    .cc-pick-grid { overflow-y: auto; padding: 18px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
+    @media (max-width: 760px) { .cc-pick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .cc-pick-grid button { border: 1px solid rgba(28,29,34,0.12); background: #fff; padding: 0; border-radius: 2px; cursor: pointer; text-align: left; font-family: var(--sans); overflow: hidden; }
+    .cc-pick-grid button:hover, .cc-pick-grid button.is-on { border-color: var(--english-violet); box-shadow: 0 0 0 2px var(--english-violet); }
+    .cc-pick-grid button span { display: block; font-size: 12px; padding: 7px 8px; color: var(--ink); }
+    .cc-pick-grid .cc-pick-new { display: flex; align-items: center; justify-content: center; aspect-ratio: 3 / 4; border-style: dashed; color: var(--english-violet); font-size: 13px; font-weight: 700; text-align: center; }
+  </style>
+
+  <script>
+    import { requireAdmin } from '../../lib/admin-gate.js';
+    import { supabase } from '../../lib/supabase.js';
+    import { escapeHtml as esc } from '../../lib/design-preview.js';
+    import { upcomingDays } from '../../data/content-calendar.js';
+    import {
+      EDITIONS, editionLabel, POST_TYPES, PLATFORMS, MAX_CAPTIONS, weekdaysOf, MONTHS_MISSING,
+    } from '../../lib/content-months.js';
+
+    const DEV = import.meta.env.DEV;
+    const $ = (id) => document.getElementById(id);
+    const VIEW_KEY = 'tmke.admin.calendar.view';
+
+    let MONTHS = [];        // every month, every edition
+    let POSTS = [];         // the open month's posts
+    let TPLS = new Map();   // calendar templates (and any other a post links), by id
+    let CUR = null;         // the open month
+    let OPEN = null;        // the post in the drawer
+
+    const monthName = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    const dayLabel = (iso) => {
+      const d = new Date(iso + 'T12:00:00');
+      return { day: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), wd: d.toLocaleDateString('en-GB', { weekday: 'short' }), weekend: d.getDay() === 0 || d.getDay() === 6 };
+    };
+    const typeLabel = (k) => (POST_TYPES.find((t) => t.key === k) || {}).label || k;
+    const platShort = { instagram: 'IG', facebook: 'FB', linkedin: 'LI', tiktok: 'TT' };
+
+    function saved(el, text = 'Saved') {
+      el.textContent = text;
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { el.textContent = ''; }, 2200);
+    }
+    function showMissing(err) {
+      $('cc-loading').hidden = true;
+      $('cc-missing').hidden = false;
+      if (err && !MONTHS_MISSING.test(err)) $('cc-missing').innerHTML = `<p><strong>Couldn't load the Content Calendar.</strong></p><p>${esc(err)}</p>`;
+    }
+
+    function saveView() {
+      try { localStorage.setItem(VIEW_KEY, JSON.stringify({ edition: $('cc-edition').value, month: CUR ? CUR.month : '' })); } catch (_) {}
+    }
+    function readView() {
+      try { return JSON.parse(localStorage.getItem(VIEW_KEY) || 'null') || {}; } catch (_) { return {}; }
+    }
+
+    // ---- Loading ----
+    async function loadMonths() {
+      const { data, error } = await supabase.from('content_months').select('*').order('month', { ascending: false });
+      if (error) { showMissing(error.message); return false; }
+      MONTHS = data || [];
+      return true;
+    }
+
+    async function loadTemplates() {
+      const { data, error } = await supabase.from('templates')
+        .select('id, name, thumb_url, status, updated_at, canvas')
+        .eq('collection', 'calendar').neq('status', 'archived')
+        .order('updated_at', { ascending: false });
+      TPLS = new Map();
+      if (!error) (data || []).forEach((t) => TPLS.set(t.id, { ...t, calendar: true }));
+    }
+
+    async function loadPosts() {
+      if (!CUR) { POSTS = []; return; }
+      const { data, error } = await supabase.from('content_month_posts').select('*')
+        .eq('month_id', CUR.id).order('post_date', { ascending: true, nullsFirst: false }).order('sort_order', { ascending: true });
+      if (error) { alert(`Couldn't load the posts: ${error.message}`); POSTS = []; return; }
+      POSTS = data || [];
+      // A post can link a design that isn't a calendar one (picked before it was
+      // marked); fetch those so the sheet can still show them.
+      const missing = [...new Set(POSTS.map((p) => p.template_id).filter((id) => id && !TPLS.has(id)))];
+      if (missing.length) {
+        const { data: more } = await supabase.from('templates').select('id, name, thumb_url, status, updated_at').in('id', missing);
+        (more || []).forEach((t) => TPLS.set(t.id, t));
+      }
+    }
+
+    // ---- The month menu ----
+    function fillMonthMenu(prefer) {
+      const ed = $('cc-edition').value;
+      const list = MONTHS.filter((m) => m.edition === ed);
+      const sel = $('cc-month');
+      sel.innerHTML = list.map((m) => `<option value="${m.id}">${esc(monthName(m.month))}${m.status === 'published' ? '' : ' (draft)'}</option>`).join('');
+      sel.disabled = !list.length;
+      // The month asked for, else the soonest from this month on, else the latest.
+      const upcoming = list.filter((m) => m.month >= todayMonth());
+      const pick = list.find((m) => m.month === prefer) || upcoming[upcoming.length - 1] || list[0];
+      if (pick) sel.value = pick.id;
+      return pick || null;
+    }
+    const todayMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; };
+
+    async function openMonth(m) {
+      CUR = m;
+      saveView();
+      $('cc-none').hidden = !!m;
+      $('cc-month-panel').hidden = !m;
+      if (!m) { $('cc-count').textContent = editionLabel($('cc-edition').value); renderTemplates(); return; }
+      await loadPosts();
+      renderMonth();
+      renderTemplates();
+    }
+
+    function renderMonth() {
+      const m = CUR;
+      $('cc-title').textContent = `${monthName(m.month)} · ${editionLabel(m.edition)}`;
+      $('cc-pill').dataset.status = m.status;
+      $('cc-pill').textContent = m.status === 'published' ? 'Published' : 'Draft';
+      $('cc-publish').textContent = m.status === 'published' ? 'Back to draft' : 'Publish';
+      $('cc-intro').value = m.intro || '';
+      const withDesign = POSTS.filter((p) => p.template_id).length;
+      $('cc-count').textContent = `${POSTS.length} post${POSTS.length === 1 ? '' : 's'} · ${withDesign} with a design`;
+      renderRows();
+      fillPillars();
+    }
+
+    function renderRows() {
+      $('cc-rows').innerHTML = POSTS.map((p) => {
+        const d = p.post_date ? dayLabel(p.post_date) : null;
+        const t = p.template_id ? TPLS.get(p.template_id) : null;
+        const thumb = t && t.thumb_url
+          ? `<div class="cc-thumb" style="background-image:url('${esc(t.thumb_url)}')"></div>`
+          : `<div class="cc-thumb is-none">${t ? '' : '+'}</div>`;
+        const caps = (p.captions || []).filter((c) => c && c.trim());
+        const cap = caps.length
+          ? `${esc(caps[0].length > 90 ? caps[0].slice(0, 90) + '…' : caps[0])}${caps.length > 1 ? ` <small>+${caps.length - 1} more</small>` : ''}`
+          : '<span class="cc-empty-cell">No caption yet</span>';
+        return `<tr data-id="${p.id}" class="${d && d.weekend ? 'cc-weekend' : ''}${OPEN && OPEN.id === p.id ? ' is-open' : ''}">
+          <td class="cc-date">${d ? `${esc(d.day)}<small>${esc(d.wd)}</small>` : '<span class="cc-empty-cell">No date</span>'}${p.date_tied ? `<span class="cc-occ">${esc(p.occasion || 'Tied to the day')}</span>` : ''}</td>
+          <td>${thumb}</td>
+          <td>${p.title ? `<span class="cc-ttl">${esc(p.title)}</span>` : '<span class="cc-empty-cell">Untitled</span>'}</td>
+          <td>${esc(typeLabel(p.post_type))}</td>
+          <td>${p.pillar ? esc(p.pillar) : '<span class="cc-empty-cell">–</span>'}</td>
+          <td class="cc-cap-cell">${cap}</td>
+          <td class="cc-plat-cell">${(p.platforms || []).map((k) => platShort[k] || k).join(' · ')}</td>
+        </tr>`;
+      }).join('') || `<tr><td colspan="7" class="cc-empty-cell">No posts yet. Click <strong>Fill the weekdays</strong> for a post on every Monday to Friday, or <strong>+ Add a post</strong>.</td></tr>`;
+    }
+
+    function fillPillars() {
+      // Every pillar used across every month, so they're spelled the same.
+      supabase.from('content_month_posts').select('pillar').not('pillar', 'is', null).limit(1000).then(({ data }) => {
+        const set = [...new Set((data || []).map((r) => r.pillar).filter(Boolean))].sort();
+        $('cc-pillars').innerHTML = set.map((p) => `<option value="${esc(p)}"></option>`).join('');
+      });
+    }
+
+    function renderTemplates() {
+      const usedOn = new Map();
+      POSTS.forEach((p) => { if (p.template_id && p.post_date) usedOn.set(p.template_id, [...(usedOn.get(p.template_id) || []), p.post_date]); });
+      const list = [...TPLS.values()].filter((t) => t.calendar)
+        .sort((a, b) => (usedOn.has(b.id) - usedOn.has(a.id)) || String(b.updated_at).localeCompare(String(a.updated_at)));
+      $('cc-tpls').hidden = false;
+      $('cc-tpl-count').textContent = `${list.length} template${list.length === 1 ? '' : 's'}`;
+      $('cc-grid').innerHTML = list.map((t) => {
+        const on = (usedOn.get(t.id) || []).map((d) => dayLabel(d).day);
+        return `<a class="cc-card${t.status === 'draft' ? ' is-draft' : ''}" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">
+          <div class="cc-card-img" style="${t.thumb_url ? `background-image:url('${esc(t.thumb_url)}')` : ''}"></div>
+          <div class="cc-card-b"><div class="cc-card-n">${esc(t.name || 'Untitled')}</div>
+          <div class="cc-card-m">${on.length ? 'This month: ' + esc(on.join(', ')) : 'Not used this month'}</div></div>
+        </a>`;
+      }).join('') || '<p class="cc-note">None yet. <strong>+ New template</strong> draws one at the posts’ 3:4 shape.</p>';
+    }
+
+    // ---- The drawer ----
+    function occasionsFor(month) {
+      const [y, m] = month.split('-').map(Number);
+      const days = upcomingDays(new Date(y, m - 1, 1), 60).filter((d) => d.when.getMonth() === m - 1 && d.when.getFullYear() === y);
+      return days;
+    }
+
+    function openDrawer(p) {
+      OPEN = p;
+      renderRows();
+      $('cc-d-head').textContent = p.post_date ? `${dayLabel(p.post_date).wd} ${dayLabel(p.post_date).day}` : 'Post';
+      const [y, m] = CUR.month.split('-').map(Number);
+      const last = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+      $('cc-d-date').min = CUR.month; $('cc-d-date').max = last;
+      $('cc-d-date').value = p.post_date || '';
+      $('cc-d-type').value = p.post_type || 'single';
+      $('cc-d-tied').checked = !!p.date_tied;
+      $('cc-d-occ').value = p.occasion || '';
+      $('cc-occasions').innerHTML = occasionsFor(CUR.month).map((d) => `<option value="${esc(d.name)}">${esc(d.when.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</option>`).join('');
+      syncTied();
+      $('cc-d-title').value = p.title || '';
+      $('cc-d-pillar').value = p.pillar || '';
+      document.querySelectorAll('.cc-cap').forEach((ta, i) => { ta.value = (p.captions || [])[i] || ''; });
+      $('cc-d-how').value = p.how_to_edit || '';
+      $('cc-d-reel').value = p.reel_prompt || '';
+      document.querySelectorAll('#cc-d-plats input').forEach((cb) => { cb.checked = (p.platforms || []).includes(cb.value); });
+      renderDrawerTemplate();
+      $('cc-shade').hidden = false;
+      $('cc-drawer').hidden = false;
+    }
+    function closeDrawer() {
+      flushSave();
+      OPEN = null;
+      $('cc-shade').hidden = true;
+      $('cc-drawer').hidden = true;
+      renderRows();
+    }
+    function syncTied() {
+      const tied = $('cc-d-tied').checked;
+      $('cc-d-occ-wrap').hidden = !tied;
+      $('cc-d-occ-hint').hidden = !tied;
+      $('cc-d-occ-name').textContent = $('cc-d-occ').value.trim() || 'that day';
+    }
+    function renderDrawerTemplate() {
+      const t = OPEN.template_id ? TPLS.get(OPEN.template_id) : null;
+      $('cc-d-tpl').innerHTML = t
+        ? `<div class="cc-thumb" style="${t.thumb_url ? `background-image:url('${esc(t.thumb_url)}')` : ''}"></div>
+           <div class="cc-d-tpl-b"><strong>${esc(t.name || 'Untitled')}</strong>
+           <div class="cc-d-tpl-acts"><button type="button" class="admin-btn admin-btn-ghost" data-act="pick">Change</button>
+           <a class="admin-btn admin-btn-ghost" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Open in the Studio</a>
+           <button type="button" class="admin-btn admin-btn-ghost" data-act="unlink">Remove</button></div></div>`
+        : `<div class="cc-thumb is-none">+</div>
+           <div class="cc-d-tpl-b">No design yet
+           <div class="cc-d-tpl-acts"><button type="button" class="admin-btn admin-btn-ghost" data-act="pick">Choose a design</button>
+           <button type="button" class="admin-btn admin-btn-ghost" data-act="new">Draw a new one</button></div></div>`;
+    }
+
+    // Read the drawer into a patch for the open post.
+    function drawerPatch() {
+      return {
+        post_date: $('cc-d-date').value || null,
+        post_type: $('cc-d-type').value,
+        date_tied: $('cc-d-tied').checked,
+        occasion: $('cc-d-tied').checked ? ($('cc-d-occ').value.trim() || null) : null,
+        title: $('cc-d-title').value.trim() || null,
+        pillar: $('cc-d-pillar').value.trim() || null,
+        captions: [...document.querySelectorAll('.cc-cap')].map((ta) => ta.value.trim()).filter(Boolean).slice(0, MAX_CAPTIONS),
+        how_to_edit: $('cc-d-how').value.trim() || null,
+        reel_prompt: $('cc-d-reel').value.trim() || null,
+        platforms: [...document.querySelectorAll('#cc-d-plats input:checked')].map((cb) => cb.value),
+      };
+    }
+
+    let saveTimer = null;
+    function queueSave() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(flushSave, 600);
+    }
+    async function flushSave() {
+      clearTimeout(saveTimer); saveTimer = null;
+      if (!OPEN) return;
+      const patch = drawerPatch();
+      const changed = Object.keys(patch).some((k) => JSON.stringify(patch[k]) !== JSON.stringify(OPEN[k] ?? (Array.isArray(patch[k]) ? [] : null)));
+      if (!changed) return;
+      const post = OPEN;
+      Object.assign(post, patch);
+      const { error } = await supabase.from('content_month_posts').update(patch).eq('id', post.id);
+      if (error) { alert(`Couldn't save the post: ${error.message}`); return; }
+      saved($('cc-d-saved'));
+      if ('post_date' in patch) {
+        POSTS.sort((a, b) => String(a.post_date || '9999').localeCompare(String(b.post_date || '9999')) || a.sort_order - b.sort_order);
+      }
+      if (OPEN === post) $('cc-d-head').textContent = post.post_date ? `${dayLabel(post.post_date).wd} ${dayLabel(post.post_date).day}` : 'Post';
+      renderMonth();
+    }
+
+    async function setTemplate(id) {
+      if (!OPEN) return;
+      const { error } = await supabase.from('content_month_posts').update({ template_id: id }).eq('id', OPEN.id);
+      if (error) { alert(`Couldn't link the design: ${error.message}`); return; }
+      OPEN.template_id = id;
+      renderDrawerTemplate();
+      renderMonth();
+      renderTemplates();
+    }
+
+    // ---- Choosing a design ----
+    function openPicker() {
+      $('cc-pick-q').value = '';
+      renderPicker();
+      $('cc-pick').hidden = false;
+      $('cc-pick-q').focus();
+    }
+    function renderPicker() {
+      const q = $('cc-pick-q').value.trim().toLowerCase();
+      const list = [...TPLS.values()].filter((t) => t.calendar && (!q || (t.name || '').toLowerCase().includes(q)));
+      $('cc-pick-grid').innerHTML = `<button type="button" class="cc-pick-new" data-new>+ Draw a new one</button>` + list.map((t) =>
+        `<button type="button" data-pick="${esc(t.id)}" class="${OPEN && OPEN.template_id === t.id ? 'is-on' : ''}">
+          <div class="cc-card-img" style="${t.thumb_url ? `background-image:url('${esc(t.thumb_url)}')` : ''}"></div>
+          <span>${esc(t.name || 'Untitled')}</span></button>`).join('');
+    }
+
+    // ---- New template ----
+    let NEW_FOR = null;   // the post a new template is drawn for, if any
+    function openNewTemplate(forPost) {
+      NEW_FOR = forPost || null;
+      const nm = forPost
+        ? [CUR ? monthName(CUR.month) : '', forPost.title || forPost.occasion || ''].filter(Boolean).join(' – ')
+        : (CUR ? monthName(CUR.month) + ' – ' : '');
+      $('cc-newtpl-name').value = nm;
+      $('cc-newtpl-for').hidden = !forPost;
+      if (forPost) $('cc-newtpl-for').textContent = `It's linked to the ${forPost.post_date ? dayLabel(forPost.post_date).day : 'open'} post straight away.`;
+      $('cc-newtpl').hidden = false;
+      $('cc-newtpl-name').focus();
+    }
+    async function createTemplate() {
+      const name = $('cc-newtpl-name').value.trim();
+      if (!name) { $('cc-newtpl-name').focus(); return; }
+      const id = 'tmpl-' + Math.random().toString(36).slice(2, 8);
+      const btn = $('cc-newtpl-go');
+      btn.disabled = true;
+      const { error } = await supabase.from('templates').insert({
+        id, name, category: null, thumb_url: null,
+        canvas: { width: 1080, height: 1440, background: '#f4f2f1', sizeChosen: true },
+        elements: [], status: 'draft', sort_order: 9000, collection: 'calendar',
+      });
+      btn.disabled = false;
+      if (error) { alert(`Couldn't create the template: ${error.message}`); return; }
+      if (NEW_FOR) {
+        const { error: e2 } = await supabase.from('content_month_posts').update({ template_id: id }).eq('id', NEW_FOR.id);
+        if (e2) { alert(`The template was made, but couldn't be linked to the post: ${e2.message}`); }
+      }
+      location.href = `/account/editor?id=${encodeURIComponent(id)}&mode=admin&title=${encodeURIComponent(name)}`;
+    }
+
+    // ---- Months ----
+    function openNewMonth() {
+      const ed = $('cc-edition').value;
+      // The first month from this one that this edition hasn't got.
+      const have = new Set(MONTHS.filter((m) => m.edition === ed).map((m) => m.month));
+      const d = new Date(); d.setDate(1);
+      let iso = todayMonth();
+      for (let i = 0; i < 24 && have.has(iso); i++) { d.setMonth(d.getMonth() + 1); iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; }
+      $('cc-new-m').value = iso.slice(0, 7);
+      $('cc-new-e').value = ed;
+      $('cc-new').hidden = false;
+    }
+    async function createMonth() {
+      const mv = $('cc-new-m').value, ed = $('cc-new-e').value;
+      if (!mv) return;
+      const month = mv + '-01';
+      const existing = MONTHS.find((m) => m.month === month && m.edition === ed);
+      $('cc-new').hidden = true;
+      if (existing) { $('cc-edition').value = ed; fillMonthMenu(month); await openMonth(existing); return; }
+      const { data, error } = await supabase.from('content_months').insert({ month, edition: ed }).select().single();
+      if (error) { alert(`Couldn't create the month: ${error.message}`); return; }
+      MONTHS.push(data);
+      $('cc-edition').value = ed;
+      fillMonthMenu(month);
+      await openMonth(data);
+      if ($('cc-new-fill').checked) await fillWeekdays(true);
+    }
+
+    async function fillWeekdays(quiet) {
+      if (!CUR) return;
+      const have = new Set(POSTS.map((p) => p.post_date));
+      const days = weekdaysOf(CUR.month).filter((d) => !have.has(d));
+      if (!days.length) { if (!quiet) alert('Every weekday this month already has a post.'); return; }
+      if (!quiet && !confirm(`Add a blank post for ${days.length} weekday${days.length === 1 ? '' : 's'} with nothing on yet?`)) return;
+      const tied = new Map(occasionsFor(CUR.month).map((o) => [isoOf(o.when), o.name]));
+      const rows = days.map((d, i) => ({ month_id: CUR.id, post_date: d, sort_order: i, occasion: tied.get(d) || null }));
+      const { error } = await supabase.from('content_month_posts').insert(rows);
+      if (error) { alert(`Couldn't add the posts: ${error.message}`); return; }
+      await loadPosts();
+      renderMonth(); renderTemplates();
+    }
+    const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    async function addPost() {
+      if (!CUR) return;
+      const { data, error } = await supabase.from('content_month_posts')
+        .insert({ month_id: CUR.id, sort_order: POSTS.length }).select().single();
+      if (error) { alert(`Couldn't add a post: ${error.message}`); return; }
+      POSTS.push(data);
+      renderMonth();
+      openDrawer(data);
+    }
+
+    async function deletePost() {
+      if (!OPEN) return;
+      if (!confirm('Delete this post from the month? Its design stays in the templates.')) return;
+      const id = OPEN.id;
+      clearTimeout(saveTimer);
+      OPEN = null;
+      const { error } = await supabase.from('content_month_posts').delete().eq('id', id);
+      if (error) { alert(`Couldn't delete the post: ${error.message}`); return; }
+      POSTS = POSTS.filter((p) => p.id !== id);
+      $('cc-shade').hidden = true; $('cc-drawer').hidden = true;
+      renderMonth(); renderTemplates();
+    }
+
+    async function togglePublish() {
+      if (!CUR) return;
+      const going = CUR.status !== 'published';
+      if (going) {
+        const noDesign = POSTS.filter((p) => !p.template_id).length;
+        const noCap = POSTS.filter((p) => !(p.captions || []).length).length;
+        const gaps = [noDesign && `${noDesign} without a design`, noCap && `${noCap} without a caption`].filter(Boolean);
+        if (!POSTS.length) { alert('This month has no posts yet.'); return; }
+        if (gaps.length && !confirm(`${gaps.join(' and ')}. Publish anyway?`)) return;
+      }
+      const status = going ? 'published' : 'draft';
+      const { error } = await supabase.from('content_months').update({ status }).eq('id', CUR.id);
+      if (error) { alert(`Couldn't change the month: ${error.message}`); return; }
+      CUR.status = status;
+      // A published month's designs are live templates, so members can open them.
+      if (going) {
+        const ids = [...new Set(POSTS.map((p) => p.template_id).filter(Boolean))];
+        if (ids.length) {
+          await supabase.from('templates').update({ status: 'active' }).in('id', ids).eq('status', 'draft');
+          ids.forEach((id) => { const t = TPLS.get(id); if (t && t.status === 'draft') t.status = 'active'; });
+        }
+      }
+      fillMonthMenu(CUR.month);
+      renderMonth(); renderTemplates();
+    }
+
+    async function deleteMonth() {
+      if (!CUR) return;
+      if (!confirm(`Delete ${monthName(CUR.month)} for ${editionLabel(CUR.edition)} and its ${POSTS.length} post${POSTS.length === 1 ? '' : 's'}? The designs stay in the templates.`)) return;
+      const { error } = await supabase.from('content_months').delete().eq('id', CUR.id);
+      if (error) { alert(`Couldn't delete the month: ${error.message}`); return; }
+      MONTHS = MONTHS.filter((m) => m.id !== CUR.id);
+      await openMonth(fillMonthMenu());
+    }
+
+    function openCopy() {
+      if (!CUR) return;
+      const others = MONTHS.filter((m) => m.month === CUR.month && m.id !== CUR.id);
+      if (!others.length) { alert(`No other edition has ${monthName(CUR.month)} yet.`); return; }
+      $('cc-copy-from').innerHTML = others.map((m) => `<option value="${m.id}">${esc(editionLabel(m.edition))}</option>`).join('');
+      $('cc-copybox').hidden = false;
+    }
+    async function copyPosts() {
+      const from = $('cc-copy-from').value;
+      const { data, error } = await supabase.from('content_month_posts').select('*').eq('month_id', from)
+        .order('post_date', { ascending: true }).order('sort_order', { ascending: true });
+      if (error) { alert(`Couldn't read those posts: ${error.message}`); return; }
+      const src = data || [];
+      if (!src.length) { alert('That month has no posts to copy.'); return; }
+      // A blank post on the same date is filled rather than doubled.
+      const blankByDate = new Map(POSTS.filter((p) => p.post_date && !p.title && !(p.captions || []).length && !p.template_id).map((p) => [p.post_date, p]));
+      if (POSTS.length > blankByDate.size && !confirm(`This month already has posts. Add ${src.length} more from ${editionLabel(MONTHS.find((m) => m.id === from)?.edition)}?`)) return;
+      const fields = (p) => ({
+        post_date: p.post_date, date_tied: p.date_tied, occasion: p.occasion, title: p.title, post_type: p.post_type,
+        pillar: p.pillar, captions: p.captions, how_to_edit: p.how_to_edit, reel_prompt: p.reel_prompt, platforms: p.platforms,
+      });
+      const inserts = [];
+      for (const p of src) {
+        const blank = p.post_date && blankByDate.get(p.post_date);
+        if (blank) {
+          blankByDate.delete(p.post_date);
+          const { error: e } = await supabase.from('content_month_posts').update(fields(p)).eq('id', blank.id);
+          if (e) { alert(`Couldn't copy a post: ${e.message}`); return; }
+        } else inserts.push({ ...fields(p), month_id: CUR.id, sort_order: p.sort_order });
+      }
+      if (inserts.length) {
+        const { error: e } = await supabase.from('content_month_posts').insert(inserts);
+        if (e) { alert(`Couldn't copy the posts: ${e.message}`); return; }
+      }
+      $('cc-copybox').hidden = true;
+      await loadPosts();
+      renderMonth(); renderTemplates();
+    }
+
+    // ---- Wiring ----
+    let lastCap = null;
+    document.querySelectorAll('.cc-cap').forEach((ta) => ta.addEventListener('focus', () => { lastCap = ta; }));
+    $('cc-tags').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-tag]');
+      if (!b) return;
+      const ta = lastCap || document.querySelector('.cc-cap');
+      const tag = b.dataset.tag;
+      const s = ta.selectionStart ?? ta.value.length, en = ta.selectionEnd ?? s;
+      ta.value = ta.value.slice(0, s) + tag + ta.value.slice(en);
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = s + tag.length;
+      queueSave();
+    });
+    $('cc-drawer').addEventListener('input', (e) => {
+      if (e.target.closest('.cc-drawer-body')) { if (e.target.id === 'cc-d-occ' || e.target.id === 'cc-d-tied') syncTied(); queueSave(); }
+    });
+    $('cc-drawer').addEventListener('change', (e) => { if (e.target.id === 'cc-d-tied') syncTied(); queueSave(); });
+    $('cc-d-tpl').addEventListener('click', (e) => {
+      const a = e.target.closest('[data-act]');
+      if (!a) return;
+      if (a.dataset.act === 'pick') openPicker();
+      if (a.dataset.act === 'new') { flushSave(); openNewTemplate(OPEN); }
+      if (a.dataset.act === 'unlink') setTemplate(null);
+    });
+    $('cc-d-close').addEventListener('click', closeDrawer);
+    $('cc-shade').addEventListener('click', closeDrawer);
+    $('cc-d-delete').addEventListener('click', deletePost);
+    $('cc-rows').addEventListener('click', (e) => {
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      flushSave();
+      const p = POSTS.find((x) => x.id === tr.dataset.id);
+      if (p) openDrawer(p);
+    });
+    $('cc-pick-q').addEventListener('input', renderPicker);
+    $('cc-pick-grid').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      $('cc-pick').hidden = true;
+      if (b.hasAttribute('data-new')) { flushSave(); openNewTemplate(OPEN); return; }
+      setTemplate(b.dataset.pick);
+    });
+    document.querySelectorAll('.cc-modal').forEach((m) => m.addEventListener('click', (e) => {
+      if (e.target === m || e.target.closest('[data-close]')) m.hidden = true;
+    }));
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const modal = [...document.querySelectorAll('.cc-modal')].find((m) => !m.hidden);
+      if (modal) { modal.hidden = true; return; }
+      if (!$('cc-drawer').hidden) closeDrawer();
+    });
+
+    $('cc-intro').addEventListener('change', async () => {
+      if (!CUR) return;
+      const intro = $('cc-intro').value.trim() || null;
+      const { error } = await supabase.from('content_months').update({ intro }).eq('id', CUR.id);
+      if (error) { alert(`Couldn't save: ${error.message}`); return; }
+      CUR.intro = intro;
+      saved($('cc-saved'));
+    });
+    $('cc-edition').addEventListener('change', () => openMonth(fillMonthMenu(CUR && CUR.month)));
+    $('cc-month').addEventListener('change', () => openMonth(MONTHS.find((m) => m.id === $('cc-month').value) || null));
+    $('cc-new-month').addEventListener('click', openNewMonth);
+    $('cc-new-go').addEventListener('click', createMonth);
+    $('cc-new-tpl').addEventListener('click', () => openNewTemplate(null));
+    $('cc-newtpl-go').addEventListener('click', createTemplate);
+    $('cc-newtpl-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') createTemplate(); });
+    $('cc-fill').addEventListener('click', () => fillWeekdays(false));
+    $('cc-copy').addEventListener('click', openCopy);
+    $('cc-copy-go').addEventListener('click', copyPosts);
+    $('cc-add').addEventListener('click', addPost);
+    $('cc-publish').addEventListener('click', togglePublish);
+    $('cc-delete-month').addEventListener('click', deleteMonth);
+    window.addEventListener('beforeunload', () => { if (saveTimer) flushSave(); });
+
+    (async () => {
+      if (!DEV) {
+        const session = await requireAdmin();
+        if (!session) return;
+      }
+      if (!(await loadMonths())) return;
+      await loadTemplates();
+      $('cc-loading').hidden = true;
+      const v = readView();
+      if (v.edition && EDITIONS.some((e) => e.key === v.edition)) $('cc-edition').value = v.edition;
+      await openMonth(fillMonthMenu(v.month));
+    })();
+  </script>
+</AdminShell>

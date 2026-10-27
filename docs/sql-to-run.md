@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-Nothing waiting.
+- [ ] supabase/content_calendar_months.sql — Content Calendar months and posts, calendar templates, course levels (27 Oct)
 
 ## Done
 
