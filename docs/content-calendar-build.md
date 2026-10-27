@@ -16,15 +16,31 @@ Admin builds these first, so Studio builds against something real.
 1. **The month tables**: `content_months` (month, brand set, status draft/published) and `content_month_posts` (date, tied to the day or not, type, content pillar, caption, how to edit, reel prompt, platforms, template id). Studio reads only published months.
 2. **One access check**: a Worker route, `/access/me`, that says what a member gets: calendar months, library reach, scheduling, Done For You, course levels. It's worked out on the server from either source: a TEG brand paying for them, or their own card. Studio never decides access in the browser.
 
+### What `/access/me` returns
+
+GET with the member's Bearer token:
+
+```
+{ ok, level: "free" | "calendar" | "scheduling" | "done_for_you",
+  staff, teg, edition, editions,      // edition = which month's posts: property | prestige | lettings | independent
+  source: "staff" | "none" (later "teg" | "card"),
+  calendar, preview,                  // preview = free member: show the month blurred
+  library: { from, to } | null,       // months they can open, inclusive; from null = every month
+  scheduling, done_for_you,
+  course_levels: [...] }              // the guides.level values they can open
+```
+
+Staff can add `?as=free` (or any level) to see the hub as that level.
+
 ## Phase 1: now, hidden from members
 
 | Done | Item | Who |
 |---|---|---|
-| | Month tables and their SQL (above) | Admin |
-| | Month builder in the admin centre: a sheet per month of about 20 posts, each linked to a template the way a pack is; draft then publish, like Trending Month; built months ahead | Admin |
-| | Content Calendar tab in the admin Design studio, beside Templates and Print, for each month's templates (built in the demo agency's name, so unbranded) | Admin |
-| | A level on every course in the course editor, set to Free for now | Admin |
-| | `/access/me`: everyone Free for now; staff can be given a level to test with | Admin |
+| 27 Oct | Month tables and their SQL (above): supabase/content_calendar_months.sql, waiting to run | Admin |
+| 27 Oct | Month builder in the admin centre (Design studio › Content calendar): a sheet per month of about 20 posts, each linked to a template the way a pack is; draft then publish, like Trending Month; built months ahead | Admin |
+| 27 Oct | Content Calendar tab in the admin Design studio, beside Templates and Print, for each month's templates (built in the demo agency's name, so unbranded) | Admin |
+| 27 Oct | A level on every course in the course editor (Guides), set to Free for now | Admin |
+| 27 Oct | `/access/me`: everyone Free for now; staff get everything, or any level with `?as=calendar` | Admin |
 | | Content Calendar month view reading a published month: our post on each weekday, full size in its day (staff only) | Studio |
 | | Post pop-out: full size, content pillar, how to edit, caption, Use This Template | Studio |
 | | The month as its own pack in the Studio; How to edit and the caption at the top of the Start panel | Studio |

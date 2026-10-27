@@ -5182,6 +5182,73 @@ function smmReportAmendedHtml({ name, month, monthLabel, manager, link, joinLink
   </div>`;
 }
 // ── Post scheduling through Zernio (Dani, 20 Oct 2026) ─────────────────────
+// ── Content Calendar access (Danielle, 27 Oct 2026) ─────────────────────────
+// The one access check for the Content Calendar subscription: what a member's
+// level gives them (the calendar, the library, scheduling, Done For You, which
+// courses). Worked out here, never in the browser, from either source of
+// access: a TEG brand paying for its agents, or the member's own card.
+// Neither exists yet, so everyone is Free; staff get everything and can see
+// any level with ?as=<level>. Build list: docs/content-calendar-build.md.
+const ACCESS_LEVELS = {
+  free:         { rank: 0, calendar: false, library_back: null, scheduling: false, done_for_you: false },
+  calendar:     { rank: 1, calendar: true,  library_back: 0,    scheduling: false, done_for_you: false },
+  scheduling:   { rank: 2, calendar: true,  library_back: 3,    scheduling: true,  done_for_you: false },
+  done_for_you: { rank: 3, calendar: true,  library_back: -1,   scheduling: true,  done_for_you: true },
+};
+// Which month's posts a TEG brand gets. Anyone not on a TEG brand is independent.
+const ACCESS_EDITION_OF_BRAND = {
+  "The Property Experts": "property",
+  "Prestige Property Experts": "prestige",
+  "The Letting Experts": "lettings",
+};
+function accessMonth(offset) {
+  const p = londonParts(new Date()).ymd.split("-").map(Number);
+  const d = new Date(Date.UTC(p[0], p[1] - 1 + offset, 1));
+  return d.toISOString().slice(0, 10);
+}
+async function memberAccess(env, user, asLevel) {
+  // Their TEG brands, from the agent profiles on their contact record.
+  let editions = [], primary = null;
+  try {
+    let c = ((await sbGet(env, "contacts", `user_id=eq.${encodeURIComponent(user.id)}&select=id&limit=1`)) || [])[0];
+    if (!c && user.email) c = ((await sbGet(env, "contacts", `email=eq.${encodeURIComponent(String(user.email).toLowerCase())}&select=id&limit=1`)) || [])[0];
+    if (c) {
+      const rows = (await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(c.id)}&left_at=is.null&select=brand,is_primary`)) || [];
+      rows.forEach((r) => {
+        const ed = ACCESS_EDITION_OF_BRAND[r.brand];
+        if (!ed) return;
+        if (!editions.includes(ed)) editions.push(ed);
+        if (r.is_primary && !primary) primary = ed;
+      });
+    }
+  } catch (_) {}
+  const teg = editions.length > 0;
+  if (!teg) editions = ["independent"];
+  const staff = !!user._isAdmin;
+  // Until subscriptions exist: Free for members, everything for staff.
+  let level = staff ? "done_for_you" : "free";
+  if (staff && ACCESS_LEVELS[asLevel]) level = asLevel;
+  const L = ACCESS_LEVELS[level];
+  const joined = null;   // the month they first subscribed, once subscriptions exist
+  let library = null;
+  if (L.calendar) {
+    let from = L.library_back < 0 ? null : accessMonth(-L.library_back);
+    if (joined && (!from || joined > from)) from = joined;
+    library = { from, to: accessMonth(1) };
+  }
+  return {
+    ok: true, level, staff, teg,
+    edition: primary || editions[0], editions,
+    source: staff ? "staff" : "none",       // later: "teg" (brand pays) or "card"
+    calendar: L.calendar,
+    preview: !L.calendar,                    // free members see the month blurred
+    library,                                 // months they can open, inclusive; from null = all
+    scheduling: L.scheduling,
+    done_for_you: L.done_for_you,
+    course_levels: Object.keys(ACCESS_LEVELS).filter((k) => ACCESS_LEVELS[k].rank <= L.rank),
+  };
+}
+
 // Zernio posts to the member's own social accounts. One Zernio profile per
 // member, tagged with their TMKE user id (externalId), holds the accounts they
 // connect through Zernio's sign-in links. Scheduling is the Content Calendar
@@ -5697,6 +5764,13 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         if (!/^[0-9a-f]{24}$/.test(String(b.post_id || ""))) return json({ error: "Which post?" }, 400, request, env);
         const r = await zernio(env, `/posts/${b.post_id}`, { method: "DELETE" });
         return json(r.ok ? { ok: true } : { error: (r.data && r.data.error) || "Couldn't cancel it." }, r.ok ? 200 : 502, request, env);
+      }
+
+      // What this member's Content Calendar level gives them (memberAccess).
+      if (path.endsWith("/access/me") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        return json(await memberAccess(env, user, url.searchParams.get("as")), 200, request, env);
       }
 
       // ── Scheduling (Zernio) ──────────────────────────────────────────────
