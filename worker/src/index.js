@@ -5766,6 +5766,88 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         return json(r.ok ? { ok: true } : { error: (r.data && r.data.error) || "Couldn't cancel it." }, r.ok ? 200 : 502, request, env);
       }
 
+      /* How a pack did (Danielle, 28 Oct 2026): for a promotion, how many
+         members opened its templates, saved their own copy and downloaded one,
+         between two dates (by default the pack's free window). Staff are left
+         out. Opens are counted from the template_opened event, which started
+         on 28 Oct 2026; a saved copy is a My Designs row made from one of the
+         pack's templates; a download is the editor's design_downloaded event
+         for one of those templates or a copy of one. */
+      if (path.endsWith("/admin/pack-results") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const packId = String(url.searchParams.get("pack_id") || "");
+        if (!/^[0-9a-f-]{36}$/i.test(packId)) return json({ error: "Which pack?" }, 400, request, env);
+        const pack = (await sbGet(env, "packs", `id=eq.${packId}&select=*`))?.[0];
+        if (!pack) return json({ error: "Pack not found." }, 404, request, env);
+        const day = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || "")) ? String(v) : null);
+        const from = day(url.searchParams.get("from")) || (pack.available_from ? String(pack.available_from).slice(0, 10) : String(pack.created_at || "2026-01-01").slice(0, 10));
+        const to = day(url.searchParams.get("to")) || londonParts(new Date()).ymd;
+        const toEnd = new Date(Date.UTC(+to.slice(0, 4), +to.slice(5, 7) - 1, +to.slice(8, 10) + 1)).toISOString().slice(0, 10);
+        const inRange = `created_at=gte.${from}&created_at=lt.${toEnd}`;
+
+        const staff = new Set(((await sbGet(env, "admins", "select=user_id")) || []).map((r) => r.user_id));
+        const tpls = (await sbGet(env, "templates", `pack_id=eq.${packId}&select=id,name,thumb_url,sort_order&order=sort_order.asc`)) || [];
+        const tplIds = tpls.map((t) => t.id);
+        const quoted = (arr) => arr.map((i) => `"${String(i).replace(/"/g, "")}"`).join(",");
+        const copies = tplIds.length ? ((await sbGetAll(env, "user_designs", `source_template_id=in.(${quoted(tplIds)})&select=id,user_id,source_template_id,created_at`)) || []) : [];
+        const copyTpl = new Map(copies.map((d) => [d.id, d.source_template_id]));
+        const member = (uid) => !!uid && !staff.has(uid);
+
+        // Events for these templates (or copies of them) in the window.
+        const keys = [...tplIds, ...copyTpl.keys()];
+        let events = [];
+        if (keys.length) {
+          const q = quoted(keys);
+          events = (await sbGetAll(env, "site_events",
+            `name=in.(design_downloaded,template_opened)&${inRange}&or=(props->>template.in.(${q}),props->>design_id.in.(${q}))&select=name,user_id,props,created_at`)) || [];
+        }
+        const tplOf = (e) => {
+          const p = e.props || {};
+          if (tplIds.includes(p.template)) return p.template;
+          if (tplIds.includes(p.design_id)) return p.design_id;
+          return copyTpl.get(p.design_id) || null;
+        };
+
+        const per = new Map(tpls.map((t) => [t.id, { id: t.id, name: t.name, thumb_url: t.thumb_url, opened: new Set(), saved: new Set(), downloaded: new Set(), downloads: 0 }]));
+        const people = new Map();
+        const person = (uid) => { if (!people.has(uid)) people.set(uid, { user_id: uid, opened: 0, saved: 0, downloads: 0, last: null }); return people.get(uid); };
+        const touch = (pp, at) => { if (!pp.last || at > pp.last) pp.last = at; };
+        for (const d of copies) {
+          if (!member(d.user_id) || d.created_at < from || d.created_at >= toEnd) continue;
+          per.get(d.source_template_id)?.saved.add(d.user_id);
+          const pp = person(d.user_id); pp.saved++; touch(pp, d.created_at);
+        }
+        for (const e of events) {
+          if (!member(e.user_id)) continue;
+          const t = per.get(tplOf(e));
+          if (!t) continue;
+          const pp = person(e.user_id); touch(pp, e.created_at);
+          if (e.name === "template_opened") { t.opened.add(e.user_id); pp.opened++; }
+          else { t.downloaded.add(e.user_id); t.downloads++; pp.downloads++; }
+        }
+
+        // Names for the people list.
+        const uids = [...people.keys()];
+        const names = new Map();
+        for (let i = 0; i < uids.length; i += 100) {
+          const rows = (await sbGet(env, "contacts", `user_id=in.(${quoted(uids.slice(i, i + 100))})&select=user_id,first_name,last_name,email,company`)) || [];
+          rows.forEach((c) => names.set(c.user_id, c));
+        }
+        const uniq = (k) => new Set([...per.values()].flatMap((t) => [...t[k]])).size;
+        return json({
+          ok: true,
+          pack: { id: pack.id, title: pack.title, demo: !!pack.demo, available_from: pack.available_from || null, available_until: pack.available_until || null },
+          from, to, opens_since: "2026-10-28",
+          totals: { opened: uniq("opened"), saved: uniq("saved"), downloaded: uniq("downloaded"), downloads: [...per.values()].reduce((n, t) => n + t.downloads, 0) },
+          templates: [...per.values()].map((t) => ({ id: t.id, name: t.name, thumb_url: t.thumb_url, opened: t.opened.size, saved: t.saved.size, downloaded: t.downloaded.size, downloads: t.downloads })),
+          people: [...people.values()].map((pp) => {
+            const c = names.get(pp.user_id) || {};
+            return { ...pp, name: [c.first_name, c.last_name].filter(Boolean).join(" ") || null, email: c.email || null, company: c.company || null };
+          }).sort((a, b) => String(b.last).localeCompare(String(a.last))),
+        }, 200, request, env);
+      }
+
       // What this member's Content Calendar level gives them (memberAccess).
       if (path.endsWith("/access/me") && request.method === "GET") {
         const user = await getUser(request, env);

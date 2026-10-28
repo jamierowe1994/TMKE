@@ -165,6 +165,22 @@ import "../../styles/admin.css";
 
   <div class="catalogue-toast" id="catalogue-toast" hidden></div>
 
+  <!-- How a pack did: opened, saved, downloaded (Danielle, 28 Oct 2026). -->
+  <div class="gift-modal" id="pr-modal" hidden>
+    <div class="gift-modal-backdrop" data-pr-close></div>
+    <div class="gift-modal-card pr-card" role="dialog" aria-modal="true" aria-labelledby="pr-title" data-lenis-prevent>
+      <button type="button" class="gift-modal-x" data-pr-close aria-label="Close">&times;</button>
+      <p class="gift-modal-eyebrow">Pack results</p>
+      <h2 class="gift-modal-title" id="pr-title"></h2>
+      <p class="gift-modal-sub">Members only: the team aren't counted. Each figure is people, except the number of downloads.</p>
+      <div class="pr-range">
+        <label class="gift-field"><span>From</span><input type="date" id="pr-from" /></label>
+        <label class="gift-field"><span>To</span><input type="date" id="pr-to" /></label>
+      </div>
+      <div id="pr-body"><p class="pr-muted">Loading&hellip;</p></div>
+    </div>
+  </div>
+
   <!-- Gift-a-pack modal: drops a pack into someone's library as a £0 order. -->
   <div class="gift-modal" id="gift-modal" hidden>
     <div class="gift-modal-backdrop" data-gift-close></div>
@@ -701,6 +717,23 @@ import "../../styles/admin.css";
       padding: 24px;
     }
     .gift-modal[hidden] { display: none; }
+    .gift-modal-card.pr-card { max-width: 760px; max-height: calc(100vh - 48px); overflow-y: auto; }
+    .pr-range { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 360px; }
+    .pr-muted { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0; }
+    .pr-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 4px 0 22px; }
+    .pr-tile { border: 1px solid rgba(var(--violet-rgb), 0.18); border-radius: 4px; padding: 12px 14px; background: #fff; }
+    .pr-tile b { display: block; font-family: var(--sans); font-size: 26px; font-weight: 600; color: var(--english-violet); font-variant-numeric: tabular-nums; }
+    .pr-tile span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .pr-h { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 8px; }
+    .pr-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; margin-bottom: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.35); border-bottom: 1px solid rgba(var(--violet-rgb), 0.35); }
+    .pr-table th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); padding: 8px 10px; border-bottom: 1px solid rgba(28,29,34,0.12); }
+    .pr-table td { padding: 8px 10px; border-bottom: 1px solid rgba(28,29,34,0.07); color: var(--ink); vertical-align: middle; }
+    .pr-table tr:last-child td { border-bottom: 0; }
+    .pr-table .n { text-align: right; font-variant-numeric: tabular-nums; width: 76px; }
+    .pr-table th.n { text-align: right; }
+    .pr-thumb { width: 30px; aspect-ratio: 3 / 4; border-radius: 2px; background: #eeeae7 center / cover no-repeat; display: inline-block; vertical-align: middle; margin-right: 10px; }
+    .pr-who small { display: block; color: rgba(28,29,34,0.5); }
+    @media (max-width: 640px) { .pr-tiles { grid-template-columns: 1fr 1fr; } }
     .gift-modal-backdrop {
       position: absolute; inset: 0;
       background: rgba(20, 18, 26, 0.55);
@@ -904,7 +937,7 @@ import "../../styles/admin.css";
         ? `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-restore="${p.id}">Restore</button>`
         : `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-archive="${p.id}">Archive</button>`;
       const editBtn = `<a href="${editHref}" class="admin-btn admin-btn-primary admin-btn-sm" data-edit="${p.id}">Edit</a>`;
-      const giftBtn = `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-gift="${p.id}">Gift</button>`;
+      const giftBtn = `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-results="${p.id}">Results</button> <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-gift="${p.id}">Gift</button>`;
 
       if (view === "list") {
         return `
@@ -1087,7 +1120,8 @@ import "../../styles/admin.css";
         });
         return;
       }
-      actions.innerHTML = `<span class="demo-pack-note" style="margin:0">Live · ${escapeHtml(demoPack.title)}</span>`;
+      actions.innerHTML = `<span class="demo-pack-note" style="margin:0">Live · ${escapeHtml(demoPack.title)}</span> <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="demo-pack-results">Results</button>`;
+      dpEl("demo-pack-results").addEventListener("click", (e) => { e.stopPropagation(); openResults(demoPack); });
       body.hidden = false;
       dpNote("");
       /* source_id is the original a Demo pack template follows
@@ -1393,7 +1427,63 @@ import "../../styles/admin.css";
       if (restoreId) { e.preventDefault(); restorePack(restoreId); return; }
       const giftId = target.getAttribute("data-gift");
       if (giftId) { e.preventDefault(); openGift(giftId); return; }
+      const resId = target.getAttribute("data-results");
+      if (resId) { e.preventDefault(); openResults(allPacks.find((p) => p.id === resId)); return; }
     });
+
+    // ===== Pack results (Danielle, 28 Oct 2026) =====
+    // For a promotion: how many members opened the pack's templates, saved
+    // their own copy and downloaded one, between two dates. Defaults to the
+    // pack's free window. Counted by the Worker (/admin/pack-results).
+    const prModal = document.getElementById("pr-modal");
+    let prPack = null;
+    const prDay = (d) => { const x = new Date(d); return isNaN(x) ? "" : x.toLocaleDateString("en-CA", { timeZone: "Europe/London" }); };
+    function openResults(pack) {
+      if (!pack) return;
+      prPack = pack;
+      document.getElementById("pr-title").textContent = pack.title || "Pack";
+      document.getElementById("pr-from").value = pack.available_from ? prDay(pack.available_from) : (pack.created_at ? prDay(pack.created_at) : "");
+      const until = pack.available_until ? prDay(pack.available_until) : "";
+      const today = prDay(new Date());
+      document.getElementById("pr-to").value = until && until < today ? until : today;
+      prModal.hidden = false;
+      loadResults();
+    }
+    function closeResults() { prModal.hidden = true; prPack = null; }
+    async function loadResults() {
+      if (!prPack) return;
+      const body = document.getElementById("pr-body");
+      body.innerHTML = `<p class="pr-muted">Loading…</p>`;
+      const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const q = new URLSearchParams({ pack_id: prPack.id, from: document.getElementById("pr-from").value, to: document.getElementById("pr-to").value });
+        const res = await fetch(`${WORKER}/admin/pack-results?${q}`, { headers: { Authorization: `Bearer ${session ? session.access_token : ""}` } });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Couldn't load the results.");
+        const t = d.totals;
+        const tile = (n, label) => `<div class="pr-tile"><b>${n}</b><span>${label}</span></div>`;
+        const opensNote = d.from < d.opens_since ? `<p class="pr-muted" style="margin:-12px 0 18px">Opens have only been counted since ${new Date(d.opens_since + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" })}, so they'll read low for anything earlier. Downloads since 7 October.</p>` : "";
+        const fmt = (iso) => iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "";
+        body.innerHTML = `
+          <div class="pr-tiles">${tile(t.opened, "Opened")}${tile(t.saved, "Saved a copy")}${tile(t.downloaded, "Downloaded")}${tile(t.downloads, "Downloads")}</div>
+          ${opensNote}
+          <p class="pr-h">By template</p>
+          <table class="pr-table"><thead><tr><th>Template</th><th class="n">Opened</th><th class="n">Saved</th><th class="n">Downloaded</th></tr></thead><tbody>
+          ${d.templates.map((x) => `<tr><td><span class="pr-thumb" style="${x.thumb_url ? `background-image:url('${escapeHtml(x.thumb_url)}')` : ""}"></span>${escapeHtml(x.name || "Untitled")}</td><td class="n">${x.opened}</td><td class="n">${x.saved}</td><td class="n">${x.downloaded}</td></tr>`).join("") || `<tr><td colspan="4" class="pr-muted">No templates in this pack.</td></tr>`}
+          </tbody></table>
+          <p class="pr-h">Who</p>
+          ${d.people.length ? `<table class="pr-table"><thead><tr><th>Member</th><th class="n">Opened</th><th class="n">Saved</th><th class="n">Downloads</th><th class="n">Last</th></tr></thead><tbody>
+          ${d.people.map((p) => `<tr><td class="pr-who">${escapeHtml(p.name || p.email || "A member")}${p.company || (p.name && p.email) ? `<small>${escapeHtml([p.company, p.name ? p.email : ""].filter(Boolean).join(" · "))}</small>` : ""}</td><td class="n">${p.opened}</td><td class="n">${p.saved}</td><td class="n">${p.downloads}</td><td class="n">${fmt(p.last)}</td></tr>`).join("")}
+          </tbody></table>` : `<p class="pr-muted">No members yet in these dates.</p>`}`;
+      } catch (err) {
+        body.innerHTML = `<p class="pr-muted">${escapeHtml(err.message)}</p>`;
+      }
+    }
+    document.getElementById("pr-from")?.addEventListener("change", loadResults);
+    document.getElementById("pr-to")?.addEventListener("change", loadResults);
+    document.querySelectorAll("[data-pr-close]").forEach((el) => el.addEventListener("click", closeResults));
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && prModal && !prModal.hidden) closeResults(); });
 
     // ===== Gift a pack =====
     // Lets an admin drop a pack into someone's library as a £0 "paid" order,
