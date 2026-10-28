@@ -8398,7 +8398,7 @@ import { createResizeEngine } from "./resize-engine.js";
       texts.forEach(function (e) {
         const node = stage.querySelector('.ed-element[data-id="' + (window.CSS && CSS.escape ? CSS.escape(e.id) : e.id) + '"]');
         const inner = node && node.querySelector(".ed-text-inner");
-        const tnode = inner && inner.firstChild;
+        let tnode = inner && inner.firstChild;
         if (!inner || !tnode || tnode.nodeType !== 3) return;
         const box = node.getBoundingClientRect();
         const cs = getComputedStyle(inner);
@@ -8424,20 +8424,29 @@ import { createResizeEngine } from "./resize-engine.js";
         }
         if (!lines.length) return;
 
-        /* The baseline of each line, exactly: a zero-size inline-block aligned
-           to the baseline reports it as its own top. Measured, not derived. */
-        lines.forEach(function (ln) {
-          const probe = document.createElement("span");
-          probe.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline;";
-          const at = document.createRange();
-          at.setStart(tnode, ln.start); at.collapse(true);
-          at.insertNode(probe);
-          const pr = probe.getBoundingClientRect();
-          ln.baseline = pr.top - box.top;
-          const parent = probe.parentNode;
-          probe.remove();
-          if (parent) parent.normalize();      // put the split text node back
-        });
+        /* The baseline, exactly: a zero-size inline-block aligned to the
+           baseline reports it as its own top. Measured once, at the start of
+           the first line, and every line is placed from its own top by the
+           same distance (one face, one size). A probe at the start of each
+           line read a soft-wrapped line's start as the end of the line
+           before, so a paragraph's second line sat on its first.
+
+           The probe splits off an EMPTY first node, which normalize() then
+           throws away, taking tnode with it; until 28 Oct the next line's
+           range failed there and every text on the page fell back to the
+           computed path, which drops blank lines and can't justify (Dani,
+           "20 Great Reasons"). So tnode is picked up again afterwards. */
+        const probe = document.createElement("span");
+        probe.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline;";
+        const at = document.createRange();
+        at.setStart(tnode, lines[0].start); at.collapse(true);
+        at.insertNode(probe);
+        const ascent = probe.getBoundingClientRect().top - lines[0].top;
+        const parent = probe.parentNode;
+        probe.remove();
+        if (parent) parent.normalize();      // put the split text node back
+        tnode = inner.firstChild;
+        lines.forEach(function (ln) { ln.baseline = ln.top - box.top + ascent; });
 
         /* Built from the individual properties, never from the `font`
            shorthand: Chrome returns "" for the shorthand whenever it cannot
@@ -8447,7 +8456,7 @@ import { createResizeEngine } from "./resize-engine.js";
            length for the same reason: canvas rejects "normal" outright and
            quietly keeps whatever the previous element set. Dani, 11 Oct. */
         const _fam = cs.fontFamily || "sans-serif";
-        const _sizePx = parseFloat(cs.fontSize) || el.size || 16;
+        const _sizePx = parseFloat(cs.fontSize) || e.size || 16;
         const _wt = cs.fontWeight || 400;
         const _sty = (cs.fontStyle && cs.fontStyle !== "normal") ? cs.fontStyle + " " : "";
         const _ls = parseFloat(cs.letterSpacing);
@@ -8556,6 +8565,7 @@ import { createResizeEngine } from "./resize-engine.js";
       ctx.fillStyle = el.textBg.color || "#FFE066";
       let yy = vOffsetFor(lines.length);
       for (const ln of lines) {
+        if (!ln) { yy += lh; continue; }
         const tw = ctx.measureText(ln).width;
         let lx = 0;
         if (el.align === "center") lx = (el.w - tw) / 2;
@@ -8959,7 +8969,8 @@ import { createResizeEngine } from "./resize-engine.js";
           line = w;
         } else line = test;
       }
-      if (line) lines.push(line);
+      // An empty paragraph is a blank line, the space between paragraphs.
+      lines.push(line);
     }
     return lines;
   }
