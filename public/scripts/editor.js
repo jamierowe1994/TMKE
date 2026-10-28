@@ -437,6 +437,21 @@ import { createResizeEngine } from "./resize-engine.js";
     toast._t = setTimeout(() => { toastEl.classList.remove("is-show"); toastEl.hidden = true; }, durationMs || 1800);
   }
 
+  /* Something fell back to a lesser way of doing it (Danielle, 28 Oct: no
+     fallback runs silently). Reported to the server as a site event by the
+     page (editor.astro), so the team hears of it from a member's browser
+     too; in admin mode it also says so on screen. */
+  function reportFallback(kind, detail, onScreen) {
+    const f = { kind: kind, detail: detail ? String((detail && detail.message) || detail) : null,
+      template: (typeof _templateOrigin !== "undefined" && _templateOrigin) || null };
+    try { console.warn("[TMKE] fallback: " + kind, detail || ""); } catch (_) {}
+    try {
+      if (window.__TMKE_REPORT_FALLBACK__) window.__TMKE_REPORT_FALLBACK__(f);
+      else (window.__TMKE_FALLBACK_Q__ = window.__TMKE_FALLBACK_Q__ || []).push(f);
+    } catch (_) {}
+    if (onScreen && isAdminMode()) toast(onScreen + " Tell Claude.", 6000);
+  }
+
   // A message with one thing you can do about it, held long enough to read.
   function toastAction(msg, label, fn, durationMs) {
     toast(msg, durationMs || 7000);
@@ -8489,8 +8504,7 @@ import { createResizeEngine } from "./resize-engine.js";
       /* Falls back to the computed path, which is rougher. Never quietly: it
          did, unseen, from 11 to 28 Oct, and previews and downloads lost their
          blank lines and justification. The team is told; members aren't. */
-      try { console.warn("[TMKE] text measuring failed, using the computed layout", err); } catch (_) {}
-      if (isAdminMode()) toast("Heads up: this render couldn’t measure its text, so line breaks may differ from the Studio. Tell Claude.", 6000);
+      reportFallback("text_measure", err, "Heads up: this render couldn\u2019t measure its text, so line breaks may differ from the Studio.");
     }
     finally { stage.remove(); }
     return out;

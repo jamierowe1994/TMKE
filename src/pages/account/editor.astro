@@ -5854,6 +5854,28 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       (window as any).__TMKE_TEMPLATE_OPENED__ = onOpen;
       ((window as any).__TMKE_OPENED_Q__ || []).splice(0).forEach(onOpen);
     }
+    /* The engine fell back to something lesser (Danielle, 28 Oct): "If
+       anything is reverting to a fall back… we should somehow be made aware."
+       Recorded as a site event wherever it happens, a member's browser too,
+       once per kind a visit, with what was open; the team's own included. */
+    {
+      const seen = new Set();
+      const onFallback = (f) => {
+        const kind = f && f.kind;
+        if (!kind || seen.has(kind)) return;
+        seen.add(kind);
+        const q = new URLSearchParams(location.search);
+        track('studio_fallback', {
+          kind,
+          detail: f.detail ? String(f.detail).slice(0, 300) : null,
+          template: f.template || q.get('template') || null,
+          design: q.get('design') || null,
+          admin: q.get('mode') === 'admin',
+        });
+      };
+      (window as any).__TMKE_REPORT_FALLBACK__ = onFallback;
+      ((window as any).__TMKE_FALLBACK_Q__ || []).splice(0).forEach(onFallback);
+    }
     import { isAdminUser } from '../../lib/admin-gate.js';
     import { designStore } from '../../lib/design-store.js';
 
