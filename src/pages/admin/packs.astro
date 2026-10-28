@@ -524,6 +524,12 @@ import "../../styles/admin.css";
       color: var(--ink);
       text-transform: none;
     }
+    /* A members' free pack ("Free · 25 Oct to 31 Oct") reads in the category's
+       small capitals, in ink, not the price's serif (Danielle, 28 Oct). */
+    .catalogue-grid .pack-card .pack-price.is-free {
+      font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink);
+    }
     .catalogue-grid.is-view-grid .pack-title {
       font-family: var(--sans);
       font-size: 14px;
@@ -955,7 +961,7 @@ import "../../styles/admin.css";
             </div>
             <div class="pack-meta">${escapeHtml(p.category || "—")}</div>
             ${statusPill}
-            <div class="pack-price">${escapeHtml(priceLabel(p))}</div>
+            <div class="pack-price${p.access === "members" ? " is-free" : ""}">${escapeHtml(priceLabel(p))}</div>
             <div class="pack-actions">${giftBtn} ${editBtn} ${archiveOrRestore}</div>
           </article>
         `;
@@ -969,7 +975,7 @@ import "../../styles/admin.css";
           <div class="pack-body">
             <div class="pack-meta">
               <span>${escapeHtml(p.category || "—")}</span>
-              <span class="pack-price">${escapeHtml(priceLabel(p))}</span>
+              <span class="pack-price${p.access === "members" ? " is-free" : ""}">${escapeHtml(priceLabel(p))}</span>
             </div>
             <h3 class="pack-title">${escapeHtml(p.title)}</h3>
             <p class="pack-desc">${escapeHtml(p.description || "")}</p>
