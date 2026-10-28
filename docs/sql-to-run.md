@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/invoices_management_writes.sql — only management can change invoices; everyone can still see them (28 Oct)
 - [ ] supabase/content_calendar_months.sql — Content Calendar months and posts, calendar templates, course levels (27 Oct)
 
 ## Done

@@ -452,12 +452,16 @@ const NAV = [
       // Money is management-only: Payments (Stripe) and the parts of Invoicing
       // that show the ledger. Hidden here as well as refused by the Worker, so
       // an ordinary admin isn't shown a door that won't open.
+      // Invoicing too (Danielle, 28 Oct 2026): the team see their own clients'
+      // invoices in Social media and Videography, and resend them from there.
       if (!isManagement) {
-        document.querySelectorAll('[data-navkey="payments"]').forEach((el) => {
+        document.querySelectorAll('[data-navkey="payments"], [data-navkey="invoicing"]').forEach((el) => {
           const group = el.closest(".ash-group");
           el.remove();
           if (group && !group.querySelector(".ash-link")) group.remove();
         });
+        const here = document.getElementById("ash")?.dataset.active;
+        if (here === "payments" || here === "invoicing") { location.replace("/admin"); return; }
       }
 
       // Let pages react once auth + profile are ready.

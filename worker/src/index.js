@@ -11843,7 +11843,16 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       if (path.endsWith("/invoicing/invoices/send") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        const b = await request.json().catch(() => ({}));
+        let b = await request.json().catch(() => ({}));
+        /* Everyone else can resend an invoice that has already gone, exactly as
+           it was: no new invoices, no changes to the email (Danielle, 28 Oct
+           2026). A change goes through Danielle. */
+        if (!(await isManagement(env, user))) {
+          const cur = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(String(b.id || ""))}&select=status`))?.[0];
+          if (!cur) return json({ error: "Invoice not found." }, 404, request, env);
+          if (cur.status !== "sent" && cur.status !== "paid") return json({ error: "Only an invoice that has already been sent can be resent. Ask Danielle to send a new one." }, 403, request, env);
+          b = { id: b.id };
+        }
         const sent = await sendInvoiceNow(env, b, user.email || "an admin");
         if (!sent.ok) return json({ error: sent.error }, sent.code || 502, request, env);
         return json(sent, 200, request, env);
@@ -12021,7 +12030,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       if (path.endsWith("/invoicing/invoices") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
+        /* Abbie, Jack and the team see the invoices for the client or shoot
+           they have open, never the ledger (Danielle, 28 Oct 2026). */
+        if (!url.searchParams.get("booking_id") && !(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         const extra = url.searchParams.get("booking_id") ? `&booking_id=eq.${encodeURIComponent(url.searchParams.get("booking_id"))}` : "";
         const tail = `${extra}&order=created_at.desc&limit=300`;
         const BASE = "id,number,bill_to_name,bill_to_email,cc_email,total_pence,status,issued_date,due_date,paid_date,payment_method,billing_month,created_at";
@@ -12049,6 +12060,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       if (path.endsWith("/invoicing/invoices") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const made = await createInvoiceDraft(env, b, user.email || null);
         if (!made.ok) return json({ error: made.error }, made.code || 502, request, env);
@@ -12057,6 +12069,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       if (path.endsWith("/invoicing/invoices") && request.method === "PATCH") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const id = String((b && b.id) || "").trim();
         const status = ["draft", "sent", "paid", "void"].includes(b && b.status) ? b.status : null;
@@ -12266,9 +12279,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const id = String(url.searchParams.get("id") || "").trim();
         if (!id) return json({ error: "Missing id." }, 400, request, env);
         const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=id,number,status`))?.[0];
-        // A draft was never sent, so any admin can clear one away; anything
-        // the client has seen stays management-only.
-        if (!(inv && inv.status === "draft") && !(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
+        // Management only, drafts included (Danielle, 28 Oct 2026): the team
+        // can see and resend invoices, not change them.
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
           method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
         });

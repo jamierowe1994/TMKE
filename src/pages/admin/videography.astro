@@ -1469,7 +1469,7 @@ import "../../styles/admin.css";
   </style>
 
   <script>
-    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { requireAdmin, isManagementUser } from "../../lib/admin-gate.js";
     import { listVideoNotes, setVideoNoteDone, noteAuthor } from "../../lib/video-notes.js";
     import { archiveFolderName } from "../../lib/archive-folder.js";
     import { makeThumb, putThumb, thumbKeyFor } from "../../lib/thumbs.js";
@@ -3043,11 +3043,29 @@ import "../../styles/admin.css";
       });
     }
 
+    /* Only management raise, change, void or mark invoices paid. Everyone
+       else (Jack) sees the shoot's invoices, opens them and resends a sent one
+       with its usual email (Danielle, 28 Oct 2026); the Worker holds the same line. */
+    let CAN_MONEY_P = null;
+    function canMoney() {
+      if (!CAN_MONEY_P) CAN_MONEY_P = import.meta.env.DEV ? Promise.resolve(true)
+        : supabase.auth.getSession().then(({ data }) => isManagementUser(data && data.session && data.session.user)).catch(() => false);
+      return CAN_MONEY_P;
+    }
+
     async function renderInvoiceCard(b) {
       const host = actionHost(b, "vid-cand-invoice");
       if (!host) return;
       if (!WORKER_URL) { host.innerHTML = `<h4>Invoice</h4><p class="vid-loading">Connect the Worker to raise invoices.</p>`; return; }
       await ensureInvSettings();
+      if (!(await canMoney())) {
+        host.innerHTML = `<h4>Invoice</h4>
+          <p class="vid-hint" style="margin-bottom:12px">You can open these invoices and resend one that's been sent. To raise, change or void an invoice, or mark it paid, ask Danielle.</p>
+          <div id="viv-list"><p class="vid-loading">Loading…</p></div>
+          <p class="vid-warn" id="viv-msg" hidden></p>`;
+        loadInvoices(b);
+        return;
+      }
 
       // Once the shoot has moved past invoicing there is nothing left to raise,
       // so the builder folds away and only the raised invoices remain - with
@@ -3277,8 +3295,15 @@ import "../../styles/admin.css";
     /* The send dialog. Whoever opens it says what happens on Send, so the
        same review step serves a first send and a resend. */
     let vimSend = null;
-    function openInvoiceEmail(inv, onSend) {
+    async function openInvoiceEmail(inv, onSend) {
       vimSend = onSend;
+      // The team resend as it was: the Worker ignores any change from them.
+      const money = await canMoney();
+      ["vim-cc", "vim-subject", "vim-body"].forEach((id) => { document.getElementById(id).readOnly = !money; });
+      document.getElementById("vim-send").textContent = money ? "Send invoice" : "Resend invoice";
+      document.querySelector("#vid-email-modal .vim-sub").textContent = money
+        ? "Review the email \u2014 edit anything before it goes. The invoice PDF and your footer image are added automatically."
+        : "This sends the invoice again with its usual email. To change the invoice or the email, ask Danielle.";
       document.getElementById("vim-num").textContent = inv.number || "";
       document.getElementById("vim-to").value = inv.bill_to_email || "";
       document.getElementById("vim-cc").value = inv.cc_email || "";
@@ -3336,8 +3361,33 @@ import "../../styles/admin.css";
       const host = document.getElementById("viv-list");
       if (!host) return;
       const list = await fetchInvoicesFor(b);
+      const money = await canMoney();
       b._invoices = list;
       if (!list.length) { host.innerHTML = `<p class="vid-loading">Nothing raised yet.</p>`; return; }
+      if (!money) {
+        host.innerHTML = list.filter((iv) => iv.status !== "void").map((iv) => `
+          <div class="vid-inv-row-item">
+            <span class="vid-inv-num">${escapeHtml(iv.number || "—")}</span>
+            <span>${escapeHtml(gbpFromPence(iv.total_pence))}</span>
+            <span class="vid-inv-actions">
+              <span class="vid-inv-status is-${escapeHtml(iv.status)}">${escapeHtml(iv.status)}</span>
+              <button type="button" class="admin-btn admin-btn-ghost" data-vview="${escapeHtml(iv.id)}">View</button>
+              ${(iv.status === "sent" || iv.status === "paid") && iv.bill_to_email ? `<button type="button" class="admin-btn admin-btn-ghost" data-vresend="${escapeHtml(iv.id)}">Resend</button>` : ""}
+            </span>
+          </div>`).join("") || `<p class="vid-loading">Nothing raised yet.</p>`;
+        host.querySelectorAll("[data-vresend]").forEach((btn) => btn.addEventListener("click", () => resendInvoice(b, btn.getAttribute("data-vresend"), btn)));
+        host.querySelectorAll("[data-vview]").forEach((btn) => btn.addEventListener("click", async () => {
+          const tab = window.open("", "_blank");   // opened on the click, or the browser blocks it
+          try {
+            const token = await authToken();
+            const res = await fetch(`${WORKER_URL}/invoicing/invoice-pdf?id=${encodeURIComponent(btn.getAttribute("data-vview"))}`, { headers: { Authorization: "Bearer " + token } });
+            const j = await res.json().catch(() => ({}));
+            if (!res.ok || !j.url) throw new Error(j.error || "Couldn't open it.");
+            if (tab) tab.location = j.url; else window.location = j.url;
+          } catch (err) { if (tab) tab.close(); vivStatus("Couldn't open the invoice: " + err.message, true); }
+        }));
+        return;
+      }
       // An invoice marked paid somewhere that didn't mark the shoot paid (the
       // Invoicing page, before 30 Sep 2026): offer to finish the job.
       const paidInv = list.find((iv) => iv.status === "paid");
