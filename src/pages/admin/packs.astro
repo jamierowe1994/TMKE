@@ -172,7 +172,7 @@ import "../../styles/admin.css";
       <button type="button" class="gift-modal-x" data-pr-close aria-label="Close">&times;</button>
       <p class="gift-modal-eyebrow">Pack results</p>
       <h2 class="gift-modal-title" id="pr-title"></h2>
-      <p class="gift-modal-sub">Members only: the team aren't counted. Each figure is people, except the number of downloads.</p>
+      <p class="gift-modal-sub">How many members opened a template from this pack, edited and saved one, and downloaded one. The team aren't counted.</p>
       <div class="pr-range">
         <label class="gift-field"><span>From</span><input type="date" id="pr-from" /></label>
         <label class="gift-field"><span>To</span><input type="date" id="pr-to" /></label>
@@ -721,6 +721,7 @@ import "../../styles/admin.css";
     .pr-range { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 360px; }
     .pr-muted { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0; }
     .pr-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 4px 0 22px; }
+    .pr-tiles--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .pr-tile { border: 1px solid rgba(var(--violet-rgb), 0.18); border-radius: 4px; padding: 12px 14px; background: #fff; }
     .pr-tile b { display: block; font-family: var(--sans); font-size: 26px; font-weight: 600; color: var(--english-violet); font-variant-numeric: tabular-nums; }
     .pr-tile span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
@@ -733,7 +734,7 @@ import "../../styles/admin.css";
     .pr-table th.n { text-align: right; }
     .pr-thumb { width: 30px; aspect-ratio: 3 / 4; border-radius: 2px; background: #eeeae7 center / cover no-repeat; display: inline-block; vertical-align: middle; margin-right: 10px; }
     .pr-who small { display: block; color: rgba(28,29,34,0.5); }
-    @media (max-width: 640px) { .pr-tiles { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 640px) { .pr-tiles:not(.pr-tiles--3) { grid-template-columns: 1fr 1fr; } }
     .gift-modal-backdrop {
       position: absolute; inset: 0;
       background: rgba(20, 18, 26, 0.55);
@@ -1464,16 +1465,22 @@ import "../../styles/admin.css";
         const t = d.totals;
         const tile = (n, label) => `<div class="pr-tile"><b>${n}</b><span>${label}</span></div>`;
         const opensNote = d.from < d.opens_since ? `<p class="pr-muted" style="margin:-12px 0 18px">Opens have only been counted since ${new Date(d.opens_since + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" })}, so they'll read low for anything earlier. Downloads since 7 October.</p>` : "";
+        /* The templates members reach for, so we make more like them
+           (Danielle, 28 Oct): the top three of a small pack, five of a bigger
+           one, by opens, then edits, then downloads. Unused ones are left off. */
+        const topN = d.templates.length > 10 ? 5 : 3;
+        const top = d.templates.filter((x) => x.opened || x.saved || x.downloaded)
+          .sort((a, b) => (b.opened - a.opened) || (b.saved - a.saved) || (b.downloaded - a.downloaded)).slice(0, topN);
         const fmt = (iso) => iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "";
         body.innerHTML = `
-          <div class="pr-tiles">${tile(t.opened, "Opened")}${tile(t.saved, "Saved a copy")}${tile(t.downloaded, "Downloaded")}${tile(t.downloads, "Downloads")}</div>
+          <div class="pr-tiles pr-tiles--3">${tile(t.opened, "Opened a template")}${tile(t.saved, "Edited and saved")}${tile(t.downloaded, "Downloaded")}</div>
           ${opensNote}
-          <p class="pr-h">By template</p>
-          <table class="pr-table"><thead><tr><th>Template</th><th class="n">Opened</th><th class="n">Saved</th><th class="n">Downloaded</th></tr></thead><tbody>
-          ${d.templates.map((x) => `<tr><td><span class="pr-thumb" style="${x.thumb_url ? `background-image:url('${escapeHtml(x.thumb_url)}')` : ""}"></span>${escapeHtml(x.name || "Untitled")}</td><td class="n">${x.opened}</td><td class="n">${x.saved}</td><td class="n">${x.downloaded}</td></tr>`).join("") || `<tr><td colspan="4" class="pr-muted">No templates in this pack.</td></tr>`}
+          <p class="pr-h">Most opened${top.length ? ` &middot; top ${top.length} of ${d.templates.length}` : ""}</p>
+          <table class="pr-table"><thead><tr><th>Template</th><th class="n">Opened</th><th class="n">Edited</th><th class="n">Downloaded</th></tr></thead><tbody>
+          ${top.map((x) => `<tr><td><span class="pr-thumb" style="${x.thumb_url ? `background-image:url('${escapeHtml(x.thumb_url)}')` : ""}"></span>${escapeHtml(x.name || "Untitled")}</td><td class="n">${x.opened}</td><td class="n">${x.saved}</td><td class="n">${x.downloaded}</td></tr>`).join("") || `<tr><td colspan="4" class="pr-muted">None of this pack's templates have been used in these dates.</td></tr>`}
           </tbody></table>
           <p class="pr-h">Who</p>
-          ${d.people.length ? `<table class="pr-table"><thead><tr><th>Member</th><th class="n">Opened</th><th class="n">Saved</th><th class="n">Downloads</th><th class="n">Last</th></tr></thead><tbody>
+          ${d.people.length ? `<table class="pr-table"><thead><tr><th>Member</th><th class="n">Opened</th><th class="n">Edited</th><th class="n">Downloads</th><th class="n">Last</th></tr></thead><tbody>
           ${d.people.map((p) => `<tr><td class="pr-who">${escapeHtml(p.name || p.email || "A member")}${p.company || (p.name && p.email) ? `<small>${escapeHtml([p.company, p.name ? p.email : ""].filter(Boolean).join(" · "))}</small>` : ""}</td><td class="n">${p.opened}</td><td class="n">${p.saved}</td><td class="n">${p.downloads}</td><td class="n">${fmt(p.last)}</td></tr>`).join("")}
           </tbody></table>` : `<p class="pr-muted">No members yet in these dates.</p>`}`;
       } catch (err) {
