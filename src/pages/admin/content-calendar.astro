@@ -93,6 +93,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     <div class="cc-views" role="tablist">
       <button type="button" class="cc-view is-on" data-view="calendar">Calendar</button>
       <button type="button" class="cc-view" data-view="templates">Templates</button>
+      <button type="button" class="cc-view" data-view="notes">Notes</button>
     </div>
 
     <div id="cc-view-calendar">
@@ -112,6 +113,14 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       <div class="cc-grid" id="cc-grid"></div>
       <div class="cc-tpls-head cc-tpls-head--more" id="cc-other-head" hidden><h3>Other Content Calendar templates</h3><span class="cc-note">Not used this month</span></div>
       <div class="cc-grid" id="cc-other"></div>
+    </div>
+
+    <!-- Ideas and rough planning for the month, for the team only (Danielle,
+         28 Oct). Saves as you type. -->
+    <div id="cc-view-notes" hidden>
+      <div class="cc-tpls-head"><h3>Notes</h3><span class="cc-note" id="cc-notes-state"></span></div>
+      <p class="cc-hint cc-notes-hint">Ideas, rough plans, things to chase. For the team only; members never see these.</p>
+      <textarea id="cc-notes" class="cc-notes" placeholder="e.g. Bonfire Night post with a safety angle? Ask Jack for autumn street shots."></textarea>
     </div>
   </section>
   </div>
@@ -305,6 +314,9 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .cc-view:hover { color: var(--ink); }
     .cc-view.is-on { background: var(--english-violet); color: var(--paper); }
     .cc-tpls-head--more { margin-top: 40px; }
+    .cc-notes-hint { margin: -8px 0 12px; max-width: 75%; }
+    #cc-view-notes textarea.cc-notes { display: block; width: 100%; box-sizing: border-box; min-height: 420px; resize: vertical; font-family: var(--sans); font-size: 14px; line-height: 1.6; padding: 14px 16px; border: 1px solid rgba(28,29,34,0.16); border-radius: 6px; background: #fff; color: var(--ink); }
+    #cc-view-notes textarea.cc-notes:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
     .cc-card.is-empty { border-style: dashed; background: transparent; cursor: pointer; text-align: left; padding: 0; font: inherit; }
     .cc-card.is-empty .cc-card-img { display: flex; align-items: center; justify-content: center; background: transparent; color: var(--english-violet); font-family: var(--sans); font-size: 12px; font-weight: 700; }
     .cc-tpls-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px; }
@@ -458,6 +470,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     const todayMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; };
 
     async function openMonth(m) {
+      if (CUR && CUR !== m) await saveNotes();   // typed notes stay with the month they were typed in
       CUR = m;
       saveView();
       $('cc-none').hidden = !!m;
@@ -475,6 +488,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       $('cc-pill').textContent = m.status === 'published' ? 'Published' : 'Draft';
       $('cc-publish').textContent = m.status === 'published' ? 'Back to draft' : 'Publish';
       $('cc-intro').value = m.intro || '';
+      showNotes();
       const withDesign = POSTS.filter((p) => p.template_id).length;
       $('cc-count').textContent = `${POSTS.length} post${POSTS.length === 1 ? '' : 's'} · ${withDesign} with a design`;
       renderRows();
@@ -540,14 +554,40 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       $('cc-other').innerHTML = others.map((t) => card(t, '')).join('');
     }
 
-    let VIEW = (() => { try { return localStorage.getItem('tmke.admin.calendar.tab') === 'templates' ? 'templates' : 'calendar'; } catch (_) { return 'calendar'; } })();
+    let VIEW = (() => { try { const v = localStorage.getItem('tmke.admin.calendar.tab'); return v === 'templates' || v === 'notes' ? v : 'calendar'; } catch (_) { return 'calendar'; } })();
     function showView(v) {
       VIEW = v;
       try { localStorage.setItem('tmke.admin.calendar.tab', v); } catch (_) {}
       document.querySelectorAll('.cc-view').forEach((b) => b.classList.toggle('is-on', b.dataset.view === v));
       $('cc-view-calendar').hidden = v !== 'calendar';
       $('cc-view-templates').hidden = v !== 'templates';
+      $('cc-view-notes').hidden = v !== 'notes';
     }
+
+    /* Notes save a second after typing stops, and when you leave the box. */
+    var NOTES_T = null;   // var: openMonth can run before this line on load
+    function showNotes() {
+      clearTimeout(NOTES_T);
+      $('cc-notes').value = (CUR && CUR.notes) || '';
+      $('cc-notes-state').textContent = CUR && !('notes' in CUR) ? 'Notes save once supabase/content_calendar_notes.sql has run.' : '';
+    }
+    async function saveNotes() {
+      clearTimeout(NOTES_T);
+      if (!CUR) return;
+      const notes = $('cc-notes').value.trim() ? $('cc-notes').value : null;
+      if ((CUR.notes || null) === notes) return;
+      const m = CUR;
+      $('cc-notes-state').textContent = 'Saving…';
+      const { error } = await supabase.from('content_months').update({ notes }).eq('id', m.id);
+      if (error) {
+        $('cc-notes-state').textContent = /notes/.test(error.message) ? 'Not saved: run supabase/content_calendar_notes.sql first.' : `Not saved: ${error.message}`;
+        return;
+      }
+      m.notes = notes;
+      if (m === CUR) saved($('cc-notes-state'));
+    }
+    $('cc-notes').addEventListener('input', () => { clearTimeout(NOTES_T); NOTES_T = setTimeout(saveNotes, 1000); });
+    $('cc-notes').addEventListener('blur', saveNotes);
     document.querySelectorAll('.cc-view').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
     showView(VIEW);
     $('cc-grid').addEventListener('click', (e) => {

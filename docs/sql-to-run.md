@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-Nothing waiting.
+- [ ] supabase/content_calendar_notes.sql — notes on each Content Calendar month, for ideas and rough planning (28 Oct)
 
 ## Done
 
