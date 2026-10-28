@@ -36,7 +36,7 @@ Staff can add `?as=free` (or any level) to see the hub as that level.
 
 | Done | Item | Who |
 |---|---|---|
-| 27 Oct | Month tables and their SQL (above): supabase/content_calendar_months.sql, waiting to run | Admin |
+| 27 Oct | Month tables and their SQL (above): supabase/content_calendar_months.sql, run 28 Oct | Admin |
 | 27 Oct | Month builder in the admin centre (Design studio › Content calendar): a sheet per month of about 20 posts, each linked to a template the way a pack is; draft then publish, like Trending Month; built months ahead | Admin |
 | 27 Oct | Content Calendar tab in the admin Design studio, beside Templates and Print, for each month's templates (built in the demo agency's name, so unbranded) | Admin |
 | 27 Oct | A level on every course in the course editor (Guides), set to Free for now | Admin |
