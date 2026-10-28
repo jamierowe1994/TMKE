@@ -8485,7 +8485,13 @@ import { createResizeEngine } from "./resize-engine.js";
           }),
         });
       });
-    } catch (_) { /* fall back to the computed path */ }
+    } catch (err) {
+      /* Falls back to the computed path, which is rougher. Never quietly: it
+         did, unseen, from 11 to 28 Oct, and previews and downloads lost their
+         blank lines and justification. The team is told; members aren't. */
+      try { console.warn("[TMKE] text measuring failed, using the computed layout", err); } catch (_) {}
+      if (isAdminMode()) toast("Heads up: this render couldn’t measure its text, so line breaks may differ from the Studio. Tell Claude.", 6000);
+    }
     finally { stage.remove(); }
     return out;
   }
