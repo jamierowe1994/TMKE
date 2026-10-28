@@ -170,7 +170,7 @@ import "../../styles/admin.css";
     <div class="gift-modal-backdrop" data-pr-close></div>
     <div class="gift-modal-card pr-card" role="dialog" aria-modal="true" aria-labelledby="pr-title" data-lenis-prevent>
       <button type="button" class="gift-modal-x" data-pr-close aria-label="Close">&times;</button>
-      <p class="gift-modal-eyebrow">Pack results</p>
+      <p class="gift-modal-eyebrow">Pack insights</p>
       <h2 class="gift-modal-title" id="pr-title"></h2>
       <p class="gift-modal-sub">How many members opened a template from this pack, edited and saved one, and downloaded one. The team aren't counted.</p>
       <div class="pr-range">
@@ -524,9 +524,10 @@ import "../../styles/admin.css";
       color: var(--ink);
       text-transform: none;
     }
-    /* A members' free pack ("Free · 25 Oct to 31 Oct") reads in the category's
-       small capitals, in ink, not the price's serif (Danielle, 28 Oct). */
-    .catalogue-grid .pack-card .pack-price.is-free {
+    /* The price, or a members' free pack's dates ("Free · 25 Oct to 31 Oct"),
+       reads in the category's small capitals, in ink, not a large serif
+       (Danielle, 28 Oct). */
+    .catalogue-grid .pack-card .pack-price.pack-price--caps {
       font-family: var(--sans); font-size: 10px; font-weight: 700;
       letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink);
     }
@@ -861,7 +862,8 @@ import "../../styles/admin.css";
 
     // Which half of the catalogue is on show. Kept in the address so a reload,
     // or coming back from the pack editor, lands where you were.
-    let kind = new URLSearchParams(location.search).get("kind") === "print" ? "print" : "social";
+    const KINDS = ["social", "print"];
+    let kind = KINDS.includes(new URLSearchParams(location.search).get("kind")) ? new URLSearchParams(location.search).get("kind") : "social";
 
     function syncKindTabs() {
       document.querySelectorAll(".cat-tab").forEach((b) => {
@@ -873,14 +875,14 @@ import "../../styles/admin.css";
         nu.textContent = kind === "print" ? "+ New print pack" : "+ New pack";
       }
       const demo = document.getElementById("demo-pack");
-      if (demo) demo.hidden = kind === "print";   // the demo pack is a social one
+      if (demo) demo.hidden = kind !== "social";   // the demo pack is a social one
     }
 
     document.querySelectorAll(".cat-tab").forEach((b) => {
       b.addEventListener("click", () => {
-        kind = b.getAttribute("data-kind") === "print" ? "print" : "social";
+        kind = KINDS.includes(b.getAttribute("data-kind")) ? b.getAttribute("data-kind") : "social";
         const u = new URL(location.href);
-        if (kind === "print") u.searchParams.set("kind", "print"); else u.searchParams.delete("kind");
+        if (kind !== "social") u.searchParams.set("kind", kind); else u.searchParams.delete("kind");
         history.replaceState(null, "", u);
         render();
       });
@@ -948,7 +950,7 @@ import "../../styles/admin.css";
         ? `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-restore="${p.id}">Restore</button>`
         : `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-archive="${p.id}">Archive</button>`;
       const editBtn = `<a href="${editHref}" class="admin-btn admin-btn-primary admin-btn-sm" data-edit="${p.id}">Edit</a>`;
-      const giftBtn = `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-results="${p.id}">Results</button> <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-gift="${p.id}">Gift</button>`;
+      const giftBtn = `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-results="${p.id}">Insights</button> <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-gift="${p.id}">Gift</button>`;
 
       if (view === "list") {
         return `
@@ -961,7 +963,7 @@ import "../../styles/admin.css";
             </div>
             <div class="pack-meta">${escapeHtml(p.category || "—")}</div>
             ${statusPill}
-            <div class="pack-price${p.access === "members" ? " is-free" : ""}">${escapeHtml(priceLabel(p))}</div>
+            <div class="pack-price pack-price--caps">${escapeHtml(priceLabel(p))}</div>
             <div class="pack-actions">${giftBtn} ${editBtn} ${archiveOrRestore}</div>
           </article>
         `;
@@ -975,7 +977,7 @@ import "../../styles/admin.css";
           <div class="pack-body">
             <div class="pack-meta">
               <span>${escapeHtml(p.category || "—")}</span>
-              <span class="pack-price${p.access === "members" ? " is-free" : ""}">${escapeHtml(priceLabel(p))}</span>
+              <span class="pack-price pack-price--caps">${escapeHtml(priceLabel(p))}</span>
             </div>
             <h3 class="pack-title">${escapeHtml(p.title)}</h3>
             <p class="pack-desc">${escapeHtml(p.description || "")}</p>
@@ -1131,7 +1133,7 @@ import "../../styles/admin.css";
         });
         return;
       }
-      actions.innerHTML = `<span class="demo-pack-note" style="margin:0">Live · ${escapeHtml(demoPack.title)}</span> <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="demo-pack-results">Results</button>`;
+      actions.innerHTML = `<span class="demo-pack-note" style="margin:0">Live · ${escapeHtml(demoPack.title)}</span> <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="demo-pack-results">Insights</button>`;
       dpEl("demo-pack-results").addEventListener("click", (e) => { e.stopPropagation(); openResults(demoPack); });
       body.hidden = false;
       dpNote("");
@@ -1442,7 +1444,7 @@ import "../../styles/admin.css";
       if (resId) { e.preventDefault(); openResults(allPacks.find((p) => p.id === resId)); return; }
     });
 
-    // ===== Pack results (Danielle, 28 Oct 2026) =====
+    // ===== Pack insights (Danielle, 28 Oct 2026; "Results" until the same day) =====
     // For a promotion: how many members opened the pack's templates, saved
     // their own copy and downloaded one, between two dates. Defaults to the
     // pack's free window. Counted by the Worker (/admin/pack-results).
