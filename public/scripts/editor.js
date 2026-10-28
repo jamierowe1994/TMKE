@@ -15947,7 +15947,7 @@ import { createResizeEngine } from "./resize-engine.js";
       // (Danielle, 7 Oct 2026): nothing else would ever know it happened.
       exportImage(type, pages).then(function (ok) {
         if (!ok || typeof window.__TMKE_ON_DOWNLOAD__ !== "function") return;
-        try { window.__TMKE_ON_DOWNLOAD__({ format: type, pages: pages ? pages.length : state.pages.length, design_id: state.templateId || null, design_name: filenameEl.value || "" }); } catch (_) {}
+        try { window.__TMKE_ON_DOWNLOAD__({ format: type, pages: pages ? pages.length : state.pages.length, design_id: state.templateId || null, design_name: filenameEl.value || "", template: _templateOrigin || null }); } catch (_) {}
       });
     });
   })();

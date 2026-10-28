@@ -5829,10 +5829,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     // Downloads happen in the browser, so the editor tells us when one has
     // finished and it's recorded as a site event (Danielle, 7 Oct 2026). The
     // team editing templates (?mode=admin) isn't a member downloading.
+    // `template` is the template it came from, for a pack's results (28 Oct):
+    // the one opened this visit, or a saved copy's source_template_id.
     window.__TMKE_ON_DOWNLOAD__ = (d) => {
       const q = new URLSearchParams(location.search);
       if (q.get('mode') === 'admin') return;
-      track('design_downloaded', { ...d, template: q.get('template') || null });
+      const src = (window as any).__TMKE_DESIGN_SOURCE__;
+      const fromCopy = src && d && src.design === d.design_id ? src.template : null;
+      track('design_downloaded', { ...d, template: (d && d.template) || fromCopy || q.get('template') || null });
     };
     /* Opens, for a pack's results (Danielle, 28 Oct): a member opening one of
        our templates by any route - a pack's designs, the Templates switcher,
@@ -6547,6 +6551,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             const { data: d } = await DB.from(DT).select('*').eq('id', currentDesignId).eq('user_id', memberUid).single();
             if (d) design = { id: d.id, name: d.name, canvas: d.canvas, elements: d.elements, pages: d.pages };
             if (d) sourceTemplateId = d.source_template_id || null;
+            // For a download's results: which template this copy came from.
+            if (d) (window as any).__TMKE_DESIGN_SOURCE__ = { design: d.id, template: sourceTemplateId };
           } catch (_) {}
           if (typeof window.__TMKE_BOOT_DESIGN__ === 'function') window.__TMKE_BOOT_DESIGN__(design);
           else window.__TMKE_DESIGN_BOOTSTRAP_DONE__ = design;
