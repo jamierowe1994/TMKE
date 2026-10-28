@@ -36,4 +36,128 @@ const TABS = [
     </nav>
     <div class="studio-bar-actions"><slot name="actions" /></div>
   </div>
+  <!-- The Studio fell back to a lesser way of doing something (Danielle,
+       28 Oct: "If anything is reverting to a fall back… we should somehow be
+       made aware"). The editor records each as a studio_fallback site event,
+       from a member's browser too; this says so on every studio tab until
+       someone has looked. -->
+  <div class="sfb" id="sfb" hidden role="status">
+    <span class="sfb-text" id="sfb-text"></span>
+    <button type="button" class="sfb-btn" id="sfb-open">See them</button>
+    <button type="button" class="sfb-btn sfb-btn-quiet" id="sfb-seen">Mark as seen</button>
+  </div>
 </section>
+
+<div class="sfb-modal" id="sfb-modal" hidden data-lenis-prevent>
+  <div class="sfb-box" role="dialog" aria-modal="true" aria-labelledby="sfb-title">
+    <div class="sfb-head">
+      <strong id="sfb-title">Studio fallbacks, last 30 days</strong>
+      <button type="button" class="sfb-x" id="sfb-close" aria-label="Close">&times;</button>
+    </div>
+    <p class="sfb-note">Each time the Studio couldn't do something the proper way and used a lesser one instead. Recorded once per kind a visit, from members' browsers as well as ours, if they accepted cookies. Send these to Claude to fix.</p>
+    <div class="sfb-body"><table class="sfb-table" id="sfb-table"></table></div>
+  </div>
+</div>
+
+<script>
+  import { supabase } from "../../lib/supabase.js";
+
+  const SEEN_KEY = "tmke.admin.fallback.seen";
+  const KINDS: Record<string, string> = {
+    text_measure: "Couldn't measure a design's text, so the line breaks were worked out instead",
+  };
+  const kindLabel = (k: string) => KINDS[k] || String(k || "Unknown").replace(/_/g, " ");
+  const esc = (v: unknown) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+  const $ = (id: string) => document.getElementById(id) as HTMLElement;
+  const seenAt = () => { try { return localStorage.getItem(SEEN_KEY) || ""; } catch (_) { return ""; } };
+
+  let ROWS: any[] = [];
+
+  async function load() {
+    const since = new Date(Date.now() - 30 * 864e5).toISOString();
+    const { data, error } = await supabase.from("site_events")
+      .select("id, user_id, props, created_at").eq("name", "studio_fallback")
+      .gte("created_at", since).order("created_at", { ascending: false }).limit(500);
+    if (error || !data) return;
+    ROWS = data;
+    const seen = seenAt();
+    const fresh = ROWS.filter((r) => !seen || r.created_at > seen);
+    if (!fresh.length) { $("sfb").hidden = true; return; }
+    const kinds = new Map<string, number>();
+    fresh.forEach((r) => { const k = (r.props && r.props.kind) || "unknown"; kinds.set(k, (kinds.get(k) || 0) + 1); });
+    const what = [...kinds.entries()].map(([k, n]) => `${kindLabel(k).split(",")[0].toLowerCase()} (${n})`).join("; ");
+    $("sfb-text").textContent = `The Studio fell back ${fresh.length} time${fresh.length === 1 ? "" : "s"}${seen ? " since this was last marked as seen" : " in the last 30 days"}: ${what}.`;
+    $("sfb").hidden = false;
+  }
+
+  async function names() {
+    const uids = [...new Set(ROWS.map((r) => r.user_id).filter(Boolean))];
+    const tids = [...new Set(ROWS.map((r) => r.props && r.props.template).filter(Boolean))];
+    const dids = [...new Set(ROWS.map((r) => r.props && r.props.design).filter((d: string) => /^[0-9a-f-]{36}$/i.test(d || "")))];
+    const [p, t, d] = await Promise.all([
+      uids.length ? supabase.from("contacts").select("user_id, first_name, last_name, email").in("user_id", uids) : { data: [] },
+      tids.length ? supabase.from("templates").select("id, name").in("id", tids) : { data: [] },
+      dids.length ? supabase.from("user_designs").select("id, name").in("id", dids) : { data: [] },
+    ]);
+    return {
+      people: new Map(((p as any).data || []).map((c: any) => [c.user_id, `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.email])),
+      tpls: new Map(((t as any).data || []).map((x: any) => [x.id, x.name])),
+      designs: new Map(((d as any).data || []).map((x: any) => [x.id, x.name])),
+    };
+  }
+
+  async function openList() {
+    $("sfb-modal").hidden = false;
+    const tbl = $("sfb-table");
+    tbl.innerHTML = `<tr><td class="sfb-none">Loading…</td></tr>`;
+    const n = await names();
+    const seen = seenAt();
+    tbl.innerHTML = ROWS.length
+      ? `<thead><tr><th>When</th><th>What</th><th>Template or design</th><th>Who</th></tr></thead><tbody>` + ROWS.map((r) => {
+          const pr = r.props || {};
+          const when = new Date(r.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+          const item = [pr.design && (n.designs.get(pr.design) || "Their design"), pr.template && (n.tpls.get(pr.template) || pr.template)].filter(Boolean).join(" · ") || "—";
+          const who = pr.admin ? "Team, in admin mode" : (r.user_id ? (n.people.get(r.user_id) || "A member") : "Signed out");
+          return `<tr${!seen || r.created_at > seen ? ' class="is-new"' : ""}>
+            <td class="sfb-when">${esc(when)}</td>
+            <td>${esc(kindLabel(pr.kind))}${pr.detail ? `<div class="sfb-detail">${esc(pr.detail)}</div>` : ""}</td>
+            <td>${esc(item)}</td><td>${esc(who)}</td></tr>`;
+        }).join("") + "</tbody>"
+      : `<tr><td class="sfb-none">Nothing in the last 30 days.</td></tr>`;
+  }
+
+  $("sfb-open")?.addEventListener("click", openList);
+  $("sfb-close")?.addEventListener("click", () => { $("sfb-modal").hidden = true; });
+  $("sfb-modal")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) $("sfb-modal").hidden = true; });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("sfb-modal").hidden = true; });
+  $("sfb-seen")?.addEventListener("click", () => {
+    try { localStorage.setItem(SEEN_KEY, new Date().toISOString()); } catch (_) {}
+    $("sfb").hidden = true;
+  });
+  supabase.auth.getSession().then(({ data }) => { if (data && data.session) load(); });
+</script>
+
+<style is:global>
+  .sfb { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid rgba(160,90,60,0.35); background: rgba(160,90,60,0.07); border-radius: 6px; font-family: var(--sans); font-size: 13px; color: #7a3f27; }
+  .sfb[hidden] { display: none; }
+  .sfb-text { flex: 1 1 320px; }
+  .sfb-btn { font-family: var(--sans); font-size: 12px; font-weight: 700; height: 30px; padding: 0 14px; border-radius: 4px; border: 1px solid #a05a3c; background: #a05a3c; color: #fff; cursor: pointer; }
+  .sfb-btn:hover { background: #8a4a30; }
+  .sfb-btn-quiet { background: transparent; color: #7a3f27; border-color: rgba(160,90,60,0.45); }
+  .sfb-btn-quiet:hover { background: rgba(160,90,60,0.1); }
+  .sfb-modal { position: fixed; inset: 0; z-index: 90; background: rgba(28,29,34,0.35); display: flex; align-items: flex-start; justify-content: center; padding: 90px 20px 24px calc(var(--ash-side-w, 0px) + 20px); }
+  .sfb-modal[hidden] { display: none; }
+  .sfb-box { background: #fff; border-radius: 8px; width: min(900px, 100%); max-height: calc(100vh - 120px); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 30px 60px -30px rgba(28,29,34,0.5); }
+  .sfb-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid rgba(28,29,34,0.1); font-family: var(--sans); font-size: 14px; color: var(--english-violet); }
+  .sfb-x { margin-left: auto; border: 0; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--ink); }
+  .sfb-note { margin: 0; padding: 12px 18px 0; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.65); max-width: 75%; }
+  .sfb-body { overflow-y: auto; padding: 12px 18px 18px; }
+  .sfb-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; color: var(--ink); border-top: 1px solid rgba(28,29,34,0.14); border-bottom: 1px solid rgba(28,29,34,0.14); }
+  .sfb-table th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); padding: 10px 10px 8px 0; }
+  .sfb-table td { padding: 10px 10px 10px 0; border-top: 1px solid rgba(28,29,34,0.08); vertical-align: top; }
+  .sfb-table th:first-child, .sfb-table td:first-child { padding-left: 10px; }
+  .sfb-table tr.is-new td:first-child { box-shadow: inset 3px 0 0 #a05a3c; }
+  .sfb-when { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .sfb-detail { margin-top: 4px; font-size: 12px; color: rgba(28,29,34,0.55); word-break: break-word; }
+  .sfb-none { color: rgba(28,29,34,0.55); padding: 14px 0; }
+</style>
