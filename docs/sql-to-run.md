@@ -4,11 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/invoices_management_writes.sql — only management can change invoices; everyone can still see them (28 Oct)
 - [ ] supabase/content_calendar_months.sql — Content Calendar months and posts, calendar templates, course levels (27 Oct)
 
 ## Done
 
+- [x] supabase/invoices_management_writes.sql — only management can change invoices; everyone can still see them (28 Oct)
 - [x] supabase/smm_video_notes.sql — videography notes on social media clients (27 Oct)
 - [x] supabase/template_page_images.sql — a picture of every page (25 Oct)
 - [x] supabase/mockup_printed_posts_eight_fresh.sql — Printed posts - Eight put back fresh (25 Oct)
