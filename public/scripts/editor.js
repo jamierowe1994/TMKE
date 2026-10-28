@@ -8085,8 +8085,20 @@ import { createResizeEngine } from "./resize-engine.js";
     // regular PNG both want a solid background — we always pass
     // transparent=false for those paths.
     if (!transparent) {
-      ctx.fillStyle = SRC.canvas.background || "#fff";
+      /* A gradient background is stored as its CSS, which a canvas can't
+         read: it kept its default fill and every download, preview and
+         thumbnail came out black (found 28 Oct). Read the CSS back into a
+         gradient; paper white under it, as on screen. */
+      const bgCss = SRC.canvas.background;
+      const bgGrad = typeof bgCss === "string" && bgCss.indexOf("gradient(") !== -1 ? cssToGrad(bgCss) : null;
+      ctx.fillStyle = bgGrad ? "#fff" : (bgCss || "#fff");
       ctx.fillRect(0, 0, c.width, c.height);
+      if (bgGrad) {
+        ctx.fillStyle = canvasGrad(ctx, bgGrad, c.width, c.height);
+        ctx.fillRect(0, 0, c.width, c.height);
+      } else if (bgCss && typeof bgCss === "string" && bgCss.indexOf("gradient(") !== -1) {
+        reportFallback("background_gradient", bgCss, "Heads up: this page\u2019s gradient background couldn\u2019t be drawn, so it came out white.");
+      }
     }
 
     // Canvas background image (set via right-click → "Set as background")
@@ -10460,6 +10472,38 @@ import { createResizeEngine } from "./resize-engine.js";
     const fs = g && g.fromStop != null ? g.fromStop : 0;
     const ts = g && g.toStop != null ? g.toStop : 100;
     return [{ color: from, pos: fs }, { color: to, pos: ts }];
+  }
+  /* The other way: a gradient's CSS (as gradCss writes it, or the older
+     presets) back into a gradient object, for the canvas. Null if it can't
+     be read. */
+  function cssToGrad(css) {
+    const m = /^\s*(linear|radial)-gradient\((.*)\)\s*$/i.exec(String(css || ""));
+    if (!m) return null;
+    const parts = [];
+    let depth = 0, cur = "";
+    for (const ch of m[2]) {
+      if (ch === "(") depth++;
+      if (ch === ")") depth--;
+      if (ch === "," && depth === 0) { parts.push(cur.trim()); cur = ""; } else cur += ch;
+    }
+    if (cur.trim()) parts.push(cur.trim());
+    const g = { type: m[1].toLowerCase(), angle: 180, stops: [] };
+    const first = parts[0] || "";
+    const deg = /^(-?[\d.]+)deg$/i.exec(first);
+    const to = { "to top": 0, "to right": 90, "to bottom": 180, "to left": 270,
+      "to top right": 45, "to right top": 45, "to bottom right": 135, "to right bottom": 135,
+      "to bottom left": 225, "to left bottom": 225, "to top left": 315, "to left top": 315 }[first.toLowerCase().replace(/\s+/g, " ")];
+    if (deg) { g.angle = Number(deg[1]); parts.shift(); }
+    else if (to != null) { g.angle = to; parts.shift(); }
+    else if (g.type === "radial" && !/^(#|rgb|hsl|transparent|[a-z]+\s+[\d.]+%$|[a-z]+$)/i.test(first)) parts.shift();
+    else if (g.type === "radial" && /^(circle|ellipse|closest|farthest)/i.test(first)) parts.shift();
+    parts.forEach(function (p, i) {
+      const sm = /^(.*?)(?:\s+(-?[\d.]+)%)?$/.exec(p);
+      if (!sm || !sm[1]) return;
+      const pos = sm[2] != null ? Number(sm[2]) : (parts.length > 1 ? (i / (parts.length - 1)) * 100 : 0);
+      g.stops.push({ color: sm[1].trim(), pos: pos, a: 1 });
+    });
+    return g.stops.length >= 2 ? g : null;
   }
   // CSS gradient string for any gradient object (or draft).
   function gradCss(g) {
@@ -16535,14 +16579,41 @@ import { createResizeEngine } from "./resize-engine.js";
   } else if (explicitDesign) {
     // Customer re-opening their own saved design. editor.astro fetches the row
     // and calls __TMKE_BOOT_DESIGN__ (or leaves a breadcrumb if it ran first).
-    window.__TMKE_BOOT_DESIGN__ = function (d) { loadDesignData(d); };
+    window.__TMKE_BOOT_DESIGN__ = function (d) {
+      // Arrived after all: put away the "couldn't open" and let it save.
+      if (d && d.id && window.__TMKE_DESIGN_OPEN_FAILED__ === "slow") {
+        window.__TMKE_DESIGN_OPEN_FAILED__ = false;
+        const fail = document.getElementById("ed-open-fail");
+        if (fail) fail.hidden = true;
+      }
+      loadDesignData(d);
+    };
     if (typeof window.__TMKE_DESIGN_BOOTSTRAP_DONE__ !== "undefined") {
       window.__TMKE_BOOT_DESIGN__(window.__TMKE_DESIGN_BOOTSTRAP_DONE__);
     } else {
-      setTimeout(function () { if (!state.templateId && !(state.elements && state.elements.length)) loadBlank(); }, 6000);
+      /* Still not here after 6 seconds. A blank canvas, so the Studio works,
+         but saying so and saving nothing: under the design's id, a change
+         made to that blank saved over the design (found 28 Oct). */
+      setTimeout(function () {
+        if (state.templateId || (state.elements && state.elements.length)) return;
+        reportFallback("design_slow", "not loaded after 6s");
+        window.__TMKE_DESIGN_OPEN_FAILED__ = "slow";
+        loadBlank();
+        const fail = document.getElementById("ed-open-fail");
+        if (fail) fail.hidden = false;
+        const retry = document.getElementById("ed-open-fail-retry");
+        if (retry) retry.addEventListener("click", function () { location.reload(); });
+        document.documentElement.classList.remove("ed-direct");
+      }, 6000);
     }
   } else if (explicitTpl) {
-    loadTemplate(explicitTpl, false);
+    /* A member's link to one of our templates that isn't bundled is fetched
+       and opened by the page (editor.astro, wireTemplateLink). Until then a
+       blank under the veil: never the first bundled template in its place,
+       which is what opened before 28 Oct. */
+    if (!ADMIN_MODE_URL && !TEMPLATES.some(function (t) { return t.id === explicitTpl; })
+        && String(explicitTpl).indexOf("draft-") !== 0) loadBlank();
+    else loadTemplate(explicitTpl, false);
   } else {
     // ?blank=1080x1920 — the "new design" pop-out sends the size it was
     // asked for. Anything else (?blank=1, or nothing) takes the default.

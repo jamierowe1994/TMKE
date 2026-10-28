@@ -1281,6 +1281,18 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       </div>
     </div>
 
+    <!-- A saved design that wouldn't load: said so, and nothing saved over it. -->
+    <div class="ed-modal" id="ed-open-fail" hidden>
+      <div class="ed-modal-card ed-size-card">
+        <header><h3>We couldn&rsquo;t open this design.</h3></header>
+        <p id="ed-open-fail-why">Your design is safe and nothing has been changed. Check your connection, then try again.</p>
+        <div class="ed-size-acts">
+          <button type="button" class="ed-btn-solid" id="ed-open-fail-retry">Try again</button>
+          <a class="ed-btn-ghost" href="/account/studio">Back to your designs</a>
+        </div>
+      </div>
+    </div>
+
     <!-- Shortcut modal -->
     <div class="ed-modal" id="ed-shortcuts" hidden>
       <div class="ed-modal-card">
@@ -6503,6 +6515,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         // (Dani, 13 Oct). The training account's own work -- a template opened
         // from its packs -- saves as usual.
         window.__TMKE_DESIGN_SAVE__ = trainingMode ? undefined : async (payload) => {
+          // The design never opened: nothing on screen is theirs to save.
+          if ((window as any).__TMKE_DESIGN_OPEN_FAILED__) return { ok: false, reason: 'this design didn\u2019t open, so nothing was saved.' };
           try {
             // Externalise embedded data-URL images to storage (keeps the row small).
             try { await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]); } catch (_) {}
@@ -6569,14 +6583,39 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (currentDesignId) {
           let design = null;
           let sourceTemplateId = null;
-          try {
-            const { data: d } = await DB.from(DT).select('*').eq('id', currentDesignId).eq('user_id', memberUid).single();
-            if (d) design = { id: d.id, name: d.name, canvas: d.canvas, elements: d.elements, pages: d.pages };
-            if (d) sourceTemplateId = d.source_template_id || null;
-            // For a download's results: which template this copy came from.
-            if (d) (window as any).__TMKE_DESIGN_SOURCE__ = { design: d.id, template: sourceTemplateId };
-          } catch (_) {}
-          if (typeof window.__TMKE_BOOT_DESIGN__ === 'function') window.__TMKE_BOOT_DESIGN__(design);
+          /* Asked twice. If it still won't come, say so and stop: it used to
+             open a blank canvas under the design's id, and the first change
+             saved that blank over the member's design (found 28 Oct). */
+          let openErr = null;
+          for (let attempt = 0; attempt < 2 && !design; attempt++) {
+            if (attempt) await new Promise((r) => setTimeout(r, 1500));
+            try {
+              const { data: d, error } = await DB.from(DT).select('*').eq('id', currentDesignId).eq('user_id', memberUid).single();
+              openErr = error || null;
+              if (d) design = { id: d.id, name: d.name, canvas: d.canvas, elements: d.elements, pages: d.pages };
+              if (d) sourceTemplateId = d.source_template_id || null;
+              // For a download's results: which template this copy came from.
+              if (d) (window as any).__TMKE_DESIGN_SOURCE__ = { design: d.id, template: sourceTemplateId };
+            } catch (e) { openErr = e; }
+          }
+          if (!design) {
+            (window as any).__TMKE_DESIGN_OPEN_FAILED__ = true;
+            try {
+              const f = { kind: 'design_open', detail: String((openErr && openErr.message) || 'no row'), template: null };
+              const w = window as any;
+              if (w.__TMKE_REPORT_FALLBACK__) w.__TMKE_REPORT_FALLBACK__(f); else (w.__TMKE_FALLBACK_Q__ = w.__TMKE_FALLBACK_Q__ || []).push(f);
+            } catch (_) {}
+            const fail = document.getElementById('ed-open-fail');
+            // No such design in their account (deleted, or another person's link).
+            if (openErr && openErr.code === 'PGRST116') {
+              const why = document.getElementById('ed-open-fail-why');
+              if (why) why.textContent = 'This design isn\u2019t in your account. It may have been deleted.';
+              document.getElementById('ed-open-fail-retry')?.setAttribute('hidden', '');
+            }
+            if (fail) fail.hidden = false;
+            document.getElementById('ed-open-fail-retry')?.addEventListener('click', () => location.reload());
+            document.documentElement.classList.remove('ed-direct');
+          } else if (typeof window.__TMKE_BOOT_DESIGN__ === 'function') window.__TMKE_BOOT_DESIGN__(design);
           else window.__TMKE_DESIGN_BOOTSTRAP_DONE__ = design;
           // The template it came from, so Start can offer "Reset to the
           // original template" (and resizing can use the template's saved
@@ -9278,7 +9317,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");
         // The veil lifts once the canvas has had a moment to draw. A month's
         // post lifts it itself, once its template is on the canvas.
-        if (!params.has("ccpost")) setTimeout(() => document.documentElement.classList.remove("ed-direct"), 900);
+        // So does a link to one of our templates that has to be fetched first.
+        const tplId = params.get("template");
+        let fetched = false;
+        if (tplId && tplId.indexOf("draft-") !== 0) {
+          try { fetched = !JSON.parse(document.getElementById("ed-templates-data")?.textContent || "[]").some((t) => t && t.id === tplId); } catch (_) {}
+        }
+        if (!params.has("ccpost") && !fetched) setTimeout(() => document.documentElement.classList.remove("ed-direct"), 900);
         return;
       }
 
@@ -9735,9 +9780,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         // Nothing to show this person (not published, or not theirs to see):
         // the Studio's own front page, rather than an empty canvas.
         if (!post || !post.template_id) { location.replace("/account/editor"); return; }
-        const q = (cols) => supabase.from("templates").select(cols).eq("id", post.template_id).maybeSingle();
-        let { data: row, error } = await q("id, name, category, thumb_url, canvas, elements, pages, size_variants");
-        if (error) ({ data: row } = await q("id, name, category, thumb_url, canvas, elements"));
+        const row = await fetchTemplateRow(post.template_id);
         if (!row) { location.replace("/account/editor"); return; }
         // The engine may still be starting up.
         for (let i = 0; i < 100 && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ !== "function"; i++) await new Promise((r) => setTimeout(r, 50));
@@ -9747,6 +9790,58 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         clearTimeout(giveUp);
         setTimeout(lift, 400);
       })().catch(() => { clearTimeout(giveUp); lift(); });
+    })();
+
+    /* One template row, whole: every page and size with it. Asked twice; it
+       used to ask again WITHOUT pages on any error, so a slow moment opened a
+       postcard as its front alone (found 28 Oct). Null if it won't come. */
+    async function fetchTemplateRow(id) {
+      const cols = "id, name, category, thumb_url, canvas, elements, pages, size_variants";
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt) await new Promise((r) => setTimeout(r, 1200));
+        try {
+          const { data, error } = await supabase.from("templates").select(cols).eq("id", id).maybeSingle();
+          if (data) return data;
+          if (!error) return null;          // asked and answered: there's no such template
+        } catch (_) {}
+      }
+      return null;
+    }
+
+    /* A member's link to one of our templates (?template=, from the content
+       plan's "Open the template"). The engine only carries the bundled
+       library, and opened its first template in place of one from a pack
+       (found 28 Oct). The row is fetched here and opened as a pack's design
+       is; the veil stays until it's on the canvas. */
+    (function wireTemplateLink() {
+      const q = new URLSearchParams(location.search);
+      const id = q.get("template");
+      if (!id || q.get("mode") === "admin" || q.has("ccpost") || id.indexOf("draft-") === 0) return;
+      let bundled = [];
+      try { bundled = JSON.parse(document.getElementById("ed-templates-data")?.textContent || "[]"); } catch (_) {}
+      if (bundled.some((t) => t && t.id === id)) return;
+      const lift = () => document.documentElement.classList.remove("ed-direct");
+      (async () => {
+        const row = await fetchTemplateRow(id);
+        if (!row) {
+          const f = { kind: "template_open", detail: id, template: id };
+          const w = window as any;
+          if (w.__TMKE_REPORT_FALLBACK__) w.__TMKE_REPORT_FALLBACK__(f); else (w.__TMKE_FALLBACK_Q__ = w.__TMKE_FALLBACK_Q__ || []).push(f);
+          const h = document.querySelector("#ed-open-fail h3");
+          if (h) h.textContent = "We couldn\u2019t open this template.";
+          const why = document.getElementById("ed-open-fail-why");
+          if (why) why.textContent = "Nothing has been changed. Check your connection, then try again.";
+          document.getElementById("ed-open-fail-retry")?.addEventListener("click", () => location.reload());
+          const fail = document.getElementById("ed-open-fail");
+          if (fail) fail.hidden = false;
+          lift();
+          return;
+        }
+        for (let i = 0; i < 100 && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ !== "function"; i++) await new Promise((r) => setTimeout(r, 50));
+        (window as any).__TMKE_OPEN_PACK_TEMPLATES__?.([row], { load: true });
+        (window as any).__TMKE_START_CONTEXT__?.("template");
+        setTimeout(lift, 400);
+      })().catch(lift);
     })();
 
     // "Add a page" in the start panel, and the rail's way back to it. Both are
