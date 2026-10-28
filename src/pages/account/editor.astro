@@ -7547,6 +7547,42 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       publishBtn.hidden = true;
     }
 
+    /* The back arrow returns to the page and tab the design was opened from
+       (Danielle, 28 Oct): a print template back to the Print tab, a month's
+       post back to the Content Calendar. Remembered for this browser tab
+       when the Studio is entered, so a reload or a switch to another design
+       here doesn't lose it. Opened with nowhere to go back to (a pasted
+       link), the team goes to the tab the design belongs on and a member to
+       the Studio. */
+    {
+      const FROM_KEY = "tmke.ed.from";
+      try {
+        const ref = document.referrer ? new URL(document.referrer) : null;
+        const usable = ref && ref.origin === location.origin
+          && !/^\/(account\/editor|login|auth|demo|forgot-password|reset-password)(\/|$)/.test(ref.pathname);
+        if (usable) sessionStorage.setItem(FROM_KEY, ref.pathname + ref.search + ref.hash);
+      } catch (_) {}
+      const backTo = () => {
+        let from = null;
+        try { from = sessionStorage.getItem(FROM_KEY); } catch (_) {}
+        // The team stays in the admin section, a member out of it.
+        if (from && isAdmin === /^\/admin(\/|$)/.test(from)) return from;
+        if (!isAdmin) return "/account/studio";
+        const w = window as any;
+        if (w.__TMKE_IS_MOCKUP__ && w.__TMKE_IS_MOCKUP__()) return "/admin/templates?view=mockups";
+        if (w.__TMKE_IS_PRINT__ && w.__TMKE_IS_PRINT__()) return "/admin/templates?view=print";
+        return "/admin/templates";
+      };
+      const back = document.querySelector(".ed-back");
+      if (back) {
+        const point = () => back.setAttribute("href", backTo());
+        point();
+        back.addEventListener("pointerdown", point);
+        back.addEventListener("focus", point);
+        back.addEventListener("click", point, true);
+      }
+    }
+
     function slugify(s) {
       return String(s || "").toLowerCase().trim()
         .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || ("pack-" + Date.now());

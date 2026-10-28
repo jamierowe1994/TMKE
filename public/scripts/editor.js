@@ -11282,6 +11282,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // The design's caption prompt, for the AI caption writer to start from.
   window.__TMKE_CAPTION_PROMPT__ = function () { return (state.canvas && state.canvas.captionPrompt) || ""; };
   window.__TMKE_IS_PRINT__ = function () { try { return isPrintDesign(); } catch (_) { return false; } };
+  window.__TMKE_IS_MOCKUP__ = function () { try { return isMockupDesign(); } catch (_) { return false; } };
   window.__TMKE_SIZE_FAMILY__ = function (w, h) { try { return sizeFamily(w, h); } catch (_) { return null; } };
   // Page one of the design as it stands on screen, for Regenerate previews.
   window.__TMKE_OPEN_PAGE_ONE__ = function () {
