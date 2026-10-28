@@ -2705,6 +2705,13 @@ import { createResizeEngine } from "./resize-engine.js";
     if (typeof window.__TMKE_ON_TEMPLATE_OPEN__ === "function") {
       try { window.__TMKE_ON_TEMPLATE_OPEN__(tpl.id); } catch (_) {}
     }
+    /* Counted as an open for the pack's results (Danielle, 28 Oct): one of our
+       templates opened, by whichever route. editor.astro records it; until
+       its script is up, the id waits in a queue. Not a stored draft. */
+    if (!draftRaw) {
+      if (typeof window.__TMKE_TEMPLATE_OPENED__ === "function") { try { window.__TMKE_TEMPLATE_OPENED__(tpl.id); } catch (_) {} }
+      else (window.__TMKE_OPENED_Q__ = window.__TMKE_OPENED_Q__ || []).push(tpl.id);
+    }
 
     /* A member opening a template gets the template as it is NOW. A copy of
        it kept in this browser -- written by Save -- used to be restored in its

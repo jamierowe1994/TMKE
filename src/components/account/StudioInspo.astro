@@ -562,7 +562,12 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
     // re-render them; the library stills otherwise, so the shell is never empty.
     let tpls = [];
     try {
-      const { data } = await supabase.from("templates").select("id, name, thumb_url, pack_id, canvas, elements").eq("status", "active").order("sort_order", { ascending: true }).limit(80);
+      // Not the Content Calendar's templates (collection 'calendar'): those
+      // are the subscription's, never a pack's. Before that column exists
+      // the filter fails, so ask again without it.
+      const q = () => supabase.from("templates").select("id, name, thumb_url, pack_id, canvas, elements").eq("status", "active").order("sort_order", { ascending: true }).limit(80);
+      let { data, error } = await q().or("collection.is.null,collection.neq.calendar");
+      if (error) ({ data } = await q());
       const perPack = {};
       (data || []).forEach((t) => { if (!t.thumb_url) return; const k = t.pack_id || "none"; (perPack[k] = perPack[k] || []); if (perPack[k].length < 2) perPack[k].push(t); });
       tpls = Object.values(perPack).flat().slice(0, 8);

@@ -100,6 +100,26 @@ import "../../styles/account-sections.css";
       </div>
 
       <p id="cal-state" class="cal-state" hidden></p>
+
+      <!-- The month's posts (Content Calendar subscription, Dani 27 Oct):
+           TMKE's post for each weekday, full size in its day. Shown on the
+           Content Calendar when a published month can be read; for now only
+           staff can read one (the database decides, not this page), so for
+           members none of this ever appears. It sits over the member's own
+           calendar, and the tab on the edge swaps between the two. -->
+      <div class="cc-ours" id="cc-ours" hidden>
+        <div class="cc-ours-head">
+          <p class="cc-ours-line"><strong id="cc-ours-name"></strong> <span id="cc-ours-sub">One for each weekday. Click a post to see it full size.</span></p>
+          <label class="cc-ours-ed" id="cc-ours-ed" hidden>Edition
+            <select id="cc-ours-ed-sel"></select>
+          </label>
+        </div>
+        <div class="cal-weekhead" aria-hidden="true">
+          <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+        </div>
+        <div class="cc-grid" id="cc-grid"></div>
+      </div>
+      <button type="button" class="cc-tab" id="cc-tab" hidden></button>
     </section>
 
     </div><!-- /.ws-left -->
@@ -133,6 +153,31 @@ import "../../styles/account-sections.css";
         <a href="#" id="day-new" class="day-new-btn day-new-btn--ghost">Create a post for this day</a>
       </footer>
     </aside>
+  </div>
+
+  <!-- One of the month's posts, full size: what it is, how to edit it, the
+       example caption, and Use This Template into the Studio. -->
+  <div class="ccp" id="ccp" hidden>
+    <div class="ccp-card ws" role="dialog" aria-modal="true" aria-labelledby="ccp-h">
+      <div class="ccp-pic"><img id="ccp-img" alt=""></div>
+      <div class="ccp-meta">
+        <button type="button" class="ccp-x" id="ccp-x" aria-label="Close">&times;</button>
+        <p class="ccp-k" id="ccp-k"></p>
+        <h3 class="ccp-h" id="ccp-h"></h3>
+        <div class="ccp-facts">
+          <span id="ccp-d"></span>
+          <span class="ccp-chip" id="ccp-p" hidden></span>
+          <span class="ccp-chip" id="ccp-type" hidden></span>
+          <span class="ccp-chip ccp-chip--tied" id="ccp-t" hidden></span>
+        </div>
+        <div class="ccp-scroll">
+          <div class="ccp-part" id="ccp-howto-wrap" hidden><p class="ccp-ph">How to edit</p><p class="ccp-tx" id="ccp-howto"></p></div>
+          <div class="ccp-part" id="ccp-cap-wrap" hidden><p class="ccp-ph">Caption</p><p class="ccp-tx" id="ccp-cap"></p></div>
+          <div class="ccp-part" id="ccp-reel-wrap" hidden><p class="ccp-ph">For the Reel</p><p class="ccp-tx" id="ccp-reel"></p></div>
+        </div>
+        <a class="ws-btn ws-btn--primary ccp-use" id="ccp-use" href="#">Use This Template</a>
+      </div>
+    </div>
   </div>
 
   <!-- Planned-post detail: click a post in the day view to open it here.
@@ -1270,6 +1315,85 @@ import "../../styles/account-sections.css";
       .post-btn--primary { margin-left: 0; }
       .post-foot .post-btn { flex: 1 1 auto; text-align: center; }
     }
+
+    /* ---- The month's posts (Content Calendar subscription) ----
+       Our post for each weekday, 3:4 like the post itself, full size in its
+       day. While it shows, the member's own calendar steps aside; the tab on
+       the right edge swaps them. */
+    .cal { position: relative; }
+    .cal.is-ours > .cal-legend, .cal.is-ours > .cal-weekhead, .cal.is-ours > #cal-grid, .cal.is-ours > #cal-state { display: none; }
+    .cc-ours[hidden] { display: none; }
+    .cal.is-ours .cc-ours { animation: cc-in 0.42s cubic-bezier(.2,.8,.2,1); }
+    .cal.is-mine-in > #cal-grid { animation: cc-in-left 0.42s cubic-bezier(.2,.8,.2,1); }
+    @keyframes cc-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    @keyframes cc-in-left { from { transform: translateX(-40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .cc-ours-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 0 0 var(--ws-gap); }
+    .cc-ours-line { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); color: rgba(28,29,34,0.7); }
+    .cc-ours-line strong { color: var(--violet-deep); font-weight: 700; }
+    .cc-ours-ed { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .cc-ours-ed[hidden] { display: none; }
+    .cc-ours-ed select { height: 28px; padding: 0 8px; border: 1px solid rgba(28,29,34,0.18); border-radius: 3px; background: #fff; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: var(--ink); letter-spacing: 0; text-transform: none; }
+    .cc-ours .cal-weekhead { --cal-gap: 6px; }
+    .cc-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+    .cc-day { aspect-ratio: 3 / 4; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; padding: 7px; border: 1px solid rgba(28,29,34,0.14); overflow: hidden; }
+    .cc-day.is-other-month { border-color: rgba(28,29,34,0.06); }
+    .cc-day.is-other-month .cc-num { color: rgba(28,29,34,0.3); }
+    .cc-day.is-today { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
+    .cc-num { flex: none; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; line-height: 1; color: var(--ink); }
+    .cc-day.is-today .cc-num { align-self: flex-start; color: var(--paper); background: var(--english-violet); padding: 2px 6px; }
+    /* A post: the picture; on hover, what it is. */
+    .cc-post { position: relative; flex: 1 1 0; min-height: 0; display: block; width: 100%; padding: 0; border: 0; border-radius: 2px; overflow: hidden; background: rgba(var(--violet-rgb), 0.06); cursor: pointer; text-align: left; font: inherit; }
+    .cc-post img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+    .cc-post-card { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; padding: 10px; background: #fff; border: 1px solid rgba(28,29,34,0.14); opacity: 0; transition: opacity 0.18s ease; }
+    .cc-post:hover .cc-post-card, .cc-post:focus-visible .cc-post-card { opacity: 1; }
+    .cc-post-k { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.46); line-height: 1.3; }
+    .cc-post-h { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; line-height: 1.2; color: var(--violet-deep); }
+    .cc-post-go { margin-top: 2px; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: var(--violet-deep); text-decoration: underline; text-underline-offset: 2px; }
+    .cc-badge { position: absolute; top: 5px; right: 5px; padding: 1px 6px; border-radius: 99px; background: #f9eeda; color: #8a5a10; font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+    .cc-post:hover .cc-badge { opacity: 0; }
+    .cc-empty { margin: 0; padding: 24px 0; font-family: var(--sans); font-size: var(--ws-t-body); color: rgba(28,29,34,0.6); }
+    /* The tab on the right edge: the other calendar. */
+    .cc-tab { position: absolute; right: calc(-1 * clamp(14px, 2vw, 34px)); top: 120px; z-index: 3; writing-mode: vertical-rl; transform: rotate(180deg); padding: 16px 8px; border: 0; border-radius: 0 3px 3px 0; background: var(--english-violet); color: #fff; cursor: pointer; font-family: var(--serif); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; box-shadow: 0 6px 18px rgba(55,30,40,0.18); }
+    .cc-tab[hidden] { display: none; }
+    .cc-tab:hover { background: var(--violet-deep); }
+    @media (max-width: 780px) {
+      .cc-grid, .cc-ours .cal-weekhead { gap: 3px; }
+      .cc-day { padding: 3px; gap: 3px; }
+      .cc-num { font-size: 10px; }
+      .cc-post-card, .cc-badge { display: none; }
+      .cc-tab { position: static; writing-mode: horizontal-tb; transform: none; width: 100%; margin-top: 10px; padding: 10px; border-radius: 3px; }
+    }
+
+    /* One post, full size. */
+    .ccp { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 32px; background: rgba(20,18,26,0.6); }
+    .ccp[hidden] { display: none; }
+    .ccp-card { --ph: min(580px, calc(100vh - 64px)); --iw: calc((var(--ph) - 48px) * 0.75); position: relative; display: grid; grid-template-columns: calc(var(--iw) + 24px) minmax(0, 1fr); width: min(900px, 100%); height: var(--ph); background: #fff; border-radius: 4px; overflow: hidden; }
+    /* .ws for the hub's tokens (the button), not its page height. */
+    .ccp-card.ws { min-height: 0; }
+    .ccp-pic { display: flex; align-items: center; padding-left: 24px; }
+    .ccp-pic img { width: var(--iw); height: calc(var(--ph) - 48px); object-fit: cover; object-position: top; display: block; border: 1px solid rgba(28,29,34,0.12); border-radius: 2px; box-sizing: border-box; }
+    .ccp-meta { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 26px 28px 24px; }
+    .ccp-x { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border: 0; border-radius: 3px; background: rgba(var(--violet-rgb), 0.08); color: var(--violet-deep); font-size: 20px; line-height: 1; cursor: pointer; }
+    .ccp-k { margin: 0 40px 8px 0; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.46); }
+    .ccp-h { margin: 0 40px 0 0; font-family: var(--sans); font-size: 24px; font-weight: 600; line-height: 1.15; color: var(--violet-deep); }
+    .ccp-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 12px 0 18px; padding-bottom: 16px; border-bottom: 1px solid rgba(28,29,34,0.12); font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.7); }
+    .ccp-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 99px; background: rgba(var(--violet-rgb), 0.08); color: var(--violet-deep); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+    .ccp-chip[hidden] { display: none; }
+    .ccp-chip--tied { background: #f9eeda; color: #8a5a10; }
+    .ccp-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
+    .ccp-part[hidden] { display: none; }
+    .ccp-part + .ccp-part { margin-top: 16px; }
+    .ccp-ph { margin: 0 0 8px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--violet-deep); }
+    .ccp-tx { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.55; color: rgba(28,29,34,0.78); white-space: pre-line; }
+    .ccp-use { align-self: flex-start; margin-top: 18px; }
+    @media (max-width: 700px) {
+      .ccp { padding: 12px; align-items: flex-end; }
+      .ccp-card { display: flex; flex-direction: column; height: auto; max-height: calc(100vh - 24px); overflow-y: auto; }
+      .ccp-pic { padding: 16px 16px 0; justify-content: center; }
+      .ccp-pic img { width: min(260px, 70vw); height: auto; aspect-ratio: 3 / 4; }
+      .ccp-meta { padding: 18px 18px 20px; }
+      .ccp-scroll { overflow: visible; }
+    }
   </style>
 
   <script>
@@ -1370,6 +1494,7 @@ import "../../styles/account-sections.css";
     import { readBrandCache } from '../../lib/brand-cache.js';
     installTimePicker();
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
+    import { loadPublishedMonth, monthKey as ccMonthKey, monthPostsName, fmtPostDate, POST_TYPE_LABEL, EDITION_LABEL, setPreferredEdition } from '../../lib/calendar-month.js';
 
     // ====== Elements ======
     const $title       = document.getElementById('cal-title');
@@ -1643,7 +1768,116 @@ import "../../styles/account-sections.css";
         `;
       }).join('');
       paintBrief();
+      paintOurs();
     }
+
+    // ====== The month's posts (Content Calendar subscription) ======
+    /* TMKE's post for each weekday, read from a published month. Who may read
+       one is the database's call: for now only staff can, so for a member
+       every month comes back empty and none of this shows. Each month is read
+       once a visit. */
+    const $cal = document.querySelector('.cal');
+    const $ours = document.getElementById('cc-ours');
+    const $ccGrid = document.getElementById('cc-grid');
+    const $ccTab = document.getElementById('cc-tab');
+    const ccMonths = new Map();          // "2026-11-01" -> month | null
+    const ccLoading = new Map();
+    // Which of the two shows: ours unless they've turned to their own.
+    let ccLayer = 'ours';
+    try { if (sessionStorage.getItem('tmke.cc.layer') === 'mine') ccLayer = 'mine'; } catch (_) {}
+    let ccEdition = null;
+    function ccFor(d) {
+      const k = ccMonthKey(d);
+      if (ccMonths.has(k)) return ccMonths.get(k);
+      if (!ccLoading.has(k)) {
+        ccLoading.set(k, loadPublishedMonth(supabase, k, ccEdition).then((m) => {
+          ccMonths.set(k, m); ccLoading.delete(k);
+          if (ccMonthKey(viewMonth) === k) paintOurs();
+        }));
+      }
+      return undefined;                  // not read yet
+    }
+    function paintOurs() {
+      if (!$ours || !$cal) return;
+      const m = calView === 'posts' ? ccFor(viewMonth) : null;
+      const has = !!(m && m.posts);
+      $ccTab.hidden = !has;
+      if (!has) { $ours.hidden = true; $cal.classList.remove('is-ours'); return; }
+      const name = monthPostsName(m.month.month);
+      document.getElementById('cc-ours-name').textContent = name + '.';
+      // Staff testing: a month published for more than one edition.
+      const ed = document.getElementById('cc-ours-ed');
+      const sel = document.getElementById('cc-ours-ed-sel');
+      ed.hidden = m.editions.length < 2;
+      if (!ed.hidden) sel.innerHTML = m.editions.map((e) => `<option value="${e}"${e === m.month.edition ? ' selected' : ''}>${escapeHtml(EDITION_LABEL[e] || e)}</option>`).join('');
+      const showOurs = ccLayer === 'ours';
+      $ours.hidden = !showOurs;
+      $cal.classList.toggle('is-ours', showOurs);
+      $ccTab.textContent = showOurs ? 'Your calendar' : name;
+      $ccTab.setAttribute('aria-label', showOurs ? 'Show your calendar' : 'Show ' + name);
+      if (!showOurs) return;
+      const byDate = bucketBy(m.posts.filter((p) => p.post_date), (p) => p.post_date);
+      const today = new Date(); const todayKey = ymd(today);
+      // Only the weeks the month is in.
+      const days = buildGridDays();
+      let last = days.length;
+      while (last > 7 && days.slice(last - 7, last).every((d) => d.getMonth() !== viewMonth.getMonth())) last -= 7;
+      $ccGrid.innerHTML = days.slice(0, last).map((d) => {
+        const key = ymd(d);
+        const other = d.getMonth() !== viewMonth.getMonth();
+        const post = other ? null : (byDate.get(key) || [])[0];
+        const img = post && post.template && post.template.thumb_url;
+        const cls = ['cc-day', other ? 'is-other-month' : '', key === todayKey ? 'is-today' : ''].filter(Boolean).join(' ');
+        const pic = post ? `<button type="button" class="cc-post" data-cc-post="${escapeHtml(post.id)}" aria-label="${escapeHtml(post.title || 'Post')}">${img ? `<img src="${escapeHtml(img)}" alt="" loading="lazy">` : ''}${post.date_tied ? '<span class="cc-badge">On this day</span>' : ''}<span class="cc-post-card">${post.pillar ? `<span class="cc-post-k">${escapeHtml(post.pillar)}</span>` : ''}<span class="cc-post-h">${escapeHtml(post.title || (post.template && post.template.name) || 'Post')}</span><span class="cc-post-go">See it full size</span></span></button>` : '';
+        return `<div class="${cls}"><span class="cc-num">${d.getDate()}</span>${pic}</div>`;
+      }).join('');
+    }
+    $ccTab?.addEventListener('click', () => {
+      ccLayer = ccLayer === 'ours' ? 'mine' : 'ours';
+      try { sessionStorage.setItem('tmke.cc.layer', ccLayer); } catch (_) {}
+      $cal.classList.toggle('is-mine-in', ccLayer === 'mine');
+      paintOurs();
+      $cal.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    document.getElementById('cc-ours-ed-sel')?.addEventListener('change', (e) => {
+      ccEdition = e.target.value; setPreferredEdition(ccEdition);
+      ccMonths.clear(); paintOurs();
+    });
+
+    // One post, full size.
+    const $ccp = document.getElementById('ccp');
+    function openCcPost(id) {
+      const m = ccMonths.get(ccMonthKey(viewMonth));
+      const p = m && m.posts.find((x) => x.id === id);
+      if (!p) return;
+      const set = (elId, text) => { const el = document.getElementById(elId); el.textContent = text || ''; return el; };
+      const img = document.getElementById('ccp-img');
+      img.src = (p.template && p.template.thumb_url) || '';
+      set('ccp-k', monthPostsName(m.month.month));
+      set('ccp-h', p.title || (p.template && p.template.name) || 'Post');
+      set('ccp-d', fmtPostDate(p.post_date));
+      set('ccp-p', p.pillar).hidden = !p.pillar;
+      set('ccp-type', p.post_type && p.post_type !== 'single' ? POST_TYPE_LABEL[p.post_type] : '').hidden = !(p.post_type && p.post_type !== 'single');
+      set('ccp-t', p.date_tied ? (p.occasion ? 'On this day: ' + p.occasion : 'On this day') : '').hidden = !p.date_tied;
+      set('ccp-howto', p.how_to_edit); document.getElementById('ccp-howto-wrap').hidden = !p.how_to_edit;
+      const cap = (p.captions || []).find((c) => c && c.trim());
+      set('ccp-cap', cap); document.getElementById('ccp-cap-wrap').hidden = !cap;
+      set('ccp-reel', p.post_type === 'reel' ? p.reel_prompt : ''); document.getElementById('ccp-reel-wrap').hidden = !(p.post_type === 'reel' && p.reel_prompt);
+      const use = document.getElementById('ccp-use');
+      use.href = `/account/editor?ccpost=${encodeURIComponent(p.id)}`;
+      use.hidden = !p.template_id;
+      $ccp.hidden = false;
+      document.body.style.overflow = 'hidden';
+      document.getElementById('ccp-x').focus({ preventScroll: true });
+    }
+    function closeCcPost() { if ($ccp.hidden) return; $ccp.hidden = true; document.body.style.overflow = ''; }
+    $ccGrid?.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('[data-cc-post]');
+      if (b) openCcPost(b.getAttribute('data-cc-post'));
+    });
+    document.getElementById('ccp-x')?.addEventListener('click', closeCcPost);
+    $ccp?.addEventListener('click', (e) => { if (e.target === $ccp) closeCcPost(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCcPost(); });
 
     function bucketBy(rows, keyFn) {
       const m = new Map();

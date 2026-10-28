@@ -167,7 +167,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        show the launcher first: this runs before paint and hides it, and shows a
        plain veil until the canvas is up. -->
   <script is:inline>
-    if (/[?&](template|design|blank|prompt|training)=/.test(location.search)) document.documentElement.classList.add("ed-direct");
+    if (/[?&](template|design|blank|prompt|training|ccpost)=/.test(location.search)) document.documentElement.classList.add("ed-direct");
   </script>
   <div class="ed-veil" id="ed-veil" aria-hidden="true"><span class="ed-veil-mark">TMKE</span><span class="ed-veil-text">Opening your design…</span></div>
   <div class="ed-onboard ws" id="ed-onboard">
@@ -560,6 +560,30 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       </section>
 
       <section class="ed-panel-pane" data-pane="start">
+        <!-- One of the month's Content Calendar posts (?ccpost=<id>, or picked
+             from the month's pack): what it is, how to edit it and the
+             caption, where a Prompt sits. Open from the start, like the
+             prompt. Staff only for now: the database won't give anyone else
+             the post. -->
+        <div class="ed-prompt ed-ccpost is-open" id="ed-ccpost" hidden>
+          <button type="button" class="ed-ccpost-toggle" id="ed-ccpost-toggle" aria-expanded="true" aria-controls="ed-ccpost-body">
+            <span class="ed-prompt-tx">
+              <b id="ed-ccpost-k">This month's post</b>
+              <i id="ed-ccpost-name"></i>
+            </span>
+            <span class="ed-prompt-caret" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <div class="ed-prompt-body" id="ed-ccpost-body"><div class="ed-prompt-inner">
+            <span class="ed-ccpost-meta" id="ed-ccpost-meta"></span>
+            <span class="ed-prompt-part" id="ed-ccpost-howto" hidden><b>How to edit</b><i></i></span>
+            <span class="ed-prompt-part" id="ed-ccpost-cap" hidden><b>Caption</b><i></i>
+              <button type="button" class="ed-ccpost-copy" id="ed-ccpost-copy">Copy caption</button>
+            </span>
+            <span class="ed-prompt-part" id="ed-ccpost-reel" hidden><b>For the Reel</b><i></i></span>
+          </div></div>
+        </div>
         <!-- Only when arriving from a prompt (?prompt=<key>). Closed to start:
              on a laptop the panel has little room, and the brief is a reminder
              rather than something to read before you can begin. -->
@@ -1448,6 +1472,17 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       background: var(--english-violet); color: #fff; font-family: var(--sans);
     }
     .ed-prompt[hidden] { display: none; }
+    /* The month's post: the prompt's card, with a header that folds it and a
+       caption to copy. */
+    .ed-ccpost { cursor: default; }
+    .ed-ccpost-toggle { appearance: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+    .ed-ccpost.is-open .ed-prompt-body { grid-template-rows: 1fr; }
+    .ed-ccpost.is-open .ed-prompt-caret { transform: rotate(180deg); }
+    .ed-ccpost-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.22); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(255,255,255,0.76); }
+    .ed-ccpost-chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 99px; background: rgba(255,255,255,0.14); color: #fff; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+    .ed-ccpost .ed-prompt-part i { white-space: pre-line; }
+    .ed-ccpost-copy { display: inline-flex; align-items: center; height: 26px; margin-top: 10px; padding: 0 10px; border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; background: transparent; color: #fff; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: background 0.18s, border-color 0.18s; }
+    .ed-ccpost-copy:hover { background: rgba(255,255,255,0.12); border-color: #fff; }
     .ed-prompt-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .ed-prompt-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
     .ed-prompt-tx b { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
@@ -5799,6 +5834,22 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       if (q.get('mode') === 'admin') return;
       track('design_downloaded', { ...d, template: q.get('template') || null });
     };
+    /* Opens, for a pack's results (Danielle, 28 Oct): a member opening one of
+       our templates by any route - a pack's designs, the Templates switcher,
+       a ?template= link, a month's post - once per template a visit. Their
+       own copy reopened (?design=) isn't an open, and nor is the team at
+       work (?mode=admin). */
+    {
+      const opened = new Set();
+      const isAdminStudio = new URLSearchParams(location.search).get('mode') === 'admin';
+      const onOpen = (id) => {
+        if (isAdminStudio || !id || opened.has(id)) return;
+        opened.add(id);
+        track('template_opened', { template: id });
+      };
+      (window as any).__TMKE_TEMPLATE_OPENED__ = onOpen;
+      ((window as any).__TMKE_OPENED_Q__ || []).splice(0).forEach(onOpen);
+    }
     import { isAdminUser } from '../../lib/admin-gate.js';
     import { designStore } from '../../lib/design-store.js';
 
@@ -8281,6 +8332,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     // Pack design chooser (step 2).
     const designGrid = document.getElementById("ed-onboard-design-grid");
     let packRows = [];   // the open pack's template rows, for drawing backs (fillBacks)
+    let ccPostByTemplate = new Map();   // a Content Calendar month's posts, by template
     const designsLoading = document.getElementById("ed-onboard-designs-loading");
     const designsEmpty = document.getElementById("ed-onboard-designs-empty");
     const packTitleEl = document.getElementById("ed-onboard-pack-title");
@@ -8684,6 +8736,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (!btn) return;
         if (typeof window.__TMKE_LOAD_TEMPLATE__ === "function") window.__TMKE_LOAD_TEMPLATE__(btn.getAttribute("data-template-id"));
         (window as any).__TMKE_START_CONTEXT__?.("template");
+        // A month's post brings its How to edit and caption with it.
+        (window as any).__TMKE_CC_POST__?.(ccPostByTemplate.get(btn.getAttribute("data-template-id")) || null);
         revealStudio();
       });
     }
@@ -8719,6 +8773,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       designGrid.innerHTML = "";
       designsEmpty.hidden = true;
       showStep2();
+      ccPostByTemplate = new Map();
 
       let designs = [];
       if (selectedPack.templateIds && selectedPack.templateIds.length) {
@@ -8726,6 +8781,25 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (typeof window.__TMKE_OPEN_PACK__ === "function") {
           designs = window.__TMKE_OPEN_PACK__(selectedPack.templateIds, { load: false }) || [];
         }
+      } else if (selectedPack.ccMonth) {
+        // A Content Calendar month: its posts' templates, in date order, each
+        // carrying its post so the Start panel can say how to edit it.
+        designsLoading.hidden = false;
+        try {
+          const { loadMonthTemplates } = await import("../../lib/calendar-month.js");
+          const { posts, templates } = await loadMonthTemplates(supabase, selectedPack.ccMonth);
+          ccPostByTemplate = new Map();
+          posts.forEach((p) => { if (p.template_id && !ccPostByTemplate.has(p.template_id)) ccPostByTemplate.set(p.template_id, p); });
+          if (templates.length && typeof window.__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
+            const day = (ymd) => new Date(ymd + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+            designs = (window.__TMKE_OPEN_PACK_TEMPLATES__(templates, { load: false }) || []).map((d) => {
+              const post = ccPostByTemplate.get(d.id);
+              return post ? { ...d, name: post.title || d.name, category: post.post_date ? day(post.post_date) : d.category } : d;
+            });
+            packRows = templates;
+          }
+        } catch (_) { /* leave designs empty */ }
+        designsLoading.hidden = true;
       } else if (selectedPack.id) {
         // A real (published) pack — fetch its templates from Supabase.
         designsLoading.hidden = false;
@@ -9134,12 +9208,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       // ?blank=1 does the same for a fresh canvas - the dashboard's content
       // prompts use it, so "design this post" lands on a blank Instagram
       // portrait (the default 1080 x 1440) rather than on the launcher.
-      if (params.has("template") || params.has("design") || params.has("blank") || params.has("training")) {
+      if (params.has("template") || params.has("design") || params.has("blank") || params.has("training") || params.has("ccpost")) {
         overlay.classList.add("is-gone");
         editor.classList.remove("is-onboarding");
         editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");
-        // The veil lifts once the canvas has had a moment to draw.
-        setTimeout(() => document.documentElement.classList.remove("ed-direct"), 900);
+        // The veil lifts once the canvas has had a moment to draw. A month's
+        // post lifts it itself, once its template is on the canvas.
+        if (!params.has("ccpost")) setTimeout(() => document.documentElement.classList.remove("ed-direct"), 900);
         return;
       }
 
@@ -9255,6 +9330,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const { ownedPacks, memberBrandsFor, openNow } = await import("../../lib/pack-access.js");
       const memberBrand = await memberBrandsFor(supabase);
       const owned = ownedPacks(allPacks, ownedIds, memberBrand);
+      /* The Content Calendar's months as packs of their own, first: this
+         month's and any published ahead. Only staff can read a month for now
+         (the database decides), so members see their packs as before. */
+      try {
+        const { loadPublishedMonths, monthPostsName, monthKey } = await import("../../lib/calendar-month.js");
+        const months = await loadPublishedMonths(supabase, monthKey(new Date()));
+        owned.unshift(...months.map((m) => ({ id: "cc-" + m.id, ccMonth: m.id, title: monthPostsName(m.month), category: "Content Calendar", cover_image_url: m.cover || null, kind: "social" })));
+      } catch (_) {}
 
       // Deep-link /editor?pack=<id> jumps straight to that pack's designs.
       const packParam = params.get("pack");
@@ -9527,6 +9610,79 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const open = box.getAttribute("aria-expanded") === "true";
         box.setAttribute("aria-expanded", open ? "false" : "true");
       });
+    })();
+
+    // The month's post (Content Calendar subscription, Dani 27 Oct). The
+    // calendar's Use This Template sends ?ccpost=<id>: the post's template
+    // opens on the canvas and its How to edit and caption sit at the top of
+    // Start. Picking a design from the month's pack fills the same card.
+    (function wireMonthPost() {
+      const box = document.getElementById("ed-ccpost");
+      if (!box) return;
+      const toggle = document.getElementById("ed-ccpost-toggle");
+      toggle.addEventListener("click", () => {
+        const open = !box.classList.contains("is-open");
+        box.classList.toggle("is-open", open);
+        toggle.setAttribute("aria-expanded", String(open));
+      });
+      let caption = "";
+      document.getElementById("ed-ccpost-copy").addEventListener("click", async (e) => {
+        const b = e.currentTarget as HTMLButtonElement;
+        try { await navigator.clipboard.writeText(caption); b.textContent = "Copied"; }
+        catch (_) { b.textContent = "Couldn't copy"; }
+        setTimeout(() => { b.textContent = "Copy caption"; }, 1600);
+      });
+      const part = (id, text) => {
+        const el = document.getElementById(id);
+        el.querySelector("i").textContent = text || "";
+        el.hidden = !text;
+      };
+      const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      async function show(post) {
+        if (!post) { box.hidden = true; return; }
+        const { monthPostsName, fmtPostDate, POST_TYPE_LABEL } = await import("../../lib/calendar-month.js");
+        const month = (post.month && post.month.month) || (post.post_date ? post.post_date.slice(0, 7) + "-01" : "");
+        document.getElementById("ed-ccpost-k").textContent = month ? monthPostsName(month).replace(/s$/, "") : "This month's post";
+        document.getElementById("ed-ccpost-name").textContent = post.title || "Post";
+        const chips = [
+          post.pillar ? `<span class="ed-ccpost-chip">${esc(post.pillar)}</span>` : "",
+          post.post_type && post.post_type !== "single" ? `<span class="ed-ccpost-chip">${esc(POST_TYPE_LABEL[post.post_type] || post.post_type)}</span>` : "",
+          post.date_tied ? `<span class="ed-ccpost-chip">${esc(post.occasion ? "On this day: " + post.occasion : "On this day")}</span>` : "",
+        ].join("");
+        document.getElementById("ed-ccpost-meta").innerHTML = (post.post_date ? `<span>${esc(fmtPostDate(post.post_date))}</span>` : "") + chips;
+        part("ed-ccpost-howto", post.how_to_edit);
+        caption = ((post.captions || []).find((c) => c && c.trim())) || "";
+        part("ed-ccpost-cap", caption);
+        part("ed-ccpost-reel", post.post_type === "reel" ? post.reel_prompt : "");
+        box.hidden = false;
+        // The month's post takes the Prompt's place.
+        const prompt = document.getElementById("ed-prompt");
+        if (prompt) prompt.hidden = true;
+      }
+      (window as any).__TMKE_CC_POST__ = show;
+
+      const id = new URLSearchParams(location.search).get("ccpost");
+      if (!id) return;
+      const lift = () => document.documentElement.classList.remove("ed-direct");
+      const giveUp = setTimeout(lift, 8000);
+      (async () => {
+        const { loadPost } = await import("../../lib/calendar-month.js");
+        const post = await loadPost(supabase, id);
+        // Nothing to show this person (not published, or not theirs to see):
+        // the Studio's own front page, rather than an empty canvas.
+        if (!post || !post.template_id) { location.replace("/account/editor"); return; }
+        const q = (cols) => supabase.from("templates").select(cols).eq("id", post.template_id).maybeSingle();
+        let { data: row, error } = await q("id, name, category, thumb_url, canvas, elements, pages, size_variants");
+        if (error) ({ data: row } = await q("id, name, category, thumb_url, canvas, elements"));
+        if (!row) { location.replace("/account/editor"); return; }
+        // The engine may still be starting up.
+        for (let i = 0; i < 100 && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ !== "function"; i++) await new Promise((r) => setTimeout(r, 50));
+        (window as any).__TMKE_OPEN_PACK_TEMPLATES__?.([row], { load: true });
+        (window as any).__TMKE_START_CONTEXT__?.("template");
+        await show(post);
+        clearTimeout(giveUp);
+        setTimeout(lift, 400);
+      })().catch(() => { clearTimeout(giveUp); lift(); });
     })();
 
     // "Add a page" in the start panel, and the rail's way back to it. Both are
