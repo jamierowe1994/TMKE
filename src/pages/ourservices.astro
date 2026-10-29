@@ -4,8 +4,8 @@
 // the team sends, so people see everything we do without moving through each
 // section of the site.
 //
-// The opening is the Edit's hero: a row of pictures, one for each thing we do,
-// each taking you to it, then a wine band saying what the page is. Below, the
+// The opening is a split screen: words on the left, the four shoots as
+// pictures on the right; choosing one swaps the left panel to it. Below, the
 // brochure's Our Services page: Videography, Social Media, Creative, a line
 // and a "from" price each. The four shoots keep what's included folded away and
 // open the booking pop-out at that service; the rest go to their own page or
@@ -82,14 +82,20 @@ const CREATIVE = [
   { key: "email", name: "Email Marketing", body: "Professional newsletters, campaigns and automations to keep your audience engaged and informed.", price: "Price on request" },
 ];
 
-// The opening's row: a picture for each thing we do, each going to it.
-const TILES = [
-  { to: "studio", name: "Content Studio", img: await pic(A("Jack%20-%20headshots/Content%20Studio/1.png"), 600, 800) },
-  { to: "property", name: "Property Videography", img: await pic(A("Jack%20-%20headshots/Property/CV311WHCompressed8.jpg"), 600, 800) },
-  { to: "photography", name: "Property Photography", img: await pic(A("Jack%20-%20headshots/Property/FC2-9%20(1).jpg"), 600, 800) },
-  { to: "agent", name: "Agent Videography", img: await pic(A("Jack%20-%20headshots/Agent/DonnaPlumb-19.jpg"), 600, 800) },
-  { to: "social", name: "Social Media", img: await pic(A("Smm%20hero.jpg"), 600, 800) },
-];
+// The opening's pictures, one per shoot, in Danielle's order; choosing one
+// fills the left panel with that shoot. Sized for the staggered grid.
+const PICS = {
+  studio: await pic(A("Jack%20-%20headshots/Content%20Studio/1.png"), 640, 800),
+  photography: await pic(A("Jack%20-%20headshots/Property/FC2-9%20(1).jpg"), 640, 800),
+  property: await pic(A("Jack%20-%20headshots/Property/CV311WHCompressed8.jpg"), 640, 800),
+  agent: await pic(A("Jack%20-%20headshots/Agent/DonnaPlumb-19.jpg"), 640, 800),
+};
+const PICKS = [
+  { key: "studio", label: "Content Studio" },
+  { key: "photography", label: "Property Photography" },
+  { key: "property", label: "Property Videography" },
+  { key: "agent", label: "Agent Shoots" },
+].map((t, i) => ({ ...t, num: String(i + 1).padStart(2, "0"), img: PICS[t.key], shoot: SHOOTS.find((x) => x.key === t.key) }));
 const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
 ---
 
@@ -99,27 +105,44 @@ const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
   noindex
 >
   <main class="os">
-    <!-- The opening: the Edit's row of pictures, then what this page is. -->
-    <header class="os-hero">
-      <p class="os-label">Finding a fit for your business</p>
-      <h1 class="os-title">Our Services.</h1>
-      <nav class="os-tiles" aria-label="Our services">
-        {TILES.map((t, i) => (
-          <a class="os-tile" href={`#${t.to}`} data-os-to={t.to}>
-            <span class="os-tile-img" style={`background-image:url('${t.img}')`}></span>
-            <span class="os-tile-cap"><span class="os-tile-num">{String(i + 1).padStart(2, "0")}</span><span class="os-tile-name">{t.name}</span></span>
-          </a>
+    <!-- The opening: words on the left, the four shoots as pictures on the
+         right. Choosing a picture swaps the left panel to that shoot. -->
+    <section class="os-split" aria-label="Our services">
+      <div class="os-left" aria-live="polite">
+        <div class="os-pane is-on" data-pane="all">
+          <p class="os-label">Finding a fit for your business</p>
+          <h1 class="os-big">Film, photography and content for estate agents, in one place.</h1>
+          <p class="os-pane-text">From a day in our studio to a full property shoot, choose a picture to see what each one includes and book straight in.</p>
+          <a class="os-link" href="#videography" data-os-to="videography">See everything we do <span aria-hidden="true">&darr;</span></a>
+        </div>
+        {PICKS.map((t) => (
+          <div class="os-pane" data-pane={t.key} id={`os-pane-${t.key}`} aria-hidden="true">
+            <p class="os-label">{t.num} &middot; {t.shoot.name}</p>
+            <h2 class="os-big">{t.label}.</h2>
+            <p class="os-pane-text">{t.shoot.body}</p>
+            <p class="os-pane-price">{t.shoot.price}</p>
+            {t.shoot.list && <ul class="os-pane-list">{t.shoot.list.slice(0, 4).map((x) => <li>{x}</li>)}</ul>}
+            {!t.shoot.list && t.shoot.rows && <ul class="os-pane-list">{t.shoot.rows.map((r) => <li>{r.name}, {r.price.replace("From ", "from ")}</li>)}</ul>}
+            <div class="os-row-actions">
+              <button type="button" class="os-btn" data-vbook={t.shoot.book} tabindex="-1">{t.shoot.bookLabel} <span aria-hidden="true">&rarr;</span></button>
+              <a class="os-link" href={t.shoot.more} tabindex="-1">Discover more <span aria-hidden="true">&rsaquo;</span></a>
+              <button type="button" class="os-back" data-os-pick="all" tabindex="-1">All services</button>
+            </div>
+          </div>
         ))}
-        <a class="os-tile os-tile--more" href="#creative" data-os-to="creative">
-          <span class="os-tile-more">And more</span>
-          <span class="os-tile-more-sub">Templates, design, websites and email</span>
-        </a>
-      </nav>
-      <div class="os-intro">
-        <span class="os-intro-eyebrow">TMKE &middot; The future of property marketing</span>
-        <p class="os-intro-copy">From filming and photography to social media and design, here&rsquo;s everything we can help with, in one place. Open the details for any service or book straight in, and your rate is worked out automatically when you book.</p>
+        <p class="os-left-foot">Videography &middot; Photography &middot; Social media &middot; Creative</p>
       </div>
-    </header>
+      <div class="os-right">
+        <div class="os-pics">
+          {PICKS.map((t, i) => (
+            <button type="button" class={`os-pic os-pic--${i + 1}`} data-os-pick={t.key} aria-pressed="false" aria-controls={`os-pane-${t.key}`}>
+              <span class="os-pic-img" style={`background-image:url('${t.img}')`}></span>
+              <span class="os-pic-cap"><span class="os-pic-num">{t.num}</span><span class="os-pic-name">{t.label}</span></span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
 
     <!-- Videography: the four shoots, each bookable. -->
     <section class="os-group" id="videography" aria-labelledby="os-h-video">
@@ -228,6 +251,39 @@ const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
       head.setAttribute("aria-expanded", on ? "true" : "false");
     });
   });
+  // The opening: a picture swaps the left panel to its shoot; All services,
+  // or the same picture again, puts the overview back.
+  (function picker() {
+    const panes = [...document.querySelectorAll<HTMLElement>(".os-pane")];
+    const pics = [...document.querySelectorAll<HTMLElement>(".os-pic")];
+    const split = document.querySelector(".os-split");
+    let current = "all";
+    const show = (key: string) => {
+      current = key;
+      split?.classList.toggle("has-pick", key !== "all");
+      panes.forEach((p) => {
+        const on = p.dataset.pane === key;
+        p.classList.toggle("is-on", on);
+        p.setAttribute("aria-hidden", on ? "false" : "true");
+        p.querySelectorAll<HTMLElement>("a, button").forEach((c) => c.tabIndex = on ? 0 : -1);
+      });
+      pics.forEach((b) => {
+        const on = b.dataset.osPick === key;
+        b.classList.toggle("is-on", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    };
+    document.querySelectorAll<HTMLElement>("[data-os-pick]").forEach((b) => b.addEventListener("click", () => {
+      const key = b.dataset.osPick || "all";
+      show(key === current ? "all" : key);
+      // On a phone the panel sits above the pictures: bring it into view.
+      if (window.matchMedia("(max-width: 900px)").matches && key !== "all") {
+        const left = document.querySelector(".os-left");
+        const lenis = (window as any).__lenis;
+        if (left) lenis ? lenis.scrollTo(left, { offset: -90, duration: 0.9 }) : left.scrollIntoView({ behavior: "smooth" });
+      }
+    }));
+  })();
   // The picture row and in-page links land clear of the nav. Caught before the
   // site's own anchor scroll, which stops at the very top of the target.
   document.addEventListener("click", (e) => {
@@ -259,52 +315,74 @@ const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
     font-size: clamp(28px, 2.6vw, 38px); line-height: 1.08; letter-spacing: -0.01em; color: var(--english-violet);
   }
 
-  /* ---- The opening ---- */
-  .os-hero {
-    display: flex; flex-direction: column; gap: 20px;
-    padding: clamp(128px, 17vh, 176px) var(--page-gutter) clamp(40px, 6vh, 72px);
+  /* ---- The opening: a split screen, words left, pictures right ---- */
+  .os-split {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: max(640px, 100vh); min-height: max(640px, 100svh);
   }
-  .os-title {
-    margin: -8px 0 4px; font-family: var(--sans); font-weight: 600;
-    font-size: clamp(30px, 3vw, 44px); line-height: 1.05; letter-spacing: -0.01em; color: var(--english-violet);
+  .os-left {
+    position: relative; display: grid; grid-template-rows: 1fr auto;
+    padding: clamp(120px, 16vh, 160px) var(--page-gutter) clamp(28px, 4vh, 44px);
+    background: var(--paper);
   }
-  .os-tiles {
-    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px;
-    border-top: 1px solid var(--hairline); padding-top: clamp(16px, 2vh, 26px);
+  /* Every pane in the same cell, so the panel never changes height. */
+  .os-pane {
+    grid-row: 1; grid-column: 1; align-self: start;
+    display: flex; flex-direction: column; align-items: flex-start;
+    opacity: 0; visibility: hidden; transform: translateY(10px);
+    transition: opacity 0.35s ease, transform 0.45s cubic-bezier(.2,.8,.2,1), visibility 0s 0.35s;
   }
-  .os-tile {
-    position: relative; display: block; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px;
-    background: rgba(28, 29, 34, 0.06); text-decoration: none; color: var(--english-violet);
+  .os-pane.is-on { opacity: 1; visibility: visible; transform: none; transition: opacity 0.45s ease 0.08s, transform 0.55s cubic-bezier(.2,.8,.2,1) 0.08s; }
+  .os-big {
+    margin: 18px 0 22px; max-width: 13em; font-family: var(--sans); font-weight: 700;
+    font-size: clamp(40px, 4.6vw, 76px); line-height: 0.98; letter-spacing: -0.03em; color: var(--english-violet);
   }
-  .os-tile-img { position: absolute; inset: 0; background-size: cover; background-position: center; transition: transform 0.6s cubic-bezier(.2,.8,.2,1); }
-  .os-tile:hover .os-tile-img { transform: scale(1.04); }
-  .os-tile-cap {
-    position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 1;
-    display: flex; flex-direction: column; gap: 3px; padding: 10px 12px;
-    background: var(--paper); border-radius: 2px;
+  .os-pane-text { margin: 0 0 18px; max-width: 34em; font-size: clamp(16px, 1.25vw, 19px); line-height: 1.55; color: rgba(28, 29, 34, 0.72); }
+  .os-pane-price { margin: 0 0 16px; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); }
+  .os-pane-list { margin: 0 0 26px; padding-left: 18px; max-width: 34em; font-size: 16px; line-height: 1.65; color: rgba(28, 29, 34, 0.78); }
+  .os-pane .os-link { margin-top: 6px; }
+  .os-back {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(28, 29, 34, 0.5);
   }
-  .os-tile-num { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; color: var(--english-violet); }
-  .os-tile-name { font-family: var(--sans); font-weight: 500; font-size: clamp(14px, 0.95vw, 17px); line-height: 1.2; color: var(--english-violet); }
-  .os-tile:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
-  /* The last tile: wine, as the Edit's Next tile is. */
-  .os-tile--more {
-    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px;
-    padding: 16px; text-align: center; box-sizing: border-box;
-    background: var(--english-violet); color: var(--paper); border: 1px solid var(--english-violet);
-    transition: background 0.25s ease, color 0.25s ease;
-  }
-  .os-tile--more:hover { background: transparent; color: var(--english-violet); }
-  .os-tile-more { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; }
-  .os-tile-more-sub { font-family: var(--sans); font-size: 14px; line-height: 1.35; opacity: 0.8; }
-  .os-intro {
-    display: flex; flex-direction: column; gap: 10px;
-    background: var(--english-violet); color: var(--paper);
-    border-radius: 4px; padding: clamp(20px, 2.4vw, 34px);
-  }
-  .os-intro-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(244, 242, 241, 0.72); }
-  .os-intro-copy { margin: 0; max-width: 75%; font-family: var(--sans); font-size: clamp(14px, 1.15vw, 16.5px); line-height: 1.6; color: rgba(244, 242, 241, 0.86); }
+  .os-back:hover { color: var(--ink); }
+  .os-left-foot { grid-row: 2; margin: 24px 0 0; font-size: 16px; color: rgba(28, 29, 34, 0.6); }
 
-  /* ---- The groups: the brochure's Our Services page ---- */
+  .os-right { position: relative; overflow: hidden; background: var(--paper-shadow); display: flex; align-items: center; }
+  /* A staggered three-column grid: two up top, two stepped down and right. */
+  .os-pics {
+    --tile: clamp(160px, 15.5vw, 290px);
+    display: grid; grid-template-columns: repeat(3, var(--tile)); gap: 6px;
+    padding: clamp(110px, 14vh, 140px) 0 clamp(40px, 6vh, 70px) clamp(36px, 5vw, 76px);
+  }
+  /* The Insights page's picture tile, as the Edit uses it: 3:4, the photo
+     shown, the name over a soft fade at its foot. */
+  .os-pic {
+    position: relative; display: block; width: var(--tile); aspect-ratio: 3 / 4; padding: 0; margin: 0; border: 0;
+    -webkit-appearance: none; appearance: none; text-align: left;
+    overflow: hidden; border-radius: 2px; cursor: pointer; background-color: rgba(28, 29, 34, 0.06);
+    transition: opacity 0.35s ease;
+  }
+  .os-pic::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, rgba(20,18,22,0) 42%, rgba(20,18,22,0.74) 100%);
+  }
+  .os-pic--1 { grid-column: 1; grid-row: 1; }
+  .os-pic--2 { grid-column: 2; grid-row: 1; }
+  .os-pic--3 { grid-column: 2; grid-row: 2; }
+  .os-pic--4 { grid-column: 3; grid-row: 2; }
+  .os-pic-img { position: absolute; inset: 0; background-size: cover; background-position: center; transition: transform 0.6s cubic-bezier(.2,.8,.2,1); }
+  .os-pic:hover .os-pic-img { transform: scale(1.04); }
+  .os-pic-cap { position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 2; display: flex; flex-direction: column; gap: 4px; }
+  .os-pic-num { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(244, 242, 240, 0.8); }
+  .os-pic-name { font-family: var(--sans); font-weight: 400; font-size: 16px; line-height: 1.12; letter-spacing: -0.005em; color: var(--paper); }
+  /* Once one is chosen, it stays bright and the rest step back. */
+  .os-split.has-pick .os-pic:not(.is-on) { opacity: 0.45; }
+  .os-pic.is-on { outline: 2px solid var(--english-violet); outline-offset: 3px; }
+  .os-pic:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
+
+
   .os-group { padding: clamp(36px, 5vh, 60px) var(--page-gutter) 0; }
   .os-group-head {
     display: flex; align-items: baseline; justify-content: space-between; gap: 18px;
@@ -407,23 +485,23 @@ const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
   .os-jack-call { background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--english-violet); }
   .os-jack-call:hover { opacity: 0.7; }
 
-  @media (max-width: 1100px) {
-    .os-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  }
   @media (max-width: 900px) {
     .os-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
     .os-row-name { grid-column: 1; }
     .os-row-price { grid-column: 2; grid-row: 1; }
     .os-row-body, .os-row-more { grid-column: 1 / -1; }
-    .os-intro-copy, .os-bro-text { max-width: none; }
+    .os-bro-text { max-width: none; }
     .os-bro, .os-touch { grid-template-columns: 1fr; }
+    .os-split { grid-template-columns: 1fr; min-height: 0; }
+    .os-left { padding-bottom: 28px; }
+    .os-right { display: block; }
+    .os-pics { --tile: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 22px var(--page-gutter); }
+    .os-pic { width: auto; }
+    .os-pic--1, .os-pic--2, .os-pic--3, .os-pic--4 { grid-column: auto; grid-row: auto; }
   }
   @media (max-width: 560px) {
-    .os-tiles { gap: 4px; }
-    .os-tile-cap { left: 4px; right: 4px; bottom: 4px; padding: 6px 7px; }
-    .os-tile-num { display: none; }
-    .os-tile-name { font-size: 12px; }
-    .os-tile-more-sub { display: none; }
+    .os-pic-cap { left: 10px; right: 10px; bottom: 10px; }
+    .os-pic-name { font-size: 14px; }
     .os-group-head { flex-direction: column; gap: 8px; }
   }
 </style>
