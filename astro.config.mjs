@@ -27,6 +27,9 @@ export default defineConfig({
         !/\/(auth|forgot-password|reset-password|manage|edits|leave-a-review|review)(\/|$)/.test(page) &&
         // /seasonal only forwards to the current seasonal page.
         !/\/seasonal\/?$/.test(page) &&
+        // Unlisted, noindexed pages: the font lab, and /ourservices, a link the
+        // team sends rather than a page to be found.
+        !/\/(font-lab|ourservices)(\/|$)/.test(page) &&
         !/\/privacy(\/|$)/.test(page) &&
         !/\/cookies(\/|$)/.test(page),
     }),

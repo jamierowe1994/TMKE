@@ -1,0 +1,241 @@
+---
+/* Font lab, pages — two real TMKE pages mocked up, so a heading font can be
+   judged on a whole page rather than a line (Danielle, 29 Oct 2026: Fraunces,
+   Spectral, Lora, Chivo and Work Sans, against Space Grotesk, which she wants
+   gone). Unlisted and not indexed. Standalone like /font-lab: the site's own
+   type rules would fight the fonts being tried. The choice sits in the address
+   (#h=fraunces&w=500&b=current), so a pairing can be sent to someone. */
+import { STATIC_POSTS } from "../../data/blog.js";
+
+const HEADINGS = [
+  { key: "fraunces", name: "Fraunces", stack: '"Fraunces", Georgia, serif', weight: 500 },
+  { key: "spectral", name: "Spectral", stack: '"Spectral", Georgia, serif', weight: 500 },
+  { key: "lora", name: "Lora", stack: '"Lora", Georgia, serif', weight: 500 },
+  { key: "chivo", name: "Chivo", stack: '"Chivo", Helvetica, Arial, sans-serif', weight: 600 },
+  { key: "work-sans", name: "Work Sans", stack: '"Work Sans", Helvetica, Arial, sans-serif', weight: 600 },
+  { key: "space-grotesk", name: "Space Grotesk (now)", stack: '"Space Grotesk", Helvetica, Arial, sans-serif', weight: 500 },
+];
+const BODIES = [
+  { key: "current", name: "Darker Grotesque (now)", stack: '"Darker Grotesque", system-ui, sans-serif', weight: 500, size: 1 },
+  { key: "same", name: "Same as headings", stack: "", weight: 400, size: 0.9 },
+  { key: "work-sans", name: "Work Sans", stack: '"Work Sans", system-ui, sans-serif', weight: 400, size: 0.9 },
+  { key: "chivo", name: "Chivo", stack: '"Chivo", system-ui, sans-serif', weight: 400, size: 0.9 },
+];
+
+const post = STATIC_POSTS[0];
+const A = (p) => `https://assets.tmke.co.uk/${p}`;
+const PICS = [
+  { name: "Content Studio", img: A("Jack%20-%20headshots/Content%20Studio/1.png") },
+  { name: "Property Photography", img: A("Jack%20-%20headshots/Property/FC2-9%20(1).jpg") },
+  { name: "Property Videography", img: A("Jack%20-%20headshots/Property/CV311WHCompressed8.jpg") },
+  { name: "Agent Shoots", img: A("Jack%20-%20headshots/Agent/DonnaPlumb-19.jpg") },
+];
+const ROWS = [
+  { name: "Content Studio", body: "Batch-create weeks of short-form content in one professionally filmed studio session.", price: "From £165 +VAT" },
+  { name: "Agent Videography", body: "On-location filming focused on creating engaging social media content.", price: "From £295 +VAT" },
+  { name: "Property Videography", body: "Professionally filmed property tours, promotional videos and photography to help listings stand out.", price: "From £550 +VAT" },
+  { name: "Property Photography", body: "Professional property photography, naturally edited and ready to use across portals, socials and your wider marketing.", price: "From £215 +VAT" },
+];
+---
+
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Font lab: pages — TMKE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..800;1,9..144,300..800&family=Spectral:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Chivo:ital,wght@0,300..800;1,400&family=Work+Sans:ital,wght@0,300..800;1,400&family=Space+Grotesk:wght@300..700&family=Darker+Grotesque:wght@400;500;600;700&family=Cormorant+Garamond:wght@500;600&display=swap"
+    />
+    <style is:global>
+      :root {
+        --paper: #f4f2f1; --paper-shadow: #e7e3e2; --ink: #1c1d22; --wine: #371e28;
+        --hair: rgba(28,29,34,0.14);
+        --h: "Fraunces", Georgia, serif; --hw: 500;
+        --b: "Darker Grotesque", system-ui, sans-serif; --bw: 500; --bs: 1;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--b); font-weight: var(--bw); -webkit-font-smoothing: antialiased; }
+
+      /* ---- The switcher ---- */
+      .fl-bar {
+        position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px;
+        padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--hair);
+        font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 400; font-size: 13px;
+      }
+      .fl-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+      .fl-k { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin-right: 4px; }
+      .fl-opt { font: inherit; padding: 6px 11px; border: 1px solid rgba(28,29,34,0.22); background: #fff; border-radius: 2px; cursor: pointer; color: var(--ink); }
+      .fl-opt.is-on { background: var(--wine); border-color: var(--wine); color: #fff; }
+      .fl-tabs { margin-left: auto; }
+
+      /* ---- Shared page furniture ---- */
+      .pg { display: none; }
+      .pg.is-on { display: block; }
+      .nav { display: flex; justify-content: space-between; align-items: center; padding: 22px 60px; background: var(--paper); }
+      .logo { font-family: "Cormorant Garamond", serif; font-weight: 600; font-size: 26px; letter-spacing: 0.06em; color: var(--ink); }
+      .burger { width: 26px; height: 14px; border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); position: relative; }
+      .burger::after { content: ""; position: absolute; left: 0; right: 0; top: 4px; border-top: 2px solid var(--ink); }
+      .label { margin: 0; font-family: var(--b); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--wine); }
+      .h { font-family: var(--h); font-weight: var(--hw); color: var(--wine); }
+      .copy { font-size: calc(var(--bs) * 17px); line-height: 1.6; color: rgba(28,29,34,0.74); }
+      .btn { display: inline-flex; align-items: center; gap: 10px; background: var(--wine); color: var(--paper); border: 0; border-radius: 3px; padding: 12px 22px; font-family: var(--b); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+      .lnk { font-family: var(--b); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--wine); text-decoration: none; }
+
+      /* ---- Page 1: Our Services ---- */
+      .split { display: grid; grid-template-columns: 1fr 1fr; min-height: 640px; }
+      .left { padding: 70px 60px 40px; display: flex; flex-direction: column; }
+      .big { margin: 18px 0 22px; max-width: 13em; font-size: clamp(40px, 4.6vw, 74px); line-height: 1.0; letter-spacing: -0.02em; }
+      .left .copy { max-width: 32em; margin: 0 0 22px; }
+      .left-foot { margin-top: auto; font-size: calc(var(--bs) * 16px); color: rgba(28,29,34,0.6); }
+      .right { background: var(--paper-shadow); overflow: hidden; display: flex; align-items: center; }
+      .pics { --t: clamp(150px, 15vw, 270px); display: grid; grid-template-columns: repeat(3, var(--t)); gap: 6px; padding: 60px 0 40px 5vw; }
+      .pic { position: relative; width: var(--t); aspect-ratio: 3 / 4; border-radius: 2px; overflow: hidden; background-size: cover; background-position: center; }
+      .pic::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,22,0) 42%, rgba(20,18,22,0.74) 100%); }
+      .pic span { position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 1; color: var(--paper); font-size: calc(var(--bs) * 16px); line-height: 1.12; }
+      .pic:nth-child(1) { grid-column: 1; grid-row: 1; } .pic:nth-child(2) { grid-column: 2; grid-row: 1; }
+      .pic:nth-child(3) { grid-column: 2; grid-row: 2; } .pic:nth-child(4) { grid-column: 3; grid-row: 2; }
+      .group { padding: 56px 60px 30px; }
+      .group-head { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 12px; border-bottom: 1px solid rgba(28,29,34,0.3); }
+      .group-title { margin: 0; font-size: 16px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .row { display: grid; grid-template-columns: 0.9fr 2fr 0.8fr; gap: 40px; align-items: baseline; padding: 16px 0; border-bottom: 1px solid var(--hair); }
+      .row-name { margin: 0; font-size: 19px; line-height: 1.3; }
+      .row-body { margin: 0; font-size: calc(var(--bs) * 15.5px); line-height: 1.55; color: rgba(28,29,34,0.72); }
+      .row-price { margin: 0; text-align: right; font-family: var(--b); font-size: calc(var(--bs) * 15px); font-weight: 600; color: var(--wine); }
+      .band { margin-top: 60px; display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 80px; align-items: center; padding: 70px 60px; background: var(--wine); color: var(--paper); }
+      .band-pic { aspect-ratio: 9 / 7; border-radius: 2px; background: url("https://assets.tmke.co.uk/orange-1.webp") center / cover; }
+      .band .h { color: var(--paper); font-size: clamp(28px, 2.8vw, 42px); line-height: 1.08; margin: 14px 0 14px; }
+      .band .copy { color: rgba(244,242,241,0.8); max-width: 34em; }
+      .band .label { color: rgba(244,242,241,0.7); }
+
+      /* ---- Page 2: an Insights article ---- */
+      .art { max-width: 1180px; margin: 0 auto; padding: 60px 60px 120px; }
+      .art-eyebrow { margin-bottom: 26px; }
+      .art-title { margin: 0 0 26px; max-width: 18em; font-size: clamp(38px, 4.4vw, 68px); line-height: 1.02; letter-spacing: -0.02em; }
+      .art-stand { max-width: 40em; margin: 0 0 40px; font-size: calc(var(--bs) * 20px); line-height: 1.55; color: rgba(28,29,34,0.74); }
+      .art-hero { aspect-ratio: 16 / 8; border-radius: 2px; background: url("/assets/personal-brand.jpg") center / cover; margin-bottom: 54px; }
+      .art-body { max-width: 680px; margin: 0 auto; font-size: calc(var(--bs) * 18px); line-height: 1.75; color: rgba(28,29,34,0.82); }
+      .art-body h2 { font-family: var(--h); font-weight: var(--hw); color: var(--wine); font-size: 30px; line-height: 1.15; letter-spacing: -0.01em; margin: 46px 0 14px; }
+      .art-body blockquote { margin: 36px 0; padding: 0 0 0 24px; border-left: 2px solid var(--wine); font-family: var(--h); font-weight: var(--hw); font-size: 26px; line-height: 1.3; color: var(--wine); }
+      .art-body .lede { font-size: 1.1em; }
+      .art-meta { display: flex; gap: 18px; margin: 0 0 18px; font-size: 13px; color: rgba(28,29,34,0.55); }
+
+      @media (max-width: 860px) {
+        .nav { padding: 18px 22px; }
+        .split, .band { grid-template-columns: 1fr; }
+        .left, .group, .band, .art { padding-left: 22px; padding-right: 22px; }
+        .pics { --t: auto; grid-template-columns: repeat(2, 1fr); padding: 22px; }
+        .pic { width: auto; } .pic:nth-child(n) { grid-column: auto; grid-row: auto; }
+        .row { grid-template-columns: 1fr auto; gap: 6px 18px; } .row-body { grid-column: 1 / -1; } .row-price { grid-column: 2; grid-row: 1; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="fl-bar">
+      <div class="fl-group" data-set="h">
+        <span class="fl-k">Headings</span>
+        {HEADINGS.map((f, i) => (
+          <button type="button" class:list={["fl-opt", i === 0 && "is-on"]} data-key={f.key} data-stack={f.stack} data-weight={f.weight} style={`font-family:${f.stack}`}>{f.name}</button>
+        ))}
+      </div>
+      <div class="fl-group" data-set="w">
+        <span class="fl-k">Weight</span>
+        {[300, 400, 500, 600, 700].map((w) => <button type="button" class="fl-opt" data-key={String(w)}>{w}</button>)}
+      </div>
+      <div class="fl-group" data-set="b">
+        <span class="fl-k">Body</span>
+        {BODIES.map((f, i) => (
+          <button type="button" class:list={["fl-opt", i === 0 && "is-on"]} data-key={f.key} data-stack={f.stack} data-weight={f.weight} data-size={f.size}>{f.name}</button>
+        ))}
+      </div>
+      <div class="fl-group fl-tabs" data-set="p">
+        <span class="fl-k">Page</span>
+        <button type="button" class="fl-opt is-on" data-key="services">Our Services</button>
+        <button type="button" class="fl-opt" data-key="article">Insights article</button>
+      </div>
+    </div>
+
+    <!-- Page 1: Our Services, as built. -->
+    <div class="pg is-on" data-page="services">
+      <div class="nav"><span class="logo">TMKE</span><span class="burger"></span></div>
+      <section class="split">
+        <div class="left">
+          <p class="label">Finding a fit for your business</p>
+          <h1 class="h big">Film, photography and content for estate agents, in one place.</h1>
+          <p class="copy">From a day in our studio to a full property shoot, choose a picture to see what each one includes and book straight in.</p>
+          <div><span class="btn">Book a shoot &rarr;</span> &nbsp; <a class="lnk" href="#">See everything we do &darr;</a></div>
+          <p class="left-foot">Videography &middot; Photography &middot; Social media &middot; Creative</p>
+        </div>
+        <div class="right"><div class="pics">
+          {PICS.map((p) => <div class="pic" style={`background-image:url('${p.img}')`}><span>{p.name}</span></div>)}
+        </div></div>
+      </section>
+      <section class="group">
+        <div class="group-head"><h2 class="h group-title">Videography</h2><a class="lnk" href="#">Discover videography &rsaquo;</a></div>
+        {ROWS.map((r) => (
+          <div class="row"><h3 class="h row-name">{r.name}</h3><p class="row-body">{r.body}</p><p class="row-price">{r.price}</p></div>
+        ))}
+      </section>
+      <section class="band">
+        <div class="band-pic"></div>
+        <div>
+          <p class="label">Brochure</p>
+          <h2 class="h">The Full Picture, in One Brochure.</h2>
+          <p class="copy">Our services brochure sets out everything we do in full, with what&rsquo;s included and what each service costs.</p>
+          <span class="btn" style="background:var(--paper);color:var(--wine)">Download the brochure &rarr;</span>
+        </div>
+      </section>
+    </div>
+
+    <!-- Page 2: an Insights article, with its real words. -->
+    <div class="pg" data-page="article">
+      <div class="nav"><span class="logo">TMKE</span><span class="burger"></span></div>
+      <article class="art">
+        <p class="label art-eyebrow">{post.eyebrow}</p>
+        <h1 class="h art-title">{post.title}</h1>
+        <p class="art-stand">{post.standfirst}</p>
+        <p class="art-meta"><span>{post.category}</span><span>{post.readTime} min read</span></p>
+        <div class="art-hero"></div>
+        <div class="art-body" set:html={post.body}></div>
+      </article>
+    </div>
+
+    <script is:inline>
+      (function () {
+        var root = document.documentElement;
+        var state = { h: "fraunces", w: "", b: "current", p: "services" };
+        try { location.hash.slice(1).split("&").forEach(function (kv) { var p = kv.split("="); if (p[0] in state && p[1]) state[p[0]] = decodeURIComponent(p[1]); }); } catch (e) {}
+        function opt(set, key) { return document.querySelector('[data-set="' + set + '"] [data-key="' + key + '"]'); }
+        function apply() {
+          var h = opt("h", state.h) || opt("h", "fraunces");
+          var w = state.w || h.dataset.weight;
+          var b = opt("b", state.b) || opt("b", "current");
+          root.style.setProperty("--h", h.dataset.stack);
+          root.style.setProperty("--hw", w);
+          root.style.setProperty("--b", b.dataset.stack || h.dataset.stack);
+          root.style.setProperty("--bw", b.dataset.weight);
+          root.style.setProperty("--bs", b.dataset.size);
+          document.querySelectorAll(".fl-group").forEach(function (g) {
+            var cur = { h: h.dataset.key, w: String(w), b: b.dataset.key, p: state.p }[g.dataset.set];
+            g.querySelectorAll(".fl-opt").forEach(function (o) { o.classList.toggle("is-on", o.dataset.key === cur); });
+          });
+          document.querySelectorAll(".pg").forEach(function (pg) { pg.classList.toggle("is-on", pg.dataset.page === state.p); });
+          history.replaceState(null, "", "#h=" + state.h + "&w=" + (state.w || "") + "&b=" + state.b + "&p=" + state.p);
+        }
+        document.querySelectorAll(".fl-group").forEach(function (g) {
+          g.addEventListener("click", function (e) {
+            var o = e.target.closest(".fl-opt"); if (!o) return;
+            var set = g.dataset.set;
+            state[set] = o.dataset.key;
+            if (set === "h") state.w = "";   // each font starts at its own sensible weight
+            apply();
+          });
+        });
+        apply();
+      })();
+    </script>
+  </body>
+</html>
