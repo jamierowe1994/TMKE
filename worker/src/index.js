@@ -2612,6 +2612,12 @@ function bookingKindOf(r) {
   if (/photo/.test(s) && !/video/.test(s)) return "photography";
   if (/property/.test(s)) return "property";
   if (/agent|location|headshot|launch|b-?roll/.test(s)) return "agent";
+  /* A shoot booked from the Social media tab names the package ("Shot &
+     Scheduled"), which says nothing about the kind of shoot. It's Jack
+     filming for a client on location, so it's an agent shoot: the day out,
+     then its editing days (Danielle, 29 Oct: Ray Purchase and Terry Robinson
+     had neither). */
+  if (r.smm_lead_id || r.payment_route === "smm_package" || r.brand === "social-media-marketing") return "agent";
   return null;
 }
 function londonParts(iso) {
@@ -2619,11 +2625,33 @@ function londonParts(iso) {
     .formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
   return { ymd: `${p.year}-${p.month}-${p.day}`, min: Number(p.hour) * 60 + Number(p.minute) };
 }
+// Booking columns the diary reads (bookingKindOf and editingDaysFrom).
+const BOARD_COLS = "shoot_date,service_type,service,stage,kind,duration_min,reschedule_token,client_name,smm_lead_id,payment_route,brand";
+// Jack's hours for a weekday row: hours[] (the block model), else the old
+// start_time/end_time range. A sorted int[]; empty means he doesn't work it.
+function availRowHours(row) {
+  let h = Array.isArray(row && row.hours) ? row.hours.slice() : [];
+  if (!h.length && row && row.is_available !== false && row.start_time && row.end_time) {
+    const s = Math.floor(hmToMin(row.start_time) / 60), e = Math.ceil(hmToMin(row.end_time) / 60);
+    for (let x = s; x < e; x++) h.push(x);
+  }
+  return h.filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+}
+// The weekdays (0 Sunday to 6 Saturday) Jack works, or null if unreadable.
+function workdaysFrom(avail) {
+  if (!Array.isArray(avail) || !avail.length) return null;
+  return new Set(avail.filter((r) => availRowHours(r).length).map((r) => Number(r.weekday)));
+}
 async function boardRows(env, fromDate, toDate) {
   const from = new Date(`${fromDate}T00:00:00Z`); from.setUTCDate(from.getUTCDate() - EDITING_LOOKBACK_DAYS);
   const to = new Date(`${toDate}T00:00:00Z`); to.setUTCDate(to.getUTCDate() + 2);
-  return (await sbGet(env, "videography_bookings",
-    `shoot_date=gte.${from.toISOString()}&shoot_date=lt.${to.toISOString()}&select=shoot_date,service_type,service,stage,kind,duration_min,reschedule_token,client_name`)) || [];
+  const [rows, avail] = await Promise.all([
+    sbGet(env, "videography_bookings", `shoot_date=gte.${from.toISOString()}&shoot_date=lt.${to.toISOString()}&select=${BOARD_COLS}`),
+    sbGet(env, "videography_availability", "select=*"),
+  ]);
+  const out = rows || [];
+  out.workdays = workdaysFrom(avail);   // read by editingDaysFrom
+  return out;
 }
 // skip: the reschedule token of a booking being moved, so it doesn't block itself.
 async function diaryBlocks(env, date, service, skip) {
@@ -2669,7 +2697,9 @@ function diaryBlocksFrom(rows, date, service, skip) {
    to back stack their editing up after the last one: property shoots on the
    3rd and 4th make the 5th to the 8th editing days. Oldest first.
    Returns { "YYYY-MM-DD": [{ client, day, studioDay }] } up to `until`,
-   each day listing the shoots still being edited. */
+   each day listing the shoots still being edited. A day Jack doesn't work
+   (rows.workdays, from his hours) does no editing either: a Thursday shoot's
+   editing is Friday and Monday, not Friday and Saturday (found 29 Oct). */
 const EDITING_LOOKBACK_DAYS = 21;
 function editingDaysFrom(rows, until, skip) {
   const dayOf = (r) => (r.kind === "booking" ? String(r.shoot_date).slice(0, 10) : londonParts(r.shoot_date).ymd);
@@ -2693,6 +2723,7 @@ function editingDaysFrom(rows, until, skip) {
   for (let d = first; d <= until; d = nsNextDay(d)) {
     if (adds[d]) queue.push(...adds[d]);
     if (busy.has(d) || !queue.length) continue;
+    if (rows.workdays && !rows.workdays.has(new Date(`${d}T12:00:00Z`).getUTCDay())) continue;
     out[d] = queue.map(({ client, day, studioDay }) => ({ client, day, studioDay }));
     queue[0].left -= 1;
     if (queue[0].left <= 0) queue.shift();
@@ -7409,7 +7440,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const lo = new Date(`${from}T00:00:00Z`); lo.setUTCDate(lo.getUTCDate() - EDITING_LOOKBACK_DAYS);
         const hi = new Date(`${to}T00:00:00Z`); hi.setUTCDate(hi.getUTCDate() + 2);
         const rows = (await sbGet(env, "videography_bookings",
-          `shoot_date=gte.${lo.toISOString()}&shoot_date=lt.${hi.toISOString()}&select=shoot_date,service_type,service,stage,kind,duration_min,reschedule_token,ms_event_id,client_name`)) || [];
+          `shoot_date=gte.${lo.toISOString()}&shoot_date=lt.${hi.toISOString()}&select=${BOARD_COLS},ms_event_id`)) || [];
+        rows.workdays = workdaysFrom(avail);
         const live = rows.filter((r) => r.shoot_date && r.stage !== "cancelled" && r.stage !== "discovery_call_booked" && r.service_type !== "discovery");
         const dayOfRow = (r) => (r.kind === "booking" ? String(r.shoot_date).slice(0, 10) : londonParts(r.shoot_date).ymd);
         const ourEvents = new Set(rows.map((r) => r.ms_event_id).filter(Boolean));
