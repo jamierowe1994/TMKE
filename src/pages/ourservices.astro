@@ -15,9 +15,7 @@
 //   4. The services brochure, as words and a button in that field's corner.
 //   5. Get in touch in a rounded picture box, the form in a pop-out.
 //
-// Headings are on trial here before the site changes: Fraunces Light at -5%,
-// or with ?h=lora, Lora Regular at -5% (Danielle, 29 Oct), to replace Space
-// Grotesk.
+// Headings are the site's own, Fraunces Light at -5% (Danielle, 29 Oct).
 // Prices are the site's standard "from" rates; each person's own rate is worked
 // out when they book. Pictures are stand-ins from the site until she chooses.
 import BaseLayout from "../layouts/BaseLayout.astro";
@@ -84,7 +82,7 @@ const WORK = [
   { src: "Jack%20-%20headshots/Property/LeahMusana-14.jpg", x: 20, y: 104, w: 11, r: "4/5" },
   // Sits on the same line as the foot of the brochure button (`b`, vh from the
   // field's foot), so the two finish level (Danielle, 29 Oct).
-  { src: "white-1.webp", x: 48, b: 22, w: 11, r: "13/10" },
+  { src: "white-1.webp", x: 48, b: 4, w: 11, r: "13/10" },
 ];
 for (const w of WORK) {
   const [a, b] = w.r.split("/").map(Number);
@@ -101,9 +99,6 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   description="Videography, photography, social media and creative from TMKE, with what each includes, what it costs and how to book."
   noindex
 >
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=Lora:ital,wght@0,400..700;1,400..700&display=swap" />
-  <script is:inline>if (/[?&]h=lora\b/.test(location.search)) document.documentElement.classList.add("os-lora");</script>
 
   <main class="os">
     <!-- 1. The slides. The first sits on top; each lifts and drops away in turn. -->
@@ -132,6 +127,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
       <div class="os-list-head">
         <h2 class="os-list-title" id="os-list-h">Services</h2>
       </div>
+      <div class="os-list-main">
       <ol class="os-rows">
         {SERVICES.map((s, i) => (
           <li class="os-item">
@@ -156,6 +152,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
         ))}
       </ol>
       <p class="os-list-foot">For shoots on location, Jack covers a 40-mile radius of NN14 (Kettering). If you&rsquo;re further away, travel is added to your quote automatically.</p>
+      </div>
       </div>
     </section>
 
@@ -344,14 +341,12 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   .os {
     --os-body: clamp(12.5px, 0.95vw, 13.5px);
     --hairline: rgba(28, 29, 34, 0.14);
-    /* Fraunces Light at -5% (Danielle, 29 Oct); ?h=lora shows her other
-       choice, Lora Regular at -5%, on the same page to compare. */
-    --os-h: "Fraunces", Georgia, serif;
+    /* The site's heading face, Fraunces Light, at -5% (Danielle, 29 Oct). */
+    --os-h: "TMKE Serif", Georgia, serif;
     --os-hw: 300;
     --os-track: -0.05em;
     background: var(--paper); color: var(--ink); font-family: var(--sans);
   }
-  html.os-lora .os { --os-h: "Lora", Georgia, serif; --os-hw: 400; }
   .os-label {
     margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 700;
     letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
@@ -405,14 +400,16 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   /* A wine box on white, like the contact box, rather than a full-width strip. */
   .os-list { padding: clamp(40px, 6vh, 72px) var(--page-gutter); background: #fff; }
   .os-list-box {
-    display: grid; grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 90px);
-    padding: clamp(48px, 7vw, 96px) clamp(24px, 4vw, 64px); border-radius: 8px;
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(28px, 6vw, 110px);
+    padding: clamp(40px, 5vw, 72px) clamp(24px, 4vw, 64px); border-radius: 8px;
     background: var(--english-violet); color: var(--paper);
   }
-  .os-list-head { align-self: start; position: sticky; top: 120px; }
+  /* "Services" runs down the side, big, as the statement (Danielle, 29 Oct). */
+  .os-list-head { align-self: start; position: sticky; top: 110px; }
   .os-list-title {
-    margin: 0 0 16px; font-family: var(--os-h); font-weight: var(--os-hw); font-size: var(--fs-title);
-    line-height: var(--lh-title); letter-spacing: var(--os-track); color: var(--paper);
+    margin: 0; writing-mode: vertical-rl; transform: rotate(180deg);
+    font-family: var(--os-h); font-weight: var(--os-hw); font-size: clamp(72px, 9vw, 150px);
+    line-height: 0.9; letter-spacing: var(--os-track); color: var(--paper);
   }
   .os-rows { list-style: none; margin: 0; padding: 0; }
   .os-item { border-bottom: 1px solid rgba(244, 242, 241, 0.22); }
@@ -444,7 +441,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   .os-item-links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; padding-bottom: 28px; }
   .os-item-links .os-link { color: var(--paper); }
   .os-item-links .os-item-price { margin: 0; }
-  .os-list-foot { grid-column: 2; margin: 22px 0 0; font-size: var(--os-body); line-height: 1.5; color: rgba(244, 242, 241, 0.6); }
+  .os-list-foot { margin: 22px 0 0; font-size: var(--os-body); line-height: 1.5; color: rgba(244, 242, 241, 0.6); }
 
   /* ---- Buttons and links ---- */
   .os-btn {
@@ -467,12 +464,12 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   .os-btn:focus-visible, .os-link:focus-visible, .os-jack-call:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 
   /* ---- 3. Our work ---- */
-  .os-work { position: relative; height: 165vh; overflow: hidden; background: #fff; }
+  .os-work { position: relative; height: 150vh; overflow: hidden; background: #fff; }
   .os-work-pic { position: absolute; margin: 0; width: calc(var(--w) * 1vw); overflow: hidden; background: transparent; }
   .os-work-pic img { display: block; width: 100%; height: 100%; object-fit: cover; will-change: transform; }
 
   /* ---- 4. The brochure, in the field's bottom right ---- */
-  .os-bro { position: absolute; left: 62%; bottom: 22vh; width: min(30vw, 440px); }
+  .os-bro { position: absolute; left: 62%; bottom: 4vh; width: min(30vw, 440px); }
   .os-bro-text {
     margin: 0 0 24px; font-family: var(--sans); font-weight: 500;
     font-size: calc(var(--fs-quote) * 0.8); line-height: var(--lh-quote); letter-spacing: -0.01em; color: var(--ink);
@@ -487,7 +484,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   .os-bro-btn:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
 
   /* ---- 5. Get in touch: a rounded picture box ---- */
-  .os-touch { padding: clamp(24px, 4vh, 48px) var(--page-gutter) clamp(72px, 10vh, 120px); background: #fff; }
+  .os-touch { padding: clamp(40px, 6vh, 72px) var(--page-gutter) clamp(72px, 10vh, 120px); background: #fff; }
   .os-touch-box {
     position: relative; display: flex; align-items: flex-end;
     min-height: clamp(420px, 66vh, 640px); overflow: hidden; border-radius: 8px;
@@ -530,7 +527,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
     .os-slide-card { width: min(58vw, 260px); }
     .os-list-box { grid-template-columns: 1fr; }
     .os-list-head { position: static; }
-    .os-list-foot { grid-column: 1; }
+    .os-list-title { writing-mode: horizontal-tb; transform: none; font-size: clamp(48px, 14vw, 72px); }
     .os-item-head { grid-template-columns: 44px minmax(0, 1fr) 14px; padding: 20px 0; }
     .os-item-group { display: none; }
     .os-item-inner { padding-left: 0; }
