@@ -5248,10 +5248,36 @@ function smmReportAmendedHtml({ name, month, monthLabel, manager, link, joinLink
 // any level with ?as=<level>. Build list: docs/content-calendar-build.md.
 const ACCESS_LEVELS = {
   free:         { rank: 0, calendar: false, library_back: null, scheduling: false, done_for_you: false },
-  calendar:     { rank: 1, calendar: true,  library_back: 0,    scheduling: false, done_for_you: false },
-  scheduling:   { rank: 2, calendar: true,  library_back: 3,    scheduling: true,  done_for_you: false },
-  done_for_you: { rank: 3, calendar: true,  library_back: -1,   scheduling: true,  done_for_you: true },
+  calendar:     { rank: 1, calendar: true,  next_month: true, library_back: 0,  scheduling: false, done_for_you: false },
+  scheduling:   { rank: 2, calendar: true,  next_month: true, library_back: 3,  scheduling: true,  done_for_you: false },
+  done_for_you: { rank: 3, calendar: true,  next_month: true, library_back: -1, scheduling: true,  done_for_you: true },
 };
+// The levels as set in Admin › Content calendar › Overview (content_levels,
+// Danielle, 29 Oct 2026). Read for a minute at a time. Until that table's SQL
+// has run, ACCESS_LEVELS above (the same values the SQL seeds) stands in, and
+// the answer says so (levels_from: "built-in") rather than passing quietly.
+let ACCESS_LEVELS_CACHE = null;
+async function accessLevels(env) {
+  if (ACCESS_LEVELS_CACHE && Date.now() - ACCESS_LEVELS_CACHE.at < 60000) return ACCESS_LEVELS_CACHE;
+  const rows = await sbGet(env, "content_levels", "select=key,sort_order,calendar,next_month,library_months,scheduling,done_for_you");
+  let out = { at: Date.now(), from: "built-in", levels: ACCESS_LEVELS };
+  if (Array.isArray(rows) && rows.length) {
+    const levels = {};
+    Object.keys(ACCESS_LEVELS).forEach((k) => {
+      const r = rows.find((x) => x.key === k);
+      levels[k] = r
+        ? { rank: ACCESS_LEVELS[k].rank, calendar: !!r.calendar, next_month: !!r.next_month,
+            library_back: r.library_months == null ? null : Number(r.library_months),
+            scheduling: !!r.scheduling, done_for_you: !!r.done_for_you }
+        : ACCESS_LEVELS[k];
+    });
+    out = { at: Date.now(), from: "table", levels };
+  } else {
+    console.warn("access: content_levels unreadable; using the built-in levels");
+  }
+  ACCESS_LEVELS_CACHE = out;
+  return out;
+}
 // Which month's posts a TEG brand gets. Anyone not on a TEG brand is independent.
 const ACCESS_EDITION_OF_BRAND = {
   "The Property Experts": "property",
@@ -5285,13 +5311,14 @@ async function memberAccess(env, user, asLevel) {
   // Until subscriptions exist: Free for members, everything for staff.
   let level = staff ? "done_for_you" : "free";
   if (staff && ACCESS_LEVELS[asLevel]) level = asLevel;
-  const L = ACCESS_LEVELS[level];
+  const AL = await accessLevels(env);
+  const L = AL.levels[level];
   const joined = null;   // the month they first subscribed, once subscriptions exist
   let library = null;
   if (L.calendar) {
-    let from = L.library_back < 0 ? null : accessMonth(-L.library_back);
+    let from = L.library_back == null ? accessMonth(0) : L.library_back < 0 ? null : accessMonth(-L.library_back);
     if (joined && (!from || joined > from)) from = joined;
-    library = { from, to: accessMonth(1) };
+    library = { from, to: accessMonth(L.next_month ? 1 : 0) };
   }
   return {
     ok: true, level, staff, teg,
@@ -5303,6 +5330,7 @@ async function memberAccess(env, user, asLevel) {
     scheduling: L.scheduling,
     done_for_you: L.done_for_you,
     course_levels: Object.keys(ACCESS_LEVELS).filter((k) => ACCESS_LEVELS[k].rank <= L.rank),
+    levels_from: AL.from,                    // "table", or "built-in" before the SQL has run
   };
 }
 

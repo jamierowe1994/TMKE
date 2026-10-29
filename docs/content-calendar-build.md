@@ -41,6 +41,7 @@ Staff can add `?as=free` (or any level) to see the hub as that level.
 | 27 Oct | Content Calendar tab in the admin Design studio, beside Templates and Print, for each month's templates (built in the demo agency's name, so unbranded) | Admin |
 | 27 Oct | A level on every course in the course editor (Guides), set to Free for now | Admin |
 | 27 Oct | `/access/me`: everyone Free for now; staff get everything, or any level with `?as=calendar` | Admin |
+| 29 Oct | Overview tab (Admin › Content calendar): the four levels, prices and what each opens, in `content_levels` (supabase/content_calendar_levels.sql); `/access/me` reads it | Admin |
 | 28 Oct | Content Calendar month view reading a published month: our post on each weekday, full size in its day (staff only) | Studio |
 | 28 Oct | Post pop-out: full size, content pillar, how to edit, caption, Use This Template | Studio |
 | 28 Oct | The month as its own pack in the Studio; How to edit and the caption at the top of the Start panel | Studio |

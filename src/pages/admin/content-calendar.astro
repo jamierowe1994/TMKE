@@ -26,6 +26,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       </div>
       <div class="page-header-actions">
         <nav class="cat-tabs" aria-label="Content calendar">
+          <button type="button" class="cat-tab" data-tab="overview">Overview</button>
           <button type="button" class="cat-tab" data-tab="months">Catalogue</button>
           <button type="button" class="cat-tab" data-tab="build">Month builder</button>
         </nav>
@@ -33,6 +34,32 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     </div>
   </div>
   <div class="ash-panel ash-page">
+
+  <!-- The levels: what each costs and what it opens (Danielle, 28–29 Oct).
+       The Worker's access check reads the access rows, so this is where a
+       level's permissions are decided. Table: content_levels
+       (supabase/content_calendar_levels.sql). -->
+  <section class="ccl" id="cc-tab-overview" hidden>
+    <p class="ccl-intro">The four levels of the Content Calendar subscription: what each costs and what it opens. The Hub's access check reads these, so what you set here is what members on each level get. Nobody is on a paid level yet: everyone is Free until card subscriptions and TEG billing are built.</p>
+    <p class="cc-note" id="ccl-loading">Loading the levels…</p>
+    <div class="cc-missing" id="ccl-missing" hidden>
+      <p><strong>The levels aren't in the database yet.</strong></p>
+      <p>Run <code>supabase/content_calendar_levels.sql</code> in the Supabase SQL editor, then reload this page. Until then the access check uses the plan's levels.</p>
+    </div>
+    <div id="ccl-body" hidden>
+      <div class="ccl-wrap">
+        <table class="ccl-table">
+          <thead><tr id="ccl-head"><th></th></tr></thead>
+          <tbody id="ccl-rows"></tbody>
+        </table>
+      </div>
+      <div class="ccl-foot">
+        <p class="cc-hint">Prices are a month, ex VAT. Each paid level builds on the one before it. Courses take their level from the course editor in Guides.</p>
+        <span class="cc-saved" id="ccl-state"></span>
+        <button type="button" class="admin-btn admin-btn-primary" id="ccl-save" disabled>Save changes</button>
+      </div>
+    </div>
+  </section>
 
   <!-- Every month by edition, its state and its designs (Danielle, 28 Oct:
        its own section, moved from the Catalogue and the Design studio). -->
@@ -225,6 +252,20 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     </div>
   </div>
 
+  <!-- What members are told a level includes. -->
+  <div class="cc-modal" id="ccl-word" hidden>
+    <div class="cc-modal-box cc-modal-mid" data-lenis-prevent>
+      <div class="cc-drawer-bar"><strong id="ccl-word-head">Wording</strong><button type="button" class="cc-x" data-close aria-label="Close">&times;</button></div>
+      <div class="cc-modal-body ccl-word-body">
+        <label class="cc-f"><span>Name</span><input id="ccl-w-name" /></label>
+        <label class="cc-f"><span>The line under it</span><textarea id="ccl-w-summary" rows="3"></textarea></label>
+        <label class="cc-f"><span>What it includes <em>(one per line)</em></span><textarea id="ccl-w-includes" rows="9"></textarea></label>
+        <p class="cc-hint">For the account page and the upgrade prompts, once the subscription launches. Members don't see it yet.</p>
+        <div class="cc-modal-foot"><button type="button" class="admin-btn admin-btn-primary" id="ccl-w-go">Done</button></div>
+      </div>
+    </div>
+  </div>
+
   <!-- New template. -->
   <div class="cc-modal" id="cc-newtpl" hidden>
     <div class="cc-modal-box">
@@ -245,6 +286,35 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .cat-tab:hover { color: #fff; border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.08); }
     .cat-tab.is-on { background: var(--paper, #f4f2f1); color: var(--english-violet, #371e28); border-color: var(--paper, #f4f2f1); }
     .cat-tab:focus-visible { outline: 2px solid rgba(255,255,255,0.7); outline-offset: 2px; }
+    /* Overview: the levels side by side, ruled top and bottom. */
+    .ccl[hidden] { display: none; }
+    .ccl-intro { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.75); max-width: 75%; margin: 0 0 22px; }
+    @media (max-width: 860px) { .ccl-intro { max-width: none; } }
+    .ccl-wrap { overflow-x: auto; border-top: 1px solid rgba(55,30,40,0.35); border-bottom: 1px solid rgba(55,30,40,0.35); }
+    .ccl-table { width: 100%; min-width: 860px; border-collapse: collapse; font-family: var(--sans); font-size: 13px; color: var(--ink); table-layout: fixed; }
+    .ccl-table th, .ccl-table td { padding: 11px 14px; border-bottom: 1px solid rgba(28,29,34,0.08); text-align: left; vertical-align: middle; }
+    .ccl-table tr:last-child td { border-bottom: 0; }
+    .ccl-table thead th { vertical-align: top; padding-top: 16px; padding-bottom: 14px; border-bottom: 1px solid rgba(28,29,34,0.14); }
+    .ccl-table thead th:first-child, .ccl-table tbody th { width: 230px; }
+    .ccl-table tbody th { font-size: 13px; font-weight: 600; color: var(--ink); }
+    .ccl-table tbody th small { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: rgba(28,29,34,0.5); }
+    .ccl-group th { padding-top: 18px; font-size: 10px !important; font-weight: 700 !important; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet) !important; border-bottom: 1px solid rgba(28,29,34,0.14) !important; }
+    .ccl-name { font-size: 15px; font-weight: 700; color: var(--english-violet); }
+    .ccl-rank { display: block; margin-bottom: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .ccl-sum { display: block; margin-top: 6px; font-size: 12px; font-weight: 400; line-height: 1.45; color: rgba(28,29,34,0.6); }
+    .ccl-edit { margin-top: 8px; padding: 0; border: 0; background: none; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+    .ccl-price { display: inline-flex; align-items: center; gap: 4px; }
+    .ccl-price input { width: 84px; font-family: var(--sans); font-size: 14px; font-variant-numeric: tabular-nums; padding: 7px 9px; border: 1px solid rgba(28,29,34,0.16); border-radius: 6px; background: #fff; color: var(--ink); }
+    .ccl-table select, .ccl-note-in { font-family: var(--sans); font-size: 13px; padding: 7px 9px; border: 1px solid rgba(28,29,34,0.16); border-radius: 6px; background: #fff; color: var(--ink); width: 100%; box-sizing: border-box; }
+    .ccl-note-in { resize: vertical; line-height: 1.45; min-height: 74px; }
+    .ccl-table input:focus, .ccl-table select:focus, .ccl-table textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
+    .ccl-table input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--english-violet); cursor: pointer; }
+    .ccl-fixed { color: rgba(28,29,34,0.5); }
+    .ccl-foot { display: flex; align-items: center; gap: 16px; margin-top: 14px; }
+    .ccl-foot .cc-hint { flex: 1; }
+    .cc-modal-box.cc-modal-mid { width: min(620px, 100%); }
+    .ccl-word-body { overflow-y: auto; }
+
     .ccm { display: flex; flex-direction: column; gap: 26px; }
     .ccm[hidden] { display: none; }
     .ccm-month h2 { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 10px; }
@@ -1070,13 +1140,189 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       await openMonth(m);
     });
 
+    // ---- Overview: the levels (content_levels) ----
+    const LEVEL_KEYS = ['free', 'calendar', 'scheduling', 'done_for_you'];
+    let LEVELS = null;      // as saved
+    let LEVEL_EDIT = null;  // as being edited
+    let LEVEL_TRAINING = null;
+    let LEVEL_WORD = null;  // the level in the wording pop-out
+    const money = (v) => (v == null || v === '' ? '' : String(Number(v)));
+    const libraryOpts = [['0', 'This month only'], ['1', 'The last month'], ['2', 'The last 2 months'], ['3', 'The last 3 months'], ['6', 'The last 6 months'], ['12', 'The last 12 months'], ['-1', 'Every month']];
+    const LEVEL_ROWS = [
+      { group: 'Price, a month' },
+      { key: 'price_card', label: 'Independent agents', small: 'By card', kind: 'price' },
+      { key: 'price_teg', label: 'TEG agents', small: 'The calendar is paid by their brand; anything above it, by card', kind: 'price' },
+      { key: 'price_note', label: 'Price note', small: 'Anything still to decide', kind: 'note' },
+      { group: 'What it opens' },
+      { key: 'calendar', label: "This month's posts", small: 'The Content Calendar and its Studio pack', kind: 'check' },
+      { key: 'preview', label: 'Blurred preview', small: "Shown when this month's posts aren't included", kind: 'derived' },
+      { key: 'next_month', label: "Next month's preview", kind: 'check', needs: 'calendar' },
+      { key: 'library_months', label: 'Past months', small: 'Never before the month they joined', kind: 'library', needs: 'calendar' },
+      { key: 'scheduling', label: 'Scheduling', small: 'Post to Instagram and Facebook from the Hub', kind: 'check' },
+      { key: 'done_for_you', label: 'Done For You', small: 'Ten posts branded for them each month', kind: 'check' },
+      { key: 'training', label: 'Training', small: 'Published courses and guides it opens', kind: 'training' },
+      { group: 'Members' },
+      { key: 'members', label: 'On this level', kind: 'members' },
+    ];
+
+    let LEVELS_LOADING = null;
+    function loadLevels() {
+      if (!LEVELS_LOADING) LEVELS_LOADING = fetchLevels().finally(() => { if (!LEVELS) LEVELS_LOADING = null; });
+      return LEVELS_LOADING;
+    }
+    async function fetchLevels() {
+      const [lv, tr] = await Promise.all([
+        supabase.from('content_levels').select('*').order('sort_order'),
+        supabase.from('guides').select('level').eq('status', 'published'),
+      ]);
+      $('ccl-loading').hidden = true;
+      if (lv.error || !(lv.data || []).length) {
+        $('ccl-missing').hidden = false;
+        if (lv.error && !/content_levels|does not exist|schema cache/i.test(lv.error.message)) $('ccl-missing').innerHTML = `<p><strong>Couldn't load the levels.</strong></p><p>${esc(lv.error.message)}</p>`;
+        return;
+      }
+      $('ccl-missing').hidden = true;
+      LEVELS = lv.data;
+      LEVEL_EDIT = LEVELS.map((l) => ({ ...l, includes: [...(l.includes || [])] }));
+      LEVEL_TRAINING = tr.error ? null : (tr.data || []).map((g) => g.level || 'free');
+      $('ccl-body').hidden = false;
+      renderLevels();
+    }
+
+    function levelCell(row, l, i) {
+      const k = row.key, on = (f) => (l[f] ? ' checked' : '');
+      const off = row.needs && !l[row.needs];
+      if (row.kind === 'price') {
+        if (l.key === 'free') return '<span class="ccl-fixed">Free</span>';
+        return `<label class="ccl-price">£<input type="number" min="0" step="0.01" inputmode="decimal" data-l="${i}" data-k="${k}" value="${money(l[k])}" placeholder="Not set" aria-label="${esc(row.label)}, ${esc(l.name)}" /></label>`;
+      }
+      if (row.kind === 'note') return l.key === 'free' ? '<span class="ccl-fixed">–</span>' : `<textarea class="ccl-note-in" data-l="${i}" data-k="${k}" rows="3" aria-label="Price note, ${esc(l.name)}">${esc(l[k] || '')}</textarea>`;
+      if (row.kind === 'check') return `<input type="checkbox" data-l="${i}" data-k="${k}"${on(k)}${off ? ' disabled' : ''} aria-label="${esc(row.label)}, ${esc(l.name)}" />`;
+      if (row.kind === 'derived') return l.calendar ? '<span class="ccl-fixed">No</span>' : 'Yes';
+      if (row.kind === 'library') {
+        if (off) return '<span class="ccl-fixed">None</span>';
+        const v = l.library_months == null ? '0' : String(l.library_months);
+        return `<select data-l="${i}" data-k="${k}" aria-label="Past months, ${esc(l.name)}">${libraryOpts.map(([val, t]) => `<option value="${val}"${val === v ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+      }
+      if (row.kind === 'training') {
+        if (!LEVEL_TRAINING) return '<span class="ccl-fixed">–</span>';
+        const rank = LEVEL_KEYS.indexOf(l.key);
+        const n = LEVEL_TRAINING.filter((g) => LEVEL_KEYS.indexOf(g) <= rank).length;
+        const own = LEVEL_TRAINING.filter((g) => g === l.key).length;
+        return `${n}${rank > 0 ? ` <span class="ccl-fixed">(${own} at this level)</span>` : ''}`;
+      }
+      if (row.kind === 'members') return l.key === 'free' ? 'Everyone' : '<span class="ccl-fixed">Nobody yet</span>';
+      return '';
+    }
+
+    function renderLevels() {
+      const L = LEVEL_EDIT;
+      $('ccl-head').innerHTML = '<th></th>' + L.map((l, i) => `<th>
+        <span class="ccl-rank">${i === 0 ? 'Free' : `Level ${i}`}</span>
+        <span class="ccl-name">${esc(l.name)}</span>
+        <span class="ccl-sum">${esc(l.summary || '')}</span>
+        <button type="button" class="ccl-edit" data-word="${i}">Edit the wording</button></th>`).join('');
+      $('ccl-rows').innerHTML = LEVEL_ROWS.map((r) => r.group
+        ? `<tr class="ccl-group"><th colspan="${L.length + 1}">${esc(r.group)}</th></tr>`
+        : `<tr><th>${esc(r.label)}${r.small ? `<small>${esc(r.small)}</small>` : ''}</th>${L.map((l, i) => `<td>${levelCell(r, l, i)}</td>`).join('')}</tr>`).join('');
+      levelsDirty();
+    }
+
+    // What differs from the saved levels, as the rows to write.
+    function levelChanges() {
+      const out = [];
+      LEVEL_EDIT.forEach((l, i) => {
+        const was = LEVELS[i], diff = {};
+        ['name', 'summary', 'price_card', 'price_teg', 'price_note', 'calendar', 'next_month', 'library_months', 'scheduling', 'done_for_you'].forEach((f) => {
+          const a = l[f] == null || l[f] === '' ? null : l[f], b = was[f] == null || was[f] === '' ? null : was[f];
+          if (String(a) !== String(b)) diff[f] = a;
+        });
+        if ((l.includes || []).join('\n') !== (was.includes || []).join('\n')) diff.includes = l.includes;
+        if (Object.keys(diff).length) out.push({ key: l.key, diff });
+      });
+      return out;
+    }
+    function levelsDirty() {
+      const n = levelChanges().length;
+      $('ccl-save').disabled = !n;
+      if (n) $('ccl-state').textContent = 'Not saved yet';
+      else if ($('ccl-state').textContent === 'Not saved yet') $('ccl-state').textContent = '';
+    }
+
+    $('ccl-rows').addEventListener('input', (e) => {
+      const el = e.target.closest('[data-k]');
+      if (!el) return;
+      const l = LEVEL_EDIT[+el.dataset.l], k = el.dataset.k;
+      if (el.type === 'checkbox') l[k] = el.checked;
+      else if (el.type === 'number') l[k] = el.value === '' ? null : Math.round(Number(el.value) * 100) / 100;
+      else if (k === 'library_months') l[k] = Number(el.value);
+      else l[k] = el.value.trim() || null;
+      // A level without this month's posts has no next month or past months.
+      if (k === 'calendar') {
+        if (!l.calendar) { l.next_month = false; l.library_months = null; }
+        else if (l.library_months == null) l.library_months = 0;
+        renderLevels();
+        return;
+      }
+      levelsDirty();
+    });
+
+    $('ccl-save').addEventListener('click', async () => {
+      const changes = levelChanges();
+      if (!changes.length) return;
+      const btn = $('ccl-save');
+      btn.disabled = true;
+      $('ccl-state').textContent = 'Saving…';
+      let who = null;
+      try { who = (await supabase.auth.getSession()).data.session?.user?.email || null; } catch (_) {}
+      for (const c of changes) {
+        const { error } = await supabase.from('content_levels').update({ ...c.diff, updated_by: who }).eq('key', c.key);
+        if (error) {
+          $('ccl-state').textContent = '';
+          alert(`Couldn't save ${LEVEL_EDIT.find((l) => l.key === c.key).name}: ${error.message}`);
+          btn.disabled = false;
+          return;
+        }
+        const i = LEVELS.findIndex((l) => l.key === c.key);
+        LEVELS[i] = { ...LEVELS[i], ...c.diff, includes: [...(c.diff.includes || LEVELS[i].includes || [])] };
+      }
+      levelsDirty();
+      saved($('ccl-state'), 'Saved. The access check picks it up within a minute.');
+    });
+
+    // The wording: name, the line under it, and what it includes.
+    $('ccl-head').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-word]');
+      if (!b) return;
+      LEVEL_WORD = +b.dataset.word;
+      const l = LEVEL_EDIT[LEVEL_WORD];
+      $('ccl-word-head').textContent = l.name;
+      $('ccl-w-name').value = l.name || '';
+      $('ccl-w-summary').value = l.summary || '';
+      $('ccl-w-includes').value = (l.includes || []).join('\n');
+      $('ccl-word').hidden = false;
+      $('ccl-w-name').focus();
+    });
+    $('ccl-w-go').addEventListener('click', () => {
+      const l = LEVEL_EDIT[LEVEL_WORD];
+      if (!l) return;
+      l.name = $('ccl-w-name').value.trim() || l.name;
+      l.summary = $('ccl-w-summary').value.trim() || null;
+      l.includes = $('ccl-w-includes').value.split('\n').map((x) => x.trim()).filter(Boolean);
+      $('ccl-word').hidden = true;
+      renderLevels();
+    });
+    window.addEventListener('beforeunload', (e) => { if (LEVELS && levelChanges().length) e.preventDefault(); });
+
     const TAB_KEY = 'tmke.admin.calendar.section';
     function showTab(t) {
       try { localStorage.setItem(TAB_KEY, t); } catch (_) {}
       document.querySelectorAll('.cat-tab').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === t));
+      $('cc-tab-overview').hidden = t !== 'overview';
       $('cc-tab-months').hidden = t !== 'months';
       $('cc-tab-build').hidden = t !== 'build';
       if (t === 'months') loadMonthsTab();
+      if (t === 'overview') loadLevels();
     }
     document.querySelectorAll('.cat-tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
@@ -1095,8 +1341,8 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       if (q.get('month')) { v.month = q.get('month'); v.edition = q.get('edition') || v.edition; }
       if (v.edition && EDITIONS.some((e) => e.key === v.edition)) $('cc-edition').value = v.edition;
       await openMonth(fillMonthMenu(v.month));
-      let tab = 'months';
-      try { tab = localStorage.getItem(TAB_KEY) === 'build' ? 'build' : 'months'; } catch (_) {}
+      let tab = 'overview';
+      try { const t = localStorage.getItem(TAB_KEY); if (t === 'build' || t === 'months') tab = t; } catch (_) {}
       if (q.get('month') || q.get('new') === '1') tab = 'build';
       showTab(tab);
       if (q.get('new') === '1') openNewMonth();

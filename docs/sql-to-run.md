@@ -5,6 +5,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 ## Waiting
 
 - [ ] supabase/content_calendar_notes.sql — notes on each Content Calendar month, for ideas and rough planning (28 Oct)
+- [ ] supabase/content_calendar_levels.sql — the four Content Calendar levels, their prices and what each opens, for Content calendar › Overview (29 Oct)
 
 ## Done
 
