@@ -1,0 +1,385 @@
+---
+// The enquiry form: saved to enquiries, then the enquirer put into the CRM
+// (and opted in if they ticked the box). From the Contact page, and used on
+// /teg/services too (Danielle, 29 Oct). Anything in the slot sits under the card.
+interface Props { source?: string; trackAs?: string }
+const { source = "contact_form", trackAs = "contact" } = Astro.props;
+
+const industries = [
+  "Estate Agency",
+  "Lettings",
+  "Property Developer",
+  "Property Investor",
+  "Mortgage Adviser",
+  "Other Property Services",
+  "Other",
+];
+---
+
+<form class="gt-form" id="tmke-contact-form" data-contact-form data-source={source} data-track={trackAs} novalidate>
+  <div class="gt-card" id="gt-card">
+    <div class="gt-grid">
+      <div class="gt-field">
+        <label for="cf-first">First name <span>*</span></label>
+        <input id="cf-first" name="first_name" type="text" placeholder="First name" autocomplete="given-name" required />
+      </div>
+      <div class="gt-field">
+        <label for="cf-last">Last name <span>*</span></label>
+        <input id="cf-last" name="last_name" type="text" placeholder="Last name" autocomplete="family-name" required />
+      </div>
+      <div class="gt-field">
+        <label for="cf-email">Email <span>*</span></label>
+        <input id="cf-email" name="email" type="email" placeholder="you@business.co.uk" autocomplete="email" required />
+      </div>
+      <div class="gt-field">
+        <label for="cf-phone">Phone <span>*</span></label>
+        <input id="cf-phone" name="phone" type="tel" placeholder="Phone" autocomplete="tel" required />
+      </div>
+      <div class="gt-field">
+        <label for="cf-business">Business name</label>
+        <input id="cf-business" name="business_name" type="text" placeholder="Business name" autocomplete="organization" />
+      </div>
+      <div class="gt-field">
+        <label for="cf-industry">Industry</label>
+        <select id="cf-industry" name="industry">
+          <option value="" disabled selected>Please select</option>
+          {industries.map((i) => <option value={i}>{i}</option>)}
+        </select>
+      </div>
+      <div class="gt-field gt-field--full">
+        <label for="cf-message">How can we help?</label>
+        <textarea id="cf-message" name="message" rows="3" placeholder="Tell us a bit about what you're looking for"></textarea>
+      </div>
+    </div>
+
+    <label class="gt-consent">
+      <input type="checkbox" name="marketing_consent" />
+      <span>I'd like to receive occasional updates about TMKE services, news and offers. You can unsubscribe at any time.</span>
+    </label>
+    <p class="gt-privacy">We'll use the details you provide to respond to your enquiry. See our <a href="/privacy">Privacy Policy</a> for how we handle your data.</p>
+
+    <div class="gt-submit-row">
+      <button type="submit" class="gt-submit" id="gt-submit">
+        <span class="gt-submit-label">Send Message</span>
+        <span class="gt-submit-spinner" aria-hidden="true"></span>
+      </button>
+    </div>
+    <p class="gt-error" id="gt-error" role="alert" hidden></p>
+
+    <!-- Success state — collapses into the middle of the card. -->
+    <div class="gt-success" id="gt-success" aria-hidden="true">
+      <div class="gt-success-tick" aria-hidden="true">
+        <svg viewBox="0 0 52 52">
+          <circle class="gt-tick-circle" cx="26" cy="26" r="24" />
+          <path class="gt-tick-check" d="M15 27 l7.5 7.5 L37 18" />
+        </svg>
+      </div>
+      <p class="gt-success-h">Message sent.</p>
+      <p class="gt-success-p">We'll be back in touch within <strong>24 hours</strong>.</p>
+    </div>
+  </div>
+  <slot />
+</form>
+
+<script>
+  import { track } from "../lib/track.js";
+  import { supabase } from "../lib/supabase.js";
+
+  // .trim() matters: the deployed value carries a leading space, which the URL
+  // parser happens to tolerate but nothing should rely on.
+  const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+
+  document.querySelectorAll("form[data-contact-form]").forEach((form) => {
+    const card = form.querySelector(".gt-card");
+    const submit = form.querySelector(".gt-submit");
+    const success = form.querySelector(".gt-success");
+    const errorEl = form.querySelector(".gt-error");
+    const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!form.checkValidity()) { form.reportValidity(); return; }
+      if (errorEl) errorEl.hidden = true;
+
+      // 1. Collapse the button into a loading circle.
+      submit.setAttribute("disabled", "true");
+      submit.classList.add("is-sending");
+
+      const fd = new FormData(form);
+      const payload = {
+        first_name: String(fd.get("first_name") || "").trim(),
+        last_name: String(fd.get("last_name") || "").trim(),
+        phone: String(fd.get("phone") || "").trim() || null,
+        email: String(fd.get("email") || "").trim(),
+        business_name: String(fd.get("business_name") || "").trim() || null,
+        industry: String(fd.get("industry") || "").trim() || null,
+        message: String(fd.get("message") || "").trim() || null,
+        marketing_consent: !!fd.get("marketing_consent"),
+        source: form.dataset.source || "contact_form",
+      };
+
+      // 2. Run the insert, but hold the loading state for a beat regardless so
+      //    the moment feels deliberate and cohesive (min ~2s of spinner).
+      async function insertEnquiry() {
+        let res = await supabase.from("enquiries").insert(payload);
+        // Deploy-safe: if the marketing_consent column hasn't been migrated yet,
+        // retry without it rather than failing the whole submission.
+        if (res && res.error && /marketing_consent/i.test(res.error.message || "")) {
+          const { marketing_consent, ...rest } = payload;
+          res = await supabase.from("enquiries").insert(rest);
+        }
+        return res;
+      }
+      const [result] = await Promise.all([insertEnquiry(), delay(2000)]);
+
+      if (result && result.error) {
+        console.error("[TMKE] enquiry insert failed", result.error);
+        submit.classList.remove("is-sending");
+        submit.removeAttribute("disabled");
+        if (errorEl) {
+          errorEl.textContent = "Sorry — we couldn't send that. Please try again, or email hello@tmke.co.uk.";
+          errorEl.hidden = false;
+        }
+        return;
+      }
+
+      // 2b. The enquiry is safely saved. Now put the enquirer into the CRM and,
+      //     if they ticked the box, actually opt them in — the tickbox used to
+      //     be stored on the enquiry row and read by nothing, so ticking it
+      //     opted nobody in. Deliberately not awaited into the success path:
+      //     the person has sent their message either way, and a CRM hiccup
+      //     must never show them an error.
+      if (WORKER) {
+        fetch(`${WORKER}/contact/enquirer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: payload.email,
+            first_name: payload.first_name,
+            last_name: payload.last_name,
+            phone: payload.phone,
+            business_name: payload.business_name,
+            industry: payload.industry,
+            message: payload.message,
+            marketing_consent: payload.marketing_consent,
+          }),
+        }).catch(() => {});
+      }
+
+      // 3. Fade the button out, then reveal the tick + message in the middle.
+      submit.classList.add("is-done");
+      await delay(420);
+      if (card) card.classList.add("is-done");
+      if (success) {
+        success.classList.add("is-visible");
+        track("enquiry_sent", { form: form.dataset.track || "contact" });
+        success.setAttribute("aria-hidden", "false");
+      }
+      form.reset();
+    });
+  });
+</script>
+
+<style is:global>
+  /* Form card */
+  .gt-card {
+    position: relative;
+    border: 1px solid rgba(51, 55, 71, 0.4);
+    border-radius: 14px;
+    padding: clamp(28px, 3.2vw, 48px);
+    background: #fff;
+    box-shadow: 0 30px 70px -40px rgba(28, 29, 34, 0.35);
+  }
+  .gt-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 28px;
+    row-gap: 22px;
+    transition: opacity 0.4s ease;
+  }
+  .gt-field { display: flex; flex-direction: column; gap: 7px; }
+  .gt-field--full { grid-column: 1 / -1; }
+  .gt-field label {
+    font-family: var(--sans);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgba(28, 29, 34, 0.7);
+  }
+  .gt-field label span { color: var(--english-violet); margin-left: 2px; }
+  .gt-field input,
+  .gt-field select,
+  .gt-field textarea {
+    font-family: var(--sans);
+    font-size: 15px;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(51, 55, 71, 0.32);
+    padding: 8px 0 9px;
+    width: 100%;
+    outline: none;
+    border-radius: 0;
+    transition: border-color 0.25s;
+  }
+  .gt-field input::placeholder,
+  .gt-field textarea::placeholder { color: rgba(51, 55, 71, 0.32); }
+  .gt-field input:focus,
+  .gt-field select:focus,
+  .gt-field textarea:focus { border-bottom-color: var(--english-violet); }
+  .gt-field select {
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23333747' stroke-width='1.5'><path d='M1 1l5 5 5-5'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 2px center;
+    padding-right: 26px;
+  }
+  .gt-field select:invalid { color: rgba(51, 55, 71, 0.4); }
+  .gt-field textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
+
+  /* Marketing-consent checkbox + privacy notice. */
+  .gt-consent {
+    display: flex; align-items: flex-start; gap: 10px;
+    margin-top: 22px; cursor: pointer;
+    font-family: var(--sans); font-size: 14px; line-height: 1.5; color: rgba(28,29,34,0.8);
+  }
+  .gt-consent input {
+    margin-top: 2px; width: 18px; height: 18px; flex: none;
+    accent-color: var(--english-violet); cursor: pointer;
+  }
+  .gt-privacy {
+    margin: 10px 0 0;
+    font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.55);
+  }
+  .gt-privacy a { color: var(--english-violet); text-decoration: underline; text-underline-offset: 2px; }
+  .gt-privacy a:hover { color: var(--ink); }
+
+  .gt-submit-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+    transition: opacity 0.4s ease;
+  }
+  /* Pill that collapses into a loading circle (from both sides → middle). */
+  .gt-submit {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    height: 56px;
+    border: none;
+    border-radius: 999px;
+    background: var(--english-violet);
+    color: var(--paper);
+    cursor: pointer;
+    overflow: hidden;
+    font-family: var(--sans);
+    transition: width 0.55s cubic-bezier(.7,0,.2,1), border-radius 0.55s cubic-bezier(.7,0,.2,1),
+                opacity 0.4s ease, transform 0.4s ease;
+  }
+  .gt-submit:hover { background: var(--ink); }
+  .gt-submit-label {
+    position: absolute;
+    inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+    white-space: nowrap;
+    transition: opacity 0.2s ease;
+  }
+  .gt-submit-spinner {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 22px; height: 22px;
+    margin: -11px 0 0 -11px;
+    border: 2.5px solid rgba(244, 242, 241, 0.4);
+    border-top-color: var(--paper);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.25s ease 0.3s;
+  }
+  .gt-submit.is-sending {
+    width: 56px;
+    border-radius: 50%;
+    cursor: default;
+  }
+  .gt-submit.is-sending .gt-submit-label { opacity: 0; }
+  .gt-submit.is-sending .gt-submit-spinner { opacity: 1; animation: gt-spin 0.7s linear infinite; }
+  .gt-submit.is-done { opacity: 0; transform: scale(0.7); pointer-events: none; }
+  @keyframes gt-spin { to { transform: rotate(360deg); } }
+
+  .gt-error {
+    font-family: var(--sans);
+    font-size: 13.5px;
+    color: #b03a2e;
+    text-align: center;
+    margin: 14px 0 0;
+  }
+  .gt-error[hidden] { display: none; }
+
+  /* Success — fades up in the centre of the card once the fields collapse. */
+  .gt-card.is-done .gt-grid,
+  .gt-card.is-done .gt-submit-row { opacity: 0; pointer-events: none; }
+  .gt-success {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 32px;
+    background: #fff;
+    border-radius: 14px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  .gt-success.is-visible { opacity: 1; }
+  .gt-success-tick { width: 88px; height: 88px; margin-bottom: 22px; }
+  .gt-success-tick svg { width: 100%; height: 100%; overflow: visible; }
+  .gt-tick-circle {
+    fill: #2e7d52;
+    transform: scale(0);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .gt-tick-check {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 44;
+    stroke-dashoffset: 44;
+  }
+  .gt-success.is-visible .gt-tick-circle { animation: gt-pop 0.45s cubic-bezier(.2,1.4,.4,1) forwards; }
+  .gt-success.is-visible .gt-tick-check { animation: gt-draw 0.4s ease 0.32s forwards; }
+  @keyframes gt-pop { to { transform: scale(1); } }
+  @keyframes gt-draw { to { stroke-dashoffset: 0; } }
+  .gt-success-h {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(30px, 3.2vw, 44px);
+    line-height: 1.04;
+    letter-spacing: -0.015em;
+    color: #2e7d52;
+    margin: 0 0 12px;
+  }
+  .gt-success-p {
+    font-family: var(--sans);
+    font-size: clamp(15px, 1.2vw, 17px);
+    line-height: 1.55;
+    color: rgba(28, 29, 34, 0.66);
+    margin: 0;
+    max-width: 36ch;
+  }
+  .gt-success-p strong { color: #2e7d52; font-weight: 700; }
+  @media (prefers-reduced-motion: reduce) {
+    .gt-tick-circle { transform: scale(1); }
+    .gt-tick-check { stroke-dashoffset: 0; }
+    .gt-submit { transition: opacity 0.3s ease; }
+  }
+
+  @media (max-width: 560px) {
+    .gt-grid { grid-template-columns: 1fr; column-gap: 0; row-gap: 18px; }
+  }
+</style>

@@ -1,0 +1,314 @@
+---
+// TEG members' services page (Danielle, 29 Oct 2026). Not in the menu: a link
+// the team sends, so members see the four shoots in one place without moving
+// through each section of the site. Each service says a little, keeps what's
+// included folded away, and offers the full page (Discover more) or the
+// booking pop-out, opened at that service. Then the brochure, then a form.
+// Prices are the site's standard "from" rates; a member's own rate is worked
+// out when they book. Pictures are stand-ins from the site's own stills until
+// Danielle chooses.
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getImage } from "astro:assets";
+import VideographyBooking from "../../components/VideographyBooking.astro";
+import VideographyBrochureForm from "../../components/VideographyBrochureForm.astro";
+import ContactForm from "../../components/ContactForm.astro";
+import { getProduct, tierPrice } from "../../data/videography.js";
+import { PHOTOGRAPHY, photoInclusions } from "../../lib/videography-config.js";
+import { gbpFromPence } from "../../lib/supabase.js";
+
+const pic = async (src, width, height) =>
+  (await getImage({ src, width, height, quality: 78, format: "webp" })).src;
+const HERO_IMG = await pic("https://assets.tmke.co.uk/camera%20view.jpg", 900, 1125);
+const SVC_IMG = await pic("https://assets.tmke.co.uk/Jack%20-%20headshots/Property/LeahMusana-9%20(1).jpg", 900, 1125);
+const BROCHURE_IMG = await pic("https://assets.tmke.co.uk/orange-1.webp", 900, 700);
+
+const studio = getProduct("studio");
+const property = getProduct("property");
+const agent = getProduct("agent");
+const from = (pence) => `From ${gbpFromPence(pence)} +VAT`;
+
+// In the order Danielle gave them. `book` is the booking pop-out's service;
+// `more` the full page (the videography page opens a product from its hash;
+// photography is reached from that page's opening).
+const SERVICES = [
+  {
+    key: "studio", name: "Content Studio", price: from(tierPrice(studio.priceTiers[0], "direct")),
+    body: "Film a batch of short-form videos with Jack in our Rugby studio and leave with weeks of social media sorted.",
+    lead: "Every session includes:",
+    list: studio.included,
+    rows: studio.priceTiers.map((t) => ({ name: t.label, note: t.sub, price: from(tierPrice(t, "direct")) })),
+    book: "content-studio", bookLabel: "Book a session", more: "/videography#studio",
+  },
+  {
+    key: "photography", name: "Photography", price: from(PHOTOGRAPHY.packages[0].member_pence),
+    body: "We photograph your properties, including drone shots, and deliver every image in the sizes the portals and social media use.",
+    lead: "Choose from three packages, with 25, 40 or 60 photos:",
+    list: null,
+    rows: PHOTOGRAPHY.packages.map((pk) => ({ name: pk.name, note: photoInclusions(pk), price: from(pk.member_pence) })),
+    book: "photography", bookLabel: "Book a shoot", more: "/videography",
+  },
+  {
+    key: "videography", name: "Videography", price: from(tierPrice(property.priceTiers[0], "direct")),
+    body: "Our property packages cover presenter-led video tours, drone, 360 virtual tours, floor plans, reels and photography for your listings.",
+    lead: "The Gold package includes:",
+    list: property.included,
+    rows: null,
+    book: "property", bookLabel: "Book a shoot", more: "/videography#property",
+  },
+  {
+    key: "agent", name: "Agent Shoot", price: from(tierPrice(agent.priceTiers[0], "direct")),
+    body: "This shoot is about you rather than your listings, with elevator pitch videos, headshots and lifestyle photos shot on location.",
+    lead: "The Agent Edit includes:",
+    list: agent.included,
+    rows: null,
+    book: "agent", bookLabel: "Book a shoot", more: "/videography#agent",
+  },
+];
+---
+
+<BaseLayout
+  title="Our Services — TMKE"
+  description="Our Content Studio, photography, videography and Agent Shoot services for TEG members, with your member rate worked out automatically when you book."
+  noindex
+>
+  <main class="ts">
+    <!-- The opening: what this page is, and one picture. -->
+    <header class="ts-hero">
+      <div class="ts-hero-copy">
+        <p class="ts-eyebrow">For TEG members</p>
+        <h1 class="ts-title">Four Ways We Can Help.</h1>
+        <p class="ts-intro">Here&rsquo;s a short overview of how we can help with your social media, your property listings and your own profile as an agent. You can open the full details for each service or go straight to booking, and your member rate is worked out automatically when you book.</p>
+      </div>
+      <figure class="ts-hero-pic"><img src={HERO_IMG} alt="" width="900" height="1125" /></figure>
+    </header>
+
+    <!-- The four services. What's included stays folded until it's asked for. -->
+    <section class="ts-svcs" aria-label="Services">
+      <figure class="ts-svcs-pic"><img src={SVC_IMG} alt="" width="900" height="1125" loading="lazy" /></figure>
+      <div class="ts-svcs-list">
+        {SERVICES.map((s, i) => (
+          <article class="ts-svc" id={s.key}>
+            <p class="ts-svc-num">{String(i + 1).padStart(2, "0")}</p>
+            <h2 class="ts-svc-name">{s.name}</h2>
+            <p class="ts-svc-price">{s.price}</p>
+            <p class="ts-svc-body">{s.body}</p>
+            <div class="ts-more">
+              <button type="button" class="ts-more-head" aria-expanded="false" aria-controls={`ts-more-${s.key}`}>
+                <span>What&rsquo;s included</span><span class="ts-more-sign" aria-hidden="true"></span>
+              </button>
+              <div class="ts-more-body" id={`ts-more-${s.key}`}><div class="ts-more-inner">
+                <p class="ts-more-lead">{s.lead}</p>
+                {s.list && <ul class="ts-more-list">{s.list.map((x) => <li>{x}</li>)}</ul>}
+                {s.rows && (
+                  <dl class="ts-more-rows">
+                    {s.rows.map((r) => (
+                      <div class="ts-more-row"><dt>{r.name}</dt><dd class="ts-more-note">{r.note}</dd><dd class="ts-more-price">{r.price}</dd></div>
+                    ))}
+                  </dl>
+                )}
+              </div></div>
+            </div>
+            <div class="ts-svc-actions">
+              <button type="button" class="ts-btn" data-vbook={s.book}>{s.bookLabel} <span aria-hidden="true">&rarr;</span></button>
+              <a class="ts-link" href={s.more}>Discover more <span aria-hidden="true">&rsaquo;</span></a>
+            </div>
+          </article>
+        ))}
+        <p class="ts-svcs-note">For shoots on location, Jack covers a 40-mile radius of NN14 (Kettering). If you&rsquo;re further away, travel is added to your quote automatically.</p>
+      </div>
+    </section>
+
+    <!-- The brochure, emailed over by the same form as the videography page. -->
+    <section class="ts-bro">
+      <figure class="ts-bro-pic"><img src={BROCHURE_IMG} alt="" width="900" height="700" loading="lazy" /></figure>
+      <div class="ts-bro-copy">
+        <p class="ts-eyebrow ts-eyebrow--paper">Brochure</p>
+        <h2 class="ts-h">The Full Picture, in One Brochure.</h2>
+        <p class="ts-bro-text">Our brochure sets out our videography and photography services in full, with what&rsquo;s included and what each one costs. Enter your name and email, and we&rsquo;ll send it to you.</p>
+        <button type="button" class="ts-btn ts-btn--paper" data-vid-brochure>Download the brochure <span aria-hidden="true">&rarr;</span></button>
+      </div>
+    </section>
+
+    <!-- Get in touch: the Contact page's form, with Jack's details under it. -->
+    <section class="ts-touch" id="get-in-touch">
+      <div class="ts-touch-copy">
+        <p class="ts-eyebrow">Get in touch</p>
+        <h2 class="ts-h">Talk to Us Before You Book.</h2>
+        <p class="ts-touch-text">If you&rsquo;re not sure which service suits you, or you have a question about anything on this page, send us a message and it&rsquo;ll go straight to our team.</p>
+      </div>
+      <ContactForm source="videography_teg_services" trackAs="teg_services">
+        <p class="ts-jack">
+          Prefer to speak to Jack directly? Email him at <a href="mailto:jack@tmke.co.uk">jack@tmke.co.uk</a> or
+          <button type="button" class="ts-jack-call" data-vbook="discovery">book a short call with him <span aria-hidden="true">&rsaquo;</span></button>
+        </p>
+      </ContactForm>
+    </section>
+  </main>
+
+  <VideographyBooking />
+  <VideographyBrochureForm />
+</BaseLayout>
+
+<script>
+  // What's included: one open at a time per service, folded by default.
+  document.querySelectorAll(".ts-more").forEach((box) => {
+    const head = box.querySelector(".ts-more-head");
+    head?.addEventListener("click", () => {
+      const on = !box.classList.contains("is-open");
+      box.classList.toggle("is-open", on);
+      head.setAttribute("aria-expanded", on ? "true" : "false");
+    });
+  });
+</script>
+
+<style is:global>
+  /* The nav sits on paper here, as on any PageHero page. */
+  body:has(.ts) .nav { background: var(--paper); color: var(--ink); }
+
+  .ts { background: var(--paper); color: var(--ink); }
+  .ts-eyebrow {
+    margin: 0 0 18px; font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
+  }
+  .ts-eyebrow--paper { color: rgba(244, 242, 241, 0.7); }
+  .ts-h {
+    margin: 0 0 16px; font-family: var(--serif); font-weight: 400;
+    font-size: clamp(32px, 3.4vw, 50px); line-height: 1.04; letter-spacing: -0.02em; color: var(--english-violet);
+  }
+
+  /* ---- The opening ---- */
+  .ts-hero {
+    display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+    gap: clamp(32px, 6vw, 110px); align-items: end;
+    padding: clamp(130px, 18vh, 190px) var(--page-gutter) clamp(56px, 8vh, 96px);
+  }
+  .ts-title {
+    margin: 0 0 24px; font-family: var(--serif); font-weight: 400;
+    font-size: clamp(52px, 7vw, 104px); line-height: 0.98; letter-spacing: -0.025em; color: var(--english-violet);
+  }
+  .ts-intro {
+    margin: 0; max-width: 75%;
+    font-family: var(--sans); font-size: clamp(15px, 1.2vw, 18px); line-height: 1.65; color: rgba(28, 29, 34, 0.7);
+  }
+  .ts-hero-pic, .ts-svcs-pic, .ts-bro-pic { margin: 0; overflow: hidden; border-radius: 2px; background: #e9e4da; }
+  .ts-hero-pic img, .ts-svcs-pic img, .ts-bro-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .ts-hero-pic { aspect-ratio: 4 / 5; }
+
+  /* ---- The services ---- */
+  .ts-svcs {
+    display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: clamp(32px, 6vw, 110px); align-items: start;
+    padding: clamp(40px, 6vh, 72px) var(--page-gutter) clamp(72px, 10vh, 120px);
+    border-top: 1px solid rgba(28, 29, 34, 0.14);
+  }
+  .ts-svcs-pic { position: sticky; top: 110px; aspect-ratio: 4 / 5; }
+  .ts-svcs-list { display: flex; flex-direction: column; }
+  .ts-svc { padding: 30px 0 32px; border-bottom: 1px solid rgba(28, 29, 34, 0.14); scroll-margin-top: 100px; }
+  .ts-svc:first-child { padding-top: 0; }
+  .ts-svc-num {
+    margin: 0 0 10px; font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.22em; color: rgba(28, 29, 34, 0.4);
+  }
+  /* The heading face, never The Seasons (Danielle's rule for card titles). */
+  .ts-svc-name {
+    margin: 0 0 8px; font-family: var(--serif); font-weight: 500;
+    font-size: clamp(22px, 1.8vw, 27px); line-height: 1.2; letter-spacing: -0.01em; color: var(--english-violet);
+  }
+  .ts-svc-price {
+    margin: 0 0 12px; font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet);
+  }
+  .ts-svc-body {
+    margin: 0 0 18px; max-width: 75%;
+    font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(28, 29, 34, 0.72);
+  }
+
+  .ts-more { border-top: 1px solid rgba(28, 29, 34, 0.1); border-bottom: 1px solid rgba(28, 29, 34, 0.1); margin-bottom: 22px; }
+  .ts-more-head {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 18px;
+    background: none; border: 0; padding: 14px 0; cursor: pointer; text-align: left;
+    font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: var(--ink);
+  }
+  .ts-more-head:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+  .ts-more-sign { position: relative; width: 11px; height: 11px; flex: none; }
+  .ts-more-sign::before, .ts-more-sign::after {
+    content: ""; position: absolute; left: 0; top: 5px; width: 11px; height: 1px;
+    background: rgba(28, 29, 34, 0.55); transition: transform 0.3s ease;
+  }
+  .ts-more-sign::after { transform: rotate(90deg); }
+  .ts-more.is-open .ts-more-sign::after { transform: rotate(0deg); }
+  .ts-more-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.4s cubic-bezier(.2,.8,.2,1); }
+  .ts-more.is-open .ts-more-body { grid-template-rows: 1fr; }
+  .ts-more-inner { overflow: hidden; }
+  .ts-more-body:not(:is(.ts-more.is-open *)) .ts-more-inner { visibility: hidden; transition: visibility 0s 0.4s; }
+  .ts-more-lead { margin: 2px 0 10px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28, 29, 34, 0.72); }
+  .ts-more-list { margin: 0 0 18px; padding: 0 0 0 18px; font-family: var(--sans); font-size: 14px; line-height: 1.7; color: rgba(28, 29, 34, 0.78); }
+  .ts-more-rows { margin: 0 0 18px; }
+  .ts-more-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 18px;
+    padding: 10px 0; border-top: 1px solid rgba(28, 29, 34, 0.08);
+    font-family: var(--sans); font-size: 14px;
+  }
+  .ts-more-row dt { font-weight: 700; color: var(--ink); }
+  .ts-more-row dd { margin: 0; }
+  .ts-more-note { grid-column: 1; grid-row: 2; color: rgba(28, 29, 34, 0.65); line-height: 1.5; margin-top: 2px !important; }
+  .ts-more-price { grid-column: 2; grid-row: 1; font-weight: 700; color: var(--english-violet); white-space: nowrap; }
+
+  .ts-svc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 26px; }
+  .ts-btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--english-violet); color: var(--paper);
+    border: 0; border-radius: 3px; padding: 13px 26px; cursor: pointer;
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    transition: gap 0.25s ease, background 0.25s ease, color 0.25s ease;
+  }
+  .ts-btn:hover { gap: 16px; background: var(--ink); }
+  .ts-btn:focus-visible, .ts-link:focus-visible, .ts-jack-call:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
+  .ts-link {
+    display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet);
+    transition: gap 0.25s ease;
+  }
+  .ts-link:hover { gap: 15px; }
+  .ts-svcs-note { margin: 22px 0 0; font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28, 29, 34, 0.6); }
+
+  /* ---- The brochure: a wine band ---- */
+  .ts-bro {
+    display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: clamp(32px, 6vw, 110px); align-items: center;
+    padding: clamp(48px, 8vh, 96px) var(--page-gutter);
+    background: var(--english-violet); color: var(--paper);
+  }
+  .ts-bro-pic { aspect-ratio: 9 / 7; }
+  .ts-bro .ts-h { color: var(--paper); }
+  .ts-bro-text { margin: 0 0 26px; max-width: 75%; font-family: var(--sans); font-size: 15px; line-height: 1.65; color: rgba(244, 242, 241, 0.78); }
+  .ts-btn--paper { background: var(--paper); color: var(--english-violet); }
+  .ts-btn--paper:hover { background: #fff; color: var(--ink); }
+  .ts-btn--paper:focus-visible { outline-color: var(--paper); }
+
+  /* ---- Get in touch ---- */
+  .ts-touch {
+    display: grid; grid-template-columns: minmax(0, 0.86fr) minmax(0, 1fr);
+    gap: clamp(40px, 6vw, 110px); align-items: start;
+    padding: clamp(72px, 11vh, 130px) var(--page-gutter);
+  }
+  .ts-touch-text { margin: 0; max-width: 40ch; font-family: var(--sans); font-size: clamp(15px, 1.2vw, 18px); line-height: 1.65; color: rgba(28, 29, 34, 0.66); }
+  .ts-jack {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    margin: 18px 0 0; font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.7);
+  }
+  .ts-jack a { color: var(--ink); text-decoration: none; border-bottom: 1px solid rgba(28, 29, 34, 0.3); padding-bottom: 1px; }
+  .ts-jack a:hover { color: var(--english-violet); border-color: var(--english-violet); }
+  .ts-jack-call { background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--english-violet); }
+  .ts-jack-call:hover { opacity: 0.7; }
+
+  @media (max-width: 900px) {
+    .ts-hero, .ts-svcs, .ts-bro, .ts-touch { grid-template-columns: 1fr; }
+    .ts-intro, .ts-svc-body, .ts-bro-text { max-width: none; }
+    .ts-hero-pic { aspect-ratio: 16 / 10; }
+    .ts-svcs-pic { display: none; }
+    .ts-svcs { padding-top: 32px; }
+  }
+</style>
