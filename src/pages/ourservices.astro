@@ -61,7 +61,7 @@ const SERVICES = [
   // Not listed here: Profile Optimisation and Creative Design (Danielle, 29 Oct).
   ...[...SOCIAL_SERVICES, ...SOCIAL_EXTRAS].filter((s) => s.key !== "profile-optimisation").map((s) => ({
     group: "Social Media", name: s.name, body: s.summary, price: from(s.from_pence, s.unit),
-    full: s.openToNewClients === false, more: "/services",
+    more: "/services",
   })),
   { group: "Creative", name: "Social Media Templates", body: "Professionally designed, editable social media template packs created exclusively for estate agents.", price: "£24 +VAT /pack", more: "/edit", moreLabel: "Shop the Edit" },
   { group: "Creative", name: "Website Development", body: "Beautiful, high-performing websites designed to showcase your brand and generate more enquiries.", price: "Price on request", ask: true },
@@ -81,8 +81,10 @@ const WORK = [
   { src: "Jack%20-%20headshots/Property/CV311WHCompressed21%20(1).jpg", x: 75, y: 58, w: 11, r: "4/5" },
   { src: "Jack%20-%20headshots/Content%20Studio/4.png", x: 48, y: 76, w: 11, r: "4/5" },
   { src: "Jack%20-%20headshots/Agent/AM-40.jpg", x: 2, y: 92, w: 11, r: "4/5" },
-  { src: "Jack%20-%20headshots/Property/LeahMusana-14.jpg", x: 29, y: 104, w: 11, r: "4/5" },
-  { src: "white-1.webp", x: 48, y: 118, w: 11, r: "13/10" },
+  { src: "Jack%20-%20headshots/Property/LeahMusana-14.jpg", x: 20, y: 104, w: 11, r: "4/5" },
+  // Sits on the same line as the foot of the brochure button (`b`, vh from the
+  // field's foot), so the two finish level (Danielle, 29 Oct).
+  { src: "white-1.webp", x: 48, b: 22, w: 11, r: "13/10" },
 ];
 for (const w of WORK) {
   const [a, b] = w.r.split("/").map(Number);
@@ -126,6 +128,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
 
     <!-- 2. Every service, numbered. A row opens to its summary and links. -->
     <section class="os-list" id="services" aria-labelledby="os-list-h">
+      <div class="os-list-box">
       <div class="os-list-head">
         <h2 class="os-list-title" id="os-list-h">Services</h2>
       </div>
@@ -134,7 +137,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
           <li class="os-item">
             <button type="button" class="os-item-head" aria-expanded="false" aria-controls={`os-item-${i}`}>
               <span class="os-item-num">({i + 1})</span>
-              <span class="os-item-name">{s.name}{s.full && <span class="os-tag">Waiting list</span>}</span>
+              <span class="os-item-name">{s.name}</span>
               <span class="os-item-group">{s.group}</span>
               <span class="os-item-sign" aria-hidden="true"></span>
             </button>
@@ -153,13 +156,14 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
         ))}
       </ol>
       <p class="os-list-foot">For shoots on location, Jack covers a 40-mile radius of NN14 (Kettering). If you&rsquo;re further away, travel is added to your quote automatically.</p>
+      </div>
     </section>
 
     <!-- 3. Our work: each picture rises into place as it comes up the screen.
          The brochure (4) sits in the field's bottom right. -->
     <section class="os-work" aria-label="Our work">
       {WORK.map((w) => (
-        <figure class="os-work-pic" style={`left:${w.x}%;top:${w.y}vh;--w:${w.w};aspect-ratio:${w.r}`}>
+        <figure class="os-work-pic" style={`left:${w.x}%;${w.b != null ? `bottom:${w.b}vh` : `top:${w.y}vh`};--w:${w.w};aspect-ratio:${w.r}`}>
           <img src={w.img} alt="" loading="lazy" />
         </figure>
       ))}
@@ -398,9 +402,12 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   }
 
   /* ---- 2. The list ---- */
-  .os-list {
+  /* A wine box on white, like the contact box, rather than a full-width strip. */
+  .os-list { padding: clamp(40px, 6vh, 72px) var(--page-gutter); background: #fff; }
+  .os-list-box {
     display: grid; grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 90px);
-    padding: clamp(80px, 12vh, 140px) var(--page-gutter); background: var(--english-violet); color: var(--paper);
+    padding: clamp(48px, 7vw, 96px) clamp(24px, 4vw, 64px); border-radius: 8px;
+    background: var(--english-violet); color: var(--paper);
   }
   .os-list-head { align-self: start; position: sticky; top: 120px; }
   .os-list-title {
@@ -427,11 +434,6 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   }
   .os-item-sign::after { transform: rotate(90deg); }
   .os-item.is-open .os-item-sign::after { transform: rotate(0deg); }
-  .os-tag {
-    display: inline-block; margin-left: 12px; padding: 3px 7px; vertical-align: 4px;
-    border: 1px solid rgba(244, 242, 241, 0.4); border-radius: 2px;
-    font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(244, 242, 241, 0.85);
-  }
   .os-item-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.45s cubic-bezier(.2,.8,.2,1); }
   .os-item.is-open .os-item-body { grid-template-rows: 1fr; }
   .os-item-inner { overflow: hidden; visibility: hidden; padding-left: 82px; transition: visibility 0s 0.45s; }
@@ -470,13 +472,13 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   .os-work-pic img { display: block; width: 100%; height: 100%; object-fit: cover; will-change: transform; }
 
   /* ---- 4. The brochure, in the field's bottom right ---- */
-  .os-bro { position: absolute; left: 62%; top: 118vh; width: min(30vw, 440px); }
+  .os-bro { position: absolute; left: 62%; bottom: 22vh; width: min(30vw, 440px); }
   .os-bro-text {
-    margin: 0 0 28px; font-family: var(--sans); font-weight: 500;
-    font-size: var(--fs-quote); line-height: var(--lh-quote); letter-spacing: -0.01em; color: var(--ink);
+    margin: 0 0 24px; font-family: var(--sans); font-weight: 500;
+    font-size: calc(var(--fs-quote) * 0.8); line-height: var(--lh-quote); letter-spacing: -0.01em; color: var(--ink);
   }
   .os-bro-btn {
-    display: block; width: 100%; padding: 15px 20px; cursor: pointer;
+    display: block; width: 100%; padding: 10px 20px; cursor: pointer;
     background: transparent; border: 1px solid var(--ink); border-radius: 2px; color: var(--ink);
     font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
     transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
@@ -496,7 +498,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
     background: linear-gradient(90deg, rgba(20,18,22,0.72) 0%, rgba(20,18,22,0.35) 55%, rgba(20,18,22,0.1) 100%);
   }
   .os-touch-copy { position: relative; padding: clamp(28px, 4vw, 60px); max-width: 640px; }
-  .os-touch .os-h { color: var(--paper); }
+  .os-touch .os-h { margin-top: 4px; color: var(--paper); }
   .os-touch-text { margin: 0 0 26px; max-width: 46ch; font-size: var(--os-body); line-height: 1.5; color: rgba(244, 242, 241, 0.85); }
   .os-touch-links { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; }
   .os-touch-links .os-link { color: var(--paper); }
@@ -526,7 +528,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   @media (max-width: 900px) {
     .os { --os-body: 15px; }
     .os-slide-card { width: min(58vw, 260px); }
-    .os-list { grid-template-columns: 1fr; }
+    .os-list-box { grid-template-columns: 1fr; }
     .os-list-head { position: static; }
     .os-list-foot { grid-column: 1; }
     .os-item-head { grid-template-columns: 44px minmax(0, 1fr) 14px; padding: 20px 0; }
