@@ -4,98 +4,85 @@
 // the team sends, so people see everything we do without moving through each
 // section of the site.
 //
-// The opening is a split screen: words on the left, the four shoots as
-// pictures on the right; choosing one swaps the left panel to it. Below, the
-// brochure's Our Services page: Videography, Social Media, Creative, a line
-// and a "from" price each. The four shoots keep what's included folded away and
-// open the booking pop-out at that service; the rest go to their own page or
-// to the form. Then the services brochure, then the form.
+// In order, as Danielle laid it out:
+//   1. Four slides, one per shoot. A picture fills the screen with another
+//      in a rectangle at its centre, the name at the rectangle's bottom left.
+//      Scrolling lifts the background and drops the rectangle at the same
+//      time, revealing the next slide underneath.
+//   2. Every service as a numbered list; a row opens to its summary and links.
+//   3. Our work: a light field of pictures drifting past at different speeds,
+//      two or three seconds of scrolling.
+//   4. The services brochure.
+//   5. Get in touch, with the form in a pop-out rather than on the page.
 //
+// Headings are Lora, the face Danielle picked on 29 Oct to replace Space
+// Grotesk, set tighter as she asked; this page tries it before the site does.
 // Prices are the site's standard "from" rates; each person's own rate is worked
-// out when they book. Pictures are stand-ins from the site until Danielle
-// chooses.
+// out when they book. Pictures are stand-ins from the site until she chooses.
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { getImage } from "astro:assets";
 import VideographyBooking from "../components/VideographyBooking.astro";
 import SMMForms from "../components/SMMForms.astro";
 import ContactForm from "../components/ContactForm.astro";
 import { getProduct, tierPrice } from "../data/videography.js";
-import { PHOTOGRAPHY, photoInclusions } from "../lib/videography-config.js";
+import { PHOTOGRAPHY } from "../lib/videography-config.js";
 import { SOCIAL_SERVICES, SOCIAL_EXTRAS } from "../lib/smm-config.js";
 import { gbpFromPence } from "../lib/supabase.js";
 
 const pic = async (src, width, height) =>
   (await getImage({ src, width, height, quality: 76, format: "webp" })).src;
 const A = (path) => `https://assets.tmke.co.uk/${path}`;
+const from = (pence, unit) => `From ${gbpFromPence(pence)} +VAT${unit ? ` /${unit}` : ""}`;
 
 const studio = getProduct("studio");
 const property = getProduct("property");
 const agent = getProduct("agent");
-const from = (pence, unit) => `From ${gbpFromPence(pence)} +VAT${unit ? ` /${unit}` : ""}`;
 
-// The shoots: named, ordered and described as in the brochure. `book` is the
-// booking pop-out's service; `more` the full page (the videography page opens a
-// product from its hash; photography is reached from that page's opening).
-const SHOOTS = [
-  {
-    key: "studio", name: "Content Studio", price: from(tierPrice(studio.priceTiers[0], "direct")),
-    body: "Batch-create weeks of short-form content in one professionally filmed studio session.",
-    lead: "Every session includes:",
-    list: studio.included,
-    rows: studio.priceTiers.map((t) => ({ name: t.label, note: t.sub, price: from(tierPrice(t, "direct")) })),
-    book: "content-studio", bookLabel: "Book a session", more: "/videography#studio",
-  },
-  {
-    key: "agent", name: "Agent Videography", price: from(tierPrice(agent.priceTiers[0], "direct")),
-    body: "On-location filming focused on creating engaging social media content.",
-    lead: "The Agent Edit includes:",
-    list: agent.included,
-    book: "agent", bookLabel: "Book a shoot", more: "/videography#agent",
-  },
-  {
-    key: "property", name: "Property Videography", price: from(tierPrice(property.priceTiers[0], "direct")),
-    body: "Professionally filmed property tours, promotional videos and photography to help listings stand out.",
-    lead: "The Gold package includes:",
-    list: property.included,
-    book: "property", bookLabel: "Book a shoot", more: "/videography#property",
-  },
-  {
-    key: "photography", name: "Property Photography", price: from(PHOTOGRAPHY.packages[0].member_pence),
-    body: "Professional property photography, naturally edited and ready to use across portals, socials and your wider marketing.",
-    lead: "Choose from three packages, with 25, 40 or 60 photos:",
-    rows: PHOTOGRAPHY.packages.map((pk) => ({ name: pk.name, note: photoInclusions(pk), price: from(pk.member_pence) })),
-    book: "photography", bookLabel: "Book a shoot", more: "/videography",
-  },
+// 1. The slides: a background and a rectangle picture for each shoot.
+const SLIDES = [
+  { name: "Content Studio", line: "Weeks of short-form content from one studio session.", bg: A("Jack%20-%20headshots/Content%20Studio/2.png"), card: A("Jack%20-%20headshots/Content%20Studio/1.png") },
+  { name: "Property Photography", line: "Portal-ready photography, including drone.", bg: A("Jack%20-%20headshots/Property/FC2-9%20(1).jpg"), card: A("Jack%20-%20headshots/Property/FC2-13%20(1).jpg") },
+  { name: "Property Videography", line: "Presenter-led tours, drone, 360 and reels.", bg: A("Jack%20-%20headshots/Property/CV311WHCompressed21%20(1).jpg"), card: A("Jack%20-%20headshots/Property/CV311WHCompressed8.jpg") },
+  { name: "Agent Media", line: "Video and photography built around you.", bg: A("Jack%20-%20headshots/Agent/EMay-61.jpg"), card: A("Jack%20-%20headshots/Agent/DonnaPlumb-19.jpg") },
+];
+for (const s of SLIDES) {
+  s.bg = await pic(s.bg, 1920, 1200);
+  s.card = await pic(s.card, 760, 1013);
+}
+
+// 2. Every service, as the brochure names and describes them. A shoot opens
+// the booking pop-out at itself; the rest go to their page or to the form.
+const SERVICES = [
+  { group: "Videography", name: "Content Studio", body: "Batch-create weeks of short-form content in one professionally filmed studio session.", price: from(tierPrice(studio.priceTiers[0], "direct")), list: studio.included, book: "content-studio", bookLabel: "Book a session", more: "/videography#studio" },
+  { group: "Videography", name: "Property Photography", body: "Professional property photography, naturally edited and ready to use across portals, socials and your wider marketing.", price: from(PHOTOGRAPHY.packages[0].member_pence), list: PHOTOGRAPHY.packages.map((pk) => `${pk.name}, ${from(pk.member_pence).replace("From ", "from ")}`), book: "photography", bookLabel: "Book a shoot", more: "/videography" },
+  { group: "Videography", name: "Property Videography", body: "Professionally filmed property tours, promotional videos and photography to help listings stand out.", price: from(tierPrice(property.priceTiers[0], "direct")), list: property.included.slice(0, 5), book: "property", bookLabel: "Book a shoot", more: "/videography#property" },
+  { group: "Videography", name: "Agent Media", body: "On-location filming focused on creating engaging social media content.", price: from(tierPrice(agent.priceTiers[0], "direct")), list: agent.included, book: "agent", bookLabel: "Book a shoot", more: "/videography#agent" },
+  ...[...SOCIAL_SERVICES, ...SOCIAL_EXTRAS].map((s) => ({
+    group: "Social Media", name: s.name, body: s.summary, price: from(s.from_pence, s.unit),
+    full: s.openToNewClients === false, more: "/services",
+  })),
+  { group: "Creative", name: "Social Media Templates", body: "Professionally designed, editable social media template packs created exclusively for estate agents.", price: "£24 +VAT /pack", more: "/edit", moreLabel: "Shop the Edit" },
+  { group: "Creative", name: "Creative Design", body: "Branding, brochures, print and digital marketing assets designed to strengthen your brand.", price: "Price on request", ask: true },
+  { group: "Creative", name: "Website Development", body: "Beautiful, high-performing websites designed to showcase your brand and generate more enquiries.", price: "Price on request", ask: true },
+  { group: "Creative", name: "Email Marketing", body: "Professional newsletters, campaigns and automations to keep your audience engaged and informed.", price: "Price on request", ask: true },
 ];
 
-// Social media, from the same data as /services.
-const SOCIAL = [...SOCIAL_SERVICES, ...SOCIAL_EXTRAS].map((s) => ({
-  key: s.key, name: s.name, body: s.summary, price: from(s.from_pence, s.unit),
-  full: s.openToNewClients === false,
-}));
-
-// Creative, as the brochure lists it.
-const CREATIVE = [
-  { key: "templates", name: "Social Media Templates", body: "Professionally designed, editable social media template packs created exclusively for estate agents.", price: "£24 +VAT /pack", link: { href: "/edit", label: "Shop the Edit" } },
-  { key: "design", name: "Creative Design", body: "Branding, brochures, print and digital marketing assets designed to strengthen your brand.", price: "Price on request" },
-  { key: "websites", name: "Website Development", body: "Beautiful, high-performing websites designed to showcase your brand and generate more enquiries.", price: "Price on request" },
-  { key: "email", name: "Email Marketing", body: "Professional newsletters, campaigns and automations to keep your audience engaged and informed.", price: "Price on request" },
+// 3. Our work: where each picture sits in the field (left %, top % of the
+// section, width in vw) and how fast it drifts against the scroll.
+const WORK = [
+  { src: "Jack%20-%20headshots/Property/LeahMusana-14.jpg", x: 7, y: 4, w: 17, s: 0.6 },
+  { src: "Jack%20-%20headshots/Content%20Studio/3.png", x: 56, y: 0, w: 15, s: 1.1 },
+  { src: "Jack%20-%20headshots/Agent/12-June-6.jpg", x: 78, y: 16, w: 14, s: 0.8 },
+  { src: "Jack%20-%20headshots/Property/FC2-13%20(1).jpg", x: 30, y: 22, w: 19, s: 0.4 },
+  { src: "Jack%20-%20headshots/Agent/AM-40.jpg", x: 8, y: 44, w: 16, s: 1.0 },
+  { src: "Jack%20-%20headshots/Content%20Studio/4.png", x: 60, y: 42, w: 15, s: 0.7 },
+  { src: "Jack%20-%20headshots/Property/CV311WHCompressed21%20(1).jpg", x: 36, y: 62, w: 18, s: 1.2 },
+  { src: "Jack%20-%20headshots/Agent/ADMay-28.jpg", x: 80, y: 64, w: 13, s: 0.5 },
+  { src: "Jack%20-%20headshots/Content%20Studio/5.png", x: 4, y: 76, w: 15, s: 0.9 },
+  { src: "Jack%20-%20headshots/Property/LeahMusana-9%20(1).jpg", x: 62, y: 82, w: 17, s: 0.6 },
 ];
+for (const w of WORK) w.img = await pic(A(w.src), 700, 875);
 
-// The opening's pictures, one per shoot, in Danielle's order; choosing one
-// fills the left panel with that shoot. Sized for the staggered grid.
-const PICS = {
-  studio: await pic(A("Jack%20-%20headshots/Content%20Studio/1.png"), 640, 800),
-  photography: await pic(A("Jack%20-%20headshots/Property/FC2-9%20(1).jpg"), 640, 800),
-  property: await pic(A("Jack%20-%20headshots/Property/CV311WHCompressed8.jpg"), 640, 800),
-  agent: await pic(A("Jack%20-%20headshots/Agent/DonnaPlumb-19.jpg"), 640, 800),
-};
-const PICKS = [
-  { key: "studio", label: "Content Studio" },
-  { key: "photography", label: "Property Photography" },
-  { key: "property", label: "Property Videography" },
-  { key: "agent", label: "Agent Shoots" },
-].map((t, i) => ({ ...t, num: String(i + 1).padStart(2, "0"), img: PICS[t.key], shoot: SHOOTS.find((x) => x.key === t.key) }));
 const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
 ---
 
@@ -104,113 +91,72 @@ const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
   description="Videography, photography, social media and creative from TMKE, with what each includes, what it costs and how to book."
   noindex
 >
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap" />
+
   <main class="os">
-    <!-- The opening: words on the left, the four shoots as pictures on the
-         right. Choosing a picture swaps the left panel to that shoot. -->
-    <section class="os-split" aria-label="Our services">
-      <div class="os-left" aria-live="polite">
-        <div class="os-pane is-on" data-pane="all">
-          <p class="os-label">Finding a fit for your business</p>
-          <h1 class="os-big">Film, photography and content for estate agents, in one place.</h1>
-          <p class="os-pane-text">From a day in our studio to a full property shoot, choose a picture to see what each one includes and book straight in.</p>
-          <a class="os-link" href="#videography" data-os-to="videography">See everything we do <span aria-hidden="true">&darr;</span></a>
-        </div>
-        {PICKS.map((t) => (
-          <div class="os-pane" data-pane={t.key} id={`os-pane-${t.key}`} aria-hidden="true">
-            <p class="os-label">{t.num} &middot; {t.shoot.name}</p>
-            <h2 class="os-big">{t.label}.</h2>
-            <p class="os-pane-text">{t.shoot.body}</p>
-            <p class="os-pane-price">{t.shoot.price}</p>
-            {t.shoot.list && <ul class="os-pane-list">{t.shoot.list.slice(0, 4).map((x) => <li>{x}</li>)}</ul>}
-            {!t.shoot.list && t.shoot.rows && <ul class="os-pane-list">{t.shoot.rows.map((r) => <li>{r.name}, {r.price.replace("From ", "from ")}</li>)}</ul>}
-            <div class="os-row-actions">
-              <button type="button" class="os-btn" data-vbook={t.shoot.book} tabindex="-1">{t.shoot.bookLabel} <span aria-hidden="true">&rarr;</span></button>
-              <a class="os-link" href={t.shoot.more} tabindex="-1">Discover more <span aria-hidden="true">&rsaquo;</span></a>
-              <button type="button" class="os-back" data-os-pick="all" tabindex="-1">All services</button>
-            </div>
+    <!-- 1. The slides. The first sits on top; each lifts and drops away in turn. -->
+    <section class="os-slides" style={`--n:${SLIDES.length}`} aria-label="Our services">
+      <div class="os-stage">
+        {SLIDES.map((s, i) => (
+          <div class="os-slide" style={`z-index:${SLIDES.length - i}`} data-slide={i}>
+            <div class="os-slide-bg" style={`background-image:url('${s.bg}')`}></div>
+            <figure class="os-slide-card">
+              <img src={s.card} alt="" width="760" height="1013" loading={i === 0 ? "eager" : "lazy"} />
+              <figcaption class="os-slide-cap">
+                <span class="os-slide-num">{String(i + 1).padStart(2, "0")} / {String(SLIDES.length).padStart(2, "0")}</span>
+                {i === 0 ? <h1 class="os-slide-name">{s.name}</h1> : <h2 class="os-slide-name">{s.name}</h2>}
+                <span class="os-slide-line">{s.line}</span>
+              </figcaption>
+            </figure>
           </div>
         ))}
-        <p class="os-left-foot">Videography &middot; Photography &middot; Social media &middot; Creative</p>
+        <p class="os-slides-hint" aria-hidden="true">Scroll</p>
       </div>
-      <div class="os-right">
-        <div class="os-pics">
-          {PICKS.map((t, i) => (
-            <button type="button" class={`os-pic os-pic--${i + 1}`} data-os-pick={t.key} aria-pressed="false" aria-controls={`os-pane-${t.key}`}>
-              <span class="os-pic-img" style={`background-image:url('${t.img}')`}></span>
-              <span class="os-pic-cap"><span class="os-pic-num">{t.num}</span><span class="os-pic-name">{t.label}</span></span>
+    </section>
+
+    <!-- 2. Every service, numbered. A row opens to its summary and links. -->
+    <section class="os-list" id="services" aria-labelledby="os-list-h">
+      <div class="os-list-head">
+        <h2 class="os-list-title" id="os-list-h">Services</h2>
+        <p class="os-list-note">Choose a service to see what it includes. Your rate is worked out automatically when you book.</p>
+      </div>
+      <ol class="os-rows">
+        {SERVICES.map((s, i) => (
+          <li class="os-item">
+            <button type="button" class="os-item-head" aria-expanded="false" aria-controls={`os-item-${i}`}>
+              <span class="os-item-num">({i + 1})</span>
+              <span class="os-item-name">{s.name}{s.full && <span class="os-tag">Waiting list</span>}</span>
+              <span class="os-item-group">{s.group}</span>
+              <span class="os-item-sign" aria-hidden="true"></span>
             </button>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <!-- Videography: the four shoots, each bookable. -->
-    <section class="os-group" id="videography" aria-labelledby="os-h-video">
-      <div class="os-group-head">
-        <h2 class="os-group-title" id="os-h-video">Videography</h2>
-        <a class="os-link" href="/videography">Discover videography <span aria-hidden="true">&rsaquo;</span></a>
-      </div>
-      {SHOOTS.map((s) => (
-        <article class="os-row os-row--shoot" id={s.key}>
-          <h3 class="os-row-name">{s.name}</h3>
-          <p class="os-row-body">{s.body}</p>
-          <p class="os-row-price">{s.price}</p>
-          <div class="os-row-more">
-            <div class="os-row-actions">
-              <button type="button" class="os-fold-head" aria-expanded="false" aria-controls={`os-fold-${s.key}`}>
-                What&rsquo;s included <span class="os-fold-sign" aria-hidden="true"></span>
-              </button>
-              <button type="button" class="os-btn" data-vbook={s.book}>{s.bookLabel} <span aria-hidden="true">&rarr;</span></button>
-              <a class="os-link" href={s.more}>Discover more <span aria-hidden="true">&rsaquo;</span></a>
-            </div>
-            <div class="os-fold" id={`os-fold-${s.key}`}><div class="os-fold-inner">
-              <p class="os-fold-lead">{s.lead}</p>
-              {s.list && <ul class="os-fold-list">{s.list.map((x) => <li>{x}</li>)}</ul>}
-              {s.rows && (
-                <dl class="os-fold-rows">
-                  {s.rows.map((r) => (
-                    <div class="os-fold-row"><dt>{r.name}</dt><dd class="os-fold-note">{r.note}</dd><dd class="os-fold-price">{r.price}</dd></div>
-                  ))}
-                </dl>
-              )}
+            <div class="os-item-body" id={`os-item-${i}`}><div class="os-item-inner">
+              <p class="os-item-text">{s.body}</p>
+              <p class="os-item-price">{s.price}</p>
+              {s.list && <ul class="os-item-list">{s.list.map((x) => <li>{x}</li>)}</ul>}
+              <div class="os-item-links">
+                {s.book && <button type="button" class="os-btn os-btn--paper" data-vbook={s.book}>{s.bookLabel} <span aria-hidden="true">&rarr;</span></button>}
+                {s.more && <a class="os-link" href={s.more}>{s.moreLabel || "Discover more"} <span aria-hidden="true">&rsaquo;</span></a>}
+                {s.ask && <button type="button" class="os-link" data-os-contact>Ask about this <span aria-hidden="true">&rsaquo;</span></button>}
+              </div>
             </div></div>
-          </div>
-        </article>
-      ))}
-      <p class="os-note">For shoots on location, Jack covers a 40-mile radius of NN14 (Kettering). If you&rsquo;re further away, travel is added to your quote automatically.</p>
+          </li>
+        ))}
+      </ol>
+      <p class="os-list-foot">For shoots on location, Jack covers a 40-mile radius of NN14 (Kettering). If you&rsquo;re further away, travel is added to your quote automatically.</p>
     </section>
 
-    <!-- Social media: a line and a price each; the detail lives on /services. -->
-    <section class="os-group" id="social" aria-labelledby="os-h-social">
-      <div class="os-group-head">
-        <h2 class="os-group-title" id="os-h-social">Social Media</h2>
-        <a class="os-link" href="/services">Discover social media <span aria-hidden="true">&rsaquo;</span></a>
-      </div>
-      {SOCIAL.map((s) => (
-        <article class="os-row">
-          <h3 class="os-row-name">{s.name}{s.full && <span class="os-tag">Waiting list</span>}</h3>
-          <p class="os-row-body">{s.body}</p>
-          <p class="os-row-price">{s.price}</p>
-        </article>
+    <!-- 3. Our work: pictures drifting past at their own speeds. -->
+    <section class="os-work" aria-label="Our work">
+      <p class="os-work-label"><span>Our work.</span></p>
+      {WORK.map((w) => (
+        <figure class="os-work-pic" data-speed={w.s} style={`left:${w.x}%;top:${w.y}%;--w:${w.w}`}>
+          <img src={w.img} alt="" width="700" height="875" loading="lazy" />
+        </figure>
       ))}
     </section>
 
-    <!-- Creative: templates go to the Edit; the rest are quoted, so to the form. -->
-    <section class="os-group" id="creative" aria-labelledby="os-h-creative">
-      <div class="os-group-head">
-        <h2 class="os-group-title" id="os-h-creative">Creative</h2>
-        <a class="os-link" href="#get-in-touch" data-os-to="get-in-touch">Ask about a project <span aria-hidden="true">&rsaquo;</span></a>
-      </div>
-      {CREATIVE.map((s) => (
-        <article class="os-row">
-          <h3 class="os-row-name">{s.name}</h3>
-          <p class="os-row-body">{s.body}{s.link && <> <a class="os-inline" href={s.link.href}>{s.link.label} <span aria-hidden="true">&rsaquo;</span></a></>}</p>
-          <p class="os-row-price">{s.price}</p>
-        </article>
-      ))}
-    </section>
-
-    <!-- The services brochure: the social media page's form, which emails it. -->
+    <!-- 4. The services brochure: the social media page's form, which emails it. -->
     <section class="os-bro">
       <figure class="os-bro-pic"><img src={BROCHURE_IMG} alt="" width="900" height="700" loading="lazy" /></figure>
       <div class="os-bro-copy">
@@ -221,264 +167,305 @@ const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
       </div>
     </section>
 
-    <!-- Get in touch: the Contact page's form, with Jack's details under it. -->
+    <!-- 5. Get in touch. The form opens in a pop-out. -->
     <section class="os-touch" id="get-in-touch">
-      <div class="os-touch-copy">
-        <p class="os-label">Get in touch</p>
-        <h2 class="os-h">Talk to Us Before You Book.</h2>
-        <p class="os-touch-text">If you&rsquo;re not sure which service suits you, or you have a question about anything on this page, send us a message and it&rsquo;ll go straight to our team.</p>
+      <p class="os-label">Get in touch</p>
+      <h2 class="os-h">Talk to Us Before You Book.</h2>
+      <p class="os-touch-text">If you&rsquo;re not sure which service suits you, or you have a question about anything on this page, send us a message and it&rsquo;ll go straight to our team.</p>
+      <div class="os-touch-links">
+        <button type="button" class="os-btn" data-os-contact>Send us a message <span aria-hidden="true">&rarr;</span></button>
+        <button type="button" class="os-link" data-vbook="discovery">Book a call with Jack <span aria-hidden="true">&rsaquo;</span></button>
       </div>
+    </section>
+  </main>
+
+  <!-- The contact pop-out: the Contact page's form. -->
+  <div class="os-pop" id="os-pop" hidden>
+    <div class="os-pop-scrim" data-os-close></div>
+    <div class="os-pop-card" role="dialog" aria-modal="true" aria-labelledby="os-pop-h" data-lenis-prevent>
+      <button type="button" class="os-pop-x" data-os-close aria-label="Close">&times;</button>
+      <p class="os-label">Get in touch</p>
+      <h2 class="os-h" id="os-pop-h">Send Us a Message.</h2>
       <ContactForm source="videography_services_page" trackAs="services_page">
         <p class="os-jack">
           Prefer to speak to Jack directly? Email him at <a href="mailto:jack@tmke.co.uk">jack@tmke.co.uk</a> or
           <button type="button" class="os-jack-call" data-vbook="discovery">book a short call with him <span aria-hidden="true">&rsaquo;</span></button>
         </p>
       </ContactForm>
-    </section>
-  </main>
+    </div>
+  </div>
 
   <VideographyBooking />
   <SMMForms brochureLead="Everything we do, in one place. Download our services brochure for a full breakdown of what's included, how it works, and what it costs." />
 </BaseLayout>
 
 <script>
-  // What's included: folded until asked for.
-  document.querySelectorAll(".os-row--shoot").forEach((row) => {
-    const head = row.querySelector(".os-fold-head");
+  const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const clamp = (v: number) => Math.max(0, Math.min(1, v));
+  const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+  // 1. The slides: each one's scroll is a short hold, then the lift and drop.
+  const slidesEl = document.querySelector<HTMLElement>(".os-slides");
+  const slides = [...document.querySelectorAll<HTMLElement>(".os-slide")];
+  const hint = document.querySelector<HTMLElement>(".os-slides-hint");
+  function drawSlides() {
+    if (!slidesEl) return;
+    const vh = window.innerHeight;
+    const per = (slidesEl.offsetHeight - vh) / Math.max(1, slides.length - 1);
+    const y = -slidesEl.getBoundingClientRect().top;
+    slides.forEach((s, i) => {
+      if (i === slides.length - 1) return;
+      const t = ease(clamp(((y - i * per) / per - 0.15) / 0.85));
+      const bg = s.querySelector<HTMLElement>(".os-slide-bg");
+      const card = s.querySelector<HTMLElement>(".os-slide-card");
+      if (bg) bg.style.transform = `translate3d(0, ${-t * 100}%, 0)`;
+      if (card) card.style.transform = `translate3d(-50%, calc(-50% + ${t * 100}vh), 0)`;
+      s.style.visibility = t >= 1 ? "hidden" : "";
+    });
+    if (hint) hint.style.opacity = y > 40 ? "0" : "";
+  }
+
+  // 3. Our work: each picture drifts by its own speed as the section passes.
+  const work = document.querySelector<HTMLElement>(".os-work");
+  const pics = [...document.querySelectorAll<HTMLElement>(".os-work-pic")];
+  function drawWork() {
+    if (!work) return;
+    const r = work.getBoundingClientRect();
+    const vh = window.innerHeight;
+    if (r.bottom < 0 || r.top > vh) return;
+    const p = (vh - r.top) / (vh + r.height);   // 0 as it enters, 1 as it leaves
+    pics.forEach((el) => {
+      const s = Number(el.dataset.speed || 1);
+      el.style.transform = `translate3d(0, ${(0.5 - p) * s * 60}vh, 0)`;
+    });
+  }
+
+  if (!still) {
+    document.documentElement.classList.add("os-moving");
+    let queued = false;
+    const frame = () => { queued = false; drawSlides(); drawWork(); };
+    const ask = () => { if (!queued) { queued = true; requestAnimationFrame(frame); } };
+    window.addEventListener("scroll", ask, { passive: true });
+    window.addEventListener("resize", ask);
+    frame();
+  }
+
+  // 2. The list: one row open at a time.
+  const items = [...document.querySelectorAll<HTMLElement>(".os-item")];
+  items.forEach((it) => {
+    const head = it.querySelector<HTMLElement>(".os-item-head");
     head?.addEventListener("click", () => {
-      const on = !row.classList.contains("is-open");
-      row.classList.toggle("is-open", on);
-      head.setAttribute("aria-expanded", on ? "true" : "false");
+      const on = !it.classList.contains("is-open");
+      items.forEach((o) => { o.classList.remove("is-open"); o.querySelector(".os-item-head")?.setAttribute("aria-expanded", "false"); });
+      if (on) { it.classList.add("is-open"); head.setAttribute("aria-expanded", "true"); }
     });
   });
-  // The opening: a picture swaps the left panel to its shoot; All services,
-  // or the same picture again, puts the overview back.
-  (function picker() {
-    const panes = [...document.querySelectorAll<HTMLElement>(".os-pane")];
-    const pics = [...document.querySelectorAll<HTMLElement>(".os-pic")];
-    const split = document.querySelector(".os-split");
-    let current = "all";
-    const show = (key: string) => {
-      current = key;
-      split?.classList.toggle("has-pick", key !== "all");
-      panes.forEach((p) => {
-        const on = p.dataset.pane === key;
-        p.classList.toggle("is-on", on);
-        p.setAttribute("aria-hidden", on ? "false" : "true");
-        p.querySelectorAll<HTMLElement>("a, button").forEach((c) => c.tabIndex = on ? 0 : -1);
-      });
-      pics.forEach((b) => {
-        const on = b.dataset.osPick === key;
-        b.classList.toggle("is-on", on);
-        b.setAttribute("aria-pressed", on ? "true" : "false");
-      });
-    };
-    document.querySelectorAll<HTMLElement>("[data-os-pick]").forEach((b) => b.addEventListener("click", () => {
-      const key = b.dataset.osPick || "all";
-      show(key === current ? "all" : key);
-      // On a phone the panel sits above the pictures: bring it into view.
-      if (window.matchMedia("(max-width: 900px)").matches && key !== "all") {
-        const left = document.querySelector(".os-left");
-        const lenis = (window as any).__lenis;
-        if (left) lenis ? lenis.scrollTo(left, { offset: -90, duration: 0.9 }) : left.scrollIntoView({ behavior: "smooth" });
-      }
-    }));
-  })();
-  // The picture row and in-page links land clear of the nav. Caught before the
-  // site's own anchor scroll, which stops at the very top of the target.
-  document.addEventListener("click", (e) => {
-    const a = (e.target as Element).closest?.("[data-os-to]");
-    if (!a) return;
-    const target = document.getElementById(a.getAttribute("data-os-to") || "");
-    if (!target) return;
-    e.preventDefault(); e.stopImmediatePropagation();
-    const lenis = (window as any).__lenis;
-    if (lenis) lenis.scrollTo(target, { offset: -110, duration: 1.2 });
-    else window.scrollTo({ top: target.getBoundingClientRect().top + scrollY - 110, behavior: "smooth" });
-  }, true);
+
+  // 5. The contact pop-out.
+  const pop = document.getElementById("os-pop");
+  let opener: HTMLElement | null = null;
+  const openPop = (from: HTMLElement) => {
+    if (!pop) return;
+    opener = from;
+    pop.hidden = false;
+    requestAnimationFrame(() => pop.classList.add("is-open"));
+    document.documentElement.style.overflow = "hidden";
+    pop.querySelector<HTMLElement>("input")?.focus({ preventScroll: true });
+  };
+  const closePop = () => {
+    if (!pop || pop.hidden) return;
+    pop.classList.remove("is-open");
+    document.documentElement.style.overflow = "";
+    setTimeout(() => { pop.hidden = true; }, 300);
+    opener?.focus({ preventScroll: true });
+  };
+  document.querySelectorAll<HTMLElement>("[data-os-contact]").forEach((b) => b.addEventListener("click", () => openPop(b)));
+  pop?.querySelectorAll("[data-os-close]").forEach((b) => b.addEventListener("click", closePop));
+  // A call booked from inside the pop-out: the booking slides in over it.
+  pop?.querySelectorAll("[data-vbook]").forEach((b) => b.addEventListener("click", closePop));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePop(); });
 </script>
 
 <style is:global>
   /* The nav sits on paper here, as on any PageHero page. */
   body:has(.os) .nav { background: var(--paper); color: var(--ink); }
 
-  /* Headings on this page are in the copy face, as the Edit's tiles are, not
-     the site's heading face (Danielle, 29 Oct). */
-  .os { --hairline: rgba(28, 29, 34, 0.14); background: var(--paper); color: var(--ink); font-family: var(--sans); }
+  .os {
+    --hairline: rgba(28, 29, 34, 0.14);
+    --os-h: "Lora", Georgia, serif;
+    --os-track: -0.03em;
+    background: var(--paper); color: var(--ink); font-family: var(--sans);
+  }
   .os-label {
     margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 700;
     letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
   }
   .os-label--paper { color: rgba(244, 242, 241, 0.72); }
   .os-h {
-    margin: 14px 0 14px; font-family: var(--sans); font-weight: 600;
-    font-size: clamp(28px, 2.6vw, 38px); line-height: 1.08; letter-spacing: -0.01em; color: var(--english-violet);
+    margin: 14px 0 16px; font-family: var(--os-h); font-weight: 500;
+    font-size: clamp(30px, 3vw, 46px); line-height: 1.06; letter-spacing: var(--os-track); color: var(--english-violet);
   }
 
-  /* ---- The opening: a split screen, words left, pictures right ---- */
-  .os-split {
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    min-height: max(640px, 100vh); min-height: max(640px, 100svh);
+  /* ---- 1. The slides ---- */
+  /* Still (reduced motion, or before the script runs): one slide after another. */
+  .os-slides { position: relative; }
+  .os-slide { position: relative; height: 100vh; height: 100svh; overflow: hidden; }
+  .os-slides-hint { display: none; }
+  /* Moving: one screen held in place, the slides stacked in it. */
+  .os-moving .os-slides { height: calc((var(--n) - 1) * 110vh + 100vh); }
+  .os-moving .os-stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
+  .os-moving .os-slide { position: absolute; inset: 0; height: auto; overflow: visible; }
+  .os-moving .os-slides-hint { display: block; }
+  .os-slide-bg {
+    position: absolute; inset: 0; background-size: cover; background-position: center;
+    background-color: #2a2228; will-change: transform;
   }
-  .os-left {
-    position: relative; display: grid; grid-template-rows: 1fr auto;
-    padding: clamp(120px, 16vh, 160px) var(--page-gutter) clamp(28px, 4vh, 44px);
-    background: var(--paper);
+  .os-slide-bg::after { content: ""; position: absolute; inset: 0; background: rgba(20, 18, 22, 0.18); }
+  .os-slide-card {
+    position: absolute; left: 50%; top: 52%; margin: 0;
+    width: clamp(230px, 24vw, 380px); aspect-ratio: 3 / 4; overflow: hidden; border-radius: 4px;
+    transform: translate3d(-50%, -50%, 0); will-change: transform;
+    box-shadow: 0 30px 60px -30px rgba(20, 18, 22, 0.55); background: #2a2228;
   }
-  /* Every pane in the same cell, so the panel never changes height. */
-  .os-pane {
-    grid-row: 1; grid-column: 1; align-self: start;
-    display: flex; flex-direction: column; align-items: flex-start;
-    opacity: 0; visibility: hidden; transform: translateY(10px);
-    transition: opacity 0.35s ease, transform 0.45s cubic-bezier(.2,.8,.2,1), visibility 0s 0.35s;
-  }
-  .os-pane.is-on { opacity: 1; visibility: visible; transform: none; transition: opacity 0.45s ease 0.08s, transform 0.55s cubic-bezier(.2,.8,.2,1) 0.08s; }
-  .os-big {
-    margin: 18px 0 22px; max-width: 13em; font-family: var(--sans); font-weight: 700;
-    font-size: clamp(40px, 4.6vw, 76px); line-height: 0.98; letter-spacing: -0.03em; color: var(--english-violet);
-  }
-  .os-pane-text { margin: 0 0 18px; max-width: 34em; font-size: clamp(16px, 1.25vw, 19px); line-height: 1.55; color: rgba(28, 29, 34, 0.72); }
-  .os-pane-price { margin: 0 0 16px; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); }
-  .os-pane-list { margin: 0 0 26px; padding-left: 18px; max-width: 34em; font-size: 16px; line-height: 1.65; color: rgba(28, 29, 34, 0.78); }
-  .os-pane .os-link { margin-top: 6px; }
-  .os-back {
-    background: none; border: 0; padding: 0; cursor: pointer;
-    font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
-    color: rgba(28, 29, 34, 0.5);
-  }
-  .os-back:hover { color: var(--ink); }
-  .os-left-foot { grid-row: 2; margin: 24px 0 0; font-size: 16px; color: rgba(28, 29, 34, 0.6); }
-
-  .os-right { position: relative; overflow: hidden; background: var(--paper-shadow); display: flex; align-items: center; }
-  /* A staggered three-column grid: two up top, two stepped down and right. */
-  .os-pics {
-    --tile: clamp(160px, 15.5vw, 290px);
-    display: grid; grid-template-columns: repeat(3, var(--tile)); gap: 6px;
-    padding: clamp(110px, 14vh, 140px) 0 clamp(40px, 6vh, 70px) clamp(36px, 5vw, 76px);
-  }
-  /* The Insights page's picture tile, as the Edit uses it: 3:4, the photo
-     shown, the name over a soft fade at its foot. */
-  .os-pic {
-    position: relative; display: block; width: var(--tile); aspect-ratio: 3 / 4; padding: 0; margin: 0; border: 0;
-    -webkit-appearance: none; appearance: none; text-align: left;
-    overflow: hidden; border-radius: 2px; cursor: pointer; background-color: rgba(28, 29, 34, 0.06);
-    transition: opacity 0.35s ease;
-  }
-  .os-pic::after {
+  .os-slide-card img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .os-slide-card::after {
     content: ""; position: absolute; inset: 0; pointer-events: none;
-    background: linear-gradient(180deg, rgba(20,18,22,0) 42%, rgba(20,18,22,0.74) 100%);
+    background: linear-gradient(180deg, rgba(20,18,22,0) 46%, rgba(20,18,22,0.72) 100%);
   }
-  .os-pic--1 { grid-column: 1; grid-row: 1; }
-  .os-pic--2 { grid-column: 2; grid-row: 1; }
-  .os-pic--3 { grid-column: 2; grid-row: 2; }
-  .os-pic--4 { grid-column: 3; grid-row: 2; }
-  .os-pic-img { position: absolute; inset: 0; background-size: cover; background-position: center; transition: transform 0.6s cubic-bezier(.2,.8,.2,1); }
-  .os-pic:hover .os-pic-img { transform: scale(1.04); }
-  .os-pic-cap { position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 2; display: flex; flex-direction: column; gap: 4px; }
-  .os-pic-num { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(244, 242, 240, 0.8); }
-  .os-pic-name { font-family: var(--sans); font-weight: 400; font-size: 16px; line-height: 1.12; letter-spacing: -0.005em; color: var(--paper); }
-  /* Once one is chosen, it stays bright and the rest step back. */
-  .os-split.has-pick .os-pic:not(.is-on) { opacity: 0.45; }
-  .os-pic.is-on { outline: 2px solid var(--english-violet); outline-offset: 3px; }
-  .os-pic:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
+  .os-slide-cap { position: absolute; left: 20px; right: 20px; bottom: 20px; z-index: 1; display: flex; flex-direction: column; gap: 6px; color: var(--paper); }
+  .os-slide-num { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; color: rgba(244, 242, 241, 0.78); }
+  .os-slide-name {
+    margin: 0; font-family: var(--os-h); font-weight: 400; font-size: clamp(26px, 2.4vw, 38px);
+    line-height: 1.04; letter-spacing: var(--os-track); color: var(--paper);
+  }
+  .os-slide-line { font-family: var(--sans); font-size: 15px; line-height: 1.35; color: rgba(244, 242, 241, 0.86); }
+  .os-slides-hint {
+    position: absolute; left: 50%; bottom: 22px; z-index: 10; margin: 0; transform: translateX(-50%);
+    font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--paper); transition: opacity 0.3s ease;
+  }
 
-
-  .os-group { padding: clamp(36px, 5vh, 60px) var(--page-gutter) 0; }
-  .os-group-head {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 18px;
-    padding-bottom: 12px; border-bottom: 1px solid rgba(28, 29, 34, 0.3);
+  /* ---- 2. The list ---- */
+  .os-list {
+    display: grid; grid-template-columns: minmax(0, 0.42fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 90px);
+    padding: clamp(80px, 12vh, 140px) var(--page-gutter); background: var(--english-violet); color: var(--paper);
   }
-  .os-group-title {
-    margin: 0; font-family: var(--sans); font-size: 13px; font-weight: 700;
-    letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet);
+  .os-list-head { align-self: start; position: sticky; top: 120px; }
+  .os-list-title {
+    margin: 0 0 16px; font-family: var(--os-h); font-weight: 400; font-size: clamp(40px, 4vw, 64px);
+    line-height: 1; letter-spacing: var(--os-track); color: var(--paper);
   }
-  .os-row {
-    display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 2fr) minmax(0, 0.8fr);
-    column-gap: clamp(20px, 3vw, 48px); align-items: baseline;
-    padding: 16px 0; border-bottom: 1px solid var(--hairline);
+  .os-list-note { margin: 0; max-width: 28ch; font-size: 16px; line-height: 1.55; color: rgba(244, 242, 241, 0.7); }
+  .os-rows { list-style: none; margin: 0; padding: 0; }
+  .os-item { border-bottom: 1px solid rgba(244, 242, 241, 0.22); }
+  .os-item-head {
+    width: 100%; display: grid; grid-template-columns: 64px minmax(0, 1fr) auto 14px; align-items: baseline; gap: 18px;
+    padding: 26px 0; background: none; border: 0; cursor: pointer; text-align: left; color: var(--paper);
   }
-  /* h3, so named outright: h3 is The Seasons by default on this site. */
-  .os-row-name {
-    margin: 0; font-family: var(--sans); font-weight: 600; font-size: 17px;
-    line-height: 1.3; letter-spacing: 0; color: var(--ink);
+  .os-item-head:focus-visible { outline: 2px solid var(--paper); outline-offset: 4px; }
+  .os-item-num { font-family: var(--sans); font-size: 16px; color: rgba(244, 242, 241, 0.7); }
+  .os-item-name {
+    font-family: var(--os-h); font-weight: 400; font-size: clamp(22px, 2vw, 30px); line-height: 1.15;
+    letter-spacing: var(--os-track); transition: opacity 0.25s ease;
   }
+  .os-item-head:hover .os-item-name { opacity: 0.75; }
+  .os-item-group { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(244, 242, 241, 0.55); }
+  .os-item-sign { position: relative; width: 14px; height: 14px; align-self: center; }
+  .os-item-sign::before, .os-item-sign::after {
+    content: ""; position: absolute; left: 0; top: 6px; width: 14px; height: 1px; background: rgba(244, 242, 241, 0.8); transition: transform 0.3s ease;
+  }
+  .os-item-sign::after { transform: rotate(90deg); }
+  .os-item.is-open .os-item-sign::after { transform: rotate(0deg); }
   .os-tag {
-    display: inline-block; margin-left: 10px; padding: 3px 7px; vertical-align: 2px;
-    border: 1px solid rgba(55, 30, 40, 0.35); border-radius: 2px;
-    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet);
+    display: inline-block; margin-left: 12px; padding: 3px 7px; vertical-align: 4px;
+    border: 1px solid rgba(244, 242, 241, 0.4); border-radius: 2px;
+    font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(244, 242, 241, 0.85);
   }
-  .os-row-body { margin: 0; font-size: 15.5px; line-height: 1.55; color: rgba(28, 29, 34, 0.72); }
-  .os-row-price { margin: 0; text-align: right; font-size: 15px; font-weight: 600; color: var(--english-violet); white-space: nowrap; }
-  .os-inline { white-space: nowrap; font-weight: 700; color: var(--english-violet); text-decoration: none; }
-  .os-inline:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .os-item-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.45s cubic-bezier(.2,.8,.2,1); }
+  .os-item.is-open .os-item-body { grid-template-rows: 1fr; }
+  .os-item-inner { overflow: hidden; visibility: hidden; padding-left: 82px; transition: visibility 0s 0.45s; }
+  .os-item.is-open .os-item-inner { visibility: visible; transition: none; }
+  .os-item-text { margin: 0 0 10px; max-width: 46em; font-size: 17px; line-height: 1.6; color: rgba(244, 242, 241, 0.82); }
+  .os-item-price { margin: 0 0 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--paper); }
+  .os-item-list { margin: 0 0 18px; padding-left: 18px; max-width: 46em; font-size: 16px; line-height: 1.65; color: rgba(244, 242, 241, 0.78); }
+  .os-item-links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; padding-bottom: 28px; }
+  .os-item-links .os-link { color: var(--paper); }
+  .os-list-foot { grid-column: 2; margin: 22px 0 0; font-size: 14px; line-height: 1.6; color: rgba(244, 242, 241, 0.6); }
 
-  .os-row-more { grid-column: 2 / -1; margin-top: 12px; }
-  .os-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; }
-  .os-fold-head {
-    display: inline-flex; align-items: center; gap: 12px; background: none; border: 0; padding: 0; cursor: pointer;
-    font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink);
-  }
-  .os-fold-sign { position: relative; width: 11px; height: 11px; flex: none; }
-  .os-fold-sign::before, .os-fold-sign::after {
-    content: ""; position: absolute; left: 0; top: 5px; width: 11px; height: 1px;
-    background: rgba(28, 29, 34, 0.6); transition: transform 0.3s ease;
-  }
-  .os-fold-sign::after { transform: rotate(90deg); }
-  .os-row.is-open .os-fold-sign::after { transform: rotate(0deg); }
-  .os-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.4s cubic-bezier(.2,.8,.2,1); }
-  .os-row.is-open .os-fold { grid-template-rows: 1fr; }
-  .os-fold-inner { overflow: hidden; visibility: hidden; transition: visibility 0s 0.4s; }
-  .os-row.is-open .os-fold-inner { visibility: visible; transition: none; }
-  .os-fold-lead { margin: 16px 0 8px; font-size: 15px; line-height: 1.6; color: rgba(28, 29, 34, 0.72); }
-  .os-fold-list { margin: 0 0 6px; padding-left: 18px; font-size: 15px; line-height: 1.7; color: rgba(28, 29, 34, 0.78); }
-  .os-fold-rows { margin: 0 0 6px; }
-  .os-fold-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 18px; padding: 9px 0; border-top: 1px solid rgba(28, 29, 34, 0.08); font-size: 15px; }
-  .os-fold-row dt { font-weight: 700; color: var(--ink); }
-  .os-fold-row dd { margin: 0; }
-  .os-fold-note { grid-column: 1; grid-row: 2; margin-top: 2px !important; line-height: 1.5; color: rgba(28, 29, 34, 0.65); }
-  .os-fold-price { grid-column: 2; grid-row: 1; font-weight: 700; white-space: nowrap; color: var(--english-violet); }
-
+  /* ---- Buttons and links ---- */
   .os-btn {
     display: inline-flex; align-items: center; gap: 10px;
     background: var(--english-violet); color: var(--paper);
-    border: 0; border-radius: 3px; padding: 11px 20px; cursor: pointer;
+    border: 0; border-radius: 3px; padding: 13px 24px; cursor: pointer;
     font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
     transition: gap 0.25s ease, background 0.25s ease, color 0.25s ease;
   }
   .os-btn:hover { gap: 16px; background: var(--ink); }
-  .os-btn--paper { padding: 13px 26px; background: var(--paper); color: var(--english-violet); }
+  .os-btn--paper { background: var(--paper); color: var(--english-violet); }
   .os-btn--paper:hover { background: #fff; color: var(--ink); }
   .os-link {
     display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
+    background: none; border: 0; padding: 0; cursor: pointer;
     font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
     color: var(--english-violet); transition: gap 0.25s ease;
   }
   .os-link:hover { gap: 15px; }
-  .os-btn:focus-visible, .os-link:focus-visible, .os-fold-head:focus-visible, .os-inline:focus-visible, .os-jack-call:focus-visible {
-    outline: 2px solid var(--english-violet); outline-offset: 3px;
-  }
-  .os-btn--paper:focus-visible { outline-color: var(--paper); }
-  .os-note { margin: 14px 0 0; font-size: 14px; line-height: 1.6; color: rgba(28, 29, 34, 0.6); }
+  .os-btn:focus-visible, .os-link:focus-visible, .os-jack-call:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 
-  /* ---- The brochure: a wine band ---- */
+  /* ---- 3. Our work ---- */
+  /* clip, not hidden: hidden would make it a scroller and unpin the label. */
+  .os-work { position: relative; height: 230vh; overflow: hidden; overflow: clip; background: #faf9f8; }
+  .os-work-label {
+    position: sticky; top: 0; height: 100vh; margin: 0; z-index: 2; pointer-events: none;
+    display: grid; place-items: center;
+  }
+  .os-work-label span {
+    font-family: var(--os-h); font-weight: 400; font-size: clamp(40px, 5vw, 80px);
+    letter-spacing: var(--os-track); color: var(--english-violet);
+  }
+  .os-work-pic {
+    position: absolute; z-index: 1; margin: 0; width: calc(var(--w) * 1vw);
+    aspect-ratio: 4 / 5; overflow: hidden; border-radius: 2px; will-change: transform;
+  }
+  .os-work-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+  /* ---- 4. The brochure: a wine band ---- */
   .os-bro {
     display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
     gap: clamp(32px, 6vw, 110px); align-items: center;
-    margin-top: clamp(56px, 8vh, 96px); padding: clamp(48px, 8vh, 96px) var(--page-gutter);
+    padding: clamp(56px, 9vh, 110px) var(--page-gutter);
     background: var(--english-violet); color: var(--paper);
   }
   .os-bro-pic { margin: 0; aspect-ratio: 9 / 7; overflow: hidden; border-radius: 2px; }
   .os-bro-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
   .os-bro .os-h { color: var(--paper); }
-  .os-bro-text { margin: 0 0 26px; max-width: 75%; font-size: 16px; line-height: 1.65; color: rgba(244, 242, 241, 0.8); }
+  .os-bro-text { margin: 0 0 26px; max-width: 75%; font-size: 17px; line-height: 1.65; color: rgba(244, 242, 241, 0.8); }
 
-  /* ---- Get in touch ---- */
+  /* ---- 5. Get in touch ---- */
   .os-touch {
-    display: grid; grid-template-columns: minmax(0, 0.86fr) minmax(0, 1fr);
-    gap: clamp(40px, 6vw, 110px); align-items: start;
-    padding: clamp(72px, 11vh, 130px) var(--page-gutter);
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: clamp(90px, 14vh, 160px) var(--page-gutter);
   }
-  .os-touch-text { margin: 0; max-width: 40ch; font-size: clamp(15px, 1.2vw, 18px); line-height: 1.65; color: rgba(28, 29, 34, 0.66); }
+  .os-touch .os-h { font-size: clamp(34px, 3.6vw, 56px); }
+  .os-touch-text { margin: 0 0 30px; max-width: 46ch; font-size: clamp(16px, 1.25vw, 19px); line-height: 1.6; color: rgba(28, 29, 34, 0.68); }
+  .os-touch-links { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px 28px; }
+
+  /* The pop-out */
+  .os-pop { position: fixed; inset: 0; z-index: 1300; display: grid; place-items: center; padding: 20px; }
+  .os-pop[hidden] { display: none; }
+  .os-pop-scrim { position: absolute; inset: 0; background: rgba(20, 18, 26, 0.6); opacity: 0; transition: opacity 0.3s ease; }
+  .os-pop-card {
+    position: relative; width: min(760px, 100%); max-height: calc(100vh - 40px); overflow: auto;
+    padding: clamp(26px, 3vw, 44px); border-radius: 6px; background: var(--paper);
+    opacity: 0; transform: translateY(16px); transition: opacity 0.3s ease, transform 0.35s cubic-bezier(.2,.8,.2,1);
+  }
+  .os-pop.is-open .os-pop-scrim { opacity: 1; }
+  .os-pop.is-open .os-pop-card { opacity: 1; transform: none; }
+  .os-pop-x {
+    position: absolute; top: 14px; right: 16px; width: 36px; height: 36px; border: 0; background: none; cursor: pointer;
+    font-size: 28px; line-height: 1; color: var(--ink);
+  }
+  .os-pop-card .os-h { margin-bottom: 22px; }
   .os-jack { margin: 18px 0 0; font-size: 15px; line-height: 1.6; color: rgba(28, 29, 34, 0.7); }
   .os-jack a { color: var(--ink); text-decoration: none; border-bottom: 1px solid rgba(28, 29, 34, 0.3); }
   .os-jack a:hover { color: var(--english-violet); border-color: var(--english-violet); }
@@ -486,22 +473,16 @@ const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
   .os-jack-call:hover { opacity: 0.7; }
 
   @media (max-width: 900px) {
-    .os-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
-    .os-row-name { grid-column: 1; }
-    .os-row-price { grid-column: 2; grid-row: 1; }
-    .os-row-body, .os-row-more { grid-column: 1 / -1; }
+    .os-slide-card { width: min(68vw, 340px); }
+    .os-list { grid-template-columns: 1fr; }
+    .os-list-head { position: static; }
+    .os-list-foot { grid-column: 1; }
+    .os-item-head { grid-template-columns: 44px minmax(0, 1fr) 14px; padding: 20px 0; }
+    .os-item-group { display: none; }
+    .os-item-inner { padding-left: 0; }
+    .os-bro { grid-template-columns: 1fr; }
     .os-bro-text { max-width: none; }
-    .os-bro, .os-touch { grid-template-columns: 1fr; }
-    .os-split { grid-template-columns: 1fr; min-height: 0; }
-    .os-left { padding-bottom: 28px; }
-    .os-right { display: block; }
-    .os-pics { --tile: auto; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 22px var(--page-gutter); }
-    .os-pic { width: auto; }
-    .os-pic--1, .os-pic--2, .os-pic--3, .os-pic--4 { grid-column: auto; grid-row: auto; }
-  }
-  @media (max-width: 560px) {
-    .os-pic-cap { left: 10px; right: 10px; bottom: 10px; }
-    .os-pic-name { font-size: 14px; }
-    .os-group-head { flex-direction: column; gap: 8px; }
+    .os-work { height: 190vh; }
+    .os-work-pic { width: calc(var(--w) * 1.9vw); }
   }
 </style>
