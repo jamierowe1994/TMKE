@@ -121,7 +121,8 @@ const TABS = [
           const pr = r.props || {};
           const when = new Date(r.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
           const item = [pr.design && (n.designs.get(pr.design) || "Their design"), pr.template && (n.tpls.get(pr.template) || pr.template)].filter(Boolean).join(" · ") || "—";
-          const who = pr.admin ? "Team, in admin mode" : (r.user_id ? (n.people.get(r.user_id) || "A member") : "Signed out");
+          // Members who declined analytics report anonymously (props.anonymous, 29 Oct).
+          const who = pr.admin ? "Team, in admin mode" : r.user_id ? (n.people.get(r.user_id) || "A member") : pr.anonymous ? "A member (no analytics consent)" : "Signed out";
           return `<tr${!seen || r.created_at > seen ? ' class="is-new"' : ""}>
             <td class="sfb-when">${esc(when)}</td>
             <td>${esc(kindLabel(pr.kind))}${pr.detail ? `<div class="sfb-detail">${esc(pr.detail)}</div>` : ""}</td>
