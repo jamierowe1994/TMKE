@@ -1458,6 +1458,9 @@ async function ensureAgentProfile(env, contactId, contact, input) {
 // Jack has a shoot at noon. [start, minutes]. Mirrored on the booking page.
 const NEW_STARTER_OVERRIDES = {
   "2026-09": { dates: ["2026-09-29"], slots: [["09:30", 150], ["14:30", 180]] },
+  // November's moved to Monday 7 December: the 24th clashes with Dubai
+  // (Danielle, 29 Oct 2026). The usual three sessions; no second day.
+  "2026-11": { dates: ["2026-12-07"], slots: [["09:30", 120], ["12:30", 120], ["15:30", 120]] },
 };
 
 /* New-starter Studio Days (Danielle, 22 Oct 2026). From October 2026 a month
@@ -1501,7 +1504,7 @@ async function nsCalendar(env, dates) {
     const s = ev.start && ev.start.dateTime, e = ev.end && ev.end.dateTime;
     if (!s || !e) continue;
     if (ev.subject === NEW_STARTER_BLOCK_SUBJECT) { out.blocks[s.slice(0, 10)] = ev.id; continue; }
-    if (ev.showAs === "free") continue;
+    if (ev.showAs === "free" && !ev.isAllDay) continue;   // all-day counts even when Free (see jackAllDay)
     // All-day events come back as that day's midnights; timed ones in UTC.
     const a = ev.isAllDay ? { ymd: s.slice(0, 10), min: 0 } : londonParts(s.replace(/\.\d+$/, "") + "Z");
     const b = ev.isAllDay ? { ymd: e.slice(0, 10), min: 0 } : londonParts(e.replace(/\.\d+$/, "") + "Z");
@@ -2626,7 +2629,7 @@ function londonParts(iso) {
   return { ymd: `${p.year}-${p.month}-${p.day}`, min: Number(p.hour) * 60 + Number(p.minute) };
 }
 // Booking columns the diary reads (bookingKindOf and editingDaysFrom).
-const BOARD_COLS = "shoot_date,service_type,service,stage,kind,duration_min,reschedule_token,client_name,smm_lead_id,payment_route,brand";
+const BOARD_COLS = "shoot_date,service_type,service,stage,kind,duration_min,reschedule_token,client_name,smm_lead_id,payment_route,brand,ms_event_id";
 // Jack's hours for a weekday row: hours[] (the block model), else the old
 // start_time/end_time range. A sorted int[]; empty means he doesn't work it.
 function availRowHours(row) {
@@ -2642,6 +2645,22 @@ function workdaysFrom(avail) {
   if (!Array.isArray(avail) || !avail.length) return null;
   return new Set(avail.filter((r) => availRowHours(r).length).map((r) => Number(r.weekday)));
 }
+/* Jack's all-day entries, "YYYY-MM-DD" -> [subjects], fromDate to toDate.
+   Outlook makes an all-day event Free unless he changes it, and getSchedule
+   and the Free filter both pass over Free, so his editing days ("F&C Prop
+   edit from 28th"), filming days and pencils never closed anything (Danielle,
+   29 Oct). An all-day entry now closes its day whatever it's marked. Leaves
+   out our own Studio Day blocks and the events our bookings put there. */
+async function jackAllDay(env, fromDate, toDate, ourIds) {
+  const out = {};
+  const r = await graph(env, "GET", `/users/${encodeURIComponent(env.JACK_UPN)}/calendarView?startDateTime=${fromDate}T00:00:00Z&endDateTime=${nsNextDay(toDate)}T00:00:00Z&$select=id,subject,start,end,isAllDay,showAs&$top=250`);
+  for (const ev of (r && r.value) || []) {
+    if (!ev.isAllDay || ev.subject === NEW_STARTER_BLOCK_SUBJECT || (ourIds && ourIds.has(ev.id))) continue;
+    const a = String(ev.start && ev.start.dateTime || "").slice(0, 10), b = String(ev.end && ev.end.dateTime || "").slice(0, 10);
+    for (let d = a; d && d < b; d = nsNextDay(d)) if (d >= fromDate && d <= toDate) (out[d] = out[d] || []).push(ev.subject || "Busy");
+  }
+  return out;
+}
 async function boardRows(env, fromDate, toDate) {
   const from = new Date(`${fromDate}T00:00:00Z`); from.setUTCDate(from.getUTCDate() - EDITING_LOOKBACK_DAYS);
   const to = new Date(`${toDate}T00:00:00Z`); to.setUTCDate(to.getUTCDate() + 2);
@@ -2651,6 +2670,10 @@ async function boardRows(env, fromDate, toDate) {
   ]);
   const out = rows || [];
   out.workdays = workdaysFrom(avail);   // read by editingDaysFrom
+  // Read by diaryBlocksFrom. If his calendar can't be read the bookings
+  // still stand; the getSchedule check that follows them fails loudly.
+  try { out.allDay = await jackAllDay(env, fromDate, toDate, new Set(out.map((x) => x.ms_event_id).filter(Boolean))); }
+  catch (e) { out.allDay = {}; console.warn("[diary] all-day read failed", e && e.message); }
   return out;
 }
 // skip: the reschedule token of a booking being moved, so it doesn't block itself.
@@ -2683,6 +2706,8 @@ function diaryBlocksFrom(rows, date, service, skip) {
       return { day: true, reason: onLocation && OFF_LOCATION_SERVICES.includes(kind) ? "off_location_taken" : "day_taken" };
     }
   }
+  // A whole day in Jack's own calendar (editing, filming, a pencil).
+  if (rows.allDay && rows.allDay[date]) return { day: true, reason: "jack_all_day" };
   if (editingBlocks) {
     const ed = editingDaysFrom(rows, date, skip)[date];
     if (ed) return { day: true, reason: ed.every((x) => x.studioDay) ? "studio_day_buffer" : "off_location_buffer" };
@@ -7441,7 +7466,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const lo = new Date(`${from}T00:00:00Z`); lo.setUTCDate(lo.getUTCDate() - EDITING_LOOKBACK_DAYS);
         const hi = new Date(`${to}T00:00:00Z`); hi.setUTCDate(hi.getUTCDate() + 2);
         const rows = (await sbGet(env, "videography_bookings",
-          `shoot_date=gte.${lo.toISOString()}&shoot_date=lt.${hi.toISOString()}&select=${BOARD_COLS},ms_event_id`)) || [];
+          `shoot_date=gte.${lo.toISOString()}&shoot_date=lt.${hi.toISOString()}&select=${BOARD_COLS}`)) || [];
         rows.workdays = workdaysFrom(avail);
         const live = rows.filter((r) => r.shoot_date && r.stage !== "cancelled" && r.stage !== "discovery_call_booked" && r.service_type !== "discovery");
         const dayOfRow = (r) => (r.kind === "booking" ? String(r.shoot_date).slice(0, 10) : londonParts(r.shoot_date).ymd);
@@ -7458,7 +7483,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             const r = await graph(env, "GET", next);
             next = r && r["@odata.nextLink"] ? r["@odata.nextLink"].replace("https://graph.microsoft.com/v1.0", "") : null;
             for (const ev of (r && r.value) || []) {
-              if (ourEvents.has(ev.id) || ev.subject === NEW_STARTER_BLOCK_SUBJECT || ev.showAs === "free") continue;
+              if (ourEvents.has(ev.id) || ev.subject === NEW_STARTER_BLOCK_SUBJECT || (ev.showAs === "free" && !ev.isAllDay)) continue;
               const s0 = ev.start && ev.start.dateTime, e0 = ev.end && ev.end.dateTime;
               if (!s0 || !e0) continue;
               const a = ev.isAllDay ? { ymd: s0.slice(0, 10), min: 0 } : londonParts(s0.replace(/\.\d+$/, "") + "Z");

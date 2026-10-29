@@ -245,8 +245,10 @@ const termsHtml =
         return;
       }
       sub.textContent = DAYS.length === 1
-        ? "This month there's one studio day, on the last Tuesday. Choose it to see the session times."
-        : "This month there are two studio days, the last Tuesday and the Wednesday after. Choose the one that suits you.";
+        // No weekday named: a month's day can be moved (November 2026's is
+        // Monday 7 December), and the button below shows the date anyway.
+        ? "This month there's one studio day. Choose it to see the session times."
+        : "This month there are two studio days. Choose the one that suits you.";
       $("ns-days").innerHTML = DAYS.map(({ date, sessions }) => {
         const d = fmtDay(date), full = sessions.every((x) => x.taken);
         return `<button type="button" class="dc-choice" data-date="${date}"${full ? " disabled" : ""}><span class="dc-choice-meta">${d.dow}${full ? " · Fully booked" : ""}</span><span class="dc-choice-title">${d.day}</span></button>`;
