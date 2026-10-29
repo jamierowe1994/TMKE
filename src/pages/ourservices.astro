@@ -1,37 +1,42 @@
 ---
 // Our services in one place (Danielle, 29 Oct 2026): for TEG members and
 // external clients alike, so nothing on it names TEG. Not in the menu: a link
-// the team sends, so people see the four shoots in one place without moving
-// through each section of the site. Each service says a little, keeps what's
-// included folded away, and offers the full page (Discover more) or the
-// booking pop-out, opened at that service. Then the brochure, then a form.
+// the team sends, so people see everything we do without moving through each
+// section of the site.
+//
+// The opening is the Edit's hero: a row of pictures, one for each thing we do,
+// each taking you to it, then a wine band saying what the page is. Below, the
+// brochure's Our Services page: Videography, Social Media, Creative, a line
+// and a "from" price each. The four shoots keep what's included folded away and
+// open the booking pop-out at that service; the rest go to their own page or
+// to the form. Then the services brochure, then the form.
+//
 // Prices are the site's standard "from" rates; each person's own rate is worked
-// out when they book. Pictures are stand-ins from the site's own stills until
-// Danielle chooses.
+// out when they book. Pictures are stand-ins from the site until Danielle
+// chooses.
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { getImage } from "astro:assets";
 import VideographyBooking from "../components/VideographyBooking.astro";
-import VideographyBrochureForm from "../components/VideographyBrochureForm.astro";
+import SMMForms from "../components/SMMForms.astro";
 import ContactForm from "../components/ContactForm.astro";
 import { getProduct, tierPrice } from "../data/videography.js";
 import { PHOTOGRAPHY, photoInclusions } from "../lib/videography-config.js";
+import { SOCIAL_SERVICES, SOCIAL_EXTRAS } from "../lib/smm-config.js";
 import { gbpFromPence } from "../lib/supabase.js";
 
 const pic = async (src, width, height) =>
-  (await getImage({ src, width, height, quality: 78, format: "webp" })).src;
-const HERO_IMG = await pic("https://assets.tmke.co.uk/camera%20view.jpg", 900, 1125);
-const SVC_IMG = await pic("https://assets.tmke.co.uk/Jack%20-%20headshots/Property/LeahMusana-9%20(1).jpg", 900, 1125);
-const BROCHURE_IMG = await pic("https://assets.tmke.co.uk/orange-1.webp", 900, 700);
+  (await getImage({ src, width, height, quality: 76, format: "webp" })).src;
+const A = (path) => `https://assets.tmke.co.uk/${path}`;
 
 const studio = getProduct("studio");
 const property = getProduct("property");
 const agent = getProduct("agent");
-const from = (pence) => `From ${gbpFromPence(pence)} +VAT`;
+const from = (pence, unit) => `From ${gbpFromPence(pence)} +VAT${unit ? ` /${unit}` : ""}`;
 
-// Named, ordered and described as in the services brochure's Our Services page. `book` is the booking pop-out's service;
-// `more` the full page (the videography page opens a product from its hash;
-// photography is reached from that page's opening).
-const SERVICES = [
+// The shoots: named, ordered and described as in the brochure. `book` is the
+// booking pop-out's service; `more` the full page (the videography page opens a
+// product from its hash; photography is reached from that page's opening).
+const SHOOTS = [
   {
     key: "studio", name: "Content Studio", price: from(tierPrice(studio.priceTiers[0], "direct")),
     body: "Batch-create weeks of short-form content in one professionally filmed studio session.",
@@ -45,271 +50,380 @@ const SERVICES = [
     body: "On-location filming focused on creating engaging social media content.",
     lead: "The Agent Edit includes:",
     list: agent.included,
-    rows: null,
     book: "agent", bookLabel: "Book a shoot", more: "/videography#agent",
   },
   {
-    key: "videography", name: "Property Videography", price: from(tierPrice(property.priceTiers[0], "direct")),
+    key: "property", name: "Property Videography", price: from(tierPrice(property.priceTiers[0], "direct")),
     body: "Professionally filmed property tours, promotional videos and photography to help listings stand out.",
     lead: "The Gold package includes:",
     list: property.included,
-    rows: null,
     book: "property", bookLabel: "Book a shoot", more: "/videography#property",
   },
   {
     key: "photography", name: "Property Photography", price: from(PHOTOGRAPHY.packages[0].member_pence),
     body: "Professional property photography, naturally edited and ready to use across portals, socials and your wider marketing.",
     lead: "Choose from three packages, with 25, 40 or 60 photos:",
-    list: null,
     rows: PHOTOGRAPHY.packages.map((pk) => ({ name: pk.name, note: photoInclusions(pk), price: from(pk.member_pence) })),
     book: "photography", bookLabel: "Book a shoot", more: "/videography",
   },
 ];
+
+// Social media, from the same data as /services.
+const SOCIAL = [...SOCIAL_SERVICES, ...SOCIAL_EXTRAS].map((s) => ({
+  key: s.key, name: s.name, body: s.summary, price: from(s.from_pence, s.unit),
+  full: s.openToNewClients === false,
+}));
+
+// Creative, as the brochure lists it.
+const CREATIVE = [
+  { key: "templates", name: "Social Media Templates", body: "Professionally designed, editable social media template packs created exclusively for estate agents.", price: "£24 +VAT /pack", link: { href: "/edit", label: "Shop the Edit" } },
+  { key: "design", name: "Creative Design", body: "Branding, brochures, print and digital marketing assets designed to strengthen your brand.", price: "Price on request" },
+  { key: "websites", name: "Website Development", body: "Beautiful, high-performing websites designed to showcase your brand and generate more enquiries.", price: "Price on request" },
+  { key: "email", name: "Email Marketing", body: "Professional newsletters, campaigns and automations to keep your audience engaged and informed.", price: "Price on request" },
+];
+
+// The opening's row: a picture for each thing we do, each going to it.
+const TILES = [
+  { to: "studio", name: "Content Studio", img: await pic(A("Jack%20-%20headshots/Content%20Studio/1.png"), 600, 800) },
+  { to: "property", name: "Property Videography", img: await pic(A("Jack%20-%20headshots/Property/CV311WHCompressed8.jpg"), 600, 800) },
+  { to: "photography", name: "Property Photography", img: await pic(A("Jack%20-%20headshots/Property/FC2-9%20(1).jpg"), 600, 800) },
+  { to: "agent", name: "Agent Videography", img: await pic(A("Jack%20-%20headshots/Agent/DonnaPlumb-19.jpg"), 600, 800) },
+  { to: "social", name: "Social Media", img: await pic(A("Smm%20hero.jpg"), 600, 800) },
+];
+const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
 ---
 
 <BaseLayout
   title="Our Services — TMKE"
-  description="Content Studio, agent and property videography, and property photography from TMKE, with your rate worked out automatically when you book."
+  description="Videography, photography, social media and creative from TMKE, with what each includes, what it costs and how to book."
   noindex
 >
-  <main class="ts">
-    <!-- The opening: what this page is, and one picture. -->
-    <header class="ts-hero">
-      <div class="ts-hero-copy">
-        <p class="ts-eyebrow">Finding a fit for your business</p>
-        <h1 class="ts-title">Four Ways We Can Help.</h1>
-        <p class="ts-intro">Here&rsquo;s a short overview of how we can help with your social media, your property listings and your own profile as an agent. You can open the full details for each service or go straight to booking, and your rate is worked out automatically when you book.</p>
+  <main class="os">
+    <!-- The opening: the Edit's row of pictures, then what this page is. -->
+    <header class="os-hero">
+      <p class="os-label">Finding a fit for your business</p>
+      <h1 class="os-title">Our Services.</h1>
+      <nav class="os-tiles" aria-label="Our services">
+        {TILES.map((t, i) => (
+          <a class="os-tile" href={`#${t.to}`} data-os-to={t.to}>
+            <span class="os-tile-img" style={`background-image:url('${t.img}')`}></span>
+            <span class="os-tile-cap"><span class="os-tile-num">{String(i + 1).padStart(2, "0")}</span><span class="os-tile-name">{t.name}</span></span>
+          </a>
+        ))}
+        <a class="os-tile os-tile--more" href="#creative" data-os-to="creative">
+          <span class="os-tile-more">And more</span>
+          <span class="os-tile-more-sub">Templates, design, websites and email</span>
+        </a>
+      </nav>
+      <div class="os-intro">
+        <span class="os-intro-eyebrow">TMKE &middot; The future of property marketing</span>
+        <p class="os-intro-copy">From filming and photography to social media and design, here&rsquo;s everything we can help with, in one place. Open the details for any service or book straight in, and your rate is worked out automatically when you book.</p>
       </div>
-      <figure class="ts-hero-pic"><img src={HERO_IMG} alt="" width="900" height="1125" /></figure>
     </header>
 
-    <!-- The four services. What's included stays folded until it's asked for. -->
-    <section class="ts-svcs" aria-label="Services">
-      <figure class="ts-svcs-pic"><img src={SVC_IMG} alt="" width="900" height="1125" loading="lazy" /></figure>
-      <div class="ts-svcs-list">
-        {SERVICES.map((s, i) => (
-          <article class="ts-svc" id={s.key}>
-            <p class="ts-svc-num">{String(i + 1).padStart(2, "0")}</p>
-            <h2 class="ts-svc-name">{s.name}</h2>
-            <p class="ts-svc-price">{s.price}</p>
-            <p class="ts-svc-body">{s.body}</p>
-            <div class="ts-more">
-              <button type="button" class="ts-more-head" aria-expanded="false" aria-controls={`ts-more-${s.key}`}>
-                <span>What&rsquo;s included</span><span class="ts-more-sign" aria-hidden="true"></span>
-              </button>
-              <div class="ts-more-body" id={`ts-more-${s.key}`}><div class="ts-more-inner">
-                <p class="ts-more-lead">{s.lead}</p>
-                {s.list && <ul class="ts-more-list">{s.list.map((x) => <li>{x}</li>)}</ul>}
-                {s.rows && (
-                  <dl class="ts-more-rows">
-                    {s.rows.map((r) => (
-                      <div class="ts-more-row"><dt>{r.name}</dt><dd class="ts-more-note">{r.note}</dd><dd class="ts-more-price">{r.price}</dd></div>
-                    ))}
-                  </dl>
-                )}
-              </div></div>
-            </div>
-            <div class="ts-svc-actions">
-              <button type="button" class="ts-btn" data-vbook={s.book}>{s.bookLabel} <span aria-hidden="true">&rarr;</span></button>
-              <a class="ts-link" href={s.more}>Discover more <span aria-hidden="true">&rsaquo;</span></a>
-            </div>
-          </article>
-        ))}
-        <p class="ts-svcs-note">For shoots on location, Jack covers a 40-mile radius of NN14 (Kettering). If you&rsquo;re further away, travel is added to your quote automatically.</p>
+    <!-- Videography: the four shoots, each bookable. -->
+    <section class="os-group" id="videography" aria-labelledby="os-h-video">
+      <div class="os-group-head">
+        <h2 class="os-group-title" id="os-h-video">Videography</h2>
+        <a class="os-link" href="/videography">Discover videography <span aria-hidden="true">&rsaquo;</span></a>
       </div>
+      {SHOOTS.map((s) => (
+        <article class="os-row os-row--shoot" id={s.key}>
+          <h3 class="os-row-name">{s.name}</h3>
+          <p class="os-row-body">{s.body}</p>
+          <p class="os-row-price">{s.price}</p>
+          <div class="os-row-more">
+            <div class="os-row-actions">
+              <button type="button" class="os-fold-head" aria-expanded="false" aria-controls={`os-fold-${s.key}`}>
+                What&rsquo;s included <span class="os-fold-sign" aria-hidden="true"></span>
+              </button>
+              <button type="button" class="os-btn" data-vbook={s.book}>{s.bookLabel} <span aria-hidden="true">&rarr;</span></button>
+              <a class="os-link" href={s.more}>Discover more <span aria-hidden="true">&rsaquo;</span></a>
+            </div>
+            <div class="os-fold" id={`os-fold-${s.key}`}><div class="os-fold-inner">
+              <p class="os-fold-lead">{s.lead}</p>
+              {s.list && <ul class="os-fold-list">{s.list.map((x) => <li>{x}</li>)}</ul>}
+              {s.rows && (
+                <dl class="os-fold-rows">
+                  {s.rows.map((r) => (
+                    <div class="os-fold-row"><dt>{r.name}</dt><dd class="os-fold-note">{r.note}</dd><dd class="os-fold-price">{r.price}</dd></div>
+                  ))}
+                </dl>
+              )}
+            </div></div>
+          </div>
+        </article>
+      ))}
+      <p class="os-note">For shoots on location, Jack covers a 40-mile radius of NN14 (Kettering). If you&rsquo;re further away, travel is added to your quote automatically.</p>
     </section>
 
-    <!-- The brochure, emailed over by the same form as the videography page. -->
-    <section class="ts-bro">
-      <figure class="ts-bro-pic"><img src={BROCHURE_IMG} alt="" width="900" height="700" loading="lazy" /></figure>
-      <div class="ts-bro-copy">
-        <p class="ts-eyebrow ts-eyebrow--paper">Brochure</p>
-        <h2 class="ts-h">The Full Picture, in One Brochure.</h2>
-        <p class="ts-bro-text">Our brochure sets out our videography and photography services in full, with what&rsquo;s included and what each one costs. Enter your name and email, and we&rsquo;ll send it to you.</p>
-        <button type="button" class="ts-btn ts-btn--paper" data-vid-brochure>Download the brochure <span aria-hidden="true">&rarr;</span></button>
+    <!-- Social media: a line and a price each; the detail lives on /services. -->
+    <section class="os-group" id="social" aria-labelledby="os-h-social">
+      <div class="os-group-head">
+        <h2 class="os-group-title" id="os-h-social">Social Media</h2>
+        <a class="os-link" href="/services">Discover social media <span aria-hidden="true">&rsaquo;</span></a>
+      </div>
+      {SOCIAL.map((s) => (
+        <article class="os-row">
+          <h3 class="os-row-name">{s.name}{s.full && <span class="os-tag">Waiting list</span>}</h3>
+          <p class="os-row-body">{s.body}</p>
+          <p class="os-row-price">{s.price}</p>
+        </article>
+      ))}
+    </section>
+
+    <!-- Creative: templates go to the Edit; the rest are quoted, so to the form. -->
+    <section class="os-group" id="creative" aria-labelledby="os-h-creative">
+      <div class="os-group-head">
+        <h2 class="os-group-title" id="os-h-creative">Creative</h2>
+        <a class="os-link" href="#get-in-touch" data-os-to="get-in-touch">Ask about a project <span aria-hidden="true">&rsaquo;</span></a>
+      </div>
+      {CREATIVE.map((s) => (
+        <article class="os-row">
+          <h3 class="os-row-name">{s.name}</h3>
+          <p class="os-row-body">{s.body}{s.link && <> <a class="os-inline" href={s.link.href}>{s.link.label} <span aria-hidden="true">&rsaquo;</span></a></>}</p>
+          <p class="os-row-price">{s.price}</p>
+        </article>
+      ))}
+    </section>
+
+    <!-- The services brochure: the social media page's form, which emails it. -->
+    <section class="os-bro">
+      <figure class="os-bro-pic"><img src={BROCHURE_IMG} alt="" width="900" height="700" loading="lazy" /></figure>
+      <div class="os-bro-copy">
+        <p class="os-label os-label--paper">Brochure</p>
+        <h2 class="os-h">The Full Picture, in One Brochure.</h2>
+        <p class="os-bro-text">Our services brochure sets out everything we do in full, with what&rsquo;s included and what each service costs. Enter your name and email, and we&rsquo;ll send it to you.</p>
+        <button type="button" class="os-btn os-btn--paper" data-smm-form="brochure">Download the brochure <span aria-hidden="true">&rarr;</span></button>
       </div>
     </section>
 
     <!-- Get in touch: the Contact page's form, with Jack's details under it. -->
-    <section class="ts-touch" id="get-in-touch">
-      <div class="ts-touch-copy">
-        <p class="ts-eyebrow">Get in touch</p>
-        <h2 class="ts-h">Talk to Us Before You Book.</h2>
-        <p class="ts-touch-text">If you&rsquo;re not sure which service suits you, or you have a question about anything on this page, send us a message and it&rsquo;ll go straight to our team.</p>
+    <section class="os-touch" id="get-in-touch">
+      <div class="os-touch-copy">
+        <p class="os-label">Get in touch</p>
+        <h2 class="os-h">Talk to Us Before You Book.</h2>
+        <p class="os-touch-text">If you&rsquo;re not sure which service suits you, or you have a question about anything on this page, send us a message and it&rsquo;ll go straight to our team.</p>
       </div>
       <ContactForm source="videography_services_page" trackAs="services_page">
-        <p class="ts-jack">
+        <p class="os-jack">
           Prefer to speak to Jack directly? Email him at <a href="mailto:jack@tmke.co.uk">jack@tmke.co.uk</a> or
-          <button type="button" class="ts-jack-call" data-vbook="discovery">book a short call with him <span aria-hidden="true">&rsaquo;</span></button>
+          <button type="button" class="os-jack-call" data-vbook="discovery">book a short call with him <span aria-hidden="true">&rsaquo;</span></button>
         </p>
       </ContactForm>
     </section>
   </main>
 
   <VideographyBooking />
-  <VideographyBrochureForm />
+  <SMMForms brochureLead="Everything we do, in one place. Download our services brochure for a full breakdown of what's included, how it works, and what it costs." />
 </BaseLayout>
 
 <script>
-  // What's included: one open at a time per service, folded by default.
-  document.querySelectorAll(".ts-more").forEach((box) => {
-    const head = box.querySelector(".ts-more-head");
+  // What's included: folded until asked for.
+  document.querySelectorAll(".os-row--shoot").forEach((row) => {
+    const head = row.querySelector(".os-fold-head");
     head?.addEventListener("click", () => {
-      const on = !box.classList.contains("is-open");
-      box.classList.toggle("is-open", on);
+      const on = !row.classList.contains("is-open");
+      row.classList.toggle("is-open", on);
       head.setAttribute("aria-expanded", on ? "true" : "false");
     });
   });
+  // The picture row and in-page links land clear of the nav. Caught before the
+  // site's own anchor scroll, which stops at the very top of the target.
+  document.addEventListener("click", (e) => {
+    const a = (e.target as Element).closest?.("[data-os-to]");
+    if (!a) return;
+    const target = document.getElementById(a.getAttribute("data-os-to") || "");
+    if (!target) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const lenis = (window as any).__lenis;
+    if (lenis) lenis.scrollTo(target, { offset: -110, duration: 1.2 });
+    else window.scrollTo({ top: target.getBoundingClientRect().top + scrollY - 110, behavior: "smooth" });
+  }, true);
 </script>
 
 <style is:global>
   /* The nav sits on paper here, as on any PageHero page. */
-  body:has(.ts) .nav { background: var(--paper); color: var(--ink); }
+  body:has(.os) .nav { background: var(--paper); color: var(--ink); }
 
-  .ts { background: var(--paper); color: var(--ink); }
-  .ts-eyebrow {
-    margin: 0 0 18px; font-family: var(--sans); font-size: 11px; font-weight: 700;
+  /* Headings on this page are in the copy face, as the Edit's tiles are, not
+     the site's heading face (Danielle, 29 Oct). */
+  .os { --hairline: rgba(28, 29, 34, 0.14); background: var(--paper); color: var(--ink); font-family: var(--sans); }
+  .os-label {
+    margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 700;
     letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
   }
-  .ts-eyebrow--paper { color: rgba(244, 242, 241, 0.7); }
-  .ts-h {
-    margin: 0 0 16px; font-family: var(--serif); font-weight: 400;
-    font-size: clamp(32px, 3.4vw, 50px); line-height: 1.04; letter-spacing: -0.02em; color: var(--english-violet);
+  .os-label--paper { color: rgba(244, 242, 241, 0.72); }
+  .os-h {
+    margin: 14px 0 14px; font-family: var(--sans); font-weight: 600;
+    font-size: clamp(28px, 2.6vw, 38px); line-height: 1.08; letter-spacing: -0.01em; color: var(--english-violet);
   }
 
   /* ---- The opening ---- */
-  .ts-hero {
-    display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
-    gap: clamp(32px, 6vw, 110px); align-items: end;
-    padding: clamp(130px, 18vh, 190px) var(--page-gutter) clamp(56px, 8vh, 96px);
+  .os-hero {
+    display: flex; flex-direction: column; gap: 20px;
+    padding: clamp(128px, 17vh, 176px) var(--page-gutter) clamp(40px, 6vh, 72px);
   }
-  .ts-title {
-    margin: 0 0 24px; font-family: var(--serif); font-weight: 400;
-    font-size: clamp(52px, 7vw, 104px); line-height: 0.98; letter-spacing: -0.025em; color: var(--english-violet);
+  .os-title {
+    margin: -8px 0 4px; font-family: var(--sans); font-weight: 600;
+    font-size: clamp(30px, 3vw, 44px); line-height: 1.05; letter-spacing: -0.01em; color: var(--english-violet);
   }
-  .ts-intro {
-    margin: 0; max-width: 75%;
-    font-family: var(--sans); font-size: clamp(15px, 1.2vw, 18px); line-height: 1.65; color: rgba(28, 29, 34, 0.7);
+  .os-tiles {
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px;
+    border-top: 1px solid var(--hairline); padding-top: clamp(16px, 2vh, 26px);
   }
-  .ts-hero-pic, .ts-svcs-pic, .ts-bro-pic { margin: 0; overflow: hidden; border-radius: 2px; background: #e9e4da; }
-  .ts-hero-pic img, .ts-svcs-pic img, .ts-bro-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .ts-hero-pic { aspect-ratio: 4 / 5; }
+  .os-tile {
+    position: relative; display: block; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px;
+    background: rgba(28, 29, 34, 0.06); text-decoration: none; color: var(--english-violet);
+  }
+  .os-tile-img { position: absolute; inset: 0; background-size: cover; background-position: center; transition: transform 0.6s cubic-bezier(.2,.8,.2,1); }
+  .os-tile:hover .os-tile-img { transform: scale(1.04); }
+  .os-tile-cap {
+    position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 1;
+    display: flex; flex-direction: column; gap: 3px; padding: 10px 12px;
+    background: var(--paper); border-radius: 2px;
+  }
+  .os-tile-num { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; color: var(--english-violet); }
+  .os-tile-name { font-family: var(--sans); font-weight: 500; font-size: clamp(14px, 0.95vw, 17px); line-height: 1.2; color: var(--english-violet); }
+  .os-tile:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+  /* The last tile: wine, as the Edit's Next tile is. */
+  .os-tile--more {
+    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px;
+    padding: 16px; text-align: center; box-sizing: border-box;
+    background: var(--english-violet); color: var(--paper); border: 1px solid var(--english-violet);
+    transition: background 0.25s ease, color 0.25s ease;
+  }
+  .os-tile--more:hover { background: transparent; color: var(--english-violet); }
+  .os-tile-more { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; }
+  .os-tile-more-sub { font-family: var(--sans); font-size: 14px; line-height: 1.35; opacity: 0.8; }
+  .os-intro {
+    display: flex; flex-direction: column; gap: 10px;
+    background: var(--english-violet); color: var(--paper);
+    border-radius: 4px; padding: clamp(20px, 2.4vw, 34px);
+  }
+  .os-intro-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(244, 242, 241, 0.72); }
+  .os-intro-copy { margin: 0; max-width: 75%; font-family: var(--sans); font-size: clamp(14px, 1.15vw, 16.5px); line-height: 1.6; color: rgba(244, 242, 241, 0.86); }
 
-  /* ---- The services ---- */
-  .ts-svcs {
-    display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-    gap: clamp(32px, 6vw, 110px); align-items: start;
-    padding: clamp(40px, 6vh, 72px) var(--page-gutter) clamp(72px, 10vh, 120px);
-    border-top: 1px solid rgba(28, 29, 34, 0.14);
+  /* ---- The groups: the brochure's Our Services page ---- */
+  .os-group { padding: clamp(36px, 5vh, 60px) var(--page-gutter) 0; }
+  .os-group-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 18px;
+    padding-bottom: 12px; border-bottom: 1px solid rgba(28, 29, 34, 0.3);
   }
-  .ts-svcs-pic { position: sticky; top: 110px; aspect-ratio: 4 / 5; }
-  .ts-svcs-list { display: flex; flex-direction: column; }
-  .ts-svc { padding: 30px 0 32px; border-bottom: 1px solid rgba(28, 29, 34, 0.14); scroll-margin-top: 100px; }
-  .ts-svc:first-child { padding-top: 0; }
-  .ts-svc-num {
-    margin: 0 0 10px; font-family: var(--sans); font-size: 11px; font-weight: 700;
-    letter-spacing: 0.22em; color: rgba(28, 29, 34, 0.4);
+  .os-group-title {
+    margin: 0; font-family: var(--sans); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet);
   }
-  /* The heading face, never The Seasons (Danielle's rule for card titles). */
-  .ts-svc-name {
-    margin: 0 0 8px; font-family: var(--serif); font-weight: 500;
-    font-size: clamp(22px, 1.8vw, 27px); line-height: 1.2; letter-spacing: -0.01em; color: var(--english-violet);
+  .os-row {
+    display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 2fr) minmax(0, 0.8fr);
+    column-gap: clamp(20px, 3vw, 48px); align-items: baseline;
+    padding: 16px 0; border-bottom: 1px solid var(--hairline);
   }
-  .ts-svc-price {
-    margin: 0 0 12px; font-family: var(--sans); font-size: 11px; font-weight: 700;
-    letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet);
+  /* h3, so named outright: h3 is The Seasons by default on this site. */
+  .os-row-name {
+    margin: 0; font-family: var(--sans); font-weight: 600; font-size: 17px;
+    line-height: 1.3; letter-spacing: 0; color: var(--ink);
   }
-  .ts-svc-body {
-    margin: 0 0 18px; max-width: 75%;
-    font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(28, 29, 34, 0.72);
+  .os-tag {
+    display: inline-block; margin-left: 10px; padding: 3px 7px; vertical-align: 2px;
+    border: 1px solid rgba(55, 30, 40, 0.35); border-radius: 2px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet);
   }
+  .os-row-body { margin: 0; font-size: 15.5px; line-height: 1.55; color: rgba(28, 29, 34, 0.72); }
+  .os-row-price { margin: 0; text-align: right; font-size: 15px; font-weight: 600; color: var(--english-violet); white-space: nowrap; }
+  .os-inline { white-space: nowrap; font-weight: 700; color: var(--english-violet); text-decoration: none; }
+  .os-inline:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-  .ts-more { border-top: 1px solid rgba(28, 29, 34, 0.1); border-bottom: 1px solid rgba(28, 29, 34, 0.1); margin-bottom: 22px; }
-  .ts-more-head {
-    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 18px;
-    background: none; border: 0; padding: 14px 0; cursor: pointer; text-align: left;
-    font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: var(--ink);
+  .os-row-more { grid-column: 2 / -1; margin-top: 12px; }
+  .os-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; }
+  .os-fold-head {
+    display: inline-flex; align-items: center; gap: 12px; background: none; border: 0; padding: 0; cursor: pointer;
+    font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink);
   }
-  .ts-more-head:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
-  .ts-more-sign { position: relative; width: 11px; height: 11px; flex: none; }
-  .ts-more-sign::before, .ts-more-sign::after {
+  .os-fold-sign { position: relative; width: 11px; height: 11px; flex: none; }
+  .os-fold-sign::before, .os-fold-sign::after {
     content: ""; position: absolute; left: 0; top: 5px; width: 11px; height: 1px;
-    background: rgba(28, 29, 34, 0.55); transition: transform 0.3s ease;
+    background: rgba(28, 29, 34, 0.6); transition: transform 0.3s ease;
   }
-  .ts-more-sign::after { transform: rotate(90deg); }
-  .ts-more.is-open .ts-more-sign::after { transform: rotate(0deg); }
-  .ts-more-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.4s cubic-bezier(.2,.8,.2,1); }
-  .ts-more.is-open .ts-more-body { grid-template-rows: 1fr; }
-  .ts-more-inner { overflow: hidden; }
-  .ts-more-body:not(:is(.ts-more.is-open *)) .ts-more-inner { visibility: hidden; transition: visibility 0s 0.4s; }
-  .ts-more-lead { margin: 2px 0 10px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28, 29, 34, 0.72); }
-  .ts-more-list { margin: 0 0 18px; padding: 0 0 0 18px; font-family: var(--sans); font-size: 14px; line-height: 1.7; color: rgba(28, 29, 34, 0.78); }
-  .ts-more-rows { margin: 0 0 18px; }
-  .ts-more-row {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 18px;
-    padding: 10px 0; border-top: 1px solid rgba(28, 29, 34, 0.08);
-    font-family: var(--sans); font-size: 14px;
-  }
-  .ts-more-row dt { font-weight: 700; color: var(--ink); }
-  .ts-more-row dd { margin: 0; }
-  .ts-more-note { grid-column: 1; grid-row: 2; color: rgba(28, 29, 34, 0.65); line-height: 1.5; margin-top: 2px !important; }
-  .ts-more-price { grid-column: 2; grid-row: 1; font-weight: 700; color: var(--english-violet); white-space: nowrap; }
+  .os-fold-sign::after { transform: rotate(90deg); }
+  .os-row.is-open .os-fold-sign::after { transform: rotate(0deg); }
+  .os-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.4s cubic-bezier(.2,.8,.2,1); }
+  .os-row.is-open .os-fold { grid-template-rows: 1fr; }
+  .os-fold-inner { overflow: hidden; visibility: hidden; transition: visibility 0s 0.4s; }
+  .os-row.is-open .os-fold-inner { visibility: visible; transition: none; }
+  .os-fold-lead { margin: 16px 0 8px; font-size: 15px; line-height: 1.6; color: rgba(28, 29, 34, 0.72); }
+  .os-fold-list { margin: 0 0 6px; padding-left: 18px; font-size: 15px; line-height: 1.7; color: rgba(28, 29, 34, 0.78); }
+  .os-fold-rows { margin: 0 0 6px; }
+  .os-fold-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 18px; padding: 9px 0; border-top: 1px solid rgba(28, 29, 34, 0.08); font-size: 15px; }
+  .os-fold-row dt { font-weight: 700; color: var(--ink); }
+  .os-fold-row dd { margin: 0; }
+  .os-fold-note { grid-column: 1; grid-row: 2; margin-top: 2px !important; line-height: 1.5; color: rgba(28, 29, 34, 0.65); }
+  .os-fold-price { grid-column: 2; grid-row: 1; font-weight: 700; white-space: nowrap; color: var(--english-violet); }
 
-  .ts-svc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 26px; }
-  .ts-btn {
+  .os-btn {
     display: inline-flex; align-items: center; gap: 10px;
     background: var(--english-violet); color: var(--paper);
-    border: 0; border-radius: 3px; padding: 13px 26px; cursor: pointer;
-    font-family: var(--sans); font-size: 11px; font-weight: 700;
-    letter-spacing: 0.18em; text-transform: uppercase;
+    border: 0; border-radius: 3px; padding: 11px 20px; cursor: pointer;
+    font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
     transition: gap 0.25s ease, background 0.25s ease, color 0.25s ease;
   }
-  .ts-btn:hover { gap: 16px; background: var(--ink); }
-  .ts-btn:focus-visible, .ts-link:focus-visible, .ts-jack-call:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
-  .ts-link {
+  .os-btn:hover { gap: 16px; background: var(--ink); }
+  .os-btn--paper { padding: 13px 26px; background: var(--paper); color: var(--english-violet); }
+  .os-btn--paper:hover { background: #fff; color: var(--ink); }
+  .os-link {
     display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
-    font-family: var(--sans); font-size: 11px; font-weight: 700;
-    letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet);
-    transition: gap 0.25s ease;
+    font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--english-violet); transition: gap 0.25s ease;
   }
-  .ts-link:hover { gap: 15px; }
-  .ts-svcs-note { margin: 22px 0 0; font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28, 29, 34, 0.6); }
+  .os-link:hover { gap: 15px; }
+  .os-btn:focus-visible, .os-link:focus-visible, .os-fold-head:focus-visible, .os-inline:focus-visible, .os-jack-call:focus-visible {
+    outline: 2px solid var(--english-violet); outline-offset: 3px;
+  }
+  .os-btn--paper:focus-visible { outline-color: var(--paper); }
+  .os-note { margin: 14px 0 0; font-size: 14px; line-height: 1.6; color: rgba(28, 29, 34, 0.6); }
 
   /* ---- The brochure: a wine band ---- */
-  .ts-bro {
+  .os-bro {
     display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
     gap: clamp(32px, 6vw, 110px); align-items: center;
-    padding: clamp(48px, 8vh, 96px) var(--page-gutter);
+    margin-top: clamp(56px, 8vh, 96px); padding: clamp(48px, 8vh, 96px) var(--page-gutter);
     background: var(--english-violet); color: var(--paper);
   }
-  .ts-bro-pic { aspect-ratio: 9 / 7; }
-  .ts-bro .ts-h { color: var(--paper); }
-  .ts-bro-text { margin: 0 0 26px; max-width: 75%; font-family: var(--sans); font-size: 15px; line-height: 1.65; color: rgba(244, 242, 241, 0.78); }
-  .ts-btn--paper { background: var(--paper); color: var(--english-violet); }
-  .ts-btn--paper:hover { background: #fff; color: var(--ink); }
-  .ts-btn--paper:focus-visible { outline-color: var(--paper); }
+  .os-bro-pic { margin: 0; aspect-ratio: 9 / 7; overflow: hidden; border-radius: 2px; }
+  .os-bro-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .os-bro .os-h { color: var(--paper); }
+  .os-bro-text { margin: 0 0 26px; max-width: 75%; font-size: 16px; line-height: 1.65; color: rgba(244, 242, 241, 0.8); }
 
   /* ---- Get in touch ---- */
-  .ts-touch {
+  .os-touch {
     display: grid; grid-template-columns: minmax(0, 0.86fr) minmax(0, 1fr);
     gap: clamp(40px, 6vw, 110px); align-items: start;
     padding: clamp(72px, 11vh, 130px) var(--page-gutter);
   }
-  .ts-touch-text { margin: 0; max-width: 40ch; font-family: var(--sans); font-size: clamp(15px, 1.2vw, 18px); line-height: 1.65; color: rgba(28, 29, 34, 0.66); }
-  .ts-jack {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
-    margin: 18px 0 0; font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.7);
-  }
-  .ts-jack a { color: var(--ink); text-decoration: none; border-bottom: 1px solid rgba(28, 29, 34, 0.3); padding-bottom: 1px; }
-  .ts-jack a:hover { color: var(--english-violet); border-color: var(--english-violet); }
-  .ts-jack-call { background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--english-violet); }
-  .ts-jack-call:hover { opacity: 0.7; }
+  .os-touch-text { margin: 0; max-width: 40ch; font-size: clamp(15px, 1.2vw, 18px); line-height: 1.65; color: rgba(28, 29, 34, 0.66); }
+  .os-jack { margin: 18px 0 0; font-size: 15px; line-height: 1.6; color: rgba(28, 29, 34, 0.7); }
+  .os-jack a { color: var(--ink); text-decoration: none; border-bottom: 1px solid rgba(28, 29, 34, 0.3); }
+  .os-jack a:hover { color: var(--english-violet); border-color: var(--english-violet); }
+  .os-jack-call { background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--sans); font-size: 15px; font-weight: 600; color: var(--english-violet); }
+  .os-jack-call:hover { opacity: 0.7; }
 
+  @media (max-width: 1100px) {
+    .os-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
   @media (max-width: 900px) {
-    .ts-hero, .ts-svcs, .ts-bro, .ts-touch { grid-template-columns: 1fr; }
-    .ts-intro, .ts-svc-body, .ts-bro-text { max-width: none; }
-    .ts-hero-pic { aspect-ratio: 16 / 10; }
-    .ts-svcs-pic { display: none; }
-    .ts-svcs { padding-top: 32px; }
+    .os-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
+    .os-row-name { grid-column: 1; }
+    .os-row-price { grid-column: 2; grid-row: 1; }
+    .os-row-body, .os-row-more { grid-column: 1 / -1; }
+    .os-intro-copy, .os-bro-text { max-width: none; }
+    .os-bro, .os-touch { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .os-tiles { gap: 4px; }
+    .os-tile-cap { left: 4px; right: 4px; bottom: 4px; padding: 6px 7px; }
+    .os-tile-num { display: none; }
+    .os-tile-name { font-size: 12px; }
+    .os-tile-more-sub { display: none; }
+    .os-group-head { flex-direction: column; gap: 8px; }
   }
 </style>

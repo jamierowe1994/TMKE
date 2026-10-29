@@ -8,6 +8,9 @@
 import { ACCOUNT_HELP, COPY, PRIVACY_URL, BROCHURE_URL } from "../lib/smm-config.js";
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
+// /ourservices offers the same brochure for every service, not only social media.
+interface Props { brochureLead?: string }
+const { brochureLead = COPY.ctas.brochure.body } = Astro.props;
 ---
 
 <div class="smf-scrim" id="smf-scrim" hidden></div>
@@ -101,7 +104,7 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
     <form class="smf-form" data-smf-pane="brochure" data-kind="brochure" data-endpoint="/smm/brochure" novalidate hidden>
       <p class="smf-eyebrow">TMKE — Social Media</p>
       <h2 class="smf-title">Download a brochure.</h2>
-      <p class="smf-lead">{COPY.ctas.brochure.body}</p>
+      <p class="smf-lead">{brochureLead}</p>
 
       <label class="smf-field">Full name <span>*</span><input name="full_name" required autocomplete="name" /></label>
       <label class="smf-field">Email <span>*</span><input type="email" name="email" required autocomplete="email" /></label>
