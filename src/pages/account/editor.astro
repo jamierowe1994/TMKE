@@ -5835,7 +5835,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     import { loadBrandFonts } from '../../lib/brand-fonts.js';
     // Uploaded brand fonts, from the start, before any design is drawn.
     loadBrandFonts(supabase);
-    import { track } from '../../lib/track.js';
+    import { track, reportStudioFault } from '../../lib/track.js';
     import { installTimePicker } from '../../lib/time-picker.js';
     installTimePicker();
     // Downloads happen in the browser, so the editor tells us when one has
@@ -5869,7 +5869,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     /* The engine fell back to something lesser (Danielle, 28 Oct): "If
        anything is reverting to a fall back… we should somehow be made aware."
        Recorded as a site event wherever it happens, a member's browser too,
-       once per kind a visit, with what was open; the team's own included. */
+       once per kind a visit, with what was open; the team's own included.
+       Sent even when analytics was declined, but then anonymously (29 Oct). */
     {
       const seen = new Set();
       const onFallback = (f) => {
@@ -5877,7 +5878,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (!kind || seen.has(kind)) return;
         seen.add(kind);
         const q = new URLSearchParams(location.search);
-        track('studio_fallback', {
+        reportStudioFault({
           kind,
           detail: f.detail ? String(f.detail).slice(0, 300) : null,
           template: f.template || q.get('template') || null,

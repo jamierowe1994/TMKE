@@ -115,6 +115,38 @@ export async function track(name, props = {}) {
   }
 }
 
+/**
+ * Report that the Studio fell back to something lesser (Danielle, 28-29 Oct).
+ * A visitor who allowed analytics is recorded as usual, so the team can see
+ * whose design it was and help. Anyone else is still reported, but with
+ * nothing that points to them (Danielle: "providing we're not reporting
+ * anything they haven't given us permission to"): no account, no visit id,
+ * no referrer, no design, and links and email addresses taken out of the
+ * error text. Nothing is stored in the browser for it.
+ * @param {object} props  { kind, detail, template, design, admin }
+ */
+export async function reportStudioFault(props = {}) {
+  if (!isConfigured || !props || !props.kind) return;
+  if (analyticsAllowed() && !trackingOff()) return track('studio_fallback', props);
+  try {
+    const scrub = (v) => v == null ? null : String(v)
+      .replace(/(?:https?:|data:|blob:)\S+/gi, '[link]')
+      .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email]')
+      .slice(0, 300);
+    await supabase.from('site_events').insert({
+      name: 'studio_fallback',
+      path: typeof location !== 'undefined' ? location.pathname : null,
+      props: {
+        kind: String(props.kind).slice(0, 60),
+        detail: scrub(props.detail),
+        template: props.template ? String(props.template).slice(0, 80) : null,
+        admin: !!props.admin,
+        anonymous: true,
+      },
+    });
+  } catch (_) { /* best-effort, like track() */ }
+}
+
 /** Convenience: record a page view for the current page. */
 export function trackPageview(extra = {}) {
   // Gated on consent — the banner re-calls this after the visitor accepts.

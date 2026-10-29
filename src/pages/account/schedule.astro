@@ -555,15 +555,17 @@ import "../../styles/account-sections.css";
     /* ---------- The grid itself ---------- */
     .cal-grid {
       display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      grid-auto-rows: minmax(118px, 1fr);
+      grid-template-columns: repeat(7, minmax(0, 1fr));
       gap: var(--cal-gap);
     }
 
     /* Hairline-outlined, square-cornered, unfilled — the same card the rest of
        the hub uses. A month is 35 of these at once, so anything heavier than a
        hairline reads as a wall of boxes rather than a calendar. */
+    /* 4:5, the shape of a post, like the Content Calendar's days (Dani, 29 Oct). */
     .cal-day {
+      aspect-ratio: 4 / 5;
+      min-width: 0;
       position: relative;
       display: flex;
       flex-direction: column;
@@ -711,7 +713,8 @@ import "../../styles/account-sections.css";
       .cal-legend { display: none; }
       .cal-grid { grid-auto-rows: minmax(82px, 1fr); gap: 6px; }
       .cal-weekhead { display: none; }
-      .cal-day { padding: 6px 7px 8px; }
+      /* A phone's day is too narrow for 4:5 to hold its entries. */
+      .cal-day { aspect-ratio: auto; padding: 6px 7px 8px; }
       .cal-day-dow { display: inline-block; }
       .cal-chip { font-size: var(--ws-t-label); padding: 2px 5px; }
     }
