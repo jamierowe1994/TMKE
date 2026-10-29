@@ -498,6 +498,12 @@ export const BUFFERED_SERVICES = ["property", "agent"];
 // a location shoot, take no bookings at all except new-starter Studio Day
 // sessions (Danielle, 22 Oct 2026); see diaryBlocksFrom in the Worker.
 export const STUDIO_DAY_BUFFER_DAYS = 1;
+// Off for now (Danielle, 29 Oct 2026): Jack blocks his own editing time in
+// his calendar, so the days worked out here doubled up with his. With this
+// false no editing days are assumed anywhere (booking page, admin calendar);
+// his calendar and the shoots themselves still close days. True brings the
+// rules above back unchanged.
+export const AUTO_EDITING_DAYS = false;
 export const isOffLocation = (serviceKey) => OFF_LOCATION_SERVICES.includes(serviceKey);
 
 // ---- Fine & Country offices -------------------------------------------------

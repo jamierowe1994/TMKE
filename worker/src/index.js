@@ -19,7 +19,7 @@
 // bundle into the Worker.)
 import { renderTemplate, mergeContextFor, defaultBrand } from "../../src/lib/email-render.js";
 import { EMAIL_STYLE_DEFAULTS, emailStyleStrings, styleEmailContent } from "../../src/lib/email-styles.js";
-import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES, STUDIO_DAY_BUFFER_DAYS, packageBrief, STUDIO_LOCATION, bookingInvoiceDraft } from "../../src/lib/videography-config.js";
+import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES, STUDIO_DAY_BUFFER_DAYS, AUTO_EDITING_DAYS, packageBrief, STUDIO_LOCATION, bookingInvoiceDraft } from "../../src/lib/videography-config.js";
 // Invoice PDF: reuse the same pure renderer the admin preview uses, then print
 // it to a real A4 PDF with Browser Rendering (headless Chrome).
 import { renderInvoiceHtml, money } from "../../src/lib/invoice-render.js";
@@ -2702,6 +2702,7 @@ function diaryBlocksFrom(rows, date, service, skip) {
    editing is Friday and Monday, not Friday and Saturday (found 29 Oct). */
 const EDITING_LOOKBACK_DAYS = 21;
 function editingDaysFrom(rows, until, skip) {
+  if (!AUTO_EDITING_DAYS) return {};   // paused: Jack's calendar holds his editing (29 Oct)
   const dayOf = (r) => (r.kind === "booking" ? String(r.shoot_date).slice(0, 10) : londonParts(r.shoot_date).ymd);
   const busy = new Set(), adds = {};
   for (const r of rows) {
