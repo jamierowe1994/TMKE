@@ -1767,9 +1767,25 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               <div class="smm-modal-field"><label>Company</label><input type="text" id="vidx-company" value="${esc(r.business || "")}" /></div>
               <div class="smm-modal-field"><label>Shoot date</label><input type="datetime-local" id="vidx-date" step="900" /></div>
             </div>
-            <div class="smm-modal-field">
-              <label>Service</label>
-              <input type="text" id="vidx-service" placeholder="Property video, podcast&hellip;" />
+            <!-- The kind of shoot decides Jack's diary: a location shoot closes its
+                 day and the two editing days after; a studio session only its
+                 hours. The package name in Service says neither (Danielle,
+                 29 Oct: "Shot & Scheduled" shoots had no editing days). -->
+            <div class="smm-modal-two">
+              <div class="smm-modal-field">
+                <label>Kind of shoot</label>
+                <select id="vidx-kind">
+                  <option value="">Choose&hellip;</option>
+                  <option value="agent">On location</option>
+                  <option value="property">Property video</option>
+                  <option value="content-studio">In the studio</option>
+                  <option value="photography">Photography</option>
+                </select>
+              </div>
+              <div class="smm-modal-field">
+                <label>Service</label>
+                <input type="text" id="vidx-service" placeholder="Shot &amp; Scheduled, podcast&hellip;" />
+              </div>
             </div>
             <div class="smm-modal-field">
               <label>Shoot location</label>
@@ -1791,13 +1807,15 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
       $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
       $("vidx-save").addEventListener("click", () => saveVideographyBooking(r));
-      $("vidx-service").focus();
+      $("vidx-kind").focus();
     }
 
     async function saveVideographyBooking(r) {
       const status = $("vidx-status");
       const service = ($("vidx-service")?.value || "").trim();
       const when = $("vidx-date")?.value || "";
+      const kind = $("vidx-kind")?.value || "";
+      if (!kind) { if (status) { status.textContent = "Say what kind of shoot it is."; status.style.color = "#a3372b"; } return; }
       if (!service) { if (status) { status.textContent = "Say what we're shooting."; status.style.color = "#a3372b"; } return; }
 
       const btn = $("vidx-save");
@@ -1811,6 +1829,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         client_phone: val("vidx-phone") || null,
         client_company: val("vidx-company") || null,
         service,
+        service_type: kind,
         shoot_date: when ? new Date(when).toISOString() : null,
         location: val("vidx-location") || null,
         property_address: val("vidx-address") || null,
