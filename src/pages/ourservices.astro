@@ -10,10 +10,10 @@
 //      Scrolling lifts the background and drops the rectangle at the same
 //      time, revealing the next slide underneath.
 //   2. Every service as a numbered list; a row opens to its summary and links.
-//   3. A light field of our work drifting past at different speeds, two or
-//      three seconds of scrolling.
-//   4. The services brochure.
-//   5. Get in touch, with the form in a pop-out rather than on the page.
+//   3. Our work: small pictures with room round them, each rising into place
+//      as it comes up the screen.
+//   4. The services brochure, as words and a button in that field's corner.
+//   5. Get in touch in a rounded picture box, the form in a pop-out.
 //
 // Headings are on trial here before the site changes: Fraunces Light at -5%,
 // or with ?h=lora, Lora Regular at -5% (Danielle, 29 Oct), to replace Space
@@ -68,23 +68,30 @@ const SERVICES = [
   { group: "Creative", name: "Email Marketing", body: "Professional newsletters, campaigns and automations to keep your audience engaged and informed.", price: "Price on request", ask: true },
 ];
 
-// 3. Our work: where each picture sits in the field (left %, top % of the
-// section, width in vw) and how fast it drifts against the scroll.
+// 3. Our work: small pictures with a lot of room round them, portrait and
+// landscape, placed by hand: left % of the width, top in vh, width in vw.
+// The brochure's words sit in the space at the field's bottom right.
 const WORK = [
-  { src: "Jack%20-%20headshots/Property/LeahMusana-14.jpg", x: 7, y: 4, w: 17, s: 0.6 },
-  { src: "Jack%20-%20headshots/Content%20Studio/3.png", x: 56, y: 0, w: 15, s: 1.1 },
-  { src: "Jack%20-%20headshots/Agent/12-June-6.jpg", x: 78, y: 16, w: 14, s: 0.8 },
-  { src: "Jack%20-%20headshots/Property/FC2-13%20(1).jpg", x: 30, y: 22, w: 19, s: 0.4 },
-  { src: "Jack%20-%20headshots/Agent/AM-40.jpg", x: 8, y: 44, w: 16, s: 1.0 },
-  { src: "Jack%20-%20headshots/Content%20Studio/4.png", x: 60, y: 42, w: 15, s: 0.7 },
-  { src: "Jack%20-%20headshots/Property/CV311WHCompressed21%20(1).jpg", x: 36, y: 62, w: 18, s: 1.2 },
-  { src: "Jack%20-%20headshots/Agent/ADMay-28.jpg", x: 80, y: 64, w: 13, s: 0.5 },
-  { src: "Jack%20-%20headshots/Content%20Studio/5.png", x: 4, y: 76, w: 15, s: 0.9 },
-  { src: "Jack%20-%20headshots/Property/LeahMusana-9%20(1).jpg", x: 62, y: 82, w: 17, s: 0.6 },
+  { src: "Jack%20-%20headshots/Agent/EMay-61.jpg", x: 0, y: 8, w: 10, r: "4/5" },
+  { src: "Jack%20-%20headshots/Property/FC2-9%20(1).jpg", x: 32, y: 8, w: 11, r: "13/10" },
+  { src: "Jack%20-%20headshots/Content%20Studio/3.png", x: 64, y: 4, w: 11, r: "4/5" },
+  { src: "living-1.webp", x: 92, y: 15, w: 10, r: "4/5" },
+  { src: "Jack%20-%20headshots/Agent/12-June-6.jpg", x: 17, y: 42, w: 11, r: "4/5" },
+  { src: "kitchen-1.webp", x: 45, y: 38, w: 11, r: "13/10" },
+  { src: "Jack%20-%20headshots/Property/CV311WHCompressed21%20(1).jpg", x: 75, y: 58, w: 11, r: "4/5" },
+  { src: "Jack%20-%20headshots/Content%20Studio/4.png", x: 48, y: 76, w: 11, r: "4/5" },
+  { src: "Jack%20-%20headshots/Agent/AM-40.jpg", x: 2, y: 92, w: 11, r: "4/5" },
+  { src: "Jack%20-%20headshots/Property/LeahMusana-14.jpg", x: 29, y: 104, w: 11, r: "4/5" },
+  { src: "white-1.webp", x: 48, y: 118, w: 11, r: "13/10" },
 ];
-for (const w of WORK) w.img = await pic(A(w.src), 700, 875);
+for (const w of WORK) {
+  const [a, b] = w.r.split("/").map(Number);
+  w.img = await pic(A(w.src), 640, Math.round((640 * b) / a));
+}
 
-const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
+// 5. The contact box's picture.
+const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).jpg"), 2000, 800);
+
 ---
 
 <BaseLayout
@@ -148,34 +155,32 @@ const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
       <p class="os-list-foot">For shoots on location, Jack covers a 40-mile radius of NN14 (Kettering). If you&rsquo;re further away, travel is added to your quote automatically.</p>
     </section>
 
-    <!-- 3. Our work: pictures drifting past at their own speeds. -->
+    <!-- 3. Our work: each picture rises into place as it comes up the screen.
+         The brochure (4) sits in the field's bottom right. -->
     <section class="os-work" aria-label="Our work">
       {WORK.map((w) => (
-        <figure class="os-work-pic" data-speed={w.s} style={`left:${w.x}%;top:${w.y}%;--w:${w.w}`}>
-          <img src={w.img} alt="" width="700" height="875" loading="lazy" />
+        <figure class="os-work-pic" style={`left:${w.x}%;top:${w.y}vh;--w:${w.w};aspect-ratio:${w.r}`}>
+          <img src={w.img} alt="" loading="lazy" />
         </figure>
       ))}
-    </section>
-
-    <!-- 4. The services brochure: the social media page's form, which emails it. -->
-    <section class="os-bro">
-      <figure class="os-bro-pic"><img src={BROCHURE_IMG} alt="" width="900" height="700" loading="lazy" /></figure>
-      <div class="os-bro-copy">
-        <p class="os-label os-label--paper">Brochure</p>
-        <h2 class="os-h">The Full Picture, in One Brochure.</h2>
-        <p class="os-bro-text">Our services brochure sets out everything we do in full, with what&rsquo;s included and what each service costs. Enter your name and email, and we&rsquo;ll send it to you.</p>
-        <button type="button" class="os-btn os-btn--paper" data-smm-form="brochure">Download the brochure <span aria-hidden="true">&rarr;</span></button>
+      <div class="os-bro">
+        <p class="os-bro-text">Our services brochure sets out everything we do in full, with what&rsquo;s included and what each service costs. Pop your details in and we&rsquo;ll email it straight over.</p>
+        <button type="button" class="os-bro-btn" data-smm-form="brochure">Download the brochure</button>
       </div>
     </section>
 
-    <!-- 5. Get in touch. The form opens in a pop-out. -->
+    <!-- 5. Get in touch, in a picture box. The form opens in a pop-out. -->
     <section class="os-touch" id="get-in-touch">
-      <p class="os-label">Get in touch</p>
-      <h2 class="os-h">Talk to Us Before You Book.</h2>
-      <p class="os-touch-text">If you&rsquo;re not sure which service suits you, or you have a question about anything on this page, send us a message and it&rsquo;ll go straight to our team.</p>
-      <div class="os-touch-links">
-        <button type="button" class="os-btn" data-os-contact>Send us a message <span aria-hidden="true">&rarr;</span></button>
-        <button type="button" class="os-link" data-vbook="discovery">Book a call with Jack <span aria-hidden="true">&rsaquo;</span></button>
+      <div class="os-touch-box" style={`background-image:url('${TOUCH_IMG}')`}>
+        <div class="os-touch-copy">
+          <p class="os-label os-label--paper">Get in touch</p>
+          <h2 class="os-h">Talk to Us Before You Book.</h2>
+          <p class="os-touch-text">If you&rsquo;re not sure which service suits you, or you have a question about anything on this page, send us a message and it&rsquo;ll go straight to our team.</p>
+          <div class="os-touch-links">
+            <button type="button" class="os-btn os-btn--paper" data-os-contact>Send us a message <span aria-hidden="true">&rarr;</span></button>
+            <button type="button" class="os-link" data-vbook="discovery">Book a call with Jack <span aria-hidden="true">&rsaquo;</span></button>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -226,18 +231,19 @@ const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
     if (hint) hint.style.opacity = y > 40 ? "0" : "";
   }
 
-  // 3. Our work: each picture drifts by its own speed as the section passes.
+  // 3. Our work: a picture rises into its frame as it comes up from the foot
+  // of the screen, and is fully in by the time it is halfway up.
   const work = document.querySelector<HTMLElement>(".os-work");
   const pics = [...document.querySelectorAll<HTMLElement>(".os-work-pic")];
   function drawWork() {
     if (!work) return;
-    const r = work.getBoundingClientRect();
     const vh = window.innerHeight;
-    if (r.bottom < 0 || r.top > vh) return;
-    const p = (vh - r.top) / (vh + r.height);   // 0 as it enters, 1 as it leaves
+    const wr = work.getBoundingClientRect();
+    if (wr.bottom < 0 || wr.top > vh) return;
     pics.forEach((el) => {
-      const s = Number(el.dataset.speed || 1);
-      el.style.transform = `translate3d(0, ${(0.5 - p) * s * 60}vh, 0)`;
+      const q = ease(clamp((vh - el.getBoundingClientRect().top) / (vh * 0.5)));
+      const img = el.firstElementChild as HTMLElement | null;
+      if (img) img.style.transform = `translate3d(0, ${(1 - q) * 100}%, 0)`;
     });
   }
 
@@ -459,32 +465,41 @@ const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
   .os-btn:focus-visible, .os-link:focus-visible, .os-jack-call:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 
   /* ---- 3. Our work ---- */
-  .os-work { position: relative; height: 230vh; overflow: hidden; background: #faf9f8; }
-  .os-work-pic {
-    position: absolute; z-index: 1; margin: 0; width: calc(var(--w) * 1vw);
-    aspect-ratio: 4 / 5; overflow: hidden; border-radius: 2px; will-change: transform;
-  }
-  .os-work-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .os-work { position: relative; height: 165vh; overflow: hidden; background: #fff; }
+  .os-work-pic { position: absolute; margin: 0; width: calc(var(--w) * 1vw); overflow: hidden; background: transparent; }
+  .os-work-pic img { display: block; width: 100%; height: 100%; object-fit: cover; will-change: transform; }
 
-  /* ---- 4. The brochure: a wine band ---- */
-  .os-bro {
-    display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-    gap: clamp(32px, 6vw, 110px); align-items: end;   /* the button sits on the picture's foot */
-    padding: clamp(56px, 9vh, 110px) var(--page-gutter);
-    background: var(--english-violet); color: var(--paper);
+  /* ---- 4. The brochure, in the field's bottom right ---- */
+  .os-bro { position: absolute; left: 62%; top: 118vh; width: min(30vw, 440px); }
+  .os-bro-text {
+    margin: 0 0 28px; font-family: var(--sans); font-weight: 500;
+    font-size: var(--fs-quote); line-height: var(--lh-quote); letter-spacing: -0.01em; color: var(--ink);
   }
-  .os-bro-pic { margin: 0; aspect-ratio: 9 / 7; overflow: hidden; border-radius: 2px; }
-  .os-bro-pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .os-bro .os-h { color: var(--paper); }
-  .os-bro-text { margin: 0 0 26px; max-width: 75%; font-size: var(--os-body); line-height: 1.5; color: rgba(244, 242, 241, 0.8); }
+  .os-bro-btn {
+    display: block; width: 100%; padding: 15px 20px; cursor: pointer;
+    background: transparent; border: 1px solid var(--ink); border-radius: 2px; color: var(--ink);
+    font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  }
+  .os-bro-btn:hover { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
+  .os-bro-btn:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
 
-  /* ---- 5. Get in touch ---- */
-  .os-touch {
-    display: flex; flex-direction: column; align-items: center; text-align: center;
-    padding: clamp(90px, 14vh, 160px) var(--page-gutter);
+  /* ---- 5. Get in touch: a rounded picture box ---- */
+  .os-touch { padding: clamp(24px, 4vh, 48px) var(--page-gutter) clamp(72px, 10vh, 120px); background: #fff; }
+  .os-touch-box {
+    position: relative; display: flex; align-items: flex-end;
+    min-height: clamp(420px, 66vh, 640px); overflow: hidden; border-radius: 8px;
+    background-size: cover; background-position: center; background-color: #2a2228;
   }
-  .os-touch-text { margin: 0 0 30px; max-width: 46ch; font-size: var(--os-body); line-height: 1.5; color: rgba(28, 29, 34, 0.68); }
-  .os-touch-links { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px 28px; }
+  .os-touch-box::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, rgba(20,18,22,0.72) 0%, rgba(20,18,22,0.35) 55%, rgba(20,18,22,0.1) 100%);
+  }
+  .os-touch-copy { position: relative; padding: clamp(28px, 4vw, 60px); max-width: 640px; }
+  .os-touch .os-h { color: var(--paper); }
+  .os-touch-text { margin: 0 0 26px; max-width: 46ch; font-size: var(--os-body); line-height: 1.5; color: rgba(244, 242, 241, 0.85); }
+  .os-touch-links { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; }
+  .os-touch-links .os-link { color: var(--paper); }
 
   /* The pop-out */
   .os-pop { position: fixed; inset: 0; z-index: 1300; display: grid; place-items: center; padding: 20px; }
@@ -517,9 +532,11 @@ const BROCHURE_IMG = await pic(A("orange-1.webp"), 900, 700);
     .os-item-head { grid-template-columns: 44px minmax(0, 1fr) 14px; padding: 20px 0; }
     .os-item-group { display: none; }
     .os-item-inner { padding-left: 0; }
-    .os-bro { grid-template-columns: 1fr; }
-    .os-bro-text { max-width: none; }
-    .os-work { height: 190vh; }
-    .os-work-pic { width: calc(var(--w) * 1.9vw); }
+    /* The field becomes two staggered columns, the brochure after it. */
+    .os-work { height: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 48px 18px; padding: 56px var(--page-gutter) 64px; }
+    .os-work-pic { position: static; width: auto; }
+    .os-work-pic:nth-of-type(even) { margin-top: 64px; }
+    .os-work-pic:nth-of-type(n+7) { display: none; }
+    .os-bro { position: static; grid-column: 1 / -1; width: auto; margin-top: 12px; }
   }
 </style>
