@@ -73,7 +73,8 @@ const SERVICES = [
 //   A: a screen and a half of pictures, the brochure in its bottom right;
 //   B: pictures carrying on behind the services box, which scrolls over them;
 //   C: another screen of pictures before the contact box.
-// Each picture: left % of the width, width in vw, shape, and its top, in vh
+// Each picture: left % of the width between the page margins (the contact
+// box's), width in vw, shape, and its top, in vh
 // from its band's top (A, C) or in % of the band (B, whose height follows the
 // list). `b` anchors to the band's foot instead.
 const H = "Jack%20-%20headshots";
@@ -81,7 +82,7 @@ const BAND_A = [
   { src: `${H}/Agent/EMay-61.jpg`, x: 0, y: 8, w: 10, r: "4/5" },
   { src: `${H}/Property/FC2-9%20(1).jpg`, x: 32, y: 8, w: 11, r: "13/10" },
   { src: `${H}/Content%20Studio/3.png`, x: 64, y: 4, w: 11, r: "4/5" },
-  { src: "living-1.webp", x: 92, y: 15, w: 10, r: "4/5" },
+  { src: "living-1.webp", x: 88, y: 15, w: 10, r: "4/5" },
   { src: `${H}/Agent/12-June-6.jpg`, x: 17, y: 42, w: 11, r: "4/5" },
   { src: "kitchen-1.webp", x: 45, y: 38, w: 11, r: "13/10" },
   { src: `${H}/Property/CV311WHCompressed21%20(1).jpg`, x: 75, y: 58, w: 11, r: "4/5" },
@@ -89,14 +90,14 @@ const BAND_A = [
   { src: `${H}/Agent/AM-40.jpg`, x: 2, y: 92, w: 11, r: "4/5" },
   { src: `${H}/Property/LeahMusana-14.jpg`, x: 20, y: 104, w: 11, r: "4/5" },
   // Level with the foot of the brochure button (Danielle, 29 Oct).
-  { src: "white-1.webp", x: 48, b: 4, w: 11, r: "13/10" },
+  { src: "white-1.webp", x: 48, b: 15, w: 11, r: "13/10" },
 ];
 const BAND_B = [
   { src: `${H}/Agent/ADMay-28.jpg`, x: 6, y: 0, w: 10, r: "4/5" },
   { src: "orange-2.webp", x: 70, y: 1, w: 11, r: "13/10" },
   { src: `${H}/Content%20Studio/5.png`, x: 0, y: 30, w: 6, r: "4/5" },
-  { src: "kitchen-2.webp", x: 94, y: 22, w: 7, r: "4/5" },
-  { src: `${H}/Property/LeahMusana-9%20(1).jpg`, x: 95, y: 55, w: 6, r: "4/5" },
+  { src: "kitchen-2.webp", x: 92, y: 22, w: 7, r: "4/5" },
+  { src: `${H}/Property/LeahMusana-9%20(1).jpg`, x: 93, y: 55, w: 6, r: "4/5" },
   { src: `${H}/Agent/Z63_2333-62.jpg`, x: 0, y: 66, w: 7, r: "4/5" },
   { src: "table.webp", x: 24, y: 90, w: 11, r: "13/10" },
   { src: `${H}/Property/FC2-13%20(1).jpg`, x: 78, y: 88, w: 10, r: "4/5" },
@@ -114,7 +115,7 @@ for (const w of [...BAND_A, ...BAND_B, ...BAND_C]) {
   w.img = await pic(A(w.src), 640, Math.round((640 * b) / a));
 }
 const place = (w, unit) =>
-  `left:${w.x}%;${w.b != null ? `bottom:${w.b}${unit}` : `top:${w.y}${unit}`};--w:${w.w};aspect-ratio:${w.r}`;
+  `left:calc(var(--page-gutter) + (100% - 2 * var(--page-gutter)) * ${w.x / 100});${w.b != null ? `bottom:${w.b}${unit}` : `top:${w.y}${unit}`};--w:${w.w};aspect-ratio:${w.r}`;
 
 // 5. The contact box's picture.
 const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).jpg"), 2000, 800);
@@ -268,6 +269,8 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   // of the screen, and is fully in by the time it is halfway up.
   const work = document.querySelector<HTMLElement>(".os-field");
   const pics = [...document.querySelectorAll<HTMLElement>(".os-work-pic")];
+  const listSec = document.querySelector<HTMLElement>(".os-list");
+  const listBox = document.querySelector<HTMLElement>(".os-list-box");
   function drawWork() {
     if (!work) return;
     const vh = window.innerHeight;
@@ -280,6 +283,12 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
       const img = el.firstElementChild as HTMLElement | null;
       if (img) img.style.transform = `translate3d(0, ${(1 - q) * 100}%, 0)`;
     });
+    // The services box comes up the same way (Danielle, 30 Oct), read from
+    // its section, which doesn't move, so the rise can't feed back into itself.
+    if (listSec && listBox) {
+      const q = ease(clamp((vh - listSec.getBoundingClientRect().top) / (vh * 0.5)));
+      listBox.style.transform = `translate3d(0, ${(1 - q) * 22}vh, 0)`;
+    }
   }
 
   // The nav: paper over a dark background, ink over a light one. Read from
@@ -324,19 +333,24 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
     frame();
   }
 
-  // 2. "Services" fills the box's full height down its side, measured from
-  // the list beside it so the two can't push each other taller.
-  const listBox = document.querySelector<HTMLElement>(".os-list-box");
+  // 2. "Services" down the side: its top end level with the first service,
+  // half of its first S cropped off the box's foot. Measured inside the box,
+  // so the box's rise (below) doesn't throw it.
   const listMain = document.querySelector<HTMLElement>(".os-list-main");
   const listTitle = document.querySelector<HTMLElement>(".os-list-title");
   function fitTitle() {
     if (!listBox || !listMain || !listTitle) return;
     if (window.matchMedia("(max-width: 900px)").matches) { listTitle.style.fontSize = ""; return; }
-    const cs = getComputedStyle(listBox);
-    const target = listMain.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    const first = listMain.querySelector<HTMLElement>(".os-item-name");
+    if (!first) return;
+    const reach = listBox.offsetHeight - (first.getBoundingClientRect().top - listBox.getBoundingClientRect().top);
+    const CROP = 0.27;   // half an S, in em
     listTitle.style.fontSize = "100px";
-    const len = listTitle.getBoundingClientRect().height;
-    if (len > 0) listTitle.style.fontSize = `${(100 * target * 1.04) / len}px`;   // a touch over, off the foot
+    const k = listTitle.getBoundingClientRect().height / 100;
+    if (k <= CROP) return;
+    const fs = reach / (k - CROP);
+    listTitle.style.fontSize = `${fs}px`;
+    listBox.style.setProperty("--crop", `${CROP * fs}px`);
   }
   const fitTwice = () => { fitTitle(); requestAnimationFrame(fitTitle); };
   fitTwice();
@@ -462,16 +476,17 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   .os-list { position: relative; z-index: 2; padding: 0 var(--page-gutter); }
   .os-list-box {
     display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(28px, 5vw, 90px);
-    width: min(1180px, 84vw); margin: 0 auto; overflow: hidden;
+    width: min(1040px, 72vw); margin: 0 auto; overflow: hidden; will-change: transform;
     padding: clamp(40px, 5vw, 72px) clamp(24px, 4vw, 64px) clamp(40px, 5vw, 72px) clamp(14px, 2vw, 32px);
     border-radius: 8px; background: var(--english-violet); color: var(--paper);
   }
-  /* "Services" down the side as the statement, the full height of the box,
-     sized by the script and just running off its foot (Danielle, 29 Oct). Its
-     negative margins keep it from making the box taller than the list. */
+  /* "Services" down the side as the statement (Danielle, 29-30 Oct): sized by
+     the script so its last s stops level with the first service and half its
+     first S runs off the foot of the box. The negative margin takes it past the
+     box's padding and the crop, so it never makes the box taller. */
   .os-list-head {
     align-self: end; line-height: 0;
-    margin: calc(-1 * clamp(40px, 5vw, 72px)) 0 calc(-1 * clamp(40px, 5vw, 72px));
+    margin-bottom: calc(-1 * clamp(40px, 5vw, 72px) - var(--crop, 0px));
   }
   .os-list-title {
     margin: 0; writing-mode: vertical-rl; transform: rotate(180deg);
@@ -540,7 +555,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   .os-work-pic img { display: block; width: 100%; height: 100%; object-fit: cover; will-change: transform; }
 
   /* ---- 4. The brochure, in the field's bottom right ---- */
-  .os-bro { position: absolute; left: 62%; bottom: 4vh; width: min(30vw, 440px); }
+  .os-bro { position: absolute; right: var(--page-gutter); bottom: 15vh; width: min(28vw, 420px); }
   .os-bro-text {
     margin: 0 0 24px; font-family: var(--sans); font-weight: 500;
     font-size: calc(var(--fs-quote) * 0.8); line-height: var(--lh-quote); letter-spacing: -0.01em; color: var(--ink);
@@ -599,6 +614,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
     .os-list { padding: 0 12px; }
     .os-list-box { grid-template-columns: 1fr; width: auto; padding: 36px 22px; }
     .os-list-head { margin: 0; align-self: start; line-height: normal; }
+    .os-list-box { --crop: 0px; }
     .os-list-title { writing-mode: horizontal-tb; transform: none; font-size: clamp(56px, 17vw, 88px); }
     .os-item-head { grid-template-columns: 44px minmax(0, 1fr) 14px; padding: 20px 0; }
     .os-item-group { display: none; }
