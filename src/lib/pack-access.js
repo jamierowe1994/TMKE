@@ -80,7 +80,7 @@ export function freeUntilLabel(p) {
  * database still decides what it can read: only packs marked `training`
  * (supabase, Admin chat's file) reach an anonymous visitor. Empty this list
  * to take it away again. */
-export const TRAINING_BRANDS = ['The Property Experts'];
+export const TRAINING_BRANDS = [];   // off again, 30 Oct: the course's pictures are taken
 
 export async function memberBrandsFor(supabase) {
   if (isTrainingDemo() && TRAINING_BRANDS.length) return TRAINING_BRANDS.slice();

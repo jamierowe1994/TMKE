@@ -442,7 +442,9 @@ import "../../styles/reel.css";
     import { TRENDING_SAMPLE as TRENDING_SAMPLE_JS } from "../../data/trending-sample.js";
     const TRENDING_SAMPLE_TOPICS = TRENDING_SAMPLE_JS.topics;
     import { guideViewer, guideVisibleTo } from "../../lib/guide-audience.js";
-    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE, ...TRAINING_GUIDES, ...PRINT_GUIDES];
+    // The print materials guides, one per brand, each seen by that brand's agents only.
+    import { PRINT_MATERIAL_GUIDES } from "../../data/print-materials.js";
+    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE, ...TRAINING_GUIDES, ...PRINT_GUIDES, ...PRINT_MATERIAL_GUIDES];
     // Slug -> built-in, so a database row can borrow its twin's picture.
     const STATIC_BY_SLUG = Object.fromEntries(STATIC_GUIDES.map((g) => [g.slug, g]));
     const DEV = import.meta.env.DEV;
@@ -501,7 +503,8 @@ import "../../styles/reel.css";
 
       // Completion state (signed-in members only; empty otherwise).
       const p = PROGRESS[g.slug];
-      let href = `/account/guides/read?g=${encodeURIComponent(g.slug)}`;
+      // A guide with its own pages (the print materials) opens them, not the reader.
+      let href = g.href || `/account/guides/read?g=${encodeURIComponent(g.slug)}`;
       let footer;
       // Finished, or read to its last part: back in at the start, since coming
       // back usually means wanting something from it. Part-way: where they
@@ -575,7 +578,7 @@ import "../../styles/reel.css";
         const cover = g.cover_url || g.art || (STATIC_BY_SLUG[g.slug] || {}).cover_url || (STATIC_BY_SLUG[g.slug] || {}).art || twinArt(g.slug) || '';
         const lessons = Array.isArray(g.lessons) ? g.lessons.length : 0;
         const meta = g.kind === 'course' ? `${lessons} lesson${lessons === 1 ? '' : 's'}` : (g.est_minutes ? `~${g.est_minutes} min read` : 'Guide');
-        return `<a class="lrn-card" href="/account/guides/read?g=${encodeURIComponent(g.slug)}">
+        return `<a class="lrn-card" href="${esc(g.href || `/account/guides/read?g=${encodeURIComponent(g.slug)}`)}">
           <span class="lrn-card-art"${cover ? ` style="background-image:url('${esc(cover)}')"` : ''}></span>
           <span class="lrn-card-tx"><span class="lrn-card-flag">${g.kind === 'course' ? 'Course' : 'Guide'}${topic ? ' \u00b7 ' + topic.label.replace(/<[^>]+>/g, '') : ''}</span><strong class="lrn-card-h">${esc(g.title || 'Untitled')}</strong>${g.summary ? `<span class="lrn-card-sum">${esc(g.summary)}</span>` : ''}<span class="lrn-card-meta">${esc(meta)}</span></span>
         </a>`;

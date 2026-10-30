@@ -38,7 +38,8 @@ const coverFoot = `<span>${esc(G.brand)} · Print Materials</span><span>${total}
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@400;500;600;700;800&display=swap" />
 </head>
-<body>
+<body class="pm-wait" data-brand={G.brand}>
+  <p class="pm-gate" id="pm-gate" hidden></p>
   <main class="pm">
     <!-- ============ COVER ============ -->
     <section class="pm-sheet pm-cover">
@@ -104,7 +105,34 @@ const coverFoot = `<span>${esc(G.brand)} · Print Materials</span><span>${total}
     ))}
   </main>
 
+  <script>
+    /* For this brand's agents, and TMKE staff (Dani, 30 Oct: only the people
+       who have access). Nothing shows until that is known: signed out goes to
+       sign in, anyone else gets a line saying who the guide is for. */
+    import { supabase } from "../../../../lib/supabase.js";
+    import { guideViewer, guideVisibleTo } from "../../../../lib/guide-audience.js";
+    (async () => {
+      const brand = document.body.dataset.brand || "";
+      const gate = document.getElementById("pm-gate") as HTMLElement;
+      const show = () => document.body.classList.remove("pm-wait");
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { location.replace("/login?next=" + encodeURIComponent(location.pathname)); return; }
+        let staff = false;
+        try { const r = await supabase.rpc("is_staff"); staff = r.data === true; } catch (_) {}
+        const viewer = await guideViewer(supabase);
+        if (staff || guideVisibleTo({ audience: "teg", brands: [brand] }, viewer)) { show(); return; }
+      } catch (_) {}
+      gate.textContent = `This guide is for ${brand} agents. Your own print materials are in the Training Studio.`;
+      gate.hidden = false;
+      document.querySelector(".pm")?.remove();
+      show();
+    })();
+  </script>
+
   <style is:global>
+    body.pm-wait .pm { visibility: hidden; }
+    .pm-gate { max-width: 560px; margin: 18vh auto 0; padding: 0 16px; font-size: 19px; line-height: 1.5; text-align: center; color: var(--ink); }
     @font-face { font-family: "TMKE Serif"; src: url("/fonts/fraunces-300-latin.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
     :root {
       --wine: #371e28; --paper: #f4f2f1; --ink: #1c1d22; --tx: rgba(28,29,34,0.68); --faint: rgba(28,29,34,0.46);
