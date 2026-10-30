@@ -496,12 +496,17 @@ export const PRINT_GUIDES = [
             "/account/profile", "View your Brand Kit") +
           "<!--WALK-->" },
 
-      { title: "Your Headshot", walk: "print-headshot",
+      /* A picture in a pop-out, not a walkthrough (Dani, 30 Oct): there's
+         little to show, and a drag can't be shown in a still. */
+      { title: "Your Headshot",
         body_html:
           p("<strong>A consistent face for your personal brand.</strong>") +
           p("Your canvassing cards automatically include your approved headshot, helping keep your printed marketing consistent with The Experts Group's branding.") +
           p("Your headshot is managed centrally, so you won't need to upload or replace it yourself. You can, however, adjust how it sits within the design, making sure it looks right before you download.") +
-          "<!--WALK-->" },
+          shotOpen("print-headshot-look", "Your Headshot on the Card",
+            "Select your photo to see what you can change.",
+            "/images/learn/demo/shots/print-headshot--selected-v3@2x.webp",
+            p("Select your photo on the card, then <strong>Reposition</strong>. Drag to move it within its box, and scroll to make it bigger or smaller. Click away, or press Enter or Esc, when you're done.")) },
 
       { title: "Editing Your Card", walk: "print-edit",
         body_html:

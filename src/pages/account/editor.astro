@@ -4416,20 +4416,30 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        the cushion's size and its translate(-50%, -50%) and landed half its own
        width up and to the left of the line. That is the box that would not sit
        on the rule. Dani, 10 Oct. */
+    /* Drawn inside the zoomed canvas, so its width is scaled back by --ez to
+       stay 1.5px on screen. A print card is 2480px wide and shown at about a
+       quarter, which made a plain 1.5px outline under half a pixel: you could
+       select the photo and see nothing happen (Dani, 30 Oct). */
     .ed-element.is-selected::after {
       content: "";
-      position: absolute; inset: -2px;
+      position: absolute; inset: calc(-2px * var(--ez, 1));
       width: auto; height: auto; transform: none;
-      border: 1.5px solid var(--english-violet);
+      border: calc(1.5px * var(--ez, 1)) solid var(--english-violet);
       pointer-events: none;
     }
     .ed-element.is-multiselected::after {
       content: "";
-      position: absolute; inset: -2px;
+      position: absolute; inset: calc(-2px * var(--ez, 1));
       width: auto; height: auto; transform: none;
-      border: 1.5px dashed rgba(var(--violet-rgb),0.7);
+      border: calc(1.5px * var(--ez, 1)) dashed rgba(var(--violet-rgb),0.7);
       pointer-events: none;
     }
+    /* Photos and photo frames clip what lies outside them, so their outline
+       goes just inside the edge instead. */
+    .ed-element[data-type="frame"].is-selected::after,
+    .ed-element[data-type="frame"].is-multiselected::after,
+    .ed-element[data-type="image"].is-selected::after,
+    .ed-element[data-type="image"].is-multiselected::after { inset: 0; }
     /* And a line gets no outline at all - it is a line, not an object, and its
        two ends are the whole of its selection. Dani, 9 Oct. */
     .ed-element[data-type="line"].is-selected::after,
@@ -4823,7 +4833,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     }
     .ed-caption-prompt-h {
       display: block; margin-bottom: 6px;
-      font-family: var(--serif); font-size: 10px; font-weight: 700;
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
       letter-spacing: 0.18em; text-transform: uppercase; color: #fff;
     }
     .ed-caption-prompt-tx {
