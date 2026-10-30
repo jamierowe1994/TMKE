@@ -470,29 +470,34 @@ export const PRINT_GUIDES = [
   guide({
     slug: "print-first-design",
     title: "Your First Print Design",
-    summary: "Create your first canvassing card using the print templates available to agents of The Experts Group.",
+    /* Dani's rewrite, 30 Oct: her words, laid out as the course lays things
+       out elsewhere -- a list of labelled points is cards, a mid-lesson
+       heading is a bold line, "Important" is a bold lead-in. */
+    summary: "Create your first personalised canvassing card using the print templates available to agents of The Experts Group.",
     topic: "getting-started", audience: "teg", training: false,
     est_minutes: 10, sort_order: 5,
     lessons: [
       { title: "Finding Your Print Templates", walk: "print-find",
         body_html:
           p("<strong>Your print templates, ready to personalise.</strong>") +
-          p("Your print templates live in the Studio alongside your social media designs. They're organised into packs, with each pack containing templates created for a particular purpose.") +
-          p("In this course, we'll use the Canvassing Cards pack. Each card gives you a starting point for reaching homeowners in your area, whether you're introducing yourself, promoting a property or encouraging someone to book a valuation.") +
+          p("You'll find your print templates in the Design Studio, alongside your social media designs. They're organised into packs, with each pack containing templates created for a particular marketing purpose.") +
+          p("In this course, we'll be using the Canvassing Cards pack. These templates are designed to help you reach homeowners in your local area, whether you're introducing yourself, promoting a property or encouraging someone to book a valuation.") +
+          p("By the end of the course, you'll have created your own personalised card, ready to download and send to print.") +
           "<!--WALK-->" },
 
       { title: "Where Your Details Come From", walk: "print-details",
         body_html:
           p("<strong>Your Brand Kit is already set up.</strong>") +
-          p("As an agent of The Experts Group, your Brand Kit was filled in for you when you joined the Member Hub, using the details The Experts Group holds for you.") +
+          p("As an agent of The Experts Group, your Brand Kit is automatically populated when you join the Member Hub, using the information held about you and your business. This means your print templates can include your branding and contact information without you having to enter everything manually.") +
+          p("Your Brand Kit contains two main sets of information:") +
           cards([
             ["Your brand", "Your company name, logo, brand colours, fonts, website and tone of voice."],
-            ["Your details", "Your name, job title, the area you cover, your phone number, your email address and your approved headshot."],
+            ["Your details", "Your name, job title, area covered, telephone number, email address and approved headshot."],
           ], 2) +
-          p("Your print templates use these details automatically, so every card is personalised from the moment you open it.") +
-          p("Before you create your first card, take a moment to check they're correct. If anything needs updating, change it in your Brand Kit, then reopen your template to bring the update through.") +
+          p("These details are automatically applied to your print templates, giving you a personalised starting point whenever you open a design.") +
+          p("<strong>Important:</strong> Before creating your first card, check that your details are correct and up to date. If anything needs changing, update your Brand Kit and reopen the template to apply the latest information.") +
           ctaBox("Check your Brand Kit",
-            "Open your Brand Kit to confirm your contact details, area and branding before you start.",
+            "Review your contact details, area and branding before creating your first print design.",
             "/account/profile", "View your Brand Kit") +
           "<!--WALK-->" },
 
@@ -500,48 +505,74 @@ export const PRINT_GUIDES = [
          there is little to show, and a drag can't be shown in a still. */
       { title: "Your Headshot",
         body_html:
-          p("<strong>A consistent face for your personal brand.</strong>") +
-          p("Your canvassing cards automatically include your approved headshot, helping keep your printed marketing consistent with The Experts Group's branding.") +
-          p("Your headshot is managed centrally, so you can't upload or replace it yourself. You can, however, adjust how it sits within the design, making sure it looks right before you download.") +
+          p("<strong>Keeping your personal brand consistent.</strong>") +
+          p("Your canvassing cards automatically include your approved headshot, helping homeowners recognise you and keeping your printed marketing consistent with The Experts Group's branding.") +
+          p("Your headshot is managed centrally, so you won't be able to upload or replace it yourself. However, you can adjust how your photograph appears within the template, making sure it's positioned correctly before downloading your design.") +
+          p("<strong>How to reposition your headshot</strong>") +
           cards([
-            ["1. Select Your Photo", "Select your photo on the card. The panel on the left shows what you can change."],
-            ["2. Select Reposition", "Select Reposition in the panel to start adjusting your photo."],
-            ["3. Drag and Zoom", "Drag to move your photo within its box, and scroll to make it bigger or smaller. Click away, or press Enter or Esc, when you're done."],
-          ], 3) },
+            ["1. Select Your Photo", "Click your headshot on the card to open its editing options in the left-hand panel."],
+            ["2. Select Reposition", "Select Reposition to adjust how your photograph sits within its frame."],
+            ["3. Move and Resize", "Drag the image to change its position, or scroll to zoom in and out. Click away, or press Enter or Esc, when you're happy with the result."],
+          ], 3) +
+          cards([
+            ["TMKE Tip", "Make sure your face is clearly visible and comfortably positioned within the frame. Avoid cropping too closely, particularly around the top of your head or your chin.", "tip"],
+          ], 1) },
 
       { title: "Editing Your Card", walk: "print-edit",
         body_html:
-          p("<strong>Everything you can change, in one place.</strong>") +
-          p("When a print template opens, the Edit panel lists every part of the card you can change, on both sides. The layout and branding stay as they are, so your card keeps its professional finish, while the wording and photography are yours to update.") +
-          p("The front of your card catches someone's attention. The back is where you explain why you're contacting them and what you'd like them to do next, so most cards have two pieces of wording to personalise: the message and the call to action.") +
-          p("Replace the placeholder photography with your own pictures of the property, so the card shows the home you're promoting.") +
-          p("If you're not sure what to write, your Creative Assistant can help. It's designed for estate agency marketing and writes in the tone of voice saved in your Brand Kit. Tell it what the card is for, who you're writing to and what you want them to do, then refine its suggestion and add it to your card.") +
+          p("<strong>Make the design your own.</strong>") +
+          p("Every print template has editable elements, allowing you to personalise the wording and photography while keeping the original layout and branding consistent.") +
+          p("When you open a template, the Edit panel shows everything you can change on both sides of the card. The front of your card is designed to catch someone's attention, while the back gives you space to explain your message and encourage them to take the next step.") +
+          p("Most canvassing cards include two main pieces of wording:") +
           cards([
-            ["TMKE Tip", "Keep your message short and focused. Your text adjusts to fit the space available, but that doesn't mean you need to fill every line.", "tip"],
+            ["Your message", "Explain why you're contacting the homeowner and what makes the information relevant to them."],
+            ["Your call to action", "Give them a clear next step, whether that's arranging a valuation, viewing a property or getting in touch."],
+          ], 2) +
+          p("You can also replace the placeholder photography with your own property images, helping make the design relevant to the home or area you're promoting.") +
+          p("<strong>Need help with the wording?</strong>") +
+          p("Your Creative Assistant can help you write or refine your message. It's designed for estate agency marketing and uses the tone of voice saved in your Brand Kit.") +
+          p("Explain what your card is promoting, who you're trying to reach and what you'd like them to do next. You can then review the suggested wording, make any adjustments and add it to your design.") +
+          cards([
+            ["TMKE Tip", "Keep your message short, relevant and focused on one clear action. Although the text automatically adjusts to fit the available space, that doesn't mean you need to fill every line.", "tip"],
           ], 1) +
           "<!--WALK-->" },
 
       { title: "Your QR Code", walk: "print-qr",
         body_html:
           p("<strong>Make it easy to take the next step.</strong>") +
-          p("Every canvassing card includes a QR code, giving homeowners a quick way to find out more or get in touch.") +
-          p("By default, your QR code links to your website. You can change it to something more relevant to the card, such as a particular property listing or valuation page.") +
-          p("You can also choose WhatsApp, so somebody can open a conversation with you directly. Add your mobile number and, if you'd like, a short message ready for them to send.") +
-          p("Once you've chosen the destination, select <strong>Update QR code</strong> to apply your changes.") +
+          p("Every canvassing card includes a QR code, giving homeowners a quick and convenient way to find out more or contact you. By default, the QR code links to your website. However, you can change its destination to something more relevant to your card.") +
+          p("For example, you might direct homeowners to:") +
+          cards([
+            ["A property listing", "Give people more information about a home you're marketing."],
+            ["Your valuation page", "Encourage local homeowners to find out what their property could be worth."],
+            ["WhatsApp", "Allow someone to start a conversation with you directly."],
+          ], 3) +
+          p("If you choose WhatsApp, you can add your mobile number and an optional opening message, making it even easier for someone to get in touch. Once you've selected your destination, choose <strong>Update QR code</strong> to apply the changes.") +
           panel("Always test your QR code",
-            p("Test your QR code before downloading your design. Once your cards are printed, the destination can't be changed, so make sure it takes people to the right place.")) +
+            p("Before downloading your design, scan the QR code using your phone and check that it opens the correct destination.") +
+            p("Once your cards have been printed, you won't be able to change the destination on those printed cards. Taking a few seconds to test it now can prevent an expensive mistake later.")) +
           "<!--WALK-->" },
 
       { title: "Downloading for Print", walk: "print-download",
         body_html:
           p("<strong>Ready to print?</strong>") +
-          p("Once you've finished personalising your card, take a moment to check both sides. Make sure your contact details are correct, the photography is right, your message reads naturally and your QR code takes people to the intended destination.") +
-          p("When you're happy with everything, open <strong>Download</strong>. The Studio automatically selects PDF for print designs, giving you one file containing both sides of your card.") +
+          p("Once you've finished personalising your canvassing card, take a moment to review the finished design before downloading it.") +
+          p("Check both sides carefully, paying particular attention to:") +
+          cards([
+            ["Contact details", "Make sure your name, telephone number, email address and other information are correct."],
+            ["Photography", "Check that the images are relevant, clear and positioned correctly."],
+            ["Wording", "Read through your message and call to action, checking for spelling mistakes and making sure everything reads naturally."],
+            ["QR code", "Scan it one final time to confirm it opens the intended destination."],
+          ], 2) +
+          p("When you're happy with your design, open <strong>Download</strong>. The Studio automatically selects PDF for print designs, giving you a single file containing both sides of your canvassing card.") +
           "<!--WALK-->" +
           panel("Getting your cards printed",
-            p("Your print design is supplied as a PDF containing both sides of the card. When ordering, make sure you select the correct dimensions and double-sided printing.<br>You can find the dimensions of your design in the Studio, next to the design's name.")) +
+            p("Your finished design is supplied as a PDF containing both sides of the card. When placing an order with your chosen printing provider, make sure you select the correct dimensions and double-sided printing.") +
+            p("You can find your design's dimensions in the Studio, alongside its name.") +
+            p("<strong>Important:</strong> Check your printer's file requirements before ordering, including any bleed, safe-area or print-ready PDF specifications. A PDF download doesn't automatically guarantee compatibility with every printer.")) +
           p("<strong>Your first print design is ready.</strong>") +
-          p("You've chosen a template, checked your details, personalised your card and prepared it for printing. Next time, you'll know exactly where to start.") },
+          p("You've chosen a template, checked your details, personalised your design and prepared your canvassing card for printing.") +
+          p("Next time, you'll know exactly where to start.") },
     ],
   }),
 ];
