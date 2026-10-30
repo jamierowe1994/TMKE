@@ -671,7 +671,10 @@ const DEFAULT_COVER = (await getImage({
       // the rest) are defined on .ws, so a panel appended outside it lost its
       // wine line - the declaration referenced a variable that wasn't there.
       (document.querySelector(".ws") || document.body).appendChild(sheetWrap);
-      const closeSheet = () => { sheetWrap.hidden = true; sheetWrap.querySelector(".bk-sheet-body").innerHTML = ""; };
+      /* The wheel scrolls the pop-out, not the lesson behind it (Dani, 30 Oct):
+         smooth scrolling is paused while it is open and leaves it alone. */
+      sheetWrap.setAttribute("data-lenis-prevent", "");
+      const closeSheet = () => { sheetWrap.hidden = true; sheetWrap.querySelector(".bk-sheet-body").innerHTML = ""; try { (window as any).__lenis?.start?.(); } catch (_) {} };
       sheetWrap.addEventListener("click", (e) => { if (e.target === sheetWrap || e.target.closest(".bk-sheet-x")) closeSheet(); });
       document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !sheetWrap.hidden) closeSheet(); });
       stage.addEventListener("click", (e) => {
@@ -682,6 +685,7 @@ const DEFAULT_COVER = (await getImage({
         sheetWrap.querySelector(".bk-sheet-body").innerHTML = src.innerHTML;
         sheetWrap.querySelector(".bk-sheet").classList.toggle("bk-sheet--wide", src.hasAttribute("data-wide"));
         sheetWrap.hidden = false;
+        try { (window as any).__lenis?.stop?.(); } catch (_) {}
         sheetWrap.querySelector(".bk-sheet").scrollTop = 0;
       });
 

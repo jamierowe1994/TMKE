@@ -283,6 +283,13 @@ function openStage(title) {
     if (e.target === wrap || e.target.closest('[data-stage-x]')) { menuBack = null; finish(false); }
   });
   document.documentElement.style.overflow = 'hidden';
+  /* The wheel scrolls the pop-out, never the page behind it (Dani, 30 Oct).
+     Lenis drives the page's scrolling and swallowed the wheel: the page moved
+     under the pop-out and a tall picture in it could not be scrolled. Lenis
+     is paused while it is open, as the hub's menu does, and leaves anything
+     inside the pop-out to scroll natively. */
+  wrap.setAttribute('data-lenis-prevent', '');
+  try { window.__lenis && window.__lenis.stop && window.__lenis.stop(); } catch (_) {}
   nextTick(() => wrap.classList.add('is-in'));
 }
 
@@ -296,6 +303,7 @@ function closeStage() {
      say -- has no card to render into. */
   undockCard();
   document.documentElement.style.overflow = '';
+  try { window.__lenis && window.__lenis.start && window.__lenis.start(); } catch (_) {}
   wrap.classList.remove('is-in');
   // Nothing of the training window outlives it.
   setTimeout(() => { wrap.remove(); clearTrainingWindow(); }, 280);

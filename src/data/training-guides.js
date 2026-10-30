@@ -496,17 +496,18 @@ export const PRINT_GUIDES = [
             "/account/profile", "View your Brand Kit") +
           "<!--WALK-->" },
 
-      /* A picture in a pop-out, not a walkthrough (Dani, 30 Oct): there's
-         little to show, and a drag can't be shown in a still. */
+      /* Three steps rather than a walkthrough or a picture (Dani, 30 Oct):
+         there is little to show, and a drag can't be shown in a still. */
       { title: "Your Headshot",
         body_html:
           p("<strong>A consistent face for your personal brand.</strong>") +
           p("Your canvassing cards automatically include your approved headshot, helping keep your printed marketing consistent with The Experts Group's branding.") +
-          p("Your headshot is managed centrally, so you won't need to upload or replace it yourself. You can, however, adjust how it sits within the design, making sure it looks right before you download.") +
-          shotOpen("print-headshot-look", "Your Headshot on the Card",
-            "Select your photo to see what you can change.",
-            "/images/learn/demo/shots/print-headshot--selected-v3@2x.webp",
-            p("Select your photo on the card, then <strong>Reposition</strong>. Drag to move it within its box, and scroll to make it bigger or smaller. Click away, or press Enter or Esc, when you're done.")) },
+          p("Your headshot is managed centrally, so you can't upload or replace it yourself. You can, however, adjust how it sits within the design, making sure it looks right before you download.") +
+          cards([
+            ["1. Select Your Photo", "Select your photo on the card. The panel on the left shows what you can change."],
+            ["2. Select Reposition", "Select Reposition in the panel to start adjusting your photo."],
+            ["3. Drag and Zoom", "Drag to move your photo within its box, and scroll to make it bigger or smaller. Click away, or press Enter or Esc, when you're done."],
+          ], 3) },
 
       { title: "Editing Your Card", walk: "print-edit",
         body_html:
