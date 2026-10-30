@@ -9,11 +9,10 @@
 //      in a rectangle at its centre, the name at the rectangle's bottom left.
 //      Scrolling lifts the background and drops the rectangle at the same
 //      time, revealing the next slide underneath.
-//   3. One field of our work from there to the contact box, small pictures
-//      rising into place as they come up the screen, holding:
-//      4. the services brochure, as words and a button, in its first screen;
-//      2. every service as a numbered list in a wine box that scrolls over it,
-//         a row opening to its summary and links.
+//   2. Every service as a plain numbered list on white, a row opening to its
+//      summary and links.
+//   3. A field of our work, small pictures rising into place as they come up
+//      the screen, with 4. the services brochure in its first screen.
 //   5. Get in touch in a rounded picture box, the form in a pop-out.
 //
 // Headings are the site's own, Fraunces Light at -5% (Danielle, 29 Oct).
@@ -67,12 +66,10 @@ const SERVICES = [
   { group: "Creative", name: "Email Marketing", body: "Professional newsletters, campaigns and automations to keep your audience engaged and informed.", price: "Price on request", ask: true },
 ];
 
-// 3. One field of our work runs from the hero to the contact box (Danielle,
-// 29 Oct), small pictures with room round them, each rising into place as it
-// comes up the screen. It has three bands:
-//   A: a screen and a half of pictures, the brochure in its bottom right;
-//   B: pictures carrying on behind the services box, which scrolls over them;
-//   C: one more row of pictures before the contact box.
+// 3. A field of our work between the services and the contact box, small
+// pictures with room round them, each rising into place as it comes up the
+// screen: a screen and a half with the brochure in its bottom right (A), then
+// one more row (C).
 // Each picture: left % of the width between the page margins (the contact
 // box's), width in vw, shape, and its top, in vh
 // from its band's top (A, C) or in % of the band (B, whose height follows the
@@ -92,30 +89,18 @@ const BAND_A = [
   // Level with the foot of the brochure button (Danielle, 29 Oct).
   { src: "white-1.webp", x: 48, b: 15, w: 11, r: "13/10" },
 ];
-const BAND_B = [
-  { src: `${H}/Agent/ADMay-28.jpg`, x: 6, y: 0, w: 10, r: "4/5" },
-  { src: "orange-2.webp", x: 70, y: 1, w: 11, r: "13/10" },
-  { src: `${H}/Content%20Studio/5.png`, x: 0, y: 30, w: 6, r: "4/5" },
-  { src: "kitchen-2.webp", x: 92, y: 22, w: 7, r: "4/5" },
-  { src: `${H}/Property/LeahMusana-9%20(1).jpg`, x: 93, y: 55, w: 6, r: "4/5" },
-  { src: `${H}/Agent/Z63_2333-62.jpg`, x: 0, y: 66, w: 7, r: "4/5" },
-  { src: "table.webp", x: 24, y: 90, w: 11, r: "13/10" },
-  { src: `${H}/Property/FC2-13%20(1).jpg`, x: 78, y: 88, w: 10, r: "4/5" },
-];
 const BAND_C = [
   { src: `${H}/Content%20Studio/2.png`, x: 40, y: 10, w: 11, r: "4/5" },
   { src: "living-2.webp", x: 8, y: 22, w: 11, r: "13/10" },
   { src: `${H}/Agent/DonnaPlumb-19.jpg`, x: 70, y: 30, w: 11, r: "4/5" },
 ];
-for (const w of [...BAND_A, ...BAND_B, ...BAND_C]) {
+for (const w of [...BAND_A, ...BAND_C]) {
   const [a, b] = w.r.split("/").map(Number);
   w.img = await pic(A(w.src), 640, Math.round((640 * b) / a));
 }
 const place = (w, unit) =>
   `left:calc(var(--page-gutter) + (100% - 2 * var(--page-gutter)) * ${w.x / 100});${w.b != null ? `bottom:${w.b}${unit}` : `top:${w.y}${unit}`};--w:${w.w};aspect-ratio:${w.r}`;
 
-// 5. The contact box's picture.
-const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).jpg"), 2000, 800);
 
 ---
 
@@ -146,8 +131,37 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
       </div>
     </section>
 
-    <!-- 3 + 2 + 4. One field of our work from the hero to the contact box:
-         the brochure in its first screen, the services box scrolling over it. -->
+    <!-- 2. Every service, second, as a plain list on white (Danielle, 30 Oct).
+         A row opens to its summary and links. -->
+    <section class="os-list" id="services" aria-labelledby="os-list-h">
+      <h2 class="os-list-label" id="os-list-h">Our services</h2>
+      <p class="os-statement">Film, photography and content for estate agents, in one place.</p>
+      <ol class="os-rows">
+        {SERVICES.map((s, i) => (
+          <li class="os-item">
+            <button type="button" class="os-item-head" aria-expanded="false" aria-controls={`os-item-${i}`}>
+              <span class="os-item-name">{s.name}<span class="os-item-num">({String(i + 1).padStart(2, "0")})</span></span>
+              <span class="os-item-group">{s.group}</span>
+              <span class="os-item-sign" aria-hidden="true"></span>
+            </button>
+            <div class="os-item-body" id={`os-item-${i}`}><div class="os-item-inner">
+              <p class="os-item-text">{s.body}</p>
+              {s.list && <p class="os-item-price">{s.price}</p>}
+              {s.list && <ul class="os-item-list">{s.list.map((x) => <li>{x}</li>)}</ul>}
+              <div class="os-item-links">
+                {!s.list && <p class="os-item-price">{s.price}</p>}
+                {s.book && <button type="button" class="os-btn" data-vbook={s.book}>{s.bookLabel} <span aria-hidden="true">&rarr;</span></button>}
+                {s.more && <a class="os-link" href={s.more}>{s.moreLabel || "Discover more"} <span aria-hidden="true">&rsaquo;</span></a>}
+                {s.ask && <button type="button" class="os-link" data-os-contact>Ask about this <span aria-hidden="true">&rsaquo;</span></button>}
+              </div>
+            </div></div>
+          </li>
+        ))}
+      </ol>
+      <p class="os-list-foot">For shoots on location, Jack covers a 40-mile radius of NN14 (Kettering). If you&rsquo;re further away, travel is added to your quote automatically.</p>
+    </section>
+
+    <!-- 3 + 4. A field of our work, the brochure in its first screen. -->
     <div class="os-field">
       <div class="os-band os-band--a" aria-label="Our work">
         {BAND_A.map((w) => <figure class="os-work-pic" style={place(w, "vh")}><img src={w.img} alt="" loading="lazy" /></figure>)}
@@ -157,61 +171,21 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
         </div>
       </div>
 
-      <div class="os-band os-band--b">
-        {BAND_B.map((w) => <figure class="os-work-pic" style={place(w, "%")}><img src={w.img} alt="" loading="lazy" /></figure>)}
-        <!-- 2. Every service, numbered. A row opens to its summary and links. -->
-        <section class="os-list" id="services" aria-labelledby="os-list-h">
-          <div class="os-list-box" tabindex="0">
-          <!-- Pressed into the board like the Insights board's title; the list
-               comes up over it on hover, or a tap on a touch screen. -->
-          <h2 class="os-list-title" id="os-list-h"><span>Services</span></h2>
-          <div class="os-list-main">
-          <ol class="os-rows">
-            {SERVICES.map((s, i) => (
-              <li class="os-item">
-                <button type="button" class="os-item-head" aria-expanded="false" aria-controls={`os-item-${i}`}>
-                  <span class="os-item-num">({i + 1})</span>
-                  <span class="os-item-name">{s.name}</span>
-                  <span class="os-item-group">{s.group}</span>
-                  <span class="os-item-sign" aria-hidden="true"></span>
-                </button>
-                <div class="os-item-body" id={`os-item-${i}`}><div class="os-item-inner">
-                  <p class="os-item-text">{s.body}</p>
-                  {s.list && <p class="os-item-price">{s.price}</p>}
-                  {s.list && <ul class="os-item-list">{s.list.map((x) => <li>{x}</li>)}</ul>}
-                  <div class="os-item-links">
-                    {!s.list && <p class="os-item-price">{s.price}</p>}
-                    {s.book && <button type="button" class="os-btn os-btn--paper" data-vbook={s.book}>{s.bookLabel} <span aria-hidden="true">&rarr;</span></button>}
-                    {s.more && <a class="os-link" href={s.more}>{s.moreLabel || "Discover more"} <span aria-hidden="true">&rsaquo;</span></a>}
-                    {s.ask && <button type="button" class="os-link" data-os-contact>Ask about this <span aria-hidden="true">&rsaquo;</span></button>}
-                  </div>
-                </div></div>
-              </li>
-            ))}
-          </ol>
-          <p class="os-list-foot">For shoots on location, Jack covers a 40-mile radius of NN14 (Kettering). If you&rsquo;re further away, travel is added to your quote automatically.</p>
-          </div>
-          </div>
-        </section>
-      </div>
 
       <div class="os-band os-band--c" aria-hidden="true">
         {BAND_C.map((w) => <figure class="os-work-pic" style={place(w, "vh")}><img src={w.img} alt="" loading="lazy" /></figure>)}
       </div>
     </div>
 
-    <!-- 5. Get in touch, in a picture box. The form opens in a pop-out. -->
+    <!-- 5. Get in touch, on white like the rest (Danielle, 30 Oct: "try your
+         ideas"): a label, a statement and two ways in. The form is a pop-out. -->
     <section class="os-touch" id="get-in-touch">
-      <div class="os-touch-box" style={`background-image:url('${TOUCH_IMG}')`}>
-        <div class="os-touch-copy">
-          <p class="os-label os-label--paper">Get in touch</p>
-          <h2 class="os-h">Talk to Us Before You Book.</h2>
-          <p class="os-touch-text">If you&rsquo;re not sure which service suits you, or you have a question about anything on this page, send us a message and it&rsquo;ll go straight to our team.</p>
-          <div class="os-touch-links">
-            <button type="button" class="os-btn os-btn--paper" data-os-contact>Send us a message <span aria-hidden="true">&rarr;</span></button>
-            <button type="button" class="os-link" data-vbook="discovery">Book a call with Jack <span aria-hidden="true">&rsaquo;</span></button>
-          </div>
-        </div>
+      <h2 class="os-list-label">Get in touch</h2>
+      <p class="os-statement">Talk to us before you book.</p>
+      <p class="os-touch-text">If you&rsquo;re not sure which service suits you, or you have a question about anything on this page, send us a message and it&rsquo;ll go straight to our team.</p>
+      <div class="os-touch-links">
+        <button type="button" class="os-bro-btn os-touch-btn" data-os-contact>Send us a message</button>
+        <button type="button" class="os-link" data-vbook="discovery">Book a call with Jack <span aria-hidden="true">&rsaquo;</span></button>
       </div>
     </section>
   </main>
@@ -266,8 +240,6 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   // of the screen, and is fully in by the time it is halfway up.
   const work = document.querySelector<HTMLElement>(".os-field");
   const pics = [...document.querySelectorAll<HTMLElement>(".os-work-pic")];
-  const listSec = document.querySelector<HTMLElement>(".os-list");
-  const listBox = document.querySelector<HTMLElement>(".os-list-box");
   function drawWork() {
     if (!work) return;
     const vh = window.innerHeight;
@@ -280,12 +252,6 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
       const img = el.firstElementChild as HTMLElement | null;
       if (img) img.style.transform = `translate3d(0, ${(1 - q) * 100}%, 0)`;
     });
-    // The services box comes up the same way (Danielle, 30 Oct), read from
-    // its section, which doesn't move, so the rise can't feed back into itself.
-    if (listSec && listBox) {
-      const q = ease(clamp((vh - listSec.getBoundingClientRect().top) / (vh * 0.5)));
-      listBox.style.transform = `translate3d(0, ${(1 - q) * 22}vh, 0)`;
-    }
   }
 
   // The nav: paper over a dark background, ink over a light one. Read from
@@ -328,13 +294,6 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
     window.addEventListener("scroll", ask, { passive: true });
     window.addEventListener("resize", ask);
     frame();
-  }
-
-  // 2. On a touch screen there is no hover: a tap on the board brings the
-  // list up, and a tap outside it puts it away.
-  if (listBox && window.matchMedia("(hover: none)").matches) {
-    listBox.addEventListener("click", () => listBox.classList.add("is-open"));
-    document.addEventListener("click", (e) => { if (!listBox.contains(e.target as Node)) listBox.classList.remove("is-open"); });
   }
 
   // 2. The list: one row open at a time.
@@ -450,76 +409,50 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
     color: var(--paper); transition: opacity 0.3s ease;
   }
 
-  /* ---- 2. The list ---- */
-  /* A wine box over the field, narrower than the page so the pictures show
-     either side of it. */
-  .os-list { position: relative; z-index: 2; padding: 0 var(--page-gutter); }
-  .os-list-box {
-    position: relative; width: min(1040px, 72vw); margin: 0 auto; overflow: hidden; will-change: transform;
-    padding: clamp(40px, 5vw, 72px) clamp(28px, 4vw, 64px);
-    border-radius: 8px; color: var(--paper); outline: none;
-    background: var(--english-violet) url("/images/insights-board-blank.webp") center / cover;
+  /* ---- 2. The list: white, clean and simple, in the manner of Kettal's
+     collections (Danielle, 30 Oct): a small label, then each service as a
+     large light line with its number beside it. ---- */
+  .os-list { position: relative; background: #fff; padding: clamp(80px, 12vh, 140px) var(--page-gutter) clamp(56px, 8vh, 96px); }
+  .os-list-label {
+    margin: 0 0 clamp(20px, 3vh, 32px); font-family: var(--sans); font-size: 12px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28, 29, 34, 0.6);
   }
-  /* The board at rest: Services blind-embossed into it, the way the Insights
-     board carries NOTES FROM THE DESK (Danielle, 30 Oct): the board's own
-     colour, lit from the top left. */
-  .os-list-title {
-    position: absolute; inset: 0; z-index: 1; margin: 0; display: grid; place-items: center;
-    pointer-events: none; transition: opacity 0.5s ease;
-  }
-  .os-list-title span {
-    font-family: var(--os-h); font-weight: var(--os-hw); font-size: clamp(56px, 8vw, 128px);
-    letter-spacing: var(--os-track); line-height: 1;
-    color: #3a2029;
-    text-shadow:
-      -1px -1px 1px rgba(255, 236, 240, 0.10),
-      1px 1px 1px rgba(0, 0, 0, 0.55),
-      2px 3px 6px rgba(0, 0, 0, 0.35);
-  }
-  /* The list keeps its place, so the board is its size, and comes up on
-     hover, keyboard focus or a tap; it waits a moment before going. */
-  .os-list-main {
-    position: relative; z-index: 2;
-    opacity: 0; visibility: hidden; transform: translateY(18px);
-    transition: opacity 0.45s ease 0.25s, transform 0.55s cubic-bezier(.2,.8,.2,1) 0.25s, visibility 0s 0.8s;
-  }
-  .os-list-box:hover .os-list-main, .os-list-box:focus-within .os-list-main, .os-list-box.is-open .os-list-main {
-    opacity: 1; visibility: visible; transform: none;
-    transition: opacity 0.45s ease, transform 0.55s cubic-bezier(.2,.8,.2,1), visibility 0s;
-  }
-  .os-list-box:hover .os-list-title, .os-list-box:focus-within .os-list-title, .os-list-box.is-open .os-list-title { opacity: 0; transition-delay: 0s; }
-  .os-list-title { transition-delay: 0.25s; }
-  .os-rows { list-style: none; margin: 0; padding: 0; }
-  .os-item { border-bottom: 1px solid rgba(244, 242, 241, 0.22); }
+  .os-rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid rgba(28, 29, 34, 0.14); }
+  .os-item { border-bottom: 1px solid rgba(28, 29, 34, 0.14); }
   .os-item-head {
-    width: 100%; display: grid; grid-template-columns: 64px minmax(0, 1fr) auto 14px; align-items: baseline; gap: 18px;
-    padding: 20px 0; background: none; border: 0; cursor: pointer; text-align: left; color: var(--paper);
+    width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto 14px; align-items: center; gap: 24px;
+    padding: clamp(16px, 2.2vh, 24px) 0; background: none; border: 0; cursor: pointer; text-align: left; color: var(--ink);
   }
-  .os-item-head:focus-visible { outline: 2px solid var(--paper); outline-offset: 4px; }
-  .os-item-num { font-family: var(--sans); font-size: 14px; color: rgba(244, 242, 241, 0.7); }
+  .os-item-head:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 4px; }
   .os-item-name {
-    font-family: var(--sans); font-weight: 500; font-size: clamp(16px, 1.15vw, 18px); line-height: 1.25;
-    letter-spacing: -0.01em; transition: opacity 0.25s ease;
+    font-family: var(--os-h); font-weight: var(--os-hw); font-size: clamp(26px, 2.6vw, 40px); line-height: 1.1;
+    letter-spacing: var(--os-track); color: var(--ink); transition: opacity 0.25s ease;
   }
-  .os-item-head:hover .os-item-name { opacity: 0.75; }
-  .os-item-group { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(244, 242, 241, 0.55); }
-  .os-item-sign { position: relative; width: 14px; height: 14px; align-self: center; }
+  .os-item-num {
+    margin-left: 10px; vertical-align: super; font-family: var(--sans); font-size: 12px; font-weight: 500;
+    letter-spacing: 0.02em; color: rgba(28, 29, 34, 0.5);
+  }
+  .os-item-head:hover .os-item-name { opacity: 0.55; }
+  .os-item-group { font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28, 29, 34, 0.45); }
+  .os-item-sign { position: relative; width: 14px; height: 14px; }
   .os-item-sign::before, .os-item-sign::after {
-    content: ""; position: absolute; left: 0; top: 6px; width: 14px; height: 1px; background: rgba(244, 242, 241, 0.8); transition: transform 0.3s ease;
+    content: ""; position: absolute; left: 0; top: 6px; width: 14px; height: 1px; background: rgba(28, 29, 34, 0.7); transition: transform 0.3s ease;
   }
   .os-item-sign::after { transform: rotate(90deg); }
   .os-item.is-open .os-item-sign::after { transform: rotate(0deg); }
   .os-item-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.45s cubic-bezier(.2,.8,.2,1); }
   .os-item.is-open .os-item-body { grid-template-rows: 1fr; }
-  .os-item-inner { overflow: hidden; visibility: hidden; padding-left: 82px; transition: visibility 0s 0.45s; }
+  .os-item-inner { overflow: hidden; visibility: hidden; transition: visibility 0s 0.45s; }
   .os-item.is-open .os-item-inner { visibility: visible; transition: none; }
-  .os-item-text { margin: 0 0 10px; max-width: 46em; font-size: var(--os-body); line-height: 1.5; color: rgba(244, 242, 241, 0.82); }
-  .os-item-price { margin: 0 0 14px 0; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--paper); }
-  .os-item-list { margin: 0 0 18px; padding-left: 18px; max-width: 46em; font-size: var(--os-body); line-height: 1.5; color: rgba(244, 242, 241, 0.78); }
+  .os-item-text { margin: 0 0 10px; max-width: 46em; font-size: var(--os-body); line-height: 1.5; color: rgba(28, 29, 34, 0.72); }
+  .os-item-price { margin: 0 0 14px 0; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
+  .os-item-list { margin: 0 0 18px; padding-left: 18px; max-width: 46em; font-size: var(--os-body); line-height: 1.5; color: rgba(28, 29, 34, 0.72); }
   .os-item-links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; padding-bottom: 28px; }
-  .os-item-links .os-link { color: var(--paper); }
   .os-item-links .os-item-price { margin: 0; }
-  .os-list-foot { margin: 22px 0 0; font-size: var(--os-body); line-height: 1.5; color: rgba(244, 242, 241, 0.6); }
+  /* Book, outlined like the brochure button, not a filled block. */
+  .os-item-links .os-btn { background: transparent; color: var(--ink); border: 1px solid var(--ink); border-radius: 2px; padding: 10px 20px; }
+  .os-item-links .os-btn:hover { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
+  .os-list-foot { margin: 22px 0 0; font-size: var(--os-body); line-height: 1.5; color: rgba(28, 29, 34, 0.55); }
 
   /* ---- Buttons and links ---- */
   .os-btn {
@@ -544,9 +477,7 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   /* ---- 3. The field of our work ---- */
   .os-field { position: relative; overflow: hidden; background: #fff; }
   .os-band { position: relative; }
-  /* The gap under the hero is the page margin, as at the sides (Danielle, 30 Oct). */
-  .os-band--a { height: 140vh; margin-top: calc(var(--page-gutter) - 4vh); }
-  .os-band--b { padding: 16vh 0; }
+  .os-band--a { height: 140vh; }
   .os-band--c { height: 62vh; }
   .os-work-pic { position: absolute; z-index: 1; margin: 0; width: calc(var(--w) * 1vw); overflow: hidden; background: transparent; }
   .os-work-pic img { display: block; width: 100%; height: 100%; object-fit: cover; will-change: transform; }
@@ -566,22 +497,20 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   .os-bro-btn:hover { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
   .os-bro-btn:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
 
-  /* ---- 5. Get in touch: a rounded picture box ---- */
-  .os-touch { padding: 0 var(--page-gutter) clamp(72px, 10vh, 120px); background: #fff; }
-  .os-touch-box {
-    position: relative; display: flex; align-items: flex-end;
-    min-height: clamp(420px, 66vh, 640px); overflow: hidden; border-radius: 8px;
-    background-size: cover; background-position: center; background-color: #2a2228;
+  /* ---- 5. Get in touch, on white ---- */
+  .os-touch { position: relative; background: #fff; padding: clamp(56px, 9vh, 104px) var(--page-gutter) clamp(80px, 12vh, 140px); }
+  /* A hairline across the top, inside the page margins. */
+  .os-touch::before { content: ""; position: absolute; top: 0; left: var(--page-gutter); right: var(--page-gutter); border-top: 1px solid rgba(28, 29, 34, 0.14); }
+  .os-touch-text { margin: 0 0 28px; max-width: 60ch; font-size: var(--os-body); line-height: 1.5; color: rgba(28, 29, 34, 0.7); }
+  .os-touch-links { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 30px; }
+  .os-touch-btn { display: inline-block; width: auto; padding: 10px 28px; }
+
+  /* The one statement a section makes, under its label: Kettal's rhythm. */
+  .os-statement {
+    margin: 0 0 clamp(32px, 5vh, 56px); max-width: 18em;
+    font-family: var(--os-h); font-weight: var(--os-hw); font-size: var(--fs-title);
+    line-height: 1.04; letter-spacing: var(--os-track); color: var(--english-violet);
   }
-  .os-touch-box::before {
-    content: ""; position: absolute; inset: 0;
-    background: linear-gradient(90deg, rgba(20,18,22,0.72) 0%, rgba(20,18,22,0.35) 55%, rgba(20,18,22,0.1) 100%);
-  }
-  .os-touch-copy { position: relative; padding: clamp(32px, 5vw, 76px); max-width: 860px; }
-  .os-touch .os-h { margin-top: 4px; color: var(--paper); }
-  .os-touch-text { margin: 0 0 26px; max-width: 64ch; font-size: var(--os-body); line-height: 1.5; color: rgba(244, 242, 241, 0.85); }
-  .os-touch-links { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; }
-  .os-touch-links .os-link { color: var(--paper); }
 
   /* The pop-out */
   .os-pop { position: fixed; inset: 0; z-index: 1300; display: grid; place-items: center; padding: 20px; }
@@ -608,17 +537,12 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   @media (max-width: 900px) {
     .os { --os-body: 15px; }
     .os-slide-card { width: min(58vw, 260px); }
-    .os-list { padding: 0 12px; }
-    .os-list-box { width: auto; padding: 36px 22px; }
-    .os-list-title span { font-size: clamp(44px, 13vw, 72px); }
+    .os-item-head { grid-template-columns: minmax(0, 1fr) 14px; }
     .os-item-head { grid-template-columns: 44px minmax(0, 1fr) 14px; padding: 20px 0; }
     .os-item-group { display: none; }
     .os-item-inner { padding-left: 0; }
-    /* Bands A and C become two staggered columns, the brochure after A's;
-       band B keeps just the box. */
+    /* Bands A and C become two staggered columns, the brochure after A's. */
     .os-band--a, .os-band--c { height: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 48px 18px; padding: 56px var(--page-gutter) 64px; }
-    .os-band--b { padding: 0; }
-    .os-band--b .os-work-pic { display: none; }
     .os-work-pic { position: static; width: auto; }
     .os-work-pic:nth-of-type(even) { margin-top: 64px; }
     .os-band--a .os-work-pic:nth-of-type(n+7), .os-band--c .os-work-pic:nth-of-type(n+5) { display: none; }
