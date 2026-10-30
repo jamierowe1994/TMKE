@@ -534,8 +534,7 @@ export const PRINT_GUIDES = [
           ], 2) +
           p("You can also replace the placeholder photography with your own property images, helping make the design relevant to the home or area you're promoting.") +
           p("<strong>Need help with the wording?</strong>") +
-          p("Your Creative Assistant can help you write or refine your message. It's designed for estate agency marketing and uses the tone of voice saved in your Brand Kit.") +
-          p("Explain what your card is promoting, who you're trying to reach and what you'd like them to do next. You can then review the suggested wording, make any adjustments and add it to your design.") +
+          p("Your Creative Assistant can help you write or refine your message. It's designed for estate agency marketing and uses the tone of voice saved in your Brand Kit.<br>Explain what your card is promoting, who you're trying to reach and what you'd like them to do next. You can then review the suggested wording, make any adjustments and add it to your design.") +
           cards([
             ["TMKE Tip", "Keep your message short, relevant and focused on one clear action. Although the text automatically adjusts to fit the available space, that doesn't mean you need to fill every line.", "tip"],
           ], 1) +
@@ -553,26 +552,23 @@ export const PRINT_GUIDES = [
           ], 3) +
           p("If you choose WhatsApp, you can add your mobile number and an optional opening message, making it even easier for someone to get in touch. Once you've selected your destination, choose <strong>Update QR code</strong> to apply the changes.") +
           panel("Always test your QR code",
-            p("Before downloading your design, scan the QR code using your phone and check that it opens the correct destination.") +
-            p("Once your cards have been printed, you won't be able to change the destination on those printed cards. Taking a few seconds to test it now can prevent an expensive mistake later.")) +
+            p("Before downloading your design, scan the QR code using your phone and check that it opens the correct destination.<br>Once your cards have been printed, you won't be able to change the destination on those printed cards. Taking a few seconds to test it now can prevent an expensive mistake later.")) +
           "<!--WALK-->" },
 
       { title: "Downloading for Print", walk: "print-download",
         body_html:
           p("<strong>Ready to print?</strong>") +
-          p("Once you've finished personalising your canvassing card, take a moment to review the finished design before downloading it.") +
-          p("Check both sides carefully, paying particular attention to:") +
+          p("Once you've finished personalising your canvassing card, take a moment to review the finished design before downloading it.<br>Check both sides carefully, paying particular attention to:") +
           cards([
             ["Contact details", "Make sure your name, telephone number, email address and other information are correct."],
             ["Photography", "Check that the images are relevant, clear and positioned correctly."],
-            ["Wording", "Read through your message and call to action, checking for spelling mistakes and making sure everything reads naturally."],
+            ["Wording", "Read through your message and call to action, checking for spelling mistakes and tone."],
             ["QR code", "Scan it one final time to confirm it opens the intended destination."],
           ], 2) +
           p("When you're happy with your design, open <strong>Download</strong>. The Studio automatically selects PDF for print designs, giving you a single file containing both sides of your canvassing card.") +
           "<!--WALK-->" +
           panel("Getting your cards printed",
-            p("Your finished design is supplied as a PDF containing both sides of the card. When placing an order with your chosen printing provider, make sure you select the correct dimensions and double-sided printing.") +
-            p("You can find your design's dimensions in the Studio, alongside its name.") +
+            p("Your finished design is supplied as a PDF containing both sides of the card. When placing an order with your chosen printing provider, make sure you select the correct dimensions and double-sided printing.<br>You can find your design's dimensions in the Studio, alongside its name.") +
             p("<strong>Important:</strong> Check your printer's file requirements before ordering, including any bleed, safe-area or print-ready PDF specifications. A PDF download doesn't automatically guarantee compatibility with every printer.")) +
           p("<strong>Your first print design is ready.</strong>") +
           p("You've chosen a template, checked your details, personalised your design and prepared your canvassing card for printing.") +
