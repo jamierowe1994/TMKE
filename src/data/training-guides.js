@@ -476,6 +476,10 @@ export const PRINT_GUIDES = [
     summary: "Create your first personalised canvassing card using the print templates available to agents of The Experts Group.",
     topic: "getting-started", audience: "teg", training: false,
     est_minutes: 10, sort_order: 5,
+    /* Dani's own picture (30 Oct): the Valuation Invitation on a doormat.
+       Held a little high so on a wide screen the card sits below the wine
+       box rather than under its corner. */
+    cover_url: "/images/learn/print-first-design-cover.webp", cover_pos: "50% 30%",
     lessons: [
       { title: "Finding Your Print Templates", walk: "print-find",
         body_html:
