@@ -72,7 +72,7 @@ const SERVICES = [
 // comes up the screen. It has three bands:
 //   A: a screen and a half of pictures, the brochure in its bottom right;
 //   B: pictures carrying on behind the services box, which scrolls over them;
-//   C: another screen of pictures before the contact box.
+//   C: one more row of pictures before the contact box.
 // Each picture: left % of the width between the page margins (the contact
 // box's), width in vw, shape, and its top, in vh
 // from its band's top (A, C) or in % of the band (B, whose height follows the
@@ -106,9 +106,6 @@ const BAND_C = [
   { src: `${H}/Content%20Studio/2.png`, x: 40, y: 10, w: 11, r: "4/5" },
   { src: "living-2.webp", x: 8, y: 22, w: 11, r: "13/10" },
   { src: `${H}/Agent/DonnaPlumb-19.jpg`, x: 70, y: 30, w: 11, r: "4/5" },
-  { src: "white-2.webp", x: 26, y: 56, w: 11, r: "4/5" },
-  { src: `${H}/Property/CV311WHCompressed8.jpg`, x: 56, y: 64, w: 11, r: "13/10" },
-  { src: "orange-1.webp", x: 88, y: 74, w: 10, r: "4/5" },
 ];
 for (const w of [...BAND_A, ...BAND_B, ...BAND_C]) {
   const [a, b] = w.r.split("/").map(Number);
@@ -164,10 +161,10 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
         {BAND_B.map((w) => <figure class="os-work-pic" style={place(w, "%")}><img src={w.img} alt="" loading="lazy" /></figure>)}
         <!-- 2. Every service, numbered. A row opens to its summary and links. -->
         <section class="os-list" id="services" aria-labelledby="os-list-h">
-          <div class="os-list-box">
-          <div class="os-list-head">
-            <h2 class="os-list-title" id="os-list-h">Services</h2>
-          </div>
+          <div class="os-list-box" tabindex="0">
+          <!-- Pressed into the board like the Insights board's title; the list
+               comes up over it on hover, or a tap on a touch screen. -->
+          <h2 class="os-list-title" id="os-list-h"><span>Services</span></h2>
           <div class="os-list-main">
           <ol class="os-rows">
             {SERVICES.map((s, i) => (
@@ -333,29 +330,12 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
     frame();
   }
 
-  // 2. "Services" down the side: its top end level with the first service,
-  // half of its first S cropped off the box's foot. Measured inside the box,
-  // so the box's rise (below) doesn't throw it.
-  const listMain = document.querySelector<HTMLElement>(".os-list-main");
-  const listTitle = document.querySelector<HTMLElement>(".os-list-title");
-  function fitTitle() {
-    if (!listBox || !listMain || !listTitle) return;
-    if (window.matchMedia("(max-width: 900px)").matches) { listTitle.style.fontSize = ""; return; }
-    const first = listMain.querySelector<HTMLElement>(".os-item-name");
-    if (!first) return;
-    const reach = listBox.offsetHeight - (first.getBoundingClientRect().top - listBox.getBoundingClientRect().top);
-    const CROP = 0.27;   // half an S, in em
-    listTitle.style.fontSize = "100px";
-    const k = listTitle.getBoundingClientRect().height / 100;
-    if (k <= CROP) return;
-    const fs = reach / (k - CROP);
-    listTitle.style.fontSize = `${fs}px`;
-    listBox.style.setProperty("--crop", `${CROP * fs}px`);
+  // 2. On a touch screen there is no hover: a tap on the board brings the
+  // list up, and a tap outside it puts it away.
+  if (listBox && window.matchMedia("(hover: none)").matches) {
+    listBox.addEventListener("click", () => listBox.classList.add("is-open"));
+    document.addEventListener("click", (e) => { if (!listBox.contains(e.target as Node)) listBox.classList.remove("is-open"); });
   }
-  const fitTwice = () => { fitTitle(); requestAnimationFrame(fitTitle); };
-  fitTwice();
-  document.fonts?.ready.then(fitTwice);
-  window.addEventListener("resize", fitTwice);
 
   // 2. The list: one row open at a time.
   const items = [...document.querySelectorAll<HTMLElement>(".os-item")];
@@ -433,13 +413,18 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
 
   /* ---- 1. The slides ---- */
   /* Still (reduced motion, or before the script runs): one slide after another. */
-  .os-slides { position: relative; }
-  .os-slide { position: relative; height: 100vh; height: 100svh; overflow: hidden; }
+  /* Framed, not full width (Danielle, 30 Oct): the page margin above and
+     either side, rounded at the top like the boxes further down. */
+  .os-slides { position: relative; background: #fff; }
+  .os-slide {
+    position: relative; overflow: hidden; border-radius: 8px 8px 0 0;
+    margin: var(--page-gutter) var(--page-gutter) 0; height: calc(100svh - var(--page-gutter));
+  }
   .os-slides-hint { display: none; }
   /* Moving: one screen held in place, the slides stacked in it. */
   .os-moving .os-slides { height: calc((var(--n) - 1) * 110vh + 100vh); }
   .os-moving .os-stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
-  .os-moving .os-slide { position: absolute; inset: 0; height: auto; overflow: visible; }
+  .os-moving .os-slide { position: absolute; inset: var(--page-gutter) var(--page-gutter) 0; margin: 0; height: auto; }
   .os-moving .os-slides-hint { display: block; }
   .os-slide-bg {
     position: absolute; inset: 0; background-size: cover; background-position: center;
@@ -475,24 +460,40 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
      either side of it. */
   .os-list { position: relative; z-index: 2; padding: 0 var(--page-gutter); }
   .os-list-box {
-    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(28px, 5vw, 90px);
-    width: min(1040px, 72vw); margin: 0 auto; overflow: hidden; will-change: transform;
-    padding: clamp(40px, 5vw, 72px) clamp(24px, 4vw, 64px) clamp(40px, 5vw, 72px) clamp(14px, 2vw, 32px);
-    border-radius: 8px; background: var(--english-violet); color: var(--paper);
+    position: relative; width: min(1040px, 72vw); margin: 0 auto; overflow: hidden; will-change: transform;
+    padding: clamp(40px, 5vw, 72px) clamp(28px, 4vw, 64px);
+    border-radius: 8px; color: var(--paper); outline: none;
+    background: var(--english-violet) url("/images/insights-board-blank.webp") center / cover;
   }
-  /* "Services" down the side as the statement (Danielle, 29-30 Oct): sized by
-     the script so its last s stops level with the first service and half its
-     first S runs off the foot of the box. The negative margin takes it past the
-     box's padding and the crop, so it never makes the box taller. */
-  .os-list-head {
-    align-self: end; line-height: 0;
-    margin-bottom: calc(-1 * clamp(40px, 5vw, 72px) - var(--crop, 0px));
-  }
+  /* The board at rest: SERVICES blind-embossed into it, the way the Insights
+     board carries NOTES FROM THE DESK (Danielle, 30 Oct): the board's own
+     colour, lit from the top left. */
   .os-list-title {
-    margin: 0; writing-mode: vertical-rl; transform: rotate(180deg);
-    font-family: var(--os-h); font-weight: var(--os-hw); font-size: clamp(120px, 14vw, 240px);
-    line-height: 0.82; letter-spacing: var(--os-track); color: var(--paper); white-space: nowrap;
+    position: absolute; inset: 0; z-index: 1; margin: 0; display: grid; place-items: center;
+    pointer-events: none; transition: opacity 0.5s ease;
   }
+  .os-list-title span {
+    font-family: var(--os-h); font-weight: var(--os-hw); font-size: clamp(56px, 8vw, 128px);
+    letter-spacing: 0.04em; text-transform: uppercase; line-height: 1;
+    color: #3a2029;
+    text-shadow:
+      -1px -1px 1px rgba(255, 236, 240, 0.10),
+      1px 1px 1px rgba(0, 0, 0, 0.55),
+      2px 3px 6px rgba(0, 0, 0, 0.35);
+  }
+  /* The list keeps its place, so the board is its size, and comes up on
+     hover, keyboard focus or a tap; it waits a moment before going. */
+  .os-list-main {
+    position: relative; z-index: 2;
+    opacity: 0; visibility: hidden; transform: translateY(18px);
+    transition: opacity 0.45s ease 0.25s, transform 0.55s cubic-bezier(.2,.8,.2,1) 0.25s, visibility 0s 0.8s;
+  }
+  .os-list-box:hover .os-list-main, .os-list-box:focus-within .os-list-main, .os-list-box.is-open .os-list-main {
+    opacity: 1; visibility: visible; transform: none;
+    transition: opacity 0.45s ease, transform 0.55s cubic-bezier(.2,.8,.2,1), visibility 0s;
+  }
+  .os-list-box:hover .os-list-title, .os-list-box:focus-within .os-list-title, .os-list-box.is-open .os-list-title { opacity: 0; transition-delay: 0s; }
+  .os-list-title { transition-delay: 0.25s; }
   .os-rows { list-style: none; margin: 0; padding: 0; }
   .os-item { border-bottom: 1px solid rgba(244, 242, 241, 0.22); }
   .os-item-head {
@@ -548,9 +549,10 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
   /* ---- 3. The field of our work ---- */
   .os-field { position: relative; overflow: hidden; background: #fff; }
   .os-band { position: relative; }
-  .os-band--a { height: 140vh; }
+  /* The gap under the hero is the page margin, as at the sides (Danielle, 30 Oct). */
+  .os-band--a { height: 140vh; margin-top: calc(var(--page-gutter) - 4vh); }
   .os-band--b { padding: 16vh 0; }
-  .os-band--c { height: 105vh; }
+  .os-band--c { height: 62vh; }
   .os-work-pic { position: absolute; z-index: 1; margin: 0; width: calc(var(--w) * 1vw); overflow: hidden; background: transparent; }
   .os-work-pic img { display: block; width: 100%; height: 100%; object-fit: cover; will-change: transform; }
 
@@ -580,9 +582,9 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
     content: ""; position: absolute; inset: 0;
     background: linear-gradient(90deg, rgba(20,18,22,0.72) 0%, rgba(20,18,22,0.35) 55%, rgba(20,18,22,0.1) 100%);
   }
-  .os-touch-copy { position: relative; padding: clamp(28px, 4vw, 60px); max-width: 640px; }
+  .os-touch-copy { position: relative; padding: clamp(32px, 5vw, 76px); max-width: 860px; }
   .os-touch .os-h { margin-top: 4px; color: var(--paper); }
-  .os-touch-text { margin: 0 0 26px; max-width: 46ch; font-size: var(--os-body); line-height: 1.5; color: rgba(244, 242, 241, 0.85); }
+  .os-touch-text { margin: 0 0 26px; max-width: 64ch; font-size: var(--os-body); line-height: 1.5; color: rgba(244, 242, 241, 0.85); }
   .os-touch-links { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; }
   .os-touch-links .os-link { color: var(--paper); }
 
@@ -612,10 +614,8 @@ const TOUCH_IMG = await pic(A("Jack%20-%20headshots/Property/LeahMusana-9%20(1).
     .os { --os-body: 15px; }
     .os-slide-card { width: min(58vw, 260px); }
     .os-list { padding: 0 12px; }
-    .os-list-box { grid-template-columns: 1fr; width: auto; padding: 36px 22px; }
-    .os-list-head { margin: 0; align-self: start; line-height: normal; }
-    .os-list-box { --crop: 0px; }
-    .os-list-title { writing-mode: horizontal-tb; transform: none; font-size: clamp(56px, 17vw, 88px); }
+    .os-list-box { width: auto; padding: 36px 22px; }
+    .os-list-title span { font-size: clamp(44px, 13vw, 72px); }
     .os-item-head { grid-template-columns: 44px minmax(0, 1fr) 14px; padding: 20px 0; }
     .os-item-group { display: none; }
     .os-item-inner { padding-left: 0; }
