@@ -27,6 +27,10 @@ export const DEMO_BRAND = {
   ],
   fonts: { heading: "Prata", subheading: "Tangerine", body: "Poppins" },
   headshot: null,
+  /* His brand-approved photograph, the cut-out TEG would supply: print
+     designs take this or nothing (editor.js, "The two photographs"). A man
+     who doesn't exist, chosen by Dani for the print course, 30 Oct. */
+  brandPhoto: "/images/demo-brand/alex-mercer-brand-photo.webp",
   /* The shape the profile form itself writes — { name, src, primary } —
      rather than one of our own, so the kit round-trips through the page
      without being normalised away. */
