@@ -1,0 +1,289 @@
+---
+/* Print materials (Danielle, 30 Oct 2026): the words for "Your Print
+   Materials", the member guide at /account/guides/print/<brand>/. One table,
+   by brand, then pack, then template, in the Studio's order; each design's
+   title, summary and when to use it, and each pack's type (the guide's page).
+   Reached from the Print tab's "Print materials" button. Stored in
+   print_guide and packs.print_type (supabase/print_guide.sql). */
+import AdminShell from "../../components/admin/AdminShell.astro";
+import StudioBar from "../../components/admin/StudioBar.astro";
+import "../../styles/admin.css";
+import { PRINT_MATERIALS } from "../../data/print-materials.js";
+
+// Which brands have a guide page yet, so each brand can link to its own.
+const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g]) => [g.brand, `/account/guides/print/${key}/`]));
+---
+
+<AdminShell active="studio" title="Design studio" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Design studio</div>
+          <div class="page-header-sub">Templates that power the customer-facing edit-your-own studio.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ash-panel ash-page">
+  <StudioBar active="print" countId="pm-count">
+    <Fragment slot="filters">
+      <select class="tpl-filter" id="pm-brand" aria-label="Show a brand">
+        <option value="">Every brand</option>
+      </select>
+    </Fragment>
+    <Fragment slot="actions">
+      <a href="/admin/templates?view=print" class="admin-btn admin-btn-ghost">Print templates</a>
+      <span class="pm-state" id="pm-state" role="status"></span>
+      <button type="button" id="pm-save" class="admin-btn admin-btn-primary" disabled>Save changes</button>
+    </Fragment>
+  </StudioBar>
+
+  <section class="pm wrap">
+    <p class="pm-intro">The words for <strong>Your Print Materials</strong>, the guide each brand's agents find in Learn. Every print design is listed by brand, then pack, in the order the Studio shows them. The pack's type decides which page of the guide it goes on. If you leave a title blank, the guide uses the template's name without its prefix.</p>
+    <p class="pm-loading" id="pm-loading">Loading print templates…</p>
+    <div class="pm-missing" id="pm-missing" hidden>
+      <p><strong>The print materials table isn't in the database yet.</strong></p>
+      <p>Run <code>supabase/print_guide.sql</code> in the Supabase SQL editor (it's on the SQL to run list), then reload this page. Until then the guide shows the draft words in <code>src/data/print-materials.js</code>.</p>
+    </div>
+    <div id="pm-body"></div>
+  </section>
+  </div>
+
+  <script id="pm-guides" type="application/json" set:html={JSON.stringify(GUIDES)}></script>
+
+  <style is:global>
+    .pm { padding-top: 22px; padding-bottom: 60px; }
+    .pm-intro { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.75); max-width: 75%; margin: 0 0 26px; }
+    @media (max-width: 860px) { .pm-intro { max-width: none; } }
+    .pm-loading { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); }
+    .pm-missing { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink); padding: 16px 18px; border: 1px solid rgba(55,30,40,0.25); border-radius: 6px; background: #fff; max-width: 75%; }
+    .pm-missing p { margin: 0 0 6px; }
+    .pm-missing p:last-child { margin: 0; }
+    .pm-state { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); }
+    .pm-brand { margin: 0 0 40px; }
+    /* The house strip: 12px bold capitals in Darker Grotesque on wine. */
+    .pm-strip { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 18px; background: var(--english-violet); border-radius: 4px; }
+    .pm-strip h2 { margin: 0; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #fff; }
+    .pm-strip a { font-family: var(--sans); font-size: 12px; font-weight: 700; color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+    .pm-pack { margin-top: 22px; }
+    .pm-pack-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin: 0 0 10px; }
+    .pm-pack-title { font-family: var(--serif); font-size: 22px; font-weight: 300; letter-spacing: -0.05em; color: var(--english-violet); margin: 0; }
+    .pm-pack-meta { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
+    .pm-pack-type { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.6); }
+    .pm-pill { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: rgba(202,166,60,0.16); color: #8a6d1e; }
+    .pm-wrap { overflow-x: auto; border-top: 1px solid rgba(55,30,40,0.35); border-bottom: 1px solid rgba(55,30,40,0.35); }
+    .pm-table { width: 100%; min-width: 940px; border-collapse: collapse; table-layout: fixed; font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .pm-table th, .pm-table td { padding: 12px 12px; border-bottom: 1px solid rgba(28,29,34,0.08); text-align: left; vertical-align: top; }
+    .pm-table tr:last-child td { border-bottom: 0; }
+    .pm-table thead th { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); border-bottom: 1px solid rgba(28,29,34,0.14); }
+    .pm-table col.pm-c-pic { width: 196px; }
+    .pm-table col.pm-c-title { width: 24%; }
+    .pm-pics { display: flex; gap: 6px; }
+    .pm-pics span { flex: 0 0 auto; display: block; width: 88px; height: 88px; border-radius: 2px; border: 1px solid rgba(28,29,34,0.1); background: #eeeae7 center / contain no-repeat; }
+    .pm-pics span.is-none { border-style: dashed; }
+    .pm-pics small { display: block; }
+    .pm-name { margin-top: 6px; font-size: 11px; color: rgba(28,29,34,0.5); word-break: break-word; }
+    .pm-table input, .pm-table textarea, .pm-pack-type select { width: 100%; box-sizing: border-box; font-family: var(--sans); font-size: 13px; line-height: 1.45; padding: 7px 9px; border: 1px solid rgba(28,29,34,0.16); border-radius: 6px; background: #fff; color: var(--ink); }
+    .pm-pack-type select { width: auto; font-weight: 400; }
+    .pm-table textarea { resize: vertical; min-height: 88px; }
+    .pm-table input:focus, .pm-table textarea:focus, .pm-pack-type select:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
+    .pm-table .is-dirty, .pm-pack-type select.is-dirty { border-color: #caa63c; }
+    .pm-empty { padding: 14px 0; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
+  </style>
+
+  <script>
+    import { requireAdmin } from '../../lib/admin-gate.js';
+    import { supabase } from '../../lib/supabase.js';
+    import { escapeHtml as esc } from '../../lib/design-preview.js';
+
+    const DEV = import.meta.env.DEV;
+    const $ = (id) => document.getElementById(id);
+    const GUIDES = JSON.parse($('pm-guides').textContent || '{}');
+    const TYPES = [
+      ['canvassing-cards', 'Canvassing Cards'], ['brochures', 'Brochures'],
+      ['leaflets', 'Leaflets'], ['other', 'Other'],
+    ];
+    const BRAND_KEY = 'tmke.admin.printMaterials.brand';
+
+    // The guide's name for a template with no title: its name without the
+    // "TPE_CC_" / "PPE_Flyer_" prefix (print_guide_title() in the SQL).
+    const shownName = (n) => String(n || '').replace(/^[A-Za-z]+_[A-Za-z0-9]+_/, '').replace(/_/g, ' ').trim();
+
+    let PACKS = [];          // print packs, in the Studio's order
+    let TPLS = [];           // their templates, in the Studio's order
+    let SAVED = new Map();   // template id -> { title, summary, when_to_use } as stored
+    let EDIT = new Map();    // template id -> the same, as edited
+    let TYPE_SAVED = new Map(), TYPE_EDIT = new Map();   // pack id -> print_type
+
+    const missingTable = (e) => e && (e.code === '42P01' || e.code === 'PGRST205' || e.code === '42703' || /print_guide|print_type/.test(e.message || ''));
+
+    async function load() {
+      const pk = await supabase.from('packs').select('id, title, brands, access, status, sort_order, print_type').eq('kind', 'print').order('sort_order', { ascending: true });
+      if (pk.error) { if (missingTable(pk.error)) return 'missing'; throw pk.error; }
+      PACKS = (pk.data || []).filter((p) => p.status !== 'archived');
+      const ids = PACKS.map((p) => p.id);
+      const [tp, gd] = await Promise.all([
+        ids.length
+          ? supabase.from('templates').select('id, name, status, sort_order, pack_id, thumb_url, back_thumb_url').in('pack_id', ids).neq('status', 'archived').order('sort_order', { ascending: true })
+          : Promise.resolve({ data: [] }),
+        supabase.from('print_guide').select('template_id, title, summary, when_to_use'),
+      ]);
+      if (gd.error) { if (missingTable(gd.error)) return 'missing'; throw gd.error; }
+      if (tp.error) throw tp.error;
+      TPLS = tp.data || [];
+      SAVED = new Map((gd.data || []).map((r) => [r.template_id, { title: r.title || '', summary: r.summary || '', when_to_use: r.when_to_use || '' }]));
+      EDIT = new Map(TPLS.map((t) => [t.id, { ...(SAVED.get(t.id) || { title: '', summary: '', when_to_use: '' }) }]));
+      TYPE_SAVED = new Map(PACKS.map((p) => [p.id, p.print_type || '']));
+      TYPE_EDIT = new Map(TYPE_SAVED);
+      return 'ok';
+    }
+
+    // Brand, then pack. A pack for two brands shows under both; its fields
+    // are the same fields, so an edit in one shows in the other.
+    function brandsOf(p) { return p.access === 'brands' && (p.brands || []).length ? p.brands : ['Every brand']; }
+    function brandList() {
+      const set = new Set(); PACKS.forEach((p) => brandsOf(p).forEach((b) => set.add(b)));
+      return [...set].sort((a, b) => (a === 'Every brand') - (b === 'Every brand') || a.localeCompare(b));
+    }
+
+    function pic(url, label) {
+      return url ? `<span style="background-image:url('${esc(url)}')" role="img" aria-label="${esc(label)}"></span>` : `<span class="is-none" aria-label="No ${esc(label.toLowerCase())}"></span>`;
+    }
+
+    function rowHtml(t) {
+      const e = EDIT.get(t.id);
+      return `<tr>
+        <td><div class="pm-pics">${pic(t.thumb_url, 'Front')}${pic(t.back_thumb_url, 'Back')}</div>
+          <div class="pm-name">${esc(t.name)}${t.status !== 'active' ? ' <span class="pm-pill">Draft</span>' : ''}</div></td>
+        <td><input data-id="${t.id}" data-f="title" value="${esc(e.title)}" placeholder="${esc(shownName(t.name))}" aria-label="Title" /></td>
+        <td><textarea data-id="${t.id}" data-f="summary" aria-label="Summary" placeholder="What it is">${esc(e.summary)}</textarea></td>
+        <td><textarea data-id="${t.id}" data-f="when_to_use" aria-label="When to use it" placeholder="When an agent would use it">${esc(e.when_to_use)}</textarea></td>
+      </tr>`;
+    }
+
+    function packHtml(p) {
+      const list = TPLS.filter((t) => t.pack_id === p.id);
+      const type = TYPE_EDIT.get(p.id);
+      const opts = [['', 'Not set'], ...TYPES].map(([k, l]) => `<option value="${k}"${k === type ? ' selected' : ''}>${l}</option>`).join('');
+      return `<div class="pm-pack">
+        <div class="pm-pack-head">
+          <div class="pm-pack-title">${esc(p.title)}</div>
+          <span class="pm-pack-meta">${list.length} ${list.length === 1 ? 'design' : 'designs'}${p.status !== 'active' ? ' · <span class="pm-pill">Draft pack</span>' : ''}</span>
+          <label class="pm-pack-type">Guide page <select data-pack="${p.id}">${opts}</select></label>
+        </div>
+        ${list.length ? `<div class="pm-wrap"><table class="pm-table">
+          <colgroup><col class="pm-c-pic" /><col class="pm-c-title" /><col /><col /></colgroup>
+          <thead><tr><th>Front and back</th><th>Title</th><th>Summary</th><th>When to use</th></tr></thead>
+          <tbody>${list.map(rowHtml).join('')}</tbody></table></div>` : '<p class="pm-empty">No templates in this pack yet.</p>'}
+      </div>`;
+    }
+
+    function render() {
+      const only = $('pm-brand').value;
+      const brands = brandList().filter((b) => !only || b === only);
+      $('pm-body').innerHTML = brands.map((b) => {
+        const packs = PACKS.filter((p) => brandsOf(p).includes(b));
+        const guide = GUIDES[b];
+        return `<section class="pm-brand">
+          <div class="pm-strip"><h2>${esc(b)}</h2>${guide ? `<a href="${guide}" target="_blank" rel="noopener">See the guide</a>` : ''}</div>
+          ${packs.map(packHtml).join('')}
+        </section>`;
+      }).join('') || '<p class="pm-empty">No print packs yet.</p>';
+      $('pm-count').textContent = `${TPLS.length} print ${TPLS.length === 1 ? 'design' : 'designs'}`;
+      markDirty();
+    }
+
+    function changes() {
+      const rows = [], types = [];
+      for (const [id, e] of EDIT) {
+        const s = SAVED.get(id) || { title: '', summary: '', when_to_use: '' };
+        if (e.title.trim() !== s.title || e.summary.trim() !== s.summary || e.when_to_use.trim() !== s.when_to_use) rows.push(id);
+      }
+      for (const [id, v] of TYPE_EDIT) if (v !== TYPE_SAVED.get(id)) types.push(id);
+      return { rows, types };
+    }
+
+    function markDirty() {
+      const { rows, types } = changes();
+      document.querySelectorAll('[data-id]').forEach((el) => {
+        const s = SAVED.get(el.dataset.id) || {};
+        el.classList.toggle('is-dirty', (EDIT.get(el.dataset.id)[el.dataset.f] || '').trim() !== (s[el.dataset.f] || ''));
+      });
+      document.querySelectorAll('[data-pack]').forEach((el) => el.classList.toggle('is-dirty', TYPE_EDIT.get(el.dataset.pack) !== TYPE_SAVED.get(el.dataset.pack)));
+      const n = rows.length + types.length;
+      $('pm-save').disabled = !n;
+      $('pm-state').textContent = n ? `${n} unsaved ${n === 1 ? 'change' : 'changes'}` : '';
+    }
+
+    $('pm-body').addEventListener('input', (ev) => {
+      const el = ev.target;
+      if (el.dataset.id) {
+        EDIT.get(el.dataset.id)[el.dataset.f] = el.value;
+        // The same design under a second brand.
+        document.querySelectorAll(`[data-id="${el.dataset.id}"][data-f="${el.dataset.f}"]`).forEach((o) => { if (o !== el) o.value = el.value; });
+      } else if (el.dataset.pack) {
+        TYPE_EDIT.set(el.dataset.pack, el.value);
+        document.querySelectorAll(`[data-pack="${el.dataset.pack}"]`).forEach((o) => { if (o !== el) o.value = el.value; });
+      }
+      markDirty();
+    });
+
+    $('pm-brand').addEventListener('change', () => {
+      try { localStorage.setItem(BRAND_KEY, $('pm-brand').value); } catch (_) {}
+      render();
+    });
+
+    $('pm-save').addEventListener('click', async () => {
+      const { rows, types } = changes();
+      if (!rows.length && !types.length) return;
+      $('pm-save').disabled = true;
+      $('pm-state').textContent = 'Saving…';
+      let who = null;
+      try { who = (await supabase.auth.getSession()).data.session?.user?.email || null; } catch (_) {}
+      try {
+        if (rows.length) {
+          const up = rows.map((id) => {
+            const e = EDIT.get(id);
+            return { template_id: id, title: e.title.trim() || null, summary: e.summary.trim() || null, when_to_use: e.when_to_use.trim() || null, updated_by: who };
+          });
+          const { error } = await supabase.from('print_guide').upsert(up, { onConflict: 'template_id' });
+          if (error) throw error;
+          up.forEach((r) => SAVED.set(r.template_id, { title: r.title || '', summary: r.summary || '', when_to_use: r.when_to_use || '' }));
+        }
+        for (const id of types) {
+          const v = TYPE_EDIT.get(id) || null;
+          const { error } = await supabase.from('packs').update({ print_type: v }).eq('id', id);
+          if (error) throw error;
+          TYPE_SAVED.set(id, v || '');
+        }
+        markDirty();
+        $('pm-state').textContent = 'Saved. The guide shows it next time it opens.';
+      } catch (e) {
+        markDirty();
+        $('pm-state').textContent = `Couldn't save: ${e.message || e}. Nothing was lost; try again.`;
+      }
+    });
+
+    window.addEventListener('beforeunload', (ev) => {
+      const { rows, types } = changes();
+      if (rows.length || types.length) { ev.preventDefault(); ev.returnValue = ''; }
+    });
+
+    (async () => {
+      if (!DEV) {
+        const session = await requireAdmin();
+        if (!session) return;
+      }
+      let state;
+      try { state = await load(); }
+      catch (e) { $('pm-loading').textContent = `Couldn't load the print templates: ${e.message || e}`; return; }
+      $('pm-loading').hidden = true;
+      if (state === 'missing') { $('pm-missing').hidden = false; $('pm-count').textContent = 'Not set up'; return; }
+      const sel = $('pm-brand');
+      sel.insertAdjacentHTML('beforeend', brandList().map((b) => `<option value="${esc(b)}">${esc(b)}</option>`).join(''));
+      try { const b = localStorage.getItem(BRAND_KEY); if (b && brandList().includes(b)) sel.value = b; } catch (_) {}
+      render();
+    })();
+  </script>
+</AdminShell>

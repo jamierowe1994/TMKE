@@ -7,6 +7,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 - [ ] supabase/content_calendar_notes.sql — notes on each Content Calendar month, for ideas and rough planning (28 Oct)
 - [ ] supabase/content_calendar_levels.sql — the four Content Calendar levels, their prices and what each opens, for Content calendar › Overview (29 Oct)
 - [ ] supabase/pack_training_view.sql — lets the training account see TPE's canvassing print pack for the course screenshots; temporary, switch it off after (30 Oct)
+- [ ] supabase/print_guide.sql — the words for each brand's Your Print Materials guide, edited in Design studio › Print › Print materials; run after pack_training_view.sql (30 Oct)
 
 ## Done
 

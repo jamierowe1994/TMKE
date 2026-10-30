@@ -39,6 +39,9 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       </select>
     </Fragment>
     <Fragment slot="actions">
+      <!-- The words for each brand's "Your Print Materials" guide (Danielle,
+           30 Oct 2026); on the Print tab only. -->
+      <a href="/admin/print-materials" id="pm-btn" class="admin-btn admin-btn-ghost" hidden>Print materials</a>
       <button type="button" id="seed-btn" class="admin-btn admin-btn-ghost" hidden>Seed from default library</button>
       <!-- Every template's preview, re-rendered from its saved design (Danielle,
            12 Oct 2026). Runs in the editor, which has the renderer. -->
@@ -480,6 +483,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
        button named here. (Print was never lit for the same reason.) */
     document.querySelectorAll('.studio-tab').forEach((t) =>
       t.classList.toggle('is-on', t.dataset.tab === (VIEW === 'print' ? 'print' : VIEW === 'mockups' ? 'mockups' : 'templates')));
+    if (VIEW === 'print') document.getElementById('pm-btn').hidden = false;
     if (VIEW === 'mockups') {
       const nb = document.getElementById('new-btn'), sb = document.getElementById('tpl-search');
       if (nb) nb.textContent = '+ Create a mockup';
