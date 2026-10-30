@@ -89,10 +89,11 @@ const BAND_A = [
   // Level with the foot of the brochure button (Danielle, 29 Oct).
   { src: "white-1.webp", x: 48, b: 15, w: 11, r: "13/10" },
 ];
+// Band C carries Get in touch in its bottom left, so the pictures keep clear.
 const BAND_C = [
-  { src: `${H}/Content%20Studio/2.png`, x: 40, y: 10, w: 11, r: "4/5" },
-  { src: "living-2.webp", x: 8, y: 22, w: 11, r: "13/10" },
-  { src: `${H}/Agent/DonnaPlumb-19.jpg`, x: 70, y: 30, w: 11, r: "4/5" },
+  { src: "living-2.webp", x: 14, y: 6, w: 11, r: "13/10" },
+  { src: `${H}/Content%20Studio/2.png`, x: 46, y: 2, w: 11, r: "4/5" },
+  { src: `${H}/Agent/DonnaPlumb-19.jpg`, x: 76, y: 30, w: 11, r: "4/5" },
 ];
 for (const w of [...BAND_A, ...BAND_C]) {
   const [a, b] = w.r.split("/").map(Number);
@@ -172,22 +173,22 @@ const place = (w, unit) =>
       </div>
 
 
-      <div class="os-band os-band--c" aria-hidden="true">
+      <div class="os-band os-band--c">
         {BAND_C.map((w) => <figure class="os-work-pic" style={place(w, "vh")}><img src={w.img} alt="" loading="lazy" /></figure>)}
+        <!-- 5. Get in touch, worked into the field's last screen rather than a
+             section of its own under a line (Danielle, 30 Oct). The form is a
+             pop-out. -->
+        <section class="os-touch" id="get-in-touch">
+          <h2 class="os-list-label">Get in touch</h2>
+          <p class="os-statement">Talk to us before you book.</p>
+          <p class="os-touch-text">If you&rsquo;re not sure which service suits you, or you have a question about anything on this page, send us a message and it&rsquo;ll go straight to our team.</p>
+          <div class="os-touch-links">
+            <button type="button" class="os-bro-btn os-touch-btn" data-os-contact>Send us a message</button>
+            <button type="button" class="os-link" data-vbook="discovery">Book a call with Jack <span aria-hidden="true">&rsaquo;</span></button>
+          </div>
+        </section>
       </div>
     </div>
-
-    <!-- 5. Get in touch, on white like the rest (Danielle, 30 Oct: "try your
-         ideas"): a label, a statement and two ways in. The form is a pop-out. -->
-    <section class="os-touch" id="get-in-touch">
-      <h2 class="os-list-label">Get in touch</h2>
-      <p class="os-statement">Talk to us before you book.</p>
-      <p class="os-touch-text">If you&rsquo;re not sure which service suits you, or you have a question about anything on this page, send us a message and it&rsquo;ll go straight to our team.</p>
-      <div class="os-touch-links">
-        <button type="button" class="os-bro-btn os-touch-btn" data-os-contact>Send us a message</button>
-        <button type="button" class="os-link" data-vbook="discovery">Book a call with Jack <span aria-hidden="true">&rsaquo;</span></button>
-      </div>
-    </section>
   </main>
 
   <!-- The contact pop-out: the Contact page's form. -->
@@ -274,15 +275,20 @@ const place = (w, unit) =>
       if (img && img !== "none") { dark = true; break; }
     }
     document.documentElement.classList.toggle("os-nav-paper", dark);
-    // Past the hero only the menu stays (Danielle, 29 Oct).
+    // Past the hero the header goes, and only the menu stays (Danielle, 29-30 Oct).
+    document.documentElement.style.setProperty("--os-nav-h", `${Math.round(r.height)}px`);
     const hero = document.querySelector(".os-slides");
-    document.documentElement.classList.toggle("os-past-hero", !!hero && hero.getBoundingClientRect().bottom <= r.bottom);
+    document.documentElement.classList.toggle("os-past-hero", !!hero && hero.getBoundingClientRect().bottom <= r.bottom + 1);
   }
   {
     let navQueued = false;
     const askNav = () => { if (!navQueued) { navQueued = true; requestAnimationFrame(() => { navQueued = false; drawNav(); }); } };
     window.addEventListener("scroll", askNav, { passive: true });
     window.addEventListener("resize", askNav);
+    // A page opened part-way down (a reload, the back button) checks again
+    // once it has its scroll position back.
+    window.addEventListener("load", askNav);
+    window.addEventListener("pageshow", askNav);
     drawNav();
   }
 
@@ -333,15 +339,17 @@ const place = (w, unit) =>
 </script>
 
 <style is:global>
-  /* No bar here (Danielle, 29 Oct): the nav sits straight on the page and
-     its mark, Login and menu turn paper over anything dark. */
+  /* Over the hero a white header, as Kettal has, which also frames the
+     slides smaller (Danielle, 30 Oct); past the hero it goes, leaving the
+     menu, which turns paper over anything dark. */
   body:has(.os) .nav, body:has(.os) .nav.scrolled {
     background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none;
     border-bottom-color: transparent; color: var(--ink);
+    transition: background 0.3s ease, color 0.3s ease;
   }
-  html.os-nav-paper body:has(.os) .nav { color: var(--paper); }
-  html.os-nav-paper body:has(.os) .nav .nav-cta { color: var(--paper); border-color: rgba(255, 255, 255, 0.55); }
-  html.os-nav-paper body:has(.os) .nav .nav-cta:hover span { color: var(--ink); }
+  html:not(.os-past-hero) body:has(.os) .nav, html:not(.os-past-hero) body:has(.os) .nav.scrolled { background: #fff; color: var(--ink); }
+  html:not(.os-past-hero) body:has(.os) .nav .nav-cta { color: var(--ink); border-color: currentColor; }
+  html.os-past-hero.os-nav-paper body:has(.os) .nav { color: var(--paper); }
   body:has(.os) .nav .nav-logo, body:has(.os) .nav .nav-cta, body:has(.os) .nav .nav-links { transition: opacity 0.3s ease, visibility 0.3s ease; }
   html.os-past-hero body:has(.os) .nav .nav-logo,
   html.os-past-hero body:has(.os) .nav .nav-cta,
@@ -372,12 +380,13 @@ const place = (w, unit) =>
 
   /* ---- 1. The slides ---- */
   /* Still (reduced motion, or before the script runs): one slide after another. */
-  .os-slides { position: relative; }
-  .os-slide { position: relative; height: 100vh; height: 100svh; overflow: hidden; }
+  .os-slides { position: relative; padding-top: var(--os-nav-h, 80px); background: #fff; }
+  .os-slide { position: relative; height: calc(100svh - var(--os-nav-h, 80px)); overflow: hidden; }
   .os-slides-hint { display: none; }
   /* Moving: one screen held in place, the slides stacked in it. */
   .os-moving .os-slides { height: calc((var(--n) - 1) * 110vh + 100vh); }
-  .os-moving .os-stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
+  .os-moving .os-slides { padding-top: 0; }
+  .os-moving .os-stage { position: sticky; top: var(--os-nav-h, 80px); height: calc(100svh - var(--os-nav-h, 80px)); overflow: hidden; }
   .os-moving .os-slide { position: absolute; inset: 0; height: auto; overflow: visible; }
   .os-moving .os-slides-hint { display: block; }
   .os-slide-bg {
@@ -425,7 +434,7 @@ const place = (w, unit) =>
   }
   .os-item-head:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 4px; }
   .os-item-name {
-    font-family: var(--os-h); font-weight: var(--os-hw); font-size: clamp(26px, 2.6vw, 40px); line-height: 1.1;
+    font-family: var(--os-h); font-weight: var(--os-hw); font-size: clamp(20px, 1.7vw, 26px); line-height: 1.15;
     letter-spacing: var(--os-track); color: var(--ink); transition: opacity 0.25s ease;
   }
   .os-item-num {
@@ -478,7 +487,7 @@ const place = (w, unit) =>
   .os-field { position: relative; overflow: hidden; background: #fff; }
   .os-band { position: relative; }
   .os-band--a { height: 140vh; }
-  .os-band--c { height: 62vh; }
+  .os-band--c { height: 96vh; }
   .os-work-pic { position: absolute; z-index: 1; margin: 0; width: calc(var(--w) * 1vw); overflow: hidden; background: transparent; }
   .os-work-pic img { display: block; width: 100%; height: 100%; object-fit: cover; will-change: transform; }
 
@@ -486,7 +495,7 @@ const place = (w, unit) =>
   .os-bro { position: absolute; right: var(--page-gutter); bottom: 15vh; width: min(28vw, 420px); }
   .os-bro-text {
     margin: 0 0 24px; font-family: var(--sans); font-weight: 500;
-    font-size: calc(var(--fs-quote) * 0.8); line-height: var(--lh-quote); letter-spacing: -0.01em; color: var(--ink);
+    font-size: calc(var(--fs-quote) * 0.68); line-height: 1.3; letter-spacing: -0.01em; color: var(--ink);
   }
   .os-bro-btn {
     display: block; width: 100%; padding: 10px 20px; cursor: pointer;
@@ -497,10 +506,9 @@ const place = (w, unit) =>
   .os-bro-btn:hover { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
   .os-bro-btn:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
 
-  /* ---- 5. Get in touch, on white ---- */
-  .os-touch { position: relative; background: #fff; padding: clamp(56px, 9vh, 104px) var(--page-gutter) clamp(80px, 12vh, 140px); }
-  /* A hairline across the top, inside the page margins. */
-  .os-touch::before { content: ""; position: absolute; top: 0; left: var(--page-gutter); right: var(--page-gutter); border-top: 1px solid rgba(28, 29, 34, 0.14); }
+  /* ---- 5. Get in touch, in the bottom left of the field's last screen ---- */
+  .os-touch { position: absolute; z-index: 2; left: var(--page-gutter); bottom: 12vh; width: min(46vw, 640px); }
+  .os-touch .os-statement { margin-bottom: 18px; }
   .os-touch-text { margin: 0 0 28px; max-width: 60ch; font-size: var(--os-body); line-height: 1.5; color: rgba(28, 29, 34, 0.7); }
   .os-touch-links { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 30px; }
   .os-touch-btn { display: inline-block; width: auto; padding: 10px 28px; }
@@ -538,7 +546,7 @@ const place = (w, unit) =>
     .os { --os-body: 15px; }
     .os-slide-card { width: min(58vw, 260px); }
     .os-item-head { grid-template-columns: minmax(0, 1fr) 14px; }
-    .os-item-head { grid-template-columns: 44px minmax(0, 1fr) 14px; padding: 20px 0; }
+    .os-item-head { padding: 18px 0; }
     .os-item-group { display: none; }
     .os-item-inner { padding-left: 0; }
     /* Bands A and C become two staggered columns, the brochure after A's. */
@@ -546,6 +554,6 @@ const place = (w, unit) =>
     .os-work-pic { position: static; width: auto; }
     .os-work-pic:nth-of-type(even) { margin-top: 64px; }
     .os-band--a .os-work-pic:nth-of-type(n+7), .os-band--c .os-work-pic:nth-of-type(n+5) { display: none; }
-    .os-bro { position: static; grid-column: 1 / -1; width: auto; margin-top: 12px; }
+    .os-bro, .os-touch { position: static; grid-column: 1 / -1; width: auto; margin-top: 12px; }
   }
 </style>
