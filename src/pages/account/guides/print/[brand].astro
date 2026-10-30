@@ -1,0 +1,202 @@
+---
+/* The print materials guide (Danielle, 30 Oct 2026): every print design a
+   brand's agents have, a page per kind of pack, A4 portrait so it reads -- and
+   prints -- as a document rather than a run of slides. A guide, not a course.
+   One per brand, because each brand's templates differ.
+
+   DRAFT LAYOUT. The content is src/data/print-materials.js for now; it will
+   come from the table the admin Design Studio manages. Unlisted, and not
+   linked from anywhere until Dani approves it. */
+import { PRINT_MATERIALS } from "../../../../data/print-materials.js";
+
+export function getStaticPaths() {
+  return Object.keys(PRINT_MATERIALS).map((brand) => ({ params: { brand } }));
+}
+const { brand } = Astro.params;
+const G = PRINT_MATERIALS[brand];
+const studio = (packId) => `/account/editor?pack=${packId}`;
+const pad = (n) => String(n).padStart(2, "0");
+const total = G.packs.reduce((n, p) => n + p.items.length, 0);
+/* The contents as one string: a mapped <li> list here swallowed the cover's
+   footer into the <ol> in the build. */
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const tocHtml = G.packs.map((p, i) => `<li>
+  <span class="pm-toc-no">${pad(i + 1)}</span>
+  <span class="pm-toc-tx"><strong>${esc(p.type)}</strong><span>${esc(p.line)}</span></span>
+  <span class="pm-toc-n">${p.items.length} ${p.items.length === 1 ? "design" : "designs"}</span>
+  <span class="pm-toc-pg">Page ${i + 2}</span>
+</li>`).join("");
+const coverFoot = `<span>${esc(G.brand)} · Print Materials</span><span>${total} designs · Updated ${esc(G.updated)}</span>`;
+---
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>{G.brand}: Print Materials — TMKE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@400;500;600;700;800&display=swap" />
+</head>
+<body>
+  <main class="pm">
+    <!-- ============ COVER ============ -->
+    <section class="pm-sheet pm-cover">
+      <div class="pm-cover-top">
+        <div class="pm-cover-img" style="background-image:url('/images/learn/print-first-design-cover-v2.webp')"></div>
+        <div class="pm-cover-card">
+          <p class="pm-eyebrow pm-eyebrow--light">Training Studio &middot; Guide</p>
+          <h1 class="pm-cover-title">Print Materials</h1>
+          <p class="pm-cover-brand">{G.brand}</p>
+          <p class="pm-cover-lede">Every print design available to you in the Studio, what each one is for and when to use it. Open a pack straight from its page to start personalising.</p>
+        </div>
+      </div>
+
+      <div class="pm-cover-body">
+        <h2 class="pm-strip"><span class="pm-strip-ch">Contents</span></h2>
+        <ol class="pm-toc" set:html={tocHtml}></ol>
+      </div>
+
+      <footer class="pm-foot" set:html={coverFoot}></footer>
+    </section>
+
+    <!-- ============ ONE PAGE PER KIND OF PACK ============ -->
+    {G.packs.map((p, i) => (
+      <section class={`pm-sheet pm-pack pm-pack--${p.key}`}>
+        <h2 class="pm-strip">
+          <span><span class="pm-strip-ch">Chapter {pad(i + 1)} &mdash; </span>{p.type}</span>
+          <a class="pm-strip-go" href={studio(p.packId)}>Open the pack in the Studio &rarr;</a>
+        </h2>
+
+        <header class="pm-pack-head">
+          <h3 class="pm-pack-title">{p.type}.</h3>
+          <p class="pm-pack-line">{p.line}</p>
+          <p class="pm-chips">
+            {p.format && <span>{p.format}</span>}
+            <span>{p.sides}</span>
+            <span>{p.items.length} designs</span>
+          </p>
+        </header>
+
+        <div class="pm-items">
+          {p.items.map((it, k) => (
+            <article class="pm-item">
+              <div class="pm-pics">
+                <img class="pm-pic pm-pic--back" src={it.back} alt="" loading="eager" />
+                <img class="pm-pic pm-pic--front" src={it.front} alt={`${it.title}, front`} loading="eager" />
+              </div>
+              <div class="pm-item-tx">
+                <p class="pm-item-no">{pad(k + 1)}</p>
+                <h4 class="pm-item-title">{it.title}</h4>
+                <p class="pm-item-sum">{it.summary}</p>
+                <p class="pm-when"><span class="pm-label">When to use</span>{it.when}</p>
+                {it.format && <p class="pm-chips pm-chips--sm"><span>{it.format}</span><span>{p.sides}</span></p>}
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <footer class="pm-foot">
+          <span>{G.brand} &middot; Print Materials</span>
+          <span>Page {i + 2}</span>
+        </footer>
+      </section>
+    ))}
+  </main>
+
+  <style is:global>
+    @font-face { font-family: "TMKE Serif"; src: url("/fonts/fraunces-300-latin.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+    :root {
+      --wine: #371e28; --paper: #f4f2f1; --ink: #1c1d22; --tx: rgba(28,29,34,0.68); --faint: rgba(28,29,34,0.46);
+      --line: rgba(28,29,34,0.12);
+      --serif: "TMKE Serif", Georgia, serif; --sans: "Darker Grotesque", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #d9d5d3; }
+    body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+    .pm { display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 32px 16px 64px; }
+
+    /* An A4 page: 210 x 297mm. */
+    .pm-sheet {
+      position: relative; width: 210mm; height: 297mm; overflow: hidden;
+      display: flex; flex-direction: column;
+      padding: 14mm 14mm 0; background: #fff; box-shadow: 0 18px 50px -24px rgba(0,0,0,0.45);
+    }
+
+    /* The house strip, as the hub's chapter bars. */
+    .pm-strip {
+      display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0;
+      padding: 11px 18px; border-radius: 4px; background: var(--wine); color: #fff;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+    }
+    .pm-strip-ch { color: rgba(255,255,255,0.55); font-weight: 600; }
+    .pm-strip-go { color: #fff; text-decoration: none; letter-spacing: 0.04em; text-transform: none; font-size: 14px; font-weight: 600; }
+
+    .pm-eyebrow { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--wine); }
+    .pm-eyebrow--light { color: rgba(255,255,255,0.7); }
+
+    /* ---- Cover ---- */
+    .pm-cover { padding: 0; }
+    .pm-cover-top { position: relative; height: 158mm; }
+    .pm-cover-img { position: absolute; inset: 0; background-size: cover; background-position: 95% 50%; }
+    .pm-cover-card {
+      position: absolute; left: 14mm; top: 14mm; width: 108mm; padding: 9mm 9mm 10mm;
+      background: var(--wine); color: #fff; border-radius: 4px;
+    }
+    .pm-cover-title { margin: 14px 0 0; font-family: var(--serif); font-weight: 300; font-size: 52px; line-height: 1; letter-spacing: -0.05em; color: #fff; }
+    .pm-cover-brand { margin: 10px 0 0; font-family: var(--serif); font-weight: 300; font-size: 22px; letter-spacing: -0.03em; color: rgba(255,255,255,0.86); }
+    .pm-cover-lede { margin: 18px 0 0; font-size: 16px; line-height: 1.5; color: rgba(255,255,255,0.84); }
+    .pm-cover-body { flex: 1; padding: 12mm 14mm 0; }
+    .pm-toc { list-style: none; margin: 0; padding: 0; }
+    .pm-toc li { display: grid; grid-template-columns: 34px minmax(0,1fr) auto auto; align-items: baseline; gap: 16px; padding: 16px 4px; border-bottom: 1px solid var(--line); }
+    .pm-toc-no { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; color: var(--wine); }
+    .pm-toc-tx { display: flex; flex-direction: column; gap: 3px; }
+    .pm-toc-tx strong { font-family: var(--serif); font-weight: 300; font-size: 24px; letter-spacing: -0.05em; color: var(--ink); }
+    .pm-toc-tx span { font-size: 15px; line-height: 1.45; color: var(--tx); }
+    .pm-toc-n, .pm-toc-pg { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); white-space: nowrap; }
+
+    /* ---- A pack's page ---- */
+    .pm-pack-head { padding: 5.5mm 2px 4mm; }
+    .pm-pack-title { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 34px; line-height: 1.02; letter-spacing: -0.05em; }
+    .pm-pack-line { margin: 10px 0 0; max-width: 150mm; font-size: 16px; line-height: 1.5; color: var(--tx); }
+    .pm-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+    .pm-chips span { padding: 4px 11px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tx); }
+    .pm-chips--sm { margin-top: 10px; }
+    .pm-chips--sm span { font-size: 11px; padding: 3px 9px; }
+
+    .pm-items { flex: 1; display: flex; flex-direction: column; }
+    .pm-item { display: grid; grid-template-columns: 56mm minmax(0, 1fr); gap: 7mm; align-items: start; padding: 2.8mm 0; border-top: 1px solid var(--line); }
+
+    /* Front over back, the back peeking out behind: one glance shows it is
+       double-sided. */
+    .pm-pics { position: relative; }
+    .pm-pic { display: block; width: 80%; height: auto; border-radius: 2px; box-shadow: 0 6px 16px -8px rgba(0,0,0,0.4); background: var(--paper); }
+    .pm-pic--back { position: absolute; right: 0; top: 0; opacity: 0.95; }
+    .pm-pic--front { position: relative; margin-top: 3mm; }
+
+    .pm-item-no { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--wine); }
+    .pm-item-title { margin: 3px 0 0; font-family: var(--serif); font-weight: 300; font-size: 22px; line-height: 1.1; letter-spacing: -0.05em; }
+    .pm-item-sum { margin: 4px 0 0; font-size: 14.5px; line-height: 1.4; color: var(--ink); }
+    .pm-when { margin: 6px 0 0; font-size: 14.5px; line-height: 1.4; color: var(--tx); }
+    .pm-label { display: block; margin-bottom: 1px; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--wine); }
+
+    /* Brochures are portrait and fewer: bigger, front and back side by side. */
+    .pm-pack--brochures .pm-item { grid-template-columns: 92mm minmax(0, 1fr); padding: 7mm 0; }
+    .pm-pack--brochures .pm-pics { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
+    .pm-pack--brochures .pm-pic { width: 100%; }
+    .pm-pack--brochures .pm-pic--back { position: static; order: 2; }
+    .pm-pack--brochures .pm-pic--front { margin: 0; order: 1; }
+
+    .pm-foot { display: flex; justify-content: space-between; gap: 12px; margin: auto -14mm 0; padding: 6mm 14mm; border-top: 1px solid var(--line);
+      font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+    .pm-cover .pm-foot { margin: auto 0 0; }
+
+    @page { size: A4; margin: 0; }
+    @media print {
+      html, body { background: #fff; }
+      .pm { padding: 0; gap: 0; }
+      .pm-sheet { box-shadow: none; break-after: page; }
+    }
+  </style>
+</body>
+</html>

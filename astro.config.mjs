@@ -29,7 +29,7 @@ export default defineConfig({
         !/\/seasonal\/?$/.test(page) &&
         // Unlisted, noindexed pages: the font lab, and /ourservices, a link the
         // team sends rather than a page to be found.
-        !/\/(font-lab|ourservices)(\/|$)/.test(page) &&
+        !/\/(font-lab|ourservices|account/guides/print)(\/|$)/.test(page) &&
         !/\/privacy(\/|$)/.test(page) &&
         !/\/cookies(\/|$)/.test(page),
     }),
