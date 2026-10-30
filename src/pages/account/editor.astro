@@ -8404,7 +8404,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
   <!-- Studio onboarding: pick a pack, then play the build-in sequence -->
   <script>
-    import { isDemo as demoOn, lockClicks, lock } from "../../lib/demo.js";
+    import { isDemo as demoOn, isTrainingDemo, lockClicks, lock } from "../../lib/demo.js";
     import { designStore } from "../../lib/design-store.js";
     import { gateWait, gateReady } from "../../lib/ready-gate.js";
     import { STUDIO_SIZES as STUDIO_SIZES_JS } from "../../data/studio-sizes.js";
@@ -9358,6 +9358,24 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             const { fillPackCovers } = await import("../../lib/pack-cover.js");
             await fillPackCovers(supabase, data || []);
             if (data && data.length) demoPacks = data.map((p) => ({ id: p.id, slug: p.slug, title: p.title, cover_image_url: p.cover_image_url, category: "Try it" }));
+          } catch (_) {}
+          /* The training account is given The Property Experts for the print
+             course's pictures (pack-access.js TRAINING_BRANDS), so it also
+             has the print packs the database lets it read: only those marked
+             `training`. After the demo pack, which stays first. */
+          try {
+            const { visibleToMember, memberBrandsFor } = await import("../../lib/pack-access.js");
+            const brands = await memberBrandsFor(supabase);
+            if (isTrainingDemo() && Array.isArray(brands) && brands.length) {
+              const { data: print } = await supabase.from("packs").select("*")
+                .eq("status", "active").eq("kind", "print").order("sort_order", { ascending: true });
+              const mine = visibleToMember(print || [], brands);
+              if (mine.length) {
+                const { fillPackCovers } = await import("../../lib/pack-cover.js");
+                await fillPackCovers(supabase, mine);
+                demoPacks = demoPacks.concat(mine.map((p) => Object.assign({}, p, { category: "Print" })));
+              }
+            }
           } catch (_) {}
         }
         grid.innerHTML = demoPacks.length ? demoPacks.map(packCard).join("") : '<p class="ed-onboard-note">The demo pack is on its way. Start with a blank canvas for now.</p>';

@@ -818,7 +818,7 @@ const inspo = [
 
   <!-- "Pick from your packs" → the member's actually-purchased packs. -->
   <script>
-    import { isDemo as demoOn } from "../../lib/demo.js";
+    import { isDemo as demoOn, isTrainingDemo } from "../../lib/demo.js";
     import { supabase } from "../../lib/supabase.js";
     import { gateReady, gateFailed } from "../../lib/ready-gate.js";
     (async function wirePacks() {
@@ -840,7 +840,11 @@ const inspo = [
       };
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session && demoOn()) {
+        /* The training account also has The Property Experts' print packs the
+           database lets it read (pack-access.js TRAINING_BRANDS): it goes the
+           member's way below, with no orders, keeping the demo pack and print. */
+        const training = !session && isTrainingDemo();
+        if (!session && demoOn() && !training) {
           // The demo: the pack made for it (a slug or title starting "demo"), and the shop.
           let card = '';
           try {
@@ -860,8 +864,8 @@ const inspo = [
           done();
           return;
         }
-        if (!session) { location.replace('/login?next=' + encodeURIComponent('/account/studio')); return; }
-        const email = session.user.email || '';
+        if (!session && !training) { location.replace('/login?next=' + encodeURIComponent('/account/studio')); return; }
+        const email = session ? (session.user.email || '') : '';
         /* Which brand this account is actually in, asked of the database
            rather than assumed. Staff can read every pack, so without this
            somebody at TMKE saw a Property Experts print pack in their own
@@ -870,7 +874,8 @@ const inspo = [
         let memberBrand;
         const [packsRes, ordersRes, brandRes] = await Promise.all([
           supabase.from('packs').select('*').eq('status', 'active').order('sort_order', { ascending: true }),
-          supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`),
+          session ? supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`)
+            : Promise.resolve({ data: [], error: null }),
           import('../../lib/pack-access.js').then((m) => m.memberBrandsFor(supabase), () => undefined),
         ]);
         memberBrand = brandRes;   // every brand they are in (pack-access.js)
@@ -884,7 +889,8 @@ const inspo = [
         // Bought, the demo, free-to-members, or drawn for their brand — the
         // brand check is the database's (src/lib/pack-access.js explains why).
         const { ownedPacks, freeUntilLabel } = await import('../../lib/pack-access.js');
-        const owned = ownedPacks(allPacks, ownedIds, memberBrand);
+        const owned = ownedPacks(allPacks, ownedIds, memberBrand)
+          .filter((p) => !training || p.demo === true || p.kind === 'print');
         window.__ST_OWNED__ = owned;   // for the Your packs pop-out
         if (!owned.length) { row.innerHTML = shopTile; done(); return; } // no packs → just the shop tile
         // The demo pack is marked so the "Opening a template" walk can point at

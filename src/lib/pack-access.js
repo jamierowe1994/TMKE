@@ -13,6 +13,8 @@
  * So by the time a pack row reaches this file, the member is allowed it — and
  * a rule that lives in one place can't drift from the other copy of itself.
  */
+import { isTrainingDemo } from './demo.js';
+
 
 /* Packs the member can open in their Studio.
  *
@@ -72,7 +74,16 @@ export function freeUntilLabel(p) {
 /* Every brand this account is in, from the database: an array (empty when
  * none), or undefined when it could not be asked -- which takes nobody's pack
  * away. Falls back to the single main brand if member_brands() is missing. */
+/* The training account (Alex Mercer, nobody signed in) is given The Property
+ * Experts for now, so the print course's pictures can show a TPE canvassing
+ * card (Dani, 30 Oct: "allocate it a temporary TPE brand status"). The
+ * database still decides what it can read: only packs marked `training`
+ * (supabase, Admin chat's file) reach an anonymous visitor. Empty this list
+ * to take it away again. */
+export const TRAINING_BRANDS = ['The Property Experts'];
+
 export async function memberBrandsFor(supabase) {
+  if (isTrainingDemo() && TRAINING_BRANDS.length) return TRAINING_BRANDS.slice();
   try {
     const r = await supabase.rpc('member_brands');
     if (!r.error && Array.isArray(r.data)) return r.data;
