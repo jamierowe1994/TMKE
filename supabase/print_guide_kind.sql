@@ -1,7 +1,7 @@
 -- A type for each print design (Danielle, 31 Oct 2026).
 --
 -- Free text, shown as a pill on the design in Your Print Materials, e.g.
--- "Booklet" or "Leaflet". Edited in Admin > Design studio > Print > Print
+-- "Leaflet" or "Booklet". Edited in Admin > Design studio > Print > Print
 -- materials, in the Type column. Blank means no pill.
 --
 -- Builds on supabase/print_guide.sql. Run in the Supabase SQL editor. Safe to
@@ -14,8 +14,8 @@ update public.print_guide g
    set kind = v.kind
   from public.templates t
   join public.packs p on p.id = t.pack_id and p.kind = 'print',
-       (values ('10 Ways To Attract More Buyers', 'Booklet'),
-               ('20 Reasons To Choose The Property Experts', 'Leaflet')) as v(title, kind)
+       (values ('10 Ways To Attract More Buyers', 'Leaflet'),
+               ('20 Reasons To Choose The Property Experts', 'Booklet')) as v(title, kind)
  where g.template_id = t.id
    and g.kind is null
    and lower(coalesce(g.title, public.print_guide_title(t.name))) = lower(v.title);
