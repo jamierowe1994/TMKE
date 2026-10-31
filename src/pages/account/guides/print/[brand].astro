@@ -67,7 +67,7 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
         const items = templates.filter((t) => t.pack_id === p.id).map((t) => {
           const w = words.get(t.id) || {};
           return { title: (w.title || "").trim() || plainTitle(t.name), summary: w.summary || "", when: w.when_to_use || "",
-                   front: t.thumb_url, back: t.back_thumb_url, size: sizeOf(t.canvas), missing: !words.has(t.id) || !(w.summary || w.when_to_use) };
+                   kind: String(w.kind || "").trim(), front: t.thumb_url, back: t.back_thumb_url, size: sizeOf(t.canvas), missing: !words.has(t.id) || !(w.summary || w.when_to_use) };
         });
         const sizes = [...new Set(items.map((it) => it.size))];
         const sides = type.sides || (items.every((it) => it.back) ? "Front and back" : items.every((it) => !it.back) ? "Single-sided" : "");
@@ -115,7 +115,7 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
             <p class="pm-chips">${chips}</p>
           </header>` : "";
         const items = list.map((it: any, j: number) => {
-          const own = [c.size ? "" : it.size, c.sides ? "" : (it.back ? "Front and back" : "Single-sided")].filter(Boolean);
+          const own = [it.kind, c.size ? "" : it.size, c.sides ? "" : (it.back ? "Front and back" : "Single-sided")].filter(Boolean);
           return `<article class="pm-item">
             <div class="pm-pics">
               ${it.back ? `<img class="pm-pic pm-pic--back" src="${esc(it.back)}" alt="" loading="eager" />` : ""}
@@ -172,7 +172,8 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
         const templates = tp.data || [];
         const tids = templates.map((t: any) => t.id);
         const pg = tids.length
-          ? await supabase.from("print_guide").select("template_id, title, summary, when_to_use, updated_at").in("template_id", tids)
+          ? await supabase.from("print_guide").select("*")   // "*": the type pill (kind) shows once its column exists
+             .in("template_id", tids)
           : { data: [], error: null };
         if (pg.error) throw pg.error;
         const words = new Map((pg.data || []).map((w: any) => [w.template_id, w]));
@@ -247,14 +248,16 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
     .pm-pack-line { margin: 10px 0 0; max-width: 150mm; font-size: 14px; line-height: 1.25; color: var(--tx); }
     .pm-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
     .pm-chips span { padding: 4px 11px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tx); }
-    .pm-chips--sm { margin-top: 10px; }
+    /* A design's own pills sit level with the bottom of its pictures (Dani, 31 Oct). */
+    .pm-item-tx { display: flex; flex-direction: column; }
+    .pm-chips--sm { margin-top: auto; padding-top: 10px; }
     .pm-chips--sm span { font-size: 10px; padding: 3px 9px; }
 
     .pm-items { flex: 1; display: flex; flex-direction: column; }
     .pm-items { gap: 2.6mm; }
     .pm-strip + .pm-items { margin-top: 5mm; }
     /* Each design in a box of its own (Dani, 31 Oct). */
-    .pm-item { display: grid; grid-template-columns: 52mm minmax(0, 1fr); gap: 6mm; align-items: start; padding: 2.8mm 5mm 3mm; border: 1px solid var(--line); border-radius: 6px; }
+    .pm-item { display: grid; grid-template-columns: 52mm minmax(0, 1fr); gap: 6mm; align-items: stretch; padding: 2.8mm 5mm 3mm; border: 1px solid var(--line); border-radius: 6px; }
 
     /* Front over back, the back peeking out behind: one glance shows it is
        double-sided. */
@@ -268,7 +271,7 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
     .pm-item-title { display: flex; align-items: baseline; gap: 10px; }
     .pm-item-no { flex: none; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: var(--wine); }
     .pm-item-title { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 18px; line-height: 1.4; letter-spacing: -0.05em; }
-    .pm-item-sum { margin: 5px 0 0; font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink); }
+    .pm-item-sum { margin: 10px 0 0; font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink); }
     .pm-when { margin: 6px 0 0; font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink); }   /* the summary's look exactly (Dani, 31 Oct) */
     .pm-staff { margin: 6px 0 0; padding: 6px 9px; border-radius: 4px; background: rgba(202,166,60,0.16); color: #8a6d1e; font-size: 13px; font-weight: 600; }
     .pm-empty { margin: 18px 4px 0; font-size: 16px; color: var(--tx); }
