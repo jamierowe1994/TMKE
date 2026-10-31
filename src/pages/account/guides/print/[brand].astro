@@ -60,6 +60,16 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
       return z ? z.name : "";
     };
 
+    /* How many pages a design has, without fetching every page's elements:
+       one small column per possible page (pages->1->canvas, and so on). */
+    const PAGE_PROBES = [1, 2, 3, 4, 5, 6, 7].map((i) => `p${i + 1}:pages->${i}->canvas`).join(", ");
+    const sidesOf = (t: any) => {
+      let n = 1;
+      for (let i = 2; i <= 8; i++) if (t["p" + i]) n = i;
+      if (n < 2 && t.back_thumb_url) n = 2;
+      return n === 1 ? "Single-sided" : n === 2 ? "Front and back" : `${n} pages`;
+    };
+
     function render(brand: string, packs: any[], templates: any[], words: Map<string, any>, staff: boolean) {
       const pages: any[] = [];
       const chapters = packs.map((p) => {
@@ -67,10 +77,11 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
         const items = templates.filter((t) => t.pack_id === p.id).map((t) => {
           const w = words.get(t.id) || {};
           return { title: (w.title || "").trim() || plainTitle(t.name), summary: w.summary || "", when: w.when_to_use || "",
-                   kind: String(w.kind || "").trim(), front: t.thumb_url, back: t.back_thumb_url, size: sizeOf(t.canvas), missing: !words.has(t.id) || !(w.summary || w.when_to_use) };
+                   kind: String(w.kind || "").trim(), sides: sidesOf(t), front: t.thumb_url, back: t.back_thumb_url, size: sizeOf(t.canvas), missing: !words.has(t.id) || !(w.summary || w.when_to_use) };
         });
         const sizes = [...new Set(items.map((it) => it.size))];
-        const sides = type.sides || (items.every((it) => it.back) ? "Front and back" : items.every((it) => !it.back) ? "Single-sided" : "");
+        const allSides = [...new Set(items.map((it) => it.sides))];
+        const sides = allSides.length === 1 ? allSides[0] : "";
         return { p, key: TYPES[p.print_type] ? p.print_type : "other", type, items, size: sizes.length === 1 ? sizes[0] : "", sides };
       }).filter((c) => c.items.length);
 
@@ -115,7 +126,7 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
             <p class="pm-chips">${chips}</p>
           </header>` : "";
         const items = list.map((it: any, j: number) => {
-          const own = [it.kind, c.size ? "" : it.size, c.sides ? "" : (it.back ? "Front and back" : "Single-sided")].filter(Boolean);
+          const own = [it.kind, c.size ? "" : it.size, c.sides ? "" : it.sides].filter(Boolean);
           return `<article class="pm-item">
             <div class="pm-pics">
               ${it.back ? `<img class="pm-pic pm-pic--back" src="${esc(it.back)}" alt="" loading="eager" />` : ""}
@@ -165,7 +176,7 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
         const packs = pk.data || [];
         const ids = packs.map((p: any) => p.id);
         const tp = ids.length
-          ? await supabase.from("templates").select("id, name, thumb_url, back_thumb_url, canvas, pack_id, sort_order, updated_at")
+          ? await supabase.from("templates").select("id, name, thumb_url, back_thumb_url, canvas, pack_id, sort_order, updated_at, " + PAGE_PROBES)
               .in("pack_id", ids).eq("status", "active").order("sort_order", { ascending: true })
           : { data: [], error: null };
         if (tp.error) throw tp.error;

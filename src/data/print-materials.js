@@ -12,17 +12,17 @@ export const PRINT_MATERIALS = {
   ppe: { brand: "Prestige Property Experts", short: "PPE" },
 };
 
-/* A pack's page, by packs.print_type. `sides` is said where every design of
-   that kind is the same; otherwise each design says its own (front only, or
-   front and back). `perPage` is how many designs fit one A4 page before the
-   chapter runs on to the next. */
+/* A pack's page, by packs.print_type. How many sides or pages a design has
+   comes from the template itself (31 Oct: 10 Ways is front and back, 20
+   Reasons four pages, in the same pack). `perPage` is how many designs fit
+   one A4 page before the chapter runs on to the next. */
 export const PRINT_TYPES = {
   "canvassing-cards": {
     label: "Canvassing Cards", perPage: 5,
     line: "Double-sided cards to post through doors in your area, whether you're introducing yourself, promoting a listing or inviting a valuation.",
   },
   brochures: {
-    label: "Brochures", perPage: 2, sides: "4 pages",
+    label: "Brochures", perPage: 2,
     line: "Longer reads to leave with homeowners: how to sell well, and why to choose us.",
   },
   leaflets: {
