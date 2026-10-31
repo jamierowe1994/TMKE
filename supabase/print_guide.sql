@@ -30,7 +30,7 @@ alter table public.packs add constraint packs_print_type_check
   check (print_type is null or print_type in ('canvassing-cards', 'brochures', 'leaflets', 'other'));
 
 create table if not exists public.print_guide (
-  template_id  uuid primary key references public.templates(id) on delete cascade,
+  template_id  text primary key references public.templates(id) on delete cascade,
   title        text,
   summary      text,
   when_to_use  text,
