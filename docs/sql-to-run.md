@@ -6,11 +6,12 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 - [ ] supabase/content_calendar_notes.sql — notes on each Content Calendar month, for ideas and rough planning (28 Oct)
 - [ ] supabase/content_calendar_levels.sql — the four Content Calendar levels, their prices and what each opens, for Content calendar › Overview (29 Oct)
-- [ ] supabase/pack_training_view.sql — lets the training account see TPE's canvassing print pack for the course screenshots; temporary, switch it off after (30 Oct)
-- [ ] supabase/print_guide.sql — the words for each brand's Your Print Materials guide, edited in Design studio › Print › Print materials; run after pack_training_view.sql (30 Oct)
+- [ ] Training pack off, one line: `update public.packs set training = false where training;` — the course screenshots are done, so the training account stops seeing TPE's canvassing pack (31 Oct)
 
 ## Done
 
+- [x] supabase/print_guide.sql — the words for each brand's Your Print Materials guide, edited in Design studio › Print › Print materials; run after pack_training_view.sql (30 Oct; ran 31 Oct)
+- [x] supabase/pack_training_view.sql — lets the training account see TPE's canvassing print pack for the course screenshots; temporary, switch it off after (30 Oct)
 - [x] supabase/content_calendar_months.sql — Content Calendar months and posts, calendar templates, course levels (28 Oct)
 - [x] supabase/invoices_management_writes.sql — only management can change invoices; everyone can still see them (28 Oct)
 - [x] supabase/smm_video_notes.sql — videography notes on social media clients (27 Oct)
