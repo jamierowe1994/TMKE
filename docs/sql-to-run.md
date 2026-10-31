@@ -6,6 +6,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 - [ ] supabase/content_calendar_levels.sql — the four Content Calendar levels, their prices and what each opens, for Content calendar › Overview (29 Oct)
 - [ ] Training pack off, one line: `update public.packs set training = false where training;` — the course screenshots are done, so the training account stops seeing TPE's canvassing pack (31 Oct)
+- [ ] supabase/print_guide_kind.sql — a type pill for each print design (Booklet, Leaflet) in Your Print Materials; run after print_guide.sql (31 Oct)
 
 ## Done
 

@@ -46,6 +46,7 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
       <p><strong>The print materials table isn't in the database yet.</strong></p>
       <p>Run <code>supabase/print_guide.sql</code> in the Supabase SQL editor (it's on the SQL to run list), then reload this page.</p>
     </div>
+    <p class="pm-missing" id="pm-kind-missing" hidden>Types can't be saved until <code>supabase/print_guide_kind.sql</code> has run in the Supabase SQL editor (it's on the SQL to run list). Everything else saves as normal.</p>
     <div id="pm-body"></div>
   </section>
   </div>
@@ -78,7 +79,9 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
     .pm-table tr:last-child td { border-bottom: 0; }
     .pm-table thead th { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); border-bottom: 1px solid rgba(28,29,34,0.14); }
     .pm-table col.pm-c-pic { width: 196px; }
-    .pm-table col.pm-c-title { width: 24%; }
+    .pm-table col.pm-c-title { width: 22%; }
+    .pm-table col.pm-c-kind { width: 130px; }
+    #pm-kind-missing { margin: 0 0 18px; }
     .pm-pics { display: flex; gap: 6px; }
     .pm-pics span { flex: 0 0 auto; display: block; width: 88px; height: 88px; border-radius: 2px; border: 1px solid rgba(28,29,34,0.1); background: #eeeae7 center / contain no-repeat; }
     .pm-pics span.is-none { border-style: dashed; }
@@ -115,6 +118,10 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
     let SAVED = new Map();   // template id -> { title, summary, when_to_use } as stored
     let EDIT = new Map();    // template id -> the same, as edited
     let TYPE_SAVED = new Map(), TYPE_EDIT = new Map();   // pack id -> print_type
+    let KIND_OK = true;      // print_guide.kind exists (print_guide_kind.sql has run)
+    const FIELDS = ['title', 'kind', 'summary', 'when_to_use'];
+    const blank = () => ({ title: '', kind: '', summary: '', when_to_use: '' });
+    const fromRow = (r) => ({ title: r.title || '', kind: r.kind || '', summary: r.summary || '', when_to_use: r.when_to_use || '' });
 
     const missingTable = (e) => e && (e.code === '42P01' || e.code === 'PGRST205' || e.code === '42703' || /print_guide|print_type/.test(e.message || ''));
 
@@ -127,13 +134,19 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
         ids.length
           ? supabase.from('templates').select('id, name, status, sort_order, pack_id, thumb_url, back_thumb_url').in('pack_id', ids).neq('status', 'archived').order('sort_order', { ascending: true })
           : Promise.resolve({ data: [] }),
-        supabase.from('print_guide').select('template_id, title, summary, when_to_use'),
+        supabase.from('print_guide').select('template_id, title, kind, summary, when_to_use'),
       ]);
-      if (gd.error) { if (missingTable(gd.error)) return 'missing'; throw gd.error; }
+      let gd2 = gd;
+      // Before print_guide_kind.sql: no kind column. Said on the page, not hidden.
+      if (gd.error && gd.error.code === '42703' && /kind/.test(gd.error.message || '')) {
+        KIND_OK = false;
+        gd2 = await supabase.from('print_guide').select('template_id, title, summary, when_to_use');
+      }
+      if (gd2.error) { if (missingTable(gd2.error)) return 'missing'; throw gd2.error; }
       if (tp.error) throw tp.error;
       TPLS = tp.data || [];
-      SAVED = new Map((gd.data || []).map((r) => [r.template_id, { title: r.title || '', summary: r.summary || '', when_to_use: r.when_to_use || '' }]));
-      EDIT = new Map(TPLS.map((t) => [t.id, { ...(SAVED.get(t.id) || { title: '', summary: '', when_to_use: '' }) }]));
+      SAVED = new Map((gd2.data || []).map((r) => [r.template_id, fromRow(r)]));
+      EDIT = new Map(TPLS.map((t) => [t.id, { ...(SAVED.get(t.id) || blank()) }]));
       TYPE_SAVED = new Map(PACKS.map((p) => [p.id, p.print_type || '']));
       TYPE_EDIT = new Map(TYPE_SAVED);
       return 'ok';
@@ -157,6 +170,7 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
         <td><div class="pm-pics">${pic(t.thumb_url, 'Front')}${pic(t.back_thumb_url, 'Back')}</div>
           <div class="pm-name">${esc(t.name)}${t.status !== 'active' ? ' <span class="pm-pill">Draft</span>' : ''}</div></td>
         <td><input data-id="${t.id}" data-f="title" value="${esc(e.title)}" placeholder="${esc(shownName(t.name))}" aria-label="Title" /></td>
+        <td><input data-id="${t.id}" data-f="kind" value="${esc(e.kind)}" placeholder="e.g. Leaflet" aria-label="Type"${KIND_OK ? '' : ' disabled title="Run supabase/print_guide_kind.sql first"'} /></td>
         <td><textarea data-id="${t.id}" data-f="summary" aria-label="Summary" placeholder="What it is">${esc(e.summary)}</textarea></td>
         <td><textarea data-id="${t.id}" data-f="when_to_use" aria-label="When to use it" placeholder="When an agent would use it">${esc(e.when_to_use)}</textarea></td>
       </tr>`;
@@ -173,8 +187,8 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
           <label class="pm-pack-type">Guide page <select data-pack="${p.id}">${opts}</select></label>
         </div>
         ${list.length ? `<div class="pm-wrap"><table class="pm-table">
-          <colgroup><col class="pm-c-pic" /><col class="pm-c-title" /><col /><col /></colgroup>
-          <thead><tr><th>Front and back</th><th>Title</th><th>Summary</th><th>When to use</th></tr></thead>
+          <colgroup><col class="pm-c-pic" /><col class="pm-c-title" /><col class="pm-c-kind" /><col /><col /></colgroup>
+          <thead><tr><th>Front and back</th><th>Title</th><th>Type</th><th>Summary</th><th>When to use</th></tr></thead>
           <tbody>${list.map(rowHtml).join('')}</tbody></table></div>` : '<p class="pm-empty">No templates in this pack yet.</p>'}
       </div>`;
     }
@@ -197,8 +211,8 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
     function changes() {
       const rows = [], types = [];
       for (const [id, e] of EDIT) {
-        const s = SAVED.get(id) || { title: '', summary: '', when_to_use: '' };
-        if (e.title.trim() !== s.title || e.summary.trim() !== s.summary || e.when_to_use.trim() !== s.when_to_use) rows.push(id);
+        const s = SAVED.get(id) || blank();
+        if (FIELDS.some((f) => e[f].trim() !== s[f])) rows.push(id);
       }
       for (const [id, v] of TYPE_EDIT) if (v !== TYPE_SAVED.get(id)) types.push(id);
       return { rows, types };
@@ -245,11 +259,13 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
         if (rows.length) {
           const up = rows.map((id) => {
             const e = EDIT.get(id);
-            return { template_id: id, title: e.title.trim() || null, summary: e.summary.trim() || null, when_to_use: e.when_to_use.trim() || null, updated_by: who };
+            const r = { template_id: id, title: e.title.trim() || null, summary: e.summary.trim() || null, when_to_use: e.when_to_use.trim() || null, updated_by: who };
+            if (KIND_OK) r.kind = e.kind.trim() || null;
+            return r;
           });
           const { error } = await supabase.from('print_guide').upsert(up, { onConflict: 'template_id' });
           if (error) throw error;
-          up.forEach((r) => SAVED.set(r.template_id, { title: r.title || '', summary: r.summary || '', when_to_use: r.when_to_use || '' }));
+          up.forEach((r) => SAVED.set(r.template_id, { ...fromRow(r), kind: KIND_OK ? (r.kind || '') : (SAVED.get(r.template_id) || blank()).kind }));
         }
         for (const id of types) {
           const v = TYPE_EDIT.get(id) || null;
@@ -280,6 +296,7 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
       catch (e) { $('pm-loading').textContent = `Couldn't load the print templates: ${e.message || e}`; return; }
       $('pm-loading').hidden = true;
       if (state === 'missing') { $('pm-missing').hidden = false; $('pm-count').textContent = 'Not set up'; return; }
+      $('pm-kind-missing').hidden = KIND_OK;
       const sel = $('pm-brand');
       sel.insertAdjacentHTML('beforeend', brandList().map((b) => `<option value="${esc(b)}">${esc(b)}</option>`).join(''));
       try { const b = localStorage.getItem(BRAND_KEY); if (b && brandList().includes(b)) sel.value = b; } catch (_) {}
