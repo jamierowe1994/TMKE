@@ -4,29 +4,22 @@
    prints -- as a document rather than a run of slides. A guide, not a course.
    One per brand, because each brand's templates differ.
 
-   DRAFT LAYOUT. The content is src/data/print-materials.js for now; it will
-   come from the table the admin Design Studio manages. Unlisted, and not
-   linked from anywhere until Dani approves it. */
-import { PRINT_MATERIALS } from "../../../../data/print-materials.js";
+   Built when it opens, from the database (31 Oct): the brand's active print
+   packs, their active templates in the Studio's order, and each template's
+   words in print_guide, edited in Admin > Design studio > Print > Print
+   materials. A new design appears here as soon as it's in a pack. */
+import { PRINT_MATERIALS, PRINT_TYPES } from "../../../../data/print-materials.js";
+import { STUDIO_SIZES } from "../../../../data/studio-sizes.js";
 
 export function getStaticPaths() {
   return Object.keys(PRINT_MATERIALS).map((brand) => ({ params: { brand } }));
 }
 const { brand } = Astro.params;
 const G = PRINT_MATERIALS[brand];
-const studio = (packId) => `/account/editor?pack=${packId}`;
-const pad = (n) => String(n).padStart(2, "0");
-const total = G.packs.reduce((n, p) => n + p.items.length, 0);
-/* The contents as one string: a mapped <li> list here swallowed the cover's
-   footer into the <ol> in the build. */
-const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const tocHtml = G.packs.map((p, i) => `<li>
-  <span class="pm-toc-no">${pad(i + 1)}</span>
-  <span class="pm-toc-tx"><strong>${esc(p.type)}</strong><span>${esc(p.line)}</span></span>
-  <span class="pm-toc-n">${p.items.length} ${p.items.length === 1 ? "design" : "designs"}</span>
-  <span class="pm-toc-pg">Page ${i + 2}</span>
-</li>`).join("");
-const coverFoot = `<span>${esc(G.brand)} · Print Materials</span><span>${total} designs · Updated ${esc(G.updated)}</span>`;
+/* Whole strings: an expression followed by text in <title> threw the head
+   and <body> out of shape in the build. */
+const pageTitle = `${G.brand}: Print Materials — TMKE`;
+const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [] }).sizes.map((z) => ({ name: z.name, w: z.w, h: z.h }));
 ---
 <!doctype html>
 <html lang="en-GB">
@@ -34,104 +27,168 @@ const coverFoot = `<span>${esc(G.brand)} · Print Materials</span><span>${total}
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>{G.brand}: Print Materials — TMKE</title>
+  <title>{pageTitle}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@400;500;600;700;800&display=swap" />
 </head>
 <body class="pm-wait" data-brand={G.brand}>
-  <p class="pm-gate" id="pm-gate" hidden></p>
-  <main class="pm">
-    <!-- ============ COVER ============ -->
-    <section class="pm-sheet pm-cover">
-      <div class="pm-cover-top">
-        <div class="pm-cover-img" style="background-image:url('/images/learn/print-first-design-cover-v2.webp')"></div>
-        <div class="pm-cover-card">
-          <p class="pm-eyebrow pm-eyebrow--light">Training Studio &middot; Guide</p>
-          <h1 class="pm-cover-title">Print Materials</h1>
-          <p class="pm-cover-brand">{G.brand}</p>
-          <p class="pm-cover-lede">Every print design available to you in the Studio, what each one is for and when to use it. Open a pack straight from its page to start personalising.</p>
-        </div>
-      </div>
-
-      <div class="pm-cover-body">
-        <h2 class="pm-strip"><span class="pm-strip-ch">Contents</span></h2>
-        <ol class="pm-toc" set:html={tocHtml}></ol>
-      </div>
-
-      <footer class="pm-foot" set:html={coverFoot}></footer>
-    </section>
-
-    <!-- ============ ONE PAGE PER KIND OF PACK ============ -->
-    {G.packs.map((p, i) => (
-      <section class={`pm-sheet pm-pack pm-pack--${p.key}`}>
-        <h2 class="pm-strip">
-          <span><span class="pm-strip-ch">Chapter {pad(i + 1)} &mdash; </span>{p.type}</span>
-          <a class="pm-strip-go" href={studio(p.packId)}>Open the pack in the Studio &rarr;</a>
-        </h2>
-
-        <header class="pm-pack-head">
-          <h3 class="pm-pack-title">{p.type}.</h3>
-          <p class="pm-pack-line">{p.line}</p>
-          <p class="pm-chips">
-            {p.format && <span>{p.format}</span>}
-            <span>{p.sides}</span>
-            <span>{p.items.length} designs</span>
-          </p>
-        </header>
-
-        <div class="pm-items">
-          {p.items.map((it, k) => (
-            <article class="pm-item">
-              <div class="pm-pics">
-                <img class="pm-pic pm-pic--back" src={it.back} alt="" loading="eager" />
-                <img class="pm-pic pm-pic--front" src={it.front} alt={`${it.title}, front`} loading="eager" />
-              </div>
-              <div class="pm-item-tx">
-                <p class="pm-item-no">{pad(k + 1)}</p>
-                <h4 class="pm-item-title">{it.title}</h4>
-                <p class="pm-item-sum">{it.summary}</p>
-                <p class="pm-when"><span class="pm-label">When to use</span>{it.when}</p>
-                {it.format && <p class="pm-chips pm-chips--sm"><span>{it.format}</span><span>{p.sides}</span></p>}
-              </div>
-            </article>
-          ))}
-        </div>
-
-        <footer class="pm-foot">
-          <span>{G.brand} &middot; Print Materials</span>
-          <span>Page {i + 2}</span>
-        </footer>
-      </section>
-    ))}
-  </main>
+  <p class="pm-gate" id="pm-gate">Loading your print materials&hellip;</p>
+  <main class="pm" id="pm"></main>
+  <script type="application/json" id="pm-config" set:html={JSON.stringify({ types: PRINT_TYPES, sizes: printSizes })}></script>
 
   <script>
     /* For this brand's agents, and TMKE staff (Dani, 30 Oct: only the people
-       who have access). Nothing shows until that is known: signed out goes to
-       sign in, anyone else gets a line saying who the guide is for. */
+       who have access). Nothing shows until that is known and the designs
+       have loaded: signed out goes to sign in, anyone else gets a line saying
+       who the guide is for. */
     import { supabase } from "../../../../lib/supabase.js";
     import { guideViewer, guideVisibleTo } from "../../../../lib/guide-audience.js";
+
+    const esc = (t: unknown) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+    const pad = (n: number) => String(n).padStart(2, "0");
+    /* The guide's title for a design with none set: its name without the
+       "TPE_CC_" prefix, as print_guide_title() in print_guide.sql. */
+    const plainTitle = (n: string) => String(n || "").replace(/^[A-Za-z]+_[A-Za-z0-9]+_/, "").replace(/_/g, " ").trim();
+    const chunk = <T,>(list: T[], n: number) => { const out: T[][] = []; for (let i = 0; i < list.length; i += n) out.push(list.slice(i, i + n)); return out; };
+
+    const cfg = JSON.parse(document.getElementById("pm-config")!.textContent || "{}");
+    const TYPES = cfg.types || {};
+    const SIZES: { name: string; w: number; h: number }[] = cfg.sizes || [];
+    const sizeOf = (canvas: any) => {
+      const w = Number(canvas && canvas.width), h = Number(canvas && canvas.height);
+      const z = SIZES.find((s) => Math.abs(s.w - w) <= 4 && Math.abs(s.h - h) <= 4);
+      return z ? z.name : "";
+    };
+
+    function render(brand: string, packs: any[], templates: any[], words: Map<string, any>, staff: boolean) {
+      const pages: any[] = [];
+      const chapters = packs.map((p) => {
+        const type = TYPES[p.print_type] || { ...TYPES.other, label: p.title };
+        const items = templates.filter((t) => t.pack_id === p.id).map((t) => {
+          const w = words.get(t.id) || {};
+          return { title: (w.title || "").trim() || plainTitle(t.name), summary: w.summary || "", when: w.when_to_use || "",
+                   front: t.thumb_url, back: t.back_thumb_url, size: sizeOf(t.canvas), missing: !words.has(t.id) || !(w.summary || w.when_to_use) };
+        });
+        const sizes = [...new Set(items.map((it) => it.size))];
+        const sides = type.sides || (items.every((it) => it.back) ? "Front and back" : items.every((it) => !it.back) ? "Single-sided" : "");
+        return { p, key: TYPES[p.print_type] ? p.print_type : "other", type, items, size: sizes.length === 1 ? sizes[0] : "", sides };
+      }).filter((c) => c.items.length);
+
+      let pageNo = 1;
+      chapters.forEach((c, i) => {
+        c.firstPage = pageNo + 1;
+        chunk(c.items, c.type.perPage || 4).forEach((list, k) => { pageNo += 1; pages.push({ c, i, list, k, start: k * (c.type.perPage || 4), no: pageNo }); });
+      });
+
+      const total = chapters.reduce((n, c) => n + c.items.length, 0);
+      const toc = chapters.map((c, i) => `<li>
+        <span class="pm-toc-no">${pad(i + 1)}</span>
+        <span class="pm-toc-tx"><strong>${esc(c.type.label)}</strong>${c.type.line ? `<span>${esc(c.type.line)}</span>` : ""}</span>
+        <span class="pm-toc-n">${c.items.length} ${c.items.length === 1 ? "design" : "designs"}</span>
+        <span class="pm-toc-pg">Page ${c.firstPage}</span>
+      </li>`).join("");
+      const stamps = templates.map((t) => t.updated_at).concat([...words.values()].map((w) => w.updated_at)).filter(Boolean).sort();
+      const updated = stamps.length ? new Date(stamps[stamps.length - 1]).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "";
+
+      const cover = `<section class="pm-sheet pm-cover">
+        <div class="pm-cover-top">
+          <div class="pm-cover-img" style="background-image:url('/images/learn/print-first-design-cover-v2.webp')"></div>
+          <div class="pm-cover-card">
+            <p class="pm-eyebrow pm-eyebrow--light">Training Studio &middot; Guide</p>
+            <h1 class="pm-cover-title">Print Materials</h1>
+            <p class="pm-cover-brand">${esc(brand)}</p>
+            <p class="pm-cover-lede">Every print design available to you in the Studio, what each one is for and when to use it. Open a pack straight from its page to start personalising.</p>
+          </div>
+        </div>
+        <div class="pm-cover-body">
+          <h2 class="pm-strip"><span class="pm-strip-ch">Contents</span></h2>
+          ${chapters.length ? `<ol class="pm-toc">${toc}</ol>` : `<p class="pm-empty">There are no print designs for ${esc(brand)} agents yet.</p>`}
+        </div>
+        <footer class="pm-foot"><span>${esc(brand)} &middot; Print Materials</span><span>${total} ${total === 1 ? "design" : "designs"}${updated ? ` &middot; Updated ${esc(updated)}` : ""}</span></footer>
+      </section>`;
+
+      const packPages = pages.map(({ c, i, list, k, start, no }) => {
+        const chips = [c.size, c.sides, `${c.items.length} ${c.items.length === 1 ? "design" : "designs"}`].filter(Boolean).map((t) => `<span>${esc(t)}</span>`).join("");
+        const head = k === 0 ? `<header class="pm-pack-head">
+            <h3 class="pm-pack-title">${esc(c.type.label)}.</h3>
+            ${c.type.line ? `<p class="pm-pack-line">${esc(c.type.line)}</p>` : ""}
+            <p class="pm-chips">${chips}</p>
+          </header>` : "";
+        const items = list.map((it: any, j: number) => {
+          const own = [c.size ? "" : it.size, c.sides ? "" : (it.back ? "Front and back" : "Single-sided")].filter(Boolean);
+          return `<article class="pm-item">
+            <div class="pm-pics">
+              ${it.back ? `<img class="pm-pic pm-pic--back" src="${esc(it.back)}" alt="" loading="eager" />` : ""}
+              ${it.front ? `<img class="pm-pic pm-pic--front${it.back ? "" : " pm-pic--only"}" src="${esc(it.front)}" alt="${esc(it.title)}, front" loading="eager" />` : ""}
+            </div>
+            <div class="pm-item-tx">
+              <h4 class="pm-item-title"><span class="pm-item-no">${pad(start + j + 1)}</span>${esc(it.title)}</h4>
+              ${it.summary ? `<p class="pm-item-sum">${esc(it.summary)}</p>` : ""}
+              ${it.when ? `<p class="pm-when"><span class="pm-label">When to use</span>${esc(it.when)}</p>` : ""}
+              ${staff && it.missing ? `<p class="pm-staff">Staff only: no words yet. Add them in Admin &rsaquo; Design studio &rsaquo; Print materials.</p>` : ""}
+              ${own.length ? `<p class="pm-chips pm-chips--sm">${own.map((t) => `<span>${esc(t)}</span>`).join("")}</p>` : ""}
+            </div>
+          </article>`;
+        }).join("");
+        return `<section class="pm-sheet pm-pack pm-pack--${esc(c.key)}">
+          <h2 class="pm-strip">
+            <span><span class="pm-strip-ch">Chapter ${pad(i + 1)} &mdash; </span>${esc(c.type.label)}${k ? " (continued)" : ""}</span>
+            <a class="pm-strip-go" href="/account/editor?pack=${esc(c.p.id)}">Open the pack in the Studio &rarr;</a>
+          </h2>
+          ${head}
+          <div class="pm-items">${items}</div>
+          <footer class="pm-foot"><span>${esc(brand)} &middot; Print Materials</span><span>Page ${no}</span></footer>
+        </section>`;
+      }).join("");
+
+      document.getElementById("pm")!.innerHTML = cover + packPages;
+    }
+
     (async () => {
       const brand = document.body.dataset.brand || "";
       const gate = document.getElementById("pm-gate") as HTMLElement;
-      const show = () => document.body.classList.remove("pm-wait");
+      const say = (t: string) => { gate.textContent = t; gate.hidden = false; document.body.classList.remove("pm-wait"); };
+      let allowed = false, staff = false;
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { location.replace("/login?next=" + encodeURIComponent(location.pathname)); return; }
-        let staff = false;
         try { const r = await supabase.rpc("is_staff"); staff = r.data === true; } catch (_) {}
         const viewer = await guideViewer(supabase);
-        if (staff || guideVisibleTo({ audience: "teg", brands: [brand] }, viewer)) { show(); return; }
+        allowed = staff || guideVisibleTo({ audience: "teg", brands: [brand] }, viewer);
       } catch (_) {}
-      gate.textContent = `This guide is for ${brand} agents. Your own print materials are in the Training Studio.`;
-      gate.hidden = false;
-      document.querySelector(".pm")?.remove();
-      show();
+      if (!allowed) { say(`This guide is for ${brand} agents. Your own print materials are in the Training Studio.`); return; }
+
+      try {
+        const pk = await supabase.from("packs").select("id, title, brands, print_type, sort_order")
+          .eq("kind", "print").eq("status", "active").contains("brands", [brand]).order("sort_order", { ascending: true });
+        if (pk.error) throw pk.error;
+        const packs = pk.data || [];
+        const ids = packs.map((p: any) => p.id);
+        const tp = ids.length
+          ? await supabase.from("templates").select("id, name, thumb_url, back_thumb_url, canvas, pack_id, sort_order, updated_at")
+              .in("pack_id", ids).eq("status", "active").order("sort_order", { ascending: true })
+          : { data: [], error: null };
+        if (tp.error) throw tp.error;
+        const templates = tp.data || [];
+        const tids = templates.map((t: any) => t.id);
+        const pg = tids.length
+          ? await supabase.from("print_guide").select("template_id, title, summary, when_to_use, updated_at").in("template_id", tids)
+          : { data: [], error: null };
+        if (pg.error) throw pg.error;
+        const words = new Map((pg.data || []).map((w: any) => [w.template_id, w]));
+        render(brand, packs, templates, words, staff);
+        gate.hidden = true;
+        document.body.classList.remove("pm-wait");
+      } catch (e) {
+        console.error("print materials guide", e);
+        say("Your print materials didn't load. Refresh the page to try again.");
+      }
     })();
   </script>
 
   <style is:global>
     body.pm-wait .pm { visibility: hidden; }
+    .pm-gate[hidden] { display: none; }
     .pm-gate { max-width: 560px; margin: 18vh auto 0; padding: 0 16px; font-size: 19px; line-height: 1.5; text-align: center; color: var(--ink); }
     @font-face { font-family: "TMKE Serif"; src: url("/fonts/fraunces-300-latin.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
     :root {
@@ -184,7 +241,7 @@ const coverFoot = `<span>${esc(G.brand)} · Print Materials</span><span>${total}
     .pm-toc-n, .pm-toc-pg { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); white-space: nowrap; }
 
     /* ---- A pack's page ---- */
-    .pm-pack-head { padding: 5.5mm 2px 4mm; }
+    .pm-pack-head { padding: 5.5mm 2px 3.4mm; }
     .pm-pack-title { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 34px; line-height: 1.02; letter-spacing: -0.05em; }
     .pm-pack-line { margin: 10px 0 0; max-width: 150mm; font-size: 16px; line-height: 1.5; color: var(--tx); }
     .pm-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
@@ -193,23 +250,33 @@ const coverFoot = `<span>${esc(G.brand)} · Print Materials</span><span>${total}
     .pm-chips--sm span { font-size: 11px; padding: 3px 9px; }
 
     .pm-items { flex: 1; display: flex; flex-direction: column; }
-    .pm-item { display: grid; grid-template-columns: 56mm minmax(0, 1fr); gap: 7mm; align-items: start; padding: 2.8mm 0; border-top: 1px solid var(--line); }
+    .pm-items { gap: 2.6mm; }
+    .pm-strip + .pm-items { margin-top: 5mm; }
+    /* Each design in a box of its own (Dani, 31 Oct). */
+    .pm-item { display: grid; grid-template-columns: 52mm minmax(0, 1fr); gap: 6mm; align-items: start; padding: 2.8mm 5mm 3mm; border: 1px solid var(--line); border-radius: 6px; }
 
     /* Front over back, the back peeking out behind: one glance shows it is
        double-sided. */
     .pm-pics { position: relative; }
     .pm-pic { display: block; width: 80%; height: auto; border-radius: 2px; box-shadow: 0 6px 16px -8px rgba(0,0,0,0.4); background: var(--paper); }
     .pm-pic--back { position: absolute; right: 0; top: 0; opacity: 0.95; }
-    .pm-pic--front { position: relative; margin-top: 3mm; }
+    .pm-pic--front { position: relative; margin-top: 3mm; outline: 1px solid rgba(28,29,34,0.22); outline-offset: -1px; }
 
-    .pm-item-no { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--wine); }
-    .pm-item-title { margin: 3px 0 0; font-family: var(--serif); font-weight: 300; font-size: 22px; line-height: 1.1; letter-spacing: -0.05em; }
+    /* The number sits on the title's line, so a box is no taller than it
+       must be: five cards fill an A4 page. */
+    .pm-item-title { display: flex; align-items: baseline; gap: 10px; }
+    .pm-item-no { flex: none; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: var(--wine); }
+    .pm-item-title { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 22px; line-height: 1.1; letter-spacing: -0.05em; }
     .pm-item-sum { margin: 4px 0 0; font-size: 14.5px; line-height: 1.4; color: var(--ink); }
     .pm-when { margin: 6px 0 0; font-size: 14.5px; line-height: 1.4; color: var(--tx); }
+    .pm-staff { margin: 6px 0 0; padding: 6px 9px; border-radius: 4px; background: rgba(202,166,60,0.16); color: #8a6d1e; font-size: 13px; font-weight: 600; }
+    .pm-empty { margin: 18px 4px 0; font-size: 16px; color: var(--tx); }
+    .pm-pic--only { margin-top: 0; }
+    @media print { .pm-staff { display: none; } }
     .pm-label { display: block; margin-bottom: 1px; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--wine); }
 
     /* Brochures are portrait and fewer: bigger, front and back side by side. */
-    .pm-pack--brochures .pm-item { grid-template-columns: 92mm minmax(0, 1fr); padding: 7mm 0; }
+    .pm-pack--brochures .pm-item { grid-template-columns: 88mm minmax(0, 1fr); padding: 6mm; }
     .pm-pack--brochures .pm-pics { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
     .pm-pack--brochures .pm-pic { width: 100%; }
     .pm-pack--brochures .pm-pic--back { position: static; order: 2; }
