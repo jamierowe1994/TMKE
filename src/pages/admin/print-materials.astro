@@ -237,11 +237,12 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
 
     function markDirty() {
       const { rows, types } = changes();
-      document.querySelectorAll('[data-id]').forEach((el) => {
-        const s = SAVED.get(el.dataset.id) || {};
-        el.classList.toggle('is-dirty', (EDIT.get(el.dataset.id)[el.dataset.f] || '').trim() !== (s[el.dataset.f] || ''));
+      // Only the table's fields: the shell's notification bell has data-id too.
+      $('pm-body').querySelectorAll('[data-id][data-f]').forEach((el) => {
+        const e = EDIT.get(el.dataset.id), s = SAVED.get(el.dataset.id) || {};
+        if (e) el.classList.toggle('is-dirty', (e[el.dataset.f] || '').trim() !== (s[el.dataset.f] || ''));
       });
-      document.querySelectorAll('[data-pack]').forEach((el) => el.classList.toggle('is-dirty', TYPE_EDIT.get(el.dataset.pack) !== TYPE_SAVED.get(el.dataset.pack)));
+      $('pm-body').querySelectorAll('select[data-pack]').forEach((el) => el.classList.toggle('is-dirty', TYPE_EDIT.get(el.dataset.pack) !== TYPE_SAVED.get(el.dataset.pack)));
       const n = rows.length + types.length;
       $('pm-save').disabled = !n;
       setState(n ? 'dirty' : '', n ? `${n} unsaved ${n === 1 ? 'change' : 'changes'}` : '');
@@ -297,13 +298,15 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
 
     $('pm-body').addEventListener('input', (ev) => {
       const el = ev.target;
-      if (el.dataset.id) {
-        EDIT.get(el.dataset.id)[el.dataset.f] = el.value;
+      if (el.dataset.id && el.dataset.f) {
+        const e = EDIT.get(el.dataset.id);
+        if (!e) return;
+        e[el.dataset.f] = el.value;
         // The same design under a second brand.
-        document.querySelectorAll(`[data-id="${el.dataset.id}"][data-f="${el.dataset.f}"]`).forEach((o) => { if (o !== el) o.value = el.value; });
+        $('pm-body').querySelectorAll(`[data-id="${el.dataset.id}"][data-f="${el.dataset.f}"]`).forEach((o) => { if (o !== el) o.value = el.value; });
       } else if (el.dataset.pack) {
         TYPE_EDIT.set(el.dataset.pack, el.value);
-        document.querySelectorAll(`[data-pack="${el.dataset.pack}"]`).forEach((o) => { if (o !== el) o.value = el.value; });
+        $('pm-body').querySelectorAll(`select[data-pack="${el.dataset.pack}"]`).forEach((o) => { if (o !== el) o.value = el.value; });
       }
       markDirty();
     });
