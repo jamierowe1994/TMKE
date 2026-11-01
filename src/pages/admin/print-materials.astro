@@ -47,6 +47,10 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
       <p>Run <code>supabase/print_guide.sql</code> in the Supabase SQL editor (it's on the SQL to run list), then reload this page.</p>
     </div>
     <p class="pm-missing" id="pm-kind-missing" hidden>Types can't be saved until <code>supabase/print_guide_kind.sql</code> has run in the Supabase SQL editor (it's on the SQL to run list). Everything else saves as normal.</p>
+    <div class="pm-restored" id="pm-restored" hidden role="status">
+      <span id="pm-restored-text"></span>
+      <button type="button" class="admin-btn admin-btn-ghost" id="pm-restored-discard">Discard them</button>
+    </div>
     <div id="pm-body"></div>
   </section>
   </div>
@@ -61,7 +65,16 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
     .pm-missing { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ink); padding: 16px 18px; border: 1px solid rgba(55,30,40,0.25); border-radius: 6px; background: #fff; max-width: 75%; }
     .pm-missing p { margin: 0 0 6px; }
     .pm-missing p:last-child { margin: 0; }
-    .pm-state { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); }
+    /* What the page is holding, said plainly (Danielle lost a set of edits on
+       1 Nov): amber while unsaved, green once the database has them, red if not. */
+    .pm-state { font-family: var(--sans); font-size: 13px; font-weight: 700; line-height: 1.3; padding: 7px 12px; border-radius: 4px; max-width: 420px; }
+    .pm-state:empty { display: none; }
+    .pm-state.is-dirty { background: rgba(202,166,60,0.18); color: #7a5f12; }
+    .pm-state.is-busy { background: rgba(28,29,34,0.06); color: rgba(28,29,34,0.7); }
+    .pm-state.is-ok { background: rgba(63,148,104,0.16); color: #23583a; }
+    .pm-state.is-err { background: rgba(192,57,43,0.12); color: #9b2c20; }
+    .pm-restored { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; margin: 0 0 22px; padding: 12px 16px; border-radius: 6px; background: rgba(202,166,60,0.14); border: 1px solid rgba(202,166,60,0.45); font-family: var(--sans); font-size: 14px; font-weight: 600; color: #6b5310; max-width: 75%; }
+    .pm-restored[hidden] { display: none; }
     .pm-brand { margin: 0 0 40px; }
     /* The house strip: 12px bold capitals in Darker Grotesque on wine. */
     .pm-strip { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 18px; background: var(--english-violet); border-radius: 4px; }
@@ -108,6 +121,10 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
       ['leaflets', 'Leaflets'], ['other', 'Other'],
     ];
     const BRAND_KEY = 'tmke.admin.printMaterials.brand';
+    // Unsaved edits, kept in this browser as they're typed, so a reload or a
+    // sign-in timing out can't lose them (Danielle, 1 Nov). Only what differs
+    // from the database is kept; cleared as each save is confirmed.
+    const DRAFT_KEY = 'tmke.admin.printMaterials.unsaved';
 
     // The guide's name for a template with no title: its name without the
     // "TPE_CC_" / "PPE_Flyer_" prefix (print_guide_title() in the SQL).
@@ -227,8 +244,56 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
       document.querySelectorAll('[data-pack]').forEach((el) => el.classList.toggle('is-dirty', TYPE_EDIT.get(el.dataset.pack) !== TYPE_SAVED.get(el.dataset.pack)));
       const n = rows.length + types.length;
       $('pm-save').disabled = !n;
-      $('pm-state').textContent = n ? `${n} unsaved ${n === 1 ? 'change' : 'changes'}` : '';
+      setState(n ? 'dirty' : '', n ? `${n} unsaved ${n === 1 ? 'change' : 'changes'}` : '');
+      keepDraft(rows, types);
     }
+
+    function setState(kind, text) {
+      const el = $('pm-state');
+      el.className = 'pm-state' + (kind ? ` is-${kind}` : '');
+      el.textContent = text;
+    }
+
+    function keepDraft(rows, types) {
+      try {
+        if (!rows.length && !types.length) { localStorage.removeItem(DRAFT_KEY); return; }
+        const d = { at: new Date().toISOString(), rows: {}, types: {} };
+        rows.forEach((id) => { d.rows[id] = { ...EDIT.get(id) }; });
+        types.forEach((id) => { d.types[id] = TYPE_EDIT.get(id); });
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+      } catch (_) {}
+    }
+
+    // Put back anything typed before the page last closed, and say so.
+    function restoreDraft() {
+      let d = null;
+      try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (_) {}
+      if (!d) return 0;
+      let n = 0;
+      for (const [id, e] of Object.entries(d.rows || {})) {
+        if (!EDIT.has(id)) continue;
+        const cur = EDIT.get(id);
+        FIELDS.forEach((f) => { if (typeof e[f] === 'string') cur[f] = e[f]; });
+        n++;
+      }
+      for (const [id, v] of Object.entries(d.types || {})) if (TYPE_EDIT.has(id)) { TYPE_EDIT.set(id, v || ''); n++; }
+      const { rows, types } = changes();
+      const real = rows.length + types.length;
+      if (!real) { try { localStorage.removeItem(DRAFT_KEY); } catch (_) {} return 0; }
+      const when = d.at ? new Date(d.at).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      $('pm-restored-text').textContent = `Restored ${real} unsaved ${real === 1 ? 'change' : 'changes'} from before the page closed${when ? ` (last typed ${when})` : ''}. ${real === 1 ? "It's" : "They're"} marked in amber: press Save changes to keep ${real === 1 ? 'it' : 'them'}.`;
+      $('pm-restored').hidden = false;
+      return real;
+    }
+
+    $('pm-restored-discard').addEventListener('click', () => {
+      if (!confirm('Discard the restored changes and go back to what is saved?')) return;
+      EDIT = new Map(TPLS.map((t) => [t.id, { ...(SAVED.get(t.id) || blank()) }]));
+      TYPE_EDIT = new Map(TYPE_SAVED);
+      try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
+      $('pm-restored').hidden = true;
+      render();
+    });
 
     $('pm-body').addEventListener('input', (ev) => {
       const el = ev.target;
@@ -252,9 +317,14 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
       const { rows, types } = changes();
       if (!rows.length && !types.length) return;
       $('pm-save').disabled = true;
-      $('pm-state').textContent = 'Saving…';
+      setState('busy', 'Saving…');
       let who = null;
       try { who = (await supabase.auth.getSession()).data.session?.user?.email || null; } catch (_) {}
+      if (!who && !DEV) {
+        markDirty();
+        setState('err', "You've been signed out, so nothing was saved. Your changes are kept in this browser: sign in again in another tab, then come back and press Save changes.");
+        return;
+      }
       try {
         if (rows.length) {
           const up = rows.map((id) => {
@@ -263,21 +333,26 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
             if (KIND_OK) r.kind = e.kind.trim() || null;
             return r;
           });
-          const { error } = await supabase.from('print_guide').upsert(up, { onConflict: 'template_id' });
+          // Saved only when the database hands every row back.
+          const { data, error } = await supabase.from('print_guide').upsert(up, { onConflict: 'template_id' }).select('template_id');
           if (error) throw error;
+          if ((data || []).length !== up.length) throw new Error(`the database kept ${(data || []).length} of ${up.length}`);
           up.forEach((r) => SAVED.set(r.template_id, { ...fromRow(r), kind: KIND_OK ? (r.kind || '') : (SAVED.get(r.template_id) || blank()).kind }));
         }
         for (const id of types) {
           const v = TYPE_EDIT.get(id) || null;
-          const { error } = await supabase.from('packs').update({ print_type: v }).eq('id', id);
+          const { data, error } = await supabase.from('packs').update({ print_type: v }).eq('id', id).select('id');
           if (error) throw error;
+          if (!(data || []).length) throw new Error('a pack type was refused');
           TYPE_SAVED.set(id, v || '');
         }
         markDirty();
-        $('pm-state').textContent = 'Saved. The guide shows it next time it opens.';
+        $('pm-restored').hidden = true;
+        const done = rows.length + types.length;
+        setState('ok', done === 1 ? 'Saved 1 change. The guide shows it next time it opens.' : `Saved ${done} changes. The guide shows them next time it opens.`);
       } catch (e) {
         markDirty();
-        $('pm-state').textContent = `Couldn't save: ${e.message || e}. Nothing was lost; try again.`;
+        setState('err', `Not saved: ${e.message || e}. Your changes are still here and kept in this browser; try again.`);
       }
     });
 
@@ -300,6 +375,7 @@ const GUIDES = Object.fromEntries(Object.entries(PRINT_MATERIALS).map(([key, g])
       const sel = $('pm-brand');
       sel.insertAdjacentHTML('beforeend', brandList().map((b) => `<option value="${esc(b)}">${esc(b)}</option>`).join(''));
       try { const b = localStorage.getItem(BRAND_KEY); if (b && brandList().includes(b)) sel.value = b; } catch (_) {}
+      restoreDraft();
       render();
     })();
   </script>
