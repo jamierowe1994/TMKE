@@ -134,16 +134,18 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
           // Canvassing cards carry no pills of their own: the chapter's say it (Dani, 1 Nov).
           const own = c.key === "canvassing-cards" ? [] : [it.kind, c.size ? "" : it.size, c.sides ? "" : it.sides].filter(Boolean);
           return `<article class="pm-item">
-            <div class="pm-pics">
-              ${it.back ? `<img class="pm-pic pm-pic--back" src="${esc(it.back)}" alt="" loading="eager" />` : ""}
-              ${it.front ? `<img class="pm-pic pm-pic--front${it.back ? "" : " pm-pic--only"}" src="${esc(it.front)}" alt="${esc(it.title)}, front" loading="eager" />` : ""}
+            <div class="pm-side">
+              <div class="pm-pics">
+                ${it.back ? `<img class="pm-pic pm-pic--back" src="${esc(it.back)}" alt="" loading="eager" />` : ""}
+                ${it.front ? `<img class="pm-pic pm-pic--front${it.back ? "" : " pm-pic--only"}" src="${esc(it.front)}" alt="${esc(it.title)}, front" loading="eager" />` : ""}
+              </div>
+              ${own.length ? `<p class="pm-chips pm-chips--sm">${own.map((t) => `<span>${esc(t)}</span>`).join("")}</p>` : ""}
             </div>
             <div class="pm-item-tx">
               <h4 class="pm-item-title"><span class="pm-item-no">${pad(start + j + 1)}</span>${esc(it.title)}</h4>
               ${it.summary ? `<p class="pm-item-sum">${esc(it.summary)}</p>` : ""}
               ${it.when ? `<p class="pm-when"><span class="pm-label">When to use</span>${esc(it.when)}</p>` : ""}
               ${staff && it.missing ? `<p class="pm-staff">Staff only: no words yet. Add them in Admin &rsaquo; Design studio &rsaquo; Print materials.</p>` : ""}
-              ${own.length ? `<p class="pm-chips pm-chips--sm">${own.map((t) => `<span>${esc(t)}</span>`).join("")}</p>` : ""}
             </div>
           </article>`;
         }).join("");
@@ -292,7 +294,7 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
     .pm-chips span { padding: 4px 11px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tx); }
     /* A design's own pills sit level with the bottom of its pictures (Dani, 31 Oct). */
     .pm-item-tx { display: flex; flex-direction: column; }
-    .pm-chips--sm { margin-top: auto; padding-top: 10px; }
+    .pm-chips--sm { margin: 4mm 0 0; }   /* under the pictures, from the left (Dani, 1 Nov) */
     .pm-chips--sm span { font-size: 10px; padding: 3px 9px; }
 
     .pm-items { flex: 1; display: flex; flex-direction: column; }
