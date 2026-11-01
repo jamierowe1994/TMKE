@@ -70,7 +70,10 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
       return n === 1 ? "Single-sided" : n === 2 ? "Front and back" : `${n} pages`;
     };
 
-    function render(brand: string, packs: any[], templates: any[], words: Map<string, any>, staff: boolean) {
+    /* `splits` says how many designs each page of a chapter holds. It starts
+       at the type's perPage; fit() moves a design on whenever a page runs off
+       the A4 (1 Nov: longer wording pushed the fifth card off the sheet). */
+    function render(brand: string, packs: any[], templates: any[], words: Map<string, any>, staff: boolean, splits: Map<number, number[]> = new Map()) {
       const pages: any[] = [];
       const chapters = packs.map((p) => {
         const type = TYPES[p.print_type] || { ...TYPES.other, label: p.title };
@@ -88,7 +91,9 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
       let pageNo = 1;
       chapters.forEach((c, i) => {
         c.firstPage = pageNo + 1;
-        chunk(c.items, c.type.perPage || 4).forEach((list, k) => { pageNo += 1; pages.push({ c, i, list, k, start: k * (c.type.perPage || 4), no: pageNo }); });
+        if (!splits.has(i)) splits.set(i, chunk(c.items, c.type.perPage || 4).map((l) => l.length));
+        let start = 0;
+        splits.get(i)!.forEach((n, k) => { pageNo += 1; pages.push({ c, i, list: c.items.slice(start, start + n), k, start, no: pageNo }); start += n; });
       });
 
       const total = chapters.reduce((n, c) => n + c.items.length, 0);
@@ -126,7 +131,8 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
             <p class="pm-chips">${chips}</p>
           </header>` : "";
         const items = list.map((it: any, j: number) => {
-          const own = [it.kind, c.size ? "" : it.size, c.sides ? "" : it.sides].filter(Boolean);
+          // Canvassing cards carry no pills of their own: the chapter's say it (Dani, 1 Nov).
+          const own = c.key === "canvassing-cards" ? [] : [it.kind, c.size ? "" : it.size, c.sides ? "" : it.sides].filter(Boolean);
           return `<article class="pm-item">
             <div class="pm-pics">
               ${it.back ? `<img class="pm-pic pm-pic--back" src="${esc(it.back)}" alt="" loading="eager" />` : ""}
@@ -153,6 +159,31 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
       }).join("");
 
       document.getElementById("pm")!.innerHTML = cover + packPages;
+      return splits;
+    }
+
+    /* A page whose designs push its footer off the sheet gives its last design to the next
+       page of the chapter (a new one if need be), then everything is drawn
+       again. Measured once the fonts and pictures are in. */
+    async function fit(draw: (s?: Map<number, number[]>) => Map<number, number[]>) {
+      let splits = draw();
+      for (let round = 0; round < 30; round++) {
+        await document.fonts.ready;
+        await Promise.all([...document.querySelectorAll<HTMLImageElement>(".pm img")].map((im) => im.decode().catch(() => {})));
+        const over = [...document.querySelectorAll<HTMLElement>(".pm-pack")].findIndex((sheet) => {
+          const foot = sheet.querySelector(".pm-foot");   // pushed past the sheet's bottom edge
+          return !!foot && foot.getBoundingClientRect().bottom > sheet.getBoundingClientRect().bottom + 1;
+        });
+        if (over < 0) return;
+        let n = over, moved = false;
+        for (const [, sizes] of splits) {
+          if (n >= sizes.length) { n -= sizes.length; continue; }
+          if (sizes[n] > 1) { sizes[n] -= 1; if (n + 1 < sizes.length) sizes[n + 1] += 1; else sizes.push(1); moved = true; }
+          break;
+        }
+        if (!moved) return;   // one design taller than a page: nothing to move
+        splits = draw(splits);
+      }
     }
 
     (async () => {
@@ -188,7 +219,7 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
           : { data: [], error: null };
         if (pg.error) throw pg.error;
         const words = new Map((pg.data || []).map((w: any) => [w.template_id, w]));
-        render(brand, packs, templates, words, staff);
+        await fit((sp) => render(brand, packs, templates, words, staff, sp));
         gate.hidden = true;
         document.body.classList.remove("pm-wait");
       } catch (e) {
@@ -281,7 +312,7 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
        must be: five cards fill an A4 page. */
     .pm-item-title { display: flex; align-items: baseline; gap: 10px; }
     .pm-item-no { flex: none; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: var(--wine); }
-    .pm-item-title { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 18px; line-height: 1.4; letter-spacing: -0.05em; }
+    .pm-item-title { margin: 0; font-family: var(--sans); font-weight: 700; font-size: 18px; line-height: 1.4; }   /* Darker Grotesque, as When to use (Dani, 1 Nov) */
     .pm-item-sum { margin: 10px 0 0; font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink); }
     .pm-when { margin: 12px 0 0; font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink); }   /* the summary's look exactly (Dani, 31 Oct); twice the gap above it (1 Nov) */
     .pm-staff { margin: 6px 0 0; padding: 6px 9px; border-radius: 4px; background: rgba(202,166,60,0.16); color: #8a6d1e; font-size: 13px; font-weight: 600; }
