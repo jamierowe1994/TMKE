@@ -18,7 +18,7 @@ export const PRINT_MATERIALS = {
    one A4 page before the chapter runs on to the next. */
 export const PRINT_TYPES = {
   "canvassing-cards": {
-    label: "Canvassing Cards", perPage: 5,
+    label: "Canvassing Cards", perPage: 4,
     line: "Double-sided cards to post through doors in your area, whether you're introducing yourself, promoting a listing or inviting a valuation.",
   },
   brochures: {

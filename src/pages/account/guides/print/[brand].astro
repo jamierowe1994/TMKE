@@ -130,19 +130,19 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
             ${c.type.line ? `<p class="pm-pack-line">${esc(c.type.line)}</p>` : ""}
             <p class="pm-chips">${chips}</p>
           </header>` : "";
-        const items = list.map((it: any, j: number) => {
+        const items = list.map((it: any) => {
           // Canvassing cards carry no pills of their own: the chapter's say it (Dani, 1 Nov).
           const own = c.key === "canvassing-cards" ? [] : [it.kind, c.size ? "" : it.size, c.sides ? "" : it.sides].filter(Boolean);
           return `<article class="pm-item">
-            <div class="pm-side">
+            <div class="pm-stage">
               <div class="pm-pics">
                 ${it.back ? `<img class="pm-pic pm-pic--back" src="${esc(it.back)}" alt="" loading="eager" />` : ""}
                 ${it.front ? `<img class="pm-pic pm-pic--front${it.back ? "" : " pm-pic--only"}" src="${esc(it.front)}" alt="${esc(it.title)}, front" loading="eager" />` : ""}
               </div>
-              ${own.length ? `<p class="pm-chips pm-chips--sm">${own.map((t) => `<span>${esc(t)}</span>`).join("")}</p>` : ""}
             </div>
+            ${own.length ? `<p class="pm-chips pm-chips--sm">${own.map((t) => `<span>${esc(t)}</span>`).join("")}</p>` : ""}
             <div class="pm-item-tx">
-              <h4 class="pm-item-title"><span class="pm-item-no">${pad(start + j + 1)}</span>${esc(it.title)}</h4>
+              <h4 class="pm-item-title">${esc(it.title)}</h4>
               ${it.summary ? `<p class="pm-item-sum">${esc(it.summary)}</p>` : ""}
               ${it.when ? `<p class="pm-when"><span class="pm-label">When to use</span>${esc(it.when)}</p>` : ""}
               ${staff && it.missing ? `<p class="pm-staff">Staff only: no words yet. Add them in Admin &rsaquo; Design studio &rsaquo; Print materials.</p>` : ""}
@@ -268,7 +268,7 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
     /* ---- Cover ---- */
     .pm-cover { padding: 0; }
     .pm-cover-top { position: relative; height: 158mm; }
-    .pm-cover-img { position: absolute; inset: 0; background-size: cover; background-position: 95% 50%; }
+    .pm-cover-img { position: absolute; inset: 6mm 6mm 0; border-radius: 4px; background-size: cover; background-position: 95% 50%; }   /* a white border, so the page isn't cut in half (Dani, 2 Nov) */
     .pm-cover-card {
       position: absolute; left: 14mm; top: 14mm; width: 140mm; padding: 9mm 9mm 10mm;
       background: var(--wine); color: #fff; border-radius: 4px;
@@ -292,43 +292,34 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
     .pm-pack-line { margin: 10px 0 0; font-size: 14px; line-height: 1.25; color: var(--tx); }   /* full width, so the cards line is one line (Dani, 1 Nov) */
     .pm-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
     .pm-chips span { padding: 4px 11px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tx); }
-    /* A design's own pills sit level with the bottom of its pictures (Dani, 31 Oct). */
-    .pm-item-tx { display: flex; flex-direction: column; }
+    /* A catalogue (Dani, 2 Nov): designs two to a row, each on a soft panel
+       with its words underneath at a comfortable width. No outlines, no
+       numbers; the title is set exactly as When to use. */
+    .pm-items { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10mm 8mm; align-content: start; }
+    .pm-strip + .pm-items { margin-top: 6mm; }
+    .pm-item { display: flex; flex-direction: column; min-width: 0; }
+    .pm-stage { display: flex; align-items: center; height: 54mm; padding: 6mm 8mm; background: #ece8e5; border-radius: 4px; }
+    .pm-pack--brochures .pm-stage { height: 92mm; }
     .pm-chips--sm { margin: 4mm 0 0; }   /* under the pictures, from the left (Dani, 1 Nov) */
     .pm-chips--sm span { font-size: 10px; padding: 3px 9px; }
+    .pm-item-tx { display: flex; flex-direction: column; margin-top: 5mm; }
 
-    .pm-items { flex: 1; display: flex; flex-direction: column; }
-    .pm-items { gap: 2.2mm; }   /* five cards to a page with the 1 Nov wording */
-    .pm-strip + .pm-items { margin-top: 5mm; }
-    /* Each design in a box of its own (Dani, 31 Oct). */
-    .pm-item { display: grid; grid-template-columns: 52mm minmax(0, 1fr); gap: 6mm; align-items: stretch; padding: 2.8mm 5mm 3mm; border: 1px solid var(--line); border-radius: 6px; }
-
-    /* Front over back, the back peeking out behind: one glance shows it is
-       double-sided. */
-    .pm-pics { position: relative; }
-    .pm-pic { display: block; width: 80%; height: auto; border-radius: 2px; box-shadow: 0 6px 16px -8px rgba(0,0,0,0.4); background: var(--paper); }
+    /* Front over back, the back peeking out behind: one glance shows it has
+       more than one side. */
+    .pm-pics { position: relative; width: 100%; }
+    .pm-pic { display: block; width: 72%; height: auto; border-radius: 2px; box-shadow: 0 8px 18px -10px rgba(0,0,0,0.45); background: var(--paper); }
     .pm-pic--back { position: absolute; right: 0; top: 0; opacity: 0.95; }
-    .pm-pic--front { position: relative; margin-top: 3mm; outline: 1px solid rgba(28,29,34,0.22); outline-offset: -1px; }
+    .pm-pic--front { position: relative; margin-top: 4mm; outline: 1px solid rgba(28,29,34,0.22); outline-offset: -1px; }
+    .pm-pic--only { margin: 0 auto; }
+    .pm-pack--brochures .pm-pic { width: 66%; }
+    .pm-pack--brochures .pm-pic--front { margin-top: 7mm; }
 
-    /* The number sits on the title's line, so a box is no taller than it
-       must be: five cards fill an A4 page. */
-    .pm-item-title { display: flex; align-items: baseline; gap: 10px; }
-    .pm-item-no { flex: none; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; color: var(--wine); }
-    .pm-item-title { margin: 0; font-family: var(--sans); font-weight: 700; font-size: 18px; line-height: 1.4; }   /* Darker Grotesque, as When to use (Dani, 1 Nov) */
-    .pm-item-sum { margin: 10px 0 0; font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink); }
+    .pm-label, .pm-item-title { display: block; margin: 0 0 2px; font-family: var(--sans); font-size: 12px; font-weight: 700; line-height: 1.4; letter-spacing: 0.16em; text-transform: uppercase; color: var(--wine); }
+    .pm-item-sum { margin: 0; font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink); }
     .pm-when { margin: 12px 0 0; font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink); }   /* the summary's look exactly (Dani, 31 Oct); twice the gap above it (1 Nov) */
     .pm-staff { margin: 6px 0 0; padding: 6px 9px; border-radius: 4px; background: rgba(202,166,60,0.16); color: #8a6d1e; font-size: 13px; font-weight: 600; }
     .pm-empty { margin: 18px 4px 0; font-size: 16px; color: var(--tx); }
-    .pm-pic--only { margin-top: 0; }
     @media print { .pm-staff { display: none; } }
-    .pm-label { display: block; margin-bottom: 2px; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--wine); }
-
-    /* Brochures are portrait and fewer: bigger, front and back side by side. */
-    .pm-pack--brochures .pm-item { grid-template-columns: 88mm minmax(0, 1fr); padding: 6mm; }
-    .pm-pack--brochures .pm-pics { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
-    .pm-pack--brochures .pm-pic { width: 100%; }
-    .pm-pack--brochures .pm-pic--back { position: static; order: 2; }
-    .pm-pack--brochures .pm-pic--front { margin: 0; order: 1; }
 
     .pm-foot { display: flex; justify-content: space-between; gap: 12px; margin: auto -14mm 0; padding: 6mm 14mm; border-top: 1px solid var(--line);
       font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
