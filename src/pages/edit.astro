@@ -2178,17 +2178,32 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       // the page on; scrolling up, back to its first pack before the page
       // goes back. Without this the smooth scroll took every wheel and skipped
       // the panel's last row (Danielle, 25 Oct).
+      // It used to wait for the page to settle exactly on the panel, but a
+      // swipe that opened it rarely left the page there: the rest of that
+      // swipe, and the next one, carried the page on to the Studio without
+      // the box moving (Danielle, 2 Nov). Now, once the panel is open, the
+      // wheel is held while the page glides onto the panel, then it scrolls
+      // the box.
       const shopPane = document.getElementById('stk-body-shop');
       if (shopPane) shopPane.addEventListener('wheel', (e) => {
-        // Only once the page has settled on the shop panel: while it's still
-        // opening, the wheel belongs to the stack.
         const pane = shopPane.closest('.stk-p');
-        if (!pane || !pane.classList.contains('is-open') || snapping) return;
-        if (!isMobile() && Math.abs(window.scrollY - (wrapTop + Number(pane.dataset.i) * stepCache)) > 8) return;
+        if (!pane || !pane.classList.contains('is-open') || e.ctrlKey) return;
         const room = shopPane.scrollHeight - shopPane.clientHeight;
-        if (room <= 1 || e.ctrlKey) return;
+        if (room <= 1) return;
         const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
         const atTop = shopPane.scrollTop <= 0, atEnd = shopPane.scrollTop >= room - 1;
+        const i = Number(pane.dataset.i);
+        const parked = isMobile() || Math.abs(window.scrollY - (wrapTop + i * stepCache)) <= 8;
+        if (!parked) {
+          // Coming back up from the Studio it's the same the other way. With
+          // the box already at that end there's nothing to scroll, so the
+          // page goes on as normal.
+          if (dy === 0 || (dy > 0 && atEnd) || (dy < 0 && atTop)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (!(snapping && snapDest === i)) goToPanel(i);
+          return;
+        }
         if ((dy > 0 && atEnd) || (dy < 0 && atTop)) return;   // let the page carry on
         e.preventDefault();
         e.stopPropagation();
@@ -2367,11 +2382,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       // NO hold — the runway above paces the sections, and a hold only made it
       // feel stop-start. The glide is unhurried so it reads as one movement.
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      let snapT = 0, snapGuard = 0, snapping = false;
+      let snapT = 0, snapGuard = 0, snapping = false, snapDest = -1;
 
       function goToPanel(i) {
         const dest = wrapTop + i * stepCache;
-        snapping = true;
+        snapping = true; snapDest = i;
         const done = () => { snapping = false; };
         // A snap that gets interrupted (you scroll mid-glide) never fires Lenis's
         // onComplete — so ALWAYS release on a timer too. Without this, `snapping`
