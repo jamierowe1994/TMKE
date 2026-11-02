@@ -25,19 +25,29 @@
 --
 -- Run in the Supabase SQL editor. Safe to re-run.
 
--- The first version (2 Nov, earlier) hung a portal off a social media card.
--- If that one was run and nothing was made with it, it is replaced here.
+-- The first version (2 Nov, earlier) hung a portal off a social media card,
+-- keyed by smm_lead_id. If that one was run, it is converted here in place:
+-- each portal keeps its link, passcode and folders, gets its own id, and takes
+-- its name from the card it hung off.
 do $$
 begin
   if exists (select 1 from information_schema.columns
-              where table_schema = 'public' and table_name = 'client_portals' and column_name = 'smm_lead_id')
-     and not exists (select 1 from information_schema.columns
-              where table_schema = 'public' and table_name = 'client_portals' and column_name = 'id') then
-    if (select count(*) from public.client_portals) = 0 then
-      drop table public.client_portals;
-    else
-      raise exception 'client_portals already holds portals in the first shape. Ask Claude to move them across before running this.';
-    end if;
+              where table_schema = 'public' and table_name = 'client_portals' and column_name = 'smm_lead_id') then
+    alter table public.client_portals add column if not exists id uuid not null default gen_random_uuid();
+    alter table public.client_portals add column if not exists name text;
+    alter table public.client_portals add column if not exists first_name text;
+    update public.client_portals c
+       set name = coalesce(nullif(btrim(l.business), ''), nullif(btrim(l.full_name), ''),
+                           nullif(btrim(concat_ws(' ', l.first_name, l.last_name)), '')),
+           first_name = coalesce(c.first_name, l.first_name)
+      from public.smm_leads l
+     where l.id = c.smm_lead_id and c.name is null;
+    update public.client_portals set name = 'Client' where name is null or btrim(name) = '';
+    alter table public.client_portals drop constraint if exists client_portals_pkey;
+    alter table public.client_portals add primary key (id);
+    alter table public.client_portals drop column smm_lead_id;
+    alter table public.client_portals alter column name set not null;
+    alter table public.client_portals add constraint client_portals_name_check check (length(btrim(name)) > 0);
   end if;
 end
 $$;
@@ -83,5 +93,5 @@ create policy "client_portals admin"
   using (public.is_admin())
   with check (public.is_admin());
 
--- Check: the table is there, and how many portals it holds.
-select count(*) as portals from public.client_portals;
+-- Check: every portal, by name. Each row should have an id and a name.
+select id, name, enabled, cardinality(folders) as folders from public.client_portals order by name;
