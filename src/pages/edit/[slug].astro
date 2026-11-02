@@ -225,10 +225,10 @@ function gbp(pence) {
               role={(t.render_url || t.thumb_url) ? "button" : undefined}
               aria-label={(t.render_url || t.thumb_url) ? `Enlarge ${t.name}` : undefined}
             >
+              <figcaption><span class="pack-tpl-num">{pad2(i + 1)}</span></figcaption>
               {(t.thumb_url || t.render_url)
                 ? <img src={sized(t.thumb_url || t.render_url, 700)} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
                 : <div class="pack-tpl-empty"></div>}
-              <figcaption><span class="pack-tpl-num">{pad2(i + 1)}</span></figcaption>
             </figure>
           ))}
 
@@ -237,6 +237,7 @@ function gbp(pence) {
               class="pack-tpl pack-tpl--locked"
               aria-label="Locked: buy the pack to unlock"
             >
+              <figcaption><span class="pack-tpl-num">{pad2(previewTpls.length + i + 1)}</span><span class="pack-tpl-name">Locked</span></figcaption>
               {(t.thumb_url || t.render_url)
                 ? <img src={sized(t.thumb_url || t.render_url, 500)} alt="" loading="lazy" />
                 : <div class="pack-tpl-empty"></div>}
@@ -246,11 +247,18 @@ function gbp(pence) {
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                 </svg>
               </div>
-              <figcaption><span class="pack-tpl-num">{pad2(previewTpls.length + i + 1)}</span><span class="pack-tpl-name">Locked</span></figcaption>
             </figure>
           ))}
         </div>
 
+        <div class="pp-arrows">
+          <button type="button" class="pp-arrow" data-dir="-1" aria-label="Scroll back" disabled>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <button type="button" class="pp-arrow" data-dir="1" aria-label="Scroll on">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -521,7 +529,7 @@ function gbp(pence) {
 
     /* The whole pack on the wine (Danielle, 24 Oct), headed the way Moyo
        Studio heads its collection: a small label, the count, one button. */
-    .pack-previews { background: var(--english-violet); color: var(--paper); padding: 34px 0 64px; }
+    .pack-previews { background: var(--english-violet); color: var(--paper); padding: 56px 0 56px; }
     /* Left edge on the same line as the TMKE wordmark in the nav. */
     .pp-wrap { padding: 0 40px 0 var(--page-gutter); }
     @media (max-width: 720px) { .pp-wrap { padding: 0 16px; } }
@@ -529,7 +537,7 @@ function gbp(pence) {
        foot of the button (Danielle, 25 Oct), with the rule close under it. */
     .pack-previews-head {
       display: flex; align-items: flex-end; gap: 12px 56px; flex-wrap: wrap;
-      padding-bottom: 14px; margin-bottom: 26px;
+      padding-bottom: 14px; margin-bottom: 56px;
       border-bottom: 1px solid rgba(240,238,235,0.18);
     }
     .pp-h {
@@ -540,6 +548,11 @@ function gbp(pence) {
       font-family: var(--sans); font-size: 11px; font-weight: 700; line-height: 1; letter-spacing: 0.18em;
       color: rgba(240,238,235,0.55); font-variant-numeric: tabular-nums;
     }
+    /* Lined up by eye, not by box (Danielle, 2 Nov): boxes ending together
+       left the button's foot 2px under the heading's letters and the count
+       1px under, measured off the page. These lift them onto that line. */
+    .pp-count { margin-bottom: 1px; }
+    .pp-btn { margin-bottom: 2px; }
     .pp-btn {
       margin-left: auto; background: transparent; color: var(--paper);
       border: 1px solid rgba(240,238,235,0.75); padding: 7px 18px; cursor: pointer;
@@ -571,7 +584,18 @@ function gbp(pence) {
       .pack-tpl-grid { gap: 10px; }
       .pack-tpl-grid > .pack-tpl { width: calc((100cqw - 2 * 10px) / 2.3); }
     }
+    /* Two small arrows under the row, nothing more (Danielle, 2 Nov): it
+       never moves by itself. Faded at either end. */
+    .pp-arrows { display: flex; justify-content: flex-end; gap: 18px; margin-top: 28px; }
+    .pp-arrow {
+      padding: 4px; margin: -4px; border: 0; background: transparent; cursor: pointer;
+      color: var(--paper); opacity: 0.8; display: grid; place-items: center; transition: opacity 0.2s;
+    }
+    .pp-arrow:hover { opacity: 1; }
+    .pp-arrow:focus-visible { outline: 1px solid rgba(240,238,235,0.75); outline-offset: 2px; }
+    .pp-arrow:disabled { opacity: 0.25; cursor: default; }
     .pack-tpl {
+      --cap: 25px;   /* the number above the picture */
       position: relative;
       margin: 0;
       background: transparent;
@@ -583,7 +607,7 @@ function gbp(pence) {
     /* Hover hint — a small "enlarge" glyph appears top-left on the previews. */
     .pack-tpl--open::after {
       content: "⤢";
-      position: absolute; top: 12px; left: 12px; z-index: 2;
+      position: absolute; top: calc(var(--cap) + 12px); left: 12px; z-index: 2;
       width: 30px; height: 30px; border-radius: 50%;
       display: grid; place-items: center;
       background: rgba(28,29,34,0.62); color: var(--paper); font-size: 14px;
@@ -640,10 +664,12 @@ function gbp(pence) {
       object-fit: cover; display: block;
     }
     .pack-tpl-empty { width: 100%; aspect-ratio: 3/4; background: rgba(28,29,34,0.06); }
-    /* Numbered, under each one: "01  Pumpkin picking season". */
+    /* Numbered, above each one (Danielle, 2 Nov), so the arrows sit
+       under the pictures. A set height, so the overlays know where the
+       picture starts. */
     .pack-tpl figcaption {
-      padding: 10px 0 0;
-      display: flex; gap: 10px; align-items: baseline;
+      height: var(--cap); box-sizing: border-box; padding: 0 0 12px;
+      display: flex; gap: 10px; align-items: flex-end;
     }
     .pack-tpl-num {
       flex: none; font-family: var(--sans); font-size: 11px; font-weight: 700;
@@ -664,17 +690,20 @@ function gbp(pence) {
     }
 
     .pack-tpl--locked img { filter: blur(14px) saturate(0.7); transform: scale(1.08); }
+    /* The blur is scaled up to hide its soft edge, which now spills upward
+       into the number above it; the number sits on the wine over it. */
+    .pack-tpl--locked figcaption { position: relative; z-index: 1; background: var(--english-violet); }
     .pack-tpl--locked .pack-tpl-empty { filter: none; }
     .pack-tpl--locked::before {
       content: "";
-      position: absolute; left: 0; right: 0; top: 0;
+      position: absolute; left: 0; right: 0; top: var(--cap);
       aspect-ratio: 3/4;
       background: rgba(28,29,34,0.5);
       pointer-events: none;
     }
     .pack-tpl-lock-overlay {
       position: absolute;
-      top: 14px; right: 14px;
+      top: calc(var(--cap) + 14px); right: 14px;
       z-index: 2;
       display: inline-flex; align-items: center; justify-content: center;
       width: 38px; height: 38px;
@@ -815,6 +844,29 @@ function gbp(pence) {
       });
       row.addEventListener('click', function (e) { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
       row.addEventListener('dragstart', function (e) { e.preventDefault(); });
+
+      // The arrows move it on by what's in view, less one, so the last one
+      // you saw is still there to keep your place.
+      var arrows = document.querySelectorAll('.pp-arrow');
+      function step() {
+        var tile = row.querySelector('.pack-tpl');
+        var w = tile ? tile.getBoundingClientRect().width + 16 : row.clientWidth;
+        return Math.max(w, Math.floor(row.clientWidth / w - 1) * w);
+      }
+      function ends() {
+        var max = row.scrollWidth - row.clientWidth - 2;
+        arrows.forEach(function (b) {
+          b.disabled = b.getAttribute('data-dir') === '-1' ? row.scrollLeft <= 2 : row.scrollLeft >= max;
+        });
+      }
+      arrows.forEach(function (b) {
+        b.addEventListener('click', function () {
+          row.scrollBy({ left: Number(b.getAttribute('data-dir')) * step(), behavior: 'smooth' });
+        });
+      });
+      row.addEventListener('scroll', ends, { passive: true });
+      window.addEventListener('resize', ends);
+      ends();
     })();
 
     // The strip moves one template along, waits two seconds, and moves again
