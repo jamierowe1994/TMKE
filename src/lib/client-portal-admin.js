@@ -1,13 +1,15 @@
-/* The client portal, as the team sees it (Danielle, 2 Nov 2026).
+/* Client portals, as the team sees them (Danielle, 2 Nov 2026).
  *
- * In Social media › a client › Videography: switch the portal on, tick which
- * Library folders the client sees, and copy their link and passcode to send
- * them. The client opens tmke.co.uk/portal?c=… (src/pages/portal.astro); the
- * Worker's /portal/* routes check the passcode and sign every file link.
+ * Videography › Client portals: make a portal for a client (a brand day like
+ * Fine & Country's bootcamp needs no social media card), tick which Library
+ * folders they see, and copy their link and passcode to send them. The client
+ * opens tmke.co.uk/portal?c=… (src/pages/portal.astro); the Worker's /portal/*
+ * routes check the passcode and sign every file link.
  *
- * The row lives in client_portals (supabase/client_portal.sql), admin-read and
+ * Rows live in client_portals (supabase/client_portal.sql), admin-read and
  * admin-write, so this uses the signed-in client directly. Every save asks for
- * the row back and only says "Saved" when it comes back.
+ * the row back and only says "Saved" when it comes back. Styles are in
+ * src/styles/client-portal-admin.css.
  */
 
 const ROOT = "deliverables/";
@@ -28,14 +30,15 @@ export const newPasscode = () => randomFrom(CODE_CHARS, 6);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const lastSeg = (prefix) => prefix.replace(/\/+$/, "").split("/").pop();
 const fmtWhen = (iso) => { try { return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (_) { return ""; } };
+const isMissingTable = (e) => !!e && (e.code === "42P01" || e.code === "PGRST205" || (/client_portals/.test(e.message || "") && /exist|schema cache/i.test(e.message || "")));
+const MISSING = "Client portals aren't set up in the database yet. Run supabase/client_portal.sql in Supabase, then reopen this page.";
 
 export function portalLink(token) {
   const site = /^(localhost|127\.)/.test(location.hostname) ? location.origin : "https://tmke.co.uk";
   return `${site}/portal?c=${encodeURIComponent(token)}`;
 }
 
-// The message the account manager pastes into their own email. Nothing is
-// sent from here.
+// The message the team pastes into their own email. Nothing is sent from here.
 export function portalMessage(firstName, link, passcode) {
   return `Hi ${firstName || "there"},
 
@@ -47,48 +50,20 @@ Passcode: ${passcode}
 Everything is in folders, usually one per shoot, and anything we add to them later will appear automatically. Once you've entered the passcode, you'll stay signed in on that browser for 7 days.`;
 }
 
-/* host: the element to draw into. lead: the smm_leads row. shootFolders: this
-   client's shoots' Library folders (names, not prefixes). deps: { supabase,
-   authToken, worker, me } where me() resolves to the signed-in email. */
-export async function renderPortalAdmin(host, lead, shootFolders, deps) {
+/* host: the element to draw into. deps: { supabase, authToken, worker, me }
+   where me() resolves to the signed-in email. Opens on the list. */
+export function renderClientPortals(host, deps) {
   const { supabase, authToken, worker, me } = deps;
   if (!host) return;
-  const who = lead.business || [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() || lead.full_name || "this client";
 
-  host.innerHTML = `<div class="smm-panel-head"><h4>Client portal</h4></div><p class="smm-soon">Loading…</p>`;
-  const { data: row, error } = await supabase.from("client_portals").select("*").eq("smm_lead_id", lead.id).maybeSingle();
-  if (error) {
-    const missing = error.code === "42P01" || /client_portals/.test(error.message || "") && /exist|schema cache/i.test(error.message || "");
-    host.innerHTML = `<div class="smm-panel-head"><h4>Client portal</h4></div>
-      <p class="cpt-msg is-err">${missing
-        ? "The client portal isn't set up in the database yet. Run supabase/client_portal.sql in Supabase, then reopen this client."
-        : "Couldn't load the client portal: " + esc(error.message)}</p>`;
-    return;
-  }
-
-  let p = row;
-  const status = (kind, text) => {
+  const setStatus = (kind, text) => {
     const el = host.querySelector(".cpt-status");
     if (!el) return;
     el.className = "cpt-msg cpt-status" + (kind ? " is-" + kind : "");
     el.textContent = text || "";
   };
-  // Write, ask for the row back, and only then believe it.
-  async function save(patch, okText) {
-    status("busy", "Saving…");
-    const by = (await me().catch(() => "")) || null;
-    const { data, error: err } = await supabase.from("client_portals")
-      .update({ ...patch, updated_by: by }).eq("smm_lead_id", lead.id).select();
-    if (err || !data || data.length !== 1) {
-      status("err", "Not saved: " + (err ? err.message : "the database didn't confirm it. Check you're still signed in, then try again."));
-      return false;
-    }
-    p = data[0];
-    status("ok", okText || "Saved.");
-    return true;
-  }
 
-  // Every top-level Library folder, for the ticks. Their own shoots first.
+  // Every top-level Library folder, for the ticks. Read once per visit.
   let allFolders = null, foldersErr = "";
   async function loadFolders() {
     try {
@@ -96,142 +71,291 @@ export async function renderPortalAdmin(host, lead, shootFolders, deps) {
       const res = await fetch(`${worker}/list?prefix=${encodeURIComponent(ROOT)}`, { headers: { Authorization: "Bearer " + t } });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || String(res.status));
-      allFolders = body.folders || [];
+      allFolders = body.folders || []; foldersErr = "";
     } catch (e) { allFolders = []; foldersErr = e.message || "unknown"; }
   }
 
-  function drawOff() {
-    host.innerHTML = `<div class="smm-panel-head"><h4>Client portal</h4></div>
-      <div class="cpt">
-        <p class="cpt-lead">Give ${esc(who)} a private link and passcode to watch and download the Library folders you choose. ${p ? "Turning it back on keeps the same link and passcode." : ""}</p>
-        <button type="button" class="smm-btn smm-btn--primary" id="cpt-on">Turn on the client portal</button>
-        <p class="cpt-msg cpt-status"></p>
-      </div>`;
-    host.querySelector("#cpt-on").addEventListener("click", turnOn);
-  }
-
-  async function turnOn() {
-    const btn = host.querySelector("#cpt-on");
-    if (btn) btn.disabled = true;
-    if (p) { if (await save({ enabled: true }, "Turned on.")) draw(); else if (btn) btn.disabled = false; return; }
-    status("busy", "Setting it up…");
-    if (!allFolders) await loadFolders();
-    // Start with this client's shoots that have something in the Library.
-    const have = new Set(allFolders);
-    const folders = shootFolders.map((f) => ROOT + f + "/").filter((f) => have.has(f));
-    const by = (await me().catch(() => "")) || null;
-    const { data, error: err } = await supabase.from("client_portals")
-      .insert({ smm_lead_id: lead.id, token: newToken(), passcode: newPasscode(), folders, enabled: true, updated_by: by })
-      .select();
-    if (err || !data || data.length !== 1) {
-      status("err", "Not turned on: " + (err ? err.message : "the database didn't confirm it. Try again."));
-      if (btn) btn.disabled = false;
+  /* ---------- Every portal ---------- */
+  async function drawList(note) {
+    host.innerHTML = `<p class="cpt-note">Loading…</p>`;
+    const { data, error } = await supabase.from("client_portals").select("*").order("name");
+    if (error) {
+      host.innerHTML = `<p class="cpt-msg is-err">${isMissingTable(error) ? MISSING : "Couldn't load the portals: " + esc(error.message)}</p>`;
       return;
     }
-    p = data[0];
-    draw();
-    status("ok", folders.length
-      ? `Turned on, with ${who}'s shoot ${folders.length === 1 ? "folder" : `folders (${folders.length})`} from the Library ticked. Check the list, then copy the message to send.`
-      : "Turned on. Tick the folders they should see, then copy the message to send.");
-  }
-
-  function folderRow(prefix, ticked, missing) {
-    return `<label class="cpt-f${ticked ? " is-on" : ""}">
-      <input type="checkbox" data-cptf="${esc(prefix)}"${ticked ? " checked" : ""}>
-      <span class="cpt-f-name">${esc(lastSeg(prefix))}</span>
-      ${missing ? '<span class="cpt-f-tag">Not in the Library</span>' : `<a class="cpt-f-open" href="/admin/content?folder=${encodeURIComponent(lastSeg(prefix))}" target="_blank" rel="noopener">Open</a>`}
-    </label>`;
-  }
-
-  function drawFolders(filter = "") {
-    const box = host.querySelector("#cpt-folders");
-    if (!box) return;
-    const ticked = new Set(p.folders || []);
-    const exists = new Set(allFolders || []);
-    const own = new Set(shootFolders.map((f) => ROOT + f + "/"));
-    const q = filter.trim().toLowerCase();
-    const match = (f) => !q || lastSeg(f).toLowerCase().includes(q);
-    const tickedList = [...ticked].filter(match);
-    const ownList = [...own].filter((f) => exists.has(f) && !ticked.has(f) && match(f));
-    const others = (allFolders || []).filter((f) => !ticked.has(f) && !own.has(f) && match(f));
-    const group = (title, list, note) => list.length || note
-      ? `<p class="cpt-k">${title}</p>${list.length ? list.map((f) => folderRow(f, ticked.has(f), !exists.has(f) && allFolders && !foldersErr)).join("") : `<p class="smm-soon">${note}</p>`}`
-      : "";
-    box.innerHTML = [
-      group("Shared with them", tickedList, q ? "" : "Nothing ticked yet: they'll see an empty portal."),
-      group(`${esc(who)}'s other shoots`, ownList, ""),
-      group("Everything else in the Library", others.slice(0, 200), q ? "No folder matches that." : ""),
-      others.length > 200 ? `<p class="smm-soon">${others.length - 200} more: search to find them.</p>` : "",
-    ].join("") || '<p class="smm-soon">No folders in the Library yet.</p>';
-  }
-
-  async function draw() {
-    if (!p || !p.enabled) return drawOff();
-    const link = portalLink(p.token);
-    const locked = p.locked_until && Date.parse(p.locked_until) > Date.now();
-    host.innerHTML = `<div class="smm-panel-head"><h4>Client portal</h4><span class="cpt-on-pill">On</span></div>
-      <div class="cpt">
-        <div class="cpt-keys">
-          <div class="cpt-key"><span class="cpt-k">Link</span><span class="cpt-v cpt-v--link"><a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a></span><button type="button" class="smm-mini" data-cptcopy="link">Copy</button></div>
-          <div class="cpt-key"><span class="cpt-k">Passcode</span><span class="cpt-v cpt-v--code">${esc(p.passcode)}</span><button type="button" class="smm-mini" data-cptcopy="code">Copy</button></div>
-          <div class="cpt-key"><span class="cpt-k">Last opened</span><span class="cpt-v">${p.last_opened_at ? esc(fmtWhen(p.last_opened_at)) : "Not opened yet"}</span></div>
-        </div>
-        ${locked ? `<p class="cpt-msg is-err">Locked after too many wrong passcodes until ${esc(fmtWhen(p.locked_until))}. <button type="button" class="smm-mini is-primary" id="cpt-unlock">Unlock now</button></p>` : ""}
-        <div class="cpt-actions">
-          <button type="button" class="smm-btn smm-btn--primary smm-btn--sm" data-cptcopy="message">Copy the message to send</button>
-          <button type="button" class="smm-btn smm-btn--sm" id="cpt-newcode">New passcode</button>
-          <button type="button" class="smm-btn smm-btn--sm" id="cpt-newlink">New link</button>
-          <button type="button" class="smm-btn smm-btn--sm smm-btn--danger" id="cpt-off">Turn off</button>
-        </div>
+    const rows = data || [];
+    host.innerHTML = `
+      <div class="cpt-bar">
+        <button type="button" class="admin-btn admin-btn-primary" id="cpt-new">+ New portal</button>
         <p class="cpt-msg cpt-status"></p>
-        <div class="cpt-fhead"><p class="cpt-h">Folders they can see</p><input type="search" class="cpt-search" id="cpt-search" placeholder="Search the Library" aria-label="Search the Library folders"></div>
-        <p class="cpt-hint">Ticking a folder shares everything in it, including anything added later.</p>
-        <div id="cpt-folders" class="cpt-folders" data-lenis-prevent><p class="smm-soon">Loading the Library…</p></div>
-      </div>`;
-    wire();
-    if (!allFolders) await loadFolders();
-    if (foldersErr) status("err", "Couldn't read the Library: " + foldersErr + ". Ticked folders are still shared.");
-    drawFolders(host.querySelector("#cpt-search")?.value || "");
+      </div>
+      <form class="cpt-newform" id="cpt-newform" hidden>
+        <label class="cpt-field"><span class="cpt-k">Who it's for</span><input type="text" id="cpt-new-name" placeholder="Fine &amp; Country" maxlength="80" required></label>
+        <label class="cpt-field"><span class="cpt-k">Their first name</span><input type="text" id="cpt-new-first" placeholder="For the message you send" maxlength="40"></label>
+        <div class="cpt-newform-go"><button type="submit" class="admin-btn admin-btn-primary">Make the portal</button><button type="button" class="admin-btn admin-btn-ghost" id="cpt-new-cancel">Cancel</button></div>
+      </form>
+      ${rows.length ? `<table class="cpt-table">
+        <thead><tr><th>Client</th><th>Folders</th><th>Last opened</th><th>Status</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr data-cptid="${esc(r.id)}" tabindex="0">
+          <td class="cpt-t-name">${esc(r.name)}</td>
+          <td>${(r.folders || []).length}</td>
+          <td>${r.last_opened_at ? esc(fmtWhen(r.last_opened_at)) : "Not opened yet"}</td>
+          <td><span class="cpt-pill ${r.enabled ? "is-on" : "is-off"}">${r.enabled ? "On" : "Off"}</span></td>
+        </tr>`).join("")}</tbody></table>`
+        : `<p class="cpt-note">No portals yet. Make one for a client, tick the Library folders they should see, then send them the link and passcode.</p>`}`;
+    if (note) setStatus("ok", note);
+    const form = host.querySelector("#cpt-newform");
+    host.querySelector("#cpt-new").addEventListener("click", () => { form.hidden = false; host.querySelector("#cpt-new-name").focus(); });
+    host.querySelector("#cpt-new-cancel").addEventListener("click", () => { form.hidden = true; });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = host.querySelector("#cpt-new-name").value.trim();
+      const first = host.querySelector("#cpt-new-first").value.trim();
+      if (!name) return;
+      form.querySelectorAll("button, input").forEach((x) => { x.disabled = true; });
+      setStatus("busy", "Making it…");
+      const by = (await me().catch(() => "")) || null;
+      const { data: made, error: err } = await supabase.from("client_portals")
+        .insert({ name, first_name: first || null, token: newToken(), passcode: newPasscode(), folders: [], enabled: true, updated_by: by })
+        .select();
+      if (err || !made || made.length !== 1) {
+        setStatus("err", "Not made: " + (err ? err.message : "the database didn't confirm it. Try again."));
+        form.querySelectorAll("button, input").forEach((x) => { x.disabled = false; });
+        return;
+      }
+      drawPortal(made[0], `Made. Tick the folders ${name} should see, then copy the message to send.`);
+    });
+    host.querySelectorAll("[data-cptid]").forEach((tr) => {
+      const open = () => drawPortal(rows.find((r) => r.id === tr.getAttribute("data-cptid")));
+      tr.addEventListener("click", open);
+      tr.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
+    });
   }
 
-  function wire() {
-    host.querySelectorAll("[data-cptcopy]").forEach((b) => b.addEventListener("click", async () => {
-      const what = b.getAttribute("data-cptcopy");
-      const link = portalLink(p.token);
-      const text = what === "link" ? link : what === "code" ? p.passcode : portalMessage(lead.first_name || (lead.full_name || "").split(" ")[0], link, p.passcode);
-      try {
-        await navigator.clipboard.writeText(text);
-        status("ok", what === "message" ? "Message copied. Paste it into your email to them." : what === "link" ? "Link copied." : "Passcode copied.");
-      } catch (_) { status("err", "Couldn't copy. Select it and copy it by hand."); }
-    }));
-    host.querySelector("#cpt-newcode")?.addEventListener("click", async () => {
-      if (!confirm(`Make a new passcode for ${who}? Anyone signed in to the portal is signed out and needs the new one.`)) return;
-      if (await save({ passcode: newPasscode(), failed_tries: 0, locked_until: null }, "")) { await draw(); status("ok", "New passcode made. Send it to them: the old one no longer works."); }
-    });
-    host.querySelector("#cpt-newlink")?.addEventListener("click", async () => {
-      if (!confirm(`Make a new link for ${who}? The old link stops working straight away.`)) return;
-      if (await save({ token: newToken() }, "")) { await draw(); status("ok", "New link made. Send it to them: the old one no longer works."); }
-    });
-    host.querySelector("#cpt-off")?.addEventListener("click", async () => {
-      if (!confirm(`Turn off ${who}'s client portal? Their link stops working straight away. Turning it back on keeps the same link and passcode.`)) return;
-      if (await save({ enabled: false }, "Turned off.")) { drawOff(); status("ok", "Turned off. Their link no longer works."); }
-    });
-    host.querySelector("#cpt-unlock")?.addEventListener("click", async () => {
-      if (await save({ failed_tries: 0, locked_until: null }, "")) { await draw(); status("ok", "Unlocked."); }
-    });
-    host.querySelector("#cpt-search")?.addEventListener("input", (e) => drawFolders(e.target.value));
-    host.querySelector("#cpt-folders")?.addEventListener("change", async (e) => {
-      const box = e.target.closest("[data-cptf]");
+  /* ---------- One portal ---------- */
+  async function drawPortal(p, note) {
+    // Write, ask for the row back, and only then believe it.
+    async function save(patch, okText) {
+      setStatus("busy", "Saving…");
+      const by = (await me().catch(() => "")) || null;
+      const { data, error } = await supabase.from("client_portals")
+        .update({ ...patch, updated_by: by }).eq("id", p.id).select();
+      if (error || !data || data.length !== 1) {
+        setStatus("err", "Not saved: " + (error ? error.message : "the database didn't confirm it. Check you're still signed in, then try again."));
+        return false;
+      }
+      p = data[0];
+      setStatus("ok", okText || "Saved.");
+      return true;
+    }
+
+    function folderRow(prefix, ticked, missing) {
+      return `<label class="cpt-f${ticked ? " is-on" : ""}">
+        <input type="checkbox" data-cptf="${esc(prefix)}"${ticked ? " checked" : ""}>
+        <span class="cpt-f-name">${esc(lastSeg(prefix))}</span>
+        ${missing ? '<span class="cpt-f-tag">Not in the Library</span>' : `<a class="cpt-f-open" href="/admin/content?folder=${encodeURIComponent(lastSeg(prefix))}" target="_blank" rel="noopener">Open</a>`}
+      </label>`;
+    }
+    function drawFolders() {
+      const box = host.querySelector("#cpt-folders");
       if (!box) return;
-      const f = box.getAttribute("data-cptf");
-      const before = p.folders || [];
-      const next = box.checked ? [...new Set([...before, f])] : before.filter((x) => x !== f);
-      host.querySelectorAll("[data-cptf]").forEach((x) => { x.disabled = true; });
-      const ok = await save({ folders: next }, box.checked ? `Shared “${lastSeg(f)}”.` : `Stopped sharing “${lastSeg(f)}”.`);
-      if (!ok) box.checked = !box.checked;
-      drawFolders(host.querySelector("#cpt-search")?.value || "");
-    });
+      const ticked = new Set(p.folders || []);
+      const exists = new Set(allFolders || []);
+      const q = (host.querySelector("#cpt-search")?.value || "").trim().toLowerCase();
+      const match = (f) => !q || lastSeg(f).toLowerCase().includes(q);
+      // Folders with their name in, first: a client's shoots are usually named for them.
+      const named = String(p.name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const isNamed = (f) => named && lastSeg(f).toLowerCase().replace(/[^a-z0-9]+/g, " ").includes(named);
+      const tickedList = [...ticked].filter(match);
+      const rest = (allFolders || []).filter((f) => !ticked.has(f) && match(f));
+      const namedList = rest.filter(isNamed), others = rest.filter((f) => !isNamed(f));
+      const group = (title, list, empty) => list.length || empty
+        ? `<p class="cpt-k">${title}</p>${list.length ? list.map((f) => folderRow(f, ticked.has(f), !foldersErr && !exists.has(f))).join("") : `<p class="cpt-note">${empty}</p>`}`
+        : "";
+      box.innerHTML = [
+        group("Shared with them", tickedList, q ? "" : "Nothing ticked yet: they'll see an empty portal."),
+        group(`With “${esc(p.name)}” in the name`, namedList, ""),
+        group("Everything else in the Library", others.slice(0, 200), q && !namedList.length ? "No folder matches that." : ""),
+        others.length > 200 ? `<p class="cpt-note">${others.length - 200} more: search to find them.</p>` : "",
+      ].join("") || '<p class="cpt-note">No folders in the Library yet.</p>';
+    }
+
+    async function draw(statusKind, statusText) {
+      const link = portalLink(p.token);
+      const locked = p.locked_until && Date.parse(p.locked_until) > Date.now();
+      host.innerHTML = `
+        <button type="button" class="cpt-back" id="cpt-back">&larr; All portals</button>
+        <div class="cpt-head"><div class="cpt-title">${esc(p.name)}</div><span class="cpt-pill ${p.enabled ? "is-on" : "is-off"}">${p.enabled ? "On" : "Off"}</span></div>
+        <div class="cpt">
+          <div class="cpt-keys">
+            <label class="cpt-key"><span class="cpt-k">Who it's for</span><input class="cpt-in" data-cptset="name" value="${esc(p.name)}" maxlength="80"><span></span></label>
+            <label class="cpt-key"><span class="cpt-k">Their first name</span><input class="cpt-in" data-cptset="first_name" value="${esc(p.first_name || "")}" maxlength="40" placeholder="For the message you send"><span></span></label>
+            <div class="cpt-key"><span class="cpt-k">Link</span><span class="cpt-v cpt-v--link">${p.enabled ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a>` : "Off: the link doesn't work"}</span>${p.enabled ? '<button type="button" class="cpt-mini" data-cptcopy="link">Copy</button>' : "<span></span>"}</div>
+            <div class="cpt-key"><span class="cpt-k">Passcode</span><span class="cpt-v cpt-v--code">${esc(p.passcode)}</span><button type="button" class="cpt-mini" data-cptcopy="code">Copy</button></div>
+            <div class="cpt-key"><span class="cpt-k">Last opened</span><span class="cpt-v">${p.last_opened_at ? esc(fmtWhen(p.last_opened_at)) : "Not opened yet"}</span><span></span></div>
+          </div>
+          ${locked ? `<p class="cpt-msg is-err">Locked after too many wrong passcodes until ${esc(fmtWhen(p.locked_until))}. <button type="button" class="cpt-mini" id="cpt-unlock">Unlock now</button></p>` : ""}
+          <div class="cpt-actions">
+            ${p.enabled
+              ? `<button type="button" class="admin-btn admin-btn-primary" data-cptcopy="message">Copy the message to send</button>
+                 <button type="button" class="admin-btn admin-btn-ghost" id="cpt-newcode">New passcode</button>
+                 <button type="button" class="admin-btn admin-btn-ghost" id="cpt-newlink">New link</button>
+                 <button type="button" class="admin-btn admin-btn-ghost cpt-danger" id="cpt-off">Turn off</button>`
+              : `<button type="button" class="admin-btn admin-btn-primary" id="cpt-on">Turn back on</button>`}
+            <button type="button" class="admin-btn admin-btn-ghost cpt-danger" id="cpt-del">Delete</button>
+          </div>
+          <p class="cpt-msg cpt-status"></p>
+          <div class="cpt-fhead"><div class="cpt-h">Folders they can see</div><input type="search" class="cpt-search" id="cpt-search" placeholder="Search the Library" aria-label="Search the Library folders"></div>
+          <p class="cpt-hint">Ticking a folder shares everything in it, including anything added later.</p>
+          <div id="cpt-folders" class="cpt-folders" data-lenis-prevent><p class="cpt-note">Loading the Library…</p></div>
+        </div>`;
+      wire();
+      if (statusText) setStatus(statusKind || "ok", statusText);
+      if (!allFolders) await loadFolders();
+      if (foldersErr) setStatus("err", "Couldn't read the Library: " + foldersErr + ". Ticked folders are still shared.");
+      drawFolders();
+    }
+
+    function wire() {
+      host.querySelector("#cpt-back").addEventListener("click", () => drawList());
+      host.querySelectorAll("[data-cptset]").forEach((inp) => inp.addEventListener("change", async () => {
+        const k = inp.getAttribute("data-cptset"), v = inp.value.trim();
+        if (k === "name" && !v) { inp.value = p.name; setStatus("err", "It needs a name."); return; }
+        if (await save({ [k]: v || null }, "Saved.") && k === "name") host.querySelector(".cpt-title").textContent = p.name;
+      }));
+      host.querySelectorAll("[data-cptcopy]").forEach((b) => b.addEventListener("click", async () => {
+        const what = b.getAttribute("data-cptcopy");
+        const link = portalLink(p.token);
+        const text = what === "link" ? link : what === "code" ? p.passcode : portalMessage(p.first_name, link, p.passcode);
+        try {
+          await navigator.clipboard.writeText(text);
+          setStatus("ok", what === "message" ? "Message copied. Paste it into your email to them." : what === "link" ? "Link copied." : "Passcode copied.");
+        } catch (_) { setStatus("err", "Couldn't copy. Select it and copy it by hand."); }
+      }));
+      host.querySelector("#cpt-newcode")?.addEventListener("click", async () => {
+        if (!confirm(`Make a new passcode for ${p.name}? Anyone signed in to the portal is signed out and needs the new one.`)) return;
+        if (await save({ passcode: newPasscode(), failed_tries: 0, locked_until: null })) draw("ok", "New passcode made. Send it to them: the old one no longer works.");
+      });
+      host.querySelector("#cpt-newlink")?.addEventListener("click", async () => {
+        if (!confirm(`Make a new link for ${p.name}? The old link stops working straight away.`)) return;
+        if (await save({ token: newToken() })) draw("ok", "New link made. Send it to them: the old one no longer works.");
+      });
+      host.querySelector("#cpt-off")?.addEventListener("click", async () => {
+        if (!confirm(`Turn off ${p.name}'s portal? Their link stops working straight away. Turning it back on keeps the same link and passcode.`)) return;
+        if (await save({ enabled: false })) draw("ok", "Turned off. Their link no longer works.");
+      });
+      host.querySelector("#cpt-on")?.addEventListener("click", async () => {
+        if (await save({ enabled: true })) draw("ok", "Turned back on, with the same link and passcode.");
+      });
+      host.querySelector("#cpt-del")?.addEventListener("click", async () => {
+        if (!confirm(`Delete ${p.name}'s portal? Their link stops working and this can't be undone. The files stay in the Library.`)) return;
+        setStatus("busy", "Deleting…");
+        const { data, error } = await supabase.from("client_portals").delete().eq("id", p.id).select();
+        if (error || !data || data.length !== 1) { setStatus("err", "Not deleted: " + (error ? error.message : "the database didn't confirm it.")); return; }
+        drawList(`Deleted ${p.name}'s portal.`);
+      });
+      host.querySelector("#cpt-unlock")?.addEventListener("click", async () => {
+        if (await save({ failed_tries: 0, locked_until: null })) draw("ok", "Unlocked.");
+      });
+      host.querySelector("#cpt-search")?.addEventListener("input", drawFolders);
+      host.querySelector("#cpt-folders")?.addEventListener("change", async (e) => {
+        const box = e.target.closest("[data-cptf]");
+        if (!box) return;
+        const f = box.getAttribute("data-cptf");
+        const before = p.folders || [];
+        const next = box.checked ? [...new Set([...before, f])] : before.filter((x) => x !== f);
+        host.querySelectorAll("[data-cptf]").forEach((x) => { x.disabled = true; });
+        const ok = await save({ folders: next }, box.checked ? `Shared “${lastSeg(f)}”.` : `Stopped sharing “${lastSeg(f)}”.`);
+        if (!ok) box.checked = !box.checked;
+        drawFolders();
+      });
+    }
+
+    await draw("ok", note);
   }
 
+  drawList();
+}
+
+/* ---------- On a shoot: which client's portal it's in ----------
+   Beside "Archive copy uploaded" on the booking (Danielle, 2 Nov 2026). Picking
+   a portal adds this shoot's Library folder to it; picking another moves it;
+   "Not in a portal" takes it out. Saves straight away, separately from the
+   booking's own Save. The portal's link, passcode and other folders are
+   managed in Videography › Client portals. */
+export async function renderShootPortal(host, booking, folderName, deps) {
+  const { supabase, me } = deps;
+  if (!host) return;
+  const folder = folderName ? ROOT + folderName.replace(/^\/+|\/+$/g, "") + "/" : "";
+  const head = `<div class="cpt-shoot-head"><span class="cpt-shoot-k">Client portal</span><span class="cpt-shoot-note">the client watches and downloads it from their own link</span></div>`;
+  if (!booking || !folder) { host.innerHTML = ""; return; }
+  host.innerHTML = head + '<p class="cpt-note">Loading…</p>';
+
+  const { data, error } = await supabase.from("client_portals").select("*").order("name");
+  if (error) {
+    host.innerHTML = head + `<p class="cpt-msg is-err">${isMissingTable(error) ? MISSING : "Couldn't load the portals: " + esc(error.message)}</p>`;
+    return;
+  }
+  let portals = data || [];
+  const clientName = String(booking.client_company || booking.client_name || "").trim();
+  const firstName = String(booking.client_name || "").trim().split(/\s+/)[0] || null;
+
+  const status = (kind, text) => {
+    const el = host.querySelector(".cpt-status");
+    if (el) { el.className = "cpt-msg cpt-status" + (kind ? " is-" + kind : ""); el.textContent = text || ""; }
+  };
+  async function setFolders(p, folders) {
+    const by = (await me().catch(() => "")) || null;
+    const { data: rows, error: err } = await supabase.from("client_portals").update({ folders, updated_by: by }).eq("id", p.id).select();
+    if (err || !rows || rows.length !== 1) throw new Error(err ? err.message : "the database didn't confirm it");
+    portals = portals.map((x) => (x.id === p.id ? rows[0] : x));
+  }
+
+  function draw(kind, text) {
+    const inIt = portals.filter((p) => (p.folders || []).includes(folder));
+    const cur = inIt[0];
+    host.innerHTML = head + `
+      <div class="cpt-shoot-row">
+        <select class="cpt-shoot-sel" aria-label="Client portal for this shoot">
+          <option value="">Not in a portal</option>
+          ${portals.map((p) => `<option value="${esc(p.id)}"${cur && cur.id === p.id ? " selected" : ""}>${esc(p.name)}${p.enabled ? "" : " (off)"}</option>`).join("")}
+          ${clientName && !portals.some((p) => p.name.trim().toLowerCase() === clientName.toLowerCase()) ? `<option value="new">+ New portal for ${esc(clientName)}</option>` : ""}
+        </select>
+        ${cur && cur.enabled ? `<button type="button" class="cpt-mini" data-cptcopy="link">Copy link</button><button type="button" class="cpt-mini" data-cptcopy="code">Copy passcode</button>` : ""}
+        <a class="cpt-mini" href="/admin/videography?panel=portals">Manage portals</a>
+      </div>
+      ${inIt.length > 1 ? `<p class="cpt-note">Also in ${inIt.slice(1).map((p) => esc(p.name)).join(", ")}.</p>` : ""}
+      ${cur && !cur.enabled ? `<p class="cpt-note">${esc(cur.name)}'s portal is turned off, so they can't see it yet.</p>` : ""}
+      <p class="cpt-msg cpt-status"></p>`;
+    if (text) status(kind, text);
+    const sel = host.querySelector(".cpt-shoot-sel");
+    sel.addEventListener("change", async () => {
+      const to = sel.value;
+      sel.disabled = true;
+      status("busy", "Saving…");
+      try {
+        if (cur && cur.id !== to) await setFolders(cur, (cur.folders || []).filter((f) => f !== folder));
+        if (to === "new") {
+          const by = (await me().catch(() => "")) || null;
+          const { data: made, error: err } = await supabase.from("client_portals")
+            .insert({ name: clientName, first_name: firstName, token: newToken(), passcode: newPasscode(), folders: [folder], enabled: true, updated_by: by })
+            .select();
+          if (err || !made || made.length !== 1) throw new Error(err ? err.message : "the database didn't confirm it");
+          portals = [...portals, made[0]].sort((a, b) => a.name.localeCompare(b.name));
+          return draw("ok", `Made ${clientName}'s portal with this shoot in it. Copy the link and passcode to send them.`);
+        }
+        const target = portals.find((p) => p.id === to);
+        if (target && !(target.folders || []).includes(folder)) await setFolders(target, [...(target.folders || []), folder]);
+        draw("ok", target ? `In ${target.name}'s portal.` : "Taken out of the portal.");
+      } catch (e) {
+        draw("err", "Not saved: " + e.message + ". Try again.");
+      }
+    });
+    host.querySelectorAll("[data-cptcopy]").forEach((b) => b.addEventListener("click", async () => {
+      const text = b.getAttribute("data-cptcopy") === "link" ? portalLink(cur.token) : cur.passcode;
+      try { await navigator.clipboard.writeText(text); status("ok", b.getAttribute("data-cptcopy") === "link" ? "Link copied." : "Passcode copied."); }
+      catch (_) { status("err", "Couldn't copy. Open Manage portals to copy it by hand."); }
+    }));
+  }
   draw();
 }

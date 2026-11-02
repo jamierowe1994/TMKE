@@ -4813,8 +4813,8 @@ async function listArchive(env, prefix) {
 }
 
 // ---- Client portal (Danielle, 2 Nov 2026) ----------------------------------
-// A social media client's private link plus passcode opens the Library folders
-// ticked for them (supabase/client_portal.sql). Opening it gives the browser a
+// A client's private link plus passcode opens the Library folders ticked for
+// them in Videography › Client portals (supabase/client_portal.sql). Opening it gives the browser a
 // sign-in good for a week: the link's token, an expiry, and a signature over
 // both and the passcode, so changing the passcode signs everyone out. Every
 // request reads the row again, so switching a portal off or unticking a folder
@@ -4833,7 +4833,7 @@ async function portalSig(env, token, passcode, exp) {
 async function portalByToken(env, token) {
   if (!/^[A-Za-z0-9_-]{24,64}$/.test(String(token || ""))) return null;
   const rows = await sbGet(env, "client_portals",
-    `token=eq.${encodeURIComponent(token)}&select=smm_lead_id,enabled,token,passcode,folders,failed_tries,locked_until&limit=1`);
+    `token=eq.${encodeURIComponent(token)}&select=id,name,enabled,token,passcode,folders,failed_tries,locked_until&limit=1`);
   return (rows && rows[0]) || null;
 }
 async function portalFromSession(env, request) {
@@ -4850,11 +4850,9 @@ async function portalFromSession(env, request) {
 function portalFolders(p) {
   return [...new Set((p.folders || []).map((f) => archivePrefix(f)))].filter((f) => f !== `${PART_PREFIX}/`);
 }
-async function portalHome(env, p) {
-  const leads = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(p.smm_lead_id)}&select=business,full_name,first_name,last_name&limit=1`);
-  const lead = (leads && leads[0]) || {};
+function portalHome(p) {
   return {
-    name: String(lead.business || lead.full_name || [lead.first_name, lead.last_name].filter(Boolean).join(" ")).trim(),
+    name: String(p.name || "").trim(),
     folders: portalFolders(p).map((prefix) => ({ prefix, name: prefix.slice(0, -1).split("/").pop() })),
   };
 }
@@ -7441,7 +7439,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         if (!p.enabled) return json({ code: "closed" }, 403, request, env);
         const lockedFor = p.locked_until ? Date.parse(p.locked_until) - Date.now() : 0;
         if (lockedFor > 0) return json({ code: "locked", minutes: Math.ceil(lockedFor / 60000) }, 429, request, env);
-        const at = `smm_lead_id=eq.${encodeURIComponent(p.smm_lead_id)}`;
+        const at = `id=eq.${encodeURIComponent(p.id)}`;
         if (portalCode(b && b.passcode) !== p.passcode) {
           const tries = (p.failed_tries || 0) + 1;
           if (tries >= PORTAL_TRIES) {
@@ -7455,14 +7453,14 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const sig = await portalSig(env, p.token, p.passcode, exp);
         if (!sig) return json({ error: "The portal isn't configured on the Worker." }, 503, request, env);
         await sbPatch(env, "client_portals", at, { failed_tries: 0, locked_until: null, last_opened_at: new Date().toISOString() });
-        return json({ session: `${p.token}.${exp}.${sig}`, expires: exp, ...(await portalHome(env, p)) }, 200, request, env);
+        return json({ session: `${p.token}.${exp}.${sig}`, expires: exp, ...portalHome(p) }, 200, request, env);
       }
 
       // ---- Client portal: who it's for and the folders shared with them ----
       if (path.endsWith("/portal/home") && request.method === "GET") {
         const p = await portalFromSession(env, request);
         if (!p) return json({ code: "signed_out" }, 401, request, env);
-        return json(await portalHome(env, p), 200, request, env);
+        return json(portalHome(p), 200, request, env);
       }
 
       // ---- Client portal: one shared folder, with links to play and download ----

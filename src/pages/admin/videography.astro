@@ -1,6 +1,7 @@
 ---
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
+import "../../styles/client-portal-admin.css";
 
 ---
 
@@ -29,6 +30,7 @@ import "../../styles/admin.css";
           <button type="button" data-go="clients">Clients</button>
           <button type="button" data-go="diary">Diary &amp; availability</button>
           <button type="button" data-go="deliver">Deliver work</button>
+          <button type="button" data-go="portals">Client portals</button>
           <button type="button" data-go="settings">Pricing &amp; travel settings</button>
           <button type="button" data-go="connections">Connections</button>
           <a href="/admin/videography-promos" class="vid-cog-link">Promo codes</a>
@@ -184,6 +186,18 @@ import "../../styles/admin.css";
       </div>
 
     </div>
+  </section>
+
+  <!-- ===================== CLIENT PORTALS (Danielle, 2 Nov 2026) ===================== -->
+  <section class="vid-panel wrap" data-panel="portals">
+    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; Back</button>
+    <div class="vid-panel-head">
+      <div>
+        <h2 class="vid-panel-title">Client portals</h2>
+        <p class="vid-panel-sub">A private link and passcode for a client to watch and download their shoots from the Library, instead of SharePoint. Put a shoot in a portal from its Delivery section, or tick folders here.</p>
+      </div>
+    </div>
+    <div id="cpt-admin"></div>
   </section>
 
   <!-- ===================== SETTINGS (pricing & travel) ===================== -->
@@ -486,6 +500,7 @@ import "../../styles/admin.css";
           <span>Archive copy uploaded to our own storage</span>
         </label>
         <p class="vid-hint">Pixieset only keeps a gallery for about three months. The archive is what the team uses afterwards.</p>
+        <div class="cpt-shoot" id="vid-portal-slot"></div>
         </div>
       </div>
       <footer class="modal-foot">
@@ -1471,7 +1486,8 @@ import "../../styles/admin.css";
   <script>
     import { requireAdmin, isManagementUser } from "../../lib/admin-gate.js";
     import { listVideoNotes, setVideoNoteDone, noteAuthor } from "../../lib/video-notes.js";
-    import { archiveFolderName } from "../../lib/archive-folder.js";
+    import { archiveFolderName, folderFor } from "../../lib/archive-folder.js";
+    import { renderClientPortals, renderShootPortal } from "../../lib/client-portal-admin.js";
     import { makeThumb, putThumb, thumbKeyFor } from "../../lib/thumbs.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
@@ -1537,6 +1553,7 @@ import "../../styles/admin.css";
       document.querySelectorAll(".vid-panel").forEach((p) => {
         p.classList.toggle("is-active", p.getAttribute("data-panel") === name);
       });
+      if (name === "portals") renderClientPortals(document.getElementById("cpt-admin"), portalDeps());
       try { window.scrollTo({ top: 0, behavior: "instant" }); } catch (_) { window.scrollTo(0, 0); }
     }
     function initNav() {
@@ -2653,6 +2670,7 @@ import "../../styles/admin.css";
             <input type="checkbox" id="vd-archived" ${b.archived_at ? "checked" : ""} />
             <span>Archive copy uploaded to our own storage</span>
           </label>
+          <div class="cpt-shoot" id="vd-portal"></div>
           ${b.archived_at ? `<p class="vid-hint">Uploaded ${escapeHtml(new Date(b.archived_at).toLocaleDateString("en-GB"))}.</p>` : ""}
           <div class="vid-cand-actions" style="margin-top:14px">
             <button type="button" class="admin-btn admin-btn-ghost" id="vd-goupload">Open Deliver work</button>
@@ -2693,6 +2711,7 @@ import "../../styles/admin.css";
               : `<p class="vid-hint">Tick this once the collection is live, then move the shoot to Gallery ready.</p>`}
           </div>`}`;
         document.getElementById("vd-archived").addEventListener("change", (e) => saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
+        renderShootPortal(document.getElementById("vd-portal"), b, folderFor(b), portalDeps());
         document.getElementById("vd-pixieset")?.addEventListener("change", (e) =>
           saveBookingPatch(b, { pixieset_uploaded_at: e.target.checked ? (b.pixieset_uploaded_at || new Date().toISOString()) : null }));
         document.getElementById("vd-goupload").addEventListener("click", () => {
@@ -2722,6 +2741,7 @@ import "../../styles/admin.css";
             <input type="checkbox" id="vd-archived" ${b.archived_at ? "checked" : ""} />
             <span>Archive copy uploaded to our own storage</span>
           </label>
+          <div class="cpt-shoot" id="vd-portal"></div>
           <div class="vid-cand-actions" style="margin-top:14px">
             <button type="button" class="admin-btn admin-btn-ghost" id="vd-telagain">${b.gallery_sent_at ? "Tell them again" : "Tell them it's ready"}</button>
           </div>
@@ -2731,6 +2751,7 @@ import "../../styles/admin.css";
           <p class="vid-hint">Nothing to invoice: this shoot is covered by their package. If something extra was agreed, raise an invoice from the Invoice tab.</p>`;
         document.getElementById("vd-archived").addEventListener("change", (e) =>
           saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
+        renderShootPortal(document.getElementById("vd-portal"), b, folderFor(b), portalDeps());
         document.getElementById("vd-telagain").addEventListener("click", async (e) => {
           const btn = e.currentTarget, was = btn.textContent;
           btn.disabled = true; btn.textContent = "Telling them…";
@@ -2770,6 +2791,7 @@ import "../../styles/admin.css";
           <input type="checkbox" id="vd-archived" ${b.archived_at ? "checked" : ""} />
           <span>Archive copy uploaded to our own storage</span>
         </label>
+        <div class="cpt-shoot" id="vd-portal"></div>
         <p class="vid-warn" id="vd-msg" hidden></p>
         <div class="vid-cand-actions" style="margin-top:14px">
           <button type="button" class="admin-btn admin-btn-primary" id="vd-save">Save</button>
@@ -2806,6 +2828,7 @@ import "../../styles/admin.css";
       });
       document.getElementById("vd-archived").addEventListener("change", (e) =>
         saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
+      renderShootPortal(document.getElementById("vd-portal"), b, folderFor(b), portalDeps());
     }
 
     async function getGalleryPin(b) {
@@ -4375,6 +4398,9 @@ import "../../styles/admin.css";
       set("gallery_expires_on", b?.gallery_expires_on ? String(b.gallery_expires_on).slice(0, 10) : "");
       const arch = document.getElementById("vid-archived");
       if (arch) arch.checked = !!b?.archived_at;
+      // Which client portal this shoot is in (Danielle, 2 Nov 2026). Only once
+      // the booking exists: a new one has no folder yet.
+      renderShootPortal(document.getElementById("vid-portal-slot"), b && b.id ? b : null, b && b.id ? folderFor(b) : "", portalDeps());
 
       const office = document.getElementById("vid-fc-office");
       if (office && office.options.length <= 1) {
@@ -4778,6 +4804,10 @@ import "../../styles/admin.css";
       if (t.startsWith("video/")) return "video";
       if (t.startsWith("image/")) return "image";
       return "other";
+    }
+    // What the client portal admin needs from this page.
+    function portalDeps() {
+      return { supabase, authToken, worker: WORKER_URL, me: async () => adminEmail || (await supabase.auth.getSession()).data.session?.user?.email || "" };
     }
     async function authToken() {
       const { data } = await supabase.auth.getSession();

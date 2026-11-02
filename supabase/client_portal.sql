@@ -1,18 +1,20 @@
--- Client portal: chosen Library folders, shared with a social media client
--- (Danielle, 2 Nov 2026).
+-- Client portal: chosen Library folders, shared with a client (Danielle, 2 Nov 2026).
 --
 -- Jack edits a shoot into the Library (our R2 storage). Some clients, Fine &
 -- Country first, need to watch and download it themselves, and SharePoint kept
--- getting broken. A portal is ticked on per client in Social media › the
--- client › Videography. They get a private link plus a passcode, and see only
--- the folders ticked for them. Anything added to those folders later shows up
--- on its own. They can watch and download; nothing else.
+-- getting broken. A portal is made in Videography › Client portals: a name
+-- (who it's for), a private link plus a passcode, and the Library folders
+-- ticked for them. Anything added to those folders later shows up on its own.
+-- They can watch and download; nothing else. It belongs to Videography, not to
+-- a social media card: brand days like F&C's bootcamp have no card.
 --
--- One row per client that has (or had) a portal. The client page never reads
--- this table: it goes through the Worker (/portal/*), which reads with the
--- service role and checks the passcode. So only admins can read it here, and
--- the passcode can be stored as typed, for the team to read out or resend.
+-- The client page never reads this table: it goes through the Worker
+-- (/portal/*), which reads with the service role and checks the passcode. So
+-- only admins can read it here, and the passcode can be stored as typed, for
+-- the team to read out or resend.
 --
+--   name         who it's for, as the client sees it ("Fine & Country")
+--   first_name   who the team writes to, for the copied message
 --   token        the unguessable part of the link (tmke.co.uk/portal?c=…)
 --   passcode     6 characters, not case-sensitive; changing it signs every
 --                browser out, because the Worker's sign-in covers it
@@ -23,8 +25,27 @@
 --
 -- Run in the Supabase SQL editor. Safe to re-run.
 
+-- The first version (2 Nov, earlier) hung a portal off a social media card.
+-- If that one was run and nothing was made with it, it is replaced here.
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'client_portals' and column_name = 'smm_lead_id')
+     and not exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'client_portals' and column_name = 'id') then
+    if (select count(*) from public.client_portals) = 0 then
+      drop table public.client_portals;
+    else
+      raise exception 'client_portals already holds portals in the first shape. Ask Claude to move them across before running this.';
+    end if;
+  end if;
+end
+$$;
+
 create table if not exists public.client_portals (
-  smm_lead_id    uuid primary key references public.smm_leads (id) on delete cascade,
+  id             uuid primary key default gen_random_uuid(),
+  name           text not null check (length(btrim(name)) > 0),
+  first_name     text,
   enabled        boolean not null default true,
   token          text not null unique check (length(token) >= 24),
   passcode       text not null check (passcode ~ '^[A-Z0-9]{6}$'),
@@ -62,5 +83,5 @@ create policy "client_portals admin"
   using (public.is_admin())
   with check (public.is_admin());
 
--- Check: the table is there and empty until a portal is switched on.
+-- Check: the table is there, and how many portals it holds.
 select count(*) as portals from public.client_portals;
