@@ -1,0 +1,399 @@
+---
+// The client portal (Danielle, 2 Nov 2026): a social media client's private
+// link (?c=…) plus a passcode opens the Library folders ticked for them on
+// their card in Social media › Videography. Watch and download only. The
+// Worker checks the passcode and signs every file link; this page holds
+// nothing but the sign-in it is given, kept in this browser for a week.
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Client portal — TMKE"
+  description="Your TMKE content."
+  hideNav
+  hideFooter
+  noindex
+>
+  <main class="ptl">
+    <header class="ptl-head">
+      <a href="/" class="ptl-mark">TMKE</a>
+      <span class="ptl-head-tag">Client portal</span>
+    </header>
+
+    <section class="ptl-stage" id="ptl-stage">
+      <p class="ptl-msg" id="ptl-loading">Loading…</p>
+
+      <form class="ptl-gate" id="ptl-gate" hidden>
+        <p class="ptl-eyebrow">Client portal</p>
+        <h1 class="ptl-title">Enter Your Passcode.</h1>
+        <p class="ptl-note">Use the passcode we sent you to see what we've shared. Capitals don't matter.</p>
+        <label class="ptl-label" for="ptl-code">Passcode</label>
+        <div class="ptl-gate-row">
+          <input id="ptl-code" class="ptl-input" type="text" inputmode="text" autocomplete="one-time-code"
+                 autocapitalize="characters" spellcheck="false" maxlength="12" required />
+          <button type="submit" class="ptl-btn" id="ptl-go">View content</button>
+        </div>
+        <p class="ptl-err" id="ptl-err" role="alert" hidden></p>
+      </form>
+
+      <div id="ptl-home" hidden>
+        <div class="ptl-intro">
+          <h1 class="ptl-title" id="ptl-name"></h1>
+          <p class="ptl-note">Watch, view and download everything we've shared with you. Anything we add to these folders appears here automatically.</p>
+        </div>
+        <p class="ptl-k">Your folders</p>
+        <div class="ptl-folders" id="ptl-folders"></div>
+        <p class="ptl-msg ptl-msg--left" id="ptl-none" hidden>Nothing has been shared with you yet. When we share a folder with you, it'll appear here.</p>
+      </div>
+
+      <div id="ptl-folder" hidden>
+        <button type="button" class="ptl-back" id="ptl-back">&larr; <span id="ptl-back-t">Back to all folders</span></button>
+        <div class="ptl-intro">
+          <p class="ptl-eyebrow" id="ptl-f-when"></p>
+          <h1 class="ptl-title" id="ptl-f-title"></h1>
+          <p class="ptl-note" id="ptl-f-line"></p>
+        </div>
+        <div class="ptl-dlall" id="ptl-dlall" hidden>
+          <button type="button" class="ptl-btn" id="ptl-dlall-btn"></button>
+          <p class="ptl-small">Each file downloads separately, so your browser may ask once to allow several downloads. Big videos can take a while, so wifi is best.</p>
+        </div>
+        <div class="ptl-folders" id="ptl-sub"></div>
+        <div class="ptl-grid" id="ptl-files"></div>
+        <p class="ptl-msg ptl-msg--left" id="ptl-empty" hidden>This folder is empty for now. Anything we add will appear here automatically.</p>
+      </div>
+    </section>
+
+    <footer class="ptl-foot">Need a hand? Reply to the email your link came in, or contact <a href="mailto:hello@tmke.co.uk">hello@tmke.co.uk</a>.</footer>
+  </main>
+
+  <div class="ptl-viewer" id="ptl-viewer" hidden>
+    <button type="button" class="ptl-viewer-close" id="ptl-viewer-close" aria-label="Close">&times;</button>
+    <div class="ptl-viewer-in">
+      <div class="ptl-viewer-stage" id="ptl-viewer-stage"></div>
+      <div class="ptl-viewer-bar"><span id="ptl-viewer-name"></span><a id="ptl-viewer-dl" class="ptl-viewer-dl" href="#">Download</a></div>
+    </div>
+  </div>
+
+  <style is:global>
+    .ptl { min-height: 100vh; background: var(--paper); display: flex; flex-direction: column; }
+    .ptl-head { display: flex; justify-content: space-between; align-items: center; padding: 22px 36px; border-bottom: 1px solid rgba(28,29,34,0.1); }
+    .ptl-mark { font-family: var(--serif); font-size: 24px; font-weight: 600; letter-spacing: 0.04em; color: var(--ink); text-decoration: none; }
+    .ptl-head-tag, .ptl-eyebrow, .ptl-k { font-family: var(--sans); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700; color: var(--english-violet); }
+    .ptl-eyebrow { margin: 0 0 14px; }
+    .ptl-eyebrow:empty { display: none; }
+    .ptl-k { margin: 0 0 14px; }
+
+    .ptl-stage { flex: 1; width: 100%; max-width: 1280px; margin: 0 auto; padding: 56px 36px 120px; box-sizing: border-box; }
+    .ptl-msg { font-family: var(--sans); font-size: 15px; color: rgba(28,29,34,0.6); padding: 60px 0; text-align: center; }
+    .ptl-msg--left { text-align: left; padding: 8px 0; max-width: 60ch; }
+    .ptl-intro { margin-bottom: 40px; }
+    .ptl-title { font-family: var(--serif); font-weight: 300; font-size: clamp(34px, 5vw, 60px); line-height: 1.04; letter-spacing: -0.05em; color: var(--ink); margin: 0 0 14px; text-wrap: balance; }
+    .ptl-note { font-family: var(--sans); font-size: 16px; line-height: 1.6; color: rgba(28,29,34,0.72); max-width: 60ch; margin: 0; }
+    .ptl-note:empty { display: none; }
+    .ptl-small { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 0; max-width: 56ch; }
+
+    /* The passcode */
+    .ptl-gate { max-width: 560px; margin: 4vh auto 0; }
+    .ptl-label { display: block; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); margin: 34px 0 10px; }
+    .ptl-gate-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .ptl-input { flex: 1 1 220px; min-width: 0; font-family: var(--sans); font-size: 22px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase;
+      padding: 13px 18px; border: 1px solid rgba(28,29,34,0.22); border-radius: 10px; background: #fff; color: var(--ink); }
+    .ptl-input:focus { outline: 2px solid var(--english-violet); outline-offset: 1px; border-color: var(--english-violet); }
+    .ptl-err { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: #a3322b; margin: 14px 0 0; }
+
+    .ptl-btn { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+      background: var(--english-violet); color: var(--paper); border: 0; border-radius: 999px; padding: 16px 26px; cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s; }
+    .ptl-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(28,29,34,0.18); }
+    .ptl-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+    .ptl-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* Folders */
+    .ptl-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin: 0 0 36px; }
+    .ptl-folders:empty { display: none; }
+    .ptl-fold { display: flex; gap: 14px; align-items: flex-start; text-align: left; cursor: pointer; width: 100%;
+      background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 20px; font-family: var(--sans); color: var(--ink);
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+    .ptl-fold:hover { border-color: rgba(var(--violet-rgb),0.45); box-shadow: 0 12px 28px rgba(28,29,34,0.08); transform: translateY(-1px); }
+    .ptl-fold:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    .ptl-fold-ic { flex: none; width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; background: rgba(var(--violet-rgb),0.08); color: var(--english-violet); }
+    .ptl-fold-tx { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .ptl-fold-name { font-size: 17px; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+    .ptl-fold-sub { font-size: 14px; color: rgba(28,29,34,0.6); line-height: 1.35; }
+    .ptl-fold-when { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); }
+
+    .ptl-back { border: 0; background: transparent; padding: 0; margin: 0 0 28px; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
+    .ptl-back:hover { text-decoration: underline; text-underline-offset: 4px; }
+    .ptl-dlall { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: -12px 0 30px; }
+
+    /* Files */
+    .ptl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+    .ptl-file { display: flex; flex-direction: column; background: #fff; border: 1px solid rgba(28,29,34,0.08); border-radius: 12px; overflow: hidden; }
+    .ptl-thumb { position: relative; display: block; width: 100%; aspect-ratio: 16 / 10; padding: 0; border: 0; cursor: zoom-in; background: rgba(var(--violet-rgb),0.07); overflow: hidden; }
+    .ptl-thumb img, .ptl-thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ptl-play { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+    .ptl-play span { width: 46px; height: 46px; border-radius: 50%; background: rgba(28,29,34,0.55); color: #fff; display: grid; place-items: center; }
+    .ptl-doc { position: absolute; inset: 0; display: grid; place-items: center; color: var(--english-violet); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+    .ptl-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; font-family: var(--sans); }
+    .ptl-meta-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .ptl-name { font-size: 14px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ptl-size { font-size: 12px; color: rgba(28,29,34,0.55); font-variant-numeric: tabular-nums; }
+    .ptl-dl { flex: none; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); text-decoration: none;
+      border: 1px solid rgba(var(--violet-rgb),0.3); border-radius: 999px; padding: 8px 13px; }
+    .ptl-dl:hover { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
+
+    .ptl-foot { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); text-align: center; padding: 24px 20px 32px; border-top: 1px solid rgba(28,29,34,0.08); }
+    .ptl-foot a { color: var(--english-violet); }
+
+    /* Watching one */
+    .ptl-viewer { position: fixed; inset: 0; z-index: 1000; background: rgba(20,16,18,0.92); display: grid; place-items: center; padding: 56px 20px 24px; }
+    .ptl-viewer[hidden] { display: none; }
+    .ptl-viewer-in { display: flex; flex-direction: column; gap: 12px; max-width: min(1400px, 100%); }
+    .ptl-viewer-stage video, .ptl-viewer-stage img { display: block; max-width: 100%; max-height: calc(100vh - 140px); margin: 0 auto; border-radius: 6px; background: #000; }
+    .ptl-viewer-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; font-family: var(--sans); font-size: 14px; color: rgba(255,255,255,0.8); }
+    .ptl-viewer-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ptl-viewer-dl { flex: none; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #fff; border: 1px solid rgba(255,255,255,0.4); border-radius: 999px; padding: 8px 14px; text-decoration: none; }
+    .ptl-viewer-dl:hover { background: #fff; color: var(--ink); }
+    .ptl-viewer-close { position: absolute; top: 12px; right: 20px; background: transparent; border: 0; color: #fff; font-size: 36px; line-height: 1; cursor: pointer; }
+
+    @media (max-width: 720px) {
+      .ptl-head { padding: 18px 16px; }
+      .ptl-stage { padding: 36px 16px 90px; }
+      .ptl-grid { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) { .ptl-btn, .ptl-fold { transition: none; } .ptl-btn:hover, .ptl-fold:hover { transform: none; } }
+  </style>
+
+  <script>
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const params = new URLSearchParams(location.search);
+    const TOKEN = params.get("c") || "";
+    const KEY = "tmke.portal." + TOKEN;
+    let home = null;
+
+    const fmtSize = (n) => {
+      if (!n) return "";
+      const u = ["B", "KB", "MB", "GB", "TB"];
+      const i = Math.min(u.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+      return (n / Math.pow(1024, i)).toFixed(i > 1 ? 1 : 0) + " " + u[i];
+    };
+    const fmtDate = (d) => { try { return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }); } catch (_) { return ""; } };
+    const isVideo = (f) => /^video\//.test(f.contentType || "") || /\.(mp4|mov|m4v|webm)$/i.test(f.name);
+    const isImage = (f) => /^image\//.test(f.contentType || "") || /\.(jpe?g|png|webp|avif|gif)$/i.test(f.name);
+    const FOLDER_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+    const PLAY_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="7 4 20 12 7 20 7 4"/></svg>';
+
+    // Where the sign-in is kept. A browser that refuses storage just asks for
+    // the passcode again next time.
+    const session = {
+      get() { try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); return s && s.expires > Date.now() ? s.session : ""; } catch (_) { return ""; } },
+      set(v, expires) { try { localStorage.setItem(KEY, JSON.stringify({ session: v, expires })); } catch (_) {} },
+      clear() { try { localStorage.removeItem(KEY); } catch (_) {} },
+    };
+
+    function show(which) {
+      ["ptl-loading", "ptl-gate", "ptl-home", "ptl-folder"].forEach((id) => { $(id).hidden = id !== which; });
+      window.scrollTo(0, 0);
+    }
+    function fail(text) { $("ptl-loading").textContent = text; show("ptl-loading"); }
+
+    // A shoot folder is named "<shoot type> - <who> - <date> - <where>" by the
+    // uploader (src/lib/archive-folder.js); read it back as words. Anything
+    // named by hand is shown as it is.
+    function readFolderName(name) {
+      const bits = String(name).split(" - ").map((x) => x.trim()).filter(Boolean);
+      const dateAt = bits.findIndex((x) => /^\d{4}-\d{2}-\d{2}$/.test(x));
+      if (dateAt < 1) return { title: name, line: "", when: "" };
+      const type = bits.slice(0, dateAt - 1).join(" - ");
+      const where = bits.slice(dateAt + 1).join(" - ");
+      return { title: bits[dateAt - 1], line: [type, where].filter(Boolean).join(" · "), when: fmtDate(bits[dateAt]) };
+    }
+    const lastSeg = (prefix) => prefix.replace(/\/+$/, "").split("/").pop();
+
+    async function call(path, opts = {}) {
+      const res = await fetch(WORKER + path, {
+        ...opts,
+        headers: { ...(opts.headers || {}), ...(session.get() ? { Authorization: "Bearer " + session.get() } : {}) },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 401 && body.code === "signed_out") { session.clear(); openGate(); throw new Error("signed out"); }
+      if (!res.ok) { const e = new Error(body.code || body.error || String(res.status)); e.body = body; throw e; }
+      return body;
+    }
+
+    /* ---------- The passcode ---------- */
+    function openGate(message) {
+      show("ptl-gate");
+      $("ptl-err").hidden = !message;
+      $("ptl-err").textContent = message || "";
+      setTimeout(() => $("ptl-code").focus(), 30);
+    }
+    function gateMessage(body) {
+      const n = Number(body && (body.left ?? body.minutes)) || 0;
+      switch (body && body.code) {
+        case "wrong": return `That passcode didn't match. You have ${n} ${n === 1 ? "try" : "tries"} left before the portal locks for 15 minutes.`;
+        case "locked": return `There have been too many wrong passcodes, so the portal is locked for now. Try again in ${n} ${n === 1 ? "minute" : "minutes"}.`;
+        case "closed": return "This link is no longer active. If you still need the content, please get in touch.";
+        case "unknown": return "We don't recognise this link. Check you've copied the whole link from your email.";
+        default: return "We couldn't connect just now. Please try again.";
+      }
+    }
+    $("ptl-gate").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const code = $("ptl-code").value.trim();
+      if (!code) return;
+      $("ptl-go").disabled = true;
+      $("ptl-err").hidden = true;
+      try {
+        const res = await fetch(WORKER + "/portal/open", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: TOKEN, passcode: code }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.session) {
+          $("ptl-err").textContent = gateMessage(body);
+          $("ptl-err").hidden = false;
+          if (body.code === "closed" || body.code === "unknown") $("ptl-code").disabled = true;
+          return;
+        }
+        session.set(body.session, body.expires);
+        $("ptl-code").value = "";
+        home = body;
+        route();
+      } catch (_) {
+        $("ptl-err").textContent = gateMessage(null);
+        $("ptl-err").hidden = false;
+      } finally {
+        $("ptl-go").disabled = false;
+      }
+    });
+
+    /* ---------- All their folders ---------- */
+    function folderCard(prefix) {
+      const p = readFolderName(lastSeg(prefix));
+      return `<button type="button" class="ptl-fold" data-prefix="${esc(prefix)}">
+        <span class="ptl-fold-ic">${FOLDER_SVG}</span>
+        <span class="ptl-fold-tx">
+          <span class="ptl-fold-name">${esc(p.title)}</span>
+          ${p.line ? `<span class="ptl-fold-sub">${esc(p.line)}</span>` : ""}
+          ${p.when ? `<span class="ptl-fold-when">${esc(p.when)}</span>` : ""}
+        </span>
+      </button>`;
+    }
+    function renderHome() {
+      $("ptl-name").textContent = home.name ? `${home.name}'s Content.` : "Your Content.";
+      const folders = home.folders || [];
+      $("ptl-folders").innerHTML = folders.map((f) => folderCard(f.prefix)).join("");
+      $("ptl-none").hidden = folders.length > 0;
+      show("ptl-home");
+    }
+
+    /* ---------- One folder ---------- */
+    let current = [];
+    function fileTile(f, i) {
+      let pic;
+      if (f.thumbUrl) pic = `<img src="${esc(f.thumbUrl)}" alt="" loading="lazy">`;
+      else if (isImage(f)) pic = `<img src="${esc(f.url)}" alt="" loading="lazy">`;
+      else if (isVideo(f)) pic = `<video src="${esc(f.url)}#t=1" preload="metadata" muted playsinline></video>`;
+      else pic = `<span class="ptl-doc">${esc((f.name.split(".").pop() || "File").slice(0, 5))}</span>`;
+      const viewable = isVideo(f) || isImage(f);
+      return `<article class="ptl-file">
+        ${viewable
+          ? `<button type="button" class="ptl-thumb" data-i="${i}" aria-label="${isVideo(f) ? "Play" : "View"} ${esc(f.name)}">${pic}${isVideo(f) ? `<span class="ptl-play"><span>${PLAY_SVG}</span></span>` : ""}</button>`
+          : `<div class="ptl-thumb" style="cursor:default">${pic}</div>`}
+        <div class="ptl-meta">
+          <span class="ptl-meta-tx"><span class="ptl-name" title="${esc(f.name)}">${esc(f.name)}</span><span class="ptl-size">${esc(fmtSize(f.size))}</span></span>
+          <a class="ptl-dl" href="${esc(f.downloadUrl)}">Download</a>
+        </div>
+      </article>`;
+    }
+    async function openFolder(prefix) {
+      fail("Loading…");
+      let data;
+      try { data = await call(`/portal/list?prefix=${encodeURIComponent(prefix)}`); }
+      catch (err) {
+        if (err.message === "signed out") return;
+        if (err.message === "not_shared") { history.replaceState(null, "", "?c=" + encodeURIComponent(TOKEN)); return route(); }
+        return fail("We couldn't open that folder just now. Please try again.");
+      }
+      const files = data.files || [];
+      current = files;
+      const p = readFolderName(lastSeg(prefix));
+      $("ptl-f-title").textContent = p.title;
+      $("ptl-f-line").textContent = p.line;
+      $("ptl-f-when").textContent = p.when;
+      // Inside a shared folder, back goes up one level; at the top, to them all.
+      const up = prefix !== data.root ? prefix.replace(/[^/]+\/$/, "") : "";
+      $("ptl-back").dataset.to = up;
+      $("ptl-back-t").textContent = up ? `Back to ${readFolderName(lastSeg(up)).title}` : "Back to all folders";
+      $("ptl-sub").innerHTML = (data.folders || []).map(folderCard).join("");
+      $("ptl-files").innerHTML = files.map(fileTile).join("");
+      $("ptl-dlall").hidden = files.length < 2;
+      $("ptl-dlall-btn").textContent = `Download all (${files.length} ${files.length === 1 ? "file" : "files"})`;
+      $("ptl-empty").hidden = !!(files.length || (data.folders || []).length);
+      show("ptl-folder");
+    }
+
+    /* ---------- Where we are: ?c=…&f=… so Back in the browser works ---------- */
+    function go(prefix) {
+      const q = "?c=" + encodeURIComponent(TOKEN) + (prefix ? "&f=" + encodeURIComponent(prefix) : "");
+      history.pushState(null, "", q);
+      route();
+    }
+    async function route() {
+      if (!session.get()) return openGate();
+      if (!home) {
+        try { home = await call("/portal/home"); }
+        catch (err) { if (err.message !== "signed out") fail("We couldn't connect just now. Please try again."); return; }
+      }
+      const f = new URLSearchParams(location.search).get("f");
+      if (f) openFolder(f); else renderHome();
+    }
+    window.addEventListener("popstate", route);
+
+    document.addEventListener("click", (e) => {
+      const fold = e.target.closest(".ptl-fold");
+      if (fold) return go(fold.dataset.prefix);
+      const th = e.target.closest(".ptl-thumb[data-i]");
+      if (th) return openViewer(current[Number(th.dataset.i)]);
+    });
+    $("ptl-back").addEventListener("click", () => go($("ptl-back").dataset.to || ""));
+
+    // Every file in turn, a moment apart: a browser drops downloads that are
+    // started all at once, and asks once before allowing several.
+    $("ptl-dlall-btn").addEventListener("click", async () => {
+      const btn = $("ptl-dlall-btn");
+      btn.disabled = true;
+      for (const f of current) {
+        const a = document.createElement("a");
+        a.href = f.downloadUrl; a.rel = "noopener"; a.style.display = "none";
+        document.body.appendChild(a); a.click(); a.remove();
+        await new Promise((r) => setTimeout(r, 900));
+      }
+      btn.disabled = false;
+    });
+
+    /* ---------- The viewer ---------- */
+    function openViewer(f) {
+      if (!f) return;
+      $("ptl-viewer-stage").innerHTML = isVideo(f)
+        ? `<video controls autoplay playsinline src="${esc(f.url)}"></video>`
+        : `<img alt="${esc(f.name)}" src="${esc(f.url)}">`;
+      $("ptl-viewer-name").textContent = f.name;
+      $("ptl-viewer-dl").href = f.downloadUrl;
+      $("ptl-viewer").hidden = false;
+    }
+    function closeViewer() { $("ptl-viewer").hidden = true; $("ptl-viewer-stage").innerHTML = ""; }
+    $("ptl-viewer-close").addEventListener("click", closeViewer);
+    $("ptl-viewer").addEventListener("click", (e) => { if (e.target === $("ptl-viewer")) closeViewer(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("ptl-viewer").hidden) closeViewer(); });
+
+    if (!TOKEN) fail("We don't recognise this link. Check you've copied the whole link from your email.");
+    else if (!WORKER) fail("We couldn't connect just now. Please try again.");
+    else route();
+  </script>
+</BaseLayout>

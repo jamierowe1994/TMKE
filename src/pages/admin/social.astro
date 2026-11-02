@@ -957,6 +957,44 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-note-meta { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); display: inline-flex; align-items: center; gap: 6px; }
     .smm-pin-badge { color: var(--english-violet); font-weight: 700; }
     .smm-note-tools { display: inline-flex; gap: 4px; }
+    /* The client portal (Videography tab, Danielle 2 Nov 2026). */
+    .cpt-wrap { margin-top: 28px; }
+    .cpt { display: flex; flex-direction: column; gap: 14px; font-family: var(--sans); }
+    .cpt-lead { font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.65); margin: 0; max-width: 62ch; }
+    .cpt .smm-btn { align-self: flex-start; }
+    .cpt .smm-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .cpt-on-pill { font-family: var(--sans); font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #2c7a4b; background: rgba(44,122,75,0.12); border-radius: 999px; padding: 4px 10px; }
+    .cpt-keys { display: flex; flex-direction: column; border-top: 1px solid rgba(28,29,34,0.1); border-bottom: 1px solid rgba(28,29,34,0.1); }
+    .cpt-key { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 9px 0; }
+    .cpt-key + .cpt-key { border-top: 1px solid rgba(28,29,34,0.06); }
+    .cpt-k { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin: 0; }
+    .cpt-v { font-size: 13px; color: var(--ink); min-width: 0; }
+    .cpt-v--link a { color: var(--english-violet); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cpt-v--code { font-size: 16px; font-weight: 800; letter-spacing: 0.24em; }
+    .cpt-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cpt-msg { font-size: 12.5px; line-height: 1.5; margin: 0; color: rgba(28,29,34,0.55); }
+    .cpt-msg:empty { display: none; }
+    .cpt-msg.is-busy { color: rgba(28,29,34,0.55); }
+    .cpt-msg.is-ok { color: #2c7a4b; font-weight: 600; }
+    .cpt-msg.is-err { color: #a3322b; font-weight: 600; }
+    .cpt-fhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+    .cpt-h { font-size: 14px; font-weight: 700; color: var(--ink); margin: 0; }
+    .cpt-search { font-family: var(--sans); font-size: 13px; padding: 7px 11px; border: 1px solid rgba(28,29,34,0.15); border-radius: 8px; min-width: 220px; background: #fff; }
+    .cpt-search:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
+    .cpt-hint { font-size: 12.5px; color: rgba(28,29,34,0.55); margin: -8px 0 0; }
+    .cpt-folders { display: flex; flex-direction: column; gap: 4px; max-height: 420px; overflow: auto; padding-right: 4px; }
+    .cpt-folders .cpt-k { margin: 10px 0 4px; }
+    .cpt-folders .cpt-k:first-child { margin-top: 0; }
+    /* Two classes deep: the admin's own label style (.hub-skin label: small caps) would win otherwise. */
+    .cpt-folders .cpt-f { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.08); border-radius: 8px; background: #fff; cursor: pointer;
+      font-family: var(--sans); font-size: 13px; font-weight: 500; letter-spacing: normal; text-transform: none; color: var(--ink); }
+    .cpt-f:hover { border-color: rgba(var(--violet-rgb),0.35); }
+    .cpt-f.is-on { background: rgba(var(--violet-rgb),0.06); border-color: rgba(var(--violet-rgb),0.3); }
+    .cpt-f input { accent-color: var(--english-violet); width: 16px; height: 16px; flex: none; }
+    .cpt-f-name { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
+    .cpt-f-open { font-size: 11.5px; font-weight: 600; color: var(--english-violet); text-decoration: none; }
+    .cpt-f-open:hover { text-decoration: underline; }
+    .cpt-f-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #a3322b; }
     /* Notes for the shoots (Videography tab). */
     .vnote { margin-top: 28px; }
     .vnote-hint { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: -6px 0 12px; }
@@ -1086,6 +1124,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { SOCIAL_SERVICES as PKG_SERVICES } from "../../lib/smm-config.js";
     import { listVideoNotes, addVideoNote, setVideoNoteDone, deleteVideoNote, noteAuthor, VIDEO_NOTES_MISSING } from "../../lib/video-notes.js";
+    import { renderPortalAdmin } from "../../lib/client-portal-admin.js";
+    import { folderFor } from "../../lib/archive-folder.js";
 
     const STAGES = [
       // Ahead of Inquiry: they have asked to be told when a space opens, which
@@ -1648,7 +1688,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       if (!panel) return;
       const { data, error } = await supabase
         .from("videography_bookings")
-        .select("id, service, service_type, shoot_date, stage, location, property_address, notes, archive_folder, client_name")
+        .select("id, service, service_type, shoot_date, stage, location, property_address, notes, archive_folder, client_name, client_company, postcode")
         .eq("smm_lead_id", r.id)
         .order("shoot_date", { ascending: false, nullsFirst: true });
 
@@ -1678,11 +1718,16 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         ${error
           ? `<p class="smm-soon">Couldn't load the existing shoots: ${esc(error.message)}</p>`
           : list.length ? rows : `<p class="smm-soon">No shoots booked yet. Book one and it lands on Jack's board straight away.</p>`}
+        <div class="cpt-wrap" id="cpt-admin"></div>
         <div class="vnote" id="vnote"></div>
 `;
 
       $("vidx-add")?.addEventListener("click", () => openVidBooking(r));
       $("vidx-due")?.addEventListener("change", (e) => saveShootDue(r, e.target.value));
+      // The client portal: the Library folders this client can watch and
+      // download through their own link (Danielle, 2 Nov 2026).
+      if (isDemo(r)) $("cpt-admin").innerHTML = '<div class="smm-panel-head"><h4>Client portal</h4></div><p class="smm-soon">Not on the demo client.</p>';
+      else renderPortalAdmin($("cpt-admin"), r, [...new Set(list.map(folderFor).filter(Boolean))], { supabase, authToken, worker: WORKER, me: meEmail });
       renderVideoNotes(r);
     }
 

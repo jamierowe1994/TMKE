@@ -4776,6 +4776,89 @@ async function mediaSigValid(env, key, exp, sig) {
   return !!want && want === sig;
 }
 
+// One folder of the archive: the files in it, and the folders inside it. The
+// admin Library and the client portal both read it this way.
+async function listArchive(env, prefix) {
+  const out = { prefix, folders: [], files: [] };
+  let cursor;
+  do {
+    const page = await env.BUCKET.list({ prefix, delimiter: "/", cursor, include: ["httpMetadata"] });
+    // The thumbnails live in a folder of their own; it is plumbing, not
+    // somewhere anyone browses.
+    (page.delimitedPrefixes || []).forEach((p) => { if (!p.endsWith(`/${THUMB_DIR}/`)) out.folders.push(p); });
+    (page.objects || []).forEach((o) => {
+      if (o.key.endsWith("/") || o.key.endsWith("/.keep")) return;   // folder markers aren't files
+      out.files.push({
+        key: o.key, name: o.key.slice(prefix.length), size: o.size, uploaded: o.uploaded,
+        contentType: (o.httpMetadata && o.httpMetadata.contentType) || "",
+      });
+    });
+    cursor = page.truncated ? page.cursor : null;
+  } while (cursor);
+  out.folders.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  out.files.sort((a, b) => new Date(b.uploaded) - new Date(a.uploaded));
+  // Small pictures of the big ones, where they exist, so a folder of
+  // originals doesn't have to be downloaded to be looked at.
+  try {
+    const thumbs = new Map();
+    let tc;
+    do {
+      const tp = await env.BUCKET.list({ prefix: `${prefix}${THUMB_DIR}/`, cursor: tc });
+      (tp.objects || []).forEach((o) => thumbs.set(o.key.slice(`${prefix}${THUMB_DIR}/`.length), o.key));
+      tc = tp.truncated ? tp.cursor : null;
+    } while (tc);
+    out.files.forEach((f) => { const t = thumbs.get(f.name + ".jpg"); if (t) f.thumb = t; });
+  } catch (_) { /* no thumbnails is not an error */ }
+  return out;
+}
+
+// ---- Client portal (Danielle, 2 Nov 2026) ----------------------------------
+// A social media client's private link plus passcode opens the Library folders
+// ticked for them (supabase/client_portal.sql). Opening it gives the browser a
+// sign-in good for a week: the link's token, an expiry, and a signature over
+// both and the passcode, so changing the passcode signs everyone out. Every
+// request reads the row again, so switching a portal off or unticking a folder
+// takes effect at once.
+const PORTAL_DAYS = 7;
+const PORTAL_TRIES = 8;
+const PORTAL_LOCK_MIN = 15;
+function portalCode(v) { return String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); }
+async function portalSig(env, token, passcode, exp) {
+  const secret = unsubSecret(env);
+  if (!secret) return null;
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return _b64url(await crypto.subtle.sign("HMAC", k, enc.encode(`portal:${token}:${passcode}:${exp}`)));
+}
+async function portalByToken(env, token) {
+  if (!/^[A-Za-z0-9_-]{24,64}$/.test(String(token || ""))) return null;
+  const rows = await sbGet(env, "client_portals",
+    `token=eq.${encodeURIComponent(token)}&select=smm_lead_id,enabled,token,passcode,folders,failed_tries,locked_until&limit=1`);
+  return (rows && rows[0]) || null;
+}
+async function portalFromSession(env, request) {
+  const auth = request.headers.get("Authorization") || "";
+  const [token, exp, sig] = (auth.startsWith("Bearer ") ? auth.slice(7) : "").split(".");
+  if (!token || !/^\d+$/.test(exp || "") || Number(exp) < Date.now() || !sig) return null;
+  const p = await portalByToken(env, token);
+  if (!p || !p.enabled) return null;
+  const want = await portalSig(env, token, p.passcode, exp);
+  return want && want === sig ? p : null;
+}
+// The ticked folders, as archive prefixes. The archive root itself never
+// counts, so a stray empty entry can't open everything.
+function portalFolders(p) {
+  return [...new Set((p.folders || []).map((f) => archivePrefix(f)))].filter((f) => f !== `${PART_PREFIX}/`);
+}
+async function portalHome(env, p) {
+  const leads = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(p.smm_lead_id)}&select=business,full_name,first_name,last_name&limit=1`);
+  const lead = (leads && leads[0]) || {};
+  return {
+    name: String(lead.business || lead.full_name || [lead.first_name, lead.last_name].filter(Boolean).join(" ")).trim(),
+    folders: portalFolders(p).map((prefix) => ({ prefix, name: prefix.slice(0, -1).split("/").pop() })),
+  };
+}
+
 async function trackSig(env, data) {
   const secret = unsubSecret(env);
   if (!secret) return null;
@@ -7346,6 +7429,65 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const ok = await sendPostEmail(env, { email: user.email, item, subject: `Your ${item.platform_hint} post - ready to go` });
         if (!ok) return json({ error: "Couldn't send the email - try again." }, 502, request, env);
         return json({ ok: true, to: user.email }, 200, request, env);
+      }
+
+      // ---- Client portal: open it with the passcode (public) ----
+      // Says which of four things went wrong, so the page can say it plainly:
+      // unknown link, switched off, locked after too many tries, wrong passcode.
+      if (path.endsWith("/portal/open") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const p = await portalByToken(env, String((b && b.token) || ""));
+        if (!p) return json({ code: "unknown" }, 404, request, env);
+        if (!p.enabled) return json({ code: "closed" }, 403, request, env);
+        const lockedFor = p.locked_until ? Date.parse(p.locked_until) - Date.now() : 0;
+        if (lockedFor > 0) return json({ code: "locked", minutes: Math.ceil(lockedFor / 60000) }, 429, request, env);
+        const at = `smm_lead_id=eq.${encodeURIComponent(p.smm_lead_id)}`;
+        if (portalCode(b && b.passcode) !== p.passcode) {
+          const tries = (p.failed_tries || 0) + 1;
+          if (tries >= PORTAL_TRIES) {
+            await sbPatch(env, "client_portals", at, { failed_tries: 0, locked_until: new Date(Date.now() + PORTAL_LOCK_MIN * 60000).toISOString() });
+            return json({ code: "locked", minutes: PORTAL_LOCK_MIN }, 429, request, env);
+          }
+          await sbPatch(env, "client_portals", at, { failed_tries: tries });
+          return json({ code: "wrong", left: PORTAL_TRIES - tries }, 401, request, env);
+        }
+        const exp = Date.now() + PORTAL_DAYS * 24 * 60 * 60 * 1000;
+        const sig = await portalSig(env, p.token, p.passcode, exp);
+        if (!sig) return json({ error: "The portal isn't configured on the Worker." }, 503, request, env);
+        await sbPatch(env, "client_portals", at, { failed_tries: 0, locked_until: null, last_opened_at: new Date().toISOString() });
+        return json({ session: `${p.token}.${exp}.${sig}`, expires: exp, ...(await portalHome(env, p)) }, 200, request, env);
+      }
+
+      // ---- Client portal: who it's for and the folders shared with them ----
+      if (path.endsWith("/portal/home") && request.method === "GET") {
+        const p = await portalFromSession(env, request);
+        if (!p) return json({ code: "signed_out" }, 401, request, env);
+        return json(await portalHome(env, p), 200, request, env);
+      }
+
+      // ---- Client portal: one shared folder, with links to play and download ----
+      // Only inside a ticked folder. Each file comes with links signed for six
+      // hours, served by /download like the Library's.
+      if (path.endsWith("/portal/list") && request.method === "GET") {
+        const p = await portalFromSession(env, request);
+        if (!p) return json({ code: "signed_out" }, 401, request, env);
+        const prefix = archivePrefix(url.searchParams.get("prefix"));
+        const root = portalFolders(p).find((f) => prefix.startsWith(f));
+        if (!root) return json({ code: "not_shared" }, 403, request, env);
+        const out = await listArchive(env, prefix);
+        const exp = Date.now() + 6 * 60 * 60 * 1000;
+        const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
+        const link = async (key, dl) => {
+          const sig = await mediaSig(env, key, exp);
+          return sig ? `${base}/download?key=${encodeURIComponent(key)}&exp=${exp}&sig=${encodeURIComponent(sig)}${dl ? "&dl=1" : ""}` : "";
+        };
+        for (const f of out.files) {
+          f.url = await link(f.key, false);
+          f.downloadUrl = await link(f.key, true);
+          if (f.thumb) f.thumbUrl = await link(f.thumb, false);
+          delete f.key; delete f.thumb;
+        }
+        return json({ ...out, root }, 200, request, env);
       }
 
     // ---- PUBLIC client gallery (token-gated, NO login required) ----
@@ -10202,38 +10344,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       if (path.endsWith("/list") && request.method === "GET" && url.searchParams.get("prefix") !== null) {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        const prefix = archivePrefix(url.searchParams.get("prefix"));
-        const out = { prefix, folders: [], files: [] };
-        let cursor;
-        do {
-          const page = await env.BUCKET.list({ prefix, delimiter: "/", cursor, include: ["httpMetadata"] });
-          // The thumbnails live in a folder of their own; it is plumbing, not
-          // somewhere anyone browses.
-          (page.delimitedPrefixes || []).forEach((p) => { if (!p.endsWith(`/${THUMB_DIR}/`)) out.folders.push(p); });
-          (page.objects || []).forEach((o) => {
-            if (o.key.endsWith("/") || o.key.endsWith("/.keep")) return;   // folder markers aren't files
-            out.files.push({
-              key: o.key, name: o.key.slice(prefix.length), size: o.size, uploaded: o.uploaded,
-              contentType: (o.httpMetadata && o.httpMetadata.contentType) || "",
-            });
-          });
-          cursor = page.truncated ? page.cursor : null;
-        } while (cursor);
-        out.folders.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-        out.files.sort((a, b) => new Date(b.uploaded) - new Date(a.uploaded));
-        // Small pictures of the big ones, where they exist, so a folder of
-        // originals doesn't have to be downloaded to be looked at.
-        try {
-          const thumbs = new Map();
-          let tc;
-          do {
-            const tp = await env.BUCKET.list({ prefix: `${prefix}${THUMB_DIR}/`, cursor: tc });
-            (tp.objects || []).forEach((o) => thumbs.set(o.key.slice(`${prefix}${THUMB_DIR}/`.length), o.key));
-            tc = tp.truncated ? tp.cursor : null;
-          } while (tc);
-          out.files.forEach((f) => { const t = thumbs.get(f.name + ".jpg"); if (t) f.thumb = t; });
-        } catch (_) { /* no thumbnails is not an error */ }
-        return json(out, 200, request, env);
+        return json(await listArchive(env, archivePrefix(url.searchParams.get("prefix"))), 200, request, env);
       }
 
       // ---- A social media shoot is ready: tell whoever runs that account ----
