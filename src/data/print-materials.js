@@ -8,8 +8,8 @@
 /* A brand gets a guide once it has print packs. The key is the guide's
    address: /account/guides/print/<key>/. */
 export const PRINT_MATERIALS = {
-  tpe: { brand: "The Property Experts", short: "TPE" },
-  ppe: { brand: "Prestige Property Experts", short: "PPE" },
+  tpe: { brand: "The Property Experts", short: "TPE", cover: "/images/learn/print-first-design-cover-v2.webp" },
+  ppe: { brand: "Prestige Property Experts", short: "PPE", cover: "/images/learn/print-materials-ppe-cover.webp" },   // its own card on the mat (Dani, 2 Nov)
 };
 
 /* A pack's page, by packs.print_type. How many sides or pages a design has
@@ -42,7 +42,7 @@ export const PRINT_MATERIAL_GUIDES = Object.entries(PRINT_MATERIALS).map(([key, 
   topic: "getting-started", kind: "guide", training: false,
   audience: "teg", brands: [g.brand],
   href: `/account/guides/print/${key}/`,
-  cover_url: "/images/learn/print-first-design-cover-v2.webp",
+  cover_url: g.cover,
   est_minutes: 5, lessons: [],
   created_at: "2026-10-30T20:00:00Z",       // so it lands in Just landed
 }));
