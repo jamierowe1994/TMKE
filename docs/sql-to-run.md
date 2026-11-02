@@ -4,13 +4,14 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/content_calendar_levels.sql — the four Content Calendar levels, their prices and what each opens, for Content calendar › Overview (29 Oct)
-- [ ] Training pack off, one line: `update public.packs set training = false where training;` — the course screenshots are done, so the training account stops seeing TPE's canvassing pack (31 Oct)
-- [ ] supabase/print_guide_kind.sql — a type pill for each print design (Booklet, Leaflet) in Your Print Materials; run after print_guide.sql (31 Oct)
-- [ ] supabase/client_portal.sql — client portals: a client's private link and passcode to watch and download their shoots from the Library, in Videography › Client portals and on each shoot's Delivery section (2 Nov); the first version ran on 2 Nov, so run the current file once more: it converts that table in place
+Nothing waiting.
 
 ## Done
 
+- [x] supabase/content_calendar_levels.sql — the four Content Calendar levels, their prices and what each opens, for Content calendar › Overview (29 Oct; ran 2 Nov)
+- [x] Training pack off, one line: `update public.packs set training = false where training;` — the course screenshots are done, so the training account stops seeing TPE's canvassing pack (31 Oct; ran 2 Nov)
+- [x] supabase/print_guide_kind.sql — a type pill for each print design (Booklet, Leaflet) in Your Print Materials; run after print_guide.sql (31 Oct; ran 2 Nov)
+- [x] supabase/client_portal.sql — client portals: a client's private link and passcode to watch and download their shoots from the Library, in Videography › Client portals and on each shoot's Delivery section (2 Nov; ran 2 Nov)
 - [x] supabase/content_calendar_notes.sql — notes on each Content Calendar month, for ideas and rough planning (28 Oct; found run 31 Oct)
 - [x] supabase/print_guide.sql — the words for each brand's Your Print Materials guide, edited in Design studio › Print › Print materials; run after pack_training_view.sql (30 Oct; ran 31 Oct)
 - [x] supabase/pack_training_view.sql — lets the training account see TPE's canvassing print pack for the course screenshots; temporary, switch it off after (30 Oct)
