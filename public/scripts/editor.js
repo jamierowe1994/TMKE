@@ -7755,8 +7755,12 @@ import { createResizeEngine } from "./resize-engine.js";
     });
   }
 
+  // The copy remembers the size of the page it came off, so a paste can tell
+  // a same-size design (back in the very spot) from a different one (centred).
   function writeSharedClipboard(els) {
-    const rec = { at: Date.now(), els: els };
+    const page = { w: state.canvas.width, h: state.canvas.height };
+    state.clipboardPage = page;
+    const rec = { at: Date.now(), els: els, page: page };
     clipIdb("readwrite", function (st) { return st.put(rec, "clipboard"); }).catch(function () {});
     try {
       const payload = JSON.stringify(rec);
@@ -7780,9 +7784,11 @@ import { createResizeEngine } from "./resize-engine.js";
         if (p && Array.isArray(p.els) && p.els.length && (!shared || (p.at || 0) > (shared.at || 0))) shared = p;
       }
     } catch (_) {}
-    if (!shared) return state.clipboard;
-    if (!state.clipboard || !state.clipboard.length) return shared.els;
-    return (shared.at || 0) > (state.clipboardAt || 0) ? shared.els : state.clipboard;
+    // The elements, carrying the source page's size as .page.
+    const tag = function (els, page) { if (els) els.page = page || null; return els; };
+    if (!shared) return tag(state.clipboard, state.clipboardPage);
+    if (!state.clipboard || !state.clipboard.length) return tag(shared.els, shared.page);
+    return (shared.at || 0) > (state.clipboardAt || 0) ? tag(shared.els, shared.page) : tag(state.clipboard, state.clipboardPage);
   }
 
   function copySelected() {
@@ -7801,17 +7807,22 @@ import { createResizeEngine } from "./resize-engine.js";
   async function paste() {
     const clip = await readClipboard();
     if (!clip || !clip.length) return;
-    /* Where it was only makes sense if that place is on this page. Copied
-       off a bigger design (a print page onto a post), the same spot can be
-       off the edge entirely, so anything that would not sit wholly on the
-       page is centred on it instead, keeping its own size and the copies'
-       layout to each other (Dani, 3 Nov). The step aside for a second paste
-       is worked out from wherever it lands. */
+    /* Dani's rule (3 Nov): copied off a design the same size as this one,
+       it goes back in exactly the same place, bleed and all; copied off a
+       different size, it is centred on this page, keeping its own size and
+       the copies' layout to each other. (Centring whenever it overhung the
+       page moved full-bleed pictures on a same-size paste.) A copy made
+       before the clipboard knew its page's size is centred only if it would
+       not sit on this page. The step aside for a second paste is worked out
+       from wherever it lands. */
     const W = state.canvas.width, H = state.canvas.height;
     const minX = Math.min(...clip.map((c) => c.x)), minY = Math.min(...clip.map((c) => c.y));
     const maxX = Math.max(...clip.map((c) => c.x + c.w)), maxY = Math.max(...clip.map((c) => c.y + c.h));
+    const from = clip.page;
+    const centre = from ? (Math.round(from.w) !== Math.round(W) || Math.round(from.h) !== Math.round(H))
+      : (minX < 0 || minY < 0 || maxX > W || maxY > H);
     let bx = 0, by = 0;
-    if (minX < 0 || minY < 0 || maxX > W || maxY > H) {
+    if (centre) {
       bx = Math.round(W / 2 - (minX + maxX) / 2);
       by = Math.round(H / 2 - (minY + maxY) / 2);
     }
