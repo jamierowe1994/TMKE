@@ -12,6 +12,7 @@ export const BRAND_ORDER = [
   "The Property Experts",
   "Prestige Property Experts",
   "The Letting Experts",
+  "The Letting Experts Scotland",
   "The Marketing Experts",
   "The Recruitment Experts",
   "Fine & Country",
@@ -28,4 +29,18 @@ export function brandRank(brand) {
 
 export function byBrandOrder(a, b) {
   return brandRank(a) - brandRank(b) || String(a).localeCompare(String(b));
+}
+
+/* A brand that uses another brand's kit (Dani, 3 Nov 2026). The Letting
+   Experts Scotland is its own brand so it can have its own print, because
+   Scottish lettings law is different, but it looks exactly like The Letting
+   Experts: one kit serves both and is edited once, on The Letting Experts.
+   The Worker keeps the same list (KIT_SHARED_WITH in worker/src/index.js). */
+export const KIT_SHARED_WITH = {
+  "The Letting Experts Scotland": "The Letting Experts",
+};
+
+export function kitBrandOf(brand) {
+  const k = Object.keys(KIT_SHARED_WITH).find((b) => norm(b) === norm(brand));
+  return k ? KIT_SHARED_WITH[k] : brand;
 }

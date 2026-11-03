@@ -607,6 +607,11 @@ import "../../styles/admin.css";
     // Who has actually purchased / booked — read live from orders + bookings by
     // email (not just the tag), so the chips are reliable even before a backfill.
     let PURCHASER_EMAILS = new Set(), SESSION_EMAILS = new Set(), CALL_EMAILS = new Set();
+    /* Brands that share another brand's email domain, so the address can't
+       tell them apart: The Letting Experts Scotland agents have Letting
+       Experts addresses (Dani, 3 Nov 2026). Their own profile says which. */
+    const DOMAIN_SHARED_BRANDS = ["The Letting Experts Scotland"];
+    let OWN_BRAND = new Map();
     const lc = (e) => String(e || "").toLowerCase().trim();
     const isPurchaser = (c) => PURCHASER_EMAILS.has(lc(c.email)) || (c.tags || []).includes("Pack-Purchased");
     const isSession = (c) => SESSION_EMAILS.has(lc(c.email)) || (c.tags || []).includes("Videography-Client");
@@ -887,7 +892,7 @@ import "../../styles/admin.css";
 
     // ---- TEG (internal agent) tab -------------------------------------------
     // The Experts Group brands — anyone working within one of these is TEG.
-    const TEG_BRANDS = ["The Property Experts", "Prestige Property Experts", "The Letting Experts", "The Recruitment Experts", "The Marketing Experts", "Fine & Country", "The Mortgage Experts"];
+    const TEG_BRANDS = ["The Property Experts", "Prestige Property Experts", "The Letting Experts", "The Letting Experts Scotland", "The Recruitment Experts", "The Marketing Experts", "Fine & Country", "The Mortgage Experts"];
     // Identify a TEG brand from a work email domain. Returns the brand name, ""
     // for a generic *experts.co.uk we can't pin to one brand, or null if not TEG.
     // (New starters often use personal emails — those are caught via the import's
@@ -897,7 +902,7 @@ import "../../styles/admin.css";
     // typed into the company field - so it wins, with company as the fallback
     // for everyone outside the group.
     function brandOf(c) {
-      return tegBrandFromEmail(c.email) || c.company || "\u2014";
+      return OWN_BRAND.get(c.id) || tegBrandFromEmail(c.email) || c.company || "\u2014";
     }
 
     function tegBrandFromEmail(email) {
@@ -1066,6 +1071,7 @@ import "../../styles/admin.css";
         const titles = {
           "the property experts": "Property Expert",
           "the letting experts": "Letting Expert",
+          "the letting experts scotland": "Letting Expert",
           "prestige property experts": "Prestige Property Expert",
           "fine & country": "Partner Agent",
         };
@@ -2141,12 +2147,14 @@ import "../../styles/admin.css";
     $("ct-import-internal")?.addEventListener("change", (e) => { $("ct-import-internal-note").hidden = !e.target.checked; });
 
     async function load() {
-      const [cRes, oRes, vRes, sRes] = await Promise.all([
+      const [cRes, oRes, vRes, sRes, bRes] = await Promise.all([
         supabase.from("contacts").select("*").order("updated_at", { ascending: false }).limit(2000),
         supabase.from("orders").select("buyer_email").eq("status", "paid"),
         supabase.from("videography_bookings").select("client_email, kind, service_type"),
         supabase.from("smm_leads").select("email, kind").eq("kind", "discovery"),
+        supabase.from("agent_profiles").select("contact_id, brand").in("brand", DOMAIN_SHARED_BRANDS).is("left_at", null),
       ]);
+      OWN_BRAND = new Map(((bRes && bRes.data) || []).map((r) => [r.contact_id, r.brand]));
       $("ct-loading").hidden = true;
       if (cRes.error) { $("ct-loading").hidden = false; $("ct-loading").textContent = "Couldn't load contacts: " + cRes.error.message; return; }
       PURCHASER_EMAILS = new Set(((oRes && oRes.data) || []).map((o) => lc(o.buyer_email)).filter(Boolean));

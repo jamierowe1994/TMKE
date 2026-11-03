@@ -17,6 +17,7 @@ update public.agent_profiles ap
   from (values
     ('The Property Experts',       'Property Expert'),
     ('The Letting Experts',        'Letting Expert'),
+    ('The Letting Experts Scotland', 'Letting Expert'),
     ('Prestige Property Experts',  'Prestige Property Expert'),
     ('Fine & Country',             'Partner Agent'),
     ('The Marketing Experts',      'Marketing Expert'),

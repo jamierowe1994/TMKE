@@ -969,8 +969,14 @@ import "../../../styles/admin.css";
     // test. Free text still works for a brand nobody has joined yet.
     (async () => {
       try {
-        const { data } = await supabase.from("agent_profiles").select("brand").not("brand", "is", null);
-        BRAND_OPTIONS = Array.from(new Set((data || []).map((r) => (r.brand || "").trim()).filter(Boolean))).sort();
+        // And every brand on the Brands page, so a brand nobody has been
+        // moved into yet (The Letting Experts Scotland, 3 Nov) can have its
+        // packs made first.
+        const [{ data }, { data: kits }] = await Promise.all([
+          supabase.from("agent_profiles").select("brand").not("brand", "is", null),
+          supabase.from("brand_profiles").select("brand"),
+        ]);
+        BRAND_OPTIONS = Array.from(new Set((data || []).concat(kits || []).map((r) => (r.brand || "").trim()).filter((b) => b && b !== "__studio__"))).sort();
       } catch (_) {}
       renderBrands();
     })();

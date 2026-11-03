@@ -1073,7 +1073,15 @@ const PACKAGE_PREFIX = { academy: "ACAD", pro: "PRO" };
 /* ---- The Team Hub check: shared by the page (/teg/roster/*) and the
    monthly run on the 1st. ----------------------------------------------------
    Only the three brands below are compared for now. */
-const ROSTER_FOCUS = ["The Property Experts", "Prestige Property Experts", "The Letting Experts"];
+const ROSTER_FOCUS = ["The Property Experts", "Prestige Property Experts", "The Letting Experts", "The Letting Experts Scotland"];
+/* Ours is more exact than the Team Hub's: a Scottish agent may well be down
+   there as plain The Letting Experts. Our Scotland profile answers for that,
+   so they aren't offered back to the English brand every month. */
+const ROSTER_ALSO_ANSWERS = { "the letting experts scotland": "the letting experts" };
+function rosterBrandIs(ours, theirs) {
+  const o = String(ours || "").trim().toLowerCase(), t = String(theirs || "").trim().toLowerCase();
+  return o === t || ROSTER_ALSO_ANSWERS[o] === t;
+}
 // Today in London as YYYY-MM-DD. Its own, not londonToday(): that one lives
 // inside the request handler (out of reach from here) and returns { ym, day }.
 function rosterToday() {
@@ -1181,7 +1189,8 @@ function rosterCompare(ctx, rows, today) {
     const cname = [c.first_name, c.last_name].filter(Boolean).join(" ");
     if (m.by !== "email") mismatched.push({ name, contact_id: m.id, teg_email: lc(t.email), our_email: lc(c.email), by: m.by });
     for (const brand of brands) {
-      const prof = profs.find((p) => p.contact_id === m.id && lc(p.brand) === lc(brand) && !p.left_at);
+      const prof = profs.find((p) => p.contact_id === m.id && lc(p.brand) === lc(brand) && !p.left_at)
+        || profs.find((p) => p.contact_id === m.id && rosterBrandIs(p.brand, brand) && !p.left_at);
       const want = wanted(t);
       // We marked them as left at this brand; TEG has them back. Hers to look at, not ours to undo.
       const gone = !prof && profs.find((p) => p.contact_id === m.id && lc(p.brand) === lc(brand) && p.left_at);
@@ -2374,6 +2383,18 @@ async function ensureTegFromDomain(env, { contactId, email }) {
    colours, fonts, logos and the words a brand supplies. Pulled out because
    two callers want it -- a member's kit, which adds their details on top, and
    the admin studio's brand picker, where there is no person at all. */
+/* A brand that uses another brand's kit (Dani, 3 Nov 2026). The Letting
+   Experts Scotland is its own brand so it can have its own print, because
+   Scottish lettings law is different, but it looks exactly like The Letting
+   Experts: one kit serves both. Same list as src/data/brands.js. */
+const KIT_SHARED_WITH = {
+  "The Letting Experts Scotland": "The Letting Experts",
+};
+function kitBrandOf(brand) {
+  const k = Object.keys(KIT_SHARED_WITH).find((b) => b.toLowerCase() === String(brand || "").trim().toLowerCase());
+  return k ? KIT_SHARED_WITH[k] : brand;
+}
+
 function brandHalf(bp, brand) {
   return {
     company: (bp && bp.company) || brand || "",
@@ -2421,7 +2442,7 @@ async function brandKitFor(env, { userId, email, brand: want }) {
 
   let bp = null;
   if (brand) {
-    const bpRows = await sbGet(env, "brand_profiles", `brand=eq.${encodeURIComponent(brand)}&select=*&limit=1`);
+    const bpRows = await sbGet(env, "brand_profiles", `brand=eq.${encodeURIComponent(kitBrandOf(brand))}&select=*&limit=1`);
     bp = (bpRows && bpRows[0]) || null;
   }
 
@@ -5455,6 +5476,8 @@ const ACCESS_EDITION_OF_BRAND = {
   "The Property Experts": "property",
   "Prestige Property Experts": "prestige",
   "The Letting Experts": "lettings",
+  // Same posts as England until there's a Scottish edition (Dani, 3 Nov 2026).
+  "The Letting Experts Scotland": "lettings",
 };
 function accessMonth(offset) {
   const p = londonParts(new Date()).ymd.split("-").map(Number);
@@ -11206,7 +11229,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
                 const [first0, ...rest0] = String(a.name || "").trim().split(/\s+/);
                 const first = String(a.first_name || "").trim() || first0 || "";
                 const last = a.first_name != null ? String(a.last_name || "").trim() : rest0.join(" ");
-                const type = brands[0] === "The Letting Experts" ? "Type: Lettings" : "Type: Estate-Agent";
+                const type = /^The Letting Experts/.test(brands[0]) ? "Type: Lettings" : "Type: Estate-Agent";
                 const cid = await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: first || null, p_last_name: last || null, p_phone: f.phone || null, p_company: brands[0], p_source: "teg_team_hub", p_tags: [...crmTags(email, [], {}), type] });
                 const contactId = Array.isArray(cid) ? cid[0] : cid;
                 if (!contactId) throw new Error("couldn't create the contact");
@@ -11430,7 +11453,11 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             : null,
           brands: rows
             .filter((r) => r.brand && r.brand !== "__studio__")
-            .map((r) => ({ brand: r.brand, kit: brandHalf(r, r.brand) })),
+            .map((r) => {
+              const host = kitBrandOf(r.brand);
+              const kitRow = host === r.brand ? r : (rows.find((x) => x.brand === host) || r);
+              return { brand: r.brand, kit: brandHalf(kitRow, r.brand) };
+            }),
           standIns: {
             female: si.female || SI_DEFAULT.female,
             male: si.male || SI_DEFAULT.male,

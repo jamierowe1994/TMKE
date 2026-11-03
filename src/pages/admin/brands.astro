@@ -115,7 +115,7 @@ import "../../styles/admin.css";
     import { requireAdmin } from '../../lib/admin-gate.js';
     import { supabase } from '../../lib/supabase.js';
     import { escapeHtml } from '../../lib/design-preview.js';
-    import { byBrandOrder } from '../../data/brands.js';
+    import { byBrandOrder, KIT_SHARED_WITH, kitBrandOf } from '../../data/brands.js';
     import { GOOGLE_FONTS } from '../../data/google-fonts.js';
     import { GOOGLE_FONTS_ALL } from '../../data/google-fonts-all.js';
     import { fillForm, readForm, wireColors, wireLogos, fillFontList } from '../../lib/brand-kit-form.js';
@@ -167,6 +167,13 @@ import "../../styles/admin.css";
       Object.keys(AGENTS).forEach((b) => {
         if (!ROWS.some((r) => r.brand === b)) ROWS.push({ brand: b, colors: [], fonts: {}, logos: [] });
       });
+      // A brand that uses another's kit has no kit of its own to fill in:
+      // its agents count on the kit they open, and its pill is that one.
+      ROWS = ROWS.filter((r) => kitBrandOf(r.brand) === r.brand);
+      Object.keys(AGENTS).forEach((b) => {
+        const host = kitBrandOf(b);
+        if (host !== b) { AGENTS[host] = (AGENTS[host] || 0) + AGENTS[b]; delete AGENTS[b]; }
+      });
       // House order, not agent count: the brand we are working on comes first.
       ROWS.sort((a, b) => byBrandOrder(a.brand, b.brand));
 
@@ -204,8 +211,9 @@ import "../../styles/admin.css";
         els.kit.prepend(head);
       }
       const n = AGENTS[brand] || 0;
+      const also = Object.keys(KIT_SHARED_WITH).filter((b) => KIT_SHARED_WITH[b] === brand);
       head.innerHTML = `<span class="br-kit-name">${escapeHtml(brand)}</span>
-        <span class="br-kit-sub">${n} agent${n === 1 ? '' : 's'} open the Studio with this kit</span>`;
+        <span class="br-kit-sub">${n} agent${n === 1 ? '' : 's'} open the Studio with this kit${also.length ? `, ${escapeHtml(also.join(' and '))} included` : ''}</span>`;
       fillForm(root, Object.assign({ company: row.company || brand }, row));
     }
 
