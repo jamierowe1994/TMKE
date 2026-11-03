@@ -952,6 +952,20 @@ import "../../../styles/admin.css";
       if (title) title.textContent = free ? "Publishing" : "Pricing & classification";
       const price = form.elements.price_gbp;
       if (price) { price.required = !free; price.disabled = free; }
+      syncBackLinks();
+    }
+
+    /* Back to the half of the catalogue this pack lives in: a print pack's
+       ← Catalogue, Cancel, Save and Delete land on Print, not Social
+       (Dani, 3 Nov). */
+    function catalogueHref() {
+      const k = form.elements.kind ? form.elements.kind.value : new URLSearchParams(location.search).get("kind");
+      return k === "print" ? "/admin/packs?kind=print" : "/admin/packs";
+    }
+    function syncBackLinks() {
+      document.querySelectorAll('a[href="/admin/packs"], a[href="/admin/packs?kind=print"]').forEach((a) => {
+        a.setAttribute("href", catalogueHref());
+      });
     }
 
     // Arriving from the Print tab: start as a print pack for brands.
@@ -1635,7 +1649,7 @@ import "../../../styles/admin.css";
         saveBtn.textContent = "Updating the site…";
         const msg = [await rebuildSite(supabase), bellMsg].filter(Boolean).join(" ");
         try { if (msg) sessionStorage.setItem("tmke.admin.packsNote", msg); } catch (_) {}
-        location.href = "/admin/packs";
+        location.href = catalogueHref();
       } catch (err) {
         showError(err.message || "Could not save pack.");
         saveBtn.removeAttribute("disabled");
@@ -1649,7 +1663,7 @@ import "../../../styles/admin.css";
       const { error } = await supabase.from("packs").delete().eq("id", editingId);
       if (error) return alert(`Delete failed: ${error.message}`);
       await rebuildSite(supabase);
-      location.href = "/admin/packs";
+      location.href = catalogueHref();
     }
 
     (async () => {
