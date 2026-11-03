@@ -78,7 +78,7 @@ const CSS = `
   text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 9px; }
 .tcp-grid { display: flex; flex-wrap: wrap; gap: 7px; }
 .tcp-line { flex-wrap: nowrap; overflow: hidden; padding: 3px; margin: -3px; }
-.tcp-sw { width: 26px; height: 26px; flex: 0 0 auto; border-radius: 50%; cursor: pointer; padding: 0; margin: 0;
+.tcp-sw { width: 26px; height: 26px; flex: 0 0 auto; border-radius: 7px; cursor: pointer; padding: 0; margin: 0;
   border: 1px solid rgba(28,29,34,0.14); transition: transform 0.12s; }
 .tcp-sw:hover { transform: scale(1.15); }
 .tcp-sw.is-current { box-shadow: 0 0 0 2px #fff, 0 0 0 3px #371e28; }

@@ -3428,12 +3428,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // Fade colour only matters once the photo is below 100%.
     const tint = document.getElementById("ed-bg-tint");
     if (tint) tint.hidden = !(hasImg && op < 100);
-    // Custom circle reflects the current solid background (skip gradients).
-    const cwrap = document.getElementById("ed-bg-color-wrap");
-    if (cwrap) {
-      const bg = state.canvas.background;
-      cwrap.style.background = (typeof bg === "string" && bg.indexOf("gradient") === -1) ? bg : "#f4f2f1";
-    }
+    // The Custom swatch stays the spectrum rather than the current colour (3 Nov).
   }
 
   // ---- Page-strip live previews + busy lock -----------------------------
@@ -14290,7 +14285,7 @@ import { createResizeEngine } from "./resize-engine.js";
       openColorPanel({
         title: "Background colour",
         current: isGradient(bg) ? "#F4F2F1" : bg,
-        onSolid: function (hex) { state.canvas.background = hex; wrap.style.background = hex; fullRender(); pushHistory(); },
+        onSolid: function (hex) { state.canvas.background = hex; fullRender(); pushHistory(); },   // the swatch stays the spectrum
       });
     });
   })();
