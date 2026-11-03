@@ -4937,9 +4937,10 @@ import { createResizeEngine } from "./resize-engine.js";
     /* A QR code has to stay square, so it is sized from its corners only
        (Dani, 3 Nov); the corners already keep a picture's shape. */
     const cornersOnly = el.brandRole === "qr";
-    // A side handle on an edge under 48px on screen sits on the corners
-    // either side of it, so it goes and the corners do the work.
-    const shortW = el.w * state.zoom < 48, shortH = el.h * state.zoom < 48;
+    // A side handle on an edge under 56px on screen would share the corners'
+    // grab area (each catches about 26px across), so it goes and the corners
+    // do the work until the edge is long enough on screen to tell them apart.
+    const shortW = el.w * state.zoom < 56, shortH = el.h * state.zoom < 56;
     positions.forEach(([h, fx, fy]) => {
       if (cornersOnly && h.length === 1) return;
       if (shortW && (h === "n" || h === "s")) return;
