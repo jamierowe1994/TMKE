@@ -4970,10 +4970,11 @@ import { createResizeEngine } from "./resize-engine.js";
     rotHandle.dataset.h = "rot";
     const cx = el.x + el.w / 2;
     const cy = el.y + el.h / 2;
-    // 28px off the top on screen at any zoom (it was 28 design pixels, so at
-    // 10% it sat on top of the top handle).
+    // 16px off the top on screen at any zoom: close enough to read as part
+    // of the box now the handles are 8px (Dani, 3 Nov: "so far away"), clear
+    // of the top handle's grab area.
     const ez = 1 / (state.zoom || 1);
-    const dy = -el.h / 2 - 28 * ez;
+    const dy = -el.h / 2 - 16 * ez;
     const a = (el.rotation || 0) * Math.PI / 180;
     const rx = 0 * Math.cos(a) - dy * Math.sin(a);
     const ry = 0 * Math.sin(a) + dy * Math.cos(a);
@@ -5039,9 +5040,9 @@ import { createResizeEngine } from "./resize-engine.js";
     const bw = floatBar.offsetWidth || 168;
     const bh = floatBar.offsetHeight || 40;
     let left = rect.left + rect.width / 2 - bw / 2;
-    // Above the rotate handle too (28px over the box, 18px across), or the
+    // Above the rotate handle too (16px over the box, 8px across), or the
     // bar sits right on it and it can't be grabbed.
-    const lift = el && el.type !== "line" && el.type !== "screen" ? 34 : 0;
+    const lift = el && el.type !== "line" && el.type !== "screen" ? 16 : 0;
     let top = rect.top - bh - 12 - lift;
     if (top < 70) top = rect.bottom + 12; // no room above → go below
     left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
