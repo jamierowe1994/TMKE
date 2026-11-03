@@ -857,14 +857,11 @@ are the `RESIZE_*` constants at the top of that section.
 
 ## 9. Security + infrastructure
 
-- ⬜ **The Worker's `AI_MODEL` may be a model that no longer exists.** It is set
-  to `claude-sonnet-4-6`, which doesn't match any current Anthropic model ID —
-  seen in the `wrangler deploy` output on 27 Aug. If it's stale, `/ai/caption`
-  (the member caption generator) is failing, possibly silently. Check whether
-  the endpoint still works and whether the error reaches the user or is
-  swallowed, then pick the right current model for the job — captioning doesn't
-  need the top tier. `AI_MODEL` is a Worker environment variable, so changing
-  it needs a redeploy from `worker/`. Raised 27 Aug.
+- ✅ **(3 Nov) The Worker's `AI_MODEL` (`claude-sonnet-4-6`) works.** Checked
+  when the Claude key moved to Danielle's own Console organisation (3 Nov; it
+  had been on James's Recruitment Experts account): `/ai/caption` answered, and
+  Ask the Expert's Studio help (Haiku 4.5) and Ideas (Sonnet 5) answered too.
+  Moving to newer models is optional and changes cost; Danielle's call.
 
 - ✅ **(27 Jul) Backstage tables locked to admins.** The admin area and member
   hub are two doors into one database, and the database was only asking "are
