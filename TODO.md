@@ -871,7 +871,9 @@ are the `RESIZE_*` constants at the top of that section.
   when the Claude key moved to Danielle's own Console organisation (3 Nov; it
   had been on James's Recruitment Experts account): `/ai/caption` answered, and
   Ask the Expert's Studio help (Haiku 4.5) and Ideas (Sonnet 5) answered too.
-  Moving to newer models is optional and changes cost; Danielle's call.
+  Moved the same day, on her say-so, to models by job: Haiku 5.5 for help,
+  Sonnet 5.5 for members' writing, Opus 5.5 for the admin centre (AI_JOBS in
+  worker/src/index.js; Ask the Expert in Admin › Assistant).
 
 - ✅ **(27 Jul) Backstage tables locked to admins.** The admin area and member
   hub are two doors into one database, and the database was only asking "are
