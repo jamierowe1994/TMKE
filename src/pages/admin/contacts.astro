@@ -1002,7 +1002,7 @@ import "../../styles/admin.css";
               <small>Full length, no background. The only photo print will use &mdash; their own headshot never goes near it. TEG&rsquo;s feed fills this in once it is connected.${p && p.brand_photo_source ? ` Set by ${esc(p.brand_photo_source === "teg" ? "the TEG feed" : "hand")}.` : ""}</small>
             </div>
             ${all.length > 1 ? `<label class="ct-toggle"><input type="checkbox" id="teg-primary" ${p && p.is_primary ? "checked" : ""} ${p && p.is_primary ? "disabled" : ""}/> Their Studio opens in this brand</label>` : ""}
-            ${all.length > 1 && p && !p.is_primary ? `<button type="button" class="ct-linkbtn" id="teg-remove-brand">Remove this brand</button>` : ""}
+            ${p && p.id && p.id !== "new" ? `<button type="button" class="ct-linkbtn" id="teg-remove-brand">Remove this brand</button>` : ""}
           </div>
           <div class="ct-sec">
             <h3>New starter</h3>
@@ -1090,8 +1090,19 @@ import "../../styles/admin.css";
       document.getElementById("teg-remove-brand")?.addEventListener("click", async () => {
         const row = c.agentProfile;
         if (!row || !row.id || row.id === "new") return;
-        if (!confirm("Remove " + (row.brand || "this brand") + " from " + (c.first_name || "this contact") +
-          "?\n\nOnly do this if it was added by mistake. Somebody who has LEFT a brand should be marked as left instead, which keeps the history.")) return;
+        /* Any brand, the primary one too (Dani, 3 Nov: moving an agent from
+           The Letting Experts to The Letting Experts Scotland means taking
+           the old one off). Their Studio then opens in the brand they still
+           have; taking the last one off leaves them in no brand at all. */
+        const others = (c.agentProfiles || []).filter((r) => String(r.id) !== String(row.id) && r.id !== "new");
+        const who = c.first_name || "this contact";
+        const what = !others.length
+          ? "\n\nIt's their only brand, so they'll be in no brand at all: no brand kit in their Studio and no brand print packs."
+          : row.is_primary
+            ? "\n\nTheir Studio opens in this brand now, so it will open in " + (others[0].brand || "their other brand") + " instead."
+            : "";
+        if (!confirm("Remove " + (row.brand || "this brand") + " from " + who + "?" + what +
+          "\n\nSomebody who has LEFT a brand should be marked as left instead, which keeps the history.")) return;
         const { data } = await supabase.auth.getSession();
         const res = await fetch(`${WORKER}/agent/profile/remove`, {
           method: "POST",
@@ -1101,7 +1112,10 @@ import "../../styles/admin.css";
         const j = await res.json().catch(() => ({}));
         if (!res.ok) { tegMsg(j.error || "Couldn't remove that brand.", false); return; }
         c.agentProfiles = (c.agentProfiles || []).filter((r) => String(r.id) !== String(row.id));
-        c.agentProfile = c.agentProfiles[0] ? Object.assign({}, c.agentProfiles[0], { __all: c.agentProfiles }) : null;
+        // The Worker says which brand it made primary in place of this one.
+        if (j.primary) c.agentProfiles.forEach((r) => { r.is_primary = String(r.id) === String(j.primary); });
+        const next = c.agentProfiles.find((r) => r.is_primary) || c.agentProfiles[0];
+        c.agentProfile = next ? Object.assign({}, next, { __all: c.agentProfiles }) : null;
         document.getElementById("ct-teg-panel").innerHTML =
           tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) }, c);
         wireTeg();

@@ -11704,14 +11704,17 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
         });
         // Somebody has to be primary, or their Studio has no kit to open in.
+        // The card is told which, so it shows the right one straight away.
+        let primary = null;
         if (row.is_primary) {
           const left = await sbGet(env, "agent_profiles",
             `contact_id=eq.${encodeURIComponent(row.contact_id)}&select=id&order=created_at.asc&limit=1`);
           if (left && left[0]) {
             await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(left[0].id)}`, { is_primary: true });
+            primary = left[0].id;
           }
         }
-        return json({ ok: true }, 200, request, env);
+        return json({ ok: true, primary }, 200, request, env);
       }
 
       // ---- Admin: internal-agent (TEG) profile on a contact -------------------
