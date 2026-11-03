@@ -5908,6 +5908,102 @@ export default {
       // ---- Hub notices: send what's due now (admin) --------------------------
       // The five-minute tick does this anyway; the admin calls it so "Send now"
       // and "Withdraw" happen straight away.
+      // ---- Admin: video captions, step 1 - the words and when they're said --
+      // (Dani, 3 Nov 2026.) The page sends the video's audio, small: 16kHz
+      // mono WAV, a couple of MB a minute. Cloudflare's Whisper writes it
+      // down with a time for every word; `prompt` primes it with names it
+      // would otherwise mishear (Porsche, Fine & Country). Nothing is kept.
+      if (path.endsWith("/admin/video/transcribe") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.AI) return json({ error: "Cloudflare AI isn't connected to the Worker." }, 503, request, env);
+        const buf = new Uint8Array(await request.arrayBuffer());
+        if (!buf.length) return json({ error: "No audio came through." }, 400, request, env);
+        if (buf.length > 25000000) return json({ error: "That audio is too long for one go (over 25MB)." }, 413, request, env);
+        let bin = "";
+        for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+        const prompt = String(url.searchParams.get("prompt") || "").slice(0, 400);
+        let out;
+        try {
+          out = await env.AI.run("@cf/openai/whisper-large-v3-turbo", Object.assign({ audio: btoa(bin), language: "en", vad_filter: true }, prompt ? { initial_prompt: prompt } : {}));
+        } catch (e) { return json({ error: "Transcribing failed: " + String((e && e.message) || e).slice(0, 200) }, 502, request, env); }
+        const words = [];
+        (out.segments || []).forEach((sg) => (sg.words || []).forEach((w) => {
+          const t = String(w.word || "").trim();
+          if (t) words.push({ w: t, s: Math.round(Number(w.start) * 1000) / 1000, e: Math.round(Number(w.end) * 1000) / 1000 });
+        }));
+        return json({
+          ok: true, text: String(out.text || "").trim(), words,
+          segments: (out.segments || []).map((sg) => ({ s: sg.start, e: sg.end, text: String(sg.text || "").trim(), hasWords: Array.isArray(sg.words) })),
+          info: out.transcription_info || null,
+        }, 200, request, env);
+      }
+
+      // ---- Admin: video captions, step 2 - Claude plans the edit -----------
+      // (Dani, 3 Nov 2026.) Claude can't watch a video, so it gets what it
+      // needs as text: every word with its time (step 1), the style rules,
+      // and what the person asked for this video. It answers with a plan the
+      // page draws from: the stretches to keep, the caption phrases and their
+      // italic words, and the big statement words with their small labels.
+      // The cutting and drawing happen in the browser, not here.
+      if (path.endsWith("/admin/video/plan") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const words = (Array.isArray(b.words) ? b.words : []).slice(0, 4000)
+          .map((w) => ({ w: String(w.w || "").slice(0, 60), s: Number(w.s) || 0, e: Number(w.e) || 0 }));
+        if (!words.length) return json({ error: "No words to plan from." }, 400, request, env);
+        const rules = String(b.rules || "").slice(0, 20000);
+        const brief = String(b.brief || "").slice(0, 4000);
+        const list = words.map((w, i) => `${i}|${w.w}|${w.s.toFixed(2)}|${w.e.toFixed(2)}`).join("\n");
+        const duration = Number(b.duration) || words[words.length - 1].e;
+        const schema = {
+          type: "object", additionalProperties: false,
+          required: ["keep", "fixes", "phrases", "heroes", "notes"],
+          properties: {
+            keep: { type: "array", items: { type: "object", additionalProperties: false, required: ["start", "end"],
+              properties: { start: { type: "number" }, end: { type: "number" } } } },
+            fixes: { type: "array", items: { type: "object", additionalProperties: false, required: ["index", "text"],
+              properties: { index: { type: "integer" }, text: { type: "string" } } } },
+            phrases: { type: "array", items: { type: "object", additionalProperties: false, required: ["first", "last", "emphasis"],
+              properties: { first: { type: "integer" }, last: { type: "integer" }, emphasis: { type: "array", items: { type: "integer" } } } } },
+            heroes: { type: "array", items: { type: "object", additionalProperties: false, required: ["text", "label", "start", "end"],
+              properties: { text: { type: "string" }, label: { type: "string" }, start: { type: "number" }, end: { type: "number" } } } },
+            notes: { type: "string" },
+          },
+        };
+        const prompt = `You are editing a short vertical social video for a UK estate agent. You can't see or hear it; you have every spoken word with its start and end time in seconds, the house style rules, and the brief for this video.
+
+STYLE RULES
+${rules || "(none given)"}
+
+BRIEF FOR THIS VIDEO
+${brief || "(none given)"}
+
+VIDEO LENGTH: ${duration.toFixed(2)}s
+
+WORDS (index|word|start|end)
+${list}
+
+Plan the edit:
+- keep: the stretches of the ORIGINAL timeline to keep, in order, in seconds. Start and end each one inside a natural pause (the gap between one word's end and the next word's start), never mid-word. Follow the brief and the trimming rules.
+- fixes: only where a word is mis-transcribed (a name, a figure, a brand). Usually empty.
+- phrases: the caption phrases, as inclusive word-index ranges, in order, covering every KEPT word exactly once and no cut word. Follow the phrase grouping rules; a phrase never spans a cut. emphasis lists the word indices in that phrase shown in the italic serif.
+- heroes: the statement words shown big behind the subject, with their small label ("" for none), start and end on the ORIGINAL timeline, inside a kept stretch. Follow the rules on how many and what not to show.
+- notes: one or two sentences on the choices, for the person reviewing it.`;
+        let aiRes;
+        try {
+          aiRes = await aiFetch(env, "admin", { max_tokens: 32000, output_config: { effort: "high", format: { type: "json_schema", schema } }, messages: [{ role: "user", content: prompt }] });
+        } catch (e) { return json({ error: "Couldn't reach Claude." }, 502, request, env); }
+        const out = await aiRes.json().catch(() => null);
+        if (!aiRes.ok || !out) return json({ error: aiFailMessage(aiRes.status, out && out.error && out.error.message), detail: (out && out.error && out.error.message) || "" }, 502, request, env);
+        const text = (out.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+        let plan = null;
+        try { plan = JSON.parse(text); } catch (_) {}
+        if (!plan) return json({ error: "Claude's plan couldn't be read.", stop: out.stop_reason || null }, 502, request, env);
+        return json({ ok: true, plan, model: out.model || null, usage: out.usage || null, stop: out.stop_reason || null }, 200, request, env);
+      }
+
       // ---- Admin: which Claude does which job, and is there credit left ----
       // GET reports the three models and asks the cheapest one for a single
       // token. POST {test:true} sends the "credit has run out" alert as a
