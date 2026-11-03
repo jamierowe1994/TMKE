@@ -22,7 +22,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-haiku-4-5-20251001"; // Fast, cheap, great for support chat
+const MODEL = "claude-haiku-5-5"; // Fast, cheap, great for support chat (Dani, 3 Nov 2026)
 const MAX_TOKENS = 1000;
 
 const STUDIO_PROMPT = `You are TMKE's in-Studio support assistant — a friendly, patient guide
@@ -571,16 +571,28 @@ serve(async (req) => {
   }
   const system = cfg.system_prompt + block + ctx.block;
 
+  // The newer models think before they answer, and the thinking counts
+  // towards max_tokens. "Longest reply" in Admin › Assistant means the reply,
+  // so the thinking gets room of its own on top. Haiku looks things up at low
+  // effort; anything bigger (Ideas) writes at medium. Opus 5 and up and
+  // Sonnet 5.5 get the server-side fallback, so a question one model declines
+  // is answered by another rather than failing. Same rules as the Worker's
+  // aiFetch (worker/src/index.js).
+  const thinks = /^claude-[a-z]+-(5|4-[6-9])(-\d+)?$/.test(cfg.model);
+  const fallback = /^claude-(opus-5|sonnet-5-5|fable-5)/.test(cfg.model);
   const upstream = await fetch(ANTHROPIC_URL, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
+      ...(fallback ? { "anthropic-beta": "server-side-fallback-2026-07-01" } : {}),
     },
     body: JSON.stringify({
       model: cfg.model,
-      max_tokens: cfg.max_tokens,
+      max_tokens: cfg.max_tokens + (thinks ? 3000 : 0),
+      ...(thinks ? { output_config: { effort: /haiku/.test(cfg.model) ? "low" : "medium" } } : {}),
+      ...(fallback ? { fallbacks: "default" } : {}),
       system,
       messages: trimmed,
     }),

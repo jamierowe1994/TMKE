@@ -905,6 +905,97 @@ function aiFailMessage(status, raw) {
   return "AI request failed (" + status + ").";
 }
 
+/* ── Which Claude does which job (Dani, 3 Nov 2026) ────────────────────────
+   The key sits in Danielle's own Claude Console organisation, where her Max
+   plan adds $100 of API credit a month. It expires Mon 1 Nov 2027 (TODO.md).
+   Three jobs, three models:
+     · help  - the Help Centre chat: finding the answer and explaining it. Haiku.
+     · write - what members see written for them: captions, reading the words
+               off a design. Sonnet.
+     · admin - the admin centre: report PDFs into numbers, report drafts,
+               trends and questions, the bell's urgency, funnel summaries,
+               mockup checks. Opus.
+   Each can be changed in wrangler.toml (AI_MODEL_HELP, AI_MODEL_WRITE,
+   AI_MODEL_ADMIN) without touching the code. Ask the Expert has its own
+   models, set in Admin › Assistant.
+   These models think before they answer, and the thinking counts towards
+   max_tokens, so every call leaves room for it. */
+const AI_JOBS = {
+  help: { model: "claude-haiku-5-5", effort: "low" },
+  write: { model: "claude-sonnet-5-5", effort: "medium" },
+  admin: { model: "claude-opus-5-5", effort: "medium" },
+};
+
+function aiModel(env, job) {
+  const k = { help: "AI_MODEL_HELP", write: "AI_MODEL_WRITE", admin: "AI_MODEL_ADMIN" }[job];
+  return String((env && env[k]) || AI_JOBS[job].model).trim();
+}
+
+// POST /v1/messages for one job. `body` is the request without the model; an
+// output_config of its own (a JSON schema, a different effort) is kept.
+// Opus 5 and up and Sonnet 5.5 get the server-side fallback: a request one
+// model declines is answered by another rather than failing. When the credit
+// has run out, Danielle is told before the failure goes back to the caller.
+async function aiFetch(env, job, body) {
+  const model = aiModel(env, job);
+  const fallback = /^claude-(opus-5|sonnet-5-5|fable-5)/.test(model);
+  // Effort exists on the 4.6 generation and later; Haiku 4.5 rejects it.
+  const effortOk = /^claude-[a-z]+-(5|4-[6-9])(-\d+)?$/.test(model);
+  const headers = { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" };
+  if (fallback) headers["anthropic-beta"] = "server-side-fallback-2026-07-01";
+  const req = Object.assign({}, body, { model });
+  const oc = Object.assign({}, effortOk ? { effort: AI_JOBS[job].effort } : {}, body.output_config || {});
+  if (Object.keys(oc).length) req.output_config = oc; else delete req.output_config;
+  if (fallback) req.fallbacks = "default";
+  const res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers, body: JSON.stringify(req) });
+  if (!res.ok) {
+    const t = await res.clone().text().catch(() => "");
+    if (/credit balance/i.test(t)) await aiCreditAlert(env, job);
+  }
+  return res;
+}
+
+// The Claude credit has run out (Dani, 3 Nov 2026: "if we run out, can you
+// notify me"). Into the bell and by email, once a day at most: the bell's
+// once-only index on (event, meta.key) refuses a second row for the same day,
+// and only the call that wrote the row sends the email. `test` sends one
+// marked as a test, under its own key, so a real alert later still goes.
+async function aiCreditAlert(env, where, test) {
+  try {
+    const to = notifyRecipients(env, "problem");
+    const key = test ? "test-" + Date.now() : new Date().toISOString().slice(0, 10);
+    const billing = "https://platform.claude.com/settings/billing";
+    const res = await sbPost(env, "admin_notifications", {
+      area: "problem", event: "ai_credit_out",
+      title: (test ? "Test: " : "") + "The Claude API credit has run out.",
+      body: "Captions, the Help Centre chat, Ask the Expert and the report tools are off until it's topped up.",
+      href: billing, recipients: to,
+      meta: { key, where: String(where || "") },
+    });
+    if (!res || !(res.ok || res.status === 201)) return false;
+    await sendEmail(env, {
+      to,
+      subject: (test ? "Test: " : "") + "The Claude API credit has run out.",
+      html: `<div style="${EM_WRAP}">
+        <h1 style="${EM_H1}">The Claude Credit Has Run Out.</h1>
+        ${test ? `<p style="${EM_P}"><strong>This is a test.</strong> Nothing has run out.</p>` : ""}
+        <p style="${EM_P}">Every AI feature on the site is off until it's topped up: captions, the Help Centre chat, Ask the Expert, and the report tools in the admin centre. Members see a message asking them to try again later.</p>
+        <p style="${EM_P}">Top it up in your Claude Console, signed in as danielle@themarketingexperts.co.uk, under Billing. Turning on auto-reload there stops this happening again.</p>
+        <p style="${EM_P}"><a href="${billing}" style="${EM_BTN}">Open Billing &rarr;</a></p>
+      </div>`,
+    });
+    return true;
+  } catch (e) { console.error("aiCreditAlert", String((e && e.message) || e).slice(0, 200)); return false; }
+}
+
+// Once an hour: is there credit left? One token from the cheapest model, a
+// fraction of a penny a month. Ask the Expert runs outside the Worker, so
+// without this a member could find it empty before anything here noticed.
+async function runAiCreditCheck(env) {
+  if (!env.ANTHROPIC_API_KEY) return;
+  try { await aiFetch(env, "help", { max_tokens: 1, messages: [{ role: "user", content: "ok" }] }); } catch (_) {}
+}
+
 async function getUser(request, env) {
   const auth = request.headers.get("Authorization") || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
@@ -5773,6 +5864,7 @@ export default {
       let mins = 0; try { mins = new Date(event.scheduledTime).getUTCMinutes(); } catch (_) {}
       // Then keep the new-starter Studio Days blocked in Jack's calendar, the
       // Wednesday included once the new rows open it.
+      if (mins === 0) ctx.waitUntil(runAiCreditCheck(env));
       if (mins % 15 === 0) ctx.waitUntil(syncAgentSheet(env).catch(() => {}).then(() => newStarterEnsureBlocks(env)));
     }
   },
@@ -5793,6 +5885,28 @@ export default {
       // ---- Hub notices: send what's due now (admin) --------------------------
       // The five-minute tick does this anyway; the admin calls it so "Send now"
       // and "Withdraw" happen straight away.
+      // ---- Admin: which Claude does which job, and is there credit left ----
+      // GET reports the three models and asks the cheapest one for a single
+      // token. POST {test:true} sends the "credit has run out" alert as a
+      // test, so the email can be seen without the credit running out.
+      if (path.endsWith("/admin/ai/status") && (request.method === "GET" || request.method === "POST")) {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const models = { help: aiModel(env, "help"), write: aiModel(env, "write"), admin: aiModel(env, "admin") };
+        if (request.method === "POST") {
+          let body = {}; try { body = await request.json(); } catch (_) {}
+          if (!body.test) return json({ error: "Only a test alert can be sent from here." }, 400, request, env);
+          return json({ ok: await aiCreditAlert(env, "admin test", true), models }, 200, request, env);
+        }
+        let credit = "unknown";
+        try {
+          const r = await aiFetch(env, "help", { max_tokens: 1, messages: [{ role: "user", content: "ok" }] });
+          const t = r.ok ? "" : await r.text().catch(() => "");
+          credit = r.ok ? "ok" : (/credit balance/i.test(t) ? "out" : "error " + r.status);
+        } catch (_) { credit = "unreachable"; }
+        return json({ ok: true, models, credit }, 200, request, env);
+      }
+
       if (path.endsWith("/admin/broadcasts/run") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
@@ -5857,11 +5971,7 @@ ${JSON.stringify(list)}
 
 Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}]}`;
           try {
-            const ai = await fetch("https://api.anthropic.com/v1/messages", {
-              method: "POST",
-              headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-              body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 4000, messages: [{ role: "user", content: prompt }] }),
-            });
+            const ai = await aiFetch(env, "admin", { max_tokens: 8000, messages: [{ role: "user", content: prompt }] });
             if (ai.ok) {
               const d = await ai.json();
               const text = (d.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
@@ -7204,11 +7314,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const prompt = `- ${CAPTION_RULES}${toneBlock}\n\n${brief}${tagsLine}${mergeLine}\n\nReturn ONLY minified JSON, no markdown fences, exactly: {"caption": "caption text with line breaks as \\n", "hashtags": ["#tag1", "#tag2"]}.`;
         let aiRes;
         try {
-          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
-          });
+          aiRes = await aiFetch(env, "write", { max_tokens: 4000, messages: [{ role: "user", content: prompt }] });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
         if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: aiFailMessage(aiRes.status, t), detail: t.slice(0, 300) }, 502, request, env); }
         const dataRes = await aiRes.json();
@@ -7303,11 +7409,7 @@ Rules:
 Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks as \\n", "handoff": true or false}. Set handoff true when the team should pick it up.`;
         let aiRes;
         try {
-          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 600, system, messages: turns }),
-          });
+          aiRes = await aiFetch(env, "help", { max_tokens: 3000, system, messages: turns });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
         if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: aiFailMessage(aiRes.status, t), detail: t.slice(0, 300) }, 502, request, env); }
         const dataRes = await aiRes.json();
@@ -7350,17 +7452,12 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           "If there is no text, return [].";
         let aiRes;
         try {
-          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({
-              model: env.AI_MODEL || "claude-sonnet-4-6",
-              max_tokens: 4000,
-              messages: [{ role: "user", content: [
-                { type: "image", source: { type: "base64", media_type: mediaType, data: b64 } },
-                { type: "text", text: prompt },
-              ] }],
-            }),
+          aiRes = await aiFetch(env, "write", {
+            max_tokens: 10000,
+            messages: [{ role: "user", content: [
+              { type: "image", source: { type: "base64", media_type: mediaType, data: b64 } },
+              { type: "text", text: prompt },
+            ] }],
           });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
         if (!aiRes.ok) {
@@ -9430,11 +9527,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const prompt = `You are the email-marketing analyst for TMKE, a UK marketing agency. Below are the live numbers for one email funnel. Write a short plain-English summary for a non-technical marketer: first ONE paragraph (3-5 sentences, British English, no jargon, no bullet lists in this paragraph) on how the funnel is performing - be honest, specific and use the actual numbers, mention open/click rates only if delivery numbers exist, and don't invent anything not in the data. Then a line "Actions:" followed by either "none needed." or 1-3 short bullet points of things to do BEFORE the next email goes out (e.g. bounces to investigate, spam complaints, many contacts blocked for missing opt-in, nothing scheduled). If very little has happened yet, say so simply. Contacts "not emailed" for no opt-in or unsubscribing are the funnel working as intended, not a fault - only "failed_to_send" is a problem. Write plain text only: no markdown, no asterisks, no bold; bullets start with "- ". Total under 160 words.\n\nDATA:\n${JSON.stringify(facts, null, 2)}`;
         let text = "";
         try {
-          const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 500, messages: [{ role: "user", content: prompt }] }),
-          });
+          const aiRes = await aiFetch(env, "admin", { max_tokens: 4000, messages: [{ role: "user", content: prompt }] });
           const j = await aiRes.json().catch(() => ({}));
           if (!aiRes.ok) return json({ error: aiFailMessage(aiRes.status, j.error && j.error.message), detail: (j.error && j.error.message) || "" }, 502, request, env);
           text = ((j.content || []).find((p) => p.type === "text") || {}).text || "";
@@ -11234,19 +11327,13 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           `If there is no ${what}, set found to false. In note, say in a few words what you found.`;
         let res, out;
         try {
-          res = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "server-side-fallback-2026-07-01", "content-type": "application/json" },
-            body: JSON.stringify({
-              model: "claude-opus-5-5",
-              max_tokens: 16000,
-              fallbacks: "default",
-              output_config: { effort: "high", format: { type: "json_schema", schema } },
-              messages: [{ role: "user", content: [
-                { type: "image", source: { type: "base64", media_type: m[1], data: m[2] } },
-                { type: "text", text: prompt },
-              ] }],
-            }),
+          res = await aiFetch(env, "admin", {
+            max_tokens: 16000,
+            output_config: { effort: "high", format: { type: "json_schema", schema } },
+            messages: [{ role: "user", content: [
+              { type: "image", source: { type: "base64", media_type: m[1], data: m[2] } },
+              { type: "text", text: prompt },
+            ] }],
           });
           out = await res.json().catch(() => null);
         } catch (e) {
@@ -11296,19 +11383,13 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           "Most good mockups sit low on both. In note, say in one short sentence why.";
         let res, out;
         try {
-          res = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "server-side-fallback-2026-07-01", "content-type": "application/json" },
-            body: JSON.stringify({
-              model: "claude-opus-5-5",
-              max_tokens: 16000,
-              fallbacks: "default",
-              output_config: { effort: "medium", format: { type: "json_schema", schema } },
-              messages: [{ role: "user", content: [
-                { type: "image", source: { type: "base64", media_type: m[1], data: m[2] } },
-                { type: "text", text: prompt },
-              ] }],
-            }),
+          res = await aiFetch(env, "admin", {
+            max_tokens: 16000,
+            output_config: { effort: "medium", format: { type: "json_schema", schema } },
+            messages: [{ role: "user", content: [
+              { type: "image", source: { type: "base64", media_type: m[1], data: m[2] } },
+              { type: "text", text: prompt },
+            ] }],
           });
           out = await res.json().catch(() => null);
         } catch (e) {
@@ -12950,17 +13031,12 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           "Omit anything not present. Numbers are plain (no commas, units or %) except cpc/spend which are numeric GBP amounts. Reply with ONLY the JSON object.";
         let aiRes;
         try {
-          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "pdfs-2024-09-25", "content-type": "application/json" },
-            body: JSON.stringify({
-              model: env.AI_MODEL || "claude-sonnet-4-6",
-              max_tokens: 8000,
-              messages: [{ role: "user", content: [
-                { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
-                { type: "text", text: prompt },
-              ] }],
-            }),
+          aiRes = await aiFetch(env, "admin", {
+            max_tokens: 16000,
+            messages: [{ role: "user", content: [
+              { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
+              { type: "text", text: prompt },
+            ] }],
           });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
         if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: aiFailMessage(aiRes.status, t), detail: t.slice(0, 300) }, 502, request, env); }
@@ -13083,11 +13159,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const prompt = `You are a social media analyst reviewing ${reps.length} month(s) of data for ${accName} on ${platform}.\n\nData:\n${dataText}\nQuestion: ${question}\n\nAnswer directly and practically, referencing the actual figures above. Be concise (a few short sentences or bullet points). If the data doesn't cover it, say so.`;
         let aiRes;
         try {
-          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
-          });
+          aiRes = await aiFetch(env, "admin", { max_tokens: 8000, output_config: { effort: "high" }, messages: [{ role: "user", content: prompt }] });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
         if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: aiFailMessage(aiRes.status, t), detail: t.slice(0, 300) }, 502, request, env); }
         const dataRes = await aiRes.json();
@@ -13276,11 +13348,7 @@ PRIORITIES ("client.priorities"): FOUR things WE will do in ${nextMonth}, drawn 
 VOICE (insights and priorities): the account manager talking to the client, "we" and "your"; say "your Instagram profile", never the handle. What they care about most: how many people see them, whether those people are local, whether they're of an age to move home (roughly 25 to 44), and posts that travelled. Never: needs attention, underperforming, declining, poor, not working, red flag, concern, urgent. Never promise a result or compare with other clients. British English, no em dashes, no exclamation marks, no bold or italics.`;
         let aiRes;
         try {
-          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 3000, messages: [{ role: "user", content: prompt }] }),
-          });
+          aiRes = await aiFetch(env, "admin", { max_tokens: 16000, output_config: { effort: "high" }, messages: [{ role: "user", content: prompt }] });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
         if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: aiFailMessage(aiRes.status, t), detail: t.slice(0, 300) }, 502, request, env); }
         const out = await aiRes.json();
