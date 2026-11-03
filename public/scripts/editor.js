@@ -676,27 +676,37 @@ import { createResizeEngine } from "./resize-engine.js";
       if (_activePopoverClose === close) _activePopoverClose = null;
       if (_openPopoverKey === (opts.key || null)) _openPopoverKey = null;
     }
-    // Called when the context bar is rebuilt: take the panel with the button.
-    function destroy() { pop.remove(); }
+    // Called when the context bar is rebuilt: take the panel with the button,
+    // and its listeners on the page. They used to stay behind: the next click
+    // anywhere reached the old panel's "clicked off me" check, which closed
+    // it and so cleared the key the bar reopens by. The second Effects
+    // switch you flicked shut the panel (3 Nov).
+    function destroy() {
+      pop.remove();
+      document.removeEventListener("click", onDocClick);
+      document.removeEventListener("keydown", onDocKey);
+      window.removeEventListener("resize", onResize);
+    }
     _livePopovers.push({ key: opts.key || null, open: open, destroy: destroy });
 
     btn.addEventListener("click", function (e) {
       e.stopPropagation();
       pop.hidden ? open() : close();
     });
-    document.addEventListener("click", function (e) {
+    function onDocClick(e) {
       // A target no longer on the page was inside a panel that the click
       // itself rebuilt (an Effects preset redraws the bar and reopens this
       // panel), so it isn't a click off the panel. Dani, 3 Nov: pressing
       // Drop closed Effects.
-      if (!e.target.isConnected) return;
+      if (!e.target.isConnected || !pop.isConnected) return;
       if (!pop.hidden && !pop.contains(e.target) && !wrap.contains(e.target) &&
           !(e.target.closest && e.target.closest(".ed-cpop"))) close();
-    });
-    document.addEventListener("keydown", function (e) {
-      if (!pop.hidden && e.key === "Escape") close();
-    });
-    window.addEventListener("resize", function () { if (!pop.hidden) position(); });
+    }
+    function onDocKey(e) { if (!pop.hidden && e.key === "Escape") close(); }
+    function onResize() { if (!pop.hidden) position(); }
+    document.addEventListener("click", onDocClick);
+    document.addEventListener("keydown", onDocKey);
+    window.addEventListener("resize", onResize);
 
     return wrap;
   }
@@ -14167,9 +14177,9 @@ import { createResizeEngine } from "./resize-engine.js";
     /* The buttons alone, with what each one places behind the i beside
        "Brand" (Dani, 3 Nov: no descriptions under every row). */
     wrap.innerHTML =
-      '<div class="ed-section-title ed-brand-title">Brand' +
-        '<button type="button" class="ed-brand-info-btn" aria-expanded="false" aria-controls="ed-brand-info" title="What these place">i</button></div>' +
-      '<div class="ed-brand-info" id="ed-brand-info" hidden>' +
+      '<div class="ed-section-title ed-head-i">Brand' +
+        '<button type="button" class="ed-info-btn" aria-expanded="false" aria-controls="ed-brand-info" title="What these place">i</button></div>' +
+      '<div class="ed-info" id="ed-brand-info" hidden>' +
         '<p><strong>Logo slot.</strong> 200 &times; 75, centred, 108px in. Holds {brand name} for members with no logo, and their mark for those who have one.</p>' +
         '<p><strong>Headshot slot.</strong> Where the member&rsquo;s headshot goes. Filled from their brand kit when the design opens, and hidden for anyone who hasn&rsquo;t added one.</p>' +
         '<p><strong>QR code.</strong> Goes to the member&rsquo;s own website until they set a link. On print, only you choose its colours.</p>' +
@@ -14193,16 +14203,7 @@ import { createResizeEngine } from "./resize-engine.js";
       b.addEventListener("click", function () { addHeadshotSlot(b.getAttribute("data-shotslot")); });
     });
     wrap.querySelector("[data-brandqr]").addEventListener("click", function () { addQrCode(); });
-    const infoBtn = wrap.querySelector(".ed-brand-info-btn"), info = wrap.querySelector(".ed-brand-info");
-    infoBtn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      info.hidden = !info.hidden;
-      infoBtn.setAttribute("aria-expanded", String(!info.hidden));
-    });
-    document.addEventListener("pointerdown", function (e) {
-      if (info.hidden || info.contains(e.target) || infoBtn.contains(e.target)) return;
-      info.hidden = true; infoBtn.setAttribute("aria-expanded", "false");
-    });
+
     _logoToolMounted = true;
   }
 
@@ -15912,6 +15913,28 @@ import { createResizeEngine } from "./resize-engine.js";
     renderContactBlocks();
   });
 
+  /* ---------- The i beside a heading (3 Nov) ----------
+     Longer explanations live behind it rather than under every heading:
+     the button names its box with aria-controls. Delegated, so it works for
+     panels built later too. */
+  document.addEventListener("click", function (e) {
+    const btn = e.target.closest && e.target.closest(".ed-info-btn");
+    if (!btn) return;
+    e.stopPropagation();
+    const box = document.getElementById(btn.getAttribute("aria-controls"));
+    if (!box) return;
+    box.hidden = !box.hidden;
+    btn.setAttribute("aria-expanded", String(!box.hidden));
+  });
+  document.addEventListener("pointerdown", function (e) {
+    document.querySelectorAll(".ed-info:not([hidden])").forEach(function (box) {
+      const btn = document.querySelector('.ed-info-btn[aria-controls="' + box.id + '"]');
+      if (box.contains(e.target) || (btn && btn.contains(e.target))) return;
+      box.hidden = true;
+      if (btn) btn.setAttribute("aria-expanded", "false");
+    });
+  });
+
   // ---------- Uploads ----------
   const uploadInput = $("ed-upload-input");
   uploadInput.addEventListener("change", () => handleFiles(uploadInput.files));
@@ -17099,10 +17122,8 @@ import { createResizeEngine } from "./resize-engine.js";
     if (existing) existing.remove();
     const wrap = document.createElement("div");
     wrap.className = "ed-brand-injected";
-    const title = document.createElement("div");
-    title.className = "ed-section-title";
-    title.textContent = hasKit ? "Your brand" : "Presets";
-    wrap.appendChild(title);
+    // No heading of its own: it sits straight under "Colour" (3 Nov, one
+    // heading style, not two stacked).
     const row = document.createElement("div");
     row.className = "ed-swatches";
     swatches.forEach(function (c) {
