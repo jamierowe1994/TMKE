@@ -7801,15 +7801,29 @@ import { createResizeEngine } from "./resize-engine.js";
   async function paste() {
     const clip = await readClipboard();
     if (!clip || !clip.length) return;
+    /* Where it was only makes sense if that place is on this page. Copied
+       off a bigger design (a print page onto a post), the same spot can be
+       off the edge entirely, so anything that would not sit wholly on the
+       page is centred on it instead, keeping its own size and the copies'
+       layout to each other (Dani, 3 Nov). The step aside for a second paste
+       is worked out from wherever it lands. */
+    const W = state.canvas.width, H = state.canvas.height;
+    const minX = Math.min(...clip.map((c) => c.x)), minY = Math.min(...clip.map((c) => c.y));
+    const maxX = Math.max(...clip.map((c) => c.x + c.w)), maxY = Math.max(...clip.map((c) => c.y + c.h));
+    let bx = 0, by = 0;
+    if (minX < 0 || minY < 0 || maxX > W || maxY > H) {
+      bx = Math.round(W / 2 - (minX + maxX) / 2);
+      by = Math.round(H / 2 - (minY + maxY) / 2);
+    }
     const taken = (dx) => clip.some((e) => state.elements.some((o) =>
-      o.type === e.type && Math.abs(o.x - (e.x + dx)) < 0.5 && Math.abs(o.y - (e.y + dx)) < 0.5 &&
+      o.type === e.type && Math.abs(o.x - (e.x + bx + dx)) < 0.5 && Math.abs(o.y - (e.y + by + dx)) < 0.5 &&
       Math.abs(o.w - e.w) < 0.5 && Math.abs(o.h - e.h) < 0.5));
     let shift = 0;
     while (shift < 400 && taken(shift)) shift += 20;
     const copies = clip.map((e) => {
       const c = deep(e);
       c.id = uid(c.type);
-      c.x += shift; c.y += shift;
+      c.x += bx + shift; c.y += by + shift;
       return c;
     });
     state.elements.push(...copies);
