@@ -8130,6 +8130,13 @@ import { createResizeEngine } from "./resize-engine.js";
     for (const el of SRC.elements) {
       if (el.hidden) continue;
       ctx.save();
+      /* Each layer starts with no outline in hand. The current path isn't
+         part of save/restore, so a picture frame's silhouette outlived it,
+         and the plain rectangle drawn next filled that instead of nothing:
+         a logo in a frame sent behind a coloured block came out a solid
+         block of the block's colour, in the preview and the download (Dani,
+         3 Nov). */
+      ctx.beginPath();
       const cx = el.x + el.w / 2;
       const cy = el.y + el.h / 2;
       ctx.translate(cx, cy);
@@ -8244,7 +8251,9 @@ import { createResizeEngine } from "./resize-engine.js";
         if (hasPerCorner(el)) roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
           cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
         else if (el.radius) roundedRect(ctx, 0, 0, el.w, el.h, el.radius);
-        else ctx.fillRect(0, 0, el.w, el.h);
+        // A path, not fillRect, so the outline below has an edge to follow
+        // (fillRect leaves no path, so a square block's outline never drew).
+        else { ctx.beginPath(); ctx.rect(0, 0, el.w, el.h); }
         ctx.fill();
         if (el.strokeWidth && el.stroke !== "transparent") {
           ctx.lineWidth = el.strokeWidth;
