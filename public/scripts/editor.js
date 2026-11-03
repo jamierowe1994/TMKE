@@ -16094,7 +16094,10 @@ import { createResizeEngine } from "./resize-engine.js";
     } else if (upMetaState === "ready" || upMetaState === "local") {
       items.push({ label: "New folder for this…", run: () => upNewFolder(src) });
     }
-    items.push({ label: "Delete from uploads", danger: true, run: () => upDelete(src) });
+    /* Another admin's image, filed in a shared folder: it can come out of
+       the folder, but it stays theirs, so it can't be deleted from here. */
+    const mine = typeof window.__TMKE_UPLOAD_IS_MINE__ !== "function" || window.__TMKE_UPLOAD_IS_MINE__(src) || !upKey(src);
+    if (mine) items.push({ label: "Delete from uploads", danger: true, run: () => upDelete(src) });
     upOpenMenu(anchor, items);
   }
 
@@ -16306,6 +16309,7 @@ import { createResizeEngine } from "./resize-engine.js";
     (urls || []).forEach((u) => { if (!state.uploads.includes(u)) state.uploads.push(u); });
     Object.keys(upMeta.items || {}).forEach((k) => {
       const it = upMeta.items[k];
+      // Another admin's image only shows while it's in a shared folder.
       if (it && it.url && it.folder && !state.uploads.includes(it.url)) state.uploads.push(it.url);
     });
     const sharedNote = $("ed-up-shared");

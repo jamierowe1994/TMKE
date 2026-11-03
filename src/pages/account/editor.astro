@@ -978,7 +978,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         <div class="ed-stock-search">
           <input type="search" id="ed-upload-q" placeholder="Search your uploads…" autocomplete="off" />
         </div>
-        <p class="ed-brand-hint" id="ed-up-shared" hidden>Shared with everyone in the admin: uploads and folders.</p>
+        <p class="ed-brand-hint" id="ed-up-shared" hidden>Folders are shared with everyone in the admin. Your other uploads are yours.</p>
         <label class="ed-upload-drop">
           <input type="file" id="ed-upload-input" accept="image/*" multiple hidden />
           <strong>Click to upload</strong>
@@ -6287,11 +6287,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     // so no new table or migration is needed. editor.js calls these hooks; they
     // no-op when signed out (uploads then behave as before, in-memory only).
     const UPLOAD_DIR = 'uploads';
-    /* The admin Studio shares one uploads library between every admin
-       (Dani, 3 Nov): new uploads and the folders' notes go to admin-shared/,
-       which any admin can write (supabase/studio_admin_shared_uploads.sql).
-       An admin's own older uploads still list beside them. Members keep
-       their own <uid>/uploads/. */
+    /* In the admin Studio the FOLDERS are shared between every admin, not
+       the uploads (Dani, 3 Nov: "otherwise we're going to have loads of
+       uploads that we just don't really want"). Each admin's uploads stay in
+       their own <uid>/uploads/; the folders' notes live in admin-shared/,
+       which any admin can write (supabase/studio_admin_shared_uploads.sql),
+       and an image put in a folder shows there for every admin. Members'
+       notes stay in their own folder. */
     const UPLOADS_SHARED = new URLSearchParams(location.search).get('mode') === 'admin';
     const SHARED_DIR = 'admin-shared';
     window.__TMKE_UPLOADS_SHARED__ = UPLOADS_SHARED;
@@ -6308,7 +6310,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
         if (!m) return null;
         const mime = m[1], b64 = m[2];
-        const key = _uploadKey(UPLOADS_SHARED ? SHARED_DIR : uid, dataUrl, mime);
+        const key = _uploadKey(uid, dataUrl, mime);
         const bin = atob(b64), bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
         const { error } = await supabase.storage.from('calendar-assets')
@@ -6322,8 +6324,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       try {
         const uid = await _externGetUid();
         if (!uid) return [];
-        // Newest first across both folders in the admin Studio.
-        const dirs = UPLOADS_SHARED ? [SHARED_DIR + '/' + UPLOAD_DIR, uid + '/' + UPLOAD_DIR] : [uid + '/' + UPLOAD_DIR];
+        // Their own uploads only; others' come in through the shared folders.
+        const dirs = [uid + '/' + UPLOAD_DIR];
         const lists = await Promise.all(dirs.map(async (dir) => {
           const { data, error } = await supabase.storage.from('calendar-assets')
             .list(dir, { limit: 200, sortBy: { column: 'created_at', order: 'desc' } });
@@ -6363,15 +6365,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         return !error;
       },
     };
+    // Whether a library file is this person's own (theirs to delete), as
+    // against another admin's that is only filed in a shared folder.
+    window.__TMKE_UPLOAD_IS_MINE__ = (url) => !!(_externUid && typeof url === 'string' && url.indexOf('/' + _externUid + '/' + UPLOAD_DIR + '/') > -1);
     window.__TMKE_UPLOAD_DELETE__ = async (url) => {
       try {
         const uid = await _externGetUid();
         if (!uid || typeof url !== 'string') return false;
-        // Their own uploads, and in the admin Studio the shared ones.
-        let marker = '/' + uid + '/' + UPLOAD_DIR + '/';
-        let i = url.indexOf(marker);
-        if (i < 0 && UPLOADS_SHARED) { marker = '/' + SHARED_DIR + '/' + UPLOAD_DIR + '/'; i = url.indexOf(marker); }
-        if (i < 0) return false;   // not a file this person can remove
+        const marker = '/' + uid + '/' + UPLOAD_DIR + '/';
+        const i = url.indexOf(marker);
+        if (i < 0) return false;   // not one of this person's own files
         const key = decodeURIComponent(url.slice(i + 1).split('?')[0]);
         const { error } = await supabase.storage.from('calendar-assets').remove([key]);
         return !error;
