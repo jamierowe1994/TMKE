@@ -77,11 +77,11 @@ const CSS = `
 .tcp-sec h5 { font-family: inherit; font-size: 11px; font-weight: 700; line-height: 1.2; letter-spacing: 0.08em;
   text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 9px; }
 .tcp-grid { display: flex; flex-wrap: wrap; gap: 7px; }
-.tcp-line { flex-wrap: nowrap; overflow: hidden; padding: 3px; margin: -3px; }
+.tcp-line { flex-wrap: nowrap; overflow: hidden; padding: 4px; margin: -4px; }
 .tcp-sw { width: 26px; height: 26px; flex: 0 0 auto; border-radius: 7px; cursor: pointer; padding: 0; margin: 0;
   border: 1px solid rgba(28,29,34,0.14); transition: transform 0.12s; }
 .tcp-sw:hover { transform: scale(1.15); }
-.tcp-sw.is-current { box-shadow: 0 0 0 2px #fff, 0 0 0 3px #371e28; }
+.tcp-sw.is-current { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #371e28; }
 .tcp-empty { font-size: 12px; color: rgba(28,29,34,0.45); margin: 0; }
 .tcp-pick { display: flex; flex-direction: column; gap: 10px; }
 .tcp-sv { position: relative; width: 100%; aspect-ratio: 3 / 2; border-radius: 10px; overflow: hidden;

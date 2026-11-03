@@ -928,18 +928,36 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           <h3>Images</h3>
           <p>Search royalty-free images or upload your own.</p>
         </div>
+        <!-- Two tabs, Search and Uploads (Dani, 3 Nov): with everything on one
+             page, a long uploads library buried the search, or the other way
+             round. Built like the Text and Elements tabs. -->
+        <div class="ed-ttabs" role="tablist">
+          <button type="button" class="ed-ttab is-active" data-itab="search" role="tab">Search</button>
+          <button type="button" class="ed-ttab" data-itab="uploads" role="tab">Uploads</button>
+        </div>
+        <div class="ed-ttab-pane is-active" data-itab-pane="search">
         <div class="ed-stock-search">
           <input type="search" id="ed-stock-input" placeholder='Try "kitchen", "garden", "interior"…' autocomplete="off" />
-          <div class="ed-stock-sources">
-            <label><input type="checkbox" data-stock-src="pexels" checked /> Pexels</label>
-            <label><input type="checkbox" data-stock-src="unsplash" checked /> Unsplash</label>
-          </div>
         </div>
-        <!-- Paste a Pexels OR Unsplash collection link — we work out which and
-             pull every photo in it. -->
-        <div class="ed-collect">
-          <input type="text" inputmode="url" spellcheck="false" id="ed-collect-input" placeholder="Paste a Pexels / Unsplash collection link…" autocomplete="off" />
-          <button type="button" id="ed-collect-pull">Pull</button>
+        <!-- The sources and the collection link are folded away: most people
+             only ever type a search. -->
+        <div class="ed-img-folds">
+          <details class="ed-img-fold">
+            <summary>Sources</summary>
+            <div class="ed-stock-sources">
+              <label><input type="checkbox" data-stock-src="pexels" checked /> Pexels</label>
+              <label><input type="checkbox" data-stock-src="unsplash" checked /> Unsplash</label>
+            </div>
+          </details>
+          <details class="ed-img-fold">
+            <summary>Collection link</summary>
+            <!-- Paste a Pexels OR Unsplash collection link — we work out which and
+                 pull every photo in it. -->
+            <div class="ed-collect">
+              <input type="text" inputmode="url" spellcheck="false" id="ed-collect-input" placeholder="Paste a Pexels / Unsplash collection link…" autocomplete="off" />
+              <button type="button" id="ed-collect-pull">Pull</button>
+            </div>
+          </details>
         </div>
         <button type="button" id="ed-collect-save" class="ed-collect-save" hidden>★ Save this collection to Photos</button>
         <div class="ed-collect-saved" id="ed-collect-saved"></div>
@@ -952,16 +970,29 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         <p class="ed-stock-status" id="ed-stock-status">Type to search — results from both sources appear here.</p>
         <div class="ed-photo-grid" id="ed-photo-grid"></div>
         <p class="ed-stock-credit">Photos via <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> &amp; <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a>. Hover an image to credit the photographer.</p>
+        </div>
 
-        <!-- Your uploads — merged in beneath the search (no separate rail tab). -->
-        <div class="ed-section-title">Your uploads</div>
-        <p class="ed-brand-hint">Upload and add your own images.</p>
+        <!-- Uploads: the same order as Search - a search box, the way in, then
+             the pictures, three to a row, with folders to keep them in, as
+             Canva has (Dani, 3 Nov). Folders and names live in the member's
+             own uploads folder (editor.js, the upload library). -->
+        <div class="ed-ttab-pane" data-itab-pane="uploads">
+        <div class="ed-stock-search">
+          <input type="search" id="ed-upload-q" placeholder="Search your uploads…" autocomplete="off" />
+        </div>
         <label class="ed-upload-drop">
           <input type="file" id="ed-upload-input" accept="image/*" multiple hidden />
           <strong>Click to upload</strong>
           <span>or drag images here</span>
         </label>
-        <div class="ed-photo-grid" id="ed-upload-grid"></div>
+        <div class="ed-up-head" id="ed-up-head">
+          <button type="button" class="ed-up-crumb" id="ed-up-back" hidden>&larr; All uploads</button>
+          <span class="ed-up-where" id="ed-up-where">All uploads</span>
+          <button type="button" class="ed-up-newfolder" id="ed-up-newfolder">+ New folder</button>
+        </div>
+        <div class="ed-up-folders" id="ed-up-folders"></div>
+        <p class="ed-stock-status" id="ed-up-empty" hidden></p>
+        <div class="ed-photo-grid ed-up-grid" id="ed-upload-grid"></div>
 
         <!-- Admin-only: the Studio's own templates as pictures (Dani, 25 Oct),
              as the email editor has them: click to add one, or drag it onto a
@@ -1011,6 +1042,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             <span aria-hidden="true">✨</span> Read text on all pages
           </button>
           <p class="ed-ai-status" id="ed-ai-status" hidden></p>
+        </div>
         </div>
       </section>
 
@@ -2179,6 +2211,79 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-tl-input { border: 0; padding: 0; border-radius: 0; }
     .ed-tl-input:focus, .ed-props-text:focus { outline: none; }
     .ed-textlist-empty { font-size: var(--ws-t-label); color: rgba(28,29,34,0.5); margin: 0 0 10px; line-height: 1.5; }
+    /* ---- Images: Search | Uploads (Dani, 3 Nov) ----
+       The two folds under the search box sit side by side as quiet text
+       buttons; the uploads are three to a row with folders above them. */
+    .ed-img-folds { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: -2px 0 12px; }
+    .ed-img-fold { flex: 0 0 auto; }
+    .ed-img-fold[open] { flex: 1 1 100%; }
+    .ed-img-fold > summary {
+      list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--sans); font-size: var(--ws-t-meta, 12px); font-weight: 600; color: rgba(28,29,34,0.6);
+    }
+    .ed-img-fold > summary::-webkit-details-marker { display: none; }
+    .ed-img-fold > summary::after {
+      content: ""; width: 6px; height: 6px; margin-top: -3px;
+      border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+      transform: rotate(45deg); transition: transform 0.2s;
+    }
+    .ed-img-fold[open] > summary::after { transform: rotate(-135deg); margin-top: 3px; }
+    .ed-img-fold > summary:hover { color: var(--english-violet); }
+    .ed-img-fold .ed-stock-sources, .ed-img-fold .ed-collect { margin: 8px 0 2px; }
+    .ed-up-head { display: flex; align-items: center; gap: 10px; margin: 2px 0 10px; min-height: 22px; }
+    .ed-up-where {
+      flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.22em;
+      text-transform: uppercase; color: rgba(28,29,34,0.5);
+    }
+    .ed-up-crumb, .ed-up-newfolder {
+      flex: none; padding: 0; border: 0; background: none; cursor: pointer;
+      font-family: var(--sans); font-size: var(--ws-t-meta, 12px); font-weight: 600; color: var(--english-violet);
+    }
+    .ed-up-crumb:hover, .ed-up-newfolder:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .ed-up-crumb[hidden], .ed-up-newfolder[hidden] { display: none; }
+    .ed-up-folders { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .ed-up-folders[hidden] { display: none; }
+    .ed-up-folder {
+      position: relative; display: flex; flex-direction: column; gap: 2px; padding: 10px 10px 9px;
+      background: rgba(28,29,34,0.04); border: 1px solid transparent; border-radius: 4px; cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .ed-up-folder:hover, .ed-up-folder.is-drop { background: rgba(var(--violet-rgb),0.1); border-color: rgba(var(--violet-rgb),0.3); }
+    .ed-up-folder-ic { color: var(--english-violet); line-height: 0; margin-bottom: 4px; }
+    .ed-up-folder-name { font-family: var(--sans); font-size: var(--ws-t-meta, 12px); font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ed-up-folder-n { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.5); }
+    .ed-up-folder-input {
+      width: 100%; min-width: 0; padding: 4px 6px; border: 1px solid var(--english-violet); border-radius: 4px;
+      font-family: var(--sans); font-size: var(--ws-t-meta, 12px); color: var(--ink); background: #fff; outline: none;
+    }
+    .ed-photo-grid.ed-up-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .ed-photo-grid.ed-up-grid button { aspect-ratio: 1; }
+    /* The ⋯ on a tile or folder: move, rename, delete. */
+    .ed-up-more {
+      position: absolute; top: 4px; right: 4px; z-index: 2;
+      width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center;
+      background: rgba(255,255,255,0.92); color: var(--ink); box-shadow: 0 1px 4px rgba(28,29,34,0.2);
+      opacity: 0; transition: opacity 0.2s; cursor: pointer;
+    }
+    .ed-upload-tile:hover .ed-up-more, .ed-up-folder:hover .ed-up-more, .ed-up-more:focus-visible { opacity: 1; }
+    @media (hover: none) { .ed-up-more { opacity: 1; } }
+    .ed-up-menu {
+      position: fixed; z-index: 210; min-width: 170px; max-width: 240px; padding: 6px;
+      background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 6px;
+      box-shadow: 0 18px 50px -10px rgba(28,29,34,0.25);
+    }
+    .ed-up-menu-head { padding: 6px 8px 4px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .ed-up-menu button {
+      display: block; width: 100%; text-align: left; padding: 7px 8px; border: 0; border-radius: 4px; background: none; cursor: pointer;
+      font-family: var(--sans); font-size: var(--ws-t-meta, 12px); font-weight: 600; color: var(--ink);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .ed-up-menu button:hover { background: rgba(var(--violet-rgb),0.08); color: var(--english-violet); }
+    .ed-up-menu button.is-current { color: var(--english-violet); }
+    .ed-up-menu button.is-current::after { content: " \2713"; }
+    .ed-up-menu button.is-danger { color: #b3261e; }
+    .ed-up-menu button.is-danger:hover { background: rgba(179,38,30,0.08); color: #b3261e; }
     /* Upload tiles — hover to reveal a remove button. */
     .ed-upload-tile { position: relative; }
     .ed-upload-x {
@@ -3701,10 +3806,12 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
     /* Circular colour swatch — Canva-style. Clicking opens the native
        colour picker via a transparent <input type="color"> on top. */
+    /* A rounded square since 3 Nov, like the colour panel's swatches
+       (Dani: the text colour button too). */
     .ed-circle-swatch {
       position: relative; padding: 0;
       width: 28px; height: 28px;
-      border-radius: 50%;
+      border-radius: 8px;
       border: 2px solid rgba(28,29,34,0.18);
       box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5);
       cursor: pointer;
@@ -4140,7 +4247,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       box-shadow: 0 18px 50px -10px rgba(28,29,34,0.25); padding: 14px 14px 2px;
     }
     .ed-cpop .ed-cp-sec { margin-bottom: 14px; }
-    .ed-cp-grid.ed-cpop-line { flex-wrap: nowrap; overflow: hidden; padding: 3px; margin: -3px; }
+    .ed-cp-grid.ed-cpop-line { flex-wrap: nowrap; overflow: hidden; padding: 4px; margin: -4px; }
     /* Custom gradient as a drop-down in the colour panel. */
     .ed-cp-drop > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
     .ed-cp-drop > summary::-webkit-details-marker { display: none; }
@@ -4172,7 +4279,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       background-size: cover; background-position: center;
     }
     .ed-cp-sw:hover { transform: scale(1.15); }
-    .ed-cp-sw.is-current { box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--english-violet); }
+    /* The chosen colour: a white gap, then a clear ring of TMKE wine. */
+    .ed-cp-sw.is-current { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--english-violet); }
     .ed-cp-grid--grad .ed-cp-sw { width: 40px; height: 28px; border-radius: 6px; }
     .ed-cp-empty { flex: 1 1 100%; font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.45); white-space: nowrap; margin: 0; }
 
@@ -6067,6 +6175,33 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           return pub && pub.publicUrl;
         }).filter(Boolean);
       } catch (_) { return []; }
+    };
+    /* The uploads library's own notes (editor.js): each file's original name
+       and folder, and the folder list, in one JSON file beside the pictures.
+       The dot keeps it out of the listing above. get() says whether it read
+       the file, found none yet, or failed: a failure must not be mistaken for
+       "no folders", or the next save would wipe them. Read through the API,
+       not the public URL, so it is never a cached copy. */
+    window.__TMKE_UPLOADS_META__ = {
+      async get() {
+        const uid = await _externGetUid();
+        if (!uid) return { ok: true, local: true };
+        const { data, error } = await supabase.storage.from('calendar-assets').download(uid + '/' + UPLOAD_DIR + '/.library.json');
+        if (error) {
+          const st = error.status || error.statusCode || (error.originalError && error.originalError.status);
+          if (st == 404 || st == 400 || /not.?found/i.test(error.message || '')) return { ok: true, data: null };
+          return { ok: false };
+        }
+        try { return { ok: true, data: JSON.parse(await data.text()) }; } catch (_) { return { ok: false }; }
+      },
+      async save(meta) {
+        const uid = await _externGetUid();
+        if (!uid) return false;
+        const body = new Blob([JSON.stringify(meta)], { type: 'application/json' });
+        const { error } = await supabase.storage.from('calendar-assets')
+          .upload(uid + '/' + UPLOAD_DIR + '/.library.json', body, { upsert: true, contentType: 'application/json', cacheControl: '0' });
+        return !error;
+      },
     };
     window.__TMKE_UPLOAD_DELETE__ = async (url) => {
       try {

@@ -15924,84 +15924,316 @@ import { createResizeEngine } from "./resize-engine.js";
     handleFiles(e.dataTransfer.files);
   });
 
-  // One tile in the uploads grid. `b.dataset.src` is the live source: it starts
-  // as the data URL and is swapped to the stored URL once the upload lands, so
-  // click/drag always use whatever is current.
-  // `first`: a new upload goes at the top of the grid, where the list already
-  // puts it (Dani, 24 Oct: they were landing at the bottom). The library loads
-  // newest first, so on open each tile is appended in order.
-  function addUploadTile(src, first) {
+  /* ---------- The uploads library (Dani, 3 Nov) ----------
+     Its own tab, three to a row, with a search box and folders, as Canva
+     has. The pictures are the member's files in storage, newest first
+     (state.uploads, which every picture chooser reads). What storage does
+     not keep - the name a file had on their computer, and which folder it
+     is in - is kept in one small file beside them (.library.json), read
+     and written through editor.astro's __TMKE_UPLOADS_META__.
+
+     If that file cannot be read (not a missing file - a failed read), the
+     folders say so and nothing is written back, so a bad connection can
+     never wipe out someone's folders. */
+  const upQ = $("ed-upload-q"), upFoldersEl = $("ed-up-folders"), upEmpty = $("ed-up-empty");
+  const upBack = $("ed-up-back"), upWhere = $("ed-up-where"), upNew = $("ed-up-newfolder");
+  let upMeta = { v: 1, folders: [], items: {} };
+  let upMetaState = "loading";            // loading | ready | broken | local
+  let upFolder = null;                     // the open folder's id, or null for All uploads
+  const upPending = new Map();             // a not-yet-stored upload's { name, folder }
+  function upKey(src) {
+    if (typeof src !== "string" || src.startsWith("data:")) return null;
+    const m = src.split("?")[0].match(/\/uploads\/([^/]+)$/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function upItem(src) {
+    const k = upKey(src);
+    return (k && upMeta.items[k]) || upPending.get(src) || {};
+  }
+  function upFolderOf(src) {
+    const f = upItem(src).folder;
+    return f && upMeta.folders.some((x) => x.id === f) ? f : null;
+  }
+  let _upSaveT = 0;
+  function upSave() {
+    if (upMetaState !== "ready") return;   // never write over a library we could not read
+    clearTimeout(_upSaveT);
+    _upSaveT = setTimeout(async () => {
+      const api = window.__TMKE_UPLOADS_META__;
+      if (!api) return;
+      let ok = false;
+      try { ok = await api.save(upMeta); } catch (_) { ok = false; }
+      if (!ok) toast("Couldn't save your folders. Check your connection and try again.", 5000);
+    }, 400);
+  }
+  function upSetItem(src, patch) {
+    const k = upKey(src);
+    if (k) { upMeta.items[k] = Object.assign({}, upMeta.items[k], patch); upSave(); }
+    else upPending.set(src, Object.assign({}, upPending.get(src), patch));
+  }
+
+  // A small menu beside a tile or folder: one open at a time.
+  let _upMenu = null;
+  function upCloseMenu() { if (_upMenu) { _upMenu.remove(); _upMenu = null; } }
+  document.addEventListener("pointerdown", (e) => {
+    if (_upMenu && !_upMenu.contains(e.target) && !(e.target.closest && e.target.closest(".ed-up-more"))) upCloseMenu();
+  }, true);
+  function upOpenMenu(anchor, items) {
+    upCloseMenu();
+    const m = document.createElement("div");
+    m.className = "ed-up-menu";
+    items.forEach((it) => {
+      if (it.head) { const h = document.createElement("div"); h.className = "ed-up-menu-head"; h.textContent = it.head; m.appendChild(h); return; }
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = it.label;
+      if (it.danger) b.classList.add("is-danger");
+      if (it.current) b.classList.add("is-current");
+      b.addEventListener("click", (e) => { e.stopPropagation(); upCloseMenu(); it.run(); });
+      m.appendChild(b);
+    });
+    document.body.appendChild(m);
+    const r = anchor.getBoundingClientRect();
+    const w = m.offsetWidth, h = m.offsetHeight;
+    m.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + "px";
+    m.style.top = (r.bottom + 4 + h > window.innerHeight - 8 ? Math.max(8, r.top - h - 4) : r.bottom + 4) + "px";
+    _upMenu = m;
+  }
+  const UP_MORE_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+  const UP_FOLDER_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+
+  async function upDelete(src) {
+    state.uploads = state.uploads.filter((u) => u !== src);
+    const k = upKey(src);
+    if (k && upMeta.items[k]) { delete upMeta.items[k]; upSave(); }
+    upPending.delete(src);
+    renderUploads();
+    if (typeof window.__TMKE_UPLOAD_DELETE__ === "function") {
+      try { await window.__TMKE_UPLOAD_DELETE__(src); } catch (_) {}
+    }
+  }
+  function upMoveMenu(anchor, src) {
+    const cur = upFolderOf(src);
+    const items = [];
+    if (upMeta.folders.length) {
+      items.push({ head: "Move to" });
+      upMeta.folders.forEach((f) => items.push({ label: f.name, current: f.id === cur, run: () => { upSetItem(src, { folder: f.id }); renderUploads(); } }));
+      if (cur) items.push({ label: "Out of this folder", run: () => { upSetItem(src, { folder: null }); renderUploads(); } });
+    } else if (upMetaState === "ready" || upMetaState === "local") {
+      items.push({ label: "New folder for this…", run: () => upNewFolder(src) });
+    }
+    items.push({ label: "Delete from uploads", danger: true, run: () => upDelete(src) });
+    upOpenMenu(anchor, items);
+  }
+
+  // One picture. `b.dataset.src` is the live source: the data URL until the
+  // upload lands, then the stored URL.
+  function upTile(src) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "ed-upload-tile";
     b.dataset.src = src;
+    const it = upItem(src);
+    if (it.name) b.title = it.name;
     const img = document.createElement("img");
-    img.src = src;
+    img.src = src; img.alt = it.name || ""; img.loading = "lazy";
     b.appendChild(img);
     b.addEventListener("click", () => addImage(b.dataset.src));
-    // Make uploaded photos draggable too so they can be dropped on frames
+    // Draggable: onto a frame, onto the canvas, or onto a folder to file it.
     b.draggable = true;
     b.addEventListener("dragstart", (e) => {
       if (!e.dataTransfer) return;
       e.dataTransfer.setData("text/uri-list", b.dataset.src);
       e.dataTransfer.setData("text/plain", b.dataset.src);
-      e.dataTransfer.effectAllowed = "copy";
+      e.dataTransfer.setData("application/x-tmke-upload", b.dataset.src);
+      e.dataTransfer.effectAllowed = "copyMove";
     });
-    // Remove from the library (storage + grid). Designs already using the image
-    // keep working — they reference the URL directly.
-    const x = document.createElement("span");
-    x.className = "ed-upload-x";
-    x.title = "Remove from your uploads";
-    x.setAttribute("aria-hidden", "true");
-    x.textContent = "×";
-    x.addEventListener("click", async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const url = b.dataset.src;
-      b.remove();
-      state.uploads = state.uploads.filter((u) => u !== url);
-      if (typeof window.__TMKE_UPLOAD_DELETE__ === "function") {
-        try { await window.__TMKE_UPLOAD_DELETE__(url); } catch (_) {}
-      }
-    });
-    b.appendChild(x);
-    if (first) uploadGridEl.prepend(b); else uploadGridEl.appendChild(b);
+    const more = document.createElement("span");
+    more.className = "ed-up-more";
+    more.title = "Move or delete";
+    more.setAttribute("role", "button");
+    more.innerHTML = UP_MORE_SVG;
+    more.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); upMoveMenu(more, b.dataset.src); });
+    b.appendChild(more);
     return b;
   }
+
+  function upFolderTile(f, count) {
+    const t = document.createElement("div");
+    t.className = "ed-up-folder";
+    t.setAttribute("role", "button"); t.tabIndex = 0;
+    t.innerHTML = '<span class="ed-up-folder-ic">' + UP_FOLDER_SVG + '</span><span class="ed-up-folder-name"></span><span class="ed-up-folder-n"></span>';
+    t.querySelector(".ed-up-folder-name").textContent = f.name;
+    t.querySelector(".ed-up-folder-n").textContent = count === 1 ? "1 image" : count + " images";
+    const open = () => { upFolder = f.id; if (upQ) upQ.value = ""; renderUploads(); };
+    t.addEventListener("click", open);
+    t.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
+    t.addEventListener("dragover", (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes("application/x-tmke-upload")) { e.preventDefault(); t.classList.add("is-drop"); } });
+    t.addEventListener("dragleave", () => t.classList.remove("is-drop"));
+    t.addEventListener("drop", (e) => {
+      const src = e.dataTransfer && e.dataTransfer.getData("application/x-tmke-upload");
+      t.classList.remove("is-drop");
+      if (!src) return;
+      e.preventDefault(); e.stopPropagation();
+      upSetItem(src, { folder: f.id }); renderUploads();
+    });
+    const more = document.createElement("span");
+    more.className = "ed-up-more";
+    more.title = "Rename or delete";
+    more.setAttribute("role", "button");
+    more.innerHTML = UP_MORE_SVG;
+    more.addEventListener("click", (e) => {
+      e.stopPropagation();
+      upOpenMenu(more, [
+        { label: "Rename", run: () => upRenameFolder(f) },
+        { label: "Delete folder", danger: true, run: () => upDeleteFolder(f) },
+      ]);
+    });
+    t.appendChild(more);
+    return t;
+  }
+  // Name a folder in place: the tile becomes a box to type in.
+  function upNameInPlace(initial, onDone) {
+    const t = document.createElement("div");
+    t.className = "ed-up-folder is-naming";
+    t.innerHTML = '<span class="ed-up-folder-ic">' + UP_FOLDER_SVG + '</span>';
+    const inp = document.createElement("input");
+    inp.type = "text"; inp.maxLength = 40; inp.value = initial || ""; inp.placeholder = "Folder name";
+    inp.className = "ed-up-folder-input";
+    t.appendChild(inp);
+    let done = false;
+    const finish = (keep) => { if (done) return; done = true; onDone(keep ? inp.value.trim() : null); };
+    inp.addEventListener("keydown", (e) => {
+      e.stopPropagation();   // typing, not shortcuts
+      if (e.key === "Enter") finish(true);
+      if (e.key === "Escape") finish(false);
+    });
+    inp.addEventListener("blur", () => finish(true));
+    upFoldersEl.hidden = false;
+    upFoldersEl.prepend(t);
+    inp.focus(); inp.select();
+  }
+  function upNewFolder(thenFile) {
+    if (upMetaState === "broken" || upMetaState === "loading") return;
+    if (upFolder) { upFolder = null; renderUploads(); }
+    upNameInPlace("", (name) => {
+      if (name) {
+        const f = { id: uid("fld"), name };
+        upMeta.folders.unshift(f);
+        if (thenFile) upSetItem(thenFile, { folder: f.id });
+        upSave();
+      }
+      renderUploads();
+    });
+  }
+  function upRenameFolder(f) {
+    const tile = [...upFoldersEl.children].find((c) => c.querySelector(".ed-up-folder-name") && c.querySelector(".ed-up-folder-name").textContent === f.name);
+    if (tile) tile.remove();
+    upNameInPlace(f.name, (name) => { if (name && name !== f.name) { f.name = name; upSave(); } renderUploads(); });
+  }
+  function upDeleteFolder(f) {
+    const n = state.uploads.filter((s2) => upFolderOf(s2) === f.id).length;
+    if (n && !window.confirm("Delete “" + f.name + "”? Its " + (n === 1 ? "image goes" : n + " images go") + " back to All uploads.")) return;
+    upMeta.folders = upMeta.folders.filter((x) => x.id !== f.id);
+    Object.keys(upMeta.items).forEach((k) => { if (upMeta.items[k].folder === f.id) upMeta.items[k].folder = null; });
+    upPending.forEach((v) => { if (v.folder === f.id) v.folder = null; });
+    if (upFolder === f.id) upFolder = null;
+    upSave(); renderUploads();
+  }
+
+  function renderUploads() {
+    if (!uploadGridEl) return;
+    const q = ((upQ && upQ.value) || "").trim().toLowerCase();
+    const open = upFolder && upMeta.folders.find((f) => f.id === upFolder);
+    if (upFolder && !open) upFolder = null;
+    const foldersOk = upMetaState === "ready" || upMetaState === "local";
+    if (upBack) upBack.hidden = !open || !!q;
+    if (upWhere) upWhere.textContent = q ? "Results" : (open ? open.name : "All uploads");
+    if (upNew) upNew.hidden = !!open || !!q || !foldersOk;
+    // Folders first, at the top level only.
+    upFoldersEl.innerHTML = "";
+    if (!open && !q) {
+      upMeta.folders.forEach((f) => upFoldersEl.appendChild(upFolderTile(f, state.uploads.filter((s2) => upFolderOf(s2) === f.id).length)));
+    }
+    upFoldersEl.hidden = !upFoldersEl.children.length;
+    // Then the pictures: the open folder's, or those in no folder; a search
+    // looks through all of them, by name and by folder.
+    const list = state.uploads.filter((src) => {
+      if (q) {
+        const it = upItem(src), f = upFolderOf(src);
+        const fname = f ? (upMeta.folders.find((x) => x.id === f) || {}).name || "" : "";
+        return (it.name || "").toLowerCase().includes(q) || fname.toLowerCase().includes(q);
+      }
+      return open ? upFolderOf(src) === open.id : !upFolderOf(src);
+    });
+    uploadGridEl.innerHTML = "";
+    list.forEach((src) => uploadGridEl.appendChild(upTile(src)));
+    let msg = "";
+    if (upMetaState === "broken") msg = "Your folders couldn't load just now, so they're hidden. Reload to try again; your images are all here.";
+    else if (q && !list.length) msg = "Nothing in your uploads matches “" + q + "”. Images uploaded before 3 November have no name to search by.";
+    else if (open && !list.length) msg = "This folder is empty. Drag an image onto it, or use the … on an image to move it here.";
+    else if (!state.uploads.length) msg = "Nothing uploaded yet.";
+    upEmpty.hidden = !msg; upEmpty.textContent = msg;
+  }
+  let _upRenderT = 0;
+  function renderUploadsSoon() { clearTimeout(_upRenderT); _upRenderT = setTimeout(renderUploads, 30); }
+  // Called where something else adds to state.uploads (the picture choosers
+  // fetch the library themselves): the grid redraws from it.
+  function addUploadTile() { renderUploadsSoon(); }
+  if (upQ) upQ.addEventListener("input", renderUploads);
+  if (upQ) upQ.addEventListener("keydown", (e) => e.stopPropagation());
+  if (upBack) upBack.addEventListener("click", () => { upFolder = null; renderUploads(); });
+  if (upNew) upNew.addEventListener("click", () => upNewFolder(null));
 
   function handleFiles(files) {
     Array.from(files || []).forEach((f) => {
       if (!f.type.startsWith("image/")) return;
+      const folder = upFolder;
       fileToWebImage(f).then(async (src) => {
         if (!src) return;
         // On the front: the uploads list is newest first, so what you just
-        // added is the first thing every picture chooser offers.
+        // added is the first thing every picture chooser offers. Into the
+        // folder that was open when it was dropped.
+        const name = String(f.name || "").replace(/\.[a-z0-9]+$/i, "");
         state.uploads.unshift(src);
-        const tile = addUploadTile(src, true);
+        upPending.set(src, { name, folder });
+        renderUploads();
         // Persist it so it's still here next time (signed-in members only).
         if (typeof window.__TMKE_UPLOAD_SAVE__ !== "function") return;
         let url = null;
         try { url = await window.__TMKE_UPLOAD_SAVE__(src); } catch (_) {}
         if (!url) return;   // signed out / upload failed → stays in-memory
-        tile.dataset.src = url;
         const i = state.uploads.indexOf(src);
         if (i > -1) state.uploads[i] = url;
+        const it = upPending.get(src) || { name, folder };
+        upPending.delete(src);
+        upSetItem(url, it);
+        renderUploads();
       });
     });
   }
 
-  // Rehydrate the member's saved uploads on open, so they don't have to keep
-  // re-uploading the same logos and imagery.
+  // Rehydrate the member's saved uploads, and their names and folders, on open.
   (async function loadUploadLibrary() {
-    if (typeof window.__TMKE_UPLOADS_LIST__ !== "function") return;
-    let urls = [];
-    try { urls = await window.__TMKE_UPLOADS_LIST__(); } catch (_) {}
-    urls.forEach((u) => {
-      if (state.uploads.includes(u)) return;
-      state.uploads.push(u);
-      addUploadTile(u);
-    });
+    const api = window.__TMKE_UPLOADS_META__;
+    const [urls, meta] = await Promise.all([
+      typeof window.__TMKE_UPLOADS_LIST__ === "function" ? window.__TMKE_UPLOADS_LIST__().catch(() => []) : Promise.resolve([]),
+      api ? api.get().catch(() => ({ ok: false })) : Promise.resolve({ ok: true, local: true }),
+    ]);
+    if (meta && meta.ok) {
+      if (meta.data && Array.isArray(meta.data.folders) && meta.data.items && typeof meta.data.items === "object") upMeta = meta.data;
+      upMetaState = meta.local ? "local" : "ready";
+    } else upMetaState = "broken";
+    (urls || []).forEach((u) => { if (!state.uploads.includes(u)) state.uploads.push(u); });
+    renderUploads();
   })();
+
+  // Search | Uploads.
+  document.querySelectorAll(".ed-ttab[data-itab]").forEach((t) => {
+    t.addEventListener("click", () => {
+      document.querySelectorAll(".ed-ttab[data-itab]").forEach((x) => x.classList.toggle("is-active", x === t));
+      document.querySelectorAll(".ed-ttab-pane[data-itab-pane]").forEach((p2) => p2.classList.toggle("is-active", p2.dataset.itabPane === t.dataset.itab));
+    });
+  });
 
   // ---------- Drop a photo/upload anywhere on the canvas ----------
   // Frames have their own drop handlers (they stopPropagation), so a drop that
