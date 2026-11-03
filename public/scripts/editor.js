@@ -7886,12 +7886,16 @@ import { createResizeEngine } from "./resize-engine.js";
   // what runs out first.
   function fitZoom() {
     const stageRect = stageEl.getBoundingClientRect();
-    // A phone has no room to give away around the design.
-    const pad = window.innerWidth <= 760 ? 28 : 80;
+    // The room left inside the stage's own padding (48 top and bottom, 40 at
+    // the sides on a computer). A phone has no room to give away around the
+    // design.
+    const cs = getComputedStyle(stageEl);
+    const padX = window.innerWidth <= 760 ? 28 : parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    const padY = window.innerWidth <= 760 ? 28 : parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     // Not laid out yet: the observer below fits it once it is.
-    if (stageRect.width <= pad + 40 || stageRect.height <= pad + 40) { _zoomFitted = true; return; }
-    const zw = (stageRect.width - pad) / state.canvas.width;
-    const zh = (stageRect.height - pad) / state.canvas.height;
+    if (stageRect.width <= padX + 40 || stageRect.height <= padY + 40) { _zoomFitted = true; return; }
+    const zw = (stageRect.width - padX) / state.canvas.width;
+    const zh = (stageRect.height - padY) / state.canvas.height;
     setZoom(Math.min(zw, zh, 1));
     _zoomFitted = true;
   }

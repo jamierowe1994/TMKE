@@ -4032,6 +4032,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       display: flex;
       padding: 40px;
     }
+    /* On a computer the stage runs up under the selection toolbar's row
+       rather than below it. The row sat empty with nothing selected, so the
+       design was centred 44px low: twice the room above it as below (Dani,
+       3 Nov). The bar lies over the top of the stage when it shows, inside
+       the 48px kept clear at the top and bottom. */
+    @media (min-width: 761px) {
+      .ed-stage { grid-row: 2 / 4; padding: 48px 40px; }
+    }
     /* Centred with auto margins rather than align/justify-content.
 
        They look equivalent until the canvas is bigger than the stage: a
@@ -4485,11 +4493,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        stay 1.5px on screen. A print card is 2480px wide and shown at about a
        quarter, which made a plain 1.5px outline under half a pixel: you could
        select the photo and see nothing happen (Dani, 30 Oct). */
+    /* Exactly under the selection box, so the two read as one thin line
+       rather than a wine line beside the box's (3 Nov). */
     .ed-element.is-selected::after {
       content: "";
-      position: absolute; inset: calc(-2px * var(--ez, 1));
+      position: absolute; inset: 0;
       width: auto; height: auto; transform: none;
-      border: calc(1.5px * var(--ez, 1)) solid var(--english-violet);
+      border: calc(1px * var(--ez, 1)) solid var(--english-violet);
       pointer-events: none;
     }
     .ed-element.is-multiselected::after {
@@ -4515,32 +4525,33 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       pointer-events: none;
       transform-origin: center center;
     }
-    /* High-contrast selection colour — must stand out over any photo, so a
-       bright blue with a white halo rather than the muted brand violet. */
-    .ed-stage { --ed-select: #1F8BFF; }
+    /* The selection in TMKE wine, two-toned so it reads on anything (Dani,
+       3 Nov, replacing the bright blue): a thin wine line for light
+       backgrounds, inside a white ring and on a white centre for dark ones. */
+    .ed-stage { --ed-select: var(--english-violet); }
     /* Drawn inside the zoomed canvas, so every size is scaled back by --ez
        (1 / zoom): the same on screen at 10% as at 100% (Dani, 3 Nov: too
        small to see or grab at the zoom most designs open at). Centred on
        their point, with a wider invisible ring to catch the pointer. */
     .ed-handle {
       position: absolute;
-      width: calc(14px * var(--ez, 1)); height: calc(14px * var(--ez, 1));
+      width: calc(10.5px * var(--ez, 1)); height: calc(10.5px * var(--ez, 1));   /* a quarter smaller (Dani, 3 Nov) */
       box-sizing: border-box;
       transform: translate(-50%, -50%);
       background: #fff;
-      border: calc(2px * var(--ez, 1)) solid var(--ed-select);
+      border: calc(1.25px * var(--ez, 1)) solid var(--ed-select);
       border-radius: 50%;
-      box-shadow: 0 0 0 calc(1.5px * var(--ez, 1)) rgba(255,255,255,0.9), 0 calc(1px * var(--ez, 1)) calc(4px * var(--ez, 1)) rgba(0,0,0,0.35);
+      box-shadow: 0 0 0 calc(1px * var(--ez, 1)) rgba(255,255,255,0.95), 0 calc(1px * var(--ez, 1)) calc(3px * var(--ez, 1)) rgba(0,0,0,0.3);
       pointer-events: auto;
       cursor: nwse-resize;
       z-index: 50;
     }
-    .ed-handle::before { content: ""; position: absolute; inset: calc(-6px * var(--ez, 1)); border-radius: 50%; }
+    .ed-handle::before { content: ""; position: absolute; inset: calc(-8px * var(--ez, 1)); border-radius: 50%; }
     .ed-handle[data-h="n"], .ed-handle[data-h="s"] { cursor: ns-resize; }
     .ed-handle[data-h="e"], .ed-handle[data-h="w"] { cursor: ew-resize; }
     .ed-handle[data-h="ne"], .ed-handle[data-h="sw"] { cursor: nesw-resize; }
     .ed-handle[data-h="rot"] {
-      width: calc(18px * var(--ez, 1)); height: calc(18px * var(--ez, 1));
+      width: calc(13.5px * var(--ez, 1)); height: calc(13.5px * var(--ez, 1));
       border-radius: 50%;
       background: var(--ed-select);
       border-color: #fff;
@@ -4548,7 +4559,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     }
     .ed-bounds {
       position: absolute;
-      border: calc(2px * var(--ez, 1)) solid var(--ed-select);
+      border: calc(1px * var(--ez, 1)) solid var(--ed-select);
       box-shadow: 0 0 0 calc(1px * var(--ez, 1)) rgba(255,255,255,0.85);
       pointer-events: none;
       box-sizing: border-box;
@@ -4587,10 +4598,10 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       background: transparent; border-radius: 0; padding: 0; color: transparent;
     }
     .ed-line-end {
-      position: absolute; width: calc(16px * var(--ez, 1)); height: calc(16px * var(--ez, 1));
+      position: absolute; width: calc(12px * var(--ez, 1)); height: calc(12px * var(--ez, 1));
       transform: translate(-50%, -50%); border-radius: 50%; background: #fff;
-      border: calc(2px * var(--ez, 1)) solid var(--ed-select);
-      box-shadow: 0 calc(1px * var(--ez, 1)) calc(4px * var(--ez, 1)) rgba(0,0,0,0.35);
+      border: calc(1.25px * var(--ez, 1)) solid var(--ed-select);
+      box-shadow: 0 0 0 calc(1px * var(--ez, 1)) rgba(255,255,255,0.95), 0 calc(1px * var(--ez, 1)) calc(3px * var(--ez, 1)) rgba(0,0,0,0.3);
       pointer-events: auto; cursor: crosshair; z-index: 50; box-sizing: border-box;
     }
     .ed-line-end:hover { background: var(--ed-select); }
@@ -4632,8 +4643,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     /* Marquee drag-select box (canvas space) */
     .ed-marquee {
       position: absolute; z-index: 48; pointer-events: none;
-      border: 1.5px solid var(--ed-select, #1F8BFF);
-      background: rgba(31,139,255,0.10); box-sizing: border-box;
+      border: calc(1px * var(--ez, 1)) solid var(--ed-select, #371e28);
+      background: rgba(55,30,40,0.08); box-sizing: border-box;
     }
     .ed-bounds--multi { border-style: dashed; }
 
