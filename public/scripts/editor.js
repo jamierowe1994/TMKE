@@ -4795,8 +4795,8 @@ import { createResizeEngine } from "./resize-engine.js";
         const handle = document.createElement("div");
         handle.className = "ed-handle";
         handle.dataset.h = h;
-        handle.style.left = (gbox.x + fx * gbox.w - 5) + "px";
-        handle.style.top = (gbox.y + fy * gbox.h - 5) + "px";
+        handle.style.left = (gbox.x + fx * gbox.w) + "px";
+        handle.style.top = (gbox.y + fy * gbox.h) + "px";
         handlesEl.appendChild(handle);
         handle.addEventListener("pointerdown", (ev) => startGroupResize(ev, els, gbox, h));
       });
@@ -4885,8 +4885,9 @@ import { createResizeEngine } from "./resize-engine.js";
         rh.className = "ed-screen-rot";
         rh.title = "Drag to spin the artwork (hold Shift for 15° steps)";
         rh.style.setProperty("--sc-guide", el.guide || "#00c2a8");
-        rh.style.left = (top.x + (vx / len) * 32 - 15) + "px";
-        rh.style.top = (top.y + (vy / len) * 32 - 15) + "px";
+        const ezr = 1 / (state.zoom || 1);
+        rh.style.left = (top.x + (vx / len) * 32 * ezr) + "px";
+        rh.style.top = (top.y + (vy / len) * 32 * ezr) + "px";
         rh.innerHTML =
           '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" ' +
           'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
@@ -4900,8 +4901,8 @@ import { createResizeEngine } from "./resize-engine.js";
         pin.className = "ed-screen-pin";
         pin.style.setProperty("--sc-guide", el.guide || "#00c2a8");
         pin.dataset.corner = String(i);
-        pin.style.left = (pt.x - 9) + "px";
-        pin.style.top = (pt.y - 9) + "px";
+        pin.style.left = pt.x + "px";
+        pin.style.top = pt.y + "px";
         handlesEl.appendChild(pin);
         pin.addEventListener("pointerdown", (ev) => startCornerDrag(ev, el, i));
       });
@@ -4933,7 +4934,16 @@ import { createResizeEngine } from "./resize-engine.js";
       ["e",  1, 0.5], ["se", 1, 1],
       ["s",  0.5, 1], ["sw", 0, 1], ["w",  0, 0.5],
     ];
+    /* A QR code has to stay square, so it is sized from its corners only
+       (Dani, 3 Nov); the corners already keep a picture's shape. */
+    const cornersOnly = el.brandRole === "qr";
+    // A side handle on an edge under 48px on screen sits on the corners
+    // either side of it, so it goes and the corners do the work.
+    const shortW = el.w * state.zoom < 48, shortH = el.h * state.zoom < 48;
     positions.forEach(([h, fx, fy]) => {
+      if (cornersOnly && h.length === 1) return;
+      if (shortW && (h === "n" || h === "s")) return;
+      if (shortH && (h === "e" || h === "w")) return;
       const handle = document.createElement("div");
       handle.className = "ed-handle";
       handle.dataset.h = h;
@@ -4946,8 +4956,8 @@ import { createResizeEngine } from "./resize-engine.js";
       const a = (el.rotation || 0) * Math.PI / 180;
       const rx = dx * Math.cos(a) - dy * Math.sin(a);
       const ry = dx * Math.sin(a) + dy * Math.cos(a);
-      handle.style.left = (cx + rx - 5) + "px";
-      handle.style.top = (cy + ry - 5) + "px";
+      handle.style.left = (cx + rx) + "px";
+      handle.style.top = (cy + ry) + "px";
       handlesEl.appendChild(handle);
 
       handle.addEventListener("pointerdown", (ev) => startResize(ev, el, h));
@@ -4959,12 +4969,15 @@ import { createResizeEngine } from "./resize-engine.js";
     rotHandle.dataset.h = "rot";
     const cx = el.x + el.w / 2;
     const cy = el.y + el.h / 2;
-    const dy = -el.h / 2 - 28;
+    // 28px off the top on screen at any zoom (it was 28 design pixels, so at
+    // 10% it sat on top of the top handle).
+    const ez = 1 / (state.zoom || 1);
+    const dy = -el.h / 2 - 28 * ez;
     const a = (el.rotation || 0) * Math.PI / 180;
     const rx = 0 * Math.cos(a) - dy * Math.sin(a);
     const ry = 0 * Math.sin(a) + dy * Math.cos(a);
-    rotHandle.style.left = (cx + rx - 7) + "px";
-    rotHandle.style.top = (cy + ry - 7) + "px";
+    rotHandle.style.left = (cx + rx) + "px";
+    rotHandle.style.top = (cy + ry) + "px";
     handlesEl.appendChild(rotHandle);
     rotHandle.addEventListener("pointerdown", (ev) => startRotate(ev, el));
   }
@@ -5025,7 +5038,10 @@ import { createResizeEngine } from "./resize-engine.js";
     const bw = floatBar.offsetWidth || 168;
     const bh = floatBar.offsetHeight || 40;
     let left = rect.left + rect.width / 2 - bw / 2;
-    let top = rect.top - bh - 12;
+    // Above the rotate handle too (28px over the box, 18px across), or the
+    // bar sits right on it and it can't be grabbed.
+    const lift = el && el.type !== "line" && el.type !== "screen" ? 34 : 0;
+    let top = rect.top - bh - 12 - lift;
     if (top < 70) top = rect.bottom + 12; // no room above → go below
     left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
     floatBar.style.left = left + "px";
@@ -7840,7 +7856,14 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   // ---------- Zoom / pan ----------
+  /* Fitted, until someone zooms by hand. While fitted, a stage that changes
+     size (the window, a panel opening, or the page still laying itself out
+     when the design first fitted) fits again. A fit taken before the stage
+     had its size came out at the 10% floor and stayed there (Dani, 3 Nov:
+     "most designs default to a 10% zoom"). */
+  let _zoomFitted = false;
   function setZoom(z) {
+    _zoomFitted = false;
     state.zoom = clamp(z, 0.1, 4);
     shadowEl.style.transform = "scale(" + state.zoom + ")";
     // Guides, spacing labels and line handles are drawn inside the zoomed
@@ -7855,14 +7878,30 @@ import { createResizeEngine } from "./resize-engine.js";
       sizer.style.height = Math.round(state.canvas.height * state.zoom) + "px";
     }
     zoomDisplayEl.textContent = Math.round(state.zoom * 100) + "%";
+    // The handles hold their size on screen (--ez); their offsets are worked
+    // out in renderHandles, so redraw them.
+    if (state.selectedIds && state.selectedIds.length && typeof renderHandles === "function") renderHandles();
   }
+  // The whole design in view: its full height, or its full width if that is
+  // what runs out first.
   function fitZoom() {
     const stageRect = stageEl.getBoundingClientRect();
     // A phone has no room to give away around the design.
     const pad = window.innerWidth <= 760 ? 28 : 80;
+    // Not laid out yet: the observer below fits it once it is.
+    if (stageRect.width <= pad + 40 || stageRect.height <= pad + 40) { _zoomFitted = true; return; }
     const zw = (stageRect.width - pad) / state.canvas.width;
     const zh = (stageRect.height - pad) / state.canvas.height;
     setZoom(Math.min(zw, zh, 1));
+    _zoomFitted = true;
+  }
+  if (typeof ResizeObserver === "function") {
+    let _fitRaf = 0;
+    new ResizeObserver(function () {
+      if (!_zoomFitted) return;
+      cancelAnimationFrame(_fitRaf);
+      _fitRaf = requestAnimationFrame(fitZoom);
+    }).observe(stageEl);
   }
 
   stageEl.addEventListener("wheel", (e) => {
@@ -11607,12 +11646,16 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     return qrNormaliseUrl(q.url);
   }
-  async function qrDataUrl(text, dark, light) {
+  /* `margin` is the plain edge round the code, in the code's own squares.
+     Four is the standard and the default; it can be set from 0 to 8 (Dani,
+     3 Nov: "control the width of the white border"). */
+  async function qrDataUrl(text, dark, light, margin) {
     const qrcode = await qrLib();
     const q = qrcode(0, "M");
     q.addData(unescape(encodeURIComponent(text)), "Byte");   // UTF-8, so £ and ’ survive
     q.make();
-    const n = q.getModuleCount(), m = 4, size = n + m * 2;   // 4 modules of margin: scanners need it
+    const m = margin != null ? Math.max(0, Math.min(8, Math.round(margin))) : 4;
+    const n = q.getModuleCount(), size = n + m * 2;
     let d = "";
     for (let y = 0; y < n; y++) {
       for (let x = 0; x < n; x++) {
@@ -11662,7 +11705,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const t = qrTarget(el);
     if (!t) { el.src = null; fullRender(); return false; }
     const q = el.qr || {};
-    el.src = await qrDataUrl(t, q.dark || "#000000", q.light || "#ffffff");
+    el.src = await qrDataUrl(t, q.dark || "#000000", q.light || "#ffffff", q.margin);
     el.imgFit = "contain";
     fullRender();
     return true;
@@ -11775,6 +11818,27 @@ import { createResizeEngine } from "./resize-engine.js";
       }));
       brow.appendChild(bmount);
       const blab = document.createElement("label"); blab.textContent = "Border colour"; brow.appendChild(blab);
+      // The code's own plain edge, in its squares, before the border.
+      let _edgeT = 0;
+      bsec.appendChild(sliderNumberRow("Edge", "", 0, 8, 1,
+        function () { const v = (el.qr || {}).margin; return v != null ? v : 4; },
+        function (v) {
+          el.qr = Object.assign({}, el.qr, { margin: v });
+          clearTimeout(_edgeT);
+          // Redrawn in place: a full render rebuilds this panel and drops
+          // the slider out from under the pointer mid-drag.
+          _edgeT = setTimeout(async function () {
+            const t = qrTarget(el); if (!t) return;
+            const q = el.qr || {};
+            el.src = await qrDataUrl(t, q.dark || "#000000", q.light || "#ffffff", q.margin);
+            const img = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"] img');
+            if (img) img.src = el.src;
+          }, 60);
+        }));
+      const edgeHint = document.createElement("p");
+      edgeHint.className = "ed-props-hint";
+      edgeHint.textContent = "Phones read it best with an edge of 4 or more.";
+      bsec.appendChild(edgeHint);
       bsec.appendChild(sliderNumberRow("Border", "px", 0, 60, 1,
         function () { return (el.qr || {}).borderW || 0; },
         function (v) { el.qr = Object.assign({}, el.qr, { borderW: v }); },

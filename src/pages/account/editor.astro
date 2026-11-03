@@ -2640,12 +2640,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     /* Spin handle for the artwork, above the quad's top edge. */
     .ed-screen-rot {
       --sc-guide: #00c2a8;
-      position: absolute; width: 30px; height: 30px; border-radius: 50%;
+      position: absolute; width: calc(30px * var(--ez, 1)); height: calc(30px * var(--ez, 1)); border-radius: 50%;
+      box-sizing: border-box; transform: translate(-50%, -50%);
       display: flex; align-items: center; justify-content: center;
-      background: #fff; border: 2px solid var(--sc-guide); color: var(--sc-guide);
-      box-shadow: 0 0 0 1px rgba(20,18,26,0.35), 0 1px 5px rgba(20,18,26,0.4);
+      background: #fff; border: calc(2px * var(--ez, 1)) solid var(--sc-guide); color: var(--sc-guide);
+      box-shadow: 0 0 0 calc(1px * var(--ez, 1)) rgba(20,18,26,0.35), 0 calc(1px * var(--ez, 1)) calc(5px * var(--ez, 1)) rgba(20,18,26,0.4);
       cursor: grab; pointer-events: auto; z-index: 3;
     }
+    .ed-screen-rot svg { width: calc(17px * var(--ez, 1)); height: calc(17px * var(--ez, 1)); }
     .ed-screen-rot:active { cursor: grabbing; }
     /* In artwork mode the screen says so: a dragging cursor, and a ring that
        makes it obvious the next drag moves the picture, not the element. */
@@ -2657,13 +2659,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        photo through it, so the corner can go right on the screen's corner. */
     .ed-screen-pin {
       --sc-guide: #00c2a8;
-      position: absolute; width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box;
-      background: transparent; border: 2px solid var(--sc-guide);
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.85), inset 0 0 0 1px rgba(255,255,255,0.85);
+      position: absolute; width: calc(18px * var(--ez, 1)); height: calc(18px * var(--ez, 1)); border-radius: 50%; box-sizing: border-box;
+      transform: translate(-50%, -50%);
+      background: transparent; border: calc(2px * var(--ez, 1)) solid var(--sc-guide);
+      box-shadow: 0 0 0 calc(1px * var(--ez, 1)) rgba(255,255,255,0.85), inset 0 0 0 calc(1px * var(--ez, 1)) rgba(255,255,255,0.85);
       cursor: grab; pointer-events: auto; z-index: 2;
     }
     .ed-screen-pin::after {
-      content: ""; position: absolute; left: 50%; top: 50%; width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px;
+      content: ""; position: absolute; left: 50%; top: 50%; width: calc(3px * var(--ez, 1)); height: calc(3px * var(--ez, 1)); transform: translate(-50%, -50%);
       border-radius: 50%; background: var(--sc-guide); box-shadow: 0 0 0 1px rgba(255,255,255,0.9);
     }
     /* While a corner is dragged: the photo under it, four times over, with
@@ -4505,22 +4508,29 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     /* High-contrast selection colour — must stand out over any photo, so a
        bright blue with a white halo rather than the muted brand violet. */
     .ed-stage { --ed-select: #1F8BFF; }
+    /* Drawn inside the zoomed canvas, so every size is scaled back by --ez
+       (1 / zoom): the same on screen at 10% as at 100% (Dani, 3 Nov: too
+       small to see or grab at the zoom most designs open at). Centred on
+       their point, with a wider invisible ring to catch the pointer. */
     .ed-handle {
       position: absolute;
-      width: 11px; height: 11px;
+      width: calc(14px * var(--ez, 1)); height: calc(14px * var(--ez, 1));
+      box-sizing: border-box;
+      transform: translate(-50%, -50%);
       background: #fff;
-      border: 2px solid var(--ed-select);
+      border: calc(2px * var(--ez, 1)) solid var(--ed-select);
       border-radius: 50%;
-      box-shadow: 0 0 0 1.5px rgba(255,255,255,0.9), 0 1px 4px rgba(0,0,0,0.35);
+      box-shadow: 0 0 0 calc(1.5px * var(--ez, 1)) rgba(255,255,255,0.9), 0 calc(1px * var(--ez, 1)) calc(4px * var(--ez, 1)) rgba(0,0,0,0.35);
       pointer-events: auto;
       cursor: nwse-resize;
       z-index: 50;
     }
+    .ed-handle::before { content: ""; position: absolute; inset: calc(-6px * var(--ez, 1)); border-radius: 50%; }
     .ed-handle[data-h="n"], .ed-handle[data-h="s"] { cursor: ns-resize; }
     .ed-handle[data-h="e"], .ed-handle[data-h="w"] { cursor: ew-resize; }
     .ed-handle[data-h="ne"], .ed-handle[data-h="sw"] { cursor: nesw-resize; }
     .ed-handle[data-h="rot"] {
-      width: 15px; height: 15px;
+      width: calc(18px * var(--ez, 1)); height: calc(18px * var(--ez, 1));
       border-radius: 50%;
       background: var(--ed-select);
       border-color: #fff;
@@ -4528,8 +4538,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     }
     .ed-bounds {
       position: absolute;
-      border: 2px solid var(--ed-select);
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.85);
+      border: calc(2px * var(--ez, 1)) solid var(--ed-select);
+      box-shadow: 0 0 0 calc(1px * var(--ez, 1)) rgba(255,255,255,0.85);
       pointer-events: none;
       box-sizing: border-box;
     }
