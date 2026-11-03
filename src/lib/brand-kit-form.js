@@ -5,6 +5,8 @@
  * can't drift into two slightly different forms.
  */
 
+import { openColourPop } from './colour-pop.js';
+
 const LOGO_BUCKET = 'pack-images';   // public already, and already holds artwork
 
 export function fillForm(root, row) {
@@ -52,7 +54,7 @@ function drawColors(root, colors) {
   const six = colors.concat(Array(6).fill('')).slice(0, 6);
   box.innerHTML = six.map((hex, i) => `
     <div class="bkf-swatch">
-      <input type="color" data-color="${i}" value="${hex || '#ffffff'}" aria-label="Colour ${i + 1}" />
+      <button type="button" class="bkf-well" data-color="${i}" style="background:${hex || '#ffffff'}" aria-label="Choose colour ${i + 1}"></button>
       <input type="text" data-hex="${i}" value="${hex || ''}" placeholder="—" maxlength="7" aria-label="Colour ${i + 1} hex" />
     </div>`).join('');
 }
@@ -62,19 +64,34 @@ function currentColors(root) {
 }
 
 /* The colour well and its hex box are two views of one value: type in either
-   and the other follows, so nobody has to know which one is "real". */
+   and the other follows, so nobody has to know which one is "real". The well
+   opens the colour pop-out (3 Nov) rather than the system picker, offering the
+   kit's other colours first. The hex box is what's saved, so a choice in the
+   pop-out is written there and announced as typing would be. */
 export function wireColors(root) {
   root.addEventListener('input', (e) => {
     const el = e.target;
-    if (!(el instanceof HTMLInputElement)) return;
-    const i = el.getAttribute('data-color') ?? el.getAttribute('data-hex');
-    if (i == null) return;
+    if (!(el instanceof HTMLInputElement) || !el.hasAttribute('data-hex')) return;
     const v = el.value.trim();
-    if (el.hasAttribute('data-hex') && v && !/^#[0-9a-f]{3,8}$/i.test(v)) return;
-    const pair = el.hasAttribute('data-hex')
-      ? root.querySelector(`[data-color="${i}"]`)
-      : root.querySelector(`[data-hex="${i}"]`);
-    if (pair && v) pair.value = v;
+    if (v && !/^#[0-9a-f]{3,8}$/i.test(v)) return;
+    const well = root.querySelector(`[data-color="${el.getAttribute('data-hex')}"]`);
+    if (well && v) well.style.background = v;
+  });
+  root.addEventListener('click', (e) => {
+    const well = e.target.closest && e.target.closest('[data-color]');
+    if (!well || !root.contains(well)) return;
+    const i = well.getAttribute('data-color');
+    const hex = root.querySelector(`[data-hex="${i}"]`);
+    if (!hex) return;
+    const others = [...root.querySelectorAll('[data-hex]')].filter((h) => h !== hex).map((h) => h.value);
+    openColourPop(well, {
+      key: 'bkf-' + i, current: hex.value || '#ffffff', kit: others, kitLabel: 'This kit',
+      onChange: (v) => {
+        hex.value = v;
+        well.style.background = v;
+        hex.dispatchEvent(new Event('input', { bubbles: true }));
+      },
+    });
   });
 }
 

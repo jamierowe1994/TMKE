@@ -250,10 +250,9 @@ import "../../styles/account-sections.css";
           <div class="colour-grid" id="colour-grid">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div class="colour-slot" data-i={i}>
-                <label class="colour-tile">
-                  <input type="color" data-colour-picker={i} value={["#1c1d22","var(--english-violet)","#B9826A","#DFDCDE","#f4f2f1","#FFFFFF"][i]} />
+                <button type="button" class="colour-tile" data-colour-pick={i} aria-label={`Choose colour ${i + 1}`}>
                   <span class="colour-tile-fill" data-colour-fill={i} style={`background:${["#1c1d22","var(--english-violet)","#B9826A","#DFDCDE","#f4f2f1","#FFFFFF"][i]}`}></span>
-                </label>
+                </button>
                 <input type="text" class="colour-hex" data-colour-hex={i} maxlength="7" value={["#1c1d22","var(--english-violet)","#B9826A","#DFDCDE","#f4f2f1","#FFFFFF"][i]} />
                 <input type="text" class="colour-name" data-colour-name={i} placeholder={`Colour 0${i+1}`} />
                 <button type="button" class="colour-clear" data-colour-clear={i} title="Clear">&times;</button>
@@ -627,10 +626,9 @@ import "../../styles/account-sections.css";
       overflow: hidden;
       cursor: pointer;
     }
-    .colour-tile input[type="color"] {
-      position: absolute; inset: 0;
-      opacity: 0; width: 100%; height: 100%; cursor: pointer;
-    }
+    /* A button since 3 Nov: it opens the colour pop-out, not the system picker. */
+    .colour-tile { width: 100%; padding: 0; border: 0; background: transparent; }
+    .colour-tile:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
     .colour-tile-fill {
       position: absolute; inset: 0;
       display: block;
@@ -951,6 +949,7 @@ import "../../styles/account-sections.css";
 
   <script>
     import { isDemo as demoOn, brandKitKey, lock } from "../../lib/demo.js";
+    import { openColourPop } from "../../lib/colour-pop.js";
     /* A demo keeps its kit under its own key for the visit, so the Studio can
        use it. WHICH key depends on which demo: the demo account's is claimable
        by an account created afterwards, the training account's never is. */
@@ -1175,12 +1174,10 @@ import "../../styles/account-sections.css";
       // Hydrate colour slots
       initialColours.forEach(function (c, i) {
         const slot = grid.querySelector('.colour-slot[data-i="' + i + '"]');
-        const picker = slot.querySelector('[data-colour-picker]');
         const fill = slot.querySelector('[data-colour-fill]');
         const hex = slot.querySelector('[data-colour-hex]');
         const name = slot.querySelector('[data-colour-name]');
         if (c) {
-          picker.value = c.hex || "#1c1d22";
           fill.style.background = c.hex || "transparent";
           hex.value = c.hex || "";
           name.value = c.name || "";
@@ -1193,22 +1190,36 @@ import "../../styles/account-sections.css";
         }
       });
 
-      // Colour picker → updates hex + tile (and autosaves)
+      // The tile opens the colour pop-out (3 Nov): the other colours in this
+      // kit first, then recently used, then the picker. Hex + tile follow it.
+      grid.addEventListener("click", function (e) {
+        const tile = e.target.closest('[data-colour-pick]');
+        if (!tile) return;
+        const slot = tile.closest(".colour-slot");
+        const fill = slot.querySelector('[data-colour-fill]');
+        const hex = slot.querySelector('[data-colour-hex]');
+        const others = [...grid.querySelectorAll('[data-colour-hex]')].filter((h) => h !== hex).map((h) => h.value);
+        openColourPop(tile, {
+          key: "profile-colour-" + slot.dataset.i, current: hex.value,
+          kit: others, kitLabel: "Your brand colours",
+          onChange: function (v) {
+            fill.style.background = v;
+            hex.value = v.toUpperCase();
+            slot.classList.remove("is-empty");
+            scheduleSave();
+          },
+        });
+      });
+      // Typing a hex → updates the tile (and autosaves)
       grid.addEventListener("input", function (e) {
         const t = e.target;
         const slot = t.closest(".colour-slot");
         if (!slot) return;
         const fill = slot.querySelector('[data-colour-fill]');
-        const hex = slot.querySelector('[data-colour-hex]');
-        if (t.matches('[data-colour-picker]')) {
-          fill.style.background = t.value;
-          hex.value = t.value.toUpperCase();
-          slot.classList.remove("is-empty");
-        } else if (t.matches('[data-colour-hex]')) {
+        if (t.matches('[data-colour-hex]')) {
           const val = t.value.trim();
           if (/^#?[0-9a-f]{6}$/i.test(val)) {
             const norm = (val.startsWith("#") ? val : "#" + val).toUpperCase();
-            slot.querySelector('[data-colour-picker]').value = norm;
             fill.style.background = norm;
             slot.classList.remove("is-empty");
           }

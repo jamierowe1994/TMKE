@@ -29,7 +29,7 @@
       <div class="dtp-group-head"><span>Accent</span><code data-readout="accent">#371E28</code></div>
       <div class="dtp-swatches" data-target="accent"></div>
       <div class="dtp-custom">
-        <input type="color" data-color="accent" aria-label="Accent colour" />
+        <button type="button" class="dtp-well" data-color="accent" aria-label="Choose accent colour"></button>
         <input type="text" data-hex="accent" maxlength="7" spellcheck="false" placeholder="#371e28" />
       </div>
     </div>
@@ -38,7 +38,7 @@
       <div class="dtp-group-head"><span>Background</span><code data-readout="bg">#F4F2F1</code></div>
       <div class="dtp-swatches" data-target="bg"></div>
       <div class="dtp-custom">
-        <input type="color" data-color="bg" aria-label="Background colour" />
+        <button type="button" class="dtp-well" data-color="bg" aria-label="Choose background colour"></button>
         <input type="text" data-hex="bg" maxlength="7" spellcheck="false" placeholder="#f4f2f1" />
       </div>
     </div>
@@ -85,7 +85,9 @@
   .dtp-sw.is-active { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--english-violet, #371e28); }
 
   .dtp-custom { display: grid; grid-template-columns: 38px 1fr; gap: 7px; }
-  .dtp-custom input[type="color"] { padding: 2px; height: 34px; width: 100%; border: 1px solid rgba(28, 29, 34, 0.14); border-radius: 7px; background: #fff; cursor: pointer; }
+  /* Opens the colour pop-out (3 Nov), not the system picker. */
+  .dtp-well { padding: 0; height: 34px; width: 100%; border: 1px solid rgba(28, 29, 34, 0.14); border-radius: 7px; box-shadow: inset 0 0 0 3px #fff; cursor: pointer; }
+  .dtp-well:hover { border-color: rgba(28, 29, 34, 0.4); }
   .dtp-custom input[type="text"] { font-family: ui-monospace, Menlo, monospace; font-size: 12px; text-transform: uppercase; padding: 8px 10px; border: 1px solid rgba(28, 29, 34, 0.14); border-radius: 7px; color: var(--ink); }
   .dtp-custom input[type="text"]:focus { outline: none; border-color: rgba(28, 29, 34, 0.4); }
 
@@ -101,6 +103,7 @@
 <script>
   import { supabase } from "../../lib/supabase.js";
   import { isAdminUser } from "../../lib/admin-gate.js";
+  import { openColourPop } from "../../lib/colour-pop.js";
 
   const KEY = "tmke-dash-theme";
   const DEFAULT = { accent: "#371e28", bg: "#f4f2f1" };
@@ -151,10 +154,17 @@
         row.querySelectorAll(".dtp-sw").forEach((sw) => sw.addEventListener("click", () => set(target, sw.dataset.c)));
         const colorEl = root.querySelector(`[data-color="${target}"]`);
         const hexEl = root.querySelector(`[data-hex="${target}"]`);
-        colorEl.value = theme[target];
         hexEl.value = theme[target].toUpperCase();
-        colorEl.addEventListener("input", () => set(target, colorEl.value));
-        hexEl.addEventListener("input", () => { let v = hexEl.value.trim(); if (v && v[0] !== "#") v = "#" + v; if (/^#[0-9a-f]{6}$/i.test(v)) set(target, v); });
+        // Wired once: Reset redraws the swatches and used to stack these.
+        if (!colorEl.dataset.wired) {
+          colorEl.dataset.wired = "1";
+          colorEl.addEventListener("click", () => openColourPop(colorEl, {
+            key: "dtp-" + target, current: theme[target],
+            kit: presets, kitLabel: target === "accent" ? "Accents" : "Backgrounds",
+            onChange: (v) => set(target, v.toLowerCase()),
+          }));
+          hexEl.addEventListener("input", () => { let v = hexEl.value.trim(); if (v && v[0] !== "#") v = "#" + v; if (/^#[0-9a-f]{6}$/i.test(v)) set(target, v); });
+        }
       });
       syncUI();
     }
@@ -163,7 +173,7 @@
       ["accent", "bg"].forEach((target) => {
         root.querySelector(`[data-dot="${target}"]`).style.background = theme[target];
         root.querySelector(`[data-readout="${target}"]`).textContent = theme[target].toUpperCase();
-        const colorEl = root.querySelector(`[data-color="${target}"]`); if (colorEl) colorEl.value = theme[target];
+        const colorEl = root.querySelector(`[data-color="${target}"]`); if (colorEl) colorEl.style.background = theme[target];
         const hexEl = root.querySelector(`[data-hex="${target}"]`); if (hexEl && document.activeElement !== hexEl) hexEl.value = theme[target].toUpperCase();
         root.querySelectorAll(`.dtp-swatches[data-target="${target}"] .dtp-sw`).forEach((sw) =>
           sw.classList.toggle("is-active", sw.dataset.c.toLowerCase() === theme[target].toLowerCase()));

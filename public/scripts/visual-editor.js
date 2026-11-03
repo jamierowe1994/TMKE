@@ -373,7 +373,8 @@
       '.tmke-ve-row label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.04em;text-transform:uppercase;opacity:.7;margin-bottom:6px;}',
       '.tmke-ve-row label .val{opacity:1;font-weight:700;text-transform:none;letter-spacing:0;}',
       '.tmke-ve-row input[type=range]{width:100%;accent-color:#9a86b8;}',
-      '.tmke-ve-row input[type=color]{width:100%;height:30px;border:none;background:none;cursor:pointer;}',
+      '.tmke-ve-well{display:block;width:100%;height:30px;padding:0;border:1px solid rgba(255,255,255,.2);border-radius:5px;box-shadow:inset 0 0 0 3px #22232a;cursor:pointer;}',
+      '.tmke-ve-well:hover{border-color:rgba(255,255,255,.5);}',
       '.tmke-ve-row select{width:100%;padding:6px;border-radius:6px;background:#1c1d22;color:#f2efe9;border:1px solid rgba(255,255,255,.18);}',
       '.tmke-ve-row .tmke-ve-text{width:100%;padding:7px;border-radius:6px;background:#1c1d22;color:#f2efe9;border:1px solid rgba(255,255,255,.18);font:12px system-ui,sans-serif;}',
       '[contenteditable=true]{outline:2px solid #9a86b8!important;outline-offset:3px;cursor:text!important;}',
@@ -839,13 +840,33 @@
     });
     parent.appendChild(row);
   }
+  /* A colour well. It opens the colour pop-out the Studio uses (3 Nov) - the
+     brand colours, recently used, then the picker with a hex box - where it
+     opened the operating system's picker. `well.value` reads and sets it as
+     the old <input type="color"> did, so the callers barely change. */
+  function colourWell(key, onPick) {
+    var well = document.createElement('button');
+    well.type = 'button'; well.className = 'tmke-ve-well'; well.title = 'Choose a colour';
+    var val = '#000000';
+    Object.defineProperty(well, 'value', { get: function () { return val; }, set: function (v) { val = v; well.style.background = v; } });
+    well.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!window.TMKEColourPop) return;
+      window.TMKEColourPop.open(well, {
+        key: key, current: val, kitLabel: 'TMKE colours',
+        kit: BRAND_VARS.map(function (b) { return toHex(brandColour(b[0])); }).filter(Boolean),
+        onChange: function (hex) { well.value = hex; onPick(hex); },
+      });
+    });
+    return well;
+  }
   function colourRow(parent, label, prop, sel, cs, isBg) {
     var row = document.createElement('div'); row.className = 'tmke-ve-row';
-    row.innerHTML = '<label>' + label + '</label><input type="color"><div class="tmke-ve-swatches"></div>';
-    var input = row.querySelector('input');
+    row.innerHTML = '<label>' + label + '</label><div class="tmke-ve-swatches"></div>';
+    var input = colourWell('ve-' + prop, function (hex) { setOverride(sel, prop, hex); });
+    row.insertBefore(input, row.querySelector('.tmke-ve-swatches'));
     if (isBg) { var curBg = (overrides[sel] && overrides[sel][prop]) || cs.backgroundColor; input.value = toHex(curBg && curBg !== 'rgba(0, 0, 0, 0)' && curBg !== 'transparent' ? curBg : '#ffffff'); }
     else input.value = (overrides[sel] && overrides[sel][prop]) || rgbToHex(cs.color);
-    input.addEventListener('input', function () { setOverride(sel, prop, input.value); });
     var sw = row.querySelector('.tmke-ve-swatches');
     var choices = (isBg ? [['transparent', 'None'], ['#ffffff', 'White']] : []).concat(BRAND_VARS.map(function (b) { return [brandColour(b[0]), b[1]]; }));
     choices.forEach(function (item) {
@@ -1014,12 +1035,12 @@
       setOverride(sel, 'background-image', 'linear-gradient(' + saved.dir + ',' + saved.c1 + ',' + end + ')');
     };
     selectRow(gg, 'Direction', [['Top → Bottom', 'to bottom'], ['Bottom → Top', 'to top'], ['Left → Right', 'to right'], ['Right → Left', 'to left'], ['Diagonal', '135deg']], saved.dir, function (v) { saved.dir = v; apply(); });
-    var c1Row = document.createElement('div'); c1Row.className = 'tmke-ve-row'; c1Row.innerHTML = '<label>Start colour</label><input type="color">';
-    var c1 = c1Row.querySelector('input'); c1.value = toHex(saved.c1); c1.addEventListener('input', function () { saved.c1 = c1.value; apply(); }); gg.appendChild(c1Row);
+    var c1Row = document.createElement('div'); c1Row.className = 'tmke-ve-row'; c1Row.innerHTML = '<label>Start colour</label>';
+    var c1 = colourWell('ve-grad-1', function (hex) { saved.c1 = hex; apply(); }); c1Row.appendChild(c1); c1.value = toHex(saved.c1); gg.appendChild(c1Row);
     boolToggle(gg, 'Fade to transparent', saved.fade, function (on) { saved.fade = on; apply(); renderPanel(el); });
     if (!saved.fade) {
-      var c2Row = document.createElement('div'); c2Row.className = 'tmke-ve-row'; c2Row.innerHTML = '<label>End colour</label><input type="color">';
-      var c2 = c2Row.querySelector('input'); c2.value = toHex(saved.c2); c2.addEventListener('input', function () { saved.c2 = c2.value; apply(); }); gg.appendChild(c2Row);
+      var c2Row = document.createElement('div'); c2Row.className = 'tmke-ve-row'; c2Row.innerHTML = '<label>End colour</label>';
+      var c2 = colourWell('ve-grad-2', function (hex) { saved.c2 = hex; apply(); }); c2Row.appendChild(c2); c2.value = toHex(saved.c2); gg.appendChild(c2Row);
     }
   }
   function animRows(parent, sel, el) {
@@ -1411,7 +1432,7 @@
   function clearHover() { Array.prototype.forEach.call(document.querySelectorAll('.tmke-ve-hover'), function (n) { n.classList.remove('tmke-ve-hover'); }); }
   function showFloatTag(el) { var t = document.getElementById('tmke-ve-floattag'); if (!t) return; var r = el.getBoundingClientRect(); t.textContent = el.tagName.toLowerCase(); t.style.left = r.left + 'px'; t.style.top = (r.top - 4) + 'px'; t.style.display = 'block'; }
   function hideFloatTag() { var t = document.getElementById('tmke-ve-floattag'); if (t) t.style.display = 'none'; }
-  function isChrome(el) { return !!(el && el.closest && (el.closest('.tmke-ve-bar') || el.closest('.tmke-ve-panel') || el.closest('.tmke-ve-addmenu') || el.closest('.tmke-ve-prebar') || el.closest('#tmke-ve-rulers') || el.closest('#tmke-ve-guides') || el.closest('#tmke-ve-handles') || el.closest('#tmke-ve-lib') || el.id === 'tmke-ve-floattag' || el.id === 'tmke-ve-ghost')); }
+  function isChrome(el) { return !!(el && el.closest && (el.closest('.tmke-ve-bar') || el.closest('.tmke-ve-panel') || el.closest('.tmke-ve-addmenu') || el.closest('.tmke-ve-prebar') || el.closest('#tmke-ve-rulers') || el.closest('#tmke-ve-guides') || el.closest('#tmke-ve-handles') || el.closest('#tmke-ve-lib') || el.closest('.tcp-pop') || el.id === 'tmke-ve-floattag' || el.id === 'tmke-ve-ghost')); }
   function pathLabel(el) { var bits = [], n = el; for (var i = 0; i < 3 && n && n !== document.body; i++) { bits.unshift(n.tagName.toLowerCase()); n = n.parentElement; } return bits.join(' › '); }
 
   /* ---- content helpers ---- */
