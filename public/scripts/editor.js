@@ -15978,19 +15978,29 @@ import { createResizeEngine } from "./resize-engine.js";
   let upMetaState = "loading";            // loading | ready | broken | local
   let upFolder = null;                     // the open folder's id, or null for All uploads
   const upPending = new Map();             // a not-yet-stored upload's { name, folder }
+  /* A file's key is its path in the bucket ("admin-shared/uploads/x.jpg",
+     "<uid>/uploads/x.jpg"), so one library can hold files from more than one
+     folder: the admin Studio's is shared, and an admin's own older uploads
+     filed in its folders show for every admin. Notes written on 3 Nov before
+     that were keyed by the file name alone, and are still read. */
   function upKey(src) {
     if (typeof src !== "string" || src.startsWith("data:")) return null;
-    const m = src.split("?")[0].match(/\/uploads\/([^/]+)$/);
+    const m = src.split("?")[0].match(/\/calendar-assets\/(.+\/uploads\/[^/]+)$/);
     return m ? decodeURIComponent(m[1]) : null;
   }
+  function upLegacyKey(k) { return k ? k.split("/").pop() : null; }
   function upItem(src) {
     const k = upKey(src);
-    return (k && upMeta.items[k]) || upPending.get(src) || {};
+    return (k && (upMeta.items[k] || upMeta.items[upLegacyKey(k)])) || upPending.get(src) || {};
   }
   function upFolderOf(src) {
     const f = upItem(src).folder;
     return f && upMeta.folders.some((x) => x.id === f) ? f : null;
   }
+  /* Saving re-reads the latest notes and lays this session's changes on
+     top, so two admins filing at once don't undo each other: only what was
+     changed here is written. */
+  const upDirty = { items: new Set(), folders: new Set(), goneFolders: new Set(), goneItems: new Set() };
   let _upSaveT = 0;
   function upSave() {
     if (upMetaState !== "ready") return;   // never write over a library we could not read
@@ -15999,13 +16009,39 @@ import { createResizeEngine } from "./resize-engine.js";
       const api = window.__TMKE_UPLOADS_META__;
       if (!api) return;
       let ok = false;
-      try { ok = await api.save(upMeta); } catch (_) { ok = false; }
+      try {
+        const fresh = await api.get();
+        if (!fresh || !fresh.ok) throw new Error("read");
+        const base = fresh.data && Array.isArray(fresh.data.folders) && fresh.data.items ? fresh.data : { v: 1, folders: [], items: {} };
+        base.folders = base.folders.filter((f) => !upDirty.goneFolders.has(f.id));
+        upDirty.folders.forEach((id) => {
+          const mine = upMeta.folders.find((f) => f.id === id);
+          if (!mine) return;
+          const at = base.folders.findIndex((f) => f.id === id);
+          if (at > -1) base.folders[at] = mine; else base.folders.unshift(mine);
+        });
+        upDirty.goneItems.forEach((k) => { delete base.items[k]; });
+        upDirty.items.forEach((k) => { if (upMeta.items[k]) base.items[k] = upMeta.items[k]; });
+        Object.keys(base.items).forEach((k) => { if (base.items[k] && upDirty.goneFolders.has(base.items[k].folder)) base.items[k].folder = null; });
+        ok = await api.save(base);
+        if (ok) {
+          upMeta = base;
+          upDirty.items.clear(); upDirty.folders.clear(); upDirty.goneFolders.clear(); upDirty.goneItems.clear();
+          renderUploadsSoon();
+        }
+      } catch (_) { ok = false; }
       if (!ok) toast("Couldn't save your folders. Check your connection and try again.", 5000);
     }, 400);
   }
   function upSetItem(src, patch) {
     const k = upKey(src);
-    if (k) { upMeta.items[k] = Object.assign({}, upMeta.items[k], patch); upSave(); }
+    if (k) {
+      // The file's address goes with its note, so another admin's library
+      // can show it even though it isn't in their listing.
+      upMeta.items[k] = Object.assign({}, upMeta.items[upLegacyKey(k)], upMeta.items[k], patch, { url: src });
+      upDirty.items.add(k);
+      upSave();
+    }
     else upPending.set(src, Object.assign({}, upPending.get(src), patch));
   }
 
@@ -16041,7 +16077,7 @@ import { createResizeEngine } from "./resize-engine.js";
   async function upDelete(src) {
     state.uploads = state.uploads.filter((u) => u !== src);
     const k = upKey(src);
-    if (k && upMeta.items[k]) { delete upMeta.items[k]; upSave(); }
+    if (k && upMeta.items[k]) { delete upMeta.items[k]; upDirty.goneItems.add(k); upDirty.items.delete(k); upSave(); }
     upPending.delete(src);
     renderUploads();
     if (typeof window.__TMKE_UPLOAD_DELETE__ === "function") {
@@ -16156,6 +16192,7 @@ import { createResizeEngine } from "./resize-engine.js";
       if (name) {
         const f = { id: uid("fld"), name };
         upMeta.folders.unshift(f);
+        upDirty.folders.add(f.id);
         if (thenFile) upSetItem(thenFile, { folder: f.id });
         upSave();
       }
@@ -16165,12 +16202,13 @@ import { createResizeEngine } from "./resize-engine.js";
   function upRenameFolder(f) {
     const tile = [...upFoldersEl.children].find((c) => c.querySelector(".ed-up-folder-name") && c.querySelector(".ed-up-folder-name").textContent === f.name);
     if (tile) tile.remove();
-    upNameInPlace(f.name, (name) => { if (name && name !== f.name) { f.name = name; upSave(); } renderUploads(); });
+    upNameInPlace(f.name, (name) => { if (name && name !== f.name) { f.name = name; upDirty.folders.add(f.id); upSave(); } renderUploads(); });
   }
   function upDeleteFolder(f) {
     const n = state.uploads.filter((s2) => upFolderOf(s2) === f.id).length;
     if (n && !window.confirm("Delete “" + f.name + "”? Its " + (n === 1 ? "image goes" : n + " images go") + " back to All uploads.")) return;
     upMeta.folders = upMeta.folders.filter((x) => x.id !== f.id);
+    upDirty.goneFolders.add(f.id); upDirty.folders.delete(f.id);
     Object.keys(upMeta.items).forEach((k) => { if (upMeta.items[k].folder === f.id) upMeta.items[k].folder = null; });
     upPending.forEach((v) => { if (v.folder === f.id) v.folder = null; });
     if (upFolder === f.id) upFolder = null;
@@ -16238,7 +16276,12 @@ import { createResizeEngine } from "./resize-engine.js";
         if (typeof window.__TMKE_UPLOAD_SAVE__ !== "function") return;
         let url = null;
         try { url = await window.__TMKE_UPLOAD_SAVE__(src); } catch (_) {}
-        if (!url) return;   // signed out / upload failed → stays in-memory
+        if (!url) {
+          // Signed out, or the upload failed: it stays in this design only.
+          // In the shared admin library that would otherwise go unnoticed.
+          if (window.__TMKE_UPLOADS_SHARED__) toast("Couldn't add \u201c" + (name || "this image") + "\u201d to the shared admin uploads. It's in this design only for now.", 6000);
+          return;
+        }
         const i = state.uploads.indexOf(src);
         if (i > -1) state.uploads[i] = url;
         const it = upPending.get(src) || { name, folder };
@@ -16261,6 +16304,12 @@ import { createResizeEngine } from "./resize-engine.js";
       upMetaState = meta.local ? "local" : "ready";
     } else upMetaState = "broken";
     (urls || []).forEach((u) => { if (!state.uploads.includes(u)) state.uploads.push(u); });
+    Object.keys(upMeta.items || {}).forEach((k) => {
+      const it = upMeta.items[k];
+      if (it && it.url && it.folder && !state.uploads.includes(it.url)) state.uploads.push(it.url);
+    });
+    const sharedNote = $("ed-up-shared");
+    if (sharedNote) sharedNote.hidden = !window.__TMKE_UPLOADS_SHARED__;
     renderUploads();
   })();
 

@@ -978,6 +978,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         <div class="ed-stock-search">
           <input type="search" id="ed-upload-q" placeholder="Search your uploads…" autocomplete="off" />
         </div>
+        <p class="ed-brand-hint" id="ed-up-shared" hidden>Shared with everyone in the admin: uploads and folders.</p>
         <label class="ed-upload-drop">
           <input type="file" id="ed-upload-input" accept="image/*" multiple hidden />
           <strong>Click to upload</strong>
@@ -6286,6 +6287,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     // so no new table or migration is needed. editor.js calls these hooks; they
     // no-op when signed out (uploads then behave as before, in-memory only).
     const UPLOAD_DIR = 'uploads';
+    /* The admin Studio shares one uploads library between every admin
+       (Dani, 3 Nov): new uploads and the folders' notes go to admin-shared/,
+       which any admin can write (supabase/studio_admin_shared_uploads.sql).
+       An admin's own older uploads still list beside them. Members keep
+       their own <uid>/uploads/. */
+    const UPLOADS_SHARED = new URLSearchParams(location.search).get('mode') === 'admin';
+    const SHARED_DIR = 'admin-shared';
+    window.__TMKE_UPLOADS_SHARED__ = UPLOADS_SHARED;
     function _uploadKey(uid, dataUrl, mime) {
       let h = 5381;
       for (let i = 0; i < dataUrl.length; i++) h = ((h * 33) ^ dataUrl.charCodeAt(i)) >>> 0;
@@ -6299,7 +6308,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
         if (!m) return null;
         const mime = m[1], b64 = m[2];
-        const key = _uploadKey(uid, dataUrl, mime);
+        const key = _uploadKey(UPLOADS_SHARED ? SHARED_DIR : uid, dataUrl, mime);
         const bin = atob(b64), bytes = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
         const { error } = await supabase.storage.from('calendar-assets')
@@ -6313,13 +6322,18 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       try {
         const uid = await _externGetUid();
         if (!uid) return [];
-        const { data, error } = await supabase.storage.from('calendar-assets')
-          .list(uid + '/' + UPLOAD_DIR, { limit: 200, sortBy: { column: 'created_at', order: 'desc' } });
-        if (error || !data) return [];
-        return data.filter((f) => f && f.name && !f.name.startsWith('.')).map((f) => {
-          const { data: pub } = supabase.storage.from('calendar-assets').getPublicUrl(uid + '/' + UPLOAD_DIR + '/' + f.name);
-          return pub && pub.publicUrl;
-        }).filter(Boolean);
+        // Newest first across both folders in the admin Studio.
+        const dirs = UPLOADS_SHARED ? [SHARED_DIR + '/' + UPLOAD_DIR, uid + '/' + UPLOAD_DIR] : [uid + '/' + UPLOAD_DIR];
+        const lists = await Promise.all(dirs.map(async (dir) => {
+          const { data, error } = await supabase.storage.from('calendar-assets')
+            .list(dir, { limit: 200, sortBy: { column: 'created_at', order: 'desc' } });
+          if (error || !data) return [];
+          return data.filter((f) => f && f.name && !f.name.startsWith('.')).map((f) => {
+            const { data: pub } = supabase.storage.from('calendar-assets').getPublicUrl(dir + '/' + f.name);
+            return pub && pub.publicUrl ? { url: pub.publicUrl, at: f.created_at || '' } : null;
+          }).filter(Boolean);
+        }));
+        return lists.flat().sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).map((x) => x.url);
       } catch (_) { return []; }
     };
     /* The uploads library's own notes (editor.js): each file's original name
@@ -6332,7 +6346,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       async get() {
         const uid = await _externGetUid();
         if (!uid) return { ok: true, local: true };
-        const { data, error } = await supabase.storage.from('calendar-assets').download(uid + '/' + UPLOAD_DIR + '/.library.json');
+        const { data, error } = await supabase.storage.from('calendar-assets').download((UPLOADS_SHARED ? SHARED_DIR : uid) + '/' + UPLOAD_DIR + '/.library.json');
         if (error) {
           const st = error.status || error.statusCode || (error.originalError && error.originalError.status);
           if (st == 404 || st == 400 || /not.?found/i.test(error.message || '')) return { ok: true, data: null };
@@ -6345,7 +6359,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (!uid) return false;
         const body = new Blob([JSON.stringify(meta)], { type: 'application/json' });
         const { error } = await supabase.storage.from('calendar-assets')
-          .upload(uid + '/' + UPLOAD_DIR + '/.library.json', body, { upsert: true, contentType: 'application/json', cacheControl: '0' });
+          .upload((UPLOADS_SHARED ? SHARED_DIR : uid) + '/' + UPLOAD_DIR + '/.library.json', body, { upsert: true, contentType: 'application/json', cacheControl: '0' });
         return !error;
       },
     };
@@ -6353,9 +6367,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       try {
         const uid = await _externGetUid();
         if (!uid || typeof url !== 'string') return false;
-        const marker = '/' + uid + '/' + UPLOAD_DIR + '/';
-        const i = url.indexOf(marker);
-        if (i < 0) return false;   // not one of this member's library files
+        // Their own uploads, and in the admin Studio the shared ones.
+        let marker = '/' + uid + '/' + UPLOAD_DIR + '/';
+        let i = url.indexOf(marker);
+        if (i < 0 && UPLOADS_SHARED) { marker = '/' + SHARED_DIR + '/' + UPLOAD_DIR + '/'; i = url.indexOf(marker); }
+        if (i < 0) return false;   // not a file this person can remove
         const key = decodeURIComponent(url.slice(i + 1).split('?')[0]);
         const { error } = await supabase.storage.from('calendar-assets').remove([key]);
         return !error;

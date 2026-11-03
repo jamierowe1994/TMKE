@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-Nothing waiting.
+- [ ] supabase/studio_admin_shared_uploads.sql — one uploads library for every admin in the admin Studio: uploads and folders shared, so Sam sees the folders you make; members' uploads stay their own (3 Nov)
 
 ## Done
 
