@@ -1095,7 +1095,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
               <div class="ed-bg-tint-row">
                 <button type="button" class="ed-sw" data-color="#000000" style="background:#000000" title="Black"></button>
                 <button type="button" class="ed-sw" data-color="#FFFFFF" style="background:#FFFFFF; border:1px solid rgba(0,0,0,0.12)" title="White"></button>
-                <label class="ed-sw ed-bg-tint-custom" title="Custom fade colour"><input type="color" id="ed-bg-tint-color" value="#000000" /></label>
+                <button type="button" class="ed-sw ed-bg-tint-custom" id="ed-bg-tint-color" data-cpop-key="bg-tint" title="Custom fade colour"></button>
               </div>
             </div>
           </div>
@@ -3668,7 +3668,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     /* Circular colour swatch — Canva-style. Clicking opens the native
        colour picker via a transparent <input type="color"> on top. */
     .ed-circle-swatch {
-      position: relative;
+      position: relative; padding: 0;
       width: 28px; height: 28px;
       border-radius: 50%;
       border: 2px solid rgba(28,29,34,0.18);
@@ -3816,9 +3816,10 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       position: relative; overflow: hidden; border: 1px solid rgba(28,29,34,0.18);
       display: inline-block; aspect-ratio: auto;
     }
-    .ed-bg-tint-row .ed-bg-tint-custom input[type="color"] {
-      position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px);
-      border: 0; padding: 0; background: none; cursor: pointer;
+    /* Until a colour is chosen it shows the spectrum, so it reads as "any colour". */
+    .ed-bg-tint-row .ed-bg-tint-custom {
+      cursor: pointer;
+      background: conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
     }
     /* Sections give colour and image a visible edge between them. */
     .ed-bg-sec + .ed-bg-sec { margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(28,29,34,0.09); }
@@ -4086,6 +4087,36 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       font-family: var(--sans); font-size: var(--ws-t-row); border: 1px solid rgba(28,29,34,0.2); border-radius: 8px; background: var(--paper);
     }
     .ed-cp-hex:focus { outline: none; border-color: var(--english-violet); }
+    /* The colour pop-out (editor.js toggleColorPop): kit colours, one line of
+       recently used, then the picker, opened beside the control. Above the
+       popovers it opens from. */
+    .ed-cpop {
+      position: fixed; z-index: 210; width: 272px; box-sizing: border-box;
+      background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 6px;
+      box-shadow: 0 18px 50px -10px rgba(28,29,34,0.25); padding: 14px 14px 2px;
+    }
+    .ed-cpop .ed-cp-sec { margin-bottom: 14px; }
+    .ed-cp-grid.ed-cpop-line { flex-wrap: nowrap; overflow: hidden; padding: 3px; margin: -3px; }
+    /* Custom gradient as a drop-down in the colour panel. */
+    .ed-cp-drop > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+    .ed-cp-drop > summary::-webkit-details-marker { display: none; }
+    .ed-cp-drop > summary h5 { margin: 0; }
+    .ed-cp-drop > summary::after {
+      content: ""; width: 7px; height: 7px; margin-right: 4px;
+      border-right: 1.5px solid rgba(28,29,34,0.5); border-bottom: 1.5px solid rgba(28,29,34,0.5);
+      transform: rotate(45deg) translateY(-2px); transition: transform 0.2s;
+    }
+    .ed-cp-drop[open] > summary { margin-bottom: 9px; }
+    .ed-cp-drop[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+    /* The control that opens it: a bar of the colour, where the system
+       picker's square used to sit. */
+    .ed-cpop-sw {
+      display: block; width: 100%; height: 32px; padding: 0; cursor: pointer;
+      border: 1px solid rgba(28,29,34,0.15); border-radius: 4px;
+      box-shadow: inset 0 0 0 3px #fff;
+    }
+    .ed-cpop-sw:hover { border-color: var(--english-violet); }
+    .ed-cpop-sw:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
     .ed-cp-sec { margin-bottom: 18px; }
     .ed-cp-sec h5 { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 9px; }
     .ed-cp-grid { display: flex; flex-wrap: wrap; gap: 7px; }

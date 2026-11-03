@@ -685,7 +685,8 @@ import { createResizeEngine } from "./resize-engine.js";
       pop.hidden ? open() : close();
     });
     document.addEventListener("click", function (e) {
-      if (!pop.hidden && !pop.contains(e.target) && !wrap.contains(e.target)) close();
+      if (!pop.hidden && !pop.contains(e.target) && !wrap.contains(e.target) &&
+          !(e.target.closest && e.target.closest(".ed-cpop"))) close();
     });
     document.addEventListener("keydown", function (e) {
       if (!pop.hidden && e.key === "Escape") close();
@@ -1146,23 +1147,100 @@ import { createResizeEngine } from "./resize-engine.js";
     return wrap;
   }
 
+  /* ---------- The colour pop-out ----------
+     For a colour chosen inside a small control (an effect, a stroke, a
+     gradient stop, the fade behind a photo): the kit's colours, one line of
+     recently used, then the picker with its hex box. It opens beside the
+     control rather than taking over the left panel, and every one of these
+     used to open the operating system's own picker (Dani, 3 Nov: "It doesn't
+     need to open the left nav panel").
+
+     One at a time, on <body>, so it outlives the context bar being rebuilt
+     under it while you drag. o.current is the colour now; o.onChange(hex)
+     fires live, o.onCommit(hex) once per choice (history and Recently used).
+     o.key names the control, so pressing it again closes the pop-out. */
+  let _cpop = null;
+  // A one-line row of swatches shows only the ones that fit whole.
+  function trimSwatchLine(line) {
+    if (!line) return;
+    const right = line.getBoundingClientRect().right;
+    [...line.children].forEach((c) => { if (c.getBoundingClientRect().right > right + 0.5) c.remove(); });
+  }
+  function closeColorPop() {
+    if (!_cpop) return;
+    _cpop.el.remove();
+    _cpop = null;
+  }
+  function toggleColorPop(anchor, o) {
+    if (_cpop && _cpop.key === o.key) { closeColorPop(); return; }
+    closeColorPop();
+    const current = normHex(o.current);
+    const brand = (BRAND && Array.isArray(BRAND.colors)) ? BRAND.colors.map((c) => normHex(c && (c.hex || c))).filter(Boolean) : [];
+    const brandName = (BRAND && BRAND.company) ? (BRAND.company + "’s kit") : "Kit colours";
+    // One line: as many as fit across the pop-out.
+    const recent = loadRecentColors();
+    const sw = (c) => '<button type="button" class="ed-cp-sw' + (c === current ? " is-current" : "") + '" data-hex="' + c + '" style="background:' + c + '" title="' + c + '"></button>';
+    const pop = document.createElement("div");
+    pop.className = "ed-cpop";
+    pop.innerHTML =
+      '<div class="ed-cp-sec"><h5>' + escapeHtml(brandName) + '</h5>' +
+        (brand.length ? '<div class="ed-cp-grid">' + brand.map(sw).join("") + '</div>' : '<p class="ed-cp-empty">No brand colours saved.</p>') + '</div>' +
+      (recent.length ? '<div class="ed-cp-sec"><h5>Recently used</h5><div class="ed-cp-grid ed-cpop-line">' + recent.map(sw).join("") + '</div></div>' : "") +
+      '<div class="ed-cp-sec"><h5>Add a colour</h5><div data-mount="picker"></div></div>';
+    const picker = buildColorPicker(current || "#000000",
+      function (hex) { o.onChange(hex); },
+      function (hex) { pushRecentColor(hex); if (o.onCommit) o.onCommit(hex); });
+    pop.querySelector('[data-mount="picker"]').appendChild(picker);
+    pop.addEventListener("click", function (e) {
+      const b = e.target.closest(".ed-cp-sw");
+      if (!b) return;
+      const hex = b.dataset.hex;
+      pop.querySelectorAll(".ed-cp-sw.is-current").forEach((x) => x.classList.remove("is-current"));
+      b.classList.add("is-current");
+      picker.setColor(hex);
+      o.onChange(hex);
+      pushRecentColor(hex);
+      if (o.onCommit) o.onCommit(hex);
+    });
+    document.body.appendChild(pop);
+    trimSwatchLine(pop.querySelector(".ed-cpop-line"));
+    // Under the control, or above it when there's no room below; inside the window.
+    const r = anchor.getBoundingClientRect();
+    const w = pop.offsetWidth, h = pop.offsetHeight;
+    let top = r.bottom + 6;
+    if (top + h > window.innerHeight - 12) top = Math.max(12, r.top - h - 6);
+    pop.style.top = top + "px";
+    pop.style.left = Math.max(12, Math.min(r.left, window.innerWidth - w - 12)) + "px";
+    _cpop = { el: pop, key: o.key };
+  }
+  // Pressing anywhere else closes it; pressing its own control is left to
+  // that control's click, which closes it (toggle).
+  document.addEventListener("pointerdown", function (e) {
+    if (!_cpop || !e.target || !e.target.closest) return;
+    if (e.target.closest(".ed-cpop")) return;
+    const own = e.target.closest("[data-cpop-key]");
+    if (own && own.getAttribute("data-cpop-key") === _cpop.key) return;
+    closeColorPop();
+  }, true);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeColorPop(); });
+
   function circleColorInput(initialHex, onChange, title) {
-    const wrap = document.createElement("label");
+    const wrap = document.createElement("button");
+    wrap.type = "button";
     wrap.className = "ed-circle-swatch";
     wrap.title = title || "Colour";
-    wrap.style.background = initialHex || "#000000";
-
-    const input = document.createElement("input");
-    input.type = "color";
-    input.value = rgbHex(initialHex || "#000000");
-    wrap.appendChild(input);
-
-    input.addEventListener("input", function () {
-      wrap.style.background = input.value;
-      onChange(input.value);
-      fullRender();
+    const key = "circle-" + (title || "colour");
+    wrap.setAttribute("data-cpop-key", key);
+    let cur = initialHex || "#000000";
+    wrap.style.background = cur;
+    wrap.addEventListener("click", function (e) {
+      e.stopPropagation();
+      toggleColorPop(wrap, {
+        key: key, current: cur,
+        onChange: function (hex) { cur = hex; wrap.style.background = hex; onChange(hex); fullRender(); },
+        onCommit: function () { pushHistory(); },
+      });
     });
-    input.addEventListener("change", function () { pushHistory(); });
     return wrap;
   }
 
@@ -1475,7 +1553,7 @@ import { createResizeEngine } from "./resize-engine.js";
         '<button type="button" class="ed-cpg-add" data-cpg="add" title="Add a colour">+</button>' +
       '</div>' +
       '<div class="ed-cpg-row">' +
-        '<input type="color" class="ed-cpg-color" data-cpg="selColor" value="' + (selStop.color === "transparent" ? "#000000" : selStop.color) + '">' +
+        '<button type="button" class="ed-cpg-color" data-cpg="selColor" data-cpop-key="cpg-stop" title="Choose a colour" style="background:' + (selStop.color === "transparent" ? "#000000" : selStop.color) + '"></button>' +
         '<input type="text" class="ed-cpg-hex" data-cpg="selHex" value="' + (selStop.color === "transparent" ? "#000000" : selStop.color) + '">' +
         '<button type="button" class="ed-cpg-del" data-cpg="del"' + (d.stops.length <= 2 ? " disabled" : "") + ' title="Remove this colour">&times;</button>' +
       '</div>' +
@@ -1534,38 +1612,7 @@ import { createResizeEngine } from "./resize-engine.js";
     try { localStorage.setItem("tmke.recentColors", JSON.stringify(list)); } catch (_) {}
   }
 
-  // Sample dominant colours from the design's imagery (background image + image /
-  // frame elements). Cross-origin images are loaded anonymously; a tainted draw
-  // just yields no colours for that source.
-  async function extractPhotoColors() {
-    const srcs = [];
-    if (state.canvas.backgroundImage) srcs.push(state.canvas.backgroundImage);
-    state.elements.forEach((el) => { if ((el.type === "image" || el.type === "frame") && el.src) srcs.push(el.src); });
-    const uniq = srcs.filter((s, i) => srcs.indexOf(s) === i).slice(0, 3);
-    const buckets = {};
-    for (const src of uniq) {
-      try {
-        const img = await loadImage(src);
-        const c = document.createElement("canvas");
-        c.width = 40; c.height = 40;
-        const ctx = c.getContext("2d");
-        ctx.drawImage(img, 0, 0, 40, 40);
-        const data = ctx.getImageData(0, 0, 40, 40).data;
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i + 3] < 128) continue;
-          const r = data[i] & 0xE0, g = data[i + 1] & 0xE0, b = data[i + 2] & 0xE0;
-          const key = r + "," + g + "," + b;
-          buckets[key] = (buckets[key] || 0) + 1;
-        }
-      } catch (_) { /* tainted / failed load — skip */ }
-    }
-    const toHex = (n) => ("0" + n.toString(16)).slice(-2);
-    return Object.entries(buckets)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 12)
-      .map(([k]) => { const [r, g, b] = k.split(",").map(Number); return ("#" + toHex(r) + toHex(g) + toHex(b)).toUpperCase(); });
-  }
-
+  let _cpGradOpen = false;     // the Custom gradient drop-down, open or shut
   function closeColorPanel() {
     _openColorKey = null;
     const panel = document.getElementById("ed-colorpanel");
@@ -1620,7 +1667,6 @@ import { createResizeEngine } from "./resize-engine.js";
 
        Hex throughout: it is what a brand guideline is written in and what gets
        pasted between tools. */
-    var _cpFull = location.search.indexOf("mode=admin") !== -1;
     panel.innerHTML =
       '<div class="ed-cp-head"><span class="ed-cp-title">' + (opts.title || "Colour") + '</span><button class="ed-cp-close" title="Close">&times;</button></div>' +
       '<div class="ed-cp-scroll">' +
@@ -1630,16 +1676,18 @@ import { createResizeEngine } from "./resize-engine.js";
         (panel._onSolid
           ? sec(brandName, brand.length ? grid(brand.map(swHtml)) : '<p class="ed-cp-empty">No brand colours saved.</p>') +
             sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') +
-            (recent.length ? sec("Recently used", grid(recent.map(swHtml))) : "") +
-            (_cpFull ? sec("Photo colours", '<div class="ed-cp-grid" data-photo><p class="ed-cp-empty">Reading photos…</p></div>') : "") +
+            // One line of them (Dani, 3 Nov: the panel was "crazy busy").
+            (recent.length ? sec("Recently used", grid(recent.map(swHtml), " ed-cpop-line")) : "") +
             sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) +
             sec("Add a colour", '<div data-mount="picker"></div>')
           : "") +
         (panel._onGradient ? sec("Gradients", grid(CP_DEFAULT_GRADS.map(gradHtml), " ed-cp-grid--grad")) : "") +
-        (panel._onGradient ? sec("Custom gradient", cpGradEditorHtml(panel._gradDraft)) : "") +
+        // Folded away until asked for, and left as you last left it.
+        (panel._onGradient ? '<details class="ed-cp-sec ed-cp-drop"' + (_cpGradOpen ? " open" : "") + '><summary><h5>Custom gradient</h5></summary>' + cpGradEditorHtml(panel._gradDraft) + '</details>' : "") +
       '</div>';
 
     panel.hidden = false;
+    trimSwatchLine(panel.querySelector(".ed-cpop-line"));
 
     // The picker is built rather than templated - it carries its own drag
     // handlers and needs the live value back.
@@ -1652,12 +1700,8 @@ import { createResizeEngine } from "./resize-engine.js";
       ));
     }
 
-    // Async photo colours fill in when ready.
-    extractPhotoColors().then((cols) => {
-      const slot = panel.querySelector("[data-photo]");
-      if (!slot) return;
-      slot.innerHTML = cols.length ? cols.map(swHtml).join("") : '<p class="ed-cp-empty">No photos in this design.</p>';
-    });
+    const drop = panel.querySelector(".ed-cp-drop");
+    if (drop) drop.addEventListener("toggle", function () { _cpGradOpen = drop.open; });
   }
 
   // One-time delegated wiring for the colour panel (its contents are rebuilt
@@ -1687,7 +1731,6 @@ import { createResizeEngine } from "./resize-engine.js";
         if (stop.color === "transparent") stop.color = "#000000";
       }
       if (stop.color !== "transparent") {
-        const c = get("selColor"); if (c && c.value) stop.color = c.value.toUpperCase();
         const h = get("selHex"); if (h) { const nh = normHex(h.value); if (nh) stop.color = nh; }
       }
       const pos = get("selPos"); if (pos) stop.pos = +pos.value;
@@ -1710,6 +1753,28 @@ import { createResizeEngine } from "./resize-engine.js";
     panel.addEventListener("click", (e) => {
       if (e.target.closest(".ed-cp-close")) { closeColorPanel(); return; }
       const d = panel._gradDraft;
+      // The selected stop's colour: the pop-out, with the hex field beside
+      // it kept in step (it was the system picker).
+      const stopColor = e.target.closest('[data-cpg="selColor"]');
+      if (stopColor && d) {
+        e.stopPropagation();
+        const st0 = cpSelStop();
+        toggleColorPop(stopColor, {
+          key: "cpg-stop", current: st0 && st0.color !== "transparent" ? st0.color : "#000000",
+          onChange: function (hex) {
+            const stop = cpSelStop(); if (!stop) return;
+            stop.color = hex.toUpperCase();
+            const root = cpRoot();
+            const hx = root && root.querySelector('[data-cpg="selHex"]'); if (hx) hx.value = stop.color;
+            const sel = root && root.querySelector(".ed-cpg-stop.is-sel"); if (sel) sel.style.background = stop.color;
+            stopColor.style.background = stop.color;
+            cpRefresh();
+          },
+          // Onto the design once per choice, as the system picker's release did.
+          onCommit: function () { cpCommit(); },
+        });
+        return;
+      }
       // Style preset thumbnail → set type + angle.
       const styleBtn = e.target.closest(".ed-cpg-style");
       if (styleBtn && d) {
@@ -4486,8 +4551,9 @@ import { createResizeEngine } from "./resize-engine.js";
     const tb = el.textBg;
     if (tb && tb.enabled) {
       inner.style.backgroundColor = tb.color || "#FFE066";
-      inner.style.padding = (tb.padY || 6) + "px " + (tb.padX || 12) + "px";
-      inner.style.borderRadius = (tb.radius || 6) + "px";
+      // 0 is a setting, not a gap: "|| 6" put the corners back (Dani, 3 Nov).
+      inner.style.padding = (tb.padY != null ? tb.padY : 6) + "px " + (tb.padX != null ? tb.padX : 12) + "px";
+      inner.style.borderRadius = (tb.radius != null ? tb.radius : 6) + "px";
       inner.style.boxDecorationBreak = "clone";
       inner.style.webkitBoxDecorationBreak = "clone";
       // If gradient text is also on, the gradient background needs to stay
@@ -8601,7 +8667,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (el.textBg && el.textBg.enabled) {
       const padX = el.textBg.padX != null ? el.textBg.padX : 12;
       const padY = el.textBg.padY != null ? el.textBg.padY : 6;
-      const radius = el.textBg.radius || 0;
+      const radius = el.textBg.radius != null ? el.textBg.radius : 6;   // as on the canvas
       ctx.save();
       ctx.fillStyle = el.textBg.color || "#FFE066";
       let yy = vOffsetFor(lines.length);
@@ -11980,7 +12046,7 @@ import { createResizeEngine } from "./resize-engine.js";
             '<div class="ed-props-field"><label>Blur</label><input type="range" min="0" max="80" step="1" data-fx="shadow-blur" value="' + sb + '"></div>' +
             '<div class="ed-props-field"><label>Intensity</label><input type="range" min="0" max="100" step="1" data-fx="shadow-opacity" value="' + so + '"></div>' +
           '</div>' +
-          '<div class="ed-props-field"><label>Colour</label><input type="color" data-fx="shadow-color" value="' + sc + '"></div>' +
+          '<div class="ed-props-field"><label>Colour</label><button type="button" class="ed-cpop-sw" data-fx-color="shadow-color" data-cpop-key="fx-shadow-color" title="Choose a colour" style="background:' + sc + '"></button></div>' +
         '</div>';
 
     if (isText) {
@@ -11990,7 +12056,7 @@ import { createResizeEngine } from "./resize-engine.js";
         '<div class="ed-fx-controls" data-fx-group="outline"' + (og.width > 0 ? "" : ' hidden') + '>' +
           '<div class="ed-props-row">' +
             '<div class="ed-props-field"><label>Width</label><input type="range" min="0" max="20" step="1" data-fx="outline-width" value="' + (og.width || 0) + '"></div>' +
-            '<div class="ed-props-field"><label>Colour</label><input type="color" data-fx="outline-color" value="' + rgbHex(og.color || "#1c1d22") + '"></div>' +
+            '<div class="ed-props-field"><label>Colour</label><button type="button" class="ed-cpop-sw" data-fx-color="outline-color" data-cpop-key="fx-outline-color" title="Choose a colour" style="background:' + rgbHex(og.color || "#1c1d22") + '"></button></div>' +
           '</div>' +
         '</div>';
 
@@ -11999,12 +12065,12 @@ import { createResizeEngine } from "./resize-engine.js";
         '<label class="ed-fx-toggle"><input type="checkbox" data-fx="bg-enabled"' + (bg.enabled ? " checked" : "") + '><span>Background</span></label>' +
         '<div class="ed-fx-controls" data-fx-group="bg"' + (bg.enabled ? "" : ' hidden') + '>' +
           '<div class="ed-props-row">' +
-            '<div class="ed-props-field"><label>Colour</label><input type="color" data-fx="bg-color" value="' + rgbHex(bg.color || "#FFE066") + '"></div>' +
-            '<div class="ed-props-field"><label>Roundness</label><input type="range" min="0" max="80" step="1" data-fx="bg-radius" value="' + (bg.radius || 6) + '"></div>' +
+            '<div class="ed-props-field"><label>Colour</label><button type="button" class="ed-cpop-sw" data-fx-color="bg-color" data-cpop-key="fx-bg-color" title="Choose a colour" style="background:' + rgbHex(bg.color || "#FFE066") + '"></button></div>' +
+            '<div class="ed-props-field"><label>Roundness</label><input type="range" min="0" max="80" step="1" data-fx="bg-radius" value="' + (bg.radius != null ? bg.radius : 6) + '"></div>' +
           '</div>' +
           '<div class="ed-props-row">' +
-            '<div class="ed-props-field"><label>Spread X</label><input type="range" min="0" max="60" step="1" data-fx="bg-padX" value="' + (bg.padX || 12) + '"></div>' +
-            '<div class="ed-props-field"><label>Spread Y</label><input type="range" min="0" max="60" step="1" data-fx="bg-padY" value="' + (bg.padY || 6) + '"></div>' +
+            '<div class="ed-props-field"><label>Spread X</label><input type="range" min="0" max="60" step="1" data-fx="bg-padX" value="' + (bg.padX != null ? bg.padX : 12) + '"></div>' +
+            '<div class="ed-props-field"><label>Spread Y</label><input type="range" min="0" max="60" step="1" data-fx="bg-padY" value="' + (bg.padY != null ? bg.padY : 6) + '"></div>' +
           '</div>' +
         '</div>';
 
@@ -12013,8 +12079,8 @@ import { createResizeEngine } from "./resize-engine.js";
         '<label class="ed-fx-toggle"><input type="checkbox" data-fx="grad-enabled"' + (g.enabled ? " checked" : "") + '><span>Gradient fill</span></label>' +
         '<div class="ed-fx-controls" data-fx-group="grad"' + (g.enabled ? "" : ' hidden') + '>' +
           '<div class="ed-props-row">' +
-            '<div class="ed-props-field"><label>From</label><input type="color" data-fx="grad-from" value="' + rgbHex(g.from || "#B9826A") + '"></div>' +
-            '<div class="ed-props-field"><label>To</label><input type="color" data-fx="grad-to" value="' + rgbHex(g.to || "#474254") + '"></div>' +
+            '<div class="ed-props-field"><label>From</label><button type="button" class="ed-cpop-sw" data-fx-color="grad-from" data-cpop-key="fx-grad-from" title="Choose a colour" style="background:' + rgbHex(g.from || "#B9826A") + '"></button></div>' +
+            '<div class="ed-props-field"><label>To</label><button type="button" class="ed-cpop-sw" data-fx-color="grad-to" data-cpop-key="fx-grad-to" title="Choose a colour" style="background:' + rgbHex(g.to || "#474254") + '"></button></div>' +
           '</div>' +
           '<div class="ed-props-row">' +
             '<div class="ed-props-field"><label>Angle</label><input type="range" min="0" max="360" step="1" data-fx="grad-angle" value="' + (g.angle != null ? g.angle : 90) + '"></div>' +
@@ -12133,6 +12199,30 @@ import { createResizeEngine } from "./resize-engine.js";
       if (input.type === "range") {
         input.addEventListener("change", function () { pushHistory(); });
       }
+    });
+
+    // Effect colours open the colour pop-out (3 Nov), not the system picker.
+    body.querySelectorAll("[data-fx-color]").forEach(function (btn) {
+      const raw = btn.getAttribute("data-fx-color");
+      const dash = raw.indexOf("-");
+      const groupKey = raw.slice(0, dash), fieldKey = raw.slice(dash + 1);
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        const el = tgt(); if (!el) return;
+        const g0 = ensureGroup(el, groupKey);
+        toggleColorPop(btn, {
+          key: btn.getAttribute("data-cpop-key"), current: g0 && g0[fieldKey],
+          onChange: function (hex) {
+            const cur = tgt(); if (!cur) return;
+            const g = ensureGroup(cur, groupKey); if (!g) return;
+            g[fieldKey] = hex;
+            if (groupKey === "grad") g.stops = null;   // as the from/to fields always have
+            btn.style.background = hex;
+            fullRender();
+          },
+          onCommit: function () { pushHistory(); },
+        });
+      });
     });
 
     // Merge-tag insert (admin only)
@@ -14067,6 +14157,8 @@ import { createResizeEngine } from "./resize-engine.js";
   });
   document.querySelectorAll(".ed-sw").forEach((btn) => {
     btn.addEventListener("click", () => {
+      // The custom fade swatch has no colour of its own; it opens the pop-out.
+      if (!btn.dataset.color) return;
       state.canvas.background = btn.dataset.color;
       pushHistory();
       fullRender();
@@ -14364,9 +14456,16 @@ import { createResizeEngine } from "./resize-engine.js";
         fileToWebImage(f).then((src) => { if (!src) return; state.uploads.unshift(src); setCanvasBackgroundImage(src); });
       });
     }
+    // The custom fade colour opens the colour pop-out (3 Nov).
     if (tintColor) {
-      tintColor.addEventListener("input", () => { state.canvas.background = tintColor.value; fullRender(); });
-      tintColor.addEventListener("change", () => pushHistory());
+      tintColor.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleColorPop(tintColor, {
+          key: "bg-tint", current: state.canvas.background,
+          onChange: function (hex) { state.canvas.background = hex; tintColor.style.background = hex; fullRender(); },
+          onCommit: function () { pushHistory(); },
+        });
+      });
     }
     if (repoBtn) repoBtn.addEventListener("click", () => { if (state.canvas.backgroundImage) enterBgReposition(); });
 
