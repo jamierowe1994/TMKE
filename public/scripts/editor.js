@@ -14099,24 +14099,44 @@ import { createResizeEngine } from "./resize-engine.js";
     const head = pane.querySelector(".ed-pane-header");
     if (!head) return;
     const wrap = document.createElement("div");
+    /* The buttons alone, with what each one places behind the i beside
+       "Brand" (Dani, 3 Nov: no descriptions under every row). */
     wrap.innerHTML =
-      '<div class="ed-section-title">Brand</div>' +
+      '<div class="ed-section-title ed-brand-title">Brand' +
+        '<button type="button" class="ed-brand-info-btn" aria-expanded="false" aria-controls="ed-brand-info" title="What these place">i</button></div>' +
+      '<div class="ed-brand-info" id="ed-brand-info" hidden>' +
+        '<p><strong>Logo slot.</strong> 200 &times; 75, centred, 108px in. Holds {brand name} for members with no logo, and their mark for those who have one.</p>' +
+        '<p><strong>Headshot slot.</strong> Where the member&rsquo;s headshot goes. Filled from their brand kit when the design opens, and hidden for anyone who hasn&rsquo;t added one.</p>' +
+        '<p><strong>QR code.</strong> Goes to the member&rsquo;s own website until they set a link. On print, only you choose its colours.</p>' +
+      '</div>' +
       '<div class="ed-logoslot-row">' +
         '<button type="button" class="ed-logoslot-btn" data-logoslot="top">Logo slot &middot; top</button>' +
         '<button type="button" class="ed-logoslot-btn" data-logoslot="bottom">Logo slot &middot; bottom</button>' +
       '</div>' +
-      '<p class="ed-brand-hint">200 &times; 75, centred, 108px in. Holds {brand name} for members with no logo, and their mark for those who have one.</p>' +
-      '<div class="ed-logoslot-row" style="margin-top:12px">' +
+      '<div class="ed-logoslot-row">' +
         '<button type="button" class="ed-logoslot-btn" data-shotslot="circle">Headshot slot &middot; circle</button>' +
         '<button type="button" class="ed-logoslot-btn" data-shotslot="square">Headshot slot &middot; square</button>' +
       '</div>' +
-      '<p class="ed-brand-hint">The space where the member&rsquo;s headshot goes. Filled from their brand kit when the design opens, and hidden for anyone who hasn&rsquo;t added one.</p>';
+      '<div class="ed-logoslot-row">' +
+        '<button type="button" class="ed-logoslot-btn ed-logoslot-btn--half" data-brandqr="1">QR code</button>' +
+      '</div>';
     head.insertAdjacentElement("afterend", wrap);
     wrap.querySelectorAll("[data-logoslot]").forEach(function (b) {
       b.addEventListener("click", function () { addLogoSlot(b.getAttribute("data-logoslot")); });
     });
     wrap.querySelectorAll("[data-shotslot]").forEach(function (b) {
       b.addEventListener("click", function () { addHeadshotSlot(b.getAttribute("data-shotslot")); });
+    });
+    wrap.querySelector("[data-brandqr]").addEventListener("click", function () { addQrCode(); });
+    const infoBtn = wrap.querySelector(".ed-brand-info-btn"), info = wrap.querySelector(".ed-brand-info");
+    infoBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      info.hidden = !info.hidden;
+      infoBtn.setAttribute("aria-expanded", String(!info.hidden));
+    });
+    document.addEventListener("pointerdown", function (e) {
+      if (info.hidden || info.contains(e.target) || infoBtn.contains(e.target)) return;
+      info.hidden = true; infoBtn.setAttribute("aria-expanded", "false");
     });
     _logoToolMounted = true;
   }
