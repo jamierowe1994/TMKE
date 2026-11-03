@@ -857,6 +857,16 @@ are the `RESIZE_*` constants at the top of that section.
 
 ## 9. Security + infrastructure
 
+- ⬜ **Renew the Claude API key before Mon 1 Nov 2027, 9:00 GMT — it expires then.**
+  The key (named "TMKE website", in Danielle's own Claude Console organisation,
+  danielle@themarketingexperts.co.uk, made 3 Nov 2026) runs every AI feature:
+  the caption writer, the AI parser and help chat on the Worker, and Ask the
+  Expert. When it expires they all stop. In October 2027: make a new key in the
+  Console (Keys & access), then put it in both places —
+  `cd worker && npx wrangler secret put ANTHROPIC_API_KEY`, and Supabase ›
+  Edge Functions › Secrets › `ANTHROPIC_API_KEY` — then test a caption and Ask
+  the Expert, and only then delete the old key.
+
 - ✅ **(3 Nov) The Worker's `AI_MODEL` (`claude-sonnet-4-6`) works.** Checked
   when the Claude key moved to Danielle's own Console organisation (3 Nov; it
   had been on James's Recruitment Experts account): `/ai/caption` answered, and
