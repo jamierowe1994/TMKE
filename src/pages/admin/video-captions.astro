@@ -1,0 +1,370 @@
+---
+// Video captions (Dani, 3 Nov 2026): a talking-head video in, a cut and
+// captioned 1080x1920 MP4 out, styled to the house rules. Cloudflare's
+// Whisper writes down the words with their times, Claude plans the edit from
+// them (Worker /admin/video/transcribe and /admin/video/plan), and this page
+// does the rest in the browser: preview, cut, captions, statement words
+// behind the subject, levelled sound, export. Nothing is uploaded but the
+// sound, and that isn't kept.
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+import { CAPTION_STYLES, DEFAULT_CAPTION_STYLE } from "../../data/caption-styles.js";
+const styles = Object.entries(CAPTION_STYLES).map(([key, s]) => ({ key, name: s.name }));
+---
+
+<AdminShell active="videography" title="Video captions" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Video captions</div>
+          <div class="page-header-sub">Choose a talking-head video and say what you want. Claude plans the cut, the captions and the big statement words; you check the plan, preview it, and make the finished video.</div>
+        </div>
+      </div>
+      <div class="page-header-actions"><a class="admin-btn admin-btn-ghost" href="/admin/videography">Videography</a></div>
+    </div>
+  </div>
+
+  <div class="ash-panel ash-page vc-page">
+    <section class="vc-step">
+      <h2 class="vc-h">The video</h2>
+      <div class="vc-row">
+        <label class="vc-file admin-btn admin-btn-primary">Choose a video<input type="file" id="vc-file" accept="video/*,.mov,.mp4" hidden /></label>
+        <span class="vc-meta" id="vc-meta">Nothing chosen yet.</span>
+      </div>
+      <div class="vc-fields">
+        <label class="vc-field"><span>Style</span>
+          <select id="vc-style">{styles.map((s) => <option value={s.key} selected={s.key === DEFAULT_CAPTION_STYLE}>{s.name}</option>)}</select>
+        </label>
+        <label class="vc-field vc-field-wide"><span>What you want from this one</span>
+          <textarea id="vc-brief" rows="3" placeholder="Who they are and anything to cut or keep, e.g. “Terry sells luxury homes for Fine &amp; Country. Cut from ‘Now, if I turned up…’ to ‘…really good at what I do’. The car is bright yellow.”"></textarea>
+        </label>
+      </div>
+      <div class="vc-row">
+        <button type="button" class="admin-btn admin-btn-primary" id="vc-plan" disabled>Plan the edit</button>
+        <span class="vc-status" id="vc-status" role="status"></span>
+      </div>
+    </section>
+
+    <section class="vc-step" id="vc-review" hidden>
+      <div class="vc-cols">
+        <div class="vc-preview">
+          <canvas id="vc-canvas" width="540" height="960"></canvas>
+          <div class="vc-controls">
+            <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="vc-play">Play</button>
+            <input type="range" id="vc-scrub" min="0" max="1000" value="0" aria-label="Position" />
+            <span class="vc-time" id="vc-time">0:00</span>
+          </div>
+          <p class="vc-note" id="vc-cutout" hidden></p>
+        </div>
+        <div class="vc-plan">
+          <h2 class="vc-h">The plan</h2>
+          <p class="vc-notes" id="vc-notes"></p>
+          <h3 class="vc-sub">Kept</h3>
+          <p class="vc-help">The stretches of the original video that stay in, in seconds.</p>
+          <div id="vc-keep"></div>
+          <h3 class="vc-sub">Statement words</h3>
+          <p class="vc-help">Shown big behind the person. Times are on the original video.</p>
+          <div id="vc-heroes"></div>
+          <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="vc-hero-add">Add a statement word</button>
+          <h3 class="vc-sub">Captions</h3>
+          <p class="vc-help">Click a word to switch it between caps and italic.</p>
+          <div id="vc-phrases" class="vc-phrases" data-lenis-prevent></div>
+        </div>
+      </div>
+      <div class="vc-row vc-make">
+        <button type="button" class="admin-btn admin-btn-primary" id="vc-export">Make the video</button>
+        <button type="button" class="admin-btn admin-btn-ghost" id="vc-stop" hidden>Stop</button>
+        <div class="vc-bar" id="vc-bar" hidden><span></span></div>
+        <span class="vc-status" id="vc-export-status" role="status"></span>
+        <a class="admin-btn admin-btn-ghost" id="vc-download" hidden download>Download</a>
+      </div>
+    </section>
+    <video id="vc-video" playsinline preload="auto" hidden></video>
+  </div>
+
+  <style is:global>
+    .vc-page { display: flex; flex-direction: column; gap: 28px; }
+    .vc-step { display: flex; flex-direction: column; gap: 16px; }
+    .vc-h { font-family: var(--serif-head, var(--serif)); font-weight: 300; font-size: 24px; margin: 0; }
+    .vc-sub { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin: 22px 0 4px; }
+    .vc-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .vc-file { cursor: pointer; }
+    .vc-meta, .vc-status, .vc-help, .vc-note, .vc-time { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.62); }
+    .vc-help { margin: 0 0 8px; }
+    .vc-status.is-err { color: #9b2c2c; }
+    .vc-fields { display: flex; gap: 16px; flex-wrap: wrap; }
+    .hub-skin .vc-field { display: flex; flex-direction: column; gap: 6px; min-width: 220px; text-transform: none; letter-spacing: 0; }
+    .vc-field-wide { flex: 1 1 420px; }
+    .hub-skin .vc-field > span { font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.6); }
+    .vc-field select, .vc-field textarea, .vc-plan input { font: 14px/1.4 var(--sans); padding: 9px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: #fff; color: var(--ink); }
+    .vc-cols { display: grid; grid-template-columns: minmax(280px, 400px) 1fr; gap: 32px; align-items: start; }
+    @media (max-width: 900px) { .vc-cols { grid-template-columns: 1fr; } }
+    .vc-preview { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .vc-preview canvas { width: 100%; height: auto; aspect-ratio: 9 / 16; background: #111; border-radius: 6px; }
+    .vc-controls { display: flex; align-items: center; gap: 10px; }
+    .vc-controls input[type="range"] { flex: 1; accent-color: var(--english-violet, #4a2b3d); }
+    .vc-notes { font-family: var(--sans); font-size: 14px; line-height: 1.55; margin: 6px 0 0; max-width: 70ch; }
+    .vc-line { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+    .vc-line input { width: 96px; }
+    .vc-line input.vc-wide { width: 170px; }
+    .vc-x { background: none; border: 0; cursor: pointer; font-size: 18px; color: rgba(28,29,34,0.5); padding: 4px 8px; }
+    .vc-x:hover { color: #9b2c2c; }
+    .vc-phrases { display: flex; flex-direction: column; gap: 6px; max-height: 520px; overflow: auto; padding-right: 6px; }
+    .vc-phrase { font-family: var(--sans); font-size: 13px; line-height: 1.6; padding: 7px 10px; border: 1px solid rgba(28,29,34,0.1); border-radius: 6px; cursor: default; }
+    .vc-phrase.is-now { border-color: var(--english-violet, #4a2b3d); }
+    .vc-phrase .t { font-size: 11px; color: rgba(28,29,34,0.45); margin-right: 8px; font-variant-numeric: tabular-nums; }
+    .vc-w { cursor: pointer; text-transform: uppercase; letter-spacing: 0.04em; padding: 0 2px; border-radius: 3px; }
+    .vc-w:hover { background: rgba(28,29,34,0.07); }
+    .vc-w.is-serif { font-family: "Bodoni Moda", serif; font-style: italic; text-transform: none; letter-spacing: 0; font-size: 15px; }
+    .vc-make { padding-top: 8px; border-top: 1px solid rgba(28,29,34,0.1); }
+    .vc-bar { width: 220px; height: 6px; background: rgba(28,29,34,0.1); border-radius: 3px; overflow: hidden; }
+    .vc-bar span { display: block; height: 100%; width: 0; background: var(--english-violet, #4a2b3d); transition: width 0.2s; }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { supabase } from "../../lib/supabase.js";
+    import { CAPTION_STYLES, DEFAULT_CAPTION_STYLE } from "../../data/caption-styles.js";
+    import { mergeTokens, buildTimeline } from "../../lib/video-captions/plan.js";
+    import { readAudio, speechWav } from "../../lib/video-captions/audio.js";
+    import { CaptionRenderer, createSegmenter } from "../../lib/video-captions/render.js";
+    import { openVideo, videoInfo, exportVideo } from "../../lib/video-captions/export.js";
+
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+
+    let file = null, info = null, words = null, plan = null, timeline = null, renderer = null, segmenter = null, segReady = null;
+    let playing = false, tNow = 0, stopExport = false;
+    const video = $("vc-video");
+    const view = $("vc-canvas").getContext("2d");
+
+    function status(id, msg, err) { const el = $(id); el.textContent = msg || ""; el.classList.toggle("is-err", !!err); }
+    async function token() { const { data } = await supabase.auth.getSession(); return data?.session?.access_token || ""; }
+    const style = () => CAPTION_STYLES[$("vc-style").value] || CAPTION_STYLES[DEFAULT_CAPTION_STYLE];
+    const saveKey = () => file ? `tmke.captions.v1:${file.name}:${file.size}` : null;
+    // Unsaved work survives a reload (it's only in this browser until the video is made).
+    function save() { try { if (saveKey()) localStorage.setItem(saveKey(), JSON.stringify({ words, plan, brief: $("vc-brief").value, style: $("vc-style").value })); } catch (_) {} }
+    function restore() { try { return JSON.parse(localStorage.getItem(saveKey()) || "null"); } catch (_) { return null; } }
+
+    async function loadFonts() {
+      const s = style();
+      if (!document.querySelector(`link[data-vc-fonts="${s.look.googleFonts}"]`)) {
+        const l = document.createElement("link");
+        l.rel = "stylesheet"; l.href = s.look.googleFonts; l.dataset.vcFonts = s.look.googleFonts;
+        document.head.appendChild(l);
+        await new Promise((r) => { l.onload = r; l.onerror = r; });
+      }
+      await Promise.all(s.look.fonts.map((f) => document.fonts.load(`${f.style} ${f.weight} 64px "${f.family}"`)));
+    }
+
+    $("vc-file").addEventListener("change", async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      file = f; words = plan = timeline = null;
+      $("vc-review").hidden = true;
+      status("vc-status", "");
+      $("vc-meta").textContent = "Reading it…";
+      try {
+        info = await videoInfo(openVideo(f));
+        $("vc-meta").textContent = `${f.name} · ${info.width}×${info.height} · ${fmt(info.duration)} · ${(f.size / 1e6).toFixed(0)}MB`;
+        video.src = URL.createObjectURL(f);
+        const saved = restore();
+        if (saved && saved.words && saved.plan) {
+          words = saved.words; plan = saved.plan;
+          if (saved.brief) $("vc-brief").value = saved.brief;
+          if (saved.style && CAPTION_STYLES[saved.style]) $("vc-style").value = saved.style;
+          status("vc-status", "Your plan for this video is back from last time. Plan the edit again to start over.");
+          await showPlan();
+        }
+        $("vc-plan").disabled = false;
+      } catch (err) {
+        $("vc-meta").textContent = String(err.message || err);
+        $("vc-plan").disabled = true;
+      }
+    });
+
+    $("vc-plan").addEventListener("click", async () => {
+      if (!file) return;
+      const btn = $("vc-plan");
+      btn.disabled = true;
+      try {
+        status("vc-status", "Taking the sound off the video…");
+        const audio = await readAudio(openVideo(file));
+        if (!audio) throw new Error("That video has no sound, so there's nothing to caption.");
+        const wav = await speechWav(audio);
+        status("vc-status", "Writing down the words…");
+        const brief = $("vc-brief").value.trim();
+        const tr = await fetch(`${WORKER}/admin/video/transcribe?prompt=${encodeURIComponent(brief.slice(0, 300))}`, {
+          method: "POST", headers: { Authorization: "Bearer " + (await token()), "Content-Type": "audio/wav" }, body: wav,
+        });
+        const tj = await tr.json().catch(() => ({}));
+        if (!tr.ok || !tj.words) throw new Error(tj.error || "Couldn't write down the words.");
+        words = mergeTokens(tj.words);
+        status("vc-status", `${words.length} words. Claude is planning the edit (about half a minute)…`);
+        const pr = await fetch(`${WORKER}/admin/video/plan`, {
+          method: "POST", headers: { Authorization: "Bearer " + (await token()), "Content-Type": "application/json" },
+          body: JSON.stringify({ words, rules: style().rules, brief, duration: info.duration }),
+        });
+        const pj = await pr.json().catch(() => ({}));
+        if (!pr.ok || !pj.plan) throw new Error(pj.error || "Claude couldn't plan this one.");
+        plan = pj.plan;
+        save();
+        const u = pj.usage || {};
+        const pence = ((u.input_tokens || 0) * 4 + (u.output_tokens || 0) * 20) / 1e6 * 0.79 * 100;
+        status("vc-status", `Planned. About ${Math.max(1, Math.round(pence))}p of Claude credit.`);
+        await showPlan();
+      } catch (err) {
+        status("vc-status", String(err.message || err), true);
+      } finally { btn.disabled = false; }
+    });
+
+    async function showPlan() {
+      await loadFonts();
+      rebuild();
+      $("vc-review").hidden = false;
+      $("vc-notes").textContent = plan.notes || "";
+      drawKeep(); drawHeroes(); drawPhrases();
+      if (!segReady) segReady = createSegmenter().then((s) => {
+        segmenter = s;
+        const el = $("vc-cutout");
+        el.hidden = !!s;
+        el.textContent = s ? "" : "The person cut-out couldn't load, so statement words would sit in front of the person. Reload to try again before making the video.";
+        rebuild();
+      });
+      seek(0);
+    }
+
+    function rebuild() {
+      timeline = buildTimeline(words, plan, info.duration);
+      renderer = new CaptionRenderer({ look: style().look, timeline, segmenter });
+      $("vc-scrub").max = String(Math.round(timeline.total * 100));
+      paint();
+    }
+    function changed() { save(); rebuild(); drawPhrases(); }
+
+    function drawKeep() {
+      $("vc-keep").innerHTML = (plan.keep || []).map((k, i) => `
+        <div class="vc-line"><input type="number" step="0.01" data-k="${i}" data-f="start" value="${Number(k.start).toFixed(2)}" aria-label="From" /> to
+        <input type="number" step="0.01" data-k="${i}" data-f="end" value="${Number(k.end).toFixed(2)}" aria-label="To" />
+        <button type="button" class="vc-x" data-kx="${i}" aria-label="Remove">×</button></div>`).join("") +
+        `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="vc-keep-add">Add a stretch</button>`;
+    }
+    $("vc-keep").addEventListener("input", (e) => { const i = e.target.dataset.k; if (i == null) return; plan.keep[i][e.target.dataset.f] = Number(e.target.value); changed(); });
+    $("vc-keep").addEventListener("click", (e) => {
+      if (e.target.dataset.kx != null) { plan.keep.splice(Number(e.target.dataset.kx), 1); drawKeep(); changed(); }
+      if (e.target.id === "vc-keep-add") { const last = plan.keep[plan.keep.length - 1]; plan.keep.push({ start: last ? last.end : 0, end: info.duration }); drawKeep(); changed(); }
+    });
+
+    function drawHeroes() {
+      $("vc-heroes").innerHTML = (plan.heroes || []).map((h, i) => `
+        <div class="vc-line"><input class="vc-wide" data-h="${i}" data-f="text" value="${esc(h.text)}" aria-label="Word" />
+        <input class="vc-wide" data-h="${i}" data-f="label" value="${esc(h.label)}" placeholder="Label above (optional)" aria-label="Label" />
+        <input type="number" step="0.01" data-h="${i}" data-f="start" value="${Number(h.start).toFixed(2)}" aria-label="From" /> to
+        <input type="number" step="0.01" data-h="${i}" data-f="end" value="${Number(h.end).toFixed(2)}" aria-label="To" />
+        <button type="button" class="vc-x" data-hx="${i}" aria-label="Remove">×</button></div>`).join("");
+    }
+    $("vc-heroes").addEventListener("input", (e) => {
+      const i = e.target.dataset.h; if (i == null) return;
+      const f = e.target.dataset.f;
+      plan.heroes[i][f] = (f === "start" || f === "end") ? Number(e.target.value) : e.target.value;
+      changed();
+    });
+    $("vc-heroes").addEventListener("click", (e) => { if (e.target.dataset.hx != null) { plan.heroes.splice(Number(e.target.dataset.hx), 1); drawHeroes(); changed(); } });
+    $("vc-hero-add").addEventListener("click", () => { const s = timeline.clock.toSrc(tNow).t; (plan.heroes = plan.heroes || []).push({ text: "WORD", label: "", start: +s.toFixed(2), end: +(s + 2).toFixed(2) }); drawHeroes(); changed(); });
+
+    function drawPhrases() {
+      $("vc-phrases").innerHTML = timeline.phrases.map((p, j) => `
+        <div class="vc-phrase" data-p="${j}"><span class="t">${fmt(p.s)}</span>${p.words.map((w) =>
+          `<span class="vc-w${w.serif ? " is-serif" : ""}" data-i="${w.i}">${esc(w.text)}</span>`).join(" ")}</div>`).join("");
+    }
+    $("vc-phrases").addEventListener("click", (e) => {
+      const w = e.target.closest(".vc-w");
+      if (!w) { const p = e.target.closest(".vc-phrase"); if (p) seek(timeline.phrases[p.dataset.p].s + 0.01); return; }
+      const i = Number(w.dataset.i);
+      const ph = (plan.phrases || []).find((p) => i >= p.first && i <= p.last);
+      if (!ph) return;
+      const em = new Set(ph.emphasis || []);
+      em.has(i) ? em.delete(i) : em.add(i);
+      ph.emphasis = [...em];
+      changed();
+    });
+
+    // ---- preview: the source video playing through the same renderer ----
+    function paint() {
+      if (!renderer || video.readyState < 2) return;
+      renderer.render(video, video.videoWidth, video.videoHeight, tNow);
+      view.drawImage(renderer.out, 0, 0, 540, 960);
+      $("vc-time").textContent = `${fmt(tNow)} / ${fmt(timeline.total)}`;
+      $("vc-scrub").value = String(Math.round(tNow * 100));
+      document.querySelectorAll(".vc-phrase").forEach((el) => {
+        const p = timeline.phrases[el.dataset.p];
+        el.classList.toggle("is-now", tNow >= p.s && tNow < p.end);
+      });
+    }
+    function seek(t) {
+      tNow = Math.max(0, Math.min(t, timeline ? timeline.total - 0.01 : 0));
+      if (!timeline) return;
+      video.currentTime = timeline.clock.toSrc(tNow).t;
+      video.addEventListener("seeked", paint, { once: true });
+    }
+    function tick() {
+      if (!playing) return;
+      const seg = timeline.clock.segs[timeline.clock.segAt(tNow)];
+      const vt = video.currentTime;
+      if (vt >= seg.end - 0.02) {
+        const nextIdx = timeline.clock.segs.indexOf(seg) + 1;
+        if (nextIdx >= timeline.clock.segs.length) { stop(); seek(0); return; }
+        video.currentTime = timeline.clock.segs[nextIdx].start;
+        tNow = timeline.clock.segs[nextIdx].off;
+      } else tNow = seg.off + Math.max(0, vt - seg.start);
+      paint();
+      requestAnimationFrame(tick);
+    }
+    function stop() { playing = false; video.pause(); $("vc-play").textContent = "Play"; }
+    $("vc-play").addEventListener("click", async () => {
+      if (playing) return stop();
+      playing = true; $("vc-play").textContent = "Pause";
+      video.currentTime = timeline.clock.toSrc(tNow).t;
+      await video.play().catch(() => {});
+      requestAnimationFrame(tick);
+    });
+    $("vc-scrub").addEventListener("input", (e) => { stop(); seek(Number(e.target.value) / 100); });
+
+    // ---- the finished file ----
+    $("vc-export").addEventListener("click", async () => {
+      stop();
+      await segReady;
+      const btn = $("vc-export");
+      btn.disabled = true; stopExport = false;
+      $("vc-stop").hidden = false; $("vc-bar").hidden = false; $("vc-download").hidden = true;
+      const bar = $("vc-bar").firstElementChild;
+      const t0 = performance.now();
+      try {
+        // A fresh timeline, so statement words are placed on the export's own frames.
+        const tl = buildTimeline(words, plan, info.duration);
+        const res = await exportVideo({
+          file, timeline: tl, look: style().look, segmenter,
+          onProgress: (share, label) => { bar.style.width = `${Math.round(share * 100)}%`; status("vc-export-status", label); },
+          cancelled: () => stopExport,
+        });
+        const a = $("vc-download");
+        a.href = URL.createObjectURL(res.blob);
+        a.download = file.name.replace(/\.[^.]+$/, "") + " - captioned.mp4";
+        a.hidden = false;
+        const secs = Math.round((performance.now() - t0) / 1000);
+        status("vc-export-status", `Made in ${fmt(secs)}: ${fmt(tl.total)} long, ${(res.blob.size / 1e6).toFixed(0)}MB${res.loudness ? `, sound levelled to ${res.loudness.after.toFixed(1)} LUFS` : ""}.` +
+          (res.maskErrors ? ` The person cut-out failed on ${res.maskErrors} frame${res.maskErrors === 1 ? "" : "s"}, so the statement word sits in front there. Check those moments.` : ""), !!res.maskErrors);
+      } catch (err) {
+        status("vc-export-status", String(err.message || err), true);
+      } finally {
+        btn.disabled = false; $("vc-stop").hidden = true;
+      }
+    });
+    $("vc-stop").addEventListener("click", () => { stopExport = true; });
+
+    (async () => { const s = await requireAdmin(); if (!s) return; })();
+  </script>
+</AdminShell>
