@@ -685,6 +685,11 @@ import { createResizeEngine } from "./resize-engine.js";
       pop.hidden ? open() : close();
     });
     document.addEventListener("click", function (e) {
+      // A target no longer on the page was inside a panel that the click
+      // itself rebuilt (an Effects preset redraws the bar and reopens this
+      // panel), so it isn't a click off the panel. Dani, 3 Nov: pressing
+      // Drop closed Effects.
+      if (!e.target.isConnected) return;
       if (!pop.hidden && !pop.contains(e.target) && !wrap.contains(e.target) &&
           !(e.target.closest && e.target.closest(".ed-cpop"))) close();
     });
@@ -1178,7 +1183,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const brand = (BRAND && Array.isArray(BRAND.colors)) ? BRAND.colors.map((c) => normHex(c && (c.hex || c))).filter(Boolean) : [];
     const brandName = (BRAND && BRAND.company) ? (BRAND.company + "’s kit") : "Kit colours";
     // One line: as many as fit across the pop-out.
-    const recent = loadRecentColors();
+    const recent = loadRecentColors().slice(0, 9);
     const sw = (c) => '<button type="button" class="ed-cp-sw' + (c === current ? " is-current" : "") + '" data-hex="' + c + '" style="background:' + c + '" title="' + c + '"></button>';
     const pop = document.createElement("div");
     pop.className = "ed-cpop";
@@ -1651,7 +1656,8 @@ import { createResizeEngine } from "./resize-engine.js";
     const brand = (BRAND && Array.isArray(BRAND.colors)) ? BRAND.colors.map((c) => normHex(c.hex)).filter(Boolean) : [];
     const brandName = (BRAND && BRAND.company) ? (BRAND.company + "’s kit") : "Brand colours";
     const design = collectDesignColors();
-    const recent = loadRecentColors();
+    // Nine at most: one line, and none cut off at the edge (Dani, 3 Nov).
+    const recent = loadRecentColors().slice(0, 9);
 
     const sec = (title, inner) => '<div class="ed-cp-sec"><h5>' + title + '</h5>' + inner + '</div>';
     const grid = (cells, mod) => '<div class="ed-cp-grid' + (mod || "") + '">' + (Array.isArray(cells) ? cells.join("") : cells) + '</div>';
