@@ -10693,6 +10693,20 @@ import { createResizeEngine } from "./resize-engine.js";
         m["agent first name"] = first;
         m["first name"]       = first;
       }
+      /* And just the surname (Dani, 3 Nov): the last word, with any small
+         word before it that belongs to it, so "Ana de Souza" gives "de Souza"
+         and "Anne Marie Smith" gives "Smith". A one-word name has no surname,
+         so the tag is left as it is rather than repeating the first name.
+         {surname} and {last name} say the same thing, off the menu. */
+      const words = person.split(/\s+/);
+      if (words.length > 1) {
+        let at = words.length - 1;
+        while (at > 1 && /^(de|da|di|du|del|della|der|den|van|von|le|la|st\.?|mac|ap)$/i.test(words[at - 1])) at -= 1;
+        const surname = words.slice(at).join(" ");
+        m["agent surname"] = surname;
+        m["surname"]       = surname;
+        m["last name"]     = surname;
+      }
     }
     const role = (about.role || "").trim();
     if (role) {
@@ -10723,13 +10737,13 @@ import { createResizeEngine } from "./resize-engine.js";
      and offering four ways to print the same value only invites templates
      that disagree with each other. */
   const TAG_MENU = ["company name", "area", "slogan", "website",
-    "agent name", "agent first name", "job title", "local expert", "telephone", "email"];
+    "agent name", "agent first name", "agent surname", "job title", "local expert", "telephone", "email"];
 
   /* Synonyms stay resolvable but stay off the menu: the catalogue is full of
      templates already written with {location} and {company}, and they must
      keep filling in. Never add one of these to TAG_MENU. */
   const TAG_ALIASES = ["brand name", "brand", "company",
-    "your name", "name", "role", "first name",
+    "your name", "name", "role", "first name", "surname", "last name",
     "location", "town", "strapline", "tagline", "phone"];
 
   const KNOWN_TAGS = TAG_MENU.concat(TAG_ALIASES);
@@ -10741,6 +10755,7 @@ import { createResizeEngine } from "./resize-engine.js";
     "brand name": "company name", "brand": "company name", "company": "company name",
     "your name": "agent name", "name": "agent name",
     "first name": "agent first name",
+    "surname": "agent surname", "last name": "agent surname",
     "role": "job title",
     "location": "area", "town": "area",
     "strapline": "slogan", "tagline": "slogan",

@@ -34,7 +34,7 @@ export const MAX_CAPTIONS = 3;
 // Curly tags fill in from the brand kit: the editor's own menu (TAG_MENU in
 // public/scripts/editor.js), so a caption and a design use the same words.
 // Square brackets are for the agent to type, and they're warned if any are left.
-export const CAPTION_TAGS = ["company name", "area", "website", "agent name", "agent first name", "telephone", "email"];
+export const CAPTION_TAGS = ["company name", "area", "website", "agent name", "agent first name", "agent surname", "telephone", "email"];
 export const CAPTION_FILL_INS = ["[price]", "[street]", "[school name]"];
 
 // Ids of the templates drawn for the Content Calendar, so the Templates tab and
