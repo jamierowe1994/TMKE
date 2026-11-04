@@ -30,7 +30,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         <div class="vid-cog-menu" id="vid-cog-menu" hidden>
           <button type="button" data-go="clients">Clients</button>
           <button type="button" data-go="diary">Diary &amp; availability</button>
-          <button type="button" data-go="deliver">Deliver work</button>
+          <!-- Deliver work came off this menu (Dani, 4 Nov): the same uploader is in each client file, under Content. -->
           <button type="button" data-go="portals">Client portals</button>
           <button type="button" data-go="settings">Pricing &amp; travel settings</button>
           <button type="button" data-go="connections">Connections</button>
@@ -3902,6 +3902,17 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     function vivSnap() { const f = {}; VIV_FIELDS.forEach((id) => { const el = document.getElementById(id); if (el) f[id] = el.value; }); return { f, items: vivItems.map((x) => ({ ...x })), pay: vivPayByCard }; }
     function vivRestore(snap) { if (!snap) return; Object.entries(snap.f).forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.value = v; }); vivItems = snap.items; vivPayByCard = snap.pay; vivSyncPay(); vivRenderItems(); }
 
+    // The invoice is laid out at A4 width; shrink it to the pop-out so nothing is cut off.
+    function vivFitPaper(fr) {
+      try {
+        const doc = fr.contentDocument.documentElement;
+        const w = Math.max(doc.scrollWidth, fr.contentDocument.body ? fr.contentDocument.body.scrollWidth : 0);
+        const z = w > fr.clientWidth ? fr.clientWidth / w : 1;
+        doc.style.zoom = String(z);
+        doc.style.overflowX = "hidden";
+        fr.style.height = Math.ceil(doc.scrollHeight * z + 4) + "px";
+      } catch (_) {}
+    }
     async function renderInvoiceCard(b) {
       const host = document.getElementById("vid-cand-invoice");
       const tabsEl = document.getElementById("vc-panel-tabs");
@@ -3936,7 +3947,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           host.innerHTML = msg + `<p class="vc-hint" style="margin:10px 0 8px">As the PDF will read. ${vivSource ? "" : "The number is given when it's saved."}</p><iframe class="viv-paper" title="Invoice preview"></iframe>`;
           const fr = host.querySelector("iframe");
           fr.srcdoc = renderInvoiceHtml({ settings: { ...invSettings }, invoice: inv });
-          fr.addEventListener("load", () => { try { fr.style.height = (fr.contentDocument.documentElement.scrollHeight + 4) + "px"; } catch (_) {} });
+          fr.addEventListener("load", () => vivFitPaper(fr));
         } else {
           const e = invoiceEmail(inv, invSettings || {}, { booking: b });
           host.innerHTML = msg + `<p class="vc-hint" style="margin:10px 0 8px">The email that goes with it once it's approved. The invoice PDF and the footer image are added automatically.</p>
@@ -3980,7 +3991,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         vcSec("What's happened", `<dl class="vc-pdl">${hist.map(([w, t]) => vcPR(w, escapeHtml(t))).join("") || vcPR("So far", "Nothing yet")}</dl><div id="viv-list" hidden></div>`);
       const fr = host.querySelector("iframe");
       fr.srcdoc = renderInvoiceHtml({ settings: { ...invSettings }, invoice: inv });
-      fr.addEventListener("load", () => { try { fr.style.height = (fr.contentDocument.documentElement.scrollHeight + 4) + "px"; } catch (_) {} });
+      fr.addEventListener("load", () => vivFitPaper(fr));
       const chip = document.getElementById("vc-panel-chip");
       if (chip) chip.innerHTML = vivChip(inv);
       flash();
