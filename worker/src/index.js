@@ -2137,6 +2137,77 @@ async function runStarterPortalAdds(env) {
   await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(portal.id)}`, { folders: [...(portal.folders || []), ...add] });
 }
 
+/* ── A portal for every social media client (Dani, 4 Nov) ─────────────────
+   A shoot booked for a social media client goes into that client's portal
+   from the start: made if they haven't got one (named after the client,
+   first name and email of their social media manager, so it's the manager
+   who's emailed; passcode their first name), found if they have. It shows
+   once Jack presses "Content ready", and the manager gets the portal link
+   instead of a Library link. client_portals.smm_client_id ties a portal to
+   its client (supabase/client_portal_smm.sql). Every 5 minutes. */
+function portalToken() {
+  const a = new Uint8Array(24); crypto.getRandomValues(a);
+  return btoa(String.fromCharCode(...a)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function portalPasscodeFrom(name) {
+  const first = String(name || "").trim().split(/\s+/)[0] || "";
+  const code = first.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
+  if (code.length >= 3) return code;
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; const r = new Uint8Array(6); crypto.getRandomValues(r);
+  return [...r].map((x) => abc[x % abc.length]).join("");
+}
+async function smmClientPortal(env, lead, create) {
+  let rows = await sbGet(env, "client_portals", `smm_client_id=eq.${encodeURIComponent(lead.id)}&select=*&limit=1`);
+  if (rows === null) return null;                       // column not added yet
+  if (rows[0]) return rows[0];
+  const name = String(lead.contact_name || lead.business_name || "").trim();
+  if (!name) return null;
+  // One made by hand under their name: claim it.
+  const all = (await sbGet(env, "client_portals", "smm_client_id=is.null&select=*")) || [];
+  const mine = all.find((p) => String(p.name || "").trim().toLowerCase() === name.toLowerCase()
+    || (lead.business_name && String(p.name || "").trim().toLowerCase() === String(lead.business_name).trim().toLowerCase()));
+  if (mine) {
+    await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(mine.id)}`, { smm_client_id: lead.id });
+    return { ...mine, smm_client_id: lead.id };
+  }
+  if (!create) return null;
+  const email = (await smmManagerEmail(env, lead.social_media_manager)) || env.SMM_NOTIFY || null;
+  const managerFirst = String(lead.social_media_manager || "").trim().split(/\s+/)[0] || null;
+  const res = await sbPost(env, "client_portals", {
+    name, first_name: managerFirst, token: portalToken(), passcode: portalPasscodeFrom(lead.contact_name || name),
+    folders: [], notified_folders: [], enabled: true, notify_email: email, smm_client_id: lead.id, updated_by: "automatic",
+  }, "return=representation");
+  if (!res || !res.ok) return null;
+  const made = await res.json().catch(() => null);
+  return (made && made[0]) || null;
+}
+async function runSmmPortalFlags(env) {
+  const bks = (await sbGet(env, "videography_bookings",
+    "smm_lead_id=not.is.null&archive_folder=not.is.null&stage=neq.cancelled&or=(kind.is.null,kind.eq.booking)&select=id,smm_lead_id,archive_folder,stage")) || [];
+  if (!bks.length) return;
+  const byLead = new Map();
+  for (const b of bks) { if (!byLead.has(b.smm_lead_id)) byLead.set(b.smm_lead_id, []); byLead.get(b.smm_lead_id).push(b); }
+  for (const [leadId, list] of byLead) {
+    try {
+      const leads = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,business_name,contact_name,social_media_manager&limit=1`);
+      const lead = leads && leads[0];
+      if (!lead) continue;
+      const fresh = !(await sbGet(env, "client_portals", `smm_client_id=eq.${encodeURIComponent(lead.id)}&select=id&limit=1`) || [])[0];
+      const portal = await smmClientPortal(env, lead, true);
+      if (!portal) continue;
+      const have = new Set(portalFolders(portal));
+      const add = list.map((b) => archivePrefix(b.archive_folder)).filter((f) => !have.has(f));
+      if (!add.length) continue;
+      const folders = [...(portal.folders || []), ...add];
+      const patch = { folders };
+      // A portal made today for a client with past shoots: those already
+      // visible count as told, so the manager isn't emailed about old work.
+      if (fresh) patch.notified_folders = list.filter((b) => shootDoneForPortal({ ...b, smm_lead_id: leadId })).map((b) => archivePrefix(b.archive_folder));
+      await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(portal.id)}`, patch);
+    } catch (_) {}
+  }
+}
+
 /* ── A portal emails someone when a folder is added ──────────────────────
    Each portal can name who to email (client_portals.notify_email); the
    folders already told about are in notified_folders. Checked on the
@@ -2164,18 +2235,19 @@ async function runPortalFolderNotices(env) {
     const now = [...keep, ...fresh];
     const names = fresh.map((f) => f.slice(0, -1).split("/").pop());
     const bks = (await sbGet(env, "videography_bookings",
-      `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=client_name,client_email,service,shoot_date,archive_folder,gallery_sent_at,edits_settled_at,edits_settled_by`)) || [];
+      `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=client_name,client_company,client_email,service,shoot_date,archive_folder,gallery_sent_at,edits_settled_at,edits_settled_by`)) || [];
     const items = fresh.map((f, i) => {
       const bk = bks.find((b) => archivePrefix(b.archive_folder) === f);
       const when = bk && bk.shoot_date ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
       const status = bk ? starterEditStatus({ settledAt: bk.edits_settled_at, settledBy: bk.edits_settled_by, sentAt: bk.gallery_sent_at, name: bk.client_name }) : "";
-      return { prefix: f, name: names[i], bk, status, line: [bk && bk.service, when].filter(Boolean).join(", "), link: `${site}/portal?c=${encodeURIComponent(p.token)}&f=${encodeURIComponent(f)}` };
+      return { prefix: f, name: (bk && (bk.client_name || bk.client_company)) || names[i], bk, status, line: [bk && bk.service, when].filter(Boolean).join(", "), link: `${site}/portal?c=${encodeURIComponent(p.token)}&f=${encodeURIComponent(f)}` };
     });
     const esc = (v) => String(v || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     const hi = p.first_name ? `Hi ${esc(p.first_name)},` : "Hi,";
+    const where = TEG_PORTAL_NAME.test(String(p.name || "")) || items.length !== 1 ? "your TMKE portal" : `the ${esc(p.name)} portal`;
     const intro = items.length === 1
-      ? `${esc(items[0].name)}'s content is ready in your TMKE portal.`
-      : `There are ${items.length} new folders in your TMKE portal.`;
+      ? `${esc(items[0].name)}'s content is ready in ${where}.`
+      : `There are ${items.length} new folders in your TMKE portal${TEG_PORTAL_NAME.test(String(p.name || "")) ? "" : `, ${esc(p.name)}`}.`;
     const list = items.map((it) => `<p style="${EM_P}"><strong>${esc(it.name)}</strong>${it.line ? `<br>${esc(it.line)}` : ""}${it.status ? `<br><em>${esc(it.status)}${/^edits pending/i.test(it.status) ? " We'll email you when it's final." : ""}</em>` : ""}</p><p style="${EM_P}"><a href="${esc(it.link)}" style="${EM_BTN}">Open ${esc(it.name)}'s folder</a></p>`).join("");
     const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">${hi}</p><p style="${EM_P}">${intro} You can watch and download everything in it.</p>${list}<p style="${EM_P}">The passcode is <strong>${esc(p.passcode)}</strong>. Once you've entered it, you'll stay signed in on that browser for 7 days.</p></div>`);
     const subject = items.length === 1 ? `${items[0].name}'s content is ready.` : `${items.length} new folders in your TMKE portal.`;
@@ -5318,15 +5390,20 @@ function portalFolders(p) {
    £0 job). Ticking a folder early is fine: it waits, and the portal's email
    goes out when it appears. A folder that isn't any booking's shows as ever. */
 function shootDoneForPortal(b) {
-  if (!b || !["sent", "delivered"].includes(b.stage)) return false;
-  return !!b.paid_at || b.payment_route === "smm_package" || b.amount_pence === 0;
+  if (!b) return false;
+  // A social media shoot never goes to the client: Jack pressing "Content
+  // ready" is the hand-over to their manager (Dani, 4 Nov), and the package
+  // has paid for it.
+  if (b.smm_lead_id || b.payment_route === "smm_package") return ["gallery_ready", "sent", "delivered"].includes(b.stage);
+  if (!["sent", "delivered"].includes(b.stage)) return false;
+  return !!b.paid_at || b.amount_pence === 0;
 }
 async function portalShownFolders(env, p) {
   const all = portalFolders(p);
   if (!all.length) return all;
   const names = all.map((f) => f.slice(PART_PREFIX.length + 1, -1));
   const bks = (await sbGet(env, "videography_bookings",
-    `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=archive_folder,stage,paid_at,payment_route,amount_pence`)) || [];
+    `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=archive_folder,stage,paid_at,payment_route,amount_pence,smm_lead_id`)) || [];
   const waiting = new Set();
   for (const f of all) {
     const mine = bks.filter((b) => archivePrefix(b.archive_folder) === f);
@@ -6269,7 +6346,7 @@ export default {
       let mins = 0; try { mins = new Date(event.scheduledTime).getUTCMinutes(); } catch (_) {}
       if (mins === 0) ctx.waitUntil(runAiCreditCheck(env));
       // A folder added to a portal that emails someone (the TEG new-starter portal).
-      ctx.waitUntil(pinArchiveFolders(env).catch(() => {}).then(() => runStarterPortalAdds(env)).catch(() => {}).then(() => runPortalFolderNotices(env)).catch(() => {}));
+      ctx.waitUntil(pinArchiveFolders(env).catch(() => {}).then(() => runStarterPortalAdds(env)).catch(() => {}).then(() => runSmmPortalFlags(env)).catch(() => {}).then(() => runPortalFolderNotices(env)).catch(() => {}));
     }
   },
 
@@ -10977,6 +11054,27 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
 
         const folder = String(bk.archive_folder || "").trim();
         const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        // Their portal, when they have one (made at booking): the folder shows
+        // now, and the portal's own email takes the manager the link and
+        // passcode (Dani, 4 Nov). The Library email is the fallback.
+        try {
+          if (folder) {
+            await runSmmPortalFlags(env);
+            const portal = await smmClientPortal(env, { id: bk.smm_lead_id, ...lead }, false);
+            if (portal && portal.enabled && portal.notify_email && portalFolders(portal).includes(archivePrefix(folder))) {
+              await runPortalFolderNotices(env);
+              try {
+                await notifyAdmins(env, {
+                  area: "social", event: "smm_content_ready", title: `Content ready — ${clientName}`,
+                  body: `${bk.service || "Shoot"}${bk.shoot_date ? " on " + bk.shoot_date : ""} is in ${portal.name}'s portal.`,
+                  href: "/admin/videography?panel=portals", also: [portal.notify_email], key: `smm-ready:${bk.id}`,
+                  meta: { booking_id: bk.id, lead_id: lead.id || null },
+                });
+              } catch (_) {}
+              return json({ ok: true, to: portal.notify_email, portal: portal.name }, 200, request, env);
+            }
+          }
+        } catch (_) {}
         const link = folder ? `${site}/admin/content?folder=${encodeURIComponent(folder)}` : `${site}/admin/content`;
         const esc2 = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         const when = bk.shoot_date ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "";

@@ -867,6 +867,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .vidx-when { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); margin: 3px 0 0; }
     .vidx-open { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); text-decoration: none; white-space: nowrap; }
     .vidx-open:hover { text-decoration: underline; }
+    /* Their client portal: the link and passcode Abby sends on. */
+    .vidx-portal { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--border, #eae5e1); border-radius: var(--radius, 5px); font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .vidx-portal code { font-family: var(--sans); font-weight: 700; letter-spacing: 0.12em; }
+    .vidx-portal .vidx-library { margin-top: 0; }
     /* The one thing the team actually needs from a social media shoot. */
     .vidx-library {
       display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
@@ -1656,6 +1660,20 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       // being unable to see the existing shoots is no reason to be unable to
       // add one. The error goes in the list region only.
       const list = error ? [] : (data || []);
+      // Their portal (Dani, 4 Nov): made automatically with their first shoot.
+      // Abby gets the link and passcode when Jack presses Content ready; it's
+      // here too so it's to hand. No portal column yet = nothing shown.
+      let portal = null;
+      try {
+        const pr = await supabase.from("client_portals").select("name, token, passcode, enabled, notify_email").eq("smm_client_id", r.id).limit(1);
+        portal = !pr.error && pr.data && pr.data[0] ? pr.data[0] : null;
+      } catch (_) {}
+      const portalUrl = portal ? `https://tmke.co.uk/portal?c=${encodeURIComponent(portal.token)}` : "";
+      const portalBox = portal ? `
+        <div class="vidx-portal">
+          <span><strong>Their portal</strong> ${portal.enabled ? "" : "(turned off) "}· passcode <code>${esc(portal.passcode)}</code>${portal.notify_email ? ` · emails ${esc(portal.notify_email)}` : ""}</span>
+          <span><button type="button" class="smm-btn smm-btn--ghost" data-copy-portal="${esc(portalUrl)}">Copy link</button> <a class="vidx-library" href="/admin/videography?panel=portals">Manage</a></span>
+        </div>` : "";
       const rows = list.map((b) => `
         <article class="vidx-card">
           <header class="vidx-card-head">
@@ -1671,6 +1689,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
 
       panel.innerHTML = `
         ${shootBox(r, list)}
+        ${portalBox}
         <div class="smm-panel-head">
           <h4>Shoots for this client</h4>
           <button type="button" class="smm-btn" id="vidx-add">+ Book a shoot</button>
@@ -1682,6 +1701,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
 `;
 
       $("vidx-add")?.addEventListener("click", () => openVidBooking(r));
+      panel.querySelector("[data-copy-portal]")?.addEventListener("click", async (e) => {
+        const b = e.currentTarget, url = b.getAttribute("data-copy-portal");
+        try { await navigator.clipboard.writeText(url); b.textContent = "Copied"; }
+        catch (_) { prompt("Copy the portal link:", url); }
+        setTimeout(() => { b.textContent = "Copy link"; }, 1800);
+      });
       $("vidx-due")?.addEventListener("change", (e) => saveShootDue(r, e.target.value));
       renderVideoNotes(r);
     }
