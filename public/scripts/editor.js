@@ -8847,9 +8847,9 @@ import { createResizeEngine } from "./resize-engine.js";
   function nextTickPause() { return new Promise(function (r) { setTimeout(r, 350); }); }
 
   // type can be: "png" | "jpg" | "png-transparent" | "pdf" | "pdf-separate"
+  // | "pdf-print" | "pdf-print-separate" (print-ready: bleed and crop marks).
   // pages: the page indexes to include, or null for every page.
-  // opts.crop: crop marks on a print PDF.
-  async function exportImage(type, pages, opts) {
+  async function exportImage(type, pages) {
     if (demoLocked("Create an account to download your design.", "Everything you have made here can be yours: join the Member Hub and download it in any format.")) return;
     const total = state.pages.length;
     /* Every page unless the panel chose fewer. A postcard downloaded as its
@@ -8857,8 +8857,8 @@ import { createResizeEngine } from "./resize-engine.js";
        "All" is where the panel starts. */
     const list = Array.isArray(pages) && pages.length ? pages : state.pages.map(function (_, i) { return i; });
 
-    if (type === "pdf" || type === "pdf-separate") {
-      return await exportToPdf(type === "pdf-separate", list, !!(opts && opts.crop));
+    if (/^pdf/.test(type)) {
+      return await exportToPdf(/-separate$/.test(type), list, /^pdf-print/.test(type));
     }
     if (list.length > 1) {
       toast("Saving " + list.length + " pages…");
@@ -9012,8 +9012,8 @@ import { createResizeEngine } from "./resize-engine.js";
     return out;
   }
   /* Crop marks (Dani, 4 Nov: the printer's checker found the bleed but no
-     crop marks). Ticked in the download panel, a print page gets 10mm of
-     white past the trim instead of the bleed's 3mm, and at each corner the
+     crop marks). On the print-ready PDF a page gets 10mm of white past the
+     trim, and at each corner the
      two thin lines the printer lines the cut up on: level with the trim,
      starting at the edge of the bleed so none of them prints into the
      artwork, 5mm long. They are drawn as lines, not pixels, which is what a
@@ -9022,12 +9022,16 @@ import { createResizeEngine } from "./resize-engine.js";
   const CROP_SLUG_MM = 10, CROP_LEN_MM = 5;
   // One page of the PDF: the picture to place and the page it goes on.
   // `trim.m` is how far the trim sits in from the edge of the page.
-  function pdfPage(canvas, crop) {
+  /* Two PDFs of a print design (Dani, 4 Nov): print-ready always carries
+     the bleed and the crop marks, so nobody has to remember them; digital is
+     the finished size, nothing round it, for screens and email. */
+  function pdfPage(canvas, printReady) {
     if (!isPrintCanvas(canvas)) return { unit: "px", w: canvas.width, h: canvas.height, img: canvas };
-    const img = withBleed(canvas, Math.round(BLEED_MM * EXPORT_PX_PER_MM));
     const tw = canvas.width / EXPORT_PX_PER_MM, th = canvas.height / EXPORT_PX_PER_MM;
-    const m = crop ? CROP_SLUG_MM : BLEED_MM;
-    return { unit: "mm", w: tw + 2 * m, h: th + 2 * m, img: img, trim: { m: m, w: tw, h: th }, crop: !!crop };
+    if (!printReady) return { unit: "mm", w: tw, h: th, img: canvas };
+    const img = withBleed(canvas, Math.round(BLEED_MM * EXPORT_PX_PER_MM));
+    const m = CROP_SLUG_MM;
+    return { unit: "mm", w: tw + 2 * m, h: th + 2 * m, img: img, trim: { m: m, w: tw, h: th }, crop: true };
   }
   // k turns millimetres into the document's unit.
   function drawCropMarks(pdf, pg, k) {
@@ -9058,7 +9062,7 @@ import { createResizeEngine } from "./resize-engine.js";
      separately wants the second, and neither is obviously the right answer.
      Each page keeps its own size and orientation, so a design whose back is
      a different shape from its front still comes out right. */
-  async function exportToPdf(separate, pages, crop) {
+  async function exportToPdf(separate, pages, printReady) {
     const all = state.pages.length;
     const list = Array.isArray(pages) && pages.length ? pages : state.pages.map(function (_, i) { return i; });
     const total = list.length;
@@ -9091,7 +9095,7 @@ import { createResizeEngine } from "./resize-engine.js";
       if (separate || total === 1) {
         for (let k = 0; k < total; k++) {
           const i = list[k];
-          const pg = pdfPage(await renderPage(i, { transparent: false }), crop);
+          const pg = pdfPage(await renderPage(i, { transparent: false }), printReady);
           const pdf = make(pg); pdf.__tmkeUnit = pg.unit;
           place(pdf, pg, true);
           // Named by the page's own number, so page 3 of 7 is "(page 3)".
@@ -9104,7 +9108,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
       let pdf = null;
       for (let k = 0; k < total; k++) {
-        const pg = pdfPage(await renderPage(list[k], { transparent: false }), crop);
+        const pg = pdfPage(await renderPage(list[k], { transparent: false }), printReady);
         if (!pdf) { pdf = make(pg); pdf.__tmkeUnit = pg.unit; place(pdf, pg, true); }
         else place(pdf, pg, false);
       }
@@ -16522,7 +16526,7 @@ import { createResizeEngine } from "./resize-engine.js";
          on PNG (Dani, 13 Oct). Until they pick a type themselves, which then
          stays for the rest of the session. */
       const sel = $("ed-dl-type");
-      if (sel && !sel.dataset.chosen) sel.value = isPrintDesign() ? "pdf" : "png";
+      if (sel && !sel.dataset.chosen) sel.value = isPrintDesign() ? "pdf-print" : "png";
       // Said fresh each time: a page may have been added since it last opened.
       if (typeof window.__TMKE_SYNC_DOWNLOAD__ === "function") window.__TMKE_SYNC_DOWNLOAD__();
       menu.hidden = false;
@@ -16544,19 +16548,26 @@ import { createResizeEngine } from "./resize-engine.js";
     const typeSel = $("ed-dl-type");
     const transp = $("ed-dl-transparent");
     const separate = $("ed-dl-separate");
-    const crop = $("ed-dl-crop");
     const custom = $("ed-dl-custom");
+    // Print-ready is offered on print designs only. Taken out of the list
+    // rather than hidden, as Safari shows a hidden <option> anyway.
+    const printOpt = typeSel && typeSel.querySelector('option[value="pdf-print"]');
     let pagesMode = "all";
 
     function syncDownloadMenu() {
       const total = state.pages.length;
+      const print = isPrintCanvas(state.canvas);
+      if (printOpt && typeSel) {
+        if (print && !printOpt.parentNode) typeSel.appendChild(printOpt);
+        if (!print && printOpt.parentNode) { if (typeSel.value === "pdf-print") typeSel.value = "pdf"; printOpt.remove(); }
+      }
       const type = typeSel ? typeSel.value : "png";
       menu.querySelectorAll("[data-dl-for]").forEach(function (el) {
-        el.hidden = el.getAttribute("data-dl-for") !== type;
+        el.hidden = el.getAttribute("data-dl-for").split(" ").indexOf(type) === -1;
       });
-      // Crop marks only mean something on a print design.
+      // Which-PDF notes only mean something on a print design.
       menu.querySelectorAll("[data-dl-print]").forEach(function (el) {
-        if (!isPrintCanvas(state.canvas)) el.hidden = true;
+        if (!print) el.hidden = true;
       });
       menu.querySelectorAll("[data-dl-multi]").forEach(function (el) {
         if (total <= 1) el.hidden = true;
@@ -16610,12 +16621,12 @@ import { createResizeEngine } from "./resize-engine.js";
         }
       }
       const type = kind === "png" && transp && transp.checked ? "png-transparent"
-        : kind === "pdf" && total > 1 && separate && separate.checked ? "pdf-separate"
+        : /^pdf/.test(kind) && total > 1 && separate && separate.checked ? kind + "-separate"
         : kind;
       close();
       // A finished download is reported to the page, which records it
       // (Danielle, 7 Oct 2026): nothing else would ever know it happened.
-      exportImage(type, pages, { crop: kind === "pdf" && !!(crop && crop.checked) && isPrintCanvas(state.canvas) }).then(function (ok) {
+      exportImage(type, pages).then(function (ok) {
         if (!ok || typeof window.__TMKE_ON_DOWNLOAD__ !== "function") return;
         try { window.__TMKE_ON_DOWNLOAD__({ format: type, pages: pages ? pages.length : state.pages.length, design_id: state.templateId || null, design_name: filenameEl.value || "", template: _templateOrigin || null }); } catch (_) {}
       });
