@@ -14439,7 +14439,9 @@ import { createResizeEngine } from "./resize-engine.js";
      menu -- so what the search held is remembered here, keyed to the picture
      (or "background"), and put back. It is forgotten when you close the menu
      yourself or choose a different picture. */
-  let _gallery = null;   // { key, q, results, scroll }
+  /* Since 4 Nov it loads more as you scroll and searches for the shape
+     chosen in the Images panel (the same choice, shown here too). */
+  let _gallery = null;   // { key, q, session, results, scroll }
 
   function galleryBlock(onPick, key) {
     const wrap = document.createElement("div");
@@ -14447,41 +14449,101 @@ import { createResizeEngine } from "./resize-engine.js";
     toggle.type = "button"; toggle.className = "ed-bg-imgmenu-search"; toggle.textContent = "Search the gallery";
     const panel = document.createElement("div");
     panel.className = "ed-gal"; panel.hidden = true;
+    const OR = window.__TMKE_STOCK_ORIENT__;
     panel.innerHTML = '<input type="search" placeholder="Try \u201ckitchen\u201d, \u201cgarden\u201d, \u201cinterior\u201d\u2026" autocomplete="off" />' +
+      (OR ? '<div class="ed-orient" role="radiogroup" aria-label="Photo shape">' +
+        '<button type="button" data-orient="any" role="radio">Any</button>' +
+        '<button type="button" data-orient="portrait" role="radio">Portrait</button>' +
+        '<button type="button" data-orient="landscape" role="radio">Landscape</button>' +
+        '<button type="button" data-orient="square" role="radio">Square</button></div>' : "") +
       '<p class="ed-gal-status">Type to search free photos from Pexels and Unsplash.</p>' +
       '<div class="ed-bg-imgmenu-grid"></div>';
     const input = panel.querySelector("input"), status = panel.querySelector(".ed-gal-status"), grid = panel.querySelector(".ed-bg-imgmenu-grid");
-    let timer = null, last = "", ticket = 0, shown = [];
-    function draw(q, results) {
-      grid.innerHTML = "";
-      shown = results;
-      status.textContent = results.length + " photos for \u201c" + q + "\u201d. Click one to try it.";
+    const orientEl = panel.querySelector(".ed-orient");
+    let timer = null, last = "", session = null, shown = [];
+    const more = document.createElement("p");
+    more.className = "ed-stock-more"; more.textContent = "Loading more photos\u2026"; more.hidden = true;
+    function showOrient() {
+      if (!OR) return;
+      const o = OR.get();
+      grid.setAttribute("data-orient", o);
+      if (orientEl) orientEl.querySelectorAll("[data-orient]").forEach(function (b) {
+        const on = b.getAttribute("data-orient") === o;
+        b.classList.toggle("is-on", on); b.setAttribute("aria-checked", on ? "true" : "false");
+      });
+    }
+    showOrient();
+    if (orientEl) orientEl.addEventListener("click", function (e) {
+      const b = e.target.closest("[data-orient]");
+      if (!b || b.getAttribute("data-orient") === OR.get()) return;
+      OR.set(b.getAttribute("data-orient"));
+    });
+    function onOrient() {
+      if (!panel.isConnected) { document.removeEventListener("tmke:stock-orient", onOrient); return; }
+      showOrient();
+      if (session) { last = ""; run(); }
+    }
+    document.addEventListener("tmke:stock-orient", onOrient);
+    function statusFor(s) {
+      return typeof window.__TMKE_STOCK_STATUS__ === "function" ? window.__TMKE_STOCK_STATUS__(s) : s.shown + " photos for \u201c" + s.query + "\u201d.";
+    }
+    function append(results) {
       results.forEach(function (r) {
         const b = document.createElement("button");
         b.type = "button"; b.title = "Photo by " + r.credit;
         b.style.backgroundImage = "url(" + JSON.stringify(r.thumb) + ")";
         b.addEventListener("click", function () {
           try { if (typeof window.__TMKE_STOCK_USED__ === "function") window.__TMKE_STOCK_USED__(r); } catch (_) {}
-          _gallery = { key: key, q: last, results: shown, scroll: grid.scrollTop };
+          _gallery = { key: key, q: last, session: session, results: shown, scroll: grid.scrollTop };
           onPick(r.full);
         });
-        grid.appendChild(b);
+        grid.insertBefore(b, more);
       });
+      shown = shown.concat(results);
     }
+    function draw(s, results) {
+      grid.innerHTML = "";
+      grid.appendChild(more);
+      shown = [];
+      append(results);
+      status.textContent = statusFor(s);
+      more.hidden = s.done;
+    }
+    // The next batch when the grid is scrolled near its foot, or isn't full.
+    async function loadMore() {
+      const s = session;
+      if (!s || s.busy || s.done || panel.hidden) return;
+      if (grid.scrollTop + grid.clientHeight < grid.scrollHeight - 160) return;
+      const batch = await s.next();
+      if (s !== session) return;
+      append(batch);
+      status.textContent = statusFor(s);
+      more.hidden = s.done;
+      if (batch.length) requestAnimationFrame(loadMore);
+    }
+    grid.addEventListener("scroll", loadMore, { passive: true });
     async function run() {
       const q = input.value.trim();
-      if (q.length < 2) { grid.innerHTML = ""; status.textContent = "Type to search free photos from Pexels and Unsplash."; return; }
+      if (q.length < 2) { grid.innerHTML = ""; session = null; status.textContent = "Type to search free photos from Pexels and Unsplash."; return; }
       if (q === last) return;
       last = q;
-      if (typeof window.__TMKE_STOCK_SEARCH__ !== "function") { status.textContent = "The photo search isn't ready yet. Try again in a moment."; return; }
-      const mine = ++ticket;
+      if (typeof window.__TMKE_STOCK_SESSION__ !== "function") { status.textContent = "The photo search isn't ready yet. Try again in a moment."; return; }
+      const s = window.__TMKE_STOCK_SESSION__(q);
+      session = s;
+      showOrient();
       status.textContent = "Searching for \u201c" + q + "\u201d\u2026";
       let results = [];
-      try { results = await window.__TMKE_STOCK_SEARCH__(q); } catch (_) {}
-      if (mine !== ticket) return;   // a newer search has started
+      try { results = await s.next(); } catch (_) {}
+      if (s !== session) return;   // a newer search has started
       grid.innerHTML = "";
-      if (!results.length) { status.textContent = "No photos for \u201c" + q + "\u201d. Try a different word."; return; }
-      draw(q, results);
+      if (!results.length) {
+        session = null;
+        status.textContent = s.limited && s.limited.length ? "The photo libraries have reached their limit for this hour. Try again later." : "No photos for \u201c" + q + "\u201d. Try a different word.";
+        return;
+      }
+      draw(s, results);
+      grid.scrollTop = 0;
+      requestAnimationFrame(loadMore);
     }
     input.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(run, 350); });
     toggle.addEventListener("click", function () {
@@ -14489,10 +14551,11 @@ import { createResizeEngine } from "./resize-engine.js";
       if (!panel.hidden) input.focus();
     });
     // Back where you were, if this is the picture you were just trying photos on.
-    if (_gallery && _gallery.key === key) {
+    if (_gallery && _gallery.key === key && _gallery.session) {
       panel.hidden = false;
       input.value = _gallery.q; last = _gallery.q;
-      draw(_gallery.q, _gallery.results || []);
+      session = _gallery.session;
+      draw(session, _gallery.results || []);
       const top = _gallery.scroll || 0;
       requestAnimationFrame(function () { grid.scrollTop = top; });
     }

@@ -943,6 +943,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         <div class="ed-ttab-pane is-active" data-itab-pane="search">
         <div class="ed-stock-search">
           <input type="search" id="ed-stock-input" placeholder='Try "kitchen", "garden", "interior"…' autocomplete="off" />
+          <!-- The shape of photo to search for (Dani, 4 Nov). Shared with the
+               Change image menu's search, and remembered. -->
+          <div class="ed-orient" id="ed-stock-orient" role="radiogroup" aria-label="Photo shape">
+            <button type="button" data-orient="any" role="radio">Any</button>
+            <button type="button" data-orient="portrait" role="radio">Portrait</button>
+            <button type="button" data-orient="landscape" role="radio">Landscape</button>
+            <button type="button" data-orient="square" role="radio">Square</button>
+          </div>
         </div>
         <!-- The sources and the collection link are folded away: most people
              only ever type a search. -->
@@ -974,6 +982,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         </div>
         <p class="ed-stock-status" id="ed-stock-status">Type to search — results from both sources appear here.</p>
         <div class="ed-photo-grid" id="ed-photo-grid"></div>
+        <p class="ed-stock-more" id="ed-stock-more" hidden>Loading more photos…</p>
         <p class="ed-stock-credit">Photos via <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> &amp; <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a>. Hover an image to credit the photographer.</p>
         </div>
 
@@ -2493,6 +2502,24 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       font-style: italic;
     }
     .ed-stock-status.is-error { color: #a05a3c; font-style: normal; }
+    /* Photo shape: the Download panel's segmented control, four across. */
+    .ed-orient { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 3px; background: rgba(28,29,34,0.06); border-radius: 8px; }
+    .ed-orient button {
+      appearance: none; border: 0; background: transparent; border-radius: 6px; padding: 7px 2px; cursor: pointer;
+      font: inherit; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.6); white-space: nowrap;
+    }
+    .ed-orient button:hover { color: var(--ink); }
+    .ed-orient button.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+    .ed-gal .ed-orient { margin: 8px 0 0; }
+    /* Tiles take the shape searched for, so a landscape photo isn't shown
+       cropped to a portrait tile. */
+    #ed-photo-grid[data-orient="any"] button, #ed-photo-grid[data-orient="square"] button { aspect-ratio: 1; }
+    #ed-photo-grid[data-orient="landscape"] button { aspect-ratio: 4 / 3; }
+    .ed-gal .ed-bg-imgmenu-grid[data-orient="portrait"] button { aspect-ratio: 4 / 5; }
+    .ed-gal .ed-bg-imgmenu-grid[data-orient="landscape"] button { aspect-ratio: 4 / 3; }
+    .ed-stock-more { margin: 12px 0 0; text-align: center; font-size: var(--ws-t-label); color: rgba(28,29,34,0.5); font-style: italic; }
+    .ed-stock-more[hidden] { display: none; }
+    .ed-gal .ed-stock-more { grid-column: 1 / -1; margin: 6px 0 2px; }
     .ed-stock-credit {
       margin: 12px 0 0;
       font-size: var(--ws-t-label);
@@ -7221,39 +7248,63 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         statusEl.classList.toggle('is-error', !!isError);
       }
 
-      async function searchPexels(query) {
-        if (!PEXELS_KEY) return [];
-        try {
-          const res = await fetch(
-            `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=24&orientation=portrait`,
-            { headers: { Authorization: PEXELS_KEY } }
-          );
-          if (!res.ok) throw new Error(`Pexels ${res.status}`);
-          const json = await res.json();
-          return (json.photos || []).map((p) => ({
+      /* Photo search, page by page (Dani, 4 Nov). It used to ask each library
+         for one page of 24 portrait photos and stop: 48 photos for "garden",
+         where Unsplash has 10,000 and Pexels 8,000. Now each library is asked
+         for its next page as you scroll, until it runs out, and the shape is
+         yours to choose (Any, Portrait, Landscape, Square).
+
+         Unsplash allows 30 a page and Pexels 80. Each scroll shows up to 30
+         more from each, mixed; Pexels' extra photos wait for the next scroll,
+         so it is asked less often. The Unsplash key is shared by every member
+         and limited per hour, so it is only asked when its photos run low. */
+      const ORIENTS = ['any', 'portrait', 'landscape', 'square'];
+      const ORIENT_KEY = 'tmke.stockOrient';
+      function getOrient() {
+        try { const v = localStorage.getItem(ORIENT_KEY); return ORIENTS.includes(v) ? v : 'any'; } catch (_) { return 'any'; }
+      }
+      function setOrient(v) {
+        try { localStorage.setItem(ORIENT_KEY, v); } catch (_) {}
+        document.dispatchEvent(new CustomEvent('tmke:stock-orient', { detail: v }));
+      }
+
+      async function pexelsPage(query, orient, page) {
+        const o = orient === 'any' ? '' : `&orientation=${orient}`;
+        const res = await fetch(
+          `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=80&page=${page}${o}`,
+          { headers: { Authorization: PEXELS_KEY } }
+        );
+        if (!res.ok) return { ok: false, status: res.status };
+        const json = await res.json();
+        return {
+          ok: true,
+          total: json.total_results || 0,
+          more: !!json.next_page,
+          items: (json.photos || []).map((p) => ({
             source: 'pexels',
             id: String(p.id),
             thumb: p.src.medium,
             full: p.src.large2x || p.src.large || p.src.original,
             credit: `${p.photographer} on Pexels`,
             creditUrl: p.url,
-          }));
-        } catch (e) {
-          console.warn('Pexels search failed', e);
-          return [];
-        }
+          })),
+        };
       }
 
-      async function searchUnsplash(query) {
-        if (!UNSPLASH_KEY) return [];
-        try {
-          const res = await fetch(
-            `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=24&orientation=portrait`,
-            { headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` } }
-          );
-          if (!res.ok) throw new Error(`Unsplash ${res.status}`);
-          const json = await res.json();
-          return (json.results || []).map((r) => ({
+      async function unsplashPage(query, orient, page) {
+        // Unsplash calls a square photo "squarish".
+        const o = orient === 'any' ? '' : `&orientation=${orient === 'square' ? 'squarish' : orient}`;
+        const res = await fetch(
+          `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=30&page=${page}${o}`,
+          { headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` } }
+        );
+        if (!res.ok) return { ok: false, status: res.status };
+        const json = await res.json();
+        return {
+          ok: true,
+          total: json.total || 0,
+          more: page < (json.total_pages || 0),
+          items: (json.results || []).map((r) => ({
             source: 'unsplash',
             id: r.id,
             thumb: r.urls.small,
@@ -7262,26 +7313,83 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             creditUrl: r.links.html,
             // Unsplash asks integrators to ping this URL when a photo is "used".
             downloadLocation: r.links.download_location,
-          }));
-        } catch (e) {
-          console.warn('Unsplash search failed', e);
-          return [];
-        }
+          })),
+        };
       }
 
-      // Interleave two arrays so results from both sources are mixed.
-      function interleave(a, b) {
-        const out = [];
-        const len = Math.max(a.length, b.length);
-        for (let i = 0; i < len; i++) {
-          if (a[i]) out.push(a[i]);
-          if (b[i]) out.push(b[i]);
+      const BATCH = 30;   // photos per library per scroll
+      // One search: next() gives the next batch, mixed, with no photo twice.
+      function stockSession(query, orient, sources) {
+        const libs = [];
+        if (sources.includes('pexels') && PEXELS_KEY) libs.push({ name: 'pexels', get: pexelsPage, page: 0, buf: [], done: false, total: 0 });
+        if (sources.includes('unsplash') && UNSPLASH_KEY) libs.push({ name: 'unsplash', get: unsplashPage, page: 0, buf: [], done: false, total: 0 });
+        const seen = new Set();
+        let busy = false;
+        async function fill(lib) {
+          if (lib.done || lib.buf.length >= BATCH) return;
+          lib.page++;
+          let r;
+          try { r = await lib.get(query, orient, lib.page); } catch (e) { r = { ok: false, status: 0 }; }
+          if (!r.ok) {
+            lib.done = true;
+            // 403/429: the hourly allowance is used up. Say so rather than
+            // quietly showing one library's photos.
+            if (r.status === 403 || r.status === 429) lib.limited = true;
+            console.warn(`${lib.name} search failed`, r.status);
+            return;
+          }
+          lib.total = r.total;
+          lib.buf.push(...r.items);
+          if (!r.items.length || !r.more) lib.done = true;
         }
-        return out;
+        const s = {
+          query, orient, shown: 0,
+          get busy() { return busy; },
+          get done() { return libs.every((l) => l.done && !l.buf.length); },
+          get total() { return libs.reduce((n, l) => n + (l.total || 0), 0); },
+          get limited() { return libs.filter((l) => l.limited).map((l) => l.name); },
+          async next() {
+            if (busy || s.done) return [];
+            busy = true;
+            try {
+              await Promise.all(libs.map(fill));
+              const lists = libs.map((l) => l.buf.splice(0, BATCH));
+              const out = [];
+              const len = Math.max(0, ...lists.map((l) => l.length));
+              for (let i = 0; i < len; i++) {
+                lists.forEach((l) => {
+                  const r = l[i];
+                  if (!r) return;
+                  const k = r.source + ':' + r.id;
+                  if (seen.has(k)) return;
+                  seen.add(k); out.push(r);
+                });
+              }
+              s.shown += out.length;
+              return out;
+            } finally { busy = false; }
+          },
+        };
+        return s;
+      }
+
+      // "Showing 60 of 18,005 photos for "garden"."
+      function stockStatus(s) {
+        const n = (v) => v.toLocaleString('en-GB');
+        const names = { pexels: 'Pexels', unsplash: 'Unsplash' };
+        const lim = s.limited;
+        const busyNote = lim.length === 1
+          ? ` ${names[lim[0]]} has reached its limit for this hour, so the rest are from ${names[lim[0] === 'pexels' ? 'unsplash' : 'pexels']}.`
+          : lim.length > 1 ? ' Both photo libraries have reached their limit for this hour. Try again later.' : '';
+        if (s.done) return `${n(s.shown)} photo${s.shown === 1 ? '' : 's'} for "${s.query}".${busyNote}`;
+        return `Showing ${n(s.shown)} of ${n(Math.max(s.total, s.shown))} photos for "${s.query}". Scroll for more.${busyNote}`;
       }
 
       function renderResults(results) {
         gridEl.innerHTML = '';
+        appendResults(results);
+      }
+      function appendResults(results) {
         results.forEach((r) => {
           const btn = document.createElement('button');
           btn.type = 'button';
@@ -7325,14 +7433,15 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
          can be swapped for a free photo without leaving it for the Images
          panel. Dani, 12 Oct: people "might not fully understand that they can
          add a stock image from here too." */
-      window.__TMKE_STOCK_SEARCH__ = async function (q) {
+      // The Change image menus' search (editor.js) uses the same sessions.
+      function sessionFor(q) {
         const sources = activeSources().length ? activeSources() : ['pexels', 'unsplash'];
-        const calls = [];
-        if (sources.includes('pexels')) calls.push(searchPexels(q));
-        if (sources.includes('unsplash')) calls.push(searchUnsplash(q));
-        const [a = [], b = []] = await Promise.all(calls);
-        return sources.length === 2 ? interleave(a, b) : [...a, ...b];
-      };
+        return stockSession(q, getOrient(), sources);
+      }
+      window.__TMKE_STOCK_SESSION__ = sessionFor;
+      window.__TMKE_STOCK_STATUS__ = stockStatus;
+      window.__TMKE_STOCK_ORIENT__ = { get: getOrient, set: setOrient, all: ORIENTS };
+      window.__TMKE_STOCK_SEARCH__ = async function (q) { return sessionFor(q).next(); };
       window.__TMKE_STOCK_USED__ = function (r) {
         if (r && r.source === 'unsplash' && r.downloadLocation && UNSPLASH_KEY) {
           fetch(r.downloadLocation, { headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` } }).catch(() => {});
@@ -7341,11 +7450,67 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
       let lastQuery = '';
       let debounceTimer = null;
+      let session = null;   // the search on screen; null for a collection or nothing
+      const moreEl = document.getElementById('ed-stock-more');
+      const orientEl = document.getElementById('ed-stock-orient');
+
+      function showOrient() {
+        const o = getOrient();
+        gridEl.setAttribute('data-orient', o);
+        if (orientEl) orientEl.querySelectorAll('[data-orient]').forEach((b) => {
+          const on = b.getAttribute('data-orient') === o;
+          b.classList.toggle('is-on', on);
+          b.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+      }
+      showOrient();
+      if (orientEl) orientEl.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-orient]');
+        if (!b || b.getAttribute('data-orient') === getOrient()) return;
+        setOrient(b.getAttribute('data-orient'));
+      });
+      document.addEventListener('tmke:stock-orient', () => {
+        showOrient();
+        if (session) { lastQuery = ''; runSearch(); }
+      });
+
+      function dropSession() {
+        session = null;
+        if (moreEl) moreEl.hidden = true;
+      }
+
+      // The next batch, when the foot of the photos comes near.
+      async function loadMore() {
+        const s = session;
+        if (!s || s.busy || s.done) return;
+        const batch = await s.next();
+        if (s !== session) return;   // a newer search has started
+        appendResults(batch);
+        setStatus(stockStatus(s), !!s.limited.length);
+        if (moreEl) moreEl.hidden = s.done;
+        recheckMore();
+      }
+      // An observer only speaks when something changes, so after each batch
+      // look again: a short batch can leave the foot still in view.
+      const moreIO = moreEl && 'IntersectionObserver' in window
+        ? new IntersectionObserver((ents) => { if (ents.some((e) => e.isIntersecting)) loadMore(); }, { rootMargin: '0px 0px 600px 0px' })
+        : null;
+      function recheckMore() {
+        if (!moreIO || !moreEl || moreEl.hidden) return;
+        moreIO.unobserve(moreEl); moreIO.observe(moreEl);
+      }
+      // And the panel's own scrolling, in case the observer is slow to speak.
+      const panelScroller = gridEl.closest('.ed-panel');
+      if (panelScroller && moreEl) panelScroller.addEventListener('scroll', () => {
+        if (!session || moreEl.hidden) return;
+        if (moreEl.getBoundingClientRect().top < panelScroller.getBoundingClientRect().bottom + 600) loadMore();
+      }, { passive: true });
 
       async function runSearch() {
         const q = inputEl.value.trim();
         if (q.length < 2) {
           gridEl.innerHTML = '';
+          dropSession();
           setStatus('Type to search — results from both sources appear here.');
           return;
         }
@@ -7354,26 +7519,36 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
         const sources = activeSources();
         if (sources.length === 0) {
+          dropSession();
           setStatus('Pick at least one source (Pexels / Unsplash).', true);
           return;
         }
 
         setStatus(`Searching for "${q}"…`);
-        const calls = [];
-        if (sources.includes('pexels')) calls.push(searchPexels(q));
-        if (sources.includes('unsplash')) calls.push(searchUnsplash(q));
+        const s = stockSession(q, getOrient(), sources);
+        session = s;
+        if (moreEl) moreEl.hidden = true;
+        const first = await s.next();
+        if (s !== session) return;   // a newer search has started
 
-        const [a = [], b = []] = await Promise.all(calls);
-        const merged = sources.length === 2 ? interleave(a, b) : [...a, ...b];
-
-        if (merged.length === 0) {
+        if (first.length === 0) {
           gridEl.innerHTML = '';
-          setStatus(`No results for "${q}". Try a different word.`, true);
+          dropSession();
+          setStatus(s.limited.length > 1 || (s.limited.length && sources.length === 1)
+            ? 'The photo library has reached its limit for this hour. Try again later.'
+            : `No results for "${q}". Try a different word.`, true);
           return;
         }
 
-        renderResults(merged);
-        setStatus(`${merged.length} result${merged.length === 1 ? '' : 's'} for "${q}".`);
+        gridEl.setAttribute('data-orient', getOrient());
+        // A new search starts at the top: left scrolled down, the foot would
+        // stay in view and every page would load at once.
+        const panelEl = gridEl.closest('.ed-panel');
+        if (panelEl) panelEl.scrollTop = 0;
+        renderResults(first);
+        setStatus(stockStatus(s), !!s.limited.length);
+        if (moreEl) moreEl.hidden = s.done;
+        recheckMore();
       }
 
       inputEl.addEventListener('input', () => {
@@ -7457,6 +7632,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       // Withdraw the open collection's photos and collapse back to the folder list.
       function clearResults() {
         gridEl.innerHTML = '';
+        dropSession(); lastQuery = '';
         activeKey = null; lastCollection = null;
         if (collectOpenEl) collectOpenEl.hidden = true;
         if (collectSaveBtn) collectSaveBtn.hidden = true;
@@ -7469,7 +7645,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (!c) { setStatus('That doesn’t look like a Pexels or Unsplash collection link.', true); return; }
         setStatus('Pulling collection…');
         const results = c.service === 'pexels' ? await fetchPexelsCollection(c.id) : await fetchUnsplashCollection(c.id);
+        dropSession(); lastQuery = '';
         if (!results.length) { gridEl.innerHTML = ''; setStatus('Couldn’t pull that collection — check it’s public and the link is right.', true); return; }
+        gridEl.removeAttribute('data-orient');   // a collection keeps the usual tiles
         renderResults(results);
         setStatus(`${results.length} photo${results.length === 1 ? '' : 's'} from the collection. Click one to add it.`);
         // Mark it open + offer to save it (unless already saved).
