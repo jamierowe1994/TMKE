@@ -713,12 +713,21 @@ export function travelCharge(oneWayMiles, settings = SURCHARGE_DEFAULTS) {
 export function surchargePence(distanceMiles, settings = SURCHARGE_DEFAULTS) {
   return travelCharge(distanceMiles, settings).pence;
 }
-/** The invoice line: "Travel: 56 miles each way (112 miles there and back),
- *  less the free 40 miles each way: 32 miles at 55p". */
+/** The invoice line: "Travel charge (56 miles each way, 112 miles there and
+ *  back, less the free 40 miles each way: 32 miles at 55p a mile)" (Danielle,
+ *  4 Nov 2026). */
 export function travelInvoiceLine(oneWayMiles, settings = SURCHARGE_DEFAULTS) {
   const t = travelCharge(oneWayMiles, settings);
   const m = (x) => `${Math.round(x)} mile${Math.round(x) === 1 ? "" : "s"}`;
-  return `Travel: ${m(t.oneWay)} each way (${m(t.returnMiles)} there and back), less the free ${t.radius} miles each way: ${m(t.chargeable)} at ${t.rate}p a mile`;
+  return `Travel charge (${m(t.oneWay)} each way, ${m(t.returnMiles)} there and back, less the free ${t.radius} miles each way: ${m(t.chargeable)} at ${t.rate}p a mile)`;
+}
+/** A shoot's own invoice line: "Property video - Sarah Lewin - 8 Canal Street"
+ *  (Danielle, 4 Nov 2026): the service, who it was for and the first line of
+ *  the address, so whoever reads it can place the shoot. */
+export function invoiceItemLabel(b) {
+  const service = [b.service || "Videography", b.package ? `(${b.package})` : ""].filter(Boolean).join(" ");
+  const first = String(b.property_address || "").split(/\n|,/)[0].trim();
+  return [service, String(b.client_name || "").trim(), first].filter(Boolean).join(" - ");
 }
 
 /* ---- A shoot's invoice, drafted from its booking ----
@@ -761,12 +770,11 @@ export function bookingInvoiceDraft(b, { accountsCc = null, settings = SURCHARGE
   const online = b.total_pence != null;
   const base = (online ? b.total_pence : b.amount_pence) || 0;
   const surcharge = b.surcharge_pence || 0;
-  const forWhom = (brand || teg) && b.client_name ? ` — ${b.client_name}` : "";
-  const label = [b.service || "Videography", b.package ? `(${b.package})` : ""].filter(Boolean).join(" ") + forWhom;
+  const label = invoiceItemLabel(b);
   const items = [{ description: label, qty: 1, unit_pence: online && base > surcharge ? base - surcharge : base }];
   if (surcharge) {
     const t = b.distance_miles ? travelCharge(Number(b.distance_miles), settings) : null;
-    items.push({ description: t && t.pence === surcharge ? travelInvoiceLine(Number(b.distance_miles), settings) : `Travel: ${b.distance_miles ? Math.round(b.distance_miles) + " miles" : "mileage"}`, qty: 1, unit_pence: surcharge });
+    items.push({ description: t && t.pence === surcharge ? travelInvoiceLine(Number(b.distance_miles), settings) : `Travel charge${b.distance_miles ? ` (${Math.round(b.distance_miles)} miles each way)` : ""}`, qty: 1, unit_pence: surcharge });
   }
   return {
     booking_id: b.id, booking_source: "videography",

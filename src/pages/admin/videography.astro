@@ -900,6 +900,32 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     .vc-more #vid-archive { margin-top: 6px; }
     @media (max-width: 640px) { .vc-panel-h { padding-top: 32px; } .vc-pr { grid-template-columns: minmax(0, 1fr); row-gap: 4px; } }
 
+    /* The invoice pop-out's tabs, previews and rows (Dani, 4 Nov). */
+    .vc-panel-tabs { flex: none; display: flex; gap: 24px; padding: 0 24px; border-bottom: 1px solid var(--vc-line); background: #fff; overflow-x: auto; }
+    .vc-panel-tabs:empty { display: none; }
+    #vid-cand .vc .vc-panel-tabs button { border: 0; background: none; cursor: pointer; padding: 12px 0 10px; margin: 0 0 -1px; color: var(--vc-tx); border-bottom: 2px solid transparent; border-radius: 0; font-family: var(--sans); white-space: nowrap; }
+    #vid-cand .vc .vc-panel-tabs button[aria-selected="true"] { color: var(--vc-wine); border-bottom-color: var(--vc-wine); }
+    .viv-paper { display: block; width: 100%; min-height: 560px; border: 1px solid var(--vc-edge); border-radius: 4px; background: #fff; margin: 4px 0 0; }
+    .viv-mail { margin-top: 12px; padding: 14px 16px; border: 1px solid var(--vc-edge); border-radius: 4px; white-space: pre-wrap; line-height: 1.45; color: var(--vc-ink); }
+    .viv-lock { margin: 0 0 14px; padding: 12px 14px; border-radius: 4px; background: #f8f2e6; color: var(--vc-ink); }
+    #vid-cand .vc .viv-lock b { color: #85693a; }
+    .viv-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr) 6em auto auto; gap: 14px; align-items: center; min-height: 44px; border-top: 1px solid var(--vc-line); }
+    .viv-rows > .viv-row:first-child { border-top: 0; }
+    .viv-what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--vc-tx); }
+    .viv-amt { text-align: right; font-variant-numeric: tabular-nums; }
+    .viv-acts { display: flex; gap: 14px; justify-content: flex-end; flex-wrap: wrap; }
+    @media (max-width: 720px) { .viv-row { grid-template-columns: minmax(0, 1fr) auto; padding: 8px 0; } .viv-what { display: none; } }
+    .vc-sec-b .vid-inv-item { display: grid; grid-template-columns: minmax(0, 1fr) 8em 28px; gap: 8px; align-items: center; margin: 6px 0; }
+    #vid-cand .vc .vc-sec-b .vid-inv-item input { width: 100%; min-width: 0; height: 32px; box-sizing: border-box; border: 1px solid var(--vc-edge); border-radius: 4px; padding: 0 9px; margin: 0; font-family: var(--sans); color: var(--vc-ink); background: #fff; }
+    #vid-cand .vc .vc-sec-b .vid-inv-item input[data-k="amount"] { text-align: right; }
+    #vid-cand .vc .vc-sec-b .vid-inv-item input:focus { outline: 0; border-color: var(--vc-wine); }
+    #vid-cand .vc .vc-sec-b button.vid-inv-x:not(.vc-act) { width: 28px; height: 28px; padding: 0; border: 0; background: none; color: var(--vc-tx); font-size: 18px; letter-spacing: 0; cursor: pointer; }
+    .vc-sec-b .vid-inv-totals { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; padding: 10px 0 4px; margin-top: 6px; border-top: 1px solid var(--vc-line); background: none; }
+    .vc-sec-b .vid-inv-toggle { display: inline-flex; border: 1px solid var(--vc-edge); border-radius: 4px; overflow: hidden; }
+    #vid-cand .vc .vc-sec-b .vid-inv-toggle button:not(.vc-act) { height: 30px; padding: 0 16px; border: 0; border-radius: 0; background: #fff; color: var(--vc-tx); cursor: pointer; }
+    #vid-cand .vc .vc-sec-b .vid-inv-toggle button.is-active:not(.vc-act) { background: var(--vc-wine); color: #fff; }
+    #vid-cand .vc .vid-chaselog { margin-top: 14px; }
+
     .vid-cand-card {
       background: var(--paper); border: 1px solid rgba(var(--violet-rgb), 0.16); border-radius: 14px;
       /* Side padding caps at 28px - the banner's own - so everything inside the
@@ -1653,8 +1679,8 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     import { makeThumb, putThumb, thumbKeyFor } from "../../lib/thumbs.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
-    import { defaultEmailSubject, defaultEmailBody, payLine } from "../../lib/invoice-email.js";
-    import { bookingLocation, bookingInvoiceDraft, travelCharge, travelInvoiceLine, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, PHOTOGRAPHY, photoInclusions, photoCostPence, packageBrief, briefTimes, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
+    import { defaultEmailSubject, defaultEmailBody, payLine, invoiceEmail } from "../../lib/invoice-email.js";
+    import { bookingLocation, bookingInvoiceDraft, invoiceItemLabel, travelCharge, travelInvoiceLine, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, PHOTOGRAPHY, photoInclusions, photoCostPence, packageBrief, briefTimes, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -2230,11 +2256,12 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           <div class="vc-scrim" id="vc-panel" hidden>
             <div class="vc-panel" role="dialog" aria-modal="true" aria-labelledby="vc-panel-t">
               <header class="vc-panel-h"><div><p class="vc-panel-eye" id="vc-panel-eye"></p><h3 id="vc-panel-t"></h3><div class="vc-panel-chip" id="vc-panel-chip"></div></div><button type="button" class="vc-panel-x" data-vc-close aria-label="Close">&times;</button></header>
+              <nav class="vc-panel-tabs" id="vc-panel-tabs"></nav>
               <div class="vc-panel-b vid-cand-card">
                 <div class="vc-pane" data-pane="view"></div>
                 <div class="vc-pane" data-pane="edit"></div>
                 <div class="vc-pane" data-pane="travel"></div>
-                <div class="vc-pane" data-pane="invoice">${renderBrandGate(b) ? vcSec("Before invoicing", `<div class="vc-gate-slot">${renderBrandGate(b)}</div>`) : ""}${vcSec("Invoices", '<div id="vid-cand-invoice"></div>')}</div>
+                <div class="vc-pane" data-pane="invoice">${renderBrandGate(b) ? vcSec("Before invoicing", `<div class="vc-gate-slot">${renderBrandGate(b)}</div>`) : ""}<div id="vid-cand-invoice"></div></div>
                 <div class="vc-pane" data-pane="delivery">
                   ${vcSec("1 · Pixieset gallery", `${started ? "" : `<p class="vc-hint" style="margin:10px 0 6px">What the client sees and downloads. It opens up once the shoot is filmed and in editing.</p>`}<div id="vid-cand-delivery" hidden></div>`)}
                   ${isSmmCovered(b) ? "" : vcSec("2 · Client portal", `<p class="vc-hint" style="margin:10px 0 6px">For clients who have a portal: their own link and passcode to watch and download from our storage. Not another upload; it shares this shoot's folder.</p><div class="cpt-shoot" id="vc-portal-host"></div>`)}
@@ -2296,8 +2323,8 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
               `Do you need to raise another one?\n\n` +
               `OK — raise another invoice\nCancel — move on to Invoiced`);
             if (!another) { advanceStage("invoiced"); return; }
-            vivForceOpen = true;
-            await renderInvoiceCard(b);
+            vcOpen("invoice", false, "new");
+            return;
           }
           scrollToInvoice(b);
           document.getElementById("viv-name")?.focus({ preventScroll: true });
@@ -2308,7 +2335,6 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       el.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => candAction(btn.getAttribute("data-act"))));
       showLinkedContact(b);
       renderDeliveryCard(b);
-      renderInvoiceCard(b);
       renderEditsCard(b);
       loadThread(b);
       // A section that was open stays open across a re-render (saving in it
@@ -2542,7 +2568,12 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       if (isSmmCovered(b)) return;
       const invs = (await fetchInvoicesFor(b)).filter((iv) => iv.status !== "void");
       if (b.id !== candId) return;
-      const newest = invs[0];
+      let newest = invs[0];
+      if (newest) {
+        const { data: full } = await supabase.from("invoices").select("line_items, bill_to_address, cc_email").eq("id", newest.id).maybeSingle();
+        if (full) newest = Object.assign({}, newest, full);
+      }
+      if (b.id !== candId) return;
       let label = "Awaiting invoice", cls = "pay-awaiting";
       if (b.paid_at || invs.some((iv) => iv.status === "paid")) { label = "Paid"; cls = "pay-paid"; }
       else if (invs.some((iv) => iv.status === "sent")) {
@@ -2888,6 +2919,8 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         : key === "delivery" ? (b.stage === "delivered" ? vcChip("is-good", "Delivered") : b.gallery_sent_at ? vcChip("is-info", "Sent " + vcDay(b.gallery_sent_at)) : vcChip("is-plain", "Not sent"))
         : key === "content" ? (vcCache.files ? vcChip("is-good", `${vcCache.files} files uploaded`) : vcChip("is-plain", "Nothing uploaded yet")) : "";
       panel.querySelectorAll(".vc-pane").forEach((x) => { x.hidden = x.getAttribute("data-pane") !== key; });
+      const tabsEl = document.getElementById("vc-panel-tabs");
+      if (tabsEl) tabsEl.innerHTML = "";
       const pane = panel.querySelector(`.vc-pane[data-pane="${key}"]`);
       const foot = document.getElementById("vc-panel-f");
       foot.innerHTML = "";
@@ -2914,6 +2947,9 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         foot.innerHTML = (folder ? `<a class="vc-hb" href="/admin/content?folder=${encodeURIComponent(folder)}">Open in Library</a>` : "") + vcFootBtn("data-vc-close", "Done", true);
       } else if (key === "notes") {
         foot.innerHTML = vcFootBtn("data-vc-close", "Close", true);
+      } else if (key === "invoice") {
+        if (!keep) { vivPreview = null; vivSource = null; vivTab = typeof draft === "string" ? draft : "this"; }
+        renderInvoiceCard(b);
       }
       foot.querySelectorAll("[data-vc-close]").forEach((x) => x.addEventListener("click", vcClose));
       foot.querySelector('[data-vc-go="edit"]')?.addEventListener("click", () => vcOpen("edit"));
@@ -3678,7 +3714,6 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     let vivPayByCard = true;   // set per booking in renderInvoiceCard
     let vivDraft = null;       // the created invoice awaiting send
     let vivReissueOf = null;   // { id, number } when reissuing a sent invoice
-    let vivForceOpen = false;  // "Raise another invoice" on a shoot past invoicing
 
     async function ensureInvSettings() {
       if (invSettings || !WORKER_URL) return invSettings;
@@ -3704,15 +3739,16 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       // A brand invoice is billed to the office (or, for TEG, to the brand),
       // not the agent, so the line has to say who the shoot was actually for
       // or the recipient cannot place it.
-      const forWhom = (isBrandInvoiced(b) || isTegInvoiced(b)) && b.client_name ? ` — ${b.client_name}` : "";
-      const label = [b.service || "Videography", b.package ? `(${b.package})` : ""].filter(Boolean).join(" ") + forWhom;
+      // "Service - client - first line of the address" (Danielle, 4 Nov 2026),
+      // so whoever reads it can place the shoot. Same as bookingInvoiceDraft.
+      const label = invoiceItemLabel(b);
       items.push({ description: label, amount: online && base > surcharge ? ((base - surcharge) / 100).toFixed(2) : (base / 100).toFixed(2) });
       // "Travel: 100 miles each way (200 miles there and back), less the free
       // 40 miles each way: 120 miles at 55p a mile". An older booking charged
       // one way keeps a plain line, so the words match its amount.
       if (surcharge) {
         const t = b.distance_miles ? travelCharge(Number(b.distance_miles), vidSettings) : null;
-        items.push({ description: t && t.pence === surcharge ? travelInvoiceLine(Number(b.distance_miles), vidSettings) : `Travel: ${b.distance_miles ? Math.round(b.distance_miles) + " miles" : "mileage"}`, amount: (surcharge / 100).toFixed(2) });
+        items.push({ description: t && t.pence === surcharge ? travelInvoiceLine(Number(b.distance_miles), vidSettings) : `Travel charge${b.distance_miles ? ` (${Math.round(b.distance_miles)} miles each way)` : ""}`, amount: (surcharge / 100).toFixed(2) });
       }
       return items;
     }
@@ -3840,142 +3876,234 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       return CAN_MONEY_P;
     }
 
+    /* ---- Invoicing, in its pop-out (Dani, 4 Nov 2026, agreed on the mock-up) ----
+       Three tabs. This invoice: the newest one, read as the client gets it,
+       or the builder when nothing's raised yet. Raise new: a fresh one for
+       this shoot. All invoices: every one, with View and Resend. The builder
+       runs in the order Danielle uses (who it's for, dates, what it's for,
+       notes), and Preview invoice and Preview email show exactly what will
+       go before it goes to Jack to approve. */
+    var vivTab = "this";
+    var vivPreview = null;     // { kind: "invoice" | "email", inv, snap } while a preview shows
+    var vivSource = null;      // the invoice being edited (saving reissues it), or null
+    var vivFlash = "";         // a message to show after the next redraw
+    function vivFoot(html) { if (vcPane !== "invoice") return; const f = document.getElementById("vc-panel-f"); if (f) f.innerHTML = html; }
+    function vivChip(iv) {
+      const s = iv.status;
+      const late = s === "sent" && iv.due_date && new Date(iv.due_date + "T23:59:59") < new Date();
+      if (s === "paid") return vcChip("is-good", "Paid" + (iv.paid_date ? " " + vcDay(iv.paid_date) : ""));
+      if (s === "draft") return vcChip("is-plain", "Draft");
+      if (s === "void") return vcChip("is-plain", "Void");
+      if (s === "sent") return vcChip(late ? "is-bad" : "is-info", (late ? "Overdue, due " : "Sent, due ") + vcDay(iv.due_date));
+      return vcChip("is-plain", s || "");
+    }
+    // What's typed in the builder, so a preview can come back to it.
+    const VIV_FIELDS = ["viv-client", "viv-name", "viv-email", "viv-cc", "viv-address", "viv-issued", "viv-terms", "viv-due", "viv-notes"];
+    function vivSnap() { const f = {}; VIV_FIELDS.forEach((id) => { const el = document.getElementById(id); if (el) f[id] = el.value; }); return { f, items: vivItems.map((x) => ({ ...x })), pay: vivPayByCard }; }
+    function vivRestore(snap) { if (!snap) return; Object.entries(snap.f).forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.value = v; }); vivItems = snap.items; vivPayByCard = snap.pay; vivSyncPay(); vivRenderItems(); }
+
     async function renderInvoiceCard(b) {
-      const host = actionHost(b, "vid-cand-invoice");
-      if (!host) return;
-      if (!WORKER_URL) { host.innerHTML = `<h4>Invoice</h4><p class="vid-loading">Connect the Worker to raise invoices.</p>`; return; }
+      const host = document.getElementById("vid-cand-invoice");
+      const tabsEl = document.getElementById("vc-panel-tabs");
+      if (!host || vcPane !== "invoice") return;
+      if (!WORKER_URL) { host.innerHTML = `<p class="vc-hint">Connect the Worker to raise invoices.</p>`; return; }
       await ensureInvSettings();
-      if (!(await canMoney())) {
-        host.innerHTML = `<h4>Invoice</h4>
-          <p class="vid-hint" style="margin-bottom:12px">You can open these invoices and resend one that's been sent. To raise, change or void an invoice, or mark it paid, ask Danielle.</p>
-          <div id="viv-list"><p class="vid-loading">Loading…</p></div>
-          <p class="vid-warn" id="viv-msg" hidden></p>`;
+      const money = await canMoney();
+      const list = await fetchInvoicesFor(b);
+      if (b.id !== candId || vcPane !== "invoice") return;
+      b._invoices = list;
+      const live = list.filter((iv) => iv.status !== "void");
+      const current = live[0] || null;
+      if (!money && (vivTab === "new" || (vivTab === "this" && !current))) vivTab = "all";
+      const tabs = [
+        ...(money || current ? [["this", current ? "This invoice" : "Raise this invoice"]] : []),
+        ...(money ? [["new", "Raise new"]] : []),
+        ["all", `All invoices (${live.length})`],
+      ];
+      if (tabsEl) {
+        tabsEl.innerHTML = tabs.map(([k, t]) => `<button type="button" data-viv-tab="${k}" aria-selected="${vivTab === k}">${escapeHtml(t)}</button>`).join("");
+        tabsEl.querySelectorAll("[data-viv-tab]").forEach((x) => x.addEventListener("click", () => { vivTab = x.getAttribute("data-viv-tab"); vivPreview = null; vivSource = null; vivReissueOf = null; renderInvoiceCard(b); }));
+      }
+      const msg = `<p class="vid-warn" id="viv-msg" hidden></p>`;
+      const flash = () => { if (vivFlash) { vivStatus(vivFlash); vivFlash = ""; } };
+      const title = document.getElementById("vc-panel-t");
+
+      // A preview of what the builder holds: the invoice, or its email.
+      if (vivPreview) {
+        const inv = vivPreview.inv;
+        if (title) title.textContent = vivPreview.kind === "invoice" ? "Preview: the invoice" : "Preview: the email";
+        if (vivPreview.kind === "invoice") {
+          host.innerHTML = msg + `<p class="vc-hint" style="margin:10px 0 8px">As the PDF will read. ${vivSource ? "" : "The number is given when it's saved."}</p><iframe class="viv-paper" title="Invoice preview"></iframe>`;
+          const fr = host.querySelector("iframe");
+          fr.srcdoc = renderInvoiceHtml({ settings: { ...invSettings }, invoice: inv });
+          fr.addEventListener("load", () => { try { fr.style.height = (fr.contentDocument.documentElement.scrollHeight + 4) + "px"; } catch (_) {} });
+        } else {
+          const e = invoiceEmail(inv, invSettings || {}, { booking: b });
+          host.innerHTML = msg + `<p class="vc-hint" style="margin:10px 0 8px">The email that goes with it once it's approved. The invoice PDF and the footer image are added automatically.</p>
+            <dl class="vc-pdl">${vcPR("To", escapeHtml(inv.bill_to_email || ""))}${vcPR("Copy to", escapeHtml(inv.cc_email || ""))}${vcPR("Subject", escapeHtml(e.subject))}${vcPR("Attached", escapeHtml((inv.number || "The invoice") + ".pdf"))}${vcPR("Payment", escapeHtml(payLine(inv)))}</dl>
+            <div class="viv-mail">${escapeHtml(e.body)}</div>`;
+        }
+        vivFoot(vcFootBtn('data-viv="back"', "Back to the invoice") + (vivPreview.kind === "invoice" ? vcFootBtn('data-viv="pv-email"', "Preview email") : vcFootBtn('data-viv="pv-invoice"', "Preview invoice")));
+        vivWireFoot(b);
+        return;
+      }
+      if (title) title.textContent = vivTab === "all" ? "Invoices for this shoot" : vivTab === "new" ? "Raise a new invoice" : vivSource ? "Edit " + (vivSource.number || "the invoice") : current ? (current.number || "Draft invoice") : "Raise this invoice";
+
+      if (vivTab === "all") {
+        host.innerHTML = msg + `<div id="viv-list"><p class="vc-hint">Loading…</p></div>`;
+        flash();
         loadInvoices(b);
+        vivFoot(money ? vcFootBtn('data-viv-go="new"', "Raise new", true) : "");
+        document.querySelector('#vc-panel-f [data-viv-go="new"]')?.addEventListener("click", () => { vivTab = "new"; renderInvoiceCard(b); });
+        return;
+      }
+      if (vivTab === "new" || vivSource || !current) {
+        vivBuilder(b, host, msg, vivSource ? "edit" : vivTab === "new" ? "new" : "first");
+        flash();
         return;
       }
 
-      // Once the shoot has moved past invoicing there is nothing left to raise,
-      // so the builder folds away and only the raised invoices remain - with
-      // Edit, Resend and Mark paid, which are the things still worth doing.
-      const raisingDone = !["booked", "invoiced"].includes(b.stage) && !vivForceOpen;
-      if (raisingDone) {
-        host.innerHTML = `<h4>Invoice</h4>
-          <div class="vid-inv-list-h" style="margin-top:0;padding-top:0;border:0">Raised for this shoot</div>
-          <div id="viv-list"><p class="vid-loading">Loading…</p></div>
-          <p class="vid-warn" id="viv-msg" hidden></p>
-          <button type="button" class="admin-btn admin-btn-ghost" id="viv-reopen" style="margin-top:12px">Raise another invoice</button>`;
-        document.getElementById("viv-reopen").addEventListener("click", () => { vivForceOpen = true; renderInvoiceCard(b); });
-        loadInvoices(b);
-        return;
-      }
-      vivItems = vivSeedItems(b);
-      vivDraft = null;
-      vivReissueOf = null;
-      vivForceOpen = false;
-      const today = new Date().toISOString().slice(0, 10);
-      const due = new Date(); due.setDate(due.getDate() + 10);
-      const brand = isBrandInvoiced(b);
-      const teg = isTegInvoiced(b);
-      // The client pays by card; a brand settling out of a marketing fee (or a
-      // TEG brand settling from its own budget) pays its own way. Offering a
-      // card button to an accounts office is noise, and leaving it off for a
-      // client is a slower payment - so it follows the route rather than
-      // defaulting the same for both.
-      vivPayByCard = !brand && !teg;
-      // Billed to the office that holds the marketing fee, not to the agent -
-      // or, for TEG, to the specific brand rather than to Paula who reads it.
+      // This invoice, as the client gets it.
+      const { data: full } = await supabase.from("invoices").select("*").eq("id", current.id).maybeSingle();
+      if (b.id !== candId || vcPane !== "invoice") return;
+      const inv = full || current;
+      const fc = isBrandInvoiced(b);
+      const fee = fc ? (b.brand_fee_confirmed ? `Held. Confirmed ${b.brand_fee_confirmed_at ? vcDay(b.brand_fee_confirmed_at) : ""}${b.brand_fee_confirmed_by ? " by " + b.brand_fee_confirmed_by : ""}.` : "Not confirmed yet.") : "";
+      const hist = [
+        inv.created_at ? [vcDay(inv.created_at), "Raised"] : null,
+        inv.sent_at ? [vcDay(inv.sent_at), `Sent to ${inv.sent_to || inv.bill_to_email || "the client"}`] : null,
+        inv.paid_date ? [vcDay(inv.paid_date), "Paid" + (inv.payment_method ? ", " + inv.payment_method : "")] : null,
+        inv.status === "sent" && inv.due_date ? [vcDay(inv.due_date), "Due. A reminder goes if it's still unpaid."] : null,
+      ].filter(Boolean);
+      host.innerHTML = msg + `<iframe class="viv-paper" title="${escapeHtml(inv.number || "Invoice")}"></iframe>` +
+        vcSec("Who it goes to", `<dl class="vc-pdl">${vcPR("Invoice email", escapeHtml(inv.bill_to_email || ""))}${vcPR("Copy to", escapeHtml(inv.cc_email || ""))}${fc ? vcPR("Fee check", escapeHtml(fee)) : ""}${vcPR("Card payment", inv.pay_by_card ? "On: the email has a Pay by card button" : "Off: bank transfer")}</dl>`) +
+        vcSec("What's happened", `<dl class="vc-pdl">${hist.map(([w, t]) => vcPR(w, escapeHtml(t))).join("") || vcPR("So far", "Nothing yet")}</dl><div id="viv-list" hidden></div>`);
+      const fr = host.querySelector("iframe");
+      fr.srcdoc = renderInvoiceHtml({ settings: { ...invSettings }, invoice: inv });
+      fr.addEventListener("load", () => { try { fr.style.height = (fr.contentDocument.documentElement.scrollHeight + 4) + "px"; } catch (_) {} });
+      const chip = document.getElementById("vc-panel-chip");
+      if (chip) chip.innerHTML = vivChip(inv);
+      flash();
+      let foot = vcFootBtn(`data-vview="${escapeHtml(inv.id)}"`, "View PDF");
+      if (money && inv.status === "draft") foot = vcFootBtn(`data-vdel="${escapeHtml(inv.id)}"`, "Delete") + foot + vcFootBtn(`data-vedit="${escapeHtml(inv.id)}"`, "Edit") + vcFootBtn(`data-vjack="${escapeHtml(inv.id)}"`, "Send for approval", true);
+      else if (money && inv.status === "sent") foot += vcFootBtn(`data-vedit="${escapeHtml(inv.id)}"`, "Edit") + vcFootBtn(`data-vpaid="${escapeHtml(inv.id)}"`, "Mark paid") + vcFootBtn(`data-vresend="${escapeHtml(inv.id)}"`, "Resend", true);
+      else if ((inv.status === "sent" || inv.status === "paid") && inv.bill_to_email) foot += vcFootBtn(`data-vresend="${escapeHtml(inv.id)}"`, "Resend", true);
+      vivFoot((inv.status === "paid" ? `<span class="vc-say">Paid, so it can't be changed.</span>` : "") + foot);
+      vivWireRows(b, document.getElementById("vc-panel-f"), [inv]);
+    }
+
+    // The builder. "first": the shoot's own invoice, filled in from the booking.
+    // "new": another one for this shoot. "edit": an invoice loaded back in to reissue.
+    function vivBuilder(b, host, msg, mode) {
+      const brand = isBrandInvoiced(b), teg = isTegInvoiced(b);
       const officeName = (FC_OFFICES.find((o) => o.key === b.fc_office) || {}).label || "";
       const tegBrandName = tegBrandLabel(b.teg_brand);
-      const billTo = brand ? (officeName || b.client_company || b.client_name || "")
-        : teg ? (tegBrandName || b.client_company || b.client_name || "")
-        : (b.client_company || b.client_name || "");
-      const billAddress = teg ? tegBrandAddress(b.teg_brand) : "";
-      const shootDate = b.shoot_date
-        ? new Date(b.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
-        : "";
-      // The office/brand needs to know which job this is: whose shoot, which
-      // property, which day. Editable - this is a starting point, not a fixed
-      // string. TEG's wording varies by reason rather than by property, since
-      // most TEG shoots (inductions especially) aren't property jobs.
+      const auto = bookingInvoiceDraft(b, { accountsCc: invSettings && invSettings.accounts_cc_email, settings: vidSettings }) || {};
+      const src = mode === "edit" ? vivSource : null;
+      const billTo = src ? src.bill_to_name : brand ? (officeName || b.client_company || b.client_name || "")
+        : teg ? (tegBrandName || b.client_company || b.client_name || "") : (b.client_company || b.client_name || "");
+      const email = src ? src.bill_to_email : (auto.bill_to_email || (teg ? TEG_ACCOUNTS_EMAIL : (b.client_email || "")));
+      const cc = src ? src.cc_email : (auto.cc_email || (invSettings && invSettings.accounts_cc_email) || "hello@tmke.co.uk");
+      const address = src ? src.bill_to_address : (teg ? tegBrandAddress(b.teg_brand) : "");
+      const client = src ? (src.client_name || "") : [b.client_name, b.client_company].filter(Boolean).join(", ");
+      const shootDate = b.shoot_date ? new Date(b.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "";
       const tegReasonName = b.teg_reason === "other" ? (b.teg_reason_other || "the reason given") : tegReasonLabel(b.teg_reason);
-      const tegNotesByReason = {
-        induction: `Invoice raised for ${b.client_name || "the new starter"}'s induction shoot, as part of the induction package.`,
-        event: `Invoice raised for brand event coverage${b.client_name ? ` — ${b.client_name}` : ""}${shootDate ? `, ${shootDate}` : ""}.`,
-        marketing: `Invoice raised for brand marketing content${b.client_name ? ` — ${b.client_name}` : ""}.`,
-      };
-      // Who it goes to, the copies and the notes: the same as the automatic
-      // invoicing drafts (bookingInvoiceDraft, Danielle's sheet, 21 Oct 2026).
-      const auto = bookingInvoiceDraft(b, { accountsCc: invSettings && invSettings.accounts_cc_email }) || {};
-      const defaultNotes = auto.notes ? auto.notes : brand
-        ? [`Invoice raised for ${b.client_name || "the agent"}.`,
-           b.property_address || b.location || "",
-           shootDate ? `Shoot date: ${shootDate}` : ""].filter(Boolean).join("\n")
-        : teg
-        ? (tegNotesByReason[b.teg_reason] || `Invoice raised for ${tegReasonName}${b.client_name ? ` — ${b.client_name}` : ""}.`)
-        : "Thank you for your business - TMKE";
-
-      host.innerHTML = `
-        <h4>Invoice</h4>
-        <p class="vid-hint" style="margin-bottom:14px">
-          ${brand ? "Billed to the brand out of the seller's marketing fee."
-            : teg ? `Billed to ${tegBrandName || "the brand"} — not to the client.`
-            : "Billed to the client."}
-          Ten days to pay, and the content terms are included automatically.
-        </p>
-        <div class="vid-inv-row">
-          <label class="vid-field"><span>Bill to</span><input id="viv-name" value="${escapeHtml(billTo)}" /></label>
-          <label class="vid-field"><span>Email</span><input id="viv-email" type="email" value="${escapeHtml(auto.bill_to_email || (teg ? TEG_ACCOUNTS_EMAIL : (b.client_email || "")))}" /></label>
-        </div>
-        <!-- On a brand invoice "Bill to" is the office's finance department,
-             which settles for several agents at once - so without naming the
-             client neither accounts team can tell one shoot's invoice from
-             another. Prefilled from the booking; editable before it goes. -->
-        <label class="vid-field"><span>Client</span><input id="viv-client" value="${escapeHtml(b.client_company || b.client_name || "")}" placeholder="Who the shoot was for" /></label>
-        <label class="vid-field"><span>CC</span><input id="viv-cc" value="${escapeHtml(auto.cc_email || (invSettings && invSettings.accounts_cc_email) || "hello@tmke.co.uk")}" placeholder="Comma-separated" /></label>
-        <div class="vid-inv-row">
-          <label class="vid-field"><span>Issued</span><input id="viv-issued" type="date" value="${today}" /></label>
-          <label class="vid-field"><span>Due</span><input id="viv-due" type="date" value="${due.toISOString().slice(0, 10)}" /></label>
-          <label class="vid-field"><span>Terms (days)</span><input id="viv-terms" type="number" min="0" value="10" /></label>
-        </div>
-        <label class="vid-field"><span>Billing address</span><textarea id="viv-address" rows="2" placeholder="Optional">${escapeHtml(billAddress)}</textarea></label>
-        <div class="vid-field"><span>Card payment</span>
-          <div class="vid-inv-toggle" id="viv-pay">
-            <button type="button" data-pay="no">Off</button><button type="button" data-pay="yes">On</button>
-          </div>
-          <p class="vid-hint">${brand
-            ? "Off by default — the brand is settling this, not the client. Turn it on if they'd rather pay by card."
-            : teg
-            ? "Off by default — the brand is settling this, not the client. Turn it on if they'd rather pay by card."
-            : "On by default — the client is paying, so the invoice carries a Pay by card button and payment marks the shoot paid on its own."}</p>
-        </div>
-        <div class="vid-field"><span>Line items</span><div id="viv-items"></div>
-          <button type="button" class="admin-btn admin-btn-ghost" id="viv-add">Add line</button></div>
-        <div class="vid-inv-totals" id="viv-totals"></div>
-        <label class="vid-field"><span>Notes (optional)</span><textarea id="viv-notes" rows="${brand ? 3 : 2}">${escapeHtml(defaultNotes)}</textarea></label>
-        <p class="vid-warn" id="viv-msg" hidden></p>
-        <div class="vid-cand-actions">
-          <button type="button" class="admin-btn admin-btn-ghost" id="viv-preview">Preview</button>
-          <button type="button" class="admin-btn admin-btn-ghost" id="viv-draft">Save draft</button>
-          <button type="button" class="admin-btn admin-btn-primary" id="viv-send">Create &amp; send</button>
-        </div>
-        <div class="vid-inv-list-h">Raised for this shoot</div>
-        <div id="viv-list"><p class="vid-loading">Loading…</p></div>`;
-
+      const notes = src ? (src.notes || "") : mode === "new" ? "Thank you for your business - TMKE"
+        : auto.notes ? auto.notes : teg ? `Invoice raised for ${tegReasonName}${b.client_name ? ` — ${b.client_name}` : ""}.` : "Thank you for your business - TMKE";
+      if (mode === "edit") {
+        vivItems = (src.line_items || []).map((it) => ({ description: it.description || "", amount: (((it.unit_pence || 0) * (it.qty || 1)) / 100).toFixed(2) }));
+        vivPayByCard = !!src.pay_by_card;
+        vivReissueOf = { id: src.id, number: src.number };
+      } else {
+        vivItems = mode === "new" ? [{ description: "", amount: "" }] : vivSeedItems(b);
+        vivPayByCard = !brand && !teg;
+        vivReissueOf = null;
+      }
+      vivDraft = null;
+      const today = new Date().toISOString().slice(0, 10);
+      const terms = src ? (src.terms_days ?? 10) : 10;
+      const due = new Date(); due.setDate(due.getDate() + Number(terms));
+      const lock = mode === "first" && brand && !b.brand_fee_confirmed
+        ? `<div class="viv-lock"><b>Fee check first.</b> ${escapeHtml(officeName || "The Fine & Country office")} haven't confirmed they hold the seller's marketing fee, which pays for this shoot. You can get the invoice approved now; ask the office above.</div>` : "";
+      const reissue = mode === "edit" ? `<div class="viv-lock">Saving raises a new invoice and voids ${escapeHtml(src.number || "this one")}.</div>` : "";
+      host.innerHTML = msg + lock + reissue +
+        vcSec("Who it's for", `<dl class="vc-pdl">
+          ${vcPF("Client", `<input class="vc-in" id="viv-client" value="${escapeHtml(client)}" placeholder="Who the shoot was for" />`, brand || teg ? "Names the shoot for the accounts team, who pay for several agents at once." : "")}
+          ${vcPF("Bill to", `<input class="vc-in" id="viv-name" value="${escapeHtml(billTo || "")}" />`)}
+          ${vcPF("Invoice email", `<input class="vc-in" id="viv-email" type="email" value="${escapeHtml(email || "")}" />`)}
+          ${vcPF("Copy to", `<input class="vc-in" id="viv-cc" value="${escapeHtml(cc || "")}" placeholder="Comma-separated" />`)}
+          ${vcPF("Billing address", `<textarea class="vc-in" id="viv-address" rows="2" placeholder="Optional">${escapeHtml(address || "")}</textarea>`)}
+          ${vcPF("Card payment", `<div class="vid-inv-toggle" id="viv-pay"><button type="button" data-pay="no">Off</button><button type="button" data-pay="yes">On</button></div>`, brand || teg ? "Off: the brand settles this, not the client." : "On: the client pays, so the email has a Pay by card button.")}
+        </dl>`) +
+        vcSec("Dates", `<dl class="vc-pdl">
+          ${vcPF("Issued", `<input class="vc-in" id="viv-issued" type="date" value="${today}" />`)}
+          ${vcPF("Days to pay", `<input class="vc-in" id="viv-terms" type="number" min="0" value="${escapeHtml(String(terms))}" />`)}
+          ${vcPF("Due date", `<input class="vc-in" id="viv-due" type="date" value="${due.toISOString().slice(0, 10)}" />`)}
+        </dl>`) +
+        vcSec("What it's for", `<div id="viv-items"></div><div class="vc-inline-acts" style="justify-content:flex-start;padding-top:4px"><button type="button" class="vc-act" id="viv-add">Add a line</button></div><div class="vid-inv-totals" id="viv-totals"></div>`) +
+        vcSec("Notes on the invoice", `<textarea class="vc-in" id="viv-notes" rows="3" style="margin:8px 0 4px">${escapeHtml(notes)}</textarea>`);
       vivRenderItems();
+      vivSyncPay();
       document.getElementById("viv-add").addEventListener("click", () => { vivItems.push({ description: "", amount: "" }); vivRenderItems(); });
       document.getElementById("viv-pay").addEventListener("click", (e) => {
         const btn = e.target.closest("[data-pay]"); if (!btn) return;
         vivPayByCard = btn.getAttribute("data-pay") === "yes"; vivSyncPay();
       });
-      vivSyncPay();
-      document.getElementById("viv-preview").addEventListener("click", () => {
-        const w = window.open("", "_blank"); if (!w) return;
-        w.document.open(); w.document.write(renderInvoiceHtml({ settings: { ...invSettings }, invoice: vivBuildInvoice(b) })); w.document.close();
-      });
       document.getElementById("viv-terms").addEventListener("input", ciApplyVivTerms);
-      document.getElementById("viv-draft").addEventListener("click", () => createInvoice(b, false));
-      document.getElementById("viv-send").addEventListener("click", () => createInvoice(b, true));
-      loadInvoices(b);
+      document.getElementById("viv-issued").addEventListener("input", ciApplyVivTerms);
+      const say = mode === "edit" ? "" : `<span class="vc-say">Jack approves it, then it goes.</span>`;
+      vivFoot(mode === "edit"
+        ? vcFootBtn('data-viv="cancel"', "Cancel") + vcFootBtn('data-viv="pv-invoice"', "Preview invoice") + vcFootBtn('data-viv="pv-email"', "Preview email") + vcFootBtn('id="viv-draft"', "Reissue as draft") + vcFootBtn('id="viv-send"', "Reissue and send", true)
+        : say + vcFootBtn('data-viv="pv-invoice"', "Preview invoice") + vcFootBtn('data-viv="pv-email"', "Preview email") + vcFootBtn('id="viv-draft"', "Save draft") + vcFootBtn('id="viv-approve"', "Send for approval", true));
+      vivWireFoot(b);
+    }
+    // The builder's invoice, as the preview and the email read it.
+    function vivPreviewInvoice(b) {
+      const inv = vivBuildInvoice(b);
+      inv.cc_email = (document.getElementById("viv-cc")?.value || "").trim();
+      if (vivSource && vivSource.number) inv.number = vivSource.number;
+      inv.status = "draft";
+      return inv;
+    }
+    function vivWireFoot(b) {
+      const f = document.getElementById("vc-panel-f");
+      if (!f) return;
+      f.querySelectorAll("[data-viv]").forEach((x) => x.addEventListener("click", () => {
+        const k = x.getAttribute("data-viv");
+        if (k === "back") { const snap = vivPreview && vivPreview.snap; vivPreview = null; renderInvoiceCard(b).then(() => vivRestore(snap)); return; }
+        if (k === "cancel") { vivSource = null; vivReissueOf = null; renderInvoiceCard(b); return; }
+        if (k === "pv-invoice" || k === "pv-email") {
+          const kind = k === "pv-invoice" ? "invoice" : "email";
+          if (vivPreview) { vivPreview.kind = kind; renderInvoiceCard(b); return; }
+          vivPreview = { kind, inv: vivPreviewInvoice(b), snap: vivSnap() };
+          renderInvoiceCard(b);
+          document.querySelector("#vc-panel .vc-panel-b").scrollTop = 0;
+        }
+      }));
+      document.getElementById("viv-draft")?.addEventListener("click", async () => {
+        const reissue = !!vivSource;
+        await createInvoice(b, false);
+        if (vivDraft) { vivFlash = `${vivDraft.number || "The invoice"} saved as a draft.${reissue ? " The old one is voided." : ""}`; vivTab = "this"; vivSource = null; renderInvoiceCard(b); vcFillMoney(b); }
+      });
+      document.getElementById("viv-send")?.addEventListener("click", async () => {
+        await createInvoice(b, true);
+        vivSource = null;
+      });
+      document.getElementById("viv-approve")?.addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        await createInvoice(b, false);
+        if (!vivDraft) return;
+        btn.disabled = true; btn.textContent = "Sending…";
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER_URL}/invoicing/approval/request`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: vivDraft.id }) });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(d.error || res.status);
+          vivFlash = d.test ? `${vivDraft.number} sent for approval. Test mode: the email came to you, not Jack.` : `${vivDraft.number} sent to Jack to approve. Once he does, it goes.`;
+        } catch (err) { vivFlash = `${vivDraft.number} saved as a draft, but it couldn't go to Jack: ${err.message}`; }
+        vivTab = "this"; vivSource = null;
+        renderInvoiceCard(b); vcFillMoney(b);
+      });
     }
 
     function vivSyncPay() {
@@ -4068,11 +4196,12 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
             body: JSON.stringify(Object.assign({ id: data.invoice.id }, email)),
           });
           const sdata = await sres.json().catch(() => ({}));
-          if (!sres.ok) { vivStatus(sdata.error || "Saved, but the email didn't send.", true); loadInvoices(b); return; }
-          vivStatus(`Invoice ${data.invoice.number} sent to ${data.invoice.bill_to_email || inv.bill_to_email}.${voided}`);
+          if (!sres.ok) { vivStatus(sdata.error || "Saved, but the email didn't send.", true); return; }
+          vivFlash = `Invoice ${data.invoice.number} sent to ${data.invoice.bill_to_email || inv.bill_to_email}.${voided}`;
+          vivTab = "this"; vivSource = null;
           // The stage follows the invoice actually going out.
           if (b.stage === "booked") await advanceStage("invoiced");
-          loadInvoices(b);
+          vivRefresh(b);
         });
       } catch (err) {
         vivStatus("Couldn't reach the Worker: " + err.message, true);
@@ -4146,64 +4275,61 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
 
     async function loadInvoices(b) {
       const host = document.getElementById("viv-list");
-      if (!host) return;
+      if (!host || host.hidden) return;
       const list = await fetchInvoicesFor(b);
       const money = await canMoney();
       b._invoices = list;
-      if (!list.length) { host.innerHTML = `<p class="vid-loading">Nothing raised yet.</p>`; return; }
-      if (!money) {
-        host.innerHTML = list.filter((iv) => iv.status !== "void").map((iv) => `
-          <div class="vid-inv-row-item">
-            <span class="vid-inv-num">${escapeHtml(iv.number || "—")}</span>
-            <span>${escapeHtml(gbpFromPence(iv.total_pence))}</span>
-            <span class="vid-inv-actions">
-              <span class="vid-inv-status is-${escapeHtml(iv.status)}">${escapeHtml(iv.status)}</span>
-              <button type="button" class="admin-btn admin-btn-ghost" data-vview="${escapeHtml(iv.id)}">View</button>
-              ${(iv.status === "sent" || iv.status === "paid") && iv.bill_to_email ? `<button type="button" class="admin-btn admin-btn-ghost" data-vresend="${escapeHtml(iv.id)}">Resend</button>` : ""}
-            </span>
-          </div>`).join("") || `<p class="vid-loading">Nothing raised yet.</p>`;
-        host.querySelectorAll("[data-vresend]").forEach((btn) => btn.addEventListener("click", () => resendInvoice(b, btn.getAttribute("data-vresend"), btn)));
-        host.querySelectorAll("[data-vview]").forEach((btn) => btn.addEventListener("click", async () => {
-          const tab = window.open("", "_blank");   // opened on the click, or the browser blocks it
-          try {
-            const token = await authToken();
-            const res = await fetch(`${WORKER_URL}/invoicing/invoice-pdf?id=${encodeURIComponent(btn.getAttribute("data-vview"))}`, { headers: { Authorization: "Bearer " + token } });
-            const j = await res.json().catch(() => ({}));
-            if (!res.ok || !j.url) throw new Error(j.error || "Couldn't open it.");
-            if (tab) tab.location = j.url; else window.location = j.url;
-          } catch (err) { if (tab) tab.close(); vivStatus("Couldn't open the invoice: " + err.message, true); }
-        }));
-        return;
-      }
+      const rows = money ? list : list.filter((iv) => iv.status !== "void");
+      if (!rows.length) { host.innerHTML = vcSec("Invoices for this shoot", `<p class="vc-hint" style="margin:10px 0">Nothing raised yet.</p>`); return; }
       // An invoice marked paid somewhere that didn't mark the shoot paid (the
       // Invoicing page, before 30 Sep 2026): offer to finish the job.
-      const paidInv = list.find((iv) => iv.status === "paid");
-      const heal = paidInv && !b.paid_at ? `<div class="vid-inv-heal"><span>Invoice ${escapeHtml(paidInv.number || "")} is paid, but the shoot isn't marked paid, so the PIN is still locked.</span><button type="button" class="admin-btn admin-btn-primary" data-vheal="${escapeHtml(paidInv.id)}">Mark the shoot paid and release the PIN</button></div>` : "";
-      host.innerHTML = heal + list.map((iv) => `
-        <div class="vid-inv-row-item">
-          <span class="vid-inv-num">${escapeHtml(iv.number || "—")}</span>
-          <span>${escapeHtml(gbpFromPence(iv.total_pence))}</span>
-          <span class="vid-inv-actions">
-            <span class="vid-inv-status is-${escapeHtml(iv.status)}">${escapeHtml(iv.status)}</span>
-            ${iv.status !== "void" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vedit="${escapeHtml(iv.id)}">Edit</button>` : ""}
-            ${iv.status === "sent" || iv.status === "paid" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vresend="${escapeHtml(iv.id)}">Resend</button>` : ""}
-            ${iv.status !== "paid" && iv.status !== "void" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vpaid="${escapeHtml(iv.id)}">Paid</button>` : ""}
-            ${iv.status === "draft" ? `<button type="button" class="admin-btn admin-btn-primary" data-vjack="${escapeHtml(iv.id)}" title="Jack gets it by email to approve or reject">Send to Jack to approve</button>` : ""}
-            ${iv.status === "draft" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vdel="${escapeHtml(iv.id)}">Delete</button>` : ""}
-            ${iv.status !== "draft" && iv.status !== "paid" && iv.status !== "void" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vvoid="${escapeHtml(iv.id)}">Void</button>` : ""}
-          </span>
-        </div>`).join("");
-      host.querySelectorAll("[data-vpaid]").forEach((btn) => btn.addEventListener("click", () => markInvoicePaid(b, btn.getAttribute("data-vpaid"))));
-      host.querySelectorAll("[data-vheal]").forEach((btn) => btn.addEventListener("click", () => { btn.disabled = true; const iv = list.find((x) => x.id === btn.getAttribute("data-vheal")); markInvoicePaid(b, iv.id, iv.paid_date); }));
+      const paidInv = money && list.find((iv) => iv.status === "paid");
+      const heal = paidInv && !b.paid_at ? `<div class="viv-lock">Invoice ${escapeHtml(paidInv.number || "")} is paid, but the shoot isn't marked paid, so the PIN is still locked. <button type="button" class="vc-act" data-vheal="${escapeHtml(paidInv.id)}">Mark the shoot paid and release the PIN</button></div>` : "";
+      host.innerHTML = heal + vcSec("Invoices for this shoot", `<div class="viv-rows">${rows.map((iv) => {
+        const what = (iv.line_items && iv.line_items[0] && iv.line_items[0].description) || iv.bill_to_name || "";
+        const acts = [
+          `<button type="button" class="vc-act" data-vview="${escapeHtml(iv.id)}">View</button>`,
+          (iv.status === "sent" || iv.status === "paid") && iv.bill_to_email ? `<button type="button" class="vc-act" data-vresend="${escapeHtml(iv.id)}">Resend</button>` : "",
+          money && iv.status !== "void" ? `<button type="button" class="vc-act" data-vedit="${escapeHtml(iv.id)}">Edit</button>` : "",
+          money && iv.status !== "paid" && iv.status !== "void" ? `<button type="button" class="vc-act" data-vpaid="${escapeHtml(iv.id)}">Mark paid</button>` : "",
+          money && iv.status === "draft" ? `<button type="button" class="vc-act" data-vjack="${escapeHtml(iv.id)}">Send for approval</button>` : "",
+          money && iv.status === "draft" ? `<button type="button" class="vc-act" data-vdel="${escapeHtml(iv.id)}">Delete</button>` : "",
+          money && iv.status !== "draft" && iv.status !== "paid" && iv.status !== "void" ? `<button type="button" class="vc-act" data-vvoid="${escapeHtml(iv.id)}">Void</button>` : "",
+        ].join("");
+        return `<div class="viv-row"><span>${escapeHtml(iv.number || "Draft")}</span><span class="viv-what" title="${escapeHtml(what)}">${escapeHtml(what)}</span><span class="viv-amt">${escapeHtml(gbpFromPence(iv.total_pence))}</span><span>${vivChip(iv)}</span><span class="viv-acts">${acts}</span></div>`;
+      }).join("")}</div>`);
+      vivWireRows(b, host, list);
+      renderChaseLog(b);
+    }
+    function vivRefresh(b) { if (vcPane === "invoice") renderInvoiceCard(b); vcFillMoney(b); }
+    // The buttons on an invoice, wherever it's shown: its row, or the foot of This invoice.
+    function vivWireRows(b, host, list) {
+      if (!host) return;
+      const find = (id) => list.find((x) => x.id === id) || { id };
+      host.querySelectorAll("[data-vview]").forEach((btn) => btn.addEventListener("click", async () => {
+        const tab = window.open("", "_blank");   // opened on the click, or the browser blocks it
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER_URL}/invoicing/invoice-pdf?id=${encodeURIComponent(btn.getAttribute("data-vview"))}`, { headers: { Authorization: "Bearer " + token } });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok || !j.url) throw new Error(j.error || "Couldn't open it.");
+          if (tab) tab.location = j.url; else window.location = j.url;
+        } catch (err) { if (tab) tab.close(); vivStatus("Couldn't open the invoice: " + err.message, true); }
+      }));
+      host.querySelectorAll("[data-vresend]").forEach((btn) => btn.addEventListener("click", () => resendInvoice(b, btn.getAttribute("data-vresend"), btn)));
+      host.querySelectorAll("[data-vedit]").forEach((btn) => btn.addEventListener("click", () => editInvoice(b, btn.getAttribute("data-vedit"))));
+      host.querySelectorAll("[data-vpaid]").forEach((btn) => btn.addEventListener("click", () => { btn.disabled = true; markInvoicePaid(b, btn.getAttribute("data-vpaid")); }));
+      host.querySelectorAll("[data-vheal]").forEach((btn) => btn.addEventListener("click", () => { btn.disabled = true; const iv = find(btn.getAttribute("data-vheal")); markInvoicePaid(b, iv.id, iv.paid_date); }));
       host.querySelectorAll("[data-vdel]").forEach((btn) => btn.addEventListener("click", async () => {
-        const iv = list.find((x) => x.id === btn.getAttribute("data-vdel"));
-        if (!confirm(`Delete draft ${iv && iv.number ? iv.number : "invoice"}? It hasn't been sent, so the client never sees it.`)) return;
+        const iv = find(btn.getAttribute("data-vdel"));
+        if (!confirm(`Delete draft ${iv.number || "invoice"}? It hasn't been sent, so the client never sees it.`)) return;
         btn.disabled = true;
         try {
           const token = await authToken();
           const res = await fetch(`${WORKER_URL}/invoicing/invoices?id=${encodeURIComponent(iv.id)}`, { method: "DELETE", headers: { Authorization: "Bearer " + token } });
           if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || res.status); }
-          loadInvoices(b);
+          vivFlash = `Draft ${iv.number || ""} deleted.`;
+          vivRefresh(b);
         } catch (err) { vivStatus("Couldn't delete it: " + err.message, true); btn.disabled = false; }
       }));
       /* Void a sent invoice (Danielle, 20 Oct 2026): the same as Void on the
@@ -4211,8 +4337,8 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
          the invoice and its PDF are removed. A paid one isn't voided: that's
          a refund. A draft is simply deleted. */
       host.querySelectorAll("[data-vvoid]").forEach((btn) => btn.addEventListener("click", async () => {
-        const iv = list.find((x) => x.id === btn.getAttribute("data-vvoid"));
-        const num = iv && iv.number ? iv.number : "this invoice";
+        const iv = find(btn.getAttribute("data-vvoid"));
+        const num = iv.number || "this invoice";
         const reason = prompt(`Void ${num}? It'll be removed, and accounts and you will be emailed to say so. The client isn't emailed, so tell them yourself if they need to disregard it.\n\nReason for voiding:`);
         if (reason === null) return;
         btn.disabled = true;
@@ -4220,14 +4346,13 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           const token = await authToken();
           const res = await fetch(`${WORKER_URL}/invoicing/invoices/void`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: iv.id, reason }) });
           if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || res.status); }
-          vivStatus(`${num} voided. Accounts have been emailed.`);
-          loadInvoices(b);
+          vivFlash = `${num} voided. Accounts have been emailed.`;
+          vivRefresh(b);
         } catch (err) { vivStatus("Couldn't void it: " + err.message, true); btn.disabled = false; }
       }));
       /* A draft to Jack to approve (Danielle, 21 Oct 2026): the same email the
          morning run sends two days before a shoot. Approve sends it to the
-         client; Reject comes back to Danielle with his notes. Also how a
-         rejected one goes back to him once it's fixed. */
+         client; Reject comes back to Danielle with his notes. */
       host.querySelectorAll("[data-vjack]").forEach((btn) => btn.addEventListener("click", async () => {
         btn.disabled = true; btn.textContent = "Sending…";
         try {
@@ -4235,13 +4360,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           const res = await fetch(`${WORKER_URL}/invoicing/approval/request`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: btn.getAttribute("data-vjack") }) });
           const d = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(d.error || res.status);
-          vivStatus(d.test ? "Sent for approval. Test mode: the email came to you, not Jack." : "Sent to Jack to approve. Once he does, it goes to the client.");
-          btn.textContent = "Sent to Jack";
-        } catch (err) { vivStatus("Couldn't send it to Jack: " + err.message, true); btn.disabled = false; btn.textContent = "Send to Jack to approve"; }
+          vivFlash = d.test ? "Sent for approval. Test mode: the email came to you, not Jack." : "Sent to Jack to approve. Once he does, it goes.";
+          vivRefresh(b);
+        } catch (err) { vivStatus("Couldn't send it to Jack: " + err.message, true); btn.disabled = false; btn.textContent = "Send for approval"; }
       }));
-      host.querySelectorAll("[data-vresend]").forEach((btn) => btn.addEventListener("click", () => resendInvoice(b, btn.getAttribute("data-vresend"), btn)));
-      host.querySelectorAll("[data-vedit]").forEach((btn) => btn.addEventListener("click", () => editInvoice(b, btn.getAttribute("data-vedit"))));
-      renderChaseLog(b);
     }
 
     /* Resending is where the wording matters most: it is the second attempt,
@@ -4260,8 +4382,8 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
             body: JSON.stringify(Object.assign({ id }, email)),
           });
           const d = await res.json().catch(() => ({}));
-          vivStatus(res.ok ? `Sent again to ${d.sent_to || "the client"}.` : (d.error || "Couldn't resend."), !res.ok);
-          loadInvoices(b);
+          if (res.ok) { vivFlash = `Sent again to ${d.sent_to || "the client"}.`; vivRefresh(b); }
+          else vivStatus(d.error || "Couldn't resend.", true);
         });
       } catch (err) { vivStatus("Couldn't resend: " + err.message, true); }
       finally { btn.disabled = false; btn.textContent = label; }
@@ -4269,43 +4391,12 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
 
     /* A sent invoice is not edited in place - it has gone to the client and it
        has a number. Editing loads it back into the builder and reissues it as a
-       new invoice, voiding the original. That is what "we need to change it"
-       actually means once something has left the building. */
+       new invoice, voiding the original. */
     async function editInvoice(b, id) {
       const { data, error } = await supabase.from("invoices").select("*").eq("id", id).maybeSingle();
       if (error || !data) { vivStatus("Couldn't load that invoice.", true); return; }
-      /* Open the builder FIRST. Past invoicing it folds away behind "Raise
-         another invoice", so every field below was being set on an element
-         that was not on the page -- each one guarded with `if (el)`, so it
-         failed in complete silence and all you got was the status line saying
-         you were editing something you could not see. */
-      if (!document.getElementById("viv-name")) {
-        vivForceOpen = true;
-        renderInvoiceCard(b);
-        await new Promise((r) => requestAnimationFrame(r));
-      }
-      const set = (elId, v) => { const el = document.getElementById(elId); if (el) el.value = v ?? ""; };
-      set("viv-name", data.bill_to_name);
-      set("viv-email", data.bill_to_email);
-      set("viv-address", data.bill_to_address);
-      set("viv-cc", data.cc_email);
-      set("viv-issued", new Date().toISOString().slice(0, 10));
-      set("viv-terms", data.terms_days ?? 10);
-      set("viv-notes", data.notes);
-      vivPayByCard = !!data.pay_by_card; vivSyncPay();
-      vivItems = (data.line_items || []).map((it) => ({
-        description: it.description || "",
-        amount: (((it.unit_pence || 0) * (it.qty || 1)) / 100).toFixed(2),
-      }));
-      vivRenderItems();
-      ciApplyVivTerms();
-      vivReissueOf = { id: data.id, number: data.number };
-      const sendBtn = document.getElementById("viv-send");
-      if (sendBtn) sendBtn.textContent = "Reissue & send";
-      const draftBtn = document.getElementById("viv-draft");
-      if (draftBtn) draftBtn.textContent = "Reissue as draft";
-      vivStatus(`Editing ${data.number}. Saving raises a new invoice and voids ${data.number}.`);
-      scrollToInvoice(b);
+      vivSource = data; vivTab = "this"; vivPreview = null;
+      if (vcPane !== "invoice") vcOpen("invoice", true); else renderInvoiceCard(b);
     }
 
     // Keep the due date honest when terms change.
@@ -4361,7 +4452,8 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || res.status); }
         const { data } = await supabase.from("videography_bookings").select("paid_at, pin_released_at").eq("id", b.id).maybeSingle();
         if (data) { b.paid_at = data.paid_at; b.pin_released_at = data.pin_released_at; }
-        loadInvoices(b);
+        vivFlash = "Marked paid.";
+        vivRefresh(b);
         if (typeof loadThread === "function") { try { loadThread(b); } catch (_) {} }
       } catch (err) { vivStatus("Couldn't mark it paid: " + err.message, true); }
     }
