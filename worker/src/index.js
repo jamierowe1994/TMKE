@@ -2323,7 +2323,9 @@ async function syncAgentSheet(env) {
             const r = await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(tegPortal.id)}`, { folders });
             if (r && r.ok !== false) { tegPortal.folders = folders; inPortal = true; detail.writeback.portal = "added"; }
           }
-          if (inPortal) {
+          // Ticked early by hand still waits: nothing reaches the sheet until
+          // the shoot is sent and paid, the same moment the portal shows it.
+          if (inPortal && starterReadyForTeg(fields._stage, fields._paid)) {
             fields.link = portalFolderLink(env, tegPortal, prefix); detail.writeback.link = fields.link; detail.writeback.why = null;
             fields.editStatus = starterEditStatus({ settledAt: fields._settledAt, settledBy: fields._settledBy, sentAt: fields._sentAt, name: fields._name || first });
           }
