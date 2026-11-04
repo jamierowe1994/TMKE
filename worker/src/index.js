@@ -2061,7 +2061,14 @@ async function pinArchiveFolders(env) {
       const where = clean(b.property_address || b.location || b.postcode).split(",")[0].trim();
       withFiles = exact.length ? exact : (where ? withFiles.filter((f) => f.toLowerCase().endsWith(" - " + where)) : []);
     }
-    if (withFiles.length !== 1) continue;            // none yet, or still two to choose between: leave it
+    // No files anywhere yet: fix the name it works out to now, which is the
+    // folder an upload would go to, so editing the booking can't move it.
+    if (!withFiles.length && !cands.length) {
+      const nm = archiveNameFor(b);
+      if (nm) await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(b.id)}&archive_folder=is.null`, { archive_folder: nm });
+      continue;
+    }
+    if (withFiles.length !== 1) continue;            // still two to choose between: leave it
     const real = withFiles[0];
     const r = await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(b.id)}&archive_folder=is.null`, { archive_folder: real });
     if (!r || !r.ok) continue;
@@ -2994,6 +3001,13 @@ async function seedBrandKit(env, { userId, email }) {
 }
 
 async function sbPost(env, table, row, prefer) {
+  // Every shoot gets its Library folder's name saved the moment it's booked
+  // (Dani, 4 Nov), so editing the booking later can't move it to an empty
+  // folder. Real shoots only: not discovery calls, brochures or interest.
+  if (table === "videography_bookings" && row && !Array.isArray(row) && !row.archive_folder && row.shoot_date
+      && !["discovery", "brochure", "register_interest"].includes(String(row.kind || "booking"))) {
+    try { const nm = archiveNameFor(row); if (nm) row = { ...row, archive_folder: nm }; } catch (_) {}
+  }
   return fetch(`${env.SUPABASE_URL}/rest/v1/${table}`, {
     method: "POST",
     headers: {

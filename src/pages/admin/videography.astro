@@ -4788,6 +4788,11 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         const before = bookings.find((x) => x.id === editingId) || {};
         const movedLocation = (before.location || "") !== (payload.location || "")
           || (before.property_address || "") !== (payload.property_address || "");
+        // The Library folder's name is fixed on the booking the first time it
+        // is saved (Dani, 4 Nov): the name its files already went under, so a
+        // later change to the service, client, date or place can't point the
+        // booking at an empty folder (what happened to Raj Chinger).
+        if (!before.archive_folder) { const nm = archiveFolderName(before); if (nm) payload.archive_folder = nm; }
         const { error } = await supabase.from("videography_bookings").update(payload).eq("id", editingId);
         if (error) { alert("Save failed: " + error.message); if (btn) btn.textContent = "Save booking"; return; }
         Object.assign(bookings.find((x) => x.id === editingId), payload);
@@ -4804,6 +4809,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         }
       } else {
         payload.stage = "booked";
+        { const nm = archiveFolderName(payload); if (nm) payload.archive_folder = nm; }
         const { data, error } = await supabase.from("videography_bookings").insert(payload).select().single();
         if (error) { alert("Save failed: " + error.message); if (btn) btn.textContent = "Save booking"; return; }
         bookings.unshift(data);
