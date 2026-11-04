@@ -6377,19 +6377,29 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        and folder, and the folder list, in one JSON file beside the pictures.
        The dot keeps it out of the listing above. get() says whether it read
        the file, found none yet, or failed: a failure must not be mistaken for
-       "no folders", or the next save would wipe them. Read through the API,
-       not the public URL, so it is never a cached copy. */
+       "no folders", or the next save would wipe them.
+       Read from the public address with a never-repeated query and no
+       browser cache. The API's download() is served through a cache that
+       went on handing back the previous copy for up to 8 seconds after a
+       save (measured 4 Nov), so a save made a moment after another one read
+       the old notes and wrote them back: a new folder vanished the moment a
+       picture was put in it. */
     window.__TMKE_UPLOADS_META__ = {
       async get() {
         const uid = await _externGetUid();
         if (!uid) return { ok: true, local: true };
-        const { data, error } = await supabase.storage.from('calendar-assets').download((UPLOADS_SHARED ? SHARED_DIR : uid) + '/' + UPLOAD_DIR + '/.library.json');
-        if (error) {
-          const st = error.status || error.statusCode || (error.originalError && error.originalError.status);
-          if (st == 404 || st == 400 || /not.?found/i.test(error.message || '')) return { ok: true, data: null };
-          return { ok: false };
-        }
-        try { return { ok: true, data: JSON.parse(await data.text()) }; } catch (_) { return { ok: false }; }
+        const key = (UPLOADS_SHARED ? SHARED_DIR : uid) + '/' + UPLOAD_DIR + '/.library.json';
+        const { data: pub } = supabase.storage.from('calendar-assets').getPublicUrl(key);
+        if (!pub || !pub.publicUrl) return { ok: false };
+        try {
+          const r = await fetch(pub.publicUrl + '?fresh=' + Date.now().toString(36) + Math.random().toString(36).slice(2), { cache: 'no-store' });
+          if (r.status === 404 || r.status === 400) {
+            const t = await r.text().catch(() => '');
+            return r.status === 404 || /not.?found/i.test(t) ? { ok: true, data: null } : { ok: false };
+          }
+          if (!r.ok) return { ok: false };
+          return { ok: true, data: await r.json() };
+        } catch (_) { return { ok: false }; }
       },
       async save(meta) {
         const uid = await _externGetUid();

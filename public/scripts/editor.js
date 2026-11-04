@@ -16122,6 +16122,11 @@ import { createResizeEngine } from "./resize-engine.js";
      changed here is written. */
   const upDirty = { items: new Set(), folders: new Set(), goneFolders: new Set(), goneItems: new Set() };
   let _upSaveT = 0;
+  /* Each save numbers the notes one higher than the copy it read. A copy
+     read back with a lower number than the last one saved here is an old
+     one (a cache), so the save starts from what was saved instead of
+     writing the old notes back over it (4 Nov). */
+  let _upRev = 0;
   function upSave() {
     if (upMetaState !== "ready") return;   // never write over a library we could not read
     clearTimeout(_upSaveT);
@@ -16132,7 +16137,9 @@ import { createResizeEngine } from "./resize-engine.js";
       try {
         const fresh = await api.get();
         if (!fresh || !fresh.ok) throw new Error("read");
-        const base = fresh.data && Array.isArray(fresh.data.folders) && fresh.data.items ? fresh.data : { v: 1, folders: [], items: {} };
+        let base = fresh.data && Array.isArray(fresh.data.folders) && fresh.data.items ? fresh.data : { v: 1, folders: [], items: {} };
+        if (_upRev && !((base.rev || 0) >= _upRev)) base = JSON.parse(JSON.stringify(upMeta));
+        base.rev = Math.max(base.rev || 0, _upRev) + 1;
         base.folders = base.folders.filter((f) => !upDirty.goneFolders.has(f.id));
         upDirty.folders.forEach((id) => {
           const mine = upMeta.folders.find((f) => f.id === id);
@@ -16146,6 +16153,7 @@ import { createResizeEngine } from "./resize-engine.js";
         ok = await api.save(base);
         if (ok) {
           upMeta = base;
+          _upRev = base.rev;
           upDirty.items.clear(); upDirty.folders.clear(); upDirty.goneFolders.clear(); upDirty.goneItems.clear();
           renderUploadsSoon();
         }
