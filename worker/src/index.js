@@ -2142,16 +2142,20 @@ async function syncAgentSheet(env) {
         detail.writeback = { booking: fields._booking || null, matched_by: fields._matchedBy || null, booking_email: fields._matchedBy === "name" ? fields._bookingEmail : undefined, stage: fields._stage || null, booked: fields.booked || null, link: fields.link || null, why: fields._why || null };
         // Their Library folder into the TEG portal once it has files, and the
         // sheet's Content Link opens the portal at it.
+        // Only once the shoot is finished (Dani, 4 Nov): Delivered on the
+        // board, which needs the invoice paid and the edits marked settled.
+        // Until then the folder stays out of the portal, off the sheet and
+        // nobody is emailed.
         if (tegPortal && fields._folder && fields._stage !== "cancelled") {
           const prefix = archivePrefix(fields._folder);
           let inPortal = portalFolders(tegPortal).includes(prefix);
-          if (!inPortal && await folderHasFiles(env, prefix)) {
+          if (!inPortal && fields._stage === "delivered" && await folderHasFiles(env, prefix)) {
             const folders = [...(tegPortal.folders || []), prefix];
             const r = await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(tegPortal.id)}`, { folders });
             if (r && r.ok !== false) { tegPortal.folders = folders; inPortal = true; detail.writeback.portal = "added"; }
           }
           if (inPortal) { fields.link = portalFolderLink(env, tegPortal, prefix); detail.writeback.link = fields.link; detail.writeback.why = null; }
-          else detail.writeback.portal = "folder has no files yet";
+          else detail.writeback.portal = fields._stage !== "delivered" ? `waiting: the shoot is "${fields._stage}", not Delivered` : "folder has no files yet";
         }
         const bookingLink = newStarterBookingLink(env, res, { first_name: first, last_name: last, email });
         detail.writeback.booking_link = bookingLink || null;

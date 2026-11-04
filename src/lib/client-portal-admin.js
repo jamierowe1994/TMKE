@@ -190,7 +190,7 @@ export function renderClientPortals(host, deps) {
           <div class="cpt-keys">
             <label class="cpt-key"><span class="cpt-k">Who it's for</span><input class="cpt-in" data-cptset="name" value="${esc(p.name)}" maxlength="80"><span></span></label>
             <label class="cpt-key"><span class="cpt-k">Their first name</span><input class="cpt-in" data-cptset="first_name" value="${esc(p.first_name || "")}" maxlength="40" placeholder="For the message you send"><span></span></label>
-            <label class="cpt-key"><span class="cpt-k">Email new folders to</span><input class="cpt-in" type="email" data-cptset="notify_email" value="${esc(p.notify_email || "")}" maxlength="120" placeholder="Optional: they're emailed when a folder is added"><span></span></label>
+            <label class="cpt-key"><span class="cpt-k">Email new folders to</span><input class="cpt-in" type="text" data-cptset="notify_email" value="${esc(p.notify_email || "")}" maxlength="400" placeholder="Optional: emailed when a folder is added. Separate several with commas"><span></span></label>
             <div class="cpt-key"><span class="cpt-k">Link</span><span class="cpt-v cpt-v--link">${p.enabled ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a>` : "Off: the link doesn't work"}</span>${p.enabled ? '<button type="button" class="cpt-mini" data-cptcopy="link">Copy</button>' : "<span></span>"}</div>
             <div class="cpt-key"><span class="cpt-k">Passcode</span><span class="cpt-v cpt-v--code">${esc(p.passcode)}</span><button type="button" class="cpt-mini" data-cptcopy="code">Copy</button></div>
             <div class="cpt-key"><span class="cpt-k">Last opened</span><span class="cpt-v">${p.last_opened_at ? esc(fmtWhen(p.last_opened_at)) : "Not opened yet"}</span><span></span></div>
@@ -224,12 +224,15 @@ export function renderClientPortals(host, deps) {
         const k = inp.getAttribute("data-cptset"), v = inp.value.trim();
         if (k === "name" && !v) { inp.value = p.name; setStatus("err", "It needs a name."); return; }
         if (k === "notify_email") {
-          if (v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { setStatus("err", "That email address doesn't look right."); return; }
+          const list = v.split(/[,;\s]+/).map((a) => a.trim().toLowerCase()).filter(Boolean);
+          const bad = list.find((a) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a));
+          if (bad) { setStatus("err", `"${bad}" doesn't look like an email address.`); return; }
           // Folders already in the portal count as told, so turning this on
           // doesn't send an email about everything at once.
-          const patch = { notify_email: v ? v.toLowerCase() : null };
-          if (v && !p.notify_email) patch.notified_folders = p.folders || [];
-          await save(patch, v ? `Saved. ${v} is emailed whenever a folder is added to this portal.` : "Saved. Nobody is emailed about new folders now.");
+          const patch = { notify_email: list.length ? list.join(", ") : null };
+          if (list.length && !p.notify_email) patch.notified_folders = p.folders || [];
+          await save(patch, list.length ? `Saved. ${list.join(", ")} ${list.length === 1 ? "is" : "are"} emailed whenever a folder is added to this portal.` : "Saved. Nobody is emailed about new folders now.");
+          inp.value = list.join(", ");
           return;
         }
         if (await save({ [k]: v || null }, "Saved.") && k === "name") host.querySelector(".cpt-title").textContent = p.name;
