@@ -4,10 +4,10 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/client_portal_notify.sql — a portal can email someone when a folder is added (Michelle, for the TEG New Starter portal), and you can choose a passcode such as TEG (4 Nov)
 
 ## Done
 
+- [x] supabase/client_portal_notify.sql — a portal can email someone when a folder is added (Michelle, for the TEG New Starter portal), and you can choose a passcode such as TEG (4 Nov; ran 4 Nov)
 - [x] supabase/studio_admin_shared_uploads.sql — one uploads library for every admin in the admin Studio: uploads and folders shared, so Sam sees the folders you make; members' uploads stay their own (3 Nov; ran 3 Nov)
 - [x] supabase/content_calendar_levels.sql — the four Content Calendar levels, their prices and what each opens, for Content calendar › Overview (29 Oct; ran 2 Nov)
 - [x] Training pack off, one line: `update public.packs set training = false where training;` — the course screenshots are done, so the training account stops seeing TPE's canvassing pack (31 Oct; ran 2 Nov)
