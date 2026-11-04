@@ -6404,6 +6404,47 @@ export default {
       // page draws from: the stretches to keep, the caption phrases and their
       // italic words, and the big statement words with their small labels.
       // The cutting and drawing happen in the browser, not here.
+      /* ---- TMKE OS search: "where do I…?" (Dani, 4 Nov 2026) ----
+         The sidebar search matches its list of places instantly; when that
+         finds nothing clear, it asks here. The page sends the question and
+         the list (name, where it lives, what you do there); Claude Haiku
+         points to the best one to three and says why in a sentence. The
+         list comes from src/data/admin-places.js, so it's always the
+         page's own. Admins only. */
+      if (path.endsWith("/admin/nav-ask") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "Claude isn't set up on the Worker." }, 503, request, env);
+        const b = await request.json().catch(() => ({}));
+        const q = String((b && b.q) || "").trim().slice(0, 300);
+        const places = Array.isArray(b && b.places) ? b.places.slice(0, 400) : [];
+        if (!q || !places.length) return json({ error: "Ask something first." }, 400, request, env);
+        const list = places.map((pl, i) => `${i}. ${String(pl.n || "").slice(0, 90)} | ${String(pl.w || "").slice(0, 60)} | ${String(pl.j || "").slice(0, 200)}`).join("\n");
+        const schema = {
+          type: "object", additionalProperties: false,
+          properties: {
+            picks: { type: "array", items: { type: "integer" } },
+            answer: { type: "string" },
+          },
+          required: ["picks", "answer"],
+        };
+        const system = "You help the TMKE team find where to do something in their admin system, TMKE OS. You are given a numbered list of every place (page, tab or panel) with where it lives and what you do there. Pick the one to three places that best answer the question, best first, by their numbers. Then write the answer in one or two short plain sentences in British English: name the place and where it is (for example \"That's Trending month, under Member hub.\"), and say what to do there if it helps. If nothing fits, return no picks and say so plainly. Never invent a place that isn't in the list.";
+        let aiRes;
+        try {
+          aiRes = await aiFetch(env, "help", {
+            max_tokens: 800, system,
+            output_config: { format: { type: "json_schema", schema } },
+            messages: [{ role: "user", content: `The places:\n${list}\n\nThe question: ${q}` }],
+          });
+        } catch (_) { return json({ error: "Couldn't reach Claude." }, 502, request, env); }
+        const out = await aiRes.json().catch(() => null);
+        if (!aiRes.ok || !out) return json({ error: aiFailMessage(aiRes.status, out && out.error && out.error.message) }, 502, request, env);
+        const text = ((out.content || []).find((c) => c.type === "text") || {}).text || "";
+        let parsed = null; try { parsed = JSON.parse(text); } catch (_) {}
+        const picks = (parsed && Array.isArray(parsed.picks) ? parsed.picks : []).filter((n) => Number.isInteger(n) && n >= 0 && n < places.length).slice(0, 3);
+        return json({ picks, answer: String((parsed && parsed.answer) || "").slice(0, 500) }, 200, request, env);
+      }
+
       if (path.endsWith("/admin/video/plan") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);

@@ -5,14 +5,16 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;1,9..144,300&family=Darker+Grotesque:wght@400;500;600;700&display=swap">
 <style>
 /* Layout: the member Studio's system carried into the OS. White page, a split
-   header (copy left on #faf9f8, photograph right) on each section's main page,
+   header on each section's main page,
    wine chapter strips over hairline cards, one 10px gap between cards and room
    between chapters. Fraunces Light for titles and figures, Darker Grotesque
    Medium for copy. The only bold is the house strip. */
 :root {
   --wine: #371e28; --taupe: #7e6765; --stone: #c9bcb7; --linen: #eae5e1;
-  --ink: #1c1d22; --tx: rgba(28,29,34,.64); --faint: rgba(28,29,34,.46); --line: rgba(28,29,34,.13); --line-2: rgba(28,29,34,.22);
-  --soft: #faf9f8; --tile: #f2f0ef; --paper: #ffffff;
+  /* No greys (Dani, 4 Nov): text in the brand dark and taupe, lines and
+     washes in linen and stone. */
+  --ink: #2b2226; --tx: #7e6765; --faint: #9a8884; --line: #eae5e1; --line-2: #c9bcb7;
+  --soft: #f7f4f2; --tile: #eae5e1; --paper: #ffffff;
   --green: #3f7a56; --green-l: #edf4ef; --amber: #85693a; --amber-l: #f8f2e6; --red: #8a3f3f; --red-l: #f9f0f0; --blue: #3e4a6a; --blue-l: #eef0f5;
   --serif: "Fraunces", Georgia, "Times New Roman", serif;
   --sans: "Darker Grotesque", "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -21,7 +23,7 @@
 }
 * { box-sizing: border-box; }
 html, body { background: var(--paper); color: var(--ink); }
-body { font-family: var(--sans); font-size: 16px; line-height: 1.45; font-weight: 500; letter-spacing: -0.01em; }
+body { font-family: var(--sans); font-size: 15px; line-height: 1.3; font-weight: 500; letter-spacing: -0.01em; }
 button, input { font: inherit; color: inherit; letter-spacing: inherit; }
 a { color: inherit; }
 :focus-visible { outline: 1.5px solid var(--taupe); outline-offset: 3px; }
@@ -39,44 +41,47 @@ a { color: inherit; }
 .os.is-folded { --side-w: 80px; }
 
 /* ---------- Sidebar ---------- */
-.side { position: sticky; top: 0; height: 100vh; overflow-y: auto; overflow-x: hidden; background: var(--paper); border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 22px; padding: 26px 16px 20px; }
+.side { position: sticky; top: 0; height: 100vh; overflow-y: auto; overflow-x: hidden; background: var(--wine); color: #f3eeef; display: flex; flex-direction: column; gap: 20px; padding: 24px 14px 18px; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 10px; min-height: 38px; }
-.brand-name { font-family: var(--serif); font-weight: 300; font-size: 26px; letter-spacing: -0.05em; color: var(--ink); white-space: nowrap; }
-.brand-name span { font-family: var(--sans); font-weight: 500; font-size: 11px; letter-spacing: .24em; color: var(--faint); margin-left: 8px; vertical-align: 5px; }
-.brand-mono { display: none; font-family: var(--serif); font-weight: 300; font-size: 26px; letter-spacing: -0.05em; }
-.fold { margin-left: auto; width: 30px; height: 30px; border-radius: var(--r); border: 0; background: transparent; cursor: pointer; color: var(--faint); display: grid; place-items: center; flex: none; }
-.fold:hover { background: var(--tile); color: var(--ink); }
-.fold svg { width: 16px; height: 16px; transition: transform .25s; }
+.brand-name { font-family: var(--serif); font-weight: 300; font-size: 24px; letter-spacing: -0.05em; color: #fff; white-space: nowrap; }
+.brand-name span { font-family: var(--sans); font-weight: 500; font-size: 11px; letter-spacing: .24em; color: rgba(243,238,239,.55); margin-left: 8px; vertical-align: 5px; }
+.brand-mono { display: none; font-family: var(--serif); font-weight: 300; font-size: 24px; letter-spacing: -0.05em; color: #fff; }
+.fold { margin-top: auto; display: flex; align-items: center; gap: 11px; width: 100%; height: 36px; padding: 0 10px; border-radius: 6px; border: 0; background: transparent; cursor: pointer; color: rgba(243,238,239,.6); font-size: 14.5px; font-weight: 400; }
+.fold svg { width: 17px; height: 17px; flex: none; color: #fff; transition: transform .25s; }
+.fold:hover { background: rgba(255,255,255,.07); color: #fff; }
 .is-folded .fold svg { transform: rotate(180deg); }
-.search-btn { display: flex; align-items: center; gap: 10px; width: 100%; cursor: pointer; text-align: left; background: var(--paper); border: 1px solid var(--line); color: var(--faint); border-radius: var(--r); padding: 9px 12px; font-size: 16px; font-weight: 400; transition: border-color .2s; }
-.search-btn:hover { border-color: var(--line-2); color: var(--tx); }
-.search-btn svg { width: 16px; height: 16px; flex: none; }
-.search-btn kbd { margin-left: auto; font-family: var(--sans); font-size: 13px; color: var(--faint); }
+.search-btn { display: flex; align-items: center; gap: 10px; width: 100%; cursor: pointer; text-align: left; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); color: rgba(243,238,239,.65); border-radius: var(--r); padding: 8px 11px; font-size: 15px; font-weight: 400; transition: border-color .2s; }
+.search-btn:hover { border-color: rgba(255,255,255,.3); color: #fff; }
+.search-btn svg { width: 16px; height: 16px; flex: none; color: #fff; }
+.search-btn kbd { margin-left: auto; font-family: var(--sans); font-size: 12px; color: rgba(243,238,239,.5); }
 .nav { display: flex; flex-direction: column; gap: 2px; }
-.grp-h { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; background: transparent; cursor: pointer; padding: 8px 10px; border-radius: var(--r); color: var(--ink); font-size: 17px; font-weight: 500; text-align: left; }
-.grp-h:hover { background: var(--soft); }
-.grp-h .ico { width: 18px; height: 18px; flex: none; stroke-width: 1.5; color: var(--tx); }
-.grp-h .chev { width: 13px; height: 13px; margin-left: auto; color: var(--faint); transition: transform .2s; }
+.grp-h { display: flex; align-items: center; gap: 11px; width: 100%; border: 0; background: transparent; cursor: pointer; padding: 7px 10px; border-radius: 6px; color: #f3eeef; font-size: 15.5px; font-weight: 500; text-align: left; }
+.grp-h:hover { background: rgba(255,255,255,.07); }
+.grp-h .ico { width: 19px; height: 19px; flex: none; stroke-width: 1.4; color: #fff; }
+.grp-h .chev { width: 12px; height: 12px; margin-left: auto; color: rgba(243,238,239,.4); transition: transform .2s; }
 .grp.is-open .chev { transform: rotate(90deg); }
-.grp-h.is-on, .grp-h.is-on .ico { color: var(--wine); }
-.grp-items { display: none; flex-direction: column; gap: 1px; padding: 0 0 10px 40px; }
+.grp-h.is-on, .grp-h.is-on .ico { color: #fff; }
+.is-folded .grp-h.is-on { background: rgba(255,255,255,.12); }
+.grp-items { display: none; flex-direction: column; gap: 0; padding: 0 0 8px 38px; }
 .grp.is-open .grp-items { display: flex; }
-.lnk { position: relative; display: flex; align-items: center; text-decoration: none; padding: 6px 10px; border-radius: var(--r); color: var(--tx); font-size: 16px; font-weight: 400; }
-.lnk:hover { color: var(--ink); background: var(--soft); }
-.lnk.is-on { color: var(--wine); font-weight: 500; background: var(--soft); }
-.lnk.is-on::before { content: ""; position: absolute; left: -10px; top: 9px; bottom: 9px; width: 2px; border-radius: 1px; background: var(--wine); }
-.lnk .n { margin-left: auto; font-size: 13px; color: var(--wine); background: var(--linen); border-radius: 999px; padding: 0 8px; line-height: 1.5; }
-.side-foot { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 14px 10px 0; border-top: 1px solid var(--line); }
-.avatar { width: 34px; height: 34px; border-radius: 50%; flex: none; display: grid; place-items: center; font-family: var(--serif); font-weight: 300; font-size: 17px; background: var(--linen); color: var(--wine); }
-.who { font-size: 16px; white-space: nowrap; line-height: 1.2; }
-.who small { display: block; font-size: 14px; font-weight: 400; color: var(--faint); }
-.is-folded .side { padding-inline: 12px; }
-.is-folded .brand-name, .is-folded .search-btn span, .is-folded .search-btn kbd, .is-folded .grp-h span, .is-folded .grp-h .chev, .is-folded .grp-items, .is-folded .who { display: none !important; }
+.lnk { position: relative; display: flex; align-items: center; text-decoration: none; padding: 5px 10px; border-radius: var(--r); color: rgba(243,238,239,.68); font-size: 14.5px; font-weight: 400; }
+.lnk:hover { color: #fff; background: rgba(255,255,255,.06); }
+.lnk.is-on { color: #fff; font-weight: 500; background: rgba(255,255,255,.1); }
+.lnk.is-on::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 2px; border-radius: 1px; background: var(--stone); }
+.lnk .n { margin-left: auto; font-size: 12px; color: var(--wine); background: var(--stone); border-radius: 999px; padding: 0 7px; line-height: 1.5; }
+.side-foot { display: flex; align-items: center; gap: 10px; padding: 14px 10px 0; border-top: 1px solid rgba(255,255,255,.12); }
+.avatar { width: 32px; height: 32px; border-radius: 50%; flex: none; display: grid; place-items: center; font-family: var(--serif); font-weight: 300; font-size: 16px; background: var(--stone); color: var(--wine); }
+.who { font-size: 15px; white-space: nowrap; line-height: 1.2; color: #fff; }
+.who small { display: block; font-size: 13px; font-weight: 400; color: rgba(243,238,239,.55); }
+.is-folded .side { padding-inline: 0; align-items: center; gap: 14px; }
+.is-folded .brand-name, .is-folded .search-btn span, .is-folded .search-btn kbd, .is-folded .grp-h span, .is-folded .grp-h .chev, .is-folded .grp-items, .is-folded .who, .is-folded .fold span { display: none !important; }
 .is-folded .brand-mono { display: block; }
-.is-folded .brand { flex-direction: column; gap: 8px; padding: 0; }
-.is-folded .fold { margin: 0; }
-.is-folded .search-btn, .is-folded .grp-h { justify-content: center; padding-inline: 0; }
-.is-folded .side-foot { justify-content: center; padding-inline: 0; }
+.is-folded .brand { padding: 0; justify-content: center; }
+.is-folded .nav { align-items: center; gap: 4px; }
+.is-folded .grp { width: 44px; }
+.is-folded .search-btn, .is-folded .grp-h, .is-folded .fold { width: 44px; height: 44px; justify-content: center; padding: 0; border-radius: 8px; }
+.is-folded .fold svg { transform: rotate(180deg); }
+.is-folded .side-foot { justify-content: center; padding: 12px 0 0; width: 44px; }
 
 /* ---------- Main ---------- */
 .main { min-width: 0; display: flex; flex-direction: column; container-type: inline-size; container-name: main; }
@@ -88,14 +93,117 @@ a { color: inherit; }
 .bell { margin-left: auto; width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--paper); border-radius: var(--r); cursor: pointer; position: relative; color: var(--ink); }
 .bell svg { width: 17px; height: 17px; stroke-width: 1.6; }
 .bell i { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--wine); }
-.page { padding-block: 4px 120px; padding-left: clamp(22px, 2.6vw, 56px); padding-right: clamp(22px, 2.6vw, 56px); max-width: 1840px; width: 100%; }
-.view { display: flex; flex-direction: column; gap: var(--chapter); }
+.page { padding-block: 8px 100px; padding-left: clamp(22px, 2.6vw, 56px); padding-right: clamp(22px, 2.6vw, 56px); max-width: 1840px; width: 100%; }
+.view { display: flex; flex-direction: column; gap: 32px; }
 .view[hidden] { display: none !important; }
 
-/* ---------- Header: the Studio's split hero ---------- */
+/* ---------- Page head: one slim row (no big header, Dani 4 Nov) ---------- */
+.phead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; padding: 24px 22px; background: var(--linen); border-radius: var(--r); }
+.phead .eyebrow { margin: 0 0 8px; padding: 0; }
+.phead h1 { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 30px; line-height: 1.05; letter-spacing: -0.05em; color: var(--ink); }
+.phead .psub { margin: 10px 0 0; font-size: 15px; font-weight: 400; color: var(--tx); }
+.phead .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.cthumb { width: 64px; height: 64px; border-radius: var(--r); background-size: cover; background-position: center; flex: none; }
+.cwho { display: flex; gap: 14px; align-items: center; min-width: 0; }
+.ctags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+/* ---------- Colour by job (Dani, 4 Nov: more of the palette) ----------
+   Money wine, clients taupe, waiting stone, people and the member hub linen. */
+.card.f-money { background: var(--wine); border-color: var(--wine); }
+.card.f-money .k, .card.f-money .n { color: rgba(243,238,239,.82); } .card.f-money .v { color: #fff; } .card.f-money .n em { color: var(--stone); }
+.card.f-clients { background: var(--taupe); border-color: var(--taupe); }
+.card.f-clients .k, .card.f-clients .n { color: rgba(255,255,255,.88); } .card.f-clients .v { color: #fff; } .card.f-clients .n em { color: #fff; }
+.card.f-stone { background: var(--stone); border-color: var(--stone); }
+.card.f-stone .k, .card.f-stone .n { color: rgba(55,30,40,.85); } .card.f-stone .v { color: var(--wine); }
+.card.f-linen { background: var(--linen); border-color: var(--linen); }
+.card.f-linen .k, .card.f-linen .n { color: rgba(55,30,40,.8); } .card.f-linen .v { color: var(--wine); }
+.bh-clients { background: var(--taupe); }
+.bh-stone { background: var(--stone); } .bh-stone .block-h { color: var(--wine); } .bh-stone .block-h .ch { color: rgba(55,30,40,.5); }
+.tool-ic.is-clients { background: var(--taupe); color: #fff; }
+.tool-ic.is-people { background: var(--linen); color: var(--wine); }
+.c-clients { background: var(--linen); color: var(--taupe); }
+/* ---------- The client file (Dani, 4 Nov) ---------- */
+.cbanner { position: relative; overflow: hidden; border-radius: 6px; min-height: clamp(220px, 20vw, 290px); background-size: cover; background-position: center 45%; color: #fff; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; padding: 18px 22px 32px; }
+.cbanner::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(43,34,38,.05) 0%, rgba(43,34,38,0) 35%, rgba(43,34,38,.7) 100%); }
+.cbanner > * { position: relative; }
+.cb-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 20px; }
+.cb-eye { margin: 0 0 4px; font-size: 11px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.78); }
+.cbanner h1 { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 32px; line-height: 1.05; letter-spacing: -0.05em; color: #fff; }
+.cb-sub { margin: 8px 0 0; font-size: 14.5px; font-weight: 400; color: rgba(255,255,255,.86); }
+.cbanner .btn--ghost { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.4); }
+.cbanner .btn--ghost:hover { border-color: #fff; color: #fff; }
+.cbanner .btn--primary { background: #fff; color: var(--wine); }
+/* Where the money is, at a glance (Dani, 4 Nov): one of four, beside the
+   stage and the brand. Solid, so it reads on the photograph. */
+.chip.pay::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 6px; }
+.pay-awaiting { background: var(--stone); color: var(--wine); }
+.pay-sent { background: var(--blue-l); color: var(--blue); }
+.pay-overdue { background: var(--red-l); color: var(--red); }
+.pay-paid { background: var(--green-l); color: var(--green); }
+/* The client file in three rows (Dani, 4 Nov): Booking across the top;
+   Travel, Invoicing and Delivery; then Content beside the notes. */
+.cc-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
+/* Boxes in a row are always one height (Dani, 4 Nov). */
+.cc-grid > .card { height: 100%; }
+.cc-wide { grid-column: span 6; }
+.cc-third { grid-column: span 2; }
+.cc-half { grid-column: span 3; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 24px; margin-top: 6px; }
+.facts div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.facts span { font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+.facts b { font-size: 14.5px; font-weight: 500; overflow-wrap: anywhere; }
+@container main (max-width: 980px) {
+  .cc-third { grid-column: span 3; }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container main (max-width: 640px) {
+  .cc-wide, .cc-third, .cc-half { grid-column: span 6; }
+  .facts { grid-template-columns: minmax(0, 1fr); }
+}
+.box-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 26px; margin-bottom: 11px; }
+/* Editing in place (Dani, 4 Nov): the box becomes its own form, same place,
+   same layout; Cancel and Save at its foot. */
+.panel.is-editing { border-color: var(--wine); box-shadow: 0 0 0 1px var(--wine); }
+.facts .fld { width: 100%; height: 32px; border: 1px solid #e2d9d4; border-radius: var(--r); padding: 0 9px; font: inherit; font-size: 14px; color: var(--ink); background: #fff; }
+.facts .fld:focus { outline: 0; border-color: var(--wine); }
+.edit-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.edit-note { margin-right: auto; align-self: center; font-size: 13px; color: var(--tx); }
+.box-h h3 { margin: 0 !important; }
+.box-act { font-size: 13px; font-weight: 600; color: var(--wine); text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+.box-act svg { width: 12px; height: 12px; }
+.box-act:hover { text-decoration: underline; }
+.feed { list-style: none; margin: 0; padding: 0; }
+.feed li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1px 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.feed li:first-child { border-top: 0; }
+.feed-k { grid-row: span 2; align-self: start; width: 74px; text-align: center; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--wine); background: var(--linen); border-radius: 3px; padding: 3px 0; }
+.feed-t { font-size: 14px; }
+.feed-w { font-size: 12.5px; color: var(--faint); }
+/* Dashboard picture: a default for everyone, or their own (Dani, 4 Nov). */
+.cbanner .pic-btn { cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600; }
+.pic-pop { position: absolute; top: 52px; left: 22px; z-index: 3; background: #fff; color: var(--ink); border-radius: 6px; padding: 12px; box-shadow: 0 18px 40px -12px rgba(55,30,40,.4); width: min(340px, calc(100% - 44px)); }
+.pic-pop p { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+.pic-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.pic-grid button, .pic-up { aspect-ratio: 4 / 3; border: 0; border-radius: 4px; background-size: cover; background-position: center; cursor: pointer; }
+.pic-grid button:hover { outline: 2px solid var(--wine); }
+.pic-up { display: grid; place-items: center; background: var(--linen); color: var(--wine); font-size: 12.5px; font-weight: 600; }
+/* The right-hand panel: open a thing without leaving the card. */
+.drawer-scrim { position: fixed; inset: 0; z-index: 45; background: rgba(55,30,40,.28); display: flex; justify-content: flex-end; }
+.drawer { width: min(520px, 100%); height: 100%; background: #fff; display: flex; flex-direction: column; box-shadow: -20px 0 50px -20px rgba(55,30,40,.35); padding-right: env(safe-area-inset-right, 0px); }
+.drawer-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 22px 24px 12px; }
+.drawer-h h2 { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 28px; letter-spacing: -0.05em; }
+.drawer-x { border: 0; background: transparent; font-size: 26px; line-height: 1; color: var(--tx); cursor: pointer; }
+.drawer-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 24px 16px; }
+.inv-doc { flex: 1; overflow-y: auto; padding: 0 24px; }
+.inv-row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+.inv-row small { display: block; font-size: 12.5px; color: var(--tx); }
+.inv-head { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+.inv-sub { color: var(--tx); }
+.inv-total { font-weight: 600; font-size: 16px; border-bottom: 0; }
+.inv-meta { margin-top: 18px; }
+.drawer-f { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--line); }
+/* ---------- (retired) the split hero ---------- */
 .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .86fr); overflow: hidden; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; min-height: clamp(260px, 22vw, 320px); }
 .hero-copy { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; padding: clamp(26px, 2.8vw, 44px); min-width: 0; }
-.eyebrow { margin: 0 0 auto; padding-bottom: 18px; font-size: 12px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); }
+.eyebrow { margin: 0 0 auto; padding-bottom: 18px; font-size: 11px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); }
 .hero h1 { margin: 0; font-family: var(--serif); font-weight: 300; font-size: clamp(34px, 3.6vw, 54px); line-height: 1.04; letter-spacing: -0.05em; color: var(--ink); text-wrap: balance; }
 .hero-sub { margin: 12px 0 0; font-size: 17px; line-height: 1.5; font-weight: 400; color: var(--tx); max-width: 54ch; text-wrap: pretty; }
 .hero-cta { display: flex; gap: 8px; flex-wrap: wrap; padding-top: clamp(22px, 3vh, 32px); }
@@ -113,7 +221,7 @@ a { color: inherit; }
 .hero-tags { position: absolute; top: clamp(20px, 2.4vw, 34px); left: clamp(26px, 2.8vw, 44px); display: flex; gap: 6px; flex-wrap: wrap; z-index: 1; }
 
 /* ---------- Buttons (the Studio's) ---------- */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 34px; padding: 0 16px; border-radius: var(--r); font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; text-decoration: none; cursor: pointer; border: 1px solid transparent; white-space: nowrap; transition: background .18s, border-color .18s, color .18s; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 30px; padding: 0 14px; border-radius: var(--r); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; text-decoration: none; cursor: pointer; border: 1px solid transparent; white-space: nowrap; transition: background .18s, border-color .18s, color .18s; }
 .btn svg { width: 12px; height: 12px; transition: transform .25s var(--ease); }
 .btn:hover svg { transform: translateX(3px); }
 .btn--primary { background: var(--wine); color: #fff; }
@@ -123,69 +231,74 @@ a { color: inherit; }
 
 /* ---------- Chapters: the house wine strip ---------- */
 .block { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
-.block-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 18px; margin: 0; background: var(--wine); border-radius: var(--r); min-height: 38px; }
-.block-h { font-family: var(--sans); font-weight: 700; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; margin: 0; color: #fff; }
+.block-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; height: 30px; padding: 0 14px; margin: 0; background: var(--wine); border-radius: var(--r); box-sizing: border-box; }
+.block-h { font-family: var(--sans); font-weight: 600; font-size: 11px; line-height: 1; letter-spacing: .18em; text-transform: uppercase; margin: 0; color: #fff; }
 .block-h .ch { color: rgba(255,255,255,.5); font-weight: 500; }
 .block-h .ch::after { content: " — "; }
-.block-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; letter-spacing: .01em; font-weight: 500; color: rgba(255,255,255,.8); text-decoration: none; white-space: nowrap; }
+.block-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1; letter-spacing: .01em; font-weight: 500; color: rgba(255,255,255,.8); text-decoration: none; white-space: nowrap; }
 .block-link:hover { color: #fff; }
 .block-link svg { width: 13px; height: 13px; transition: transform .25s var(--ease); }
 .block-link:hover svg { transform: translateX(3px); }
-.block-head:has(input) { padding-block: 6px; padding-right: 6px; }
-.strip-find { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: var(--r); padding: 0 10px; height: 28px; min-width: 0; flex: 0 1 280px; }
+.block-head:has(input) { padding-right: 4px; }
+.strip-find { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: var(--r); padding: 0 10px; height: 22px; min-width: 0; flex: 0 1 280px; }
 .strip-find svg { width: 13px; height: 13px; color: rgba(255,255,255,.7); flex: none; }
-.strip-find input { border: 0; outline: 0; background: transparent; color: #fff; font-size: 14px; font-weight: 400; width: 100%; min-width: 0; }
+.strip-find input { border: 0; outline: 0; background: transparent; color: #fff; font-size: 13px; font-weight: 400; width: 100%; min-width: 0; }
 .strip-find input::placeholder { color: rgba(255,255,255,.6); }
-.cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: clamp(22px, 2.4vw, 40px); align-items: start; }
+.cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+/* The client file's tabs: one long underline bar (Dani, 4 Nov). */
+.utabs { display: flex; gap: 26px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.utabs button { border: 0; background: transparent; cursor: pointer; padding: 0 0 9px; font-size: 14.5px; font-weight: 500; color: var(--tx); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.utabs button:hover { color: var(--ink); }
+.utabs button[aria-selected="true"] { color: var(--wine); border-bottom-color: var(--wine); font-weight: 600; }
 
 /* ---------- Cards: hairline, square, no fill, no shadow ---------- */
-.card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
+.card { background: var(--paper); border: 1px solid #e2d9d4; border-radius: var(--r); min-width: 0; }
 .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); }
 .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); }
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); }
 
-.fig { padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 6px; }
-.fig .k { font-size: 12px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
-.fig .v { font-family: var(--serif); font-weight: 300; font-size: clamp(34px, 2.8vw, 42px); line-height: 1.05; letter-spacing: -0.05em; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; margin-top: 6px; }
-.fig .n { font-size: 15px; font-weight: 400; color: var(--tx); }
+.fig { padding: 20px 18px 18px; display: flex; flex-direction: column; gap: 4px; }
+.fig .k { font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); }
+.fig .v { font-family: var(--sans); font-weight: 400; font-size: 28px; line-height: 1.1; letter-spacing: -0.01em; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; margin-top: 6px; }
+.fig .n { font-size: 13.5px; font-weight: 400; color: var(--tx); }
 .fig .n em { font-style: normal; color: var(--green); }
 
 /* The Studio's tool card: icon tile, name, line, arrow. */
-.tool { appearance: none; text-align: left; font: inherit; display: flex; align-items: flex-start; gap: 14px; padding: 20px; min-height: 108px; text-decoration: none; color: var(--ink); cursor: pointer; transition: border-color .25s var(--ease), transform .25s var(--ease); }
+.tool { appearance: none; text-align: left; font: inherit; display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; min-height: 0; text-decoration: none; color: var(--ink); cursor: pointer; transition: border-color .25s var(--ease), transform .25s var(--ease); }
 .tool:hover { transform: translateY(-3px); border-color: var(--line-2); }
-.tool-ic { flex: none; width: 36px; height: 36px; border-radius: 7px; display: grid; place-items: center; background: var(--tile); color: var(--ink); }
+.tool-ic { flex: none; width: 32px; height: 32px; border-radius: 7px; display: grid; place-items: center; background: var(--tile); color: var(--ink); }
 .tool-ic svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.tool-ic.is-money { background: #f3eeef; color: var(--wine); }
+.tool-ic.is-money { background: var(--wine); color: #fff; }
 .tool-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.tool-tx .kk { font-size: 11.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
-.tool-tx strong { font-size: 17px; font-weight: 500; line-height: 1.25; }
-.tool-tx span { font-size: 15px; font-weight: 400; line-height: 1.4; color: var(--tx); }
+.tool-tx .kk { font-size: 10.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
+.tool-tx strong { font-size: 15px; font-weight: 600; line-height: 1.2; }
+.tool-tx span { font-size: 13.5px; font-weight: 400; line-height: 1.25; color: var(--tx); }
 .tool-go { margin-left: auto; align-self: flex-end; font-size: 16px; color: var(--ink); transition: transform .25s var(--ease); }
 .tool:hover .tool-go { transform: translateX(4px); }
 
-.shoot { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.shoot { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
 .shoot .d { display: flex; align-items: baseline; gap: 10px; }
-.shoot .d b { font-family: var(--serif); font-weight: 300; font-size: 40px; line-height: 1; letter-spacing: -0.05em; }
+.shoot .d b { font-family: var(--sans); font-weight: 600; font-size: 24px; line-height: 1; letter-spacing: -0.05em; }
 .shoot .d small { font-size: 12px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; color: var(--faint); }
-.shoot strong { display: block; font-size: 17px; font-weight: 500; }
-.shoot span { display: block; font-size: 15px; font-weight: 400; color: var(--tx); }
-.shoot .time { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 15px; font-weight: 400; color: var(--tx); }
+.shoot strong { display: block; font-size: 15px; font-weight: 600; }
+.shoot span { display: block; font-size: 13.5px; font-weight: 400; color: var(--tx); }
+.shoot .time { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 13.5px; font-weight: 400; color: var(--tx); }
 
 /* The Studio's news card: words left, picture right. */
-.news { display: grid; grid-template-columns: minmax(0, 1fr) 180px; min-height: 180px; overflow: hidden; text-decoration: none; color: var(--ink); cursor: pointer; transition: border-color .25s var(--ease), transform .25s var(--ease); }
+.news { display: grid; grid-template-columns: minmax(0, 1fr) 140px; min-height: 140px; overflow: hidden; text-decoration: none; color: var(--ink); cursor: pointer; transition: border-color .25s var(--ease), transform .25s var(--ease); }
 .news:hover { transform: translateY(-3px); border-color: var(--line-2); }
-.news-tx { display: flex; flex-direction: column; gap: 8px; padding: 20px 22px; min-width: 0; }
+.news-tx { display: flex; flex-direction: column; gap: 5px; padding: 14px 16px; min-width: 0; }
 .news-flag { font-size: 11.5px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); }
-.news-h { font-family: var(--serif); font-weight: 300; font-size: 24px; line-height: 1.15; letter-spacing: -0.05em; }
-.news-desc { font-size: 15px; font-weight: 400; color: var(--tx); }
+.news-h { font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.15; letter-spacing: -0.04em; }
+.news-desc { font-size: 13.5px; font-weight: 400; color: var(--tx); }
 .news-bar { margin-top: auto; display: flex; flex-direction: column; gap: 7px; }
-.news-bar .line { display: flex; justify-content: space-between; font-size: 14px; font-weight: 400; color: var(--tx); }
+.news-bar .line { display: flex; justify-content: space-between; font-size: 13px; font-weight: 400; color: var(--tx); }
 .bar { height: 3px; background: var(--tile); border-radius: 2px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: var(--wine); }
 .news-art { background-size: cover; background-position: center; background-color: #e9e6e2; }
 
 /* ---------- Chips ---------- */
-.chip { display: inline-flex; align-items: center; font-size: 13.5px; font-weight: 500; padding: 2px 10px; border-radius: var(--r); white-space: nowrap; line-height: 1.4; }
+.chip { display: inline-flex; align-items: center; font-size: 12.5px; font-weight: 600; padding: 1px 9px; border-radius: var(--r); white-space: nowrap; line-height: 1.4; }
 .c-paid { background: var(--green-l); color: var(--green); }
 .c-sent { background: var(--blue-l); color: var(--blue); }
 .c-approve { background: var(--amber-l); color: var(--amber); }
@@ -194,29 +307,30 @@ a { color: inherit; }
 
 /* ---------- Invoices ---------- */
 .fbar { display: flex; flex-wrap: wrap; gap: 6px; }
-.fbar button { cursor: pointer; border: 1px solid var(--line); background: var(--paper); border-radius: var(--r); padding: 6px 14px; font-size: 15px; font-weight: 400; color: var(--ink); display: inline-flex; gap: 8px; align-items: baseline; transition: border-color .2s; }
+.fbar button { cursor: pointer; border: 1px solid var(--line); background: var(--paper); border-radius: var(--r); padding: 5px 12px; font-size: 14px; font-weight: 400; color: var(--ink); display: inline-flex; gap: 8px; align-items: baseline; transition: border-color .2s; }
 .fbar button em { font-style: normal; font-size: 13px; color: var(--faint); }
 .fbar button:hover { border-color: var(--line-2); }
 .fbar button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
 .fbar button[aria-pressed="true"] em { color: rgba(255,255,255,.6); }
 .tbl-wrap { overflow-x: auto; }
 table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
-.tbl th { text-align: left; font-size: 12px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); padding: 14px 20px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-.tbl td { padding: 16px 20px; border-bottom: 1px solid var(--line); white-space: nowrap; font-size: 16px; font-weight: 400; }
+.tbl th { text-align: left; font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); padding: 10px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tbl td { padding: 9px 16px; border-bottom: 1px solid var(--line); white-space: nowrap; font-size: 14.5px; font-weight: 400; line-height: 1.2; }
 .tbl tr:last-child td { border-bottom: 0; }
 .tbl tbody tr { cursor: pointer; transition: background .15s; }
 .tbl tbody tr:hover td { background: var(--soft); }
-.tbl .cl strong { display: block; font-weight: 500; font-size: 17px; }
-.tbl .cl span { display: block; font-size: 14px; color: var(--faint); }
-.tbl .no, .tbl .due { color: var(--tx); }
+.tbl .cl strong { display: block; font-weight: 600; font-size: 14.5px; }
+.tbl .cl span { display: block; font-size: 12.5px; color: var(--faint); }
+.tbl .due { color: var(--tx); }
+.tbl .no { color: var(--tx); font-size: 12.5px; letter-spacing: .03em; }
 .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
-.tbl .amt { font-family: var(--serif); font-weight: 300; font-size: 21px; letter-spacing: -0.04em; }
+.tbl .amt { font-weight: 600; }
 .empty-line { padding: 22px 20px; font-size: 16px; color: var(--tx); }
 
 /* ---------- Client card ---------- */
-.steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 22px 22px 20px; }
-.step { position: relative; padding-top: 26px; font-size: 16px; font-weight: 500; color: var(--faint); }
-.step small { display: block; font-size: 14px; font-weight: 400; color: var(--faint); }
+.steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 14px 16px 12px; }
+.step { position: relative; padding-top: 22px; font-size: 14.5px; font-weight: 500; color: var(--faint); }
+.step small { display: block; font-size: 12.5px; font-weight: 400; color: var(--faint); }
 .step::before { content: ""; position: absolute; top: 5px; left: 0; right: 0; height: 1px; background: var(--line); }
 .step::after { content: ""; position: absolute; top: 0; left: 0; width: 11px; height: 11px; border-radius: 50%; background: var(--paper); border: 1px solid var(--stone); }
 .step.done { color: var(--ink); }
@@ -226,24 +340,24 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
 .step.now { color: var(--wine); }
 .step.now::before { background: linear-gradient(90deg, var(--wine) 0 45%, var(--line) 45%); }
 .step.now::after { border-color: var(--wine); box-shadow: 0 0 0 4px #f3eeef; }
-.panel { padding: 22px; display: flex; flex-direction: column; gap: 6px; }
-.panel h3 { margin: 0 0 6px; font-family: var(--serif); font-weight: 300; font-size: 24px; line-height: 1.15; letter-spacing: -0.05em; }
+.panel { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.panel h3 { margin: 0 0 4px; font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.15; letter-spacing: -0.05em; }
 .dl { display: grid; grid-template-columns: auto minmax(0, 1fr); margin: 0; }
-.dl dt, .dl dd { margin: 0; padding: 11px 0; border-top: 1px solid var(--line); }
+.dl dt, .dl dd { margin: 0; padding: 7px 0; border-top: 1px solid var(--line); }
 .dl dt:first-of-type, .dl dd:first-of-type { border-top: 0; }
-.dl dt { font-size: 15px; font-weight: 400; color: var(--faint); padding-right: 18px; white-space: nowrap; }
+.dl dt { font-size: 13.5px; font-weight: 400; color: var(--faint); padding-right: 18px; white-space: nowrap; }
 .dl dd { text-align: right; font-weight: 500; }
-.dl dd small { display: block; font-size: 14px; font-weight: 400; color: var(--faint); }
+.dl dd small { display: block; font-size: 12.5px; font-weight: 400; color: var(--faint); }
 .check { list-style: none; margin: 0; padding: 0; }
-.check li { display: flex; gap: 12px; align-items: baseline; padding: 11px 0; border-top: 1px solid var(--line); font-weight: 500; }
+.check li { display: flex; gap: 10px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--line); font-weight: 500; }
 .check li:first-child { border-top: 0; }
 .check li::before { content: ""; width: 9px; height: 9px; flex: none; border-radius: 50%; border: 1px solid var(--stone); transform: translateY(-1px); }
 .check li.ok::before { background: var(--wine); border-color: var(--wine); }
-.check li span { margin-left: auto; font-size: 15px; font-weight: 400; color: var(--faint); white-space: nowrap; }
+.check li span { margin-left: auto; font-size: 13.5px; font-weight: 400; color: var(--faint); white-space: nowrap; }
 
 /* ---------- Search palette ---------- */
-.pal-scrim { position: fixed; inset: 0; background: rgba(28,29,34,.3); z-index: 40; display: flex; align-items: flex-start; justify-content: center; padding: max(80px, 12vh) 16px 16px; }
-.pal { width: min(660px, 100%); background: #fff; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 30px 70px -20px rgba(28,29,34,.35); overflow: hidden; display: flex; flex-direction: column; max-height: 74vh; }
+.pal-scrim { position: fixed; inset: 0; background: rgba(55,30,40,.32); z-index: 40; display: flex; align-items: flex-start; justify-content: center; padding: max(80px, 12vh) 16px 16px; }
+.pal { width: min(660px, 100%); background: #fff; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 30px 70px -20px rgba(55,30,40,.35); overflow: hidden; display: flex; flex-direction: column; max-height: 74vh; }
 .pal-in { display: flex; align-items: center; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--line); }
 .pal-in svg { width: 18px; height: 18px; color: var(--faint); flex: none; }
 .pal-in input { flex: 1; min-width: 0; border: 0; outline: 0; font-family: var(--serif); font-weight: 300; font-size: 24px; letter-spacing: -0.04em; background: transparent; }
@@ -268,8 +382,10 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
 
 /* ---------- Narrower content (the Claude pane, laptops) ---------- */
 @container main (max-width: 1180px) {
-  .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cols { grid-template-columns: minmax(0, 1fr); }
+}
+@container main (max-width: 700px) {
+  .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container main (max-width: 900px) {
   .grid3 { grid-template-columns: minmax(0, 1fr); }
@@ -281,7 +397,7 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
   .grid4 { grid-template-columns: minmax(0, 1fr); }
   .news { grid-template-columns: minmax(0, 1fr) 110px; }
   .steps { grid-template-columns: repeat(5, minmax(90px, 1fr)); overflow-x: auto; }
-  .block-head:has(input) { flex-wrap: wrap; padding-right: 18px; padding-bottom: 10px; }
+  .block-head:has(input) { flex-wrap: wrap; height: auto; padding: 4px 14px 6px; }
   .strip-find { flex-basis: 100%; }
 }
 @media (max-width: 900px) {
@@ -294,17 +410,17 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
-<div class="note"><b>TMKE OS, round three</b><span>The member Studio's look carried into the OS. Example data. Home, Invoices and the Harbourside client card are clickable; ⌘K opens the search.</span></div>
+<div class="note"><b>TMKE OS, round five</b><span>Wine sidebar, linen page heads, no greys: everything from the palette. Smaller type and tighter lines. Example data. Home, Invoices and the Harbourside client card are clickable; ⌘K opens the search.</span></div>
 
 <div class="os" id="os">
   <aside class="side" id="side" aria-label="TMKE OS navigation">
     <div class="brand">
       <span class="brand-name">TMKE<span>OS</span></span>
       <span class="brand-mono">T</span>
-      <button type="button" class="fold" id="fold" aria-label="Fold the sidebar" title="Fold the sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
     </div>
     <button type="button" class="search-btn" id="open-search" aria-label="Search or ask"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search or ask</span><kbd>⌘K</kbd></button>
     <nav class="nav" id="nav"></nav>
+    <button type="button" class="fold" id="fold" aria-label="Fold the sidebar" title="Fold the sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5v14"/><path d="m14 7-5 5 5 5M9 12h11"/></svg><span>Fold</span></button>
     <div class="side-foot"><span class="avatar">D</span><span class="who">Danielle<small>Admin</small></span></div>
   </aside>
 
@@ -318,26 +434,35 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
     <main class="page">
       <!-- ================= HOME ================= -->
       <section class="view" id="v-home" data-crumb="<em>Home</em>">
-        <div class="hero">
-          <div class="hero-copy">
-            <p class="eyebrow">Wednesday 4 November</p>
-            <h1>Good afternoon, Danielle.</h1>
-            <p class="hero-sub">Three invoices are waiting for your approval, and Harbourside's films are ready to send.</p>
-            <div class="hero-cta">
-              <button type="button" class="btn btn--primary" data-go="invoices">Approve invoices <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-              <button type="button" class="btn btn--ghost" data-search-open>Find something</button>
+        <div class="cbanner" id="home-banner" style="background-image:url('img/table.jpg')">
+          <div class="ctags"><button type="button" class="chip c-glass pic-btn" id="pic-btn">Change picture</button></div>
+          <div class="cb-row">
+            <div><p class="cb-eye">Wednesday 4 November</p><h1>Good afternoon, Danielle.</h1><p class="cb-sub">Three invoices are waiting for your approval, and Harbourside's films are ready to send.</p></div>
+          <div class="acts">
+            <button type="button" class="btn btn--ghost" data-search-open>Find something</button>
+            <button type="button" class="btn btn--primary" data-go="invoices">Approve invoices <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          </div>
+          </div>
+          <div class="pic-pop" id="pic-pop" hidden>
+            <p>Choose a picture for your dashboard</p>
+            <div class="pic-grid">
+              <button type="button" data-pic="img/table.jpg" style="background-image:url('img/table.jpg')" aria-label="Living room"></button>
+              <button type="button" data-pic="img/studio.jpg" style="background-image:url('img/studio.jpg')" aria-label="Plants and curtains"></button>
+              <button type="button" data-pic="img/chair.jpg" style="background-image:url('img/chair.jpg')" aria-label="Reading chair"></button>
+              <button type="button" data-pic="img/smm.jpg" style="background-image:url('img/smm.jpg')" aria-label="Bedroom"></button>
+              <button type="button" data-pic="img/orders.jpg" style="background-image:url('img/orders.jpg')" aria-label="Table set for tea"></button>
+              <label class="pic-up">Your own<input type="file" id="pic-file" accept="image/*" hidden></label>
             </div>
           </div>
-          <div class="hero-photo" style="background-image:url('img/table.jpg')" role="img" aria-label="A living room in autumn light"></div>
         </div>
 
         <div class="block">
           <div class="block-head"><h2 class="block-h"><span class="ch">01</span>At a glance</h2></div>
           <div class="grid4">
-            <div class="card fig"><span class="k">Paid in November</span><span class="v">£18,420</span><span class="n"><em>12% up</em> on October so far</span></div>
-            <div class="card fig"><span class="k">To approve</span><span class="v">£4,860</span><span class="n">3 invoices</span></div>
-            <div class="card fig"><span class="k">Shoots this week</span><span class="v">4</span><span class="n">Next on Thursday, Penarth</span></div>
-            <div class="card fig"><span class="k">New enquiries</span><span class="v">5</span><span class="n">2 still to reply to</span></div>
+            <div class="card fig f-money"><span class="k">Paid in November</span><span class="v">£18,420</span><span class="n"><em>12% up</em> on October so far</span></div>
+            <div class="card fig f-stone"><span class="k">To approve</span><span class="v">£4,860</span><span class="n">3 invoices</span></div>
+            <div class="card fig f-clients"><span class="k">Shoots this week</span><span class="v">4</span><span class="n">Next on Thursday, Penarth</span></div>
+            <div class="card fig f-linen"><span class="k">New enquiries</span><span class="v">5</span><span class="n">2 still to reply to</span></div>
           </div>
         </div>
 
@@ -346,14 +471,14 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
           <div class="grid2">
             <a class="card tool" href="#" data-go="invoices"><span class="tool-ic is-money"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></span><span class="tool-tx"><span class="kk">Money</span><strong>Approve Harbourside Estates, £1,450</strong><span>Spring listings film, sent for approval by Abbie</span></span><span class="tool-go">→</span></a>
             <a class="card tool" href="#" data-go="invoices"><span class="tool-ic is-money"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></span><span class="tool-tx"><span class="kk">Money</span><strong>Approve two October social invoices</strong><span>Marlow &amp; Finch and Oakridge Lettings, £3,410</span></span><span class="tool-go">→</span></a>
-            <a class="card tool" href="#" data-go="client"><span class="tool-ic"><svg viewBox="0 0 24 24"><path d="m22 7.5-6 4.5 6 4.5z"/><rect x="2" y="5.5" width="14" height="13" rx="1.5"/></svg></span><span class="tool-tx"><span class="kk">Clients</span><strong>Send Harbourside their four films</strong><span>Captions done, portal folder ready</span></span><span class="tool-go">→</span></a>
-            <a class="card tool" href="#" data-stub><span class="tool-ic"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="tool-tx"><span class="kk">People</span><strong>Reply to two enquiries</strong><span>From the website form, Monday and Tuesday</span></span><span class="tool-go">→</span></a>
+            <a class="card tool" href="#" data-go="client"><span class="tool-ic is-clients"><svg viewBox="0 0 24 24"><path d="m22 7.5-6 4.5 6 4.5z"/><rect x="2" y="5.5" width="14" height="13" rx="1.5"/></svg></span><span class="tool-tx"><span class="kk">Clients</span><strong>Send Harbourside their four films</strong><span>Captions done, portal folder ready</span></span><span class="tool-go">→</span></a>
+            <a class="card tool" href="#" data-stub><span class="tool-ic is-people"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="tool-tx"><span class="kk">People</span><strong>Reply to two enquiries</strong><span>From the website form, Monday and Tuesday</span></span><span class="tool-go">→</span></a>
           </div>
         </div>
 
         <div class="cols">
           <div class="block">
-            <div class="block-head"><h2 class="block-h"><span class="ch">03</span>This week's shoots</h2><a class="block-link" href="#" data-go="client">Videography <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+            <div class="block-head bh-clients"><h2 class="block-h"><span class="ch">03</span>This week's shoots</h2><a class="block-link" href="#" data-go="client">Videography <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
             <div class="grid3">
               <a class="card shoot" href="#" data-go="client" style="text-decoration:none;color:inherit"><span class="d"><b>5</b><small>Thursday</small></span><span><strong>Harbourside Estates</strong><span>Penarth Marina</span></span><span class="time"><span>10:00</span><span>Jack</span></span></a>
               <div class="card shoot"><span class="d"><b>6</b><small>Friday</small></span><span><strong>Ivy Lane Estates</strong><span>Studio Day</span></span><span class="time"><span>09:30</span><span>Jack and Abbie</span></span></div>
@@ -361,7 +486,7 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
             </div>
           </div>
           <div class="block">
-            <div class="block-head"><h2 class="block-h"><span class="ch">04</span>December for members</h2></div>
+            <div class="block-head bh-stone"><h2 class="block-h"><span class="ch">04</span>December for members</h2></div>
             <a class="card news" href="#" data-stub>
               <span class="news-tx"><span class="news-flag">Monthly content</span><span class="news-h">Trends: five topics</span><span class="news-desc">The carousel members see as "See what's working".</span><span class="news-bar"><span class="line"><span>2 of 5 written</span><span>Due 25 Nov</span></span><span class="bar"><i style="width:40%"></i></span></span></span>
               <span class="news-art" style="background-image:url('img/planner.jpg')"></span>
@@ -372,26 +497,21 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
 
       <!-- ================= INVOICES ================= -->
       <section class="view" id="v-invoices" data-crumb="Money · <em>Invoices</em>" hidden>
-        <div class="hero">
-          <div class="hero-copy">
-            <p class="eyebrow">Money</p>
-            <h1>Invoices.</h1>
-            <p class="hero-sub">Three are waiting for your approval and two are past their due date. Everything else is on track.</p>
-            <div class="hero-cta">
-              <button type="button" class="btn btn--primary" data-stub>New invoice <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-              <button type="button" class="btn btn--ghost" data-stub>Month end</button>
-            </div>
+        <div class="phead">
+          <div><p class="eyebrow">Money</p><h1>Invoices</h1><p class="psub">Three are waiting for your approval and two are past their due date.</p></div>
+          <div class="acts">
+            <button type="button" class="btn btn--ghost" data-stub>Month end</button>
+            <button type="button" class="btn btn--primary" data-stub>New invoice <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           </div>
-          <div class="hero-photo" style="background-image:url('img/orders.jpg')" role="img" aria-label="A table set with tea and bread"></div>
         </div>
 
         <div class="block">
           <div class="block-head"><h2 class="block-h"><span class="ch">01</span>November</h2></div>
           <div class="grid4">
-            <div class="card fig"><span class="k">Invoiced</span><span class="v">£24,310</span><span class="n">42 invoices</span></div>
-            <div class="card fig"><span class="k">Paid</span><span class="v">£18,420</span><span class="n">26 invoices</span></div>
-            <div class="card fig"><span class="k">Waiting</span><span class="v">£4,320</span><span class="n">11 sent, not yet due</span></div>
-            <div class="card fig"><span class="k">Overdue</span><span class="v">£1,570</span><span class="n">2 invoices</span></div>
+            <div class="card fig f-money"><span class="k">Invoiced</span><span class="v">£24,310</span><span class="n">42 invoices</span></div>
+            <div class="card fig f-clients"><span class="k">Paid</span><span class="v">£18,420</span><span class="n">26 invoices</span></div>
+            <div class="card fig f-stone"><span class="k">Waiting</span><span class="v">£4,320</span><span class="n">11 sent, not yet due</span></div>
+            <div class="card fig f-linen"><span class="k">Overdue</span><span class="v">£1,570</span><span class="n">2 invoices</span></div>
           </div>
         </div>
 
@@ -416,67 +536,84 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
 
       <!-- ================= CLIENT CARD ================= -->
       <section class="view" id="v-client" data-crumb="Clients · Videography · <em>Harbourside Estates</em>" hidden>
-        <div class="hero hero--photo" style="background-image:url('img/bookings.jpg')">
-          <div class="hero-tags"><span class="chip c-glass">Editing</span><span class="chip c-glass">Shot &amp; Scheduled</span></div>
-          <div class="hero-copy">
-            <p class="eyebrow">Videography · Fine &amp; Country</p>
-            <h1>Harbourside Estates</h1>
-            <p class="hero-sub">Spring listings, four films from one shoot</p>
-            <div class="hero-cta">
-              <button type="button" class="btn btn--primary" data-stub>Mark delivered</button>
-              <button type="button" class="btn btn--ghost" data-stub>Open portal</button>
-              <button type="button" class="btn btn--ghost" data-stub>Play film 1</button>
+        <div class="cbanner" style="background-image:url('img/bookings.jpg')">
+          <div class="ctags"><span class="chip c-glass">Editing</span><span class="chip c-glass">Fine &amp; Country</span><span class="chip pay pay-awaiting" title="Payment: Awaiting invoice, Invoice sent, Payment overdue or Paid">Awaiting invoice</span></div>
+          <div class="cb-row">
+            <div><p class="cb-eye">Videography · Property video</p><h1>Harbourside Estates</h1><p class="cb-sub">8 Marina Way, Penarth · Thursday 29 October</p></div>
+            <div class="acts">
+              <button type="button" class="btn btn--ghost" data-stub>Open in Library</button>
+              <button type="button" class="btn btn--primary" data-stub>Send gallery</button>
             </div>
           </div>
         </div>
 
         <div class="card steps" aria-label="Where this shoot is">
           <div class="step done">Booked<small>21 October</small></div>
-          <div class="step done">Filmed<small>29 October</small></div>
-          <div class="step now">Editing<small>3 of 4 films</small></div>
-          <div class="step">Delivered<small>due 7 November</small></div>
-          <div class="step">Invoiced<small>£1,450</small></div>
+          <div class="step done">Shoot day<small>29 October</small></div>
+          <div class="step now">Editing<small>since 30 October</small></div>
+          <div class="step">Sent<small>gallery and PIN</small></div>
+          <div class="step">Delivered<small>paid, edits settled</small></div>
         </div>
 
-        <div class="block">
-          <div class="block-head"><h2 class="block-h"><span class="ch">01</span>Overview</h2></div>
-          <div class="fbar" id="cc-tabs" role="tablist">
-            <button type="button" role="tab" aria-pressed="true">Overview</button>
-            <button type="button" role="tab" aria-pressed="false">Films</button>
-            <button type="button" role="tab" aria-pressed="false">Delivery</button>
-            <button type="button" role="tab" aria-pressed="false">Files</button>
-            <button type="button" role="tab" aria-pressed="false">Invoice</button>
-            <button type="button" role="tab" aria-pressed="false">Notes</button>
-          </div>
-          <div class="grid3">
-            <div class="card panel">
-              <h3>The shoot</h3>
+        <div class="block" style="gap:14px">
+          <div class="cc-grid">
+            <div class="card panel cc-wide">
+              <div class="box-h"><h3>Booking</h3><a class="box-act" href="#" data-edit-box>Edit</a></div>
+              <div class="facts">
+                <div><span>Service</span><b>Property video</b></div>
+                <div><span>Shoot</span><b>Thu 29 October, 10:00 · 2 hours</b></div>
+                <div><span>Where</span><b>8 Marina Way, Penarth CF64 1TQ</b></div>
+                <div><span>Client</span><b>Harbourside Estates · Fine &amp; Country</b></div>
+                <div><span>Contact</span><b>Sarah Lewin · 07700 900412</b></div>
+                <div><span>Filmed by</span><b>Jack</b></div>
+              </div>
+            </div>
+            <div class="card panel cc-third">
+              <div class="box-h"><h3>Travel</h3><a class="box-act" href="#" data-stub>Recalculate</a></div>
               <dl class="dl">
-                <dt>Filmed</dt><dd>Thursday 29 October</dd>
-                <dt>Where</dt><dd>Penarth Marina<small>26 miles each way</small></dd>
-                <dt>Filmed by</dt><dd>Jack</dd>
-                <dt>Edited by</dt><dd>Abbie</dd>
-                <dt>Contact</dt><dd>Sarah Lewin<small>Branch manager</small></dd>
+                <dt>From</dt><dd>Rugby studio</dd>
+                <dt>Distance</dt><dd>52 miles each way</dd>
+                <dt>Free</dt><dd>40 miles each way</dd>
+                <dt>Charged</dt><dd>24 miles there and back</dd>
+                <dt>Travel charge</dt><dd>£50.00</dd>
               </dl>
             </div>
-            <div class="card panel">
-              <h3>Films</h3>
-              <ul class="check">
-                <li class="ok">The Marina penthouse<span>0:46</span></li>
-                <li class="ok">Meet the team<span>0:58</span></li>
-                <li class="ok">Why Penarth<span>0:39</span></li>
-                <li>November market update<span>editing</span></li>
+            <div class="card panel cc-third box-money">
+              <div class="box-h"><h3>Invoicing</h3><a class="box-act" href="#" data-open-invoice>Open invoice <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+              <dl class="dl">
+                <dt>Who pays</dt><dd>The brand (F&amp;C)</dd>
+                <dt>F&amp;C office</dt><dd>Cardiff, confirmed</dd>
+                <dt>Marketing fee</dt><dd><span class="chip c-paid">Held</span></dd>
+                <dt>Invoice</dt><dd>INV-1042 · £1,450.00</dd>
+                <dt>Status</dt><dd><span class="chip c-approve">To approve</span></dd>
+              </dl>
+            </div>
+            <div class="card panel cc-third">
+              <div class="box-h"><h3>Delivery</h3><a class="box-act" href="#" data-stub>Send gallery</a></div>
+              <dl class="dl">
+                <dt>Pixieset gallery</dt><dd>gallery.tmke.co.uk/harbourside</dd>
+                <dt>Gallery email</dt><dd>sarah@harbourside.example</dd>
+                <dt>PIN</dt><dd>Held until paid</dd>
+                <dt>Sent</dt><dd>Not yet</dd>
+                <dt>Edits</dt><dd>10 days from sending</dd>
+              </dl>
+            </div>
+            <div class="card panel cc-half box-clients">
+              <div class="box-h"><h3>Content</h3><a class="box-act" href="#" data-stub>Open in Library <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
+              <dl class="dl">
+                <dt>Library folder</dt><dd>38 files · 2.4 GB</dd>
+                <dt>Archive copy</dt><dd><span class="chip c-paid">Uploaded</span></dd>
+                <dt>Client portal</dt><dd>Fine &amp; Country · waiting</dd>
+                <dt>Video editing</dt><dd>3 of 4 films captioned</dd>
+              </dl>
+            </div>
+            <div class="card panel cc-half">
+              <div class="box-h"><h3>Notes, documents &amp; messages</h3><a class="box-act" href="#" data-stub>Add</a></div>
+              <ul class="feed">
+                <li><span class="feed-k">Note</span><span class="feed-t">Drone shots only after 11, marina rule.</span><span class="feed-w">Jack · 28 Oct</span></li>
+                <li><span class="feed-k">Document</span><span class="feed-t">Location release form.pdf</span><span class="feed-w">27 Oct</span></li>
+                <li><span class="feed-k">Email</span><span class="feed-t">Booking confirmed, sent to Sarah</span><span class="feed-w">21 Oct</span></li>
               </ul>
-            </div>
-            <div class="card panel">
-              <h3>Portal and invoice</h3>
-              <dl class="dl">
-                <dt>Link</dt><dd>tmke.co.uk/c/harbourside</dd>
-                <dt>Passcode</dt><dd>MARINA-24</dd>
-                <dt>Opened</dt><dd>Not yet</dd>
-                <dt>Invoice</dt><dd><span class="chip c-approve">To approve</span></dd>
-                <dt>Total</dt><dd>£1,450.00<small>includes £50 travel</small></dd>
-              </dl>
             </div>
           </div>
         </div>
@@ -493,6 +630,31 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
+<!-- The invoice itself, in a panel from the right (Dani, 4 Nov: "Open invoice"
+     should open the invoice, not the Invoices page). -->
+<div class="drawer-scrim" id="inv-drawer" hidden>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="Invoice INV-1042">
+    <header class="drawer-h">
+      <div><p class="eyebrow" style="margin:0 0 4px;padding:0">Invoice · Harbourside Estates</p><h2>INV-1042</h2></div>
+      <button type="button" class="drawer-x" data-close-drawer aria-label="Close">×</button>
+    </header>
+    <div class="drawer-chips"><span class="chip c-approve">To approve</span><span class="chip c-clients">Bill to Fine &amp; Country, Cardiff</span></div>
+    <div class="inv-doc">
+      <div class="inv-row inv-head"><span>Item</span><span>Amount</span></div>
+      <div class="inv-row"><span>Property video package<small>Shoot 29 October, 8 Marina Way, Penarth</small></span><span>£1,166.67</span></div>
+      <div class="inv-row"><span>Travel<small>24 miles beyond the free 40 each way</small></span><span>£41.67</span></div>
+      <div class="inv-row inv-sub"><span>Subtotal</span><span>£1,208.34</span></div>
+      <div class="inv-row inv-sub"><span>VAT at 20%</span><span>£241.66</span></div>
+      <div class="inv-row inv-total"><span>Total</span><span>£1,450.00</span></div>
+      <dl class="dl inv-meta"><dt>Issued</dt><dd>Not yet</dd><dt>Due</dt><dd>14 days after sending</dd><dt>Sent for approval</dt><dd>By Abbie, 3 November</dd></dl>
+    </div>
+    <footer class="drawer-f">
+      <button type="button" class="btn btn--ghost" data-stub>Download PDF</button>
+      <button type="button" class="btn btn--ghost" data-stub>Edit</button>
+      <button type="button" class="btn btn--primary" data-stub>Approve and send</button>
+    </footer>
+  </aside>
+</div>
 
 <script>
 (() => {
@@ -500,15 +662,15 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const store = { get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} } };
   const ICON = {
-    home: '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>',
-    money: '<rect x="2.5" y="5.5" width="19" height="13" rx="1.5"/><path d="M2.5 10h19"/>',
-    studio: '<path d="M12 19l7-7a2.8 2.8 0 0 0-4-4l-7 7-1 5z"/>',
-    clients: '<path d="m22 7.5-6 4.5 6 4.5z"/><rect x="2" y="5.5" width="14" height="13" rx="1.5"/>',
-    people: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.5c1.9.8 3 2.8 3 5.5"/>',
-    email: '<rect x="2.5" y="4.5" width="19" height="15" rx="1.5"/><path d="m3 6 9 7 9-7"/>',
-    hub: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H20v14H5.5A1.5 1.5 0 0 0 4 19.5z"/><path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H20"/>',
-    insights: '<path d="M3 20h18"/><path d="m5 15 4.5-4.5 3.5 3.5L20 7"/>',
-    system: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',
+    home: '<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v10.5a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9"/>',
+    money: '<circle cx="12" cy="12" r="8.5"/><path d="M14.6 8.6A2.6 2.6 0 0 0 10 10.2v5.3M8.6 12.4h4.6M8.6 15.5h6.8"/>',
+    studio: '<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1 0 1.6-.8 1.6-1.6 0-.4-.2-.8-.4-1.1-.3-.3-.5-.7-.5-1.1 0-.9.7-1.6 1.6-1.6h1.9a4.3 4.3 0 0 0 4.3-4.3C20.5 6.9 16.7 3.5 12 3.5z"/><circle cx="7.6" cy="11.2" r="1"/><circle cx="10" cy="7.4" r="1"/><circle cx="14.4" cy="7.4" r="1"/>',
+    clients: '<path d="M4.5 7.5h2.8l1.8-2.6h5.8l1.8 2.6h2.8a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.2" r="3.4"/>',
+    people: '<circle cx="9" cy="8.5" r="3.3"/><path d="M3.2 19.5c.5-3.1 2.9-5.2 5.8-5.2s5.3 2.1 5.8 5.2"/><path d="M15.5 5.6a3.3 3.3 0 0 1 0 5.8M17.4 14.6c1.7.7 2.9 2.4 3.3 4.9"/>',
+    email: '<rect x="3" y="5" width="18" height="14" rx="1.6"/><path d="m3.6 6.2 8.4 6.6 8.4-6.6"/>',
+    hub: '<path d="M3 6.4c2.6-1.4 5.7-1.3 9 .8 3.3-2.1 6.4-2.2 9-.8v12c-2.6-1.4-5.7-1.3-9 .8-3.3-2.1-6.4-2.2-9-.8z"/><path d="M12 7.2v12"/>',
+    insights: '<path d="M4 20h16"/><path d="M6.5 16v-4M11 16V7M15.5 16v-6M20 16V5"/>',
+    system: '<path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/>',
   };
   const svg = (k) => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
   const chev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
@@ -584,7 +746,6 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
   }
   $("#inv-filter").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; invF = b.dataset.f; $$("#inv-filter button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); drawInv(); });
   $("#inv-find").addEventListener("input", drawInv);
-  $("#cc-tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $$("#cc-tabs button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); });
 
   const IDX = [
     ["Home", "Home", "Today's to-dos, this month's money and the week's shoots.", "dashboard overview today start", "home"],
@@ -671,6 +832,65 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); pal.hidden ? openPal() : closePal(); }
     else if (e.key === "Escape" && !pal.hidden) closePal();
   });
+
+  // Editing a box in place: the facts become fields, Cancel / Save at the foot.
+  const SERVICES = ["New-starter Studio Day", "New-starter on location", "Content Studio Day", "Property video", "Agent shoot on location", "Shot & Scheduled shoot", "Event coverage", "Photography"];
+  const escA = (v) => String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  document.addEventListener("click", (e) => {
+    const ed = e.target.closest("[data-edit-box]");
+    if (ed) {
+      e.preventDefault();
+      const panel = ed.closest(".panel");
+      if (panel.classList.contains("is-editing")) return;
+      panel.classList.add("is-editing");
+      const facts = panel.querySelector(".facts");
+      facts.dataset.was = facts.innerHTML;
+      facts.querySelectorAll("div").forEach((d) => {
+        const label = d.querySelector("span").textContent, val = d.querySelector("b").textContent;
+        const field = label === "Service"
+          ? `<select class="fld">${SERVICES.map((x) => `<option${x === val ? " selected" : ""}>${escA(x)}</option>`).join("")}<option>Other…</option></select>`
+          : `<input class="fld" value="${escA(val)}">`;
+        d.querySelector("b").outerHTML = field;
+      });
+      facts.insertAdjacentHTML("afterend", `<div class="edit-foot"><span class="edit-note">Changes save to this booking and Jack's calendar.</span><button type="button" class="btn btn--ghost" data-edit-cancel>Cancel</button><button type="button" class="btn btn--primary" data-edit-save>Save</button></div>`);
+      ed.hidden = true;
+      facts.querySelector(".fld").focus();
+      return;
+    }
+    const cancel = e.target.closest("[data-edit-cancel]"), save = e.target.closest("[data-edit-save]");
+    if (cancel || save) {
+      const panel = (cancel || save).closest(".panel"), facts = panel.querySelector(".facts");
+      if (save) facts.querySelectorAll("div").forEach((d) => { const f = d.querySelector(".fld"); f.outerHTML = `<b>${escA(f.value)}</b>`; });
+      else facts.innerHTML = facts.dataset.was;
+      panel.querySelector(".edit-foot").remove();
+      panel.classList.remove("is-editing");
+      panel.querySelector("[data-edit-box]").hidden = false;
+      if (save) toast("Saved.");
+    }
+  });
+
+  // The dashboard picture: pick one of ours or upload your own (kept per person).
+  const banner = $("#home-banner"), pop = $("#pic-pop");
+  const savedPic = store.get("tmkeos3.pic"); if (savedPic) banner.style.backgroundImage = `url('${savedPic}')`;
+  $("#pic-btn").addEventListener("click", (e) => { e.stopPropagation(); pop.hidden = !pop.hidden; });
+  pop.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pic]"); if (!b) return;
+    banner.style.backgroundImage = `url('${b.dataset.pic}')`; store.set("tmkeos3.pic", b.dataset.pic); pop.hidden = true;
+  });
+  $("#pic-file").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = () => { banner.style.backgroundImage = `url('${r.result}')`; pop.hidden = true; toast("Your picture is set. In the real build it saves to your profile."); };
+    r.readAsDataURL(file);
+  });
+  document.addEventListener("click", (e) => { if (!pop.hidden && !e.target.closest("#pic-pop")) pop.hidden = true; });
+
+  const drawer = $("#inv-drawer");
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-open-invoice]")) { e.preventDefault(); drawer.hidden = false; return; }
+    if (e.target.closest("[data-close-drawer]") || e.target === drawer) drawer.hidden = true;
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !drawer.hidden) drawer.hidden = true; });
 
   if (store.get("tmkeos3.folded")) os.classList.add("is-folded");
   drawInv();

@@ -14,70 +14,71 @@ interface Props { active?: string; title?: string; }
 const { active = "dashboard", title = "Dashboard", skin = "" } = Astro.props;
 
 // Icons are small inline line-SVGs (stroke = currentColor).
-const I = {
-  insights: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg>',
-  prompts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>',
-  dash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
-  orders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 4 6v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6l-2-4z"/><path d="M4 6h16M9 10a3 3 0 0 0 6 0"/></svg>',
-  catalogue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>',
-  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h2M14 14h2M8 18h2"/></svg>',
-  studio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7a2.8 2.8 0 0 0-4-4l-7 7-1 5z"/><path d="M14 6l4 4"/></svg>',
-  subs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11"/></svg>',
-  enquiries: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-  reviews: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l2.9 6.3 6.8.7-5.1 4.7 1.5 6.8L12 17.7 5.9 21l1.5-6.8-5.1-4.7 6.8-.7z"/></svg>',
-  email: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>',
-  blog: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
-  guides: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 1 4 10.5c-.7.7-1 1.2-1 2.5H9c0-1.3-.3-1.8-1-2.5A6 6 0 0 1 12 3z"/></svg>',
-  automations: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M6 8.5v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-3M12 13.5v2"/></svg>',
-  contacts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-  video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m23 7-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>',
-  social: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>',
-  editor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
-  invoicing: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M9 13h6M9 17h6M9 9h2"/></svg>',
-  payments: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>',
-  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+// TMKE OS sidebar (Dani, 4 Nov 2026): nine groups that open and close
+// instead of twenty-five links; white line icons, one per group. The keys
+// are the pages' `active` values, so highlighting and the management-only
+// rule (Payments, Invoicing) work as before.
+const G = {
+  home: '<path d="M3.5 10.5 12 3.5l8.5 7"/><path d="M5.5 9v10.5a1 1 0 0 0 1 1H10v-6h4v6h3.5a1 1 0 0 0 1-1V9"/>',
+  money: '<circle cx="12" cy="12" r="8.5"/><path d="M14.6 8.6A2.6 2.6 0 0 0 10 10.2v5.3M8.6 12.4h4.6M8.6 15.5h6.8"/>',
+  studio: '<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1 0 1.6-.8 1.6-1.6 0-.4-.2-.8-.4-1.1-.3-.3-.5-.7-.5-1.1 0-.9.7-1.6 1.6-1.6h1.9a4.3 4.3 0 0 0 4.3-4.3C20.5 6.9 16.7 3.5 12 3.5z"/><circle cx="7.6" cy="11.2" r="1"/><circle cx="10" cy="7.4" r="1"/><circle cx="14.4" cy="7.4" r="1"/>',
+  clients: '<path d="M4.5 7.5h2.8l1.8-2.6h5.8l1.8 2.6h2.8a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.2" r="3.4"/>',
+  people: '<circle cx="9" cy="8.5" r="3.3"/><path d="M3.2 19.5c.5-3.1 2.9-5.2 5.8-5.2s5.3 2.1 5.8 5.2"/><path d="M15.5 5.6a3.3 3.3 0 0 1 0 5.8M17.4 14.6c1.7.7 2.9 2.4 3.3 4.9"/>',
+  email: '<rect x="3" y="5" width="18" height="14" rx="1.6"/><path d="m3.6 6.2 8.4 6.6 8.4-6.6"/>',
+  hub: '<path d="M3 6.4c2.6-1.4 5.7-1.3 9 .8 3.3-2.1 6.4-2.2 9-.8v12c-2.6-1.4-5.7-1.3-9 .8-3.3-2.1-6.4-2.2-9-.8z"/><path d="M12 7.2v12"/>',
+  insights: '<path d="M4 20h16"/><path d="M6.5 16v-4M11 16V7M15.5 16v-6M20 16V5"/>',
+  system: '<path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/>',
 };
+const icon = (k: string) => `<svg class="ash-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${G[k as keyof typeof G]}</svg>`;
 
-const NAV = [
-  { label: "Main", items: [{ key: "dashboard", label: "Dashboard", href: "/admin", icon: I.dash }] },
-  { label: "Commerce", items: [
-    { key: "payments", label: "Payments", href: "/admin/payments", icon: I.payments },
-    { key: "invoicing", label: "Invoicing", href: "/admin/invoicing", icon: I.invoicing },
+type Item = { key: string; label: string; href: string };
+type Group = { k: string; label: string; key?: string; href?: string; items?: Item[] };
+const NAV: Group[] = [
+  { k: "home", label: "Home", key: "dashboard", href: "/admin" },
+  { k: "money", label: "Money", items: [
+    { key: "invoicing", label: "Invoicing", href: "/admin/invoicing" },
+    { key: "payments", label: "Payments", href: "/admin/payments" },
+    { key: "orders", label: "Pack orders", href: "/admin/orders" },
+    { key: "subscribers", label: "Top customers", href: "/admin/subscribers" },
   ]},
-  { label: "Studio", items: [
-    { key: "orders", label: "Pack orders", href: "/admin/orders", icon: I.orders },
-    { key: "catalogue", label: "Catalogue", href: "/admin/packs", icon: I.catalogue },
-    { key: "studio", label: "Design studio", href: "/admin/templates", icon: I.studio },
-    { key: "calendar", label: "Content calendar", href: "/admin/content-calendar", icon: I.calendar },
+  { k: "studio", label: "Studio", items: [
+    { key: "catalogue", label: "Catalogue", href: "/admin/packs" },
+    { key: "studio", label: "Design studio", href: "/admin/templates" },
+    { key: "calendar", label: "Content calendar", href: "/admin/content-calendar" },
   ]},
-  { label: "Services", items: [
-    { key: "videography", label: "Videography", href: "/admin/videography", icon: I.video },
-    { key: "content", label: "Library", href: "/admin/content", icon: I.video },
-    { key: "social", label: "Social media", href: "/admin/social", icon: I.social },
+  { k: "clients", label: "Clients", items: [
+    { key: "videography", label: "Videography", href: "/admin/videography" },
+    { key: "social", label: "Social media", href: "/admin/social" },
+    { key: "content", label: "Library", href: "/admin/content" },
   ]},
-  { label: "Marketing", items: [
-    { key: "contacts", label: "Contacts", href: "/admin/contacts", icon: I.contacts },
-    { key: "subscribers", label: "Top customers", href: "/admin/subscribers", icon: I.subs },
-    { key: "enquiries", label: "Enquiries", href: "/admin/enquiries", icon: I.enquiries },
-    { key: "reviews", label: "Reviews", href: "/admin/reviews", icon: I.reviews },
-    { key: "email", label: "Email studio", href: "/admin/email", icon: I.email },
-    { key: "automations", label: "Automations", href: "/admin/automations", icon: I.automations },
+  { k: "people", label: "People", items: [
+    { key: "contacts", label: "Contacts", href: "/admin/contacts" },
+    { key: "enquiries", label: "Enquiries", href: "/admin/enquiries" },
+    { key: "reviews", label: "Reviews", href: "/admin/reviews" },
   ]},
-  { label: "Insights", items: [
-    { key: "insights", label: "Website", href: "/admin/insights", icon: I.insights },
-    { key: "blog", label: "Blog editor", href: "/admin/blog", icon: I.blog },
-    { key: "guides", label: "Guides", href: "/admin/guides", icon: I.guides },
-    { key: "trending", label: "Trending month", href: "/admin/trending", icon: I.prompts },
-    { key: "prompts", label: "Prompts", href: "/admin/prompts", icon: I.prompts },
-    { key: "assistant", label: "Assistant", href: "/admin/assistant", icon: I.prompts },
-    { key: "community", label: "Community", href: "/admin/community", icon: I.prompts },
+  { k: "email", label: "Email", items: [
+    { key: "email", label: "Email studio", href: "/admin/email" },
+    { key: "automations", label: "Automations", href: "/admin/automations" },
   ]},
-  { label: "System", items: [
-    { key: "teg", label: "TEG sync", href: "/admin/teg", icon: I.contacts },
-    { key: "editor", label: "Website editor", href: "/?edit=1", icon: I.editor },
-    { key: "settings", label: "Settings", href: "/admin/settings", icon: I.settings },
+  { k: "hub", label: "Member hub", items: [
+    { key: "trending", label: "Trending month", href: "/admin/trending" },
+    { key: "prompts", label: "Prompts", href: "/admin/prompts" },
+    { key: "guides", label: "Guides", href: "/admin/guides" },
+    { key: "community", label: "Community", href: "/admin/community" },
+    { key: "assistant", label: "Assistant", href: "/admin/assistant" },
+  ]},
+  { k: "insights", label: "Insights", items: [
+    { key: "insights", label: "Website", href: "/admin/insights" },
+    { key: "blog", label: "Blog editor", href: "/admin/blog" },
+  ]},
+  { k: "system", label: "System", items: [
+    { key: "teg", label: "TEG sync", href: "/admin/teg" },
+    { key: "editor", label: "Website editor", href: "/?edit=1" },
+    { key: "settings", label: "Settings", href: "/admin/settings" },
   ]},
 ];
+// The group this page sits in starts open.
+const activeGroup = (NAV.find((g) => g.key === active || (g.items || []).some((it) => it.key === active)) || {}).k || "";
 ---
 
 <BaseLayout title={`${title} — TMKE admin`} description="TMKE internal admin." hideNav hideFooter>
@@ -85,20 +86,39 @@ const NAV = [
     <div class="ash-scrim" id="ash-scrim"></div>
 
     <aside class="ash-side">
-      <a href="/admin" class="ash-logo"><span class="ash-logo-mark">T</span><span class="ash-logo-text">TMKE</span></a>
+      <a href="/admin" class="ash-logo" aria-label="TMKE OS home"><span class="ash-logo-text">TMKE<span class="ash-logo-os">OS</span></span><span class="ash-logo-mono">T</span></a>
+      <!-- Search that understands plain English (Dani, 4 Nov 2026). -->
+      <button type="button" class="ash-find" id="ash-find" title="Search or ask (⌘K)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <span class="ash-find-label">Search or ask</span><kbd>⌘K</kbd>
+      </button>
       <nav class="ash-nav" aria-label="Admin sections">
-        {NAV.map((group) => (
-          <div class="ash-group">
-            <div class="ash-group-label">{group.label}</div>
-            {group.items.map((it) => (
-              <a href={it.href} data-navkey={it.key} class:list={["ash-link", active === it.key && "is-active"]} aria-current={active === it.key ? "page" : undefined}>
-                <Fragment set:html={it.icon} />
-                <span class="ash-link-label">{it.label}</span>
-              </a>
-            ))}
+        {NAV.map((g) => g.href ? (
+          <div class="ash-group ash-group--solo">
+            <a href={g.href} data-navkey={g.key} class:list={["ash-grp-h", "ash-link", active === g.key && "is-active"]} aria-current={active === g.key ? "page" : undefined} title={g.label}>
+              <Fragment set:html={icon(g.k)} /><span class="ash-grp-label">{g.label}</span>
+            </a>
+          </div>
+        ) : (
+          <div class:list={["ash-group", activeGroup === g.k && "is-open", activeGroup === g.k && "is-here"]} data-group={g.k}>
+            <button type="button" class="ash-grp-h" data-toggle={g.k} aria-expanded={activeGroup === g.k ? "true" : "false"} title={g.label}>
+              <Fragment set:html={icon(g.k)} /><span class="ash-grp-label">{g.label}</span>
+              <svg class="ash-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
+            <div class="ash-grp-items">
+              {(g.items || []).map((it) => (
+                <a href={it.href} data-navkey={it.key} class:list={["ash-link", active === it.key && "is-active"]} aria-current={active === it.key ? "page" : undefined}>
+                  <span class="ash-link-label">{it.label}</span>
+                </a>
+              ))}
+            </div>
           </div>
         ))}
       </nav>
+      <button type="button" class="ash-fold" id="ash-fold" title="Fold the sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5v14"/><path d="m14 7-5 5 5 5M9 12h11"/></svg>
+        <span class="ash-fold-label">Fold</span>
+      </button>
       <div class="ash-side-foot">
         <div class="ash-user">
           <span class="ash-avatar" id="ash-avatar">·</span>
@@ -113,6 +133,19 @@ const NAV = [
         </button>
       </div>
     </aside>
+
+    <!-- The search, over everything (⌘K from any page). -->
+    <div class="ash-pal" id="ash-pal" hidden>
+      <div class="ash-pal-card" role="dialog" aria-modal="true" aria-label="Search TMKE OS">
+        <div class="ash-pal-in">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="ash-pal-q" type="text" placeholder="Where do I…" autocomplete="off" spellcheck="false" />
+          <kbd>esc</kbd>
+        </div>
+        <div class="ash-pal-list" id="ash-pal-list"></div>
+        <div class="ash-pal-foot"><span>↑ ↓ to choose</span><span>↵ to go</span><span>Not sure of the name? Describe the job.</span></div>
+      </div>
+    </div>
 
     <div class="ash-main">
       <header class="ash-top">
@@ -178,10 +211,6 @@ const NAV = [
             <div class="ash-nx-list" id="ash-nx-list"></div>
           </div>
         </div>
-        <label class="ash-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input type="search" placeholder="Search…" aria-label="Search" />
-        </label>
       </header>
       <main class={`ash-content${skin === "hub" ? " hub-skin" : ""}`}><slot /></main>
     </div>
@@ -190,6 +219,7 @@ const NAV = [
   <script>
     import { requireAdmin, signOut, isManagementUser } from "../../lib/admin-gate.js";
     import { wireInstallButton } from "../../lib/pwa-install.js";
+    import { ADMIN_PLACES } from "../../data/admin-places.js";
 
     wireInstallButton("ash-install");
     import { supabase } from "../../lib/supabase.js";
@@ -198,7 +228,8 @@ const NAV = [
     const COLLAPSE_KEY = "tmke-admin-collapsed";
 
     // Collapse (desktop) / off-canvas (mobile) via the same burger.
-    if (localStorage.getItem(COLLAPSE_KEY) === "1") ash?.classList.add("is-collapsed");
+    // Folding is a desktop thing; a phone always gets the full menu.
+    if (localStorage.getItem(COLLAPSE_KEY) === "1" && !window.matchMedia("(max-width: 760px)").matches) ash?.classList.add("is-collapsed");
     document.getElementById("ash-burger")?.addEventListener("click", () => {
       if (window.matchMedia("(max-width: 760px)").matches) {
         ash?.classList.toggle("is-mobile-open");
@@ -209,6 +240,124 @@ const NAV = [
     });
     document.getElementById("ash-scrim")?.addEventListener("click", () => ash?.classList.remove("is-mobile-open"));
     document.getElementById("ash-signout")?.addEventListener("click", () => signOut());
+
+    /* ---- TMKE OS sidebar (Dani, 4 Nov 2026) ----
+       Groups open and close, and stay as you left them; the one you're in
+       is always open. Fold sits at the foot; folded, a group's icon unfolds
+       the sidebar with that group open. */
+    const OPEN_KEY = "tmke-admin-open-groups";
+    const readOpen = () => { try { return new Set(JSON.parse(localStorage.getItem(OPEN_KEY) || "[]")); } catch (_) { return new Set(); } };
+    const saveOpen = (set) => { try { localStorage.setItem(OPEN_KEY, JSON.stringify([...set])); } catch (_) {} };
+    const openGroups = readOpen();
+    document.querySelectorAll(".ash-group[data-group]").forEach((g) => {
+      if (openGroups.has(g.dataset.group)) { g.classList.add("is-open"); g.querySelector("[data-toggle]")?.setAttribute("aria-expanded", "true"); }
+    });
+    document.querySelector(".ash-nav")?.addEventListener("click", (e) => {
+      const t = e.target.closest("[data-toggle]");
+      if (!t) return;
+      const g = t.closest(".ash-group");
+      if (ash?.classList.contains("is-collapsed")) {
+        ash.classList.remove("is-collapsed");
+        localStorage.setItem(COLLAPSE_KEY, "0");
+        g.classList.add("is-open");
+      } else g.classList.toggle("is-open");
+      const open = g.classList.contains("is-open");
+      t.setAttribute("aria-expanded", String(open));
+      const set = readOpen(); open ? set.add(g.dataset.group) : set.delete(g.dataset.group); saveOpen(set);
+    });
+    document.getElementById("ash-fold")?.addEventListener("click", () => {
+      ash?.classList.toggle("is-collapsed");
+      localStorage.setItem(COLLAPSE_KEY, ash?.classList.contains("is-collapsed") ? "1" : "0");
+    });
+
+    /* ---- Search: "where do I…?" ----
+       Matches the list of every place (src/data/admin-places.js) by the
+       everyday words people use, instantly. When nothing clear comes up,
+       "Ask Claude" sends the question and the list to the Worker, which asks
+       Claude Haiku for the best one to three. ⌘K or Ctrl+K from any page.
+       Payments and Invoicing are shown to management only, as in the nav. */
+    const pal = document.getElementById("ash-pal");
+    if (pal && pal.parentElement !== document.body) document.body.appendChild(pal);
+    const palQ = document.getElementById("ash-pal-q");
+    const palList = document.getElementById("ash-pal-list");
+    const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    let palMgmt = false;
+    document.addEventListener("ash:ready", (e) => { palMgmt = !!(e.detail && e.detail.isManagement); });
+    const palEsc = (v) => String(v == null ? "" : v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const STOP = new Set("where do does i the a an to for of in on is my we our how can find put enter add go page it what with and or at which who when".split(" "));
+    const stem = (w) => w.replace(/'s$/, "").replace(/ies$/, "y").replace(/(ing|es|s)$/, "");
+    const toks = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9£&' ]+/g, " ").split(/\s+/).filter((w) => w && !STOP.has(w)).map(stem);
+    const PRE = ADMIN_PLACES.map((pl, i) => ({ pl, i, name: toks(pl.n), words: new Set(toks(pl.n + " " + pl.w + " " + pl.t)), hay: (pl.n + " " + pl.t).toLowerCase() }));
+    const allowed = (pl) => !pl.m || palMgmt;
+    function palSearch(q) {
+      const qt = toks(q);
+      if (!qt.length) return [];
+      const ql = q.toLowerCase().trim();
+      return PRE.filter((x) => allowed(x.pl)).map((x) => {
+        let sc = 0;
+        for (const t of qt) { if (x.name.includes(t)) sc += 3; else if (x.words.has(t)) sc += 2; else if (t.length > 3 && [...x.words].some((w) => w.startsWith(t))) sc += 1; }
+        for (let k = 0; k < qt.length - 1; k++) if (x.hay.includes(qt[k] + " " + qt[k + 1])) sc += 2;
+        if (ql.length > 3 && x.hay.includes(ql)) sc += 4;
+        return { x, sc };
+      }).filter((r) => r.sc >= 2).sort((a, b) => b.sc - a.sc).slice(0, 7).map((r) => r.x.pl);
+    }
+    let palSel = 0, palItems = [], palAnswer = "";
+    const START = ["Dashboard", "Videography", "Contacts", "Trending month", "Prompts"];
+    function palDraw() {
+      const q = palQ.value.trim();
+      const res = q ? palSearch(q) : ADMIN_PLACES.filter((pl) => allowed(pl) && START.includes(pl.n)).slice(0, 5);
+      palItems = res.map((pl) => ({ pl }));
+      let html = `<div class="ash-pal-sec">${q ? (res.length ? "Best matches" : "No clear match") : "Jump to"}</div>`;
+      html += palItems.map((it, k) => `<a class="ash-pal-item${k === palSel ? " is-on" : ""}" href="${palEsc(it.pl.h)}" data-k="${k}"><span class="ash-pal-n">${palEsc(it.pl.n)}</span><span class="ash-pal-w">${palEsc(it.pl.w)}</span><span class="ash-pal-j">${palEsc(it.pl.j)}</span></a>`).join("");
+      if (q) {
+        palItems.push({ ask: true });
+        const k = palItems.length - 1;
+        html += `<div class="ash-pal-sec">Not it?</div><button type="button" class="ash-pal-ask${k === palSel ? " is-on" : ""}" data-k="${k}"><span class="ash-pal-spark">✦</span><span><b>Ask Claude: “${palEsc(q)}”</b><small>Reads the list of every page and tab and tells you where.</small></span></button>`;
+      }
+      if (palAnswer) html += palAnswer;
+      palList.innerHTML = html;
+    }
+    async function palAsk() {
+      const q = palQ.value.trim();
+      if (!q || !WORKER_URL) return;
+      const pool = ADMIN_PLACES.filter(allowed);
+      palAnswer = `<p class="ash-pal-answer">Asking Claude…</p>`; palDraw();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const r = await fetch(`${WORKER_URL}/admin/nav-ask`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + (session && session.access_token) },
+          body: JSON.stringify({ q, places: pool.map((pl) => ({ n: pl.n, w: pl.w, j: pl.j })) }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || r.status);
+        const picks = (j.picks || []).map((n) => pool[n]).filter(Boolean);
+        palAnswer = `<div class="ash-pal-answer"><p>${palEsc(j.answer || "Claude couldn't find a clear match.")}</p>${picks.map((pl) => `<a class="ash-pal-item" href="${palEsc(pl.h)}"><span class="ash-pal-n">${palEsc(pl.n)}</span><span class="ash-pal-w">${palEsc(pl.w)}</span></a>`).join("")}</div>`;
+      } catch (err) {
+        palAnswer = `<p class="ash-pal-answer">Couldn't ask Claude just now (${palEsc(err.message || err)}). Try other words.</p>`;
+      }
+      palDraw();
+    }
+    function palOpen() { if (!pal) return; pal.hidden = false; palQ.value = ""; palSel = 0; palAnswer = ""; palDraw(); setTimeout(() => palQ.focus(), 0); }
+    function palClose() { if (pal) pal.hidden = true; }
+    document.getElementById("ash-find")?.addEventListener("click", palOpen);
+    palQ?.addEventListener("input", () => { palSel = 0; palAnswer = ""; palDraw(); });
+    palQ?.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") { e.preventDefault(); palSel = Math.min(palItems.length - 1, palSel + 1); palDraw(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); palSel = Math.max(0, palSel - 1); palDraw(); }
+      else if (e.key === "Enter") {
+        e.preventDefault();
+        const it = palItems[palSel];
+        if (!it) return;
+        if (it.ask) palAsk(); else location.href = it.pl.h;
+      }
+    });
+    palList?.addEventListener("click", (e) => { if (e.target.closest(".ash-pal-ask")) palAsk(); });
+    pal?.addEventListener("click", (e) => { if (e.target === pal) palClose(); });
+    document.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && String(e.key).toLowerCase() === "k") { e.preventDefault(); pal && pal.hidden ? palOpen() : palClose(); }
+      else if (e.key === "Escape" && pal && !pal.hidden) palClose();
+    });
 
     // Keep the sidebar's scroll position across page loads — navigating from a
     // link you had to scroll down to should not jump the nav back to the top.

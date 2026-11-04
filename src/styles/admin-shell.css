@@ -10,87 +10,145 @@
   font-family: var(--sans); color: var(--ink);
   /* Current sidebar width — pop-outs (dialogs) read this so they centre within
      the visible content area rather than under the fixed left nav. */
-  --ash-side-w: 250px;
+  --ash-side-w: 272px;
   background:
     radial-gradient(80% 70% at 100% 0%, rgba(255, 255, 255, 0.5), transparent 58%),
     radial-gradient(64% 56% at 0% 6%, rgba(255, 255, 255, 0.34), transparent 54%),
     #f4f2f1;
 }
-.ash.is-collapsed { --ash-side-w: 74px; }
+.ash.is-collapsed { --ash-side-w: 80px; }
 @media (max-width: 760px) { .ash { --ash-side-w: 0px; } }
 
-/* ---- Sidebar ---- */
-/* Dark plum, matching the top bar in My Marketing Hub, so the two products read
-   as one. The old translucent white panel with a backdrop blur is gone: on a
-   near-white page it read as a seam rather than a navigation surface, and the
-   blur was doing no work over a flat background. */
+/* ---- Sidebar: TMKE OS (Dani, 4 Nov 2026) ----
+   Wine, white line icons, nine groups that open and close, search at the top
+   and Fold at the foot. Agreed on the mock-up first (docs/tmke-os/
+   styles-mockup.html): no bold, Darker Grotesque for the words, the
+   wordmark in the heading face. Folded, it's one centred column of icons. */
 .ash-side {
-  width: 250px; flex: none; display: flex; flex-direction: column;
-  background: var(--primary, #371e28);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  transition: width 0.32s cubic-bezier(.2,.7,.2,1);
-  z-index: 30;
+  width: 272px; flex: none; display: flex; flex-direction: column; gap: 16px;
+  padding: 22px 14px 16px;
+  background: var(--primary, #371e28); color: #f3eeef;
+  transition: width 0.28s cubic-bezier(.2,.7,.2,1), padding 0.28s;
+  z-index: 30; overflow: hidden;
 }
-.ash.is-collapsed .ash-side { width: 74px; }
+.ash.is-collapsed .ash-side { width: 80px; padding-inline: 0; align-items: center; }
 
-.ash-logo {
-  display: flex; align-items: center; gap: 11px;
-  padding: 22px 22px 18px; color: #fff; text-decoration: none;
-  font-family: var(--serif); font-size: 22px; letter-spacing: 0.08em; white-space: nowrap;
-}
-.ash-logo-mark { width: 30px; height: 30px; flex: none; border-radius: 8px; background: rgba(255, 255, 255, 0.14); display: inline-flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; font-family: var(--sans); }
+.ash-logo { display: flex; align-items: center; padding: 0 10px; min-height: 34px; color: #fff; text-decoration: none; white-space: nowrap; }
+.ash-logo-text { font-family: var(--serif); font-weight: 300; font-size: 24px; letter-spacing: -0.05em; }
+.ash-logo-os { font-family: var(--sans); font-weight: 500; font-size: 11px; letter-spacing: 0.24em; color: rgba(243, 238, 239, 0.55); margin-left: 8px; vertical-align: 4px; }
+.ash-logo-mono { display: none; font-family: var(--serif); font-weight: 300; font-size: 24px; letter-spacing: -0.05em; }
+.ash.is-collapsed .ash-logo { padding: 0; justify-content: center; }
 .ash.is-collapsed .ash-logo-text { display: none; }
+.ash.is-collapsed .ash-logo-mono { display: block; }
 
-.ash-nav { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 0 18px; scrollbar-width: thin; }
+.ash-find {
+  appearance: none; display: flex; align-items: center; gap: 10px; width: 100%; height: 38px; padding: 0 11px;
+  cursor: pointer; text-align: left; border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(243, 238, 239, 0.7); font-family: var(--sans); font-size: 15px; font-weight: 400;
+  transition: border-color 0.2s, color 0.2s;
+}
+.ash-find:hover { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
+.ash-find svg { width: 16px; height: 16px; flex: none; color: #fff; }
+.ash-find kbd { margin-left: auto; font-family: var(--sans); font-size: 12px; color: rgba(243, 238, 239, 0.5); }
+.ash.is-collapsed .ash-find { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 8px; }
+.ash.is-collapsed .ash-find-label, .ash.is-collapsed .ash-find kbd { display: none; }
+
+.ash-nav { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 2px; scrollbar-width: thin; }
 .ash-nav::-webkit-scrollbar { width: 6px; }
 .ash-nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); border-radius: 3px; }
-.ash-group { margin-top: 14px; }
-.ash-group-label {
-  padding: 0 22px 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.22em;
-  text-transform: uppercase; color: rgba(255, 255, 255, 0.38); white-space: nowrap;
+.ash.is-collapsed .ash-nav { align-items: center; gap: 4px; width: 100%; }
+
+.ash-grp-h {
+  appearance: none; display: flex; align-items: center; gap: 11px; width: 100%; padding: 7px 10px;
+  border: 0; border-radius: 6px; background: transparent; cursor: pointer; text-align: left; text-decoration: none;
+  color: #f3eeef; font-family: var(--sans); font-size: 15.5px; font-weight: 500; letter-spacing: 0; text-transform: none;
 }
-.ash.is-collapsed .ash-group-label { opacity: 0; height: 8px; padding: 0; }
+.ash-grp-h:hover { background: rgba(255, 255, 255, 0.07); }
+.ash-ico { width: 19px; height: 19px; flex: none; stroke-width: 1.4; color: #fff; }
+.ash-chev { width: 12px; height: 12px; margin-left: auto; color: rgba(243, 238, 239, 0.4); transition: transform 0.2s; }
+.ash-group.is-open .ash-chev { transform: rotate(90deg); }
+.ash-group.is-here > .ash-grp-h, .ash-grp-h.is-active { color: #fff; }
+.ash-grp-items { display: none; flex-direction: column; padding: 0 0 8px 38px; }
+.ash-group.is-open .ash-grp-items { display: flex; }
 
 .ash-link {
-  position: relative; display: flex; align-items: center; gap: 13px;
-  padding: 11px 22px; color: rgba(255, 255, 255, 0.55); text-decoration: none;
-  /* Hub .nav-tab, verbatim: 12px, 600, uppercase, .06em. */
-  font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
-  white-space: nowrap;
-  border-left: 3px solid transparent; transition: background 0.2s, color 0.2s, border-color 0.2s;
-}
-.ash-link:hover { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.9); }
-/* The Hub marks its active tab with the mauve accent, not the brand plum -
-   plum on plum would vanish here. */
-.ash-link.is-active { color: #fff; background: rgba(255, 255, 255, 0.1); border-left-color: var(--accent-light, #c9bcb7); font-weight: 700; }
-.ash-link svg { width: 19px; height: 19px; flex: none; stroke-width: 1.9; }
-.ash.is-collapsed .ash-link-label { display: none; }
-.ash.is-collapsed .ash-link { justify-content: center; padding: 12px 0; gap: 0; }
-.ash-link-badge { margin-left: auto; background: var(--accent-light, #c9bcb7); color: var(--primary, #371e28); font-size: 11px; font-weight: 800; border-radius: 999px; padding: 1px 8px; min-width: 20px; text-align: center; }
-.ash.is-collapsed .ash-link-badge { display: none; }
-
-.ash-side-foot { border-top: 1px solid rgba(255, 255, 255, 0.1); padding: 14px 16px; }
-.ash-user { display: flex; align-items: center; gap: 11px; }
-.ash-avatar {
-  width: 38px; height: 38px; flex: none; border-radius: 50%; object-fit: cover;
-  background: linear-gradient(135deg, #50303d, #371e28);
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-}
-.ash-user-meta { min-width: 0; line-height: 1.3; }
-.ash.is-collapsed .ash-user-meta, .ash.is-collapsed .ash-signout-txt { display: none; }
-.ash-user-name { font-size: 14px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ash-user-role { font-size: 11px; color: rgba(255, 255, 255, 0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ash-signout {
-  margin-top: 12px; width: 100%; appearance: none; cursor: pointer;
-  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 9px;
-  color: rgba(255, 255, 255, 0.85); font-family: var(--sans); font-size: 12px; font-weight: 700;
-  letter-spacing: 0.08em; padding: 9px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  position: relative; display: flex; align-items: center; padding: 5px 10px; border-radius: 6px;
+  color: rgba(243, 238, 239, 0.68); text-decoration: none; white-space: nowrap;
+  font-family: var(--sans); font-size: 14.5px; font-weight: 400; letter-spacing: 0; text-transform: none;
   transition: background 0.2s, color 0.2s;
 }
-.ash-signout:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
-.ash-signout svg { width: 16px; height: 16px; flex: none; }
+.ash-link:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.ash-grp-items .ash-link.is-active { color: #fff; font-weight: 500; background: rgba(255, 255, 255, 0.1); }
+.ash-grp-items .ash-link.is-active::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 2px; border-radius: 1px; background: var(--accent-light, #c9bcb7); }
+.ash-grp-h.ash-link.is-active { background: rgba(255, 255, 255, 0.1); }
+.ash-link-badge { margin-left: auto; background: var(--accent-light, #c9bcb7); color: var(--primary, #371e28); font-size: 12px; font-weight: 600; border-radius: 999px; padding: 0 7px; line-height: 1.5; }
+
+/* Folded: a centred column of 44px squares. */
+.ash.is-collapsed .ash-group { width: 44px; }
+.ash.is-collapsed .ash-grp-h { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 8px; }
+.ash.is-collapsed .ash-grp-label, .ash.is-collapsed .ash-chev, .ash.is-collapsed .ash-grp-items, .ash.is-collapsed .ash-link-badge { display: none !important; }
+.ash.is-collapsed .ash-group.is-here > .ash-grp-h, .ash.is-collapsed .ash-grp-h.is-active { background: rgba(255, 255, 255, 0.12); }
+
+.ash-fold {
+  appearance: none; display: flex; align-items: center; gap: 11px; width: 100%; height: 36px; padding: 0 10px;
+  border: 0; border-radius: 6px; background: transparent; cursor: pointer;
+  color: rgba(243, 238, 239, 0.6); font-family: var(--sans); font-size: 14.5px; font-weight: 400;
+}
+.ash-fold:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.ash-fold svg { width: 17px; height: 17px; flex: none; color: #fff; transition: transform 0.25s; }
+.ash.is-collapsed .ash-fold { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 8px; }
+.ash.is-collapsed .ash-fold svg { transform: rotate(180deg); }
+.ash.is-collapsed .ash-fold-label { display: none; }
+
+.ash-side-foot { border-top: 1px solid rgba(255, 255, 255, 0.12); padding: 12px 10px 0; }
+.ash.is-collapsed .ash-side-foot { padding: 12px 0 0; width: 44px; display: flex; flex-direction: column; align-items: center; }
+.ash-user { display: flex; align-items: center; gap: 11px; }
+.ash-avatar {
+  width: 34px; height: 34px; flex: none; border-radius: 50%; object-fit: cover;
+  background: var(--accent-light, #c9bcb7);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--serif); font-size: 16px; font-weight: 300; color: var(--primary, #371e28); text-transform: uppercase;
+}
+.ash-user-meta { min-width: 0; line-height: 1.25; }
+.ash.is-collapsed .ash-user-meta, .ash.is-collapsed .ash-signout-txt { display: none; }
+.ash-user-name { font-size: 15px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ash-user-role { font-size: 13px; color: rgba(243, 238, 239, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ash-signout {
+  margin-top: 10px; width: 100%; appearance: none; cursor: pointer; height: 30px;
+  background: transparent; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px;
+  color: rgba(243, 238, 239, 0.85); font-family: var(--sans); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background 0.2s, color 0.2s;
+}
+.ash-signout:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.ash-signout svg { width: 14px; height: 14px; flex: none; }
+.ash.is-collapsed .ash-signout { width: 44px; }
+
+/* ---- The search, over everything ---- */
+.ash-pal { position: fixed; inset: 0; z-index: 80; background: rgba(55, 30, 40, 0.32); display: flex; align-items: flex-start; justify-content: center; padding: max(80px, 12vh) 16px 16px; font-family: var(--sans); }
+.ash-pal[hidden] { display: none; }
+.ash-pal-card { width: min(660px, 100%); max-height: 74vh; display: flex; flex-direction: column; overflow: hidden; background: #fff; border: 1px solid #eae5e1; border-radius: 6px; box-shadow: 0 30px 70px -20px rgba(55, 30, 40, 0.35); }
+.ash-pal-in { display: flex; align-items: center; gap: 12px; padding: 18px 22px; border-bottom: 1px solid #eae5e1; }
+.ash-pal-in svg { width: 18px; height: 18px; color: #7e6765; flex: none; }
+.ash-pal-in input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-family: var(--serif); font-weight: 300; font-size: 24px; letter-spacing: -0.04em; color: #2b2226; }
+.ash-pal-in input::placeholder { color: #c9bcb7; }
+.ash-pal-in kbd { font-family: var(--sans); font-size: 13px; color: #9a8884; }
+.ash-pal-list { overflow-y: auto; padding: 8px; }
+.ash-pal-sec { padding: 12px 14px 6px; font-size: 11.5px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: #9a8884; }
+.ash-pal-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 14px; padding: 10px 14px; border-radius: 4px; color: #2b2226; text-decoration: none; }
+.ash-pal-item.is-on, .ash-pal-item:hover { background: #f7f4f2; box-shadow: inset 2px 0 0 #371e28; }
+.ash-pal-n { font-size: 16px; font-weight: 500; }
+.ash-pal-w { font-size: 13.5px; color: #7e6765; white-space: nowrap; align-self: center; }
+.ash-pal-j { grid-column: 1 / -1; font-size: 14px; color: #7e6765; }
+.ash-pal-ask { appearance: none; width: 100%; display: flex; gap: 12px; align-items: flex-start; padding: 10px 14px; border: 0; border-radius: 4px; background: transparent; cursor: pointer; text-align: left; font-family: var(--sans); color: #2b2226; }
+.ash-pal-ask.is-on, .ash-pal-ask:hover { background: #f7f4f2; box-shadow: inset 2px 0 0 #371e28; }
+.ash-pal-spark { width: 28px; height: 28px; flex: none; border-radius: 6px; background: #371e28; color: #fff; display: grid; place-items: center; font-size: 13px; }
+.ash-pal-ask b { display: block; font-weight: 500; font-size: 15px; }
+.ash-pal-ask small { font-size: 13.5px; color: #7e6765; }
+.ash-pal-answer { margin: 6px 14px 12px; padding: 12px 14px; border: 1px solid #eae5e1; border-radius: 4px; font-size: 15px; color: #2b2226; }
+.ash-pal-answer p { margin: 0 0 6px; }
+.ash-pal-foot { display: flex; flex-wrap: wrap; gap: 18px; padding: 10px 22px; border-top: 1px solid #eae5e1; font-size: 13.5px; color: #9a8884; }
 
 /* ---- Main column ---- */
 .ash-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -123,14 +181,7 @@
 }
 .ash-install:hover { background: rgba(var(--violet-rgb), 0.08); border-color: var(--english-violet); }
 .ash-install[hidden] { display: none; }
-.ash-search {
-  display: flex; align-items: center; gap: 9px; background: #fff;
-  border: 1px solid rgba(28, 29, 34, 0.12); border-radius: 999px; padding: 9px 16px; min-width: 220px;
-}
-.ash-search svg { width: 16px; height: 16px; color: rgba(28, 29, 34, 0.45); flex: none; }
-.ash-search input { background: none; border: 0; outline: none; color: var(--ink); font-family: var(--sans); font-size: 14px; width: 100%; }
-.ash-search input::placeholder { color: rgba(28, 29, 34, 0.42); }
-@media (max-width: 860px) { .ash-search { display: none; } }
+
 
 /* The previous 15%-over-original bump was invisible on wide windows because
    the clamp's max was still only 40px — past ~1143px window width the value
@@ -219,7 +270,8 @@
   /* The menu and its scrim slide over the header (46) as well as the page. */
   .ash-side { position: fixed; top: 0; bottom: 0; left: 0; transform: translateX(-100%); transition: transform 0.32s cubic-bezier(.2,.7,.2,1); z-index: 48; }
   .ash.is-mobile-open .ash-side { transform: translateX(0); }
-  .ash.is-collapsed .ash-side { width: 250px; }
+  .ash-side { width: 280px; }
+  .ash-fold { display: none; }
   .ash-scrim { position: fixed; inset: 0; background: rgba(28, 24, 28, 0.4); opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 47; }
   .ash.is-mobile-open .ash-scrim { opacity: 1; pointer-events: auto; }
 }
