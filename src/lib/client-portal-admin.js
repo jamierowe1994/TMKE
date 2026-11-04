@@ -335,6 +335,10 @@ export async function renderShootPortal(host, booking, folderName, deps) {
   // A new-starter shoot goes into the TEG New Starter portal by itself once
   // it's Delivered (the Worker's runStarterPortalAdds), so the picker says so
   // rather than "Not in a portal".
+  // The Worker's rule (shootDoneForPortal): a ticked folder shows once the
+  // shoot is sent and paid, or has nothing to pay.
+  const doneForPortal = ["sent", "delivered"].includes(booking.stage)
+    && (!!booking.paid_at || booking.payment_route === "smm_package" || booking.amount_pence === 0);
   const isStarter = /new.?starter/i.test(String(booking.service || ""));
   const tegPortal = portals.find((p) => p.enabled && /\bteg\b.*new.?starter|new.?starter.*\bteg\b/i.test(p.name || ""));
   function draw(kind, text) {
@@ -344,16 +348,17 @@ export async function renderShootPortal(host, booking, folderName, deps) {
     host.innerHTML = head + `
       <div class="cpt-shoot-row">
         <select class="cpt-shoot-sel" aria-label="Client portal for this shoot">
-          <option value="">${auto ? `${esc(tegPortal.name)}, once Delivered` : "Not in a portal"}</option>
+          <option value="">${auto ? `${esc(tegPortal.name)}, once sent and paid` : "Not in a portal"}</option>
           ${portals.map((p) => `<option value="${esc(p.id)}"${cur && cur.id === p.id ? " selected" : ""}>${esc(p.name)}${p.enabled ? "" : " (off)"}</option>`).join("")}
           ${clientName && !portals.some((p) => p.name.trim().toLowerCase() === clientName.toLowerCase()) ? `<option value="new">+ New portal for ${esc(clientName)}</option>` : ""}
         </select>
         ${cur && cur.enabled ? `<button type="button" class="cpt-mini" data-cptcopy="link">Copy link</button><button type="button" class="cpt-mini" data-cptcopy="code">Copy passcode</button>` : ""}
         <a class="cpt-mini" href="/admin/videography?panel=portals">Manage portals</a>
       </div>
-      ${auto ? `<p class="cpt-note">A new starter: this folder goes into ${esc(tegPortal.name)} by itself once the shoot is Delivered (invoice paid, edits settled), and whoever that portal emails hears about it then.</p>` : ""}
+      ${auto ? `<p class="cpt-note">A new starter: this folder goes into ${esc(tegPortal.name)} by itself once the shoot has been sent and paid for, and whoever that portal emails hears about it then.</p>` : ""}
       ${inIt.length > 1 ? `<p class="cpt-note">Also in ${inIt.slice(1).map((p) => esc(p.name)).join(", ")}.</p>` : ""}
       ${cur && !cur.enabled ? `<p class="cpt-note">${esc(cur.name)}'s portal is turned off, so they can't see it yet.</p>` : ""}
+      ${cur && cur.enabled && !doneForPortal ? `<p class="cpt-note">Waiting: it only shows in ${esc(cur.name)}'s portal once this shoot has been sent and paid for, and anyone the portal emails hears about it then.</p>` : ""}
       <p class="cpt-msg cpt-status"></p>`;
     if (text) status(kind, text);
     const sel = host.querySelector(".cpt-shoot-sel");

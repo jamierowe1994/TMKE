@@ -2151,13 +2151,17 @@ async function runPortalFolderNotices(env) {
   const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
   for (const p of portals) {
     const told = new Set((p.notified_folders || []).map((f) => archivePrefix(f)));
-    const now = portalFolders(p);
-    const fresh = now.filter((f) => !told.has(f));
+    const ticked = portalFolders(p);
+    // Only folders the client can actually see: one ticked early waits, and
+    // is emailed the day its shoot is done.
+    const shown = await portalShownFolders(env, p);
+    const fresh = shown.filter((f) => !told.has(f));
+    const keep = ticked.filter((f) => told.has(f));   // a folder taken out and put back later is news again
     if (!fresh.length) {
-      // A folder taken out and put back later should be news again.
-      if ((p.notified_folders || []).length !== now.length) await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(p.id)}`, { notified_folders: now });
+      if (keep.length !== (p.notified_folders || []).length) await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(p.id)}`, { notified_folders: keep });
       continue;
     }
+    const now = [...keep, ...fresh];
     const names = fresh.map((f) => f.slice(0, -1).split("/").pop());
     const bks = (await sbGet(env, "videography_bookings",
       `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=client_name,client_email,service,shoot_date,archive_folder,gallery_sent_at,edits_settled_at,edits_settled_by`)) || [];
@@ -5306,6 +5310,32 @@ async function portalFromSession(env, request) {
 function portalFolders(p) {
   return [...new Set((p.folders || []).map((f) => archivePrefix(f)))].filter((f) => f !== `${PART_PREFIX}/`);
 }
+/* A ticked folder only shows in a portal once its shoot is done (Dani, 4 Nov:
+   Chris Steptoe's folder was in the TEG portal before his shoot). Done means
+   sent to the client and paid for, or nothing to pay (a package shoot, or a
+   £0 job). Ticking a folder early is fine: it waits, and the portal's email
+   goes out when it appears. A folder that isn't any booking's shows as ever. */
+function shootDoneForPortal(b) {
+  if (!b || !["sent", "delivered"].includes(b.stage)) return false;
+  return !!b.paid_at || b.payment_route === "smm_package" || b.amount_pence === 0;
+}
+async function portalShownFolders(env, p) {
+  const all = portalFolders(p);
+  if (!all.length) return all;
+  const names = all.map((f) => f.slice(PART_PREFIX.length + 1, -1));
+  const bks = (await sbGet(env, "videography_bookings",
+    `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=archive_folder,stage,paid_at,payment_route,amount_pence`)) || [];
+  const waiting = new Set();
+  for (const f of all) {
+    const mine = bks.filter((b) => archivePrefix(b.archive_folder) === f);
+    if (mine.length && !mine.some(shootDoneForPortal)) waiting.add(f);
+  }
+  return all.filter((f) => !waiting.has(f));
+}
+async function portalHomeShown(env, p) {
+  const shown = await portalShownFolders(env, p);
+  return { name: String(p.name || "").trim(), folders: shown.map((prefix) => ({ prefix, name: prefix.slice(0, -1).split("/").pop() })) };
+}
 function portalHome(p) {
   return {
     name: String(p.name || "").trim(),
@@ -8018,14 +8048,14 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const sig = await portalSig(env, p.token, p.passcode, exp);
         if (!sig) return json({ error: "The portal isn't configured on the Worker." }, 503, request, env);
         await sbPatch(env, "client_portals", at, { failed_tries: 0, locked_until: null, last_opened_at: new Date().toISOString() });
-        return json({ session: `${p.token}.${exp}.${sig}`, expires: exp, ...portalHome(p) }, 200, request, env);
+        return json({ session: `${p.token}.${exp}.${sig}`, expires: exp, ...(await portalHomeShown(env, p)) }, 200, request, env);
       }
 
       // ---- Client portal: who it's for and the folders shared with them ----
       if (path.endsWith("/portal/home") && request.method === "GET") {
         const p = await portalFromSession(env, request);
         if (!p) return json({ code: "signed_out" }, 401, request, env);
-        return json(portalHome(p), 200, request, env);
+        return json(await portalHomeShown(env, p), 200, request, env);
       }
 
       // ---- Client portal: one shared folder, with links to play and download ----
@@ -8035,7 +8065,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const p = await portalFromSession(env, request);
         if (!p) return json({ code: "signed_out" }, 401, request, env);
         const prefix = archivePrefix(url.searchParams.get("prefix"));
-        const root = portalFolders(p).find((f) => prefix.startsWith(f));
+        const root = (await portalShownFolders(env, p)).find((f) => prefix.startsWith(f));
         if (!root) return json({ code: "not_shared" }, 403, request, env);
         const out = await listArchive(env, prefix);
         const exp = Date.now() + 6 * 60 * 60 * 1000;
