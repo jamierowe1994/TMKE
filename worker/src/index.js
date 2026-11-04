@@ -1979,6 +1979,10 @@ async function folderHasFiles(env, prefix) {
    portal"). Not before: until the job is finished nobody sees it. Runs on the
    5-minute tick, just before the folder emails go out. */
 const NEW_STARTER_SERVICE = /new.?starter/i;
+// The name a booking made on the website is saved under, from the same list
+// the admin form chooses from (src/data/videography-services.js), so the board
+// never holds two names for one service. The website still shows its own.
+const BOOKING_SERVICE_BY_TYPE = { property: "Property video", agent: "Agent shoot on location", "content-studio": "Content Studio Day", photography: "Photography" };
 async function runStarterPortalAdds(env) {
   const portal = await tegStarterPortal(env);
   if (!portal) return;
@@ -8412,7 +8416,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             property_address: property_address || null,
             distance_miles: distance_miles ?? null, surcharge_pence: surcharge_pence || 0,
             client_name: name, client_email: email, client_phone: phone || null, company: company || null,
-            service: service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
+            service: BOOKING_SERVICE_BY_TYPE[service_type] || service || null, shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
             signed_name: signed_name || null, signed_at: signed_at || null, marketing_opt_in: !!marketing_opt_in,
             promo_code: promo_code || null, discount_pence: discount_pence || 0,
             account_user_id: accountUserId, reschedule_token: rescheduleToken, total_pence: total_pence ?? null,
@@ -8587,7 +8591,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
 
         // 4) Block Jack's calendar (studio session).
         const rescheduleToken = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${start}-${Date.now()}`;
-        const invite = shootInvite({ serviceType: "content-studio", service: "New-Starter Studio Day", name, email: em, phone,
+        const invite = shootInvite({ serviceType: "content-studio", service: "New-starter Studio Day", name, email: em, phone,
           lead: `New-starter Studio Day: ${durWords}, billed to The Property Experts.`, notes: notes || "",
           manageUrl: `${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(rescheduleToken)}` });
         let ev = {};
@@ -8606,7 +8610,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         let newBookingId = null;
         try {
           const insRes = await sbPost(env, "videography_bookings", {
-            kind: "booking", service_type: "content-studio", service: "New-Starter Studio Day",
+            kind: "booking", service_type: "content-studio", service: "New-starter Studio Day",
             client_name: name, client_email: em, client_phone: phone || null,
             shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
             promo_code: code || null, discount_pence: 0, bill_to: "TPE", total_pence: 35400,

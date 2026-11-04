@@ -2,6 +2,7 @@
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
 import "../../styles/client-portal-admin.css";
+import { VIDEO_SERVICES } from "../../data/videography-services.js";
 
 ---
 
@@ -341,7 +342,18 @@ import "../../styles/client-portal-admin.css";
           </div>
         </div>
         <div class="vid-field-row">
-          <div class="vid-field"><label>Service</label><input type="text" data-f="service" placeholder="Property video, podcast…" /></div>
+          <div class="vid-field">
+            <label>Service</label>
+            <!-- Chosen, not typed (Dani, 4 Nov 2026): every rule reads one name.
+                 The hidden field is what's saved; Other keeps a typed name. -->
+            <select id="vid-svc-pick">
+              <option value="">— Select —</option>
+              {VIDEO_SERVICES.map((s) => <option value={s.key}>{s.label}</option>)}
+              <option value="other">Other…</option>
+            </select>
+            <input type="text" id="vid-svc-other" placeholder="What is it?" hidden />
+            <input type="hidden" data-f="service" />
+          </div>
           <div class="vid-field"><label>Shoot date</label><input type="datetime-local" data-f="shoot_date" step="900" /></div>
         </div>
         <div class="vid-field-row">
@@ -1488,6 +1500,7 @@ import "../../styles/client-portal-admin.css";
     import { requireAdmin, isManagementUser } from "../../lib/admin-gate.js";
     import { listVideoNotes, setVideoNoteDone, noteAuthor } from "../../lib/video-notes.js";
     import { archiveFolderName, folderFor } from "../../lib/archive-folder.js";
+    import { VIDEO_SERVICES, serviceByLabel, guessService } from "../../data/videography-services.js";
     import { renderClientPortals, renderShootPortal } from "../../lib/client-portal-admin.js";
     import { makeThumb, putThumb, thumbKeyFor } from "../../lib/thumbs.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
@@ -4379,6 +4392,7 @@ import "../../styles/client-portal-admin.css";
       set("client_company", b?.client_company);
       set("brand", b?.brand);
       set("service", b?.service);
+      showServicePick(b?.service || "");
       set("shoot_date", b?.shoot_date ? new Date(b.shoot_date).toISOString().slice(0, 16) : "");
       set("location", b?.location);
       set("amount_gbp", b?.amount_pence != null ? (b.amount_pence / 100).toString() : "");
@@ -4483,6 +4497,50 @@ import "../../styles/client-portal-admin.css";
     /* A Content Studio shoot is at our studio, every time. Fill it in rather
        than leaving Jack to type the same address - but only when the field is
        empty, so a deliberate change is never overwritten. */
+    /* The service picker (Dani, 4 Nov 2026). A booking whose saved service
+       is one of the list shows it chosen; an older typed one shows the best
+       guess, or Other with its words, until it's saved. */
+    function showServicePick(saved) {
+      const pick = document.getElementById("vid-svc-pick");
+      const other = document.getElementById("vid-svc-other");
+      if (!pick || !other) return;
+      const sv = serviceByLabel(saved) || guessService(saved);
+      if (sv) { pick.value = sv.key; other.hidden = true; other.value = ""; }
+      else if (saved) { pick.value = "other"; other.hidden = false; other.value = saved; }
+      else { pick.value = ""; other.hidden = true; other.value = ""; }
+      servicePicked(false);
+    }
+    /* `byHand`: the person just chose it, so its rules apply: a new starter
+       or event coverage is invoiced to the brand, not the client (Dani,
+       4 Nov), and a studio shoot is at the studio. */
+    function servicePicked(byHand) {
+      const pick = document.getElementById("vid-svc-pick");
+      const other = document.getElementById("vid-svc-other");
+      const field = document.querySelector('[data-f="service"]');
+      if (!pick || !other || !field) return;
+      const sv = VIDEO_SERVICES.find((x) => x.key === pick.value) || null;
+      other.hidden = pick.value !== "other";
+      field.value = sv ? sv.label : (pick.value === "other" ? other.value.trim() : "");
+      if (!byHand) return;
+      if (pick.value === "other") other.focus();
+      prefillStudioLocation();
+      if (sv && sv.pays === "brand") {
+        const route = document.getElementById("vid-route");
+        if (route) {
+          const brand = document.querySelector('[data-f="brand"]')?.value || "";
+          const want = sv.reason === "event" && brand === "fine-and-country" ? "brand_invoice" : "brand_invoice_teg";
+          if (route.value !== want && !(sv.reason === "event" && route.value === "brand_invoice")) {
+            route.value = want;
+            route.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+          const reason = document.getElementById("vid-teg-reason");
+          if (reason && [...reason.options].some((o) => o.value === sv.reason)) {
+            reason.value = sv.reason;
+            reason.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        }
+      }
+    }
     function prefillStudioLocation() {
       const locEl = document.querySelector('[data-f="location"]');
       const svcEl = document.querySelector('[data-f="service"]');
@@ -4675,6 +4733,7 @@ import "../../styles/client-portal-admin.css";
         client_company: get("client_company") || null,
         brand: get("brand") || null,
         service: get("service") || null,
+        ...((() => { const sv = serviceByLabel(get("service")); return sv && sv.type ? { service_type: sv.type } : {}; })()),
         shoot_date: get("shoot_date") ? new Date(get("shoot_date")).toISOString() : null,
         location: get("location") || null,
         amount_pence: gbp ? Math.round(parseFloat(gbp) * 100) : null,
@@ -5507,7 +5566,8 @@ import "../../styles/client-portal-admin.css";
       document.querySelector('[data-f="gallery_email"]')?.addEventListener("input", checkGalleryEmail);
       document.querySelector('[data-f="client_email"]')?.addEventListener("input", checkGalleryEmail);
       document.querySelector('[data-f="gallery_url"]')?.addEventListener("blur", defaultGalleryExpiry);
-      document.querySelector('[data-f="service"]')?.addEventListener("blur", prefillStudioLocation);
+      document.getElementById("vid-svc-pick")?.addEventListener("change", () => servicePicked(true));
+      document.getElementById("vid-svc-other")?.addEventListener("input", () => servicePicked(false));
       document.getElementById("vid-route")?.addEventListener("change", syncPaymentRoute);
       document.getElementById("vid-fc-office")?.addEventListener("change", syncPaymentRoute);
       document.getElementById("vid-fee-confirmed")?.addEventListener("change", syncPaymentRoute);

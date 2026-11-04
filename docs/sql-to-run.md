@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/videography_service_names.sql — renames every existing videography booking's service to the new list (New-starter Studio Day, Property video, Event coverage…) and shows you each change; old names are kept in the booking's notes (4 Nov)
 
 ## Done
 
