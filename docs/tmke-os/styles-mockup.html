@@ -16,7 +16,7 @@
      washes in linen and stone. */
   --ink: #2b2226; --tx: #7e6765; --faint: #9a8884; --line: #eae5e1; --line-2: #c9bcb7;
   --soft: #f7f4f2; --tile: #eae5e1; --paper: #ffffff;
-  --green: #3f7a56; --green-l: #edf4ef; --amber: #85693a; --amber-l: #f8f2e6; --red: #8a3f3f; --red-l: #f9f0f0; --blue: #3e4a6a; --blue-l: #eef0f5;
+  --green: #3f7a56; --green-l: #edf4ef; --amber: #371e28; --amber-l: #eae5e1; --red: #8a3f3f; --red-l: #f9f0f0; --blue: #3e4a6a; --blue-l: #eef0f5;
   --serif: "Fraunces", Georgia, "Times New Roman", serif;
   --sans: "Darker Grotesque", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --r: 4px; --gap: 10px; --chapter: clamp(40px, 4.4vh, 60px); --ease: cubic-bezier(.2,.8,.2,1);
@@ -453,7 +453,7 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
 .cf-none { color: var(--tx) !important; }
 .cf-chip { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 4px; }
 .cf-chip.good { background: var(--green-l); color: var(--green); }
-.cf-chip.wait { background: var(--amber-l); color: var(--amber); }
+.cf-chip.wait { background: var(--stone); color: var(--wine); }
 .cf-chip.bad { background: var(--red-l); color: var(--red); }
 .cf-chip.info { background: var(--blue-l); color: var(--blue); }
 .cf-chip.plain { background: var(--linen); color: var(--wine); }
@@ -473,7 +473,7 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
 .cfx-box { width: min(780px, 100%); border-radius: 6px; overflow: hidden; }
 .cfx-box.is-narrow { width: min(560px, 100%); }
 /* The top: a linen band with the client, the title and the close, so the panel reads as a page. */
-.cfx-top { flex: none; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 34px 26px 22px; background: var(--linen); }
+.cfx-top { flex: none; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 56px 26px 22px; background: var(--linen); }
 .cfx-top p { margin: 0 0 4px; color: var(--tx); }
 .cfx-top h2 { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 26px; line-height: 1.05; letter-spacing: -0.05em; color: var(--ink); }
 .cfx-top .cf-chip { margin-top: 10px; }
@@ -595,9 +595,97 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
 .cfx-body::-webkit-scrollbar { width: 8px; background: transparent; }
 .cfx-body::-webkit-scrollbar-track { background: transparent; }
 .cfx-body::-webkit-scrollbar-thumb { background: var(--stone); border-radius: 4px; }
+/* ===== Boards and the calendar (Dani, 4 Nov): one board for Videography and Social media ===== */
+.bd { --bd-edge: #e2d9d4; }
+.bd :is(p, span, dt, dd, li, a, label, input, small, div, button) { font-size: 14px; font-weight: 400; letter-spacing: normal; }
+.bd .btn, .bd .btn * { font-size: 11px !important; font-weight: 600 !important; letter-spacing: .08em !important; text-transform: uppercase; }
+.bd .block-h, .bd .block-h * { font-size: 11px !important; font-weight: 600 !important; letter-spacing: .18em !important; text-transform: uppercase; }
+.bd .phead .eyebrow { font-size: 11px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; }
+.bd-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: -14px; }
+.bd-seg { display: inline-flex; border: 1px solid var(--bd-edge); border-radius: 4px; overflow: hidden; }
+.bd-seg button { height: 32px; padding: 0 18px; border: 0; background: #fff; color: var(--tx); cursor: pointer; }
+.bd-seg button + button { border-left: 1px solid var(--bd-edge); }
+.bd-seg button[aria-pressed="true"] { background: var(--wine); color: #fff; }
+.bd-find { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid var(--bd-edge); border-radius: 4px; background: #fff; flex: 0 1 300px; min-width: 0; }
+.bd-find svg { width: 15px; height: 15px; color: var(--tx); flex: none; }
+.bd-find input { border: 0; outline: 0; background: none; width: 100%; min-width: 0; color: var(--ink); }
+.bd-find:focus-within { border-color: var(--wine); }
+.bd-check { display: inline-flex; align-items: center; gap: 8px; color: var(--tx); cursor: pointer; }
+.bd-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--wine); }
+.bd-sum { margin-left: auto; color: var(--tx); }
+/* A stage: the house strip, then its cards in an even grid. */
+.bd-stage { display: flex; flex-direction: column; gap: 10px; }
+.bd-stage + .bd-stage, .bd-stage + .bd-quiet, .bd-quiet + .bd-stage { margin-top: 26px; }
+.bd-strip { transition: background .15s; }
+.bd-strip .bd-n { margin-left: 8px; color: rgba(255,255,255,.6); }
+.bd-strip .bd-more { color: rgba(255,255,255,.8); text-decoration: none; cursor: pointer; background: none; border: 0; padding: 0; }
+.bd-strip .bd-more:hover { color: #fff; }
+.bd-strip.is-over, .bd-quiet-s.is-over { background: var(--taupe); }
+.bd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 10px; }
+/* Stages with nothing in them fold into one quiet line, so the board stays short. */
+.bd-quiet { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--tx); }
+.bd-quiet-s { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px dashed var(--stone); border-radius: 4px; color: var(--tx); background: #fff; }
+.bd-quiet-s.is-over { color: #fff; border-style: solid; border-color: var(--taupe); }
+/* A card: fixed rows, like the client file. */
+.bd-card { background: #fff; border: 1px solid var(--bd-edge); border-radius: 4px; padding: 12px 14px 10px; cursor: pointer; display: flex; flex-direction: column; min-width: 0; transition: border-color .2s, transform .2s var(--ease), box-shadow .2s; }
+.bd-card:hover { border-color: var(--stone); transform: translateY(-2px); box-shadow: 0 10px 24px -18px rgba(55,30,40,.5); }
+.bd-card.is-dragging { opacity: .45; }
+.bd-card-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-height: 28px; margin-bottom: 4px; }
+.bd-card-h h3 { margin: 0 !important; font-family: var(--serif) !important; font-weight: 300 !important; font-size: 19px !important; line-height: 1.15 !important; letter-spacing: -0.04em !important; color: var(--ink) !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-rows { margin: 0; }
+.bd-r { display: grid; grid-template-columns: 6.2em minmax(0, 1fr); column-gap: 10px; align-items: center; height: 32px; border-top: 1px solid var(--line); }
+.bd-r dt { color: var(--tx); }
+.bd-r dd { margin: 0; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-r dd .cf-chip { height: 22px; padding: 0 8px; }
+.bd-foot { display: flex; align-items: center; gap: 16px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.bd-foot a { color: var(--wine); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(55,30,40,.3); }
+.bd-foot a:hover { text-decoration-color: currentColor; }
+.bd-next { margin-top: 6px; padding: 6px 10px; border-radius: 4px; background: var(--amber-l); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-next.is-done { background: var(--green-l); }
+.bd-next.is-none { background: var(--soft); color: var(--tx); }
+.bd-none { color: var(--tx) !important; }
+/* The calendar: a month of fixed squares, washed by what the day is. */
+.cal { border: 1px solid var(--bd-edge); border-radius: 4px; background: #fff; overflow: hidden; }
+.cal-h { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.cal-h h2 { margin: 0 6px; font-family: var(--serif); font-weight: 300; font-size: 22px; letter-spacing: -0.04em; color: var(--ink); min-width: 9em; }
+.cal-nav { width: 30px; height: 30px; border: 1px solid var(--bd-edge); border-radius: 4px; background: #fff; color: var(--wine); cursor: pointer; display: grid; place-items: center; }
+.cal-nav:hover { border-color: var(--wine); }
+.cal-key { margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.cal-key span { display: inline-flex; align-items: center; gap: 6px; color: var(--tx); }
+.cal-key i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--bd-edge); }
+.cal-week, .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-week { background: var(--wine); }
+.cal-week span { height: 30px; display: flex; align-items: center; padding: 0 10px; color: #fff; font-size: 11px !important; font-weight: 600 !important; letter-spacing: .18em !important; text-transform: uppercase; }
+.cal-day { position: relative; min-height: 118px; padding: 8px 8px 6px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cal-day:nth-child(7n) { border-right: 0; }
+.cal-day.is-out { background: var(--soft); }
+.cal-day.is-out > * { opacity: .45; }
+.cal-day.is-starter { background: #fff; box-shadow: inset 0 3px 0 var(--taupe); }
+.cal-day.is-starter .cal-why { color: var(--taupe); }
+.cal-day.is-closed { background: var(--linen); }
+.cal-day.is-part { background: repeating-linear-gradient(135deg, #fff 0 7px, #f3eeeb 7px 14px); }
+.cal-day.is-today { box-shadow: inset 0 0 0 2px var(--wine); }
+.cal-d { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 22px; }
+.cal-d b { font-weight: 400 !important; color: var(--ink); }
+.cal-day.is-today .cal-d b { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 4px; border-radius: 11px; background: var(--wine); color: #fff; }
+.cal-why { color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-ev { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; align-items: center; height: 26px; padding: 0 8px; border-radius: 3px; background: var(--wine); color: #fff; cursor: pointer; }
+.cal-ev span { color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-ev span:first-child { color: rgba(255,255,255,.75); }
+.cal-ev.is-smm { background: var(--taupe); }
+.cal-ev:hover { filter: brightness(1.15); }
+@media (max-width: 900px) { .cal-day { min-height: 84px; } .cal-ev span:last-child { display: none; } .cal-key { margin-left: 0; width: 100%; } }
+@media (max-width: 640px) { .bd-sum { margin-left: 0; width: 100%; } .cal-why { display: none; } }
+.bd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.bd-chips button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--bd-edge); border-radius: 4px; background: #fff; color: var(--ink); cursor: pointer; }
+.bd-chips button:hover { border-color: var(--wine); }
+.bd-chips button[aria-pressed="true"] { background: var(--wine); border-color: var(--wine); color: #fff; }
+.bd-chips button i { font-style: normal; color: var(--tx); }
+.bd-chips button[aria-pressed="true"] i { color: rgba(255,255,255,.7); }
+.bd-empty { padding: 28px; border: 1px dashed var(--stone); border-radius: 4px; color: var(--tx); text-align: center; }
 </style>
 
-<div class="note"><b>TMKE OS, round five</b><span>Wine sidebar, linen page heads, no greys: everything from the palette. Smaller type and tighter lines. Example data. Home, Invoices and the Trentside Estates client file are clickable; ⌘K opens the search.</span></div>
+<div class="note"><b>TMKE OS, round five</b><span>Wine sidebar, linen page heads, no greys: everything from the palette. Smaller type and tighter lines. Example data. Home, Invoices, Videography (board and calendar), Social media and the Trentside Estates client file are clickable; ⌘K opens the search.</span></div>
 
 <div class="os" id="os">
   <aside class="side" id="side" aria-label="TMKE OS navigation">
@@ -721,6 +809,36 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
         </div>
       </section>
 
+      <!-- ================= VIDEOGRAPHY: board and calendar (Dani, 4 Nov) ================= -->
+      <section class="view bd" id="v-video" data-crumb="Clients · <em>Videography</em>" hidden>
+        <div class="phead">
+          <div><p class="eyebrow">Clients</p><h1>Videography</h1><p class="psub">Every shoot from booking to delivery. Drag a card to move it on; click it to open the client's file.</p></div>
+          <div class="acts"><button type="button" class="btn btn--ghost" data-stub>Settings</button><button type="button" class="btn btn--primary" data-stub>New booking</button></div>
+        </div>
+        <div class="bd-bar">
+          <div class="bd-seg" role="group" aria-label="View"><button type="button" data-vv="board" aria-pressed="true">Board</button><button type="button" data-vv="cal" aria-pressed="false">Calendar</button></div>
+          <label class="bd-find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="text" data-find="video" placeholder="Find a client or a shoot"></label>
+          <div class="bd-chips" role="group" aria-label="Show" id="bd-video-chips"></div>
+          <span class="bd-sum" id="bd-video-sum"></span>
+        </div>
+        <div id="bd-video"></div>
+        <div id="cal-video" hidden></div>
+      </section>
+
+      <!-- ================= SOCIAL MEDIA: the same board (Dani, 4 Nov) ================= -->
+      <section class="view bd" id="v-social" data-crumb="Clients · <em>Social media</em>" hidden>
+        <div class="phead">
+          <div><p class="eyebrow">Clients</p><h1>Social media</h1><p class="psub">Every enquiry through to an active, managed client. Drag a card to move it on; click it to open the person's file.</p></div>
+          <div class="acts"><button type="button" class="btn btn--ghost" data-stub>Settings</button><button type="button" class="btn btn--primary" data-stub>New client</button></div>
+        </div>
+        <div class="bd-bar">
+          <label class="bd-find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="text" data-find="social" placeholder="Find a person or a business"></label>
+          <label class="bd-check"><input type="checkbox" id="bd-social-lost"> Show lost</label>
+          <span class="bd-sum" id="bd-social-sum"></span>
+        </div>
+        <div id="bd-social"></div>
+      </section>
+
       <!-- ================= CLIENT CARD ================= -->
       <section class="view" id="v-client" data-crumb="Clients · Videography · <em>Trentside Estates</em>" hidden>
         <div class="cbanner" style="background-image:url('img/bookings.jpg')">
@@ -772,14 +890,14 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
     { k: "home", label: "Home", go: "home" },
     { k: "money", label: "Money", items: [["Invoices", "invoices", 3], ["Payments"]] },
     { k: "studio", label: "Studio", items: [["Catalogue"], ["Design studio"], ["Content calendar"]] },
-    { k: "clients", label: "Clients", items: [["Videography", "client"], ["Social media"], ["Content suite"]] },
+    { k: "clients", label: "Clients", items: [["Videography", "video"], ["Social media", "social"], ["Content suite"]] },
     { k: "people", label: "People", items: [["Contacts"], ["Enquiries", null, 2], ["Reviews"]] },
     { k: "email", label: "Email", items: [["Email studio"], ["Automations"]] },
     { k: "hub", label: "Member hub", items: [["Monthly content"], ["Training centre"], ["Community"], ["Ask the Expert"], ["Hub notices"]] },
     { k: "insights", label: "Insights", items: [["Website"], ["Blog"]] },
     { k: "system", label: "System", items: [["TEG sync"], ["Website editor"], ["Settings"]] },
   ];
-  const GROUP_OF = { home: "home", invoices: "money", client: "clients" };
+  const GROUP_OF = { home: "home", invoices: "money", client: "clients", video: "clients", social: "clients" };
   const os = $("#os"), nav = $("#nav");
   let open = new Set((store.get("tmkeos3.open") || "money,clients").split(",").filter(Boolean));
   let view = "home";
@@ -852,10 +970,10 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
     ["Catalogue", "Studio", "Social and print packs: make, edit and price them.", "catalogue catalog packs print social shop products", null],
     ["Design studio", "Studio", "Templates members design from.", "design studio templates designs editor", null],
     ["Content calendar", "Studio", "The month builder for the posts members get.", "content calendar posts schedule planner month builder monthly content ideas", null],
-    ["Videography", "Clients", "Every shoot from booking to delivery.", "videography video shoots filming booking studio day delivery films", "client"],
+    ["Videography", "Clients", "Every shoot from booking to delivery.", "videography video shoots filming booking studio day delivery films", "video"],
     ["Video editing", "Clients · Content suite", "Cut a video and add brand captions.", "video editing captions subtitles cut edit reel caption", null],
     ["Library", "Clients · Content suite", "Clients' files and what their portal shows.", "library files folders uploads stills footage portal", null],
-    ["Social media", "Clients", "Social clients, their reports and recommendations.", "social media smm reports instagram reporting", null],
+    ["Social media", "Clients", "Social clients, their reports and recommendations.", "social media smm reports instagram reporting", "social"],
     ["Contacts", "People", "Members, agents, clients and external contacts.", "contacts members agents people customers external leads", null],
     ["Enquiries", "People", "Website enquiries to reply to.", "enquiries enquiry contact form leads messages inbox", null],
     ["Reviews", "People", "Client reviews and testimonials.", "reviews testimonials google feedback", null],
@@ -982,7 +1100,7 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
   if (store.get("tmkeos3.folded")) os.classList.add("is-folded");
   drawInv();
   const start = (location.hash || "").slice(1);
-  show(["home", "invoices", "client"].includes(start) ? start : "home");
+  show(["home", "invoices", "client", "video", "social"].includes(start) ? start : "home");
 })();
 </script>
 <script>
@@ -1382,4 +1500,170 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
   setState("sent"); draw();
 })();
 </script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const chip = (cls, t) => `<span class="cf-chip ${cls}">${esc(t)}</span>`;
+  let toastT; const toast = (m) => { const t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2800); };
 
+  // ---- Videography (example shoots) ----
+  const VSTAGES = [["booked", "Booked"], ["awaiting", "Awaiting invoice"], ["invoiced", "Invoiced"], ["shoot", "Shoot day"], ["editing", "Editing"], ["ready", "Gallery ready"], ["sent", "Sent"], ["delivered", "Delivered"]];
+  const V = [
+    { id: 1, d: "2026-11-10", s: "booked", n: "Hannah Ellis", svc: "New-starter Studio Day", when: "Tue 10 Nov, 10:00", brand: "The Property Experts", pay: ["plain", "Awaiting invoice"], next: "Raise the invoice" },
+    { id: 2, d: "2026-11-16", s: "booked", n: "Owen Pritchard", svc: "Content Studio Day", when: "Mon 16 Nov, 16:30", brand: "Direct", pay: ["plain", "Awaiting invoice"], next: "Raise the invoice" },
+    { id: 3, d: "2026-11-18", s: "booked", n: "Marcus Hale", svc: "Shot & Scheduled shoot", when: "Wed 18 Nov, 09:30", brand: "Social media", pay: ["good", "Package"], next: "Nothing to invoice", nextCls: "is-none" },
+    { id: 4, d: "2026-11-19", s: "booked", n: "Trentside Estates", svc: "Property video", when: "Thu 19 Nov, 09:00", brand: "Fine & Country", pay: ["plain", "Awaiting invoice"], next: "Fee check: F&C Midlands" },
+    { id: 5, d: "2026-12-07", s: "booked", n: "Priya Shah", svc: "New-starter Studio Day", when: "Mon 7 Dec, 12:30", brand: "The Property Experts", pay: ["plain", "Awaiting invoice"], next: "Raise the invoice" },
+    { id: 6, d: "2026-10-28", s: "editing", n: "Daniel Okoro", svc: "Property video", when: "Wed 28 Oct, 09:00", brand: "Fine & Country", pay: ["info", "Invoice sent"], next: "Add the Pixieset gallery" },
+    { id: 7, d: "2026-10-30", s: "editing", n: "Clara Benson", svc: "Content Studio Day", when: "Fri 30 Oct, 09:00", brand: "Direct", pay: ["good", "Paid"], next: "Upload to our storage" },
+    { id: 8, d: "2026-10-26", s: "sent", n: "Agent Success Day", svc: "Event coverage", when: "Mon 26 Oct, 09:00", brand: "The Property Experts", pay: ["good", "Paid"], next: "Edits open until 9 Nov" },
+    { id: 9, d: "2026-10-20", s: "sent", n: "Bootcamp coverage", svc: "Event coverage", when: "Tue 20 Oct, 10:00", brand: "Fine & Country", pay: ["bad", "Overdue"], next: "Waiting on payment" },
+    { id: 10, d: "2026-10-27", s: "sent", n: "Tom Avery", svc: "Property video", when: "Tue 27 Oct, 10:30", brand: "Fine & Country", pay: ["info", "Invoice sent"], next: "Waiting on payment" },
+    { id: 11, d: "2026-10-29", s: "sent", n: "Recruitment webinar", svc: "Event coverage", when: "Thu 29 Oct, 09:00", brand: "The Property Experts", pay: ["good", "Paid"], next: "Edits open until 11 Nov" },
+    ...["Anna Weller", "Cath Holmes", "Vivienne Lacey", "Implementer Day", "Ruth Danby", "Lee Marsh", "Sam Ito", "Jo Kemp"].map((n, i) => ({ id: 20 + i, s: "delivered", n, svc: i % 2 ? "Property video" : "New-starter Studio Day", when: ["Fri 25 Sept", "Thu 24 Sept", "Tue 22 Sept", "Mon 21 Sept", "Wed 16 Sept", "Fri 11 Sept", "Tue 8 Sept", "Thu 3 Sept"][i] + ", 09:00", brand: i % 3 ? "The Property Experts" : "Fine & Country", pay: ["good", "Paid"], next: "Delivered", nextCls: "is-done" })),
+  ];
+  // Quick filters (Dani, 4 Nov): the bottlenecks, not every field. Payment
+  // problems for Danielle, the week ahead for Jack.
+  const TODAY = "2026-11-04", WEEK = "2026-11-11";
+  const FILTERS = [
+    ["all", "All", () => true],
+    ["week", "Shooting in the next 7 days", (c) => c.d && c.d >= TODAY && c.d <= WEEK],
+    ["ready", "Ready, not paid", (c) => ["editing", "ready", "sent"].includes(c.s) && c.pay[1] !== "Paid" && c.pay[1] !== "Package"],
+    ["overdue", "Overdue", (c) => c.pay[1] === "Overdue"],
+    ["toinvoice", "To invoice", (c) => c.pay[1] === "Awaiting invoice"],
+  ];
+  let vFilter = "all";
+  function drawChips() {
+    const host = document.getElementById("bd-video-chips"); if (!host) return;
+    host.innerHTML = FILTERS.map(([k, l, f]) => `<button type="button" data-vf="${k}" aria-pressed="${vFilter === k}">${l}${k === "all" ? "" : ` <i>${V.filter((c) => c.s !== "delivered" && f(c)).length}</i>`}</button>`).join("");
+  }
+  document.addEventListener("click", (e) => { const b = e.target.closest("[data-vf]"); if (!b) return; vFilter = b.dataset.vf; drawChips(); drawBoard("video"); });
+  const r = (k, v) => `<div class="bd-r"><dt>${k}</dt><dd title="${esc(String(v).replace(/<[^>]*>/g, ""))}">${v || '<span class="bd-none">—</span>'}</dd></div>`;
+  const vCard = (c) => `<article class="bd-card" draggable="true" data-id="${c.id}" data-board="video" tabindex="0">
+      <header class="bd-card-h"><h3>${esc(c.n)}</h3>${chip(c.pay[0], c.pay[1])}</header>
+      <dl class="bd-rows">${r("Service", esc(c.svc))}${r("Shoot", esc(c.when))}${r("Brand", esc(c.brand))}</dl>
+      <div class="bd-next ${c.nextCls || ""}" title="What's holding it up">${esc(c.next)}</div></article>`;
+
+  // ---- Social media (example people) ----
+  const SSTAGES = [["waitlist", "Waitlist"], ["enquiry", "Enquiry"], ["meeting", "Meeting set"], ["proposal", "Proposal sent"], ["contract", "Contract sent"], ["onboarding", "Onboarding"], ["client", "Active clients"]];
+  const S = [
+    { id: 101, s: "enquiry", n: "Juliet Pierce", co: "Circa London", from: "Added by hand", last: "22 Oct", meet: "Mon 26 Oct, 14:00" },
+    { id: 102, s: "enquiry", n: "Julian Reeve", co: "Compton Reeve", from: "Brochure", last: "21 Oct", meet: "" },
+    { id: 103, s: "enquiry", n: "Paul Abbott", co: "The Property Experts", from: "Brochure", last: "15 Oct", meet: "" },
+    { id: 104, s: "enquiry", n: "Richard Bade", co: "Hamwic Estates", from: "Brochure", last: "4 Oct", meet: "" },
+    { id: 105, s: "meeting", n: "Greg Sloan", co: "Sloan Property", from: "Brochure", last: "30 Oct", meet: "Thu 5 Nov, 15:30" },
+    { id: 106, s: "proposal", n: "Anthony Tate", co: "Fine & Country", from: "Added by hand", last: "23 Oct", meet: "Fri 9 Oct, 11:00" },
+    { id: 107, s: "client", n: "Terry Rowan", co: "Fine & Country", pkg: "Shot & Scheduled", fee: "£650 a month", mgr: "Abby", st: ["good", "Active"] },
+    { id: 108, s: "client", n: "Miranda Mead", co: "Miranda Mead", pkg: "Bespoke", fee: "£450 a month", mgr: "Abby", st: ["good", "Active"] },
+    { id: 109, s: "client", n: "Henry Jarvis", co: "Henry Jarvis", pkg: "Newsletter", fee: "£120 a month", mgr: "Abby", st: ["wait", "Paused"] },
+    { id: 110, s: "client", n: "Marcus Hale", co: "The Auction House", pkg: "Shot & Scheduled", fee: "Not set", mgr: "Abby", st: ["good", "Active"], warn: "No monthly invoice set up" },
+    { id: 111, s: "client", n: "Sean Cole", co: "EB Mortgages", pkg: "Bespoke", fee: "£400 a month", mgr: "Abby", st: ["bad", "Leaving 30 Nov"] },
+    { id: 112, s: "client", n: "Nathan Clever", co: "Nathan Clever", pkg: "Bespoke", fee: "£450 a month", mgr: "Abby", st: ["good", "Active"] },
+    { id: 113, s: "client", n: "Samantha Thorn", co: "TMKE", pkg: "Planned & Posted", fee: "Internal", mgr: "Abby", st: ["plain", "Internal"] },
+    { id: 114, s: "lost", n: "Ellie Frost", co: "Frost & Co", from: "Discovery call", last: "2 Sept", meet: "", lost: "Went with another agency" },
+  ];
+  const sCard = (c) => {
+    const head = `<header class="bd-card-h"><h3>${esc(c.n)}</h3>${c.st ? chip(c.st[0], c.st[1]) : c.s === "lost" ? chip("bad", "Lost") : chip("plain", c.from)}</header>`;
+    const rows = c.s === "client"
+      ? r("Business", esc(c.co)) + r("Package", esc(c.pkg)) + r("Monthly", esc(c.fee)) + r("Managed by", esc(c.mgr))
+      : r("Business", esc(c.co)) + r("Last contact", esc(c.last)) + r("Meeting", esc(c.meet)) + r(c.s === "lost" ? "Why" : "Came from", esc(c.s === "lost" ? c.lost : c.from));
+    const foot = c.warn ? `<div class="bd-next">${esc(c.warn)}</div>`
+      : `<div class="bd-foot"><a href="#" data-bd-stub="Opens ${esc(c.n)}'s file.">Open file</a><a href="#" data-bd-stub="${c.s === "client" ? "Writes to " + esc(c.n) + " in their hub." : "Books a meeting with " + esc(c.n) + "."}">${c.s === "client" ? "Send a message" : "Set a meeting"}</a></div>`;
+    return `<article class="bd-card" draggable="true" data-id="${c.id}" data-board="social" tabindex="0">${head}<dl class="bd-rows">${rows}</dl>${foot}</article>`;
+  };
+
+  // ---- One board, two pages ----
+  const BOARDS = {
+    video: { host: "#bd-video", sum: "#bd-video-sum", stages: VSTAGES, items: V, card: vCard, cap: { delivered: 4 }, find: "", word: ["shoot", "shoots"] },
+    social: { host: "#bd-social", sum: "#bd-social-sum", stages: SSTAGES, items: S, card: sCard, cap: { client: 8 }, find: "", word: ["person", "people"] },
+  };
+  const open = {};
+  function drawBoard(key) {
+    const B = BOARDS[key];
+    const showLost = key === "social" && $("#bd-social-lost")?.checked;
+    const stages = showLost ? [...B.stages, ["lost", "Lost"]] : B.stages;
+    const q = B.find.toLowerCase();
+    const pass = key === "video" ? (FILTERS.find((f) => f[0] === vFilter) || FILTERS[0])[2] : () => true;
+    const match = (c) => pass(c) && (!q || Object.values(c).join(" ").toLowerCase().includes(q));
+    let html = "", quiet = [];
+    const filtering = !!q || (key === "video" && vFilter !== "all");
+    const flush = () => { if (filtering) { quiet = []; return; } if (quiet.length) { html += `<div class="bd-quiet"><span>Nothing in</span>${quiet.map(([k, l]) => `<span class="bd-quiet-s" data-drop="${k}">${esc(l)}</span>`).join("")}</div>`; quiet = []; } };
+    stages.forEach(([k, label]) => {
+      const all = B.items.filter((c) => c.s === k && match(c));
+      if (!all.length) { quiet.push([k, label]); return; }
+      flush();
+      const cap = B.cap[k] && !open[key + k] ? B.cap[k] : Infinity;
+      const shown = all.slice(0, cap);
+      const more = all.length > shown.length ? `<button type="button" class="bd-more" data-more="${key + k}">See all ${all.length}</button>` : (B.cap[k] && open[key + k] ? `<button type="button" class="bd-more" data-more="${key + k}">Show fewer</button>` : "");
+      html += `<section class="bd-stage"><div class="block-head bd-strip" data-drop="${k}"><h2 class="block-h">${esc(label)}<span class="bd-n">${all.length}</span></h2>${more}</div><div class="bd-grid">${shown.map(B.card).join("")}</div></section>`;
+    });
+    flush();
+    const any = B.items.some((c) => stages.some(([k]) => k === c.s) && match(c));
+    $(B.host).innerHTML = any ? html : `<div class="bd-empty">Nothing matches. Try All, or clear the search.</div>`;
+    const n = B.items.filter((c) => c.s !== "lost" && c.s !== "delivered" && match(c)).length;
+    $(B.sum).textContent = `${n} ${n === 1 ? B.word[0] : B.word[1]} in progress`;
+  }
+  document.addEventListener("click", (e) => {
+    const m = e.target.closest("[data-more]"); if (m) { open[m.dataset.more] = !open[m.dataset.more]; drawBoard(m.dataset.more.startsWith("video") ? "video" : "social"); return; }
+    const st = e.target.closest("[data-bd-stub]"); if (st) { e.preventDefault(); e.stopPropagation(); toast(st.dataset.bdStub + " (Mock-up.)"); return; }
+    const card = e.target.closest(".bd-card");
+    if (card) {
+      if (card.dataset.board === "video") document.querySelector('[data-go="client"]')?.click() || (location.hash = "client");
+      else toast("Opens the person's file. Next on the list to restyle.");
+      return;
+    }
+    const vv = e.target.closest("[data-vv]");
+    if (vv) { const cal = vv.dataset.vv === "cal"; document.querySelectorAll("[data-vv]").forEach((b) => b.setAttribute("aria-pressed", String(b === vv))); $("#bd-video").hidden = cal; $("#cal-video").hidden = !cal; $("#bd-video-sum").hidden = cal; if (cal) drawCal(); }
+  });
+  document.addEventListener("input", (e) => { const f = e.target.closest("[data-find]"); if (!f) return; BOARDS[f.dataset.find].find = f.value; drawBoard(f.dataset.find); });
+  document.addEventListener("change", (e) => { if (e.target.id === "bd-social-lost") drawBoard("social"); });
+  // Drag a card onto a stage's strip (or a quiet stage) to move it.
+  let dragId = null, dragBoard = null;
+  document.addEventListener("dragstart", (e) => { const c = e.target.closest?.(".bd-card"); if (!c) return; dragId = +c.dataset.id; dragBoard = c.dataset.board; c.classList.add("is-dragging"); e.dataTransfer.effectAllowed = "move"; });
+  document.addEventListener("dragend", (e) => { e.target.closest?.(".bd-card")?.classList.remove("is-dragging"); document.querySelectorAll(".is-over").forEach((x) => x.classList.remove("is-over")); });
+  document.addEventListener("dragover", (e) => { const d = e.target.closest?.("[data-drop]"); if (d && dragId) { e.preventDefault(); d.classList.add("is-over"); } });
+  document.addEventListener("dragleave", (e) => { e.target.closest?.("[data-drop]")?.classList.remove("is-over"); });
+  document.addEventListener("drop", (e) => {
+    const d = e.target.closest?.("[data-drop]"); if (!d || !dragId) return; e.preventDefault();
+    const B = BOARDS[dragBoard], c = B.items.find((x) => x.id === dragId);
+    if (c) { c.s = d.dataset.drop; const label = (B.stages.find((s) => s[0] === c.s) || [, "Lost"])[1]; toast(`${c.n} moved to ${label}.`); }
+    dragId = null; drawBoard(dragBoard);
+  });
+
+  // ---- The calendar (November 2026, example diary) ----
+  let calM = new Date(2026, 10, 1);
+  const DAYS = {
+    "2026-10-27": { why: "Studio Day", cls: "is-starter", ev: [["10:30", "Tom Avery"]] }, "2026-10-28": { why: "Studio Day", cls: "is-starter", ev: [["09:00", "Daniel Okoro"]] },
+    "2026-10-29": { why: "Busy", cls: "is-part", ev: [["09:00", "Recruitment webinar"]] }, "2026-10-30": { why: "Busy", cls: "is-part", ev: [["09:00", "Clara Benson"]] },
+    "2026-11-02": { why: "Editing", cls: "is-closed" }, "2026-11-03": { why: "Editing", cls: "is-closed" }, "2026-11-04": { why: "Busy", cls: "is-part" }, "2026-11-05": { why: "Busy", cls: "is-part" }, "2026-11-06": { why: "Not working", cls: "is-closed" },
+    "2026-11-10": { why: "", cls: "", ev: [["10:00", "Hannah Ellis"]] }, "2026-11-11": { why: "Busy", cls: "is-part" }, "2026-11-12": { why: "Busy", cls: "is-part" }, "2026-11-13": { why: "Busy", cls: "is-part" },
+    "2026-11-16": { why: "Busy", cls: "is-part", ev: [["16:30", "Owen Pritchard"]] }, "2026-11-18": { why: "Out filming", cls: "is-closed", ev: [["09:30", "Marcus Hale", "smm"]] }, "2026-11-19": { why: "Out filming", cls: "is-closed", ev: [["09:00", "Trentside Estates"]] }, "2026-11-20": { why: "Editing", cls: "is-closed" },
+    "2026-11-23": { why: "Busy", cls: "is-part" }, "2026-11-24": { why: "Studio Day", cls: "is-starter", ev: [["09:30", "Priya Shah"], ["12:30", "Session open"]] }, "2026-11-25": { why: "Busy", cls: "is-part" }, "2026-11-26": { why: "Busy", cls: "is-part" }, "2026-11-27": { why: "Busy", cls: "is-part" },
+    "2026-12-03": { why: "Busy", cls: "is-part" },
+  };
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  function drawCal() {
+    const first = new Date(calM), start = new Date(first); start.setDate(1 - ((first.getDay() + 6) % 7));
+    const today = "2026-11-04";
+    let cells = "";
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const k = iso(d), info = DAYS[k] || {}, out = d.getMonth() !== calM.getMonth();
+      const ev = (info.ev || []).map(([t, n, kind]) => `<div class="cal-ev${kind === "smm" ? " is-smm" : ""}" data-cal-ev title="${esc(t + " " + n)}"><span>${t}</span><span>${esc(n)}</span></div>`).join("");
+      cells += `<div class="cal-day ${info.cls || ""}${out ? " is-out" : ""}${k === today ? " is-today" : ""}"><div class="cal-d"><b>${d.getDate()}</b>${info.why ? `<span class="cal-why">${esc(info.why)}</span>` : ""}</div>${ev}</div>`;
+    }
+    $("#cal-video").innerHTML = `<div class="cal">
+      <div class="cal-h"><button type="button" class="cal-nav" data-cal="-1" aria-label="Previous month">‹</button><h2>${calM.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</h2><button type="button" class="cal-nav" data-cal="1" aria-label="Next month">›</button>
+        <div class="cal-key"><span><i style="background:#fff;box-shadow:inset 0 3px 0 var(--taupe)"></i>New-starter Studio Day</span><span><i style="background:var(--linen)"></i>Closed to new bookings</span><span><i style="background:repeating-linear-gradient(135deg,#fff 0 3px,#eadfda 3px 6px)"></i>Partly open</span><span><i style="background:var(--wine);border-color:var(--wine)"></i>Shoot</span></div></div>
+      <div class="cal-week">${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((w) => `<span>${w}</span>`).join("")}</div>
+      <div class="cal-grid">${cells}</div></div>`;
+  }
+  document.addEventListener("click", (e) => {
+    const n = e.target.closest("[data-cal]"); if (n) { calM.setMonth(calM.getMonth() + +n.dataset.cal); drawCal(); return; }
+    if (e.target.closest("[data-cal-ev]")) toast("Opens that client's file. (Mock-up.)");
+  });
+
+  drawChips(); drawBoard("video"); drawBoard("social");
+})();
+</script>
