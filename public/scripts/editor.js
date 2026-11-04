@@ -8848,7 +8848,8 @@ import { createResizeEngine } from "./resize-engine.js";
 
   // type can be: "png" | "jpg" | "png-transparent" | "pdf" | "pdf-separate"
   // pages: the page indexes to include, or null for every page.
-  async function exportImage(type, pages) {
+  // opts.crop: crop marks on a print PDF.
+  async function exportImage(type, pages, opts) {
     if (demoLocked("Create an account to download your design.", "Everything you have made here can be yours: join the Member Hub and download it in any format.")) return;
     const total = state.pages.length;
     /* Every page unless the panel chose fewer. A postcard downloaded as its
@@ -8857,7 +8858,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const list = Array.isArray(pages) && pages.length ? pages : state.pages.map(function (_, i) { return i; });
 
     if (type === "pdf" || type === "pdf-separate") {
-      return await exportToPdf(type === "pdf-separate", list);
+      return await exportToPdf(type === "pdf-separate", list, !!(opts && opts.crop));
     }
     if (list.length > 1) {
       toast("Saving " + list.length + " pages…");
@@ -9010,11 +9011,46 @@ import { createResizeEngine } from "./resize-engine.js";
     strip(b + w, b + h, w - b, h - b, b, b,  -b, -b,  -1, -1);
     return out;
   }
+  /* Crop marks (Dani, 4 Nov: the printer's checker found the bleed but no
+     crop marks). Ticked in the download panel, a print page gets 10mm of
+     white past the trim instead of the bleed's 3mm, and at each corner the
+     two thin lines the printer lines the cut up on: level with the trim,
+     starting at the edge of the bleed so none of them prints into the
+     artwork, 5mm long. They are drawn as lines, not pixels, which is what a
+     preflight check looks for. Either way a print page says where its trim
+     and bleed are (TrimBox, BleedBox), as a print PDF should. */
+  const CROP_SLUG_MM = 10, CROP_LEN_MM = 5;
   // One page of the PDF: the picture to place and the page it goes on.
-  function pdfPage(canvas) {
+  // `trim.m` is how far the trim sits in from the edge of the page.
+  function pdfPage(canvas, crop) {
     if (!isPrintCanvas(canvas)) return { unit: "px", w: canvas.width, h: canvas.height, img: canvas };
     const img = withBleed(canvas, Math.round(BLEED_MM * EXPORT_PX_PER_MM));
-    return { unit: "mm", w: canvas.width / EXPORT_PX_PER_MM + 2 * BLEED_MM, h: canvas.height / EXPORT_PX_PER_MM + 2 * BLEED_MM, img: img };
+    const tw = canvas.width / EXPORT_PX_PER_MM, th = canvas.height / EXPORT_PX_PER_MM;
+    const m = crop ? CROP_SLUG_MM : BLEED_MM;
+    return { unit: "mm", w: tw + 2 * m, h: th + 2 * m, img: img, trim: { m: m, w: tw, h: th }, crop: !!crop };
+  }
+  // k turns millimetres into the document's unit.
+  function drawCropMarks(pdf, pg, k) {
+    const t = pg.trim, near = BLEED_MM, far = BLEED_MM + CROP_LEN_MM;
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.25 * 25.4 / 72 * k);   // 0.25pt, the usual hairline
+    [[t.m, -1], [t.m + t.w, 1]].forEach(function (cx) {
+      [[t.m, -1], [t.m + t.h, 1]].forEach(function (cy) {
+        const x = cx[0], sx = cx[1], y = cy[0], sy = cy[1];
+        pdf.line((x + sx * near) * k, y * k, (x + sx * far) * k, y * k, "S");
+        pdf.line(x * k, (y + sy * near) * k, x * k, (y + sy * far) * k, "S");
+      });
+    });
+  }
+  // The page boxes are kept in points, measured in from the page's own edge.
+  function markPrintBoxes(pdf, pg) {
+    const pc = pdf.getCurrentPageInfo().pageContext, mb = pc.mediaBox, pt = 72 / 25.4;
+    const box = function (inset) {
+      return { bottomLeftX: mb.bottomLeftX + inset * pt, bottomLeftY: mb.bottomLeftY + inset * pt,
+               topRightX: mb.topRightX - inset * pt, topRightY: mb.topRightY - inset * pt };
+    };
+    pc.trimBox = box(pg.trim.m);
+    pc.bleedBox = box(pg.trim.m - BLEED_MM);
   }
 
   /* Every page of the design. One PDF with a page each, or a PDF per page —
@@ -9022,7 +9058,7 @@ import { createResizeEngine } from "./resize-engine.js";
      separately wants the second, and neither is obviously the right answer.
      Each page keeps its own size and orientation, so a design whose back is
      a different shape from its front still comes out right. */
-  async function exportToPdf(separate, pages) {
+  async function exportToPdf(separate, pages, crop) {
     const all = state.pages.length;
     const list = Array.isArray(pages) && pages.length ? pages : state.pages.map(function (_, i) { return i; });
     const total = list.length;
@@ -9043,13 +9079,19 @@ import { createResizeEngine } from "./resize-engine.js";
         const k = unit === pg.unit ? 1 : (unit === "mm" ? 25.4 / 96 : 96 / 25.4);
         const w = pg.w * k, h = pg.h * k;
         if (!first) pdf.addPage([w, h], w >= h ? "landscape" : "portrait");
-        pdf.addImage(pg.img.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, w, h);
+        if (!pg.trim) { pdf.addImage(pg.img.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, w, h); return; }
+        // A print page: the artwork with its bleed, then the marks round it.
+        const o = (pg.trim.m - BLEED_MM) * k;
+        pdf.addImage(pg.img.toDataURL("image/jpeg", 0.95), "JPEG", o, o,
+          (pg.trim.w + 2 * BLEED_MM) * k, (pg.trim.h + 2 * BLEED_MM) * k);
+        if (pg.crop) drawCropMarks(pdf, pg, k);
+        markPrintBoxes(pdf, pg);
       };
 
       if (separate || total === 1) {
         for (let k = 0; k < total; k++) {
           const i = list[k];
-          const pg = pdfPage(await renderPage(i, { transparent: false }));
+          const pg = pdfPage(await renderPage(i, { transparent: false }), crop);
           const pdf = make(pg); pdf.__tmkeUnit = pg.unit;
           place(pdf, pg, true);
           // Named by the page's own number, so page 3 of 7 is "(page 3)".
@@ -9062,7 +9104,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
       let pdf = null;
       for (let k = 0; k < total; k++) {
-        const pg = pdfPage(await renderPage(list[k], { transparent: false }));
+        const pg = pdfPage(await renderPage(list[k], { transparent: false }), crop);
         if (!pdf) { pdf = make(pg); pdf.__tmkeUnit = pg.unit; place(pdf, pg, true); }
         else place(pdf, pg, false);
       }
@@ -16502,6 +16544,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const typeSel = $("ed-dl-type");
     const transp = $("ed-dl-transparent");
     const separate = $("ed-dl-separate");
+    const crop = $("ed-dl-crop");
     const custom = $("ed-dl-custom");
     let pagesMode = "all";
 
@@ -16510,6 +16553,10 @@ import { createResizeEngine } from "./resize-engine.js";
       const type = typeSel ? typeSel.value : "png";
       menu.querySelectorAll("[data-dl-for]").forEach(function (el) {
         el.hidden = el.getAttribute("data-dl-for") !== type;
+      });
+      // Crop marks only mean something on a print design.
+      menu.querySelectorAll("[data-dl-print]").forEach(function (el) {
+        if (!isPrintCanvas(state.canvas)) el.hidden = true;
       });
       menu.querySelectorAll("[data-dl-multi]").forEach(function (el) {
         if (total <= 1) el.hidden = true;
@@ -16568,7 +16615,7 @@ import { createResizeEngine } from "./resize-engine.js";
       close();
       // A finished download is reported to the page, which records it
       // (Danielle, 7 Oct 2026): nothing else would ever know it happened.
-      exportImage(type, pages).then(function (ok) {
+      exportImage(type, pages, { crop: kind === "pdf" && !!(crop && crop.checked) && isPrintCanvas(state.canvas) }).then(function (ok) {
         if (!ok || typeof window.__TMKE_ON_DOWNLOAD__ !== "function") return;
         try { window.__TMKE_ON_DOWNLOAD__({ format: type, pages: pages ? pages.length : state.pages.length, design_id: state.templateId || null, design_name: filenameEl.value || "", template: _templateOrigin || null }); } catch (_) {}
       });
