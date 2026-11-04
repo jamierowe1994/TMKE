@@ -1106,7 +1106,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     // Legacy stages map onto the nearest current column.
     const STAGE_ALIAS = { contract_sent: "proposal_sent", brochure_downloaded: "inquiry", general_enquiry: "inquiry", discovery_call_booked: "inquiry", waitlist_joined: "waitlist" };
     const KIND_LABEL = { enquiry: "Enquiry", brochure: "Brochure", discovery: "Discovery call", manual: "Manual" };
-    const CLIENT_STATUS = { active: "Active", paused: "Paused", ended: "Ended", internal: "Internal" };
+    // Ended is now Lost (Danielle, 4 Nov 2026): one end state, with "was a
+    // client" kept for anyone who'd become one. "ended" stays for old cards.
+    const CLIENT_STATUS = { active: "Active", paused: "Paused", ended: "Lost", internal: "Internal" };
+    const wasClient = (r) => r.lost_from_stage === "active_client" || r.client_status === "ended";
     const NEXT_LABEL = { meeting_set: "Set a meeting", proposal_sent: "Mark proposal sent", contract_signed: "Mark contract sent", onboarding: "Start onboarding", active_client: "Make active client" };
     const PLATFORMS = ["Instagram", "Facebook", "LinkedIn", "YouTube", "TikTok"];
 
@@ -1285,6 +1288,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const meeting = r.meeting_at ? `<div class="smm-card-line">${CAL_SVG}Meeting ${esc(fmtDateTime(r.meeting_at))}</div>`
         : (r.kind === "discovery" && r.call_at ? `<div class="smm-card-line">${CAL_SVG}Call ${esc(fmtDateTime(r.call_at))}</div>` : "");
       const cstatus = r.leaving_on && r.pipeline_stage !== "lost" ? `<span class="smm-card-status is-leaving">${esc(leavingLabel(r))}</span>`
+        : r.pipeline_stage === "lost" && wasClient(r) ? `<span class="smm-card-status is-ended">Lost, was a client</span>`
         : st === "active_client" && r.client_status && r.client_status !== "active" ? `<span class="smm-card-status is-${r.client_status}">${esc(CLIENT_STATUS[r.client_status] || r.client_status)}</span>` : "";
       return `<div class="smm-card" draggable="true" data-id="${esc(r.id)}">
         <div class="smm-card-top">${pill}<span class="smm-card-when">${esc(fmtWhen(r.created_at))}</span></div>
@@ -1338,7 +1342,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const acct = r.account_created ? "Created at submission" : (r.account_user_id ? "Existing account" : "None");
       $("smm-file-body").innerHTML = `
         <header class="smm-file-head">
-          <h2 class="smm-file-name"><span class="smm-name-text">${esc(nameOf(r))}</span><button type="button" class="smm-name-edit" data-editname title="Edit name">${PENCIL_SVG}</button>${isActive ? `<span class="smm-status-pill is-${cs}">${esc(CLIENT_STATUS[cs])}</span>` : ""}${r.pipeline_stage === "lost" ? `<span class="smm-status-pill is-ended">Lost</span>` : ""}${r.leaving_on && r.pipeline_stage !== "lost" ? `<span class="smm-status-pill is-leaving" title="${esc(r.lost_reason || "")}">${esc(leavingLabel(r))}<button type="button" class="smm-leaving-x" data-cancel-leaving aria-label="Cancel the date">&times;</button></span>` : ""}</h2>
+          <h2 class="smm-file-name"><span class="smm-name-text">${esc(nameOf(r))}</span><button type="button" class="smm-name-edit" data-editname title="Edit name">${PENCIL_SVG}</button>${isActive ? `<span class="smm-status-pill is-${cs}">${esc(CLIENT_STATUS[cs])}</span>` : ""}${r.pipeline_stage === "lost" ? `<span class="smm-status-pill is-ended">${wasClient(r) ? "Lost, was a client" : "Lost"}</span>` : ""}${r.leaving_on && r.pipeline_stage !== "lost" ? `<span class="smm-status-pill is-leaving" title="${esc(r.lost_reason || "")}">${esc(leavingLabel(r))}<button type="button" class="smm-leaving-x" data-cancel-leaving aria-label="Cancel the date">&times;</button></span>` : ""}</h2>
           <p class="smm-file-sub">${esc(r.business || KIND_LABEL[r.kind] || "Lead")}</p>
         </header>
         ${pipe}
@@ -1428,14 +1432,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               ${isActive ? `<div class="smm-status-row">
                 <button type="button" class="smm-btn smm-btn--sm ${cs === "active" ? "smm-btn--primary" : ""}" data-cstatus="active">Active</button>
                 <button type="button" class="smm-btn smm-btn--sm ${cs === "paused" ? "smm-btn--primary" : ""}" data-cstatus="paused">Paused</button>
-                <button type="button" class="smm-btn smm-btn--sm ${cs === "ended" ? "smm-btn--primary" : ""}" data-cstatus="ended">Ended</button>
                 <button type="button" class="smm-btn smm-btn--sm ${cs === "internal" ? "smm-btn--primary" : ""}" data-cstatus="internal" title="One of us: run as a client, never invoiced">Internal</button>
               </div>` : `<button type="button" class="smm-btn smm-btn--primary smm-btn--block" data-move="${next}">${esc(NEXT_LABEL[next])}</button>`}
               <div class="smm-file-actions" style="margin-top:10px">
-                <button type="button" class="smm-btn smm-btn--danger smm-btn--block" data-lost>Mark lost</button>
+                <button type="button" class="smm-btn smm-btn--danger smm-btn--block" data-lost>${isActive ? "They're leaving: mark lost" : "Mark lost"}</button>
                 <button type="button" class="smm-btn smm-btn--block smm-btn--del" data-delcard>Delete</button>
               </div>
-              ${isActive ? `<p class="smm-hint">Status sets the CRM tag <strong>SMM-Status: ${esc(CLIENT_STATUS[cs])}</strong>${cs === "active" ? " and marks them a Customer" : ""}.</p>` : ""}
+              ${isActive ? `<p class="smm-hint">Status sets the CRM tag <strong>SMM-Status: ${esc(CLIENT_STATUS[cs])}</strong>${cs === "active" ? " and marks them a Customer" : ""}.${cs === "paused" ? " Paused: no monthly invoice, no chasing and no missing-report flags until they're Active again." : ""}</p>` : ""}
             </div>
           </div>
           <div>
@@ -1507,7 +1510,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       // Move to next stage
       body.querySelector("[data-move]")?.addEventListener("click", (e) => moveToStage(r, e.currentTarget.getAttribute("data-move")));
       // Mark lost
-      body.querySelector("[data-lost]")?.addEventListener("click", () => openLost(r, "lost"));
+      body.querySelector("[data-lost]")?.addEventListener("click", () => openLost(r, r.pipeline_stage === "active_client" ? "ended" : "lost"));
       body.querySelector("[data-cancel-leaving]")?.addEventListener("click", () => cancelLeaving(r));
       // Delete card (test cleanup)
       body.querySelector("[data-delcard]")?.addEventListener("click", () => deleteCard(r));
@@ -2217,9 +2220,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       renderBoard();
     }
     async function setStage(r, stage) {
+      const wasActive = r.pipeline_stage === "active_client";
       r.pipeline_stage = stage;
+      if (stage === "lost" && wasActive) { r.client_status = "ended"; r.lost_from_stage = "active_client"; }
       if (!isDemo(r)) { try { await supabase.from("smm_leads").update({ pipeline_stage: stage }).eq("id", r.id); } catch (_) {} }
-      if (stage === "active_client") { if (!r.client_status) r.client_status = "active"; pushClientStatus(r, "active"); }
+      if (stage === "active_client") { if (!r.client_status || r.client_status === "ended") r.client_status = "active"; pushClientStatus(r, "active"); }
+      if (stage === "lost" && wasActive) pushClientStatus(r, "ended");
       renderBoard();
       if (stage === "lost") closeFile(); else openFile(r.id);
     }
@@ -2253,7 +2259,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const ended = mode === "ended";
       $("smm-modal-host").innerHTML = `
         <div class="smm-modal-scrim" id="smm-modal">
-          <div class="smm-modal" role="dialog" aria-modal="true" aria-label="${ended ? "Client ended" : "Mark lost"}">
+          <div class="smm-modal" role="dialog" aria-modal="true" aria-label="Mark lost">
             <h3>${ended ? "Why are they leaving?" : "Why was this one lost?"}</h3>
             <p class="smm-modal-sub">${esc(nameOf(r))}${r.business ? " · " + esc(r.business) : ""}. Shown on Client status and in its export.</p>
             <div class="smm-modal-field"><label>Reason</label><select id="smm-lost-why"><option value="">Choose a reason</option>${LOST_REASONS.map((x) => `<option>${esc(x)}</option>`).join("")}</select></div>
@@ -2263,7 +2269,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <p class="smm-modal-status" id="smm-lost-status" hidden></p>
             <div class="smm-modal-actions">
               <button type="button" class="smm-btn" data-mcancel>Cancel</button>
-              <button type="button" class="smm-btn smm-btn--danger" id="smm-lost-save">${ended ? "Set to Ended" : "Mark lost"}</button>
+              <button type="button" class="smm-btn smm-btn--danger" id="smm-lost-save">Mark lost</button>
             </div>
           </div>
         </div>`;
@@ -2297,8 +2303,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         }
         r.leaving_on = null; r.leaving_as = null;
         closeModal();
-        if (ended) { openLost.confirmed = true; await setClientStatus(r, "ended"); }
-        else await setStage(r, "lost");
+        await setStage(r, "lost");
       });
     }
 
@@ -2325,6 +2330,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               : `<button type="button" class="smm-btn smm-btn--primary smm-btn--sm" data-miconfirm="${m.month}">Confirm ${esc(m.label.split(" ")[0])}</button>`}</th>`).join("")}</tr></thead>
           <tbody>${rows.map((r) => `<tr><td><strong>${esc(r.contact_name || r.name)}</strong></td><td>${esc(r.bill_to_name || "")}</td><td class="mi-num">${gbpP(r.amount_pence)}</td>${months.map((m) => {
             const c = (r.cells || {})[m.month] || {};
+            if (r.stopped && !c.invoice) return `<td class="mi-cell"><span class="mi-sent">${esc(r.stopped)}: not invoiced</span></td>`;
             if (c.invoice) return `<td class="mi-cell is-sent"><span class="mi-sent">${esc(c.invoice.number)} ${c.invoice.status === "draft" ? "drafted" : esc(c.invoice.status)}</span></td>`;
             return `<td class="mi-cell"><label class="mi-tick"><input type="checkbox" data-mitick="${esc(r.id)}" data-month="${m.month}"${c.ticked ? " checked" : ""}> Invoice</label></td>`;
           }).join("")}</tr>`).join("")}</tbody></table>`;

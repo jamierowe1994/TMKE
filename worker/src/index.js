@@ -521,6 +521,7 @@ async function runInvoiceAutomation(env) {
       if (today.day < r.day_of_month) continue;
       // A social media client only when Abbie ticked them for this month
       // (Social media > Settings > Monthly invoices).
+      if (r.kind === "social" && r.lead_id && (await smmStoppedLeads(env, [r.lead_id])).has(r.lead_id)) continue;
       if (r.kind === "social") {
         const tick = (await sbGet(env, "recurring_month_approvals", `recurring_id=eq.${r.id}&month=eq.${today.ym}&approved=eq.true&select=recurring_id`)) || [];
         if (!tick.length) continue;
@@ -6149,20 +6150,47 @@ async function listAccounts(env) {
    day, the lead becomes lost, or the client Ended, as was chosen when the
    date was set. lost_at is stamped with the date itself. Runs at 07:00 and
    08:00; the second finds nothing because the first cleared the date. */
+/* Social media clients whose invoicing stops (Danielle, 4 Nov 2026): a lost
+   client, and a paused one until they're active again. Given lead ids, the
+   ones that are stopped and why ("Lost" or "Paused"). Nothing is switched
+   off, so invoicing picks up again by itself when a client comes back. */
+async function smmStoppedLeads(env, ids) {
+  const list = [...new Set((ids || []).filter(Boolean))];
+  const out = new Map();
+  for (let i = 0; i < list.length; i += 80) {
+    const rows = (await sbGet(env, "smm_leads", `id=in.(${list.slice(i, i + 80).join(",")})&select=id,pipeline_stage,client_status`)) || [];
+    rows.forEach((l) => {
+      if (l.pipeline_stage === "lost" || l.client_status === "ended") out.set(l.id, "Lost");
+      else if (l.client_status === "paused") out.set(l.id, "Paused");
+    });
+  }
+  return out;
+}
+
 async function runSmmLeavingDue(env) {
+  try {
+    const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=representation" };
+    const a = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?client_status=eq.ended&pipeline_stage=neq.lost&select=id`, { method: "PATCH", headers: hdr, body: JSON.stringify({ pipeline_stage: "lost" }) });
+    const b = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?pipeline_stage=eq.lost&lost_from_stage=eq.active_client&client_status=eq.active&select=id`, { method: "PATCH", headers: hdr, body: JSON.stringify({ client_status: "ended" }) });
+    const mended = [...(a.ok ? await a.json() : []), ...(b.ok ? await b.json() : [])];
+    for (const m of mended) { try { await syncSmmContact(env, m.id); } catch (_) {} }
+  } catch (_) {}
   try {
     const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
     const due = (await sbGet(env, "smm_leads", `leaving_on=lte.${today}&leaving_as=not.is.null&select=id,full_name,business,leaving_on,leaving_as,lost_reason`)) || [];
     for (const l of due) {
       const patch = { leaving_on: null, leaving_as: null, lost_at: `${l.leaving_on}T00:00:00Z` };
-      if (l.leaving_as === "ended") patch.client_status = "ended"; else patch.pipeline_stage = "lost";
+      // Ended and Lost are one thing (Danielle, 4 Nov 2026): a client who
+      // leaves is lost, and keeps "was a client" in lost_from_stage.
+      patch.pipeline_stage = "lost";
+      if (l.leaving_as === "ended") patch.client_status = "ended";
       const res = await sbPatch(env, "smm_leads", `id=eq.${encodeURIComponent(l.id)}&leaving_on=eq.${l.leaving_on}`, patch);
       if (res && res.ok === false) continue;
       try { await syncSmmContact(env, l.id); } catch (_) {}
       try {
         await notifyAdmins(env, {
           area: "social", event: "smm_left", key: `smm_left:${l.id}:${l.leaving_on}`,
-          title: `${l.full_name || l.business || "A client"} is now ${l.leaving_as === "ended" ? "Ended" : "lost"}`,
+          title: `${l.full_name || l.business || "A client"} is now lost${l.leaving_as === "ended" ? " (was a client)" : ""}`,
           body: [l.business, l.lost_reason].filter(Boolean).join(" · ") || null,
           href: "/admin/social",
         });
@@ -12721,6 +12749,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const t0 = invToday(), months = [t0.ym, invToday(32 - t0.day).ym];
         const rows = (await sbGet(env, "recurring_invoices", "active=eq.true&kind=eq.social&select=id,name,contact_name,bill_to_name,amount_pence,pay_by_card,lead_id,day_of_month,auto_send&order=name.asc")) || [];
+        const stopped = await smmStoppedLeads(env, rows.map((r) => r.lead_id));
+        rows.forEach((r) => { if (r.lead_id && stopped.has(r.lead_id)) r.stopped = stopped.get(r.lead_id); });
         const ids = rows.map((r) => r.id);
         const ticks = ids.length ? (await sbGet(env, "recurring_month_approvals", `recurring_id=in.(${ids.join(",")})&month=in.(${months.join(",")})&select=recurring_id,month,approved,updated_by`)) || [] : [];
         const invs = ids.length ? (await sbGet(env, "invoices", `recurring_id=in.(${ids.join(",")})&billing_month=in.(${months.join(",")})&status=neq.void&select=recurring_id,billing_month,number,status`)) || [] : [];
@@ -13371,7 +13401,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         // Persist the status on the lead.
         await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`, {
           method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ client_status: status }),
+          body: JSON.stringify(status === "ended" ? { client_status: status, pipeline_stage: "lost" } : { client_status: status }),
         });
         // Reflect on the CRM contact: one SMM-Status tag at a time, and
         // everything else the card knows (syncSmmContact).
@@ -13742,7 +13772,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         try {
           const months = `or=(and(year.eq.${y},month.eq.${m}),and(year.eq.${p1.year},month.eq.${p1.month}),and(year.eq.${p2.year},month.eq.${p2.month}))`;
           const reps = await get("smm_reports", `${months}&select=id,lead_id,platform,month,year,data,published_data,published_at`);
-          const leads = await get("smm_leads", `or=(pipeline_stage.eq.active_client,id.in.(${[...new Set(reps.map((r) => r.lead_id))].join(",") || "00000000-0000-0000-0000-000000000000"}))&select=id,full_name,business,email,social_media_manager,package_name,pipeline_stage,platforms`);
+          const leads = await get("smm_leads", `or=(pipeline_stage.eq.active_client,id.in.(${[...new Set(reps.map((r) => r.lead_id))].join(",") || "00000000-0000-0000-0000-000000000000"}))&select=id,full_name,business,email,social_media_manager,package_name,pipeline_stage,client_status,platforms`);
           const byId = new Map(leads.map((l) => [l.id, l]));
           const isNow = (r) => r.year === y && r.month === m;
           // Any platform's figures count: a month with only Facebook or LinkedIn
@@ -13763,7 +13793,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           }).sort((a, b) => String(a.lead.business || a.lead.name || "").localeCompare(String(b.lead.business || b.lead.name || "")));
           // Active clients who aren't in it, and why: so a missing month is seen.
           const inIt = new Set(accounts.map((a) => a.lead.id));
-          const missing = leads.filter((l) => l.pipeline_stage === "active_client" && !inIt.has(l.id)).map((l) => {
+          const missing = leads.filter((l) => l.pipeline_stage === "active_client" && !["paused", "ended", "internal"].includes(l.client_status) && !inIt.has(l.id)).map((l) => {
             const mine = reps.find((r) => r.lead_id === l.id && isNow(r));
             const pl = Array.isArray(l.platforms) ? l.platforms : String(l.platforms || "").split(/[,;]/);
             const platform = pl.map((x) => String(x || "").trim()).filter(Boolean).map((x) => x.charAt(0).toUpperCase() + x.slice(1)).join(", ");
@@ -14419,7 +14449,7 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
     }
     return out;
   };
-  const leads = await readAll("smm_leads", "pipeline_stage=eq.active_client&or=(client_status.is.null,client_status.neq.internal)&select=id,full_name,business,price,start_date,social_media_manager,inter_brand_invoice&order=business.asc,id.asc");
+  const leads = await readAll("smm_leads", "pipeline_stage=eq.active_client&or=(client_status.is.null,client_status.not.in.(internal,paused,ended))&select=id,full_name,business,price,start_date,social_media_manager,inter_brand_invoice&order=business.asc,id.asc");
   let recurring = [], recurringReady = true;
   const rr = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices?active=eq.true&select=*&order=name.asc`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
   if (rr.ok) recurring = await rr.json(); else recurringReady = false;
@@ -14452,6 +14482,8 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
     }];
   }));
   const rows = [];
+  const stoppedRec = await smmStoppedLeads(env, recurring.map((r) => r.lead_id));
+  recurring = recurring.filter((r) => !(r.lead_id && stoppedRec.has(r.lead_id)));
   for (const l of leads) {
     const mine = invs.filter((iv) => iv.booking_source === "smm" && iv.booking_id === l.id);
     rows.push({ kind: "social", id: l.id, client: l.business || l.full_name || "Client", contact: l.full_name || "", manager: l.social_media_manager || "",
