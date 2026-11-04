@@ -1972,6 +1972,30 @@ async function folderHasFiles(env, prefix) {
   return (res.objects || []).some((o) => !/(^|\/)\.keep$|\.library\.json$/i.test(o.key));
 }
 
+/* Every new-starter shoot, however it was booked and whether or not it's on
+   TEG's sheet, goes into the TEG portal once it's Delivered (invoice paid,
+   edits settled) and its Library folder has files (Dani, 4 Nov: "whenever a
+   new starter booking is logged this folder is flagged for the client
+   portal"). Not before: until the job is finished nobody sees it. Runs on the
+   5-minute tick, just before the folder emails go out. */
+const NEW_STARTER_SERVICE = /new.?starter/i;
+async function runStarterPortalAdds(env) {
+  const portal = await tegStarterPortal(env);
+  if (!portal) return;
+  const bks = (await sbGet(env, "videography_bookings",
+    "stage=eq.delivered&archive_folder=not.is.null&service=ilike.*new*starter*&select=id,service,archive_folder")) || [];
+  const have = new Set(portalFolders(portal));
+  const add = [];
+  for (const b of bks) {
+    if (!NEW_STARTER_SERVICE.test(String(b.service || ""))) continue;
+    const prefix = archivePrefix(b.archive_folder);
+    if (have.has(prefix) || add.includes(prefix)) continue;
+    try { if (await folderHasFiles(env, prefix)) add.push(prefix); } catch (_) {}
+  }
+  if (!add.length) return;
+  await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(portal.id)}`, { folders: [...(portal.folders || []), ...add] });
+}
+
 /* ── A portal emails someone when a folder is added ──────────────────────
    Each portal can name who to email (client_portals.notify_email); the
    folders already told about are in notified_folders. Checked on the
@@ -6057,7 +6081,7 @@ export default {
       let mins = 0; try { mins = new Date(event.scheduledTime).getUTCMinutes(); } catch (_) {}
       if (mins === 0) ctx.waitUntil(runAiCreditCheck(env));
       // A folder added to a portal that emails someone (the TEG new-starter portal).
-      ctx.waitUntil(runPortalFolderNotices(env).catch(() => {}));
+      ctx.waitUntil(runStarterPortalAdds(env).catch(() => {}).then(() => runPortalFolderNotices(env)).catch(() => {}));
     }
   },
 
