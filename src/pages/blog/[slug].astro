@@ -595,7 +595,8 @@ const related = posts
             });
             // The spacing rules, as blogFlowCss in src/lib/blog-flow.js draws them.
             if (st.flow) {
-              var g = st.p && /^(0|\d(\.\d+)?em)$/.test(st.p.gap || "") ? st.p.gap : "0.7em";
+              var em = parseFloat(st.p && /^(0|\d(\.\d+)?em)$/.test(st.p.gap || "") ? st.p.gap : "0.7em") || 0;
+              var g = Math.round(em * (parseFloat(st.p && st.p.size) || 18) * 10) / 10 + "px";
               css.push(".post-body > :is(p,h1,h2,h3,h4,blockquote,ul,ol,div,figure){margin:0 0 " + g + " !important}");
               css.push(".post-body > :last-child{margin-bottom:0 !important}");
               css.push(".post-body > p:empty{min-height:1lh}");

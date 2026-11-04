@@ -14,9 +14,14 @@
 export const FLOW_DEFAULT_GAP = "0.7em";
 const GAP_OK = /^(0|\d(\.\d+)?em)$/;
 
+/* The gap in pixels, measured against the body text: "0.4em" written on a
+   heading would be measured against the heading's bigger size, and the gap
+   under it would come out larger than the rest. */
 export function flowGap(styles) {
   const g = styles && styles.p && styles.p.gap;
-  return GAP_OK.test(g || "") ? g : FLOW_DEFAULT_GAP;
+  const em = parseFloat(GAP_OK.test(g || "") ? g : FLOW_DEFAULT_GAP) || 0;
+  const size = parseFloat(styles && styles.p && styles.p.size) || 18;   // the body's default size
+  return Math.round(em * size * 10) / 10 + "px";
 }
 
 /* The spacing rules for one article body. `force` draws them whatever the
