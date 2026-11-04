@@ -10,6 +10,7 @@
 // All public-facing reads should go through the async helpers at the
 // bottom of this file (getPublishedPosts / getPost / getCategories).
 
+import { blogFlowCss } from "../lib/blog-flow.js";
 import { marked } from "marked";
 import { supabase, isConfigured } from "../lib/supabase.js";
 
@@ -682,6 +683,7 @@ const GAP_OK = /^(0|\d(\.\d+)?em)$/;
    selector (standSel); without one it is left out. */
 export function blogStyleCss(styles, scope, standSel) {
   if (!styles || typeof styles !== "object") return "";
+  const flow = !!styles.flow;
   const out = [];
   const blocks = Object.entries(STYLE_BLOCKS).map(([k, sel]) => [k, `${scope} ${sel}`]);
   if (standSel) blocks.push(["stand", standSel]);
@@ -697,9 +699,12 @@ export function blogStyleCss(styles, scope, standSel) {
     if (v.lh) decls.push(`line-height:${safe(v.lh)}`);
     // Paragraph spacing (editor toolbar). !important because text pasted from
     // Word carries margin:0 inline on every paragraph.
-    if (key === "p" && GAP_OK.test(v.gap || "")) decls.push(`margin:0 0 ${v.gap} !important`);
+    // An article on the spacing rules gets its gap from blogFlowCss instead.
+    if (key === "p" && !flow && GAP_OK.test(v.gap || "")) decls.push(`margin:0 0 ${v.gap} !important`);
     if (decls.length) out.push(`${selector}{${decls.join(";")}}`);
   }
+  const flowCss = blogFlowCss(styles, scope);
+  if (flowCss) out.push(flowCss);
   return out.join("\n");
 }
 

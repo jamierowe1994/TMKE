@@ -108,6 +108,7 @@ try { built = await getMembersPosts(); } catch (_) {}
     import { isDemo as demoOn, lock, lockClicks } from "../../lib/demo.js";
     import { supabase, signOutEverywhere} from "../../lib/supabase.js";
     import { fillPostReel } from "../../lib/pack-reel.js";
+    import { blogFlowCss } from "../../lib/blog-flow.js";
     // The header row's moving strip of every piece.
     fillPostReel(supabase, document.getElementById('mb-reel'));
     (async () => {
@@ -172,9 +173,9 @@ try { built = await getMembersPosts(); } catch (_) {}
         if (v.font) d.push('font-family:' + safe(v.font));
         if (v.size) d.push('font-size:' + safe(v.size));
         if (v.lh) d.push('line-height:' + safe(v.lh));
-        if (k === 'p' && /^(0|\d(\.\d+)?em)$/.test(v.gap || '')) d.push('margin:0 0 ' + v.gap + ' !important');
+        if (k === 'p' && !(st && st.flow) && /^(0|\d(\.\d+)?em)$/.test(v.gap || '')) d.push('margin:0 0 ' + v.gap + ' !important');
         return d.length ? sel[k] + '{' + d.join(';') + '}' : '';
-      }).filter(Boolean).join('\n');
+      }).filter(Boolean).concat(blogFlowCss(st, '#mb-body')).join('\n');
     }
 
     function drawList() {
@@ -384,13 +385,17 @@ try { built = await getMembersPosts(); } catch (_) {}
     .mb-by-date { font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
     .mb-share { padding: 8px 14px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; background: transparent; border: 1px solid rgba(28,29,34,0.18); color: var(--ink, #1c1d22); border-radius: 999px; cursor: pointer; }
     .mb-share:hover { background: rgba(28,29,34,0.06); border-color: rgba(28,29,34,0.4); }
-    .mb-body { font-family: var(--sans); font-size: 17px; line-height: 1.6; color: rgba(28,29,34,0.85); }
-    .mb-body p { margin: 0 0 1em; }
-    .mb-body h2 { font-family: var(--serif); font-weight: 400; font-size: 26px; line-height: 1.2; color: var(--ink, #1c1d22); margin: 40px 0 14px; }
-    .mb-body h3 { font-family: var(--serif); font-weight: 500; font-size: 20px; line-height: 1.25; color: var(--ink, #1c1d22); margin: 30px 0 10px; }
-    .mb-body ul { margin: 0 0 1.2em; padding-left: 20px; }
-    .mb-body li { margin: 0 0 6px; }
-    .mb-body blockquote { margin: 30px 0; padding: 6px 0 6px 22px; border-left: 2px solid #371e28; font-family: var(--serif); font-style: italic; font-size: 20px; line-height: 1.45; color: var(--ink, #1c1d22); }
+    /* The same article as the website draws it (.post-body in
+       src/pages/blog/[slug].astro) and the blog editor shows it, so what is
+       written is what members read (Danielle, 4 Nov). */
+    .mb-body { font-family: var(--sans); font-size: 18px; line-height: 1.4; color: rgba(28,29,34,0.82); }
+    .mb-body p { margin: 0 0 22px; text-align: justify; }
+    .mb-body h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(20.8px, 2.08vw, 27.2px); line-height: 1.2; letter-spacing: -0.05em; color: var(--ink, #1c1d22); margin: 48px 0 18px; }
+    .mb-body h2:first-child { margin-top: 0; }
+    .mb-body h3 { font-family: var(--serif); font-weight: 400; font-size: 20px; line-height: 1.25; letter-spacing: -0.05em; color: var(--ink, #1c1d22); margin: 32px 0 14px; }
+    .mb-body ul { margin: 0 0 28px; padding-left: 20px; }
+    .mb-body li { margin: 0 0 10px; }
+    .mb-body blockquote { margin: 40px 0; padding: 32px 0 32px 32px; border-left: 2px solid var(--english-violet, #371e28); font-family: var(--serif); font-style: italic; font-size: clamp(15.84px, 1.584vw, 20.16px); line-height: 1.4; color: var(--ink, #1c1d22); }
     .mb-body a { color: #371e28; text-decoration: underline; text-underline-offset: 3px; }
     .mb-body img { max-width: 100%; height: auto; border-radius: 6px; }
     .mb-body strong { color: var(--ink, #1c1d22); }

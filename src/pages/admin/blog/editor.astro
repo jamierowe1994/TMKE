@@ -154,7 +154,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         <div class="be-tpl-acts">
           <button type="button" class="admin-btn admin-btn-ghost" id="be-tpl-save">Save as template</button>
           <button type="button" class="admin-btn admin-btn-ghost" id="be-tpl-update" hidden>Update template</button>
-          <button type="button" class="admin-btn admin-btn-ghost" id="be-gap-all" title="Sets this paragraph spacing on every article, published or not, and takes out the blank lines Word left between paragraphs">Use this spacing on every article</button>
+          <button type="button" class="admin-btn admin-btn-ghost" id="be-gap-all" title="Sets this paragraph spacing on every article, published or not. Blank lines you have typed stay.">Use this spacing on every article</button>
         </div>
         <label class="be-check" id="be-tpl-default-wrap" hidden>
           <input type="checkbox" id="be-tpl-default" />
@@ -568,45 +568,42 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     }
     .be-rich:focus { border-color: var(--english-violet); }
     .be-rich:empty::before { content: attr(data-placeholder); color: rgba(28,29,34,0.4); }
-    .be-rich h2 { font-size: 1.6em; font-weight: 600; margin: 0.6em 0 0.3em; }
-    .be-rich h3 { font-size: 1.3em; font-weight: 600; margin: 0.6em 0 0.3em; }
-    .be-rich blockquote { border-left: 3px solid var(--english-violet); margin: 0.6em 0; padding-left: 14px; font-style: italic; }
-    .be-rich p { margin: 0 0 0.7em; }
-    .be-rich ul { margin: 0 0 0.7em; padding-left: 22px; }
-    .be-rich a { color: var(--english-violet); text-decoration: underline; }
-    .be-preview {
-      min-height: 480px;
-      padding: 8px 0;
-      color: var(--ink);
-    }
-    .be-preview h2 {
+    /* The article's own look, as the website draws it (.post-body in
+       src/pages/blog/[slug].astro), so the editor shows what publishes. The
+       gaps between blocks come from the spacing rules (blogFlowCss), drawn
+       here live. */
+    .be-preview { min-height: 480px; padding: 8px 0; }
+    .be-rich h2, .be-preview h2 {
       font-family: var(--serif); font-weight: 400;
-      font-size: 28px; margin: 22px 0 10px;
-      letter-spacing: -0.05em;
+      font-size: clamp(20.8px, 2.08vw, 27.2px); line-height: 1.2;
+      letter-spacing: -0.05em; color: var(--ink);
     }
-    .be-preview h2:first-child { margin-top: 0; }
-    .be-preview p {
-      font-family: var(--sans); font-size: 15px;
-      line-height: 1.7;
-      color: rgba(28,29,34,0.82);
-      margin: 0 0 16px;
+    .be-rich h3, .be-preview h3 {
+      font-family: var(--serif); font-weight: 400;
+      font-size: 20px; line-height: 1.25;
+      letter-spacing: -0.05em; color: var(--ink);
     }
-    .be-preview strong { font-weight: 700; color: var(--ink); }
-    .be-preview ul { padding-left: 18px; margin: 0 0 16px; }
-    .be-preview li {
-      font-family: var(--sans); font-size: 14.5px;
-      line-height: 1.65;
-      color: rgba(28,29,34,0.78);
-      margin-bottom: 6px;
+    .be-rich p, .be-preview p {
+      font-family: var(--sans); font-size: 18px; line-height: 1.4;
+      text-align: justify; color: rgba(28,29,34,0.82);
     }
-    .be-preview blockquote {
+    .be-rich strong, .be-preview strong { font-weight: 700; color: var(--ink); }
+    .be-rich ul, .be-preview ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    .be-rich li, .be-preview li {
+      font-family: var(--sans); font-size: 18px; line-height: 1.4;
+      color: rgba(28,29,34,0.82); padding-left: 28px; position: relative;
+    }
+    .be-rich li::before, .be-preview li::before {
+      content: "→"; font-family: var(--serif); font-style: italic;
+      color: var(--english-violet); position: absolute; left: 0; top: 0;
+    }
+    .be-rich blockquote, .be-preview blockquote {
       font-family: var(--serif); font-style: italic;
-      font-size: 20px; line-height: 1.45;
-      color: var(--ink);
-      margin: 22px 0;
-      padding: 14px 0 14px 22px;
-      border-left: 2px solid var(--english-violet); letter-spacing: -0.05em;
+      font-size: clamp(15.84px, 1.584vw, 20.16px); line-height: 1.4;
+      color: var(--ink); padding: 32px 0 32px 32px;
+      border-left: 2px solid var(--english-violet);
     }
+    .be-rich a, .be-preview a { color: var(--english-violet); text-decoration: underline; }
 
     /* Status / publish date */
     .be-status-row {
@@ -735,6 +732,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     import { supabase, isConfigured, slugify } from "../../../lib/supabase.js";
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { marked } from "marked";
+    import { blogFlowCss, normalizeBody, toFlow } from "../../../lib/blog-flow.js";
 
     marked.setOptions({ gfm: true, breaks: false });
 
@@ -803,6 +801,9 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 
     // ─── Rich-text editor (contenteditable + toolbar) ───
     try { document.execCommand("styleWithCSS", false, true); } catch (_) {}
+    // Enter starts a new paragraph (not a <div>), and Enter on an empty line
+    // leaves a blank line: the only way to add space (src/lib/blog-flow.js).
+    try { document.execCommand("defaultParagraphSeparator", false, "p"); } catch (_) {}
 
     function syncRich() {
       // Keep the hidden field roughly in sync (used only as a text fallback).
@@ -897,7 +898,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         if (sel.value) styleState[key][prop] = sel.value;
         else delete styleState[key][prop];
         if (!Object.keys(styleState[key]).length) delete styleState[key];
-        if (prop === "gap") { syncGapToolbar(); if (sel.value) dropBlankParagraphs(); }
+        if (prop === "gap") syncGapToolbar();
         applyStylePreview();
         // Once you have changed something by hand it is no longer that template.
         const pick = document.getElementById("be-tpl");
@@ -916,21 +917,12 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       syncGapToolbar();
     }
 
-    /* Paragraph spacing. Text pasted from Word arrives as one paragraph per
-       line, with an empty paragraph between each real one and "margin: 0" on
-       every one of them, so the only gap was a whole blank line. Choosing a
-       spacing takes the empty ones out, and the article's stylesheet sets the
-       gap (over Word's inline margin). */
+    /* Paragraph spacing: the gap after every block, headings and quotes too
+       (src/lib/blog-flow.js). Choosing one no longer takes blank lines out:
+       a blank line is something you typed, so it stays (Danielle, 4 Nov). */
     function syncGapToolbar() {
       const sel = document.querySelector('#be-rich-tb .be-rt-sel[data-rt="gap"]');
       if (sel) sel.value = (styleState.p && styleState.p.gap) || "";
-    }
-    function dropBlankParagraphs() {
-      $rich.querySelectorAll("p, div").forEach((b) => {
-        if (b.querySelector("img, iframe, video, hr")) return;
-        if (b.textContent.replace(/[\u00a0\u200b\s]/g, "") === "") b.remove();
-      });
-      syncRich();
     }
 
     /* Same stylesheet the article gets, live in the editor - so what you are
@@ -945,15 +937,15 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         if (v.font) d.push("font-family:" + safe(v.font));
         if (v.size) d.push("font-size:" + safe(v.size));
         if (v.lh) d.push("line-height:" + safe(v.lh));
-        // !important: Word puts margin:0 inline on every paragraph it pastes.
-        if (key === "p" && /^(0|\d(\.\d+)?em)$/.test(v.gap || "")) d.push(`margin:0 0 ${v.gap} !important`);
+        // The gap between blocks is drawn by the spacing rules (blogFlowCss).
         return d.length ? `${scope} ${key}{${d.join(";")}}` : "";
       }).filter(Boolean).join("\n");
     }
     function applyStylePreview() {
       let tag = document.getElementById("be-style-live");
       if (!tag) { tag = document.createElement("style"); tag.id = "be-style-live"; document.head.appendChild(tag); }
-      tag.textContent = styleCssFor("#be-rich") + "\n" + styleCssFor("#be-preview-out");
+      tag.textContent = styleCssFor("#be-rich") + "\n" + styleCssFor("#be-preview-out")
+        + "\n" + blogFlowCss(styleState, "#be-rich", true) + "\n" + blogFlowCss(styleState, "#be-preview-out", true);
     }
 
     function markTemplateDirty() {
@@ -990,24 +982,17 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       const label = (GAP_OPTS.find(([v]) => v === gap) || [gap, gap])[1];
       const { data: posts, error } = await supabase.from("blog_posts").select("id, title, body_html, body_styles");
       if (error) { tplMsg("Couldn't load the articles: " + error.message); return; }
-      if (!confirm(`Set paragraph spacing to ${label} on all ${posts.length} articles, and remove the blank lines between their paragraphs?`)) return;
+      if (!confirm(`Set paragraph spacing to ${label} on all ${posts.length} articles? Blank lines stay where they are.`)) return;
       const btn = e.currentTarget; btn.disabled = true;
       let done = 0; const failed = [];
       for (const p of posts) {
-        const box = document.createElement("div");
-        box.innerHTML = p.body_html || "";
-        box.querySelectorAll("p, div").forEach((b) => {
-          if (!b.querySelector("img, iframe, video, hr") && b.textContent.replace(/[\u00a0\u200b\s]/g, "") === "") b.remove();
-        });
         const styles = (p.body_styles && typeof p.body_styles === "object") ? JSON.parse(JSON.stringify(p.body_styles)) : {};
         styles.p = { ...(styles.p || {}), gap };
-        const { data: saved, error: err } = await supabase.from("blog_posts").update({ body_styles: styles, body_html: p.body_html ? box.innerHTML : p.body_html }).eq("id", p.id).select("id");
+        const { data: saved, error: err } = await supabase.from("blog_posts").update({ body_styles: styles }).eq("id", p.id).select("id");
         if (err || !saved || !saved.length) failed.push(p.title); else done++;
       }
       btn.disabled = false;
       tplMsg(`${label} spacing set on ${done} article${done === 1 ? "" : "s"}${failed.length ? `. Not saved: ${failed.join(", ")}` : ""}.`);
-      // This article was among them: show what was saved, not what was on screen.
-      if (loaded && loaded.id && !failed.includes(loaded.title)) dropBlankParagraphs();
     });
 
     function tplMsg(text) {
@@ -1024,7 +1009,6 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         if (!t) { tplMsg("Pick a template first."); return; }
         styleState = JSON.parse(JSON.stringify(t.styles || {}));
         fillStyleControls();
-        if (styleState.p && styleState.p.gap) dropBlankParagraphs();
         applyStylePreview();
         tplMsg(`Using “${t.name}”. It saves with the article.`);
       });
@@ -1085,7 +1069,19 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         const kind = sel.getAttribute("data-rt");
         const val = sel.value;
         restoreRange();
-        if (kind === "block" && val) document.execCommand("formatBlock", false, "<" + val + ">");
+        if (kind === "block" && val) {
+          document.execCommand("formatBlock", false, "<" + val + ">");
+          // A line made big and bold by hand, turned into a heading, takes the
+          // heading's own look rather than keeping its hand-set size and weight.
+          if (/^h/.test(val)) eachSelectedBlock((b) => {
+            [b, ...b.querySelectorAll("[style]")].forEach((el) => {
+              ["font-size", "font-weight", "font-family", "letter-spacing", "line-height"].forEach((k) => el.style.removeProperty(k));
+              if (el !== b && el.tagName === "SPAN" && !el.getAttribute("style")) el.replaceWith(...el.childNodes);
+              else if (!el.getAttribute("style")) el.removeAttribute("style");
+            });
+            b.querySelectorAll("strong, b").forEach((el) => el.replaceWith(...el.childNodes));
+          });
+        }
         else if (kind === "font" && val) document.execCommand("fontName", false, val);
         else if (kind === "size" && val) setFontSize(val);
         else if (kind === "lh" && val) eachSelectedBlock((b) => { b.style.lineHeight = val; });
@@ -1093,7 +1089,6 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
           styleState.p = styleState.p || {};
           if (val) styleState.p.gap = val; else delete styleState.p.gap;
           if (!Object.keys(styleState.p).length) delete styleState.p;
-          if (val) dropBlankParagraphs();
           fillStyleControls();
           applyStylePreview();
           if (document.getElementById("be-tpl")?.value) markTemplateDirty();
@@ -1103,8 +1098,9 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       });
     });
     $rich.addEventListener("input", () => { syncRich(); });
-    // With a spacing chosen, a later paste from Word loses its blank lines too.
-    $rich.addEventListener("paste", () => { if (styleState.p && styleState.p.gap) setTimeout(dropBlankParagraphs, 0); });
+    // Pasted text is tidied into paragraphs and blank lines like typed text;
+    // the spacing rules then override the margins Word brings with it.
+    $rich.addEventListener("paste", () => { setTimeout(() => { normalizeBody($rich); syncRich(); }, 0); });
 
     /* What the toolbar says should be what the text says. These dropdowns used
        to snap back to their placeholder the moment they were used, so an
@@ -1233,6 +1229,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         .split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
       // The body now comes from the rich editor as HTML; keep a plain-text copy
       // in body_markdown only as a fallback (the public site renders body_html).
+      normalizeBody($rich);
       const body_html = $rich.innerHTML.trim();
       const body_markdown = ($rich.innerText || "").trim();
       return {
@@ -1249,7 +1246,8 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         author_name: String(fd.get("author_name") || "").trim() || "The TMKE Desk",
         status: $status.value,
         audience: String(fd.get("audience") || "public"),
-        body_styles: styleState,
+        // flow: this article follows the spacing rules (src/lib/blog-flow.js).
+        body_styles: Object.assign({}, styleState, { flow: 1 }),
         publish_date: $publishDate.value || null,
         seo_title: ($seoTitle.value || "").trim() || null,
         seo_description: ($seoDesc.value || "").trim() || null,
@@ -1419,6 +1417,9 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         $rich.innerHTML = (data.body_html && data.body_html.trim())
           ? data.body_html
           : (data.body_markdown ? marked.parse(data.body_markdown) : "");
+        // An article from before the spacing rules keeps its look: the room
+        // headings used to bring becomes a blank line you can see and take out.
+        if (styleState.flow) normalizeBody($rich); else toFlow($rich);
         $body.value = $rich.innerText || "";
         $slug.value = data.slug || "";
         $heroUrl.value = data.hero_image_url || "";

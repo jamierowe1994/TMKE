@@ -322,6 +322,17 @@ const related = posts
       margin: 48px 0 18px;
     }
     .post-body :global(h2:first-child) { margin-top: 0; }
+    /* Sub-headings had no rule of their own here, so they fell to the site's
+       h3 (The Seasons). The heading face, a step down from h2. */
+    .post-body :global(h3) {
+      font-family: var(--serif);
+      font-weight: 400;
+      font-size: 20px;
+      line-height: 1.25;
+      letter-spacing: -0.05em;
+      color: var(--ink);
+      margin: 32px 0 14px;
+    }
     .post-body :global(p) {
       font-family: var(--sans);
       font-size: 18px;
@@ -579,9 +590,16 @@ const related = posts
               if (v.font) d.push("font-family:" + safe(v.font));
               if (v.size) d.push("font-size:" + safe(v.size));
               if (v.lh) d.push("line-height:" + safe(v.lh));
-              if (k === "p" && /^(0|\d(\.\d+)?em)$/.test(v.gap || "")) d.push("margin:0 0 " + v.gap + " !important");
+              if (k === "p" && !st.flow && /^(0|\d(\.\d+)?em)$/.test(v.gap || "")) d.push("margin:0 0 " + v.gap + " !important");
               if (d.length) css.push((k === "stand" ? ".post-split-main .post-stand" : ".post-body " + map[k]) + "{" + d.join(";") + "}");
             });
+            // The spacing rules, as blogFlowCss in src/lib/blog-flow.js draws them.
+            if (st.flow) {
+              var g = st.p && /^(0|\d(\.\d+)?em)$/.test(st.p.gap || "") ? st.p.gap : "0.7em";
+              css.push(".post-body > :is(p,h1,h2,h3,h4,blockquote,ul,ol,div,figure){margin:0 0 " + g + " !important}");
+              css.push(".post-body > :last-child{margin-bottom:0 !important}");
+              css.push(".post-body > p:empty{min-height:1lh}");
+            }
             var next = css.join("\n");
             if (styleEl.textContent !== next) styleEl.textContent = next;
           }
