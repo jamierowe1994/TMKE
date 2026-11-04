@@ -1908,7 +1908,7 @@ function sheetWhenText(iso) {
 async function agentSheetFieldsFor(env, emails, name) {
   const list = emails.filter(Boolean).map((e) => String(e).toLowerCase().replace(/[(),"]/g, ""));
   if (!list.length) return { _why: "no email" };
-  const cols = "id,shoot_date,stage,archive_url,client_email,client_name,created_at,kind,service_type";
+  const cols = "id,shoot_date,stage,archive_url,archive_folder,client_email,client_name,created_at,kind,service_type";
   // Case-insensitive: a booking typed by hand may carry capitals the sheet doesn't.
   const q = `or=(${list.map((e) => `client_email.ilike.${encodeURIComponent(e)}`).join(",")})&order=created_at.desc&limit=10&select=${cols}`;
   const bks = await sbGet(env, "videography_bookings", q);
@@ -1933,7 +1933,7 @@ async function agentSheetFieldsFor(env, emails, name) {
     }
   }
   if (!bk) return { _why: "no booking under " + list.join(" / ") + (name ? ` or the name ${name}` : "") };
-  const fields = { _booking: bk.id, _stage: bk.stage, _shoot: bk.shoot_date || null, _created: bk.created_at || null, _matchedBy: matchedBy, _bookingEmail: bk.client_email || null };
+  const fields = { _booking: bk.id, _stage: bk.stage, _shoot: bk.shoot_date || null, _created: bk.created_at || null, _matchedBy: matchedBy, _bookingEmail: bk.client_email || null, _folder: bk.archive_folder || null };
   if (bk.shoot_date) fields.booked = sheetWhenText(bk.shoot_date);
   /* The Content Link is OUR gallery page (/deliver), once the delivery has
      been sent: the files come from our storage, so downloads there never use
@@ -1947,6 +1947,81 @@ async function agentSheetFieldsFor(env, emails, name) {
     fields.link = `${site}/deliver?d=${dl.token}`;
   } else fields._why = dl ? `our gallery is ${dl.status}, not sent yet` : "not delivered through our gallery (Pixieset only, or not yet)";
   return fields;
+}
+
+/* ── The TEG new-starter portal (Dani, 4 Nov) ──────────────────────────────
+   One client portal, named with "TEG" and "New Starter", holds every new
+   starter's Library folder, so Michelle has one place to see them all. The
+   8am check adds a starter's folder once Jack has put files in it, and the
+   sheet's Content Link opens the portal straight at that folder. Files come
+   from our storage, so nothing she downloads touches the agent's Pixieset
+   allowance. */
+const TEG_PORTAL_NAME = /\bteg\b.*new.?starter|new.?starter.*\bteg\b/i;
+async function tegStarterPortal(env) {
+  const rows = await sbGet(env, "client_portals", "enabled=eq.true&select=id,name,token,folders&order=created_at.asc");
+  return (rows || []).find((p) => TEG_PORTAL_NAME.test(String(p.name || ""))) || null;
+}
+function portalFolderLink(env, portal, prefix) {
+  const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+  return `${site}/portal?c=${encodeURIComponent(portal.token)}&f=${encodeURIComponent(prefix)}`;
+}
+// Real files in a folder: not just the empty category markers.
+async function folderHasFiles(env, prefix) {
+  if (!env.BUCKET) return false;
+  const res = await env.BUCKET.list({ prefix, limit: 100 });
+  return (res.objects || []).some((o) => !/(^|\/)\.keep$|\.library\.json$/i.test(o.key));
+}
+
+/* ── A portal emails someone when a folder is added ──────────────────────
+   Each portal can name who to email (client_portals.notify_email); the
+   folders already told about are in notified_folders. Checked on the
+   5-minute tick, so a folder ticked by hand is emailed within minutes, and
+   right after the 8am sheet check. One email per portal per run, listing
+   what's new. A new starter's folder in the TEG portal also puts its link on
+   the sheet there and then. */
+async function runPortalFolderNotices(env) {
+  const portals = await sbGet(env, "client_portals",
+    "notify_email=not.is.null&enabled=eq.true&select=id,name,first_name,token,passcode,folders,notified_folders,notify_email");
+  if (!portals) return;   // notify columns not added yet (supabase/client_portal_notify.sql)
+  const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+  for (const p of portals) {
+    const told = new Set((p.notified_folders || []).map((f) => archivePrefix(f)));
+    const now = portalFolders(p);
+    const fresh = now.filter((f) => !told.has(f));
+    if (!fresh.length) {
+      // A folder taken out and put back later should be news again.
+      if ((p.notified_folders || []).length !== now.length) await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(p.id)}`, { notified_folders: now });
+      continue;
+    }
+    const names = fresh.map((f) => f.slice(0, -1).split("/").pop());
+    const bks = (await sbGet(env, "videography_bookings",
+      `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=client_name,client_email,service,shoot_date,archive_folder`)) || [];
+    const items = fresh.map((f, i) => {
+      const bk = bks.find((b) => archivePrefix(b.archive_folder) === f);
+      const when = bk && bk.shoot_date ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
+      return { prefix: f, name: names[i], bk, line: [bk && bk.service, when].filter(Boolean).join(", "), link: `${site}/portal?c=${encodeURIComponent(p.token)}&f=${encodeURIComponent(f)}` };
+    });
+    const esc = (v) => String(v || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const hi = p.first_name ? `Hi ${esc(p.first_name)},` : "Hi,";
+    const intro = items.length === 1
+      ? `${esc(items[0].name)}'s content is ready in your TMKE portal.`
+      : `There are ${items.length} new folders in your TMKE portal.`;
+    const list = items.map((it) => `<p style="${EM_P}"><strong>${esc(it.name)}</strong>${it.line ? `<br>${esc(it.line)}` : ""}</p><p style="${EM_P}"><a href="${esc(it.link)}" style="${EM_BTN}">Open ${esc(it.name)}'s folder</a></p>`).join("");
+    const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">${hi}</p><p style="${EM_P}">${intro} You can watch and download everything in it.</p>${list}<p style="${EM_P}">The passcode is <strong>${esc(p.passcode)}</strong>. Once you've entered it, you'll stay signed in on that browser for 7 days.</p></div>`);
+    const subject = items.length === 1 ? `${items[0].name}'s content is ready.` : `${items.length} new folders in your TMKE portal.`;
+    const sent = await sendEmail(env, { to: p.notify_email, subject, html });
+    if (!sent || !sent.ok) {
+      await notifyAdmins(env, { area: "problem", event: "portal_notice_failed", title: `Couldn't email ${p.notify_email} about new portal folders`, body: String((sent && sent.error) || "Unknown error").slice(0, 200), key: `${p.id}:${fresh.join("|")}` });
+      continue;
+    }
+    await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(p.id)}`, { notified_folders: now });
+    // The TEG portal: the starter's row on the sheet gets the link now.
+    if (TEG_PORTAL_NAME.test(String(p.name || ""))) {
+      for (const it of items) {
+        if (it.bk && it.bk.client_email) { try { await agentSheetWrite(env, it.bk.client_email, { link: it.link }); } catch (_) {} }
+      }
+    }
+  }
 }
 
 async function syncAgentSheet(env) {
@@ -1978,6 +2053,8 @@ async function syncAgentSheet(env) {
     booking_link: (() => { const i = sheetColAny(headers, SHEET_BOOKLINK_HEADERS); return i >= 0 ? headers[i] : null; })(),
   };
   let writeError = null;
+  let tegPortal = null;
+  try { tegPortal = await tegStarterPortal(env); } catch (_) {}
   // Per-row trace so "added to the sheet but never enrolled" is diagnosable —
   // it's returned by POST /agent/sync (admin only). Enrolment needs a promo
   // code, which needs a parseable Preferred Shoot Month, so that's the usual
@@ -2063,6 +2140,19 @@ async function syncAgentSheet(env) {
       try {
         if (!fields) fields = await agentSheetFieldsFor(env, [email, sec], [first, last].filter(Boolean).join(" "));
         detail.writeback = { booking: fields._booking || null, matched_by: fields._matchedBy || null, booking_email: fields._matchedBy === "name" ? fields._bookingEmail : undefined, stage: fields._stage || null, booked: fields.booked || null, link: fields.link || null, why: fields._why || null };
+        // Their Library folder into the TEG portal once it has files, and the
+        // sheet's Content Link opens the portal at it.
+        if (tegPortal && fields._folder && fields._stage !== "cancelled") {
+          const prefix = archivePrefix(fields._folder);
+          let inPortal = portalFolders(tegPortal).includes(prefix);
+          if (!inPortal && await folderHasFiles(env, prefix)) {
+            const folders = [...(tegPortal.folders || []), prefix];
+            const r = await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(tegPortal.id)}`, { folders });
+            if (r && r.ok !== false) { tegPortal.folders = folders; inPortal = true; detail.writeback.portal = "added"; }
+          }
+          if (inPortal) { fields.link = portalFolderLink(env, tegPortal, prefix); detail.writeback.link = fields.link; detail.writeback.why = null; }
+          else detail.writeback.portal = "folder has no files yet";
+        }
         const bookingLink = newStarterBookingLink(env, res, { first_name: first, last_name: last, email });
         detail.writeback.booking_link = bookingLink || null;
         if (fields.booked || fields.link || bookingLink) {
@@ -5952,7 +6042,7 @@ export default {
       // summer time, 08:00 UTC in winter). Bookings and reschedules write
       // their date to the sheet straight away; Automations' Sync button runs
       // it on demand.
-      if (ukHourNow() === 8) ctx.waitUntil(syncAgentSheet(env).catch(() => {}).then(() => newStarterEnsureBlocks(env)));
+      if (ukHourNow() === 8) ctx.waitUntil(syncAgentSheet(env).catch(() => {}).then(() => newStarterEnsureBlocks(env)).then(() => runPortalFolderNotices(env)));
     }
     else {
       ctx.waitUntil(runAutomationsTick(env));
@@ -5962,6 +6052,8 @@ export default {
       ctx.waitUntil(pollSmmInbox(env));
       let mins = 0; try { mins = new Date(event.scheduledTime).getUTCMinutes(); } catch (_) {}
       if (mins === 0) ctx.waitUntil(runAiCreditCheck(env));
+      // A folder added to a portal that emails someone (the TEG new-starter portal).
+      ctx.waitUntil(runPortalFolderNotices(env).catch(() => {}));
     }
   },
 
@@ -11966,6 +12058,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const summary = await syncAgentSheet(env);
         try { await newStarterEnsureBlocks(env); } catch (_) {}
+        try { await runPortalFolderNotices(env); } catch (_) {}
         return json(summary, summary.ok ? 200 : 502, request, env);
       }
 

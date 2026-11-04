@@ -190,6 +190,7 @@ export function renderClientPortals(host, deps) {
           <div class="cpt-keys">
             <label class="cpt-key"><span class="cpt-k">Who it's for</span><input class="cpt-in" data-cptset="name" value="${esc(p.name)}" maxlength="80"><span></span></label>
             <label class="cpt-key"><span class="cpt-k">Their first name</span><input class="cpt-in" data-cptset="first_name" value="${esc(p.first_name || "")}" maxlength="40" placeholder="For the message you send"><span></span></label>
+            <label class="cpt-key"><span class="cpt-k">Email new folders to</span><input class="cpt-in" type="email" data-cptset="notify_email" value="${esc(p.notify_email || "")}" maxlength="120" placeholder="Optional: they're emailed when a folder is added"><span></span></label>
             <div class="cpt-key"><span class="cpt-k">Link</span><span class="cpt-v cpt-v--link">${p.enabled ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a>` : "Off: the link doesn't work"}</span>${p.enabled ? '<button type="button" class="cpt-mini" data-cptcopy="link">Copy</button>' : "<span></span>"}</div>
             <div class="cpt-key"><span class="cpt-k">Passcode</span><span class="cpt-v cpt-v--code">${esc(p.passcode)}</span><button type="button" class="cpt-mini" data-cptcopy="code">Copy</button></div>
             <div class="cpt-key"><span class="cpt-k">Last opened</span><span class="cpt-v">${p.last_opened_at ? esc(fmtWhen(p.last_opened_at)) : "Not opened yet"}</span><span></span></div>
@@ -199,6 +200,7 @@ export function renderClientPortals(host, deps) {
             ${p.enabled
               ? `<button type="button" class="admin-btn admin-btn-primary" data-cptcopy="message">Copy the message to send</button>
                  <button type="button" class="admin-btn admin-btn-ghost" id="cpt-newcode">New passcode</button>
+                 <button type="button" class="admin-btn admin-btn-ghost" id="cpt-setcode">Choose passcode</button>
                  <button type="button" class="admin-btn admin-btn-ghost" id="cpt-newlink">New link</button>
                  <button type="button" class="admin-btn admin-btn-ghost cpt-danger" id="cpt-off">Turn off</button>`
               : `<button type="button" class="admin-btn admin-btn-primary" id="cpt-on">Turn back on</button>`}
@@ -221,6 +223,15 @@ export function renderClientPortals(host, deps) {
       host.querySelectorAll("[data-cptset]").forEach((inp) => inp.addEventListener("change", async () => {
         const k = inp.getAttribute("data-cptset"), v = inp.value.trim();
         if (k === "name" && !v) { inp.value = p.name; setStatus("err", "It needs a name."); return; }
+        if (k === "notify_email") {
+          if (v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { setStatus("err", "That email address doesn't look right."); return; }
+          // Folders already in the portal count as told, so turning this on
+          // doesn't send an email about everything at once.
+          const patch = { notify_email: v ? v.toLowerCase() : null };
+          if (v && !p.notify_email) patch.notified_folders = p.folders || [];
+          await save(patch, v ? `Saved. ${v} is emailed whenever a folder is added to this portal.` : "Saved. Nobody is emailed about new folders now.");
+          return;
+        }
         if (await save({ [k]: v || null }, "Saved.") && k === "name") host.querySelector(".cpt-title").textContent = p.name;
       }));
       host.querySelectorAll("[data-cptcopy]").forEach((b) => b.addEventListener("click", async () => {
@@ -235,6 +246,13 @@ export function renderClientPortals(host, deps) {
       host.querySelector("#cpt-newcode")?.addEventListener("click", async () => {
         if (!confirm(`Make a new passcode for ${p.name}? Anyone signed in to the portal is signed out and needs the new one.`)) return;
         if (await save({ passcode: newPasscode(), failed_tries: 0, locked_until: null })) draw("ok", "New passcode made. Send it to them: the old one no longer works.");
+      });
+      host.querySelector("#cpt-setcode")?.addEventListener("click", async () => {
+        const raw = prompt(`Choose ${p.name}'s passcode: 3 to 12 letters or numbers.`, "");
+        if (raw == null) return;
+        const code = String(raw).toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (code.length < 3 || code.length > 12) { setStatus("err", "A passcode is 3 to 12 letters or numbers."); return; }
+        if (await save({ passcode: code, failed_tries: 0, locked_until: null })) draw("ok", `The passcode is now ${code}. Anyone signed in to the portal needs it again.`);
       });
       host.querySelector("#cpt-newlink")?.addEventListener("click", async () => {
         if (!confirm(`Make a new link for ${p.name}? The old link stops working straight away.`)) return;

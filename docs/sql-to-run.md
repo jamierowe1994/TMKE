@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/client_portal_notify.sql — a portal can email someone when a folder is added (Michelle, for the TEG New Starter portal), and you can choose a passcode such as TEG (4 Nov)
 
 ## Done
 
