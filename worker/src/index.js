@@ -1897,16 +1897,35 @@ function sheetWhenText(iso) {
 // the shoot has been delivered, the link to OUR gallery (/deliver?d=token) —
 // not the Pixieset one, which gates downloads. Reads the newest booking under
 // either of their addresses.
-async function agentSheetFieldsFor(env, emails) {
+async function agentSheetFieldsFor(env, emails, name) {
   const list = emails.filter(Boolean).map((e) => String(e).toLowerCase().replace(/[(),"]/g, ""));
   if (!list.length) return { _why: "no email" };
+  const cols = "id,shoot_date,stage,archive_url,client_email,client_name,created_at,kind,service_type";
   // Case-insensitive: a booking typed by hand may carry capitals the sheet doesn't.
-  const q = `or=(${list.map((e) => `client_email.ilike.${encodeURIComponent(e)}`).join(",")})&order=created_at.desc&limit=10&select=id,shoot_date,stage,archive_url,client_email,created_at`;
+  const q = `or=(${list.map((e) => `client_email.ilike.${encodeURIComponent(e)}`).join(",")})&order=created_at.desc&limit=10&select=${cols}`;
   const bks = await sbGet(env, "videography_bookings", q);
   // The newest booking still standing; a cancelled one only if that's all there is.
-  const bk = bks && (bks.find((b) => b.stage !== "cancelled") || bks[0]);
-  if (!bk) return { _why: "no booking under " + list.join(" / ") };
-  const fields = { _booking: bk.id, _stage: bk.stage, _shoot: bk.shoot_date || null, _created: bk.created_at || null };
+  let bk = bks && (bks.find((b) => b.stage !== "cancelled") || bks[0]);
+  let matchedBy = "email";
+  /* No standing booking under their email: look for one by NAME (Dani, 4 Nov).
+     Some starters ring Jack or book another way, and the shoot goes onto the
+     board under their name with a different email or none. Only a booking
+     whose name is theirs word for word (case, spacing and punctuation
+     ignored), not cancelled and not a discovery call. Whether it's recent
+     enough to be theirs is checked by the caller against their join date. */
+  if ((!bk || bk.stage === "cancelled") && name) {
+    const norm = (v) => String(v || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    const want = norm(name);
+    const parts = want.split(" ").filter((w) => w.length > 1);
+    if (parts.length >= 2) {
+      const pattern = `*${parts[0]}*${parts[parts.length - 1]}*`;
+      const byName = await sbGet(env, "videography_bookings", `client_name=ilike.${encodeURIComponent(pattern)}&stage=neq.cancelled&order=created_at.desc&limit=10&select=${cols}`);
+      const hit = (byName || []).find((b) => norm(b.client_name) === want && b.kind !== "discovery" && b.service_type !== "discovery");
+      if (hit) { bk = hit; matchedBy = "name"; }
+    }
+  }
+  if (!bk) return { _why: "no booking under " + list.join(" / ") + (name ? ` or the name ${name}` : "") };
+  const fields = { _booking: bk.id, _stage: bk.stage, _shoot: bk.shoot_date || null, _created: bk.created_at || null, _matchedBy: matchedBy, _bookingEmail: bk.client_email || null };
   if (bk.shoot_date) fields.booked = sheetWhenText(bk.shoot_date);
   // The Content Link is the person's folder in our storage; failing that, the
   // gallery page once the delivery has been sent. Never the Pixieset link.
@@ -1997,7 +2016,7 @@ async function syncAgentSheet(env) {
          the sheet's own Shoot Booked column filled in. Then they're out of
          the funnel and never put back in. */
       let fields = null;
-      try { fields = await agentSheetFieldsFor(env, [email, sec]); } catch (_) {}
+      try { fields = await agentSheetFieldsFor(env, [email, sec], [first, last].filter(Boolean).join(" ")); } catch (_) {}
       const joined = parseISODate(cell(idx.induction)) || (month ? month + "-01" : null);
       const sinceOk = !joined || !fields || !fields._created || Date.parse(fields._created) >= Date.parse(joined) - 120 * 86400000;
       const hasBooking = !!(fields && fields._booking && fields._stage !== "cancelled" && sinceOk);
@@ -2010,12 +2029,23 @@ async function syncAgentSheet(env) {
       });
       let leftFunnel = false;
       if (isBooked) leftFunnel = await markStarterBooked(env, contactId, hasBooking ? fields._shoot : null);
+      // A booking matched by name rather than email: said once in the bell, so
+      // whoever reads it can check it really is the same person.
+      if (hasBooking && fields._matchedBy === "name") {
+        await notifyAdmins(env, {
+          area: "videography", event: "starter_booking_by_name",
+          title: `New starter matched by name: ${[first, last].filter(Boolean).join(" ")}`,
+          body: `Their shoot was booked another way${fields._bookingEmail ? ` (under ${fields._bookingEmail})` : " (no email on the booking)"}, so the TEG sheet now shows it and they're out of the booking emails. Check it's them.`,
+          href: `/admin/videography?booking=${encodeURIComponent(fields._booking)}`,
+          key: `${email}:${fields._booking}`,
+        });
+      }
       processed++; if (res._enrolled) enrolled++;
       const detail = {
         row: i + 2, email, package: pkg,
         month_raw: monthRaw || null, month, code: res.promo_code || null, enrolled: !!res._enrolled,
         note: res._enrolled ? null : isBooked
-          ? `booked (${hasBooking ? "booking found" : "sheet says Shoot Booked"}) - not in the funnel${leftFunnel ? "; taken out now" : ""}`
+          ? `booked (${hasBooking ? (fields._matchedBy === "name" ? "booking found by name" : "booking found") : "sheet says Shoot Booked"}) - not in the funnel${leftFunnel ? "; taken out now" : ""}`
           : (!month
           ? ('couldn\'t read Preferred Shoot Month: "' + (monthRaw || "") + '" - no code, so no funnel')
           : "no promo code"),
@@ -2023,8 +2053,8 @@ async function syncAgentSheet(env) {
       // Write-back: the booked slot, and once delivered, the gallery link.
       // Reads the sheet rows already in hand, so one sync is one read.
       try {
-        if (!fields) fields = await agentSheetFieldsFor(env, [email, sec]);
-        detail.writeback = { booking: fields._booking || null, stage: fields._stage || null, booked: fields.booked || null, link: fields.link || null, why: fields._why || null };
+        if (!fields) fields = await agentSheetFieldsFor(env, [email, sec], [first, last].filter(Boolean).join(" "));
+        detail.writeback = { booking: fields._booking || null, matched_by: fields._matchedBy || null, booking_email: fields._matchedBy === "name" ? fields._bookingEmail : undefined, stage: fields._stage || null, booked: fields.booked || null, link: fields.link || null, why: fields._why || null };
         const bookingLink = newStarterBookingLink(env, res, { first_name: first, last_name: last, email });
         detail.writeback.booking_link = bookingLink || null;
         if (fields.booked || fields.link || bookingLink) {
