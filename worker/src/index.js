@@ -1816,6 +1816,10 @@ async function cancelAgentStarter(env, contactId) {
 // reworded header doesn't silently drop the write. Whoever owns the sheet can
 // call the link column any of these.
 const SHEET_BOOKED_HEADERS = ["shoot booked", "shoot booked date", "booked", "shoot date"];
+// Their personal Studio Day booking link (Dani, 4 Nov: column K, "Booking
+// Link"), so Michelle can send it herself. The same link the funnel emails
+// carry and the contact card shows under the tags.
+const SHEET_BOOKLINK_HEADERS = ["booking link", "booking links", "new starter booking link", "studio day booking link"];
 const SHEET_LINK_HEADERS = ["headshot link", "headshots link", "headshot links", "headshots", "content link", "gallery link", "delivery link", "shoot link", "link"];
 function sheetColAny(headers, names) {
   for (const n of names) { const i = headers.indexOf(n); if (i >= 0) return i; }
@@ -1837,7 +1841,7 @@ async function agentSheetWrite(env, email, fields, pre) {
   const headers = (rows[0] || []).map((h) => String(h || "").trim().toLowerCase());
   const emailCol = headers.indexOf("email");
   if (emailCol < 0) return null;
-  const cols = { booked: sheetColAny(headers, SHEET_BOOKED_HEADERS), link: sheetColAny(headers, SHEET_LINK_HEADERS) };
+  const cols = { booked: sheetColAny(headers, SHEET_BOOKED_HEADERS), link: sheetColAny(headers, SHEET_LINK_HEADERS), bookingLink: sheetColAny(headers, SHEET_BOOKLINK_HEADERS) };
   const want = String(email || "").toLowerCase();
   for (let i = 1; i < rows.length; i++) {
     const val = (rows[i] && rows[i][emailCol]) ? String(rows[i][emailCol]).trim().toLowerCase() : "";
@@ -1863,6 +1867,19 @@ async function agentSheetWrite(env, email, fields, pre) {
 }
 async function agentSheetWriteBooked(env, email, whenText) {
   return agentSheetWrite(env, email, { booked: whenText });
+}
+
+// A new starter's personal booking link, built exactly as the funnel emails
+// and the contact card build it. "" without a code.
+function newStarterBookingLink(env, profile, contact) {
+  if (!profile || !profile.promo_code) return "";
+  const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+  const params = new URLSearchParams({ code: profile.promo_code });
+  const nm = [contact.first_name, contact.last_name].filter(Boolean).join(" ");
+  if (nm) params.set("name", nm);
+  if (contact.email) params.set("email", contact.email);
+  if (profile.induction_month) params.set("month", profile.induction_month);
+  return `${site}/videography/new-starter?${params.toString()}`;
 }
 
 // "Tuesday 8 September 2026, 10:00" from a booking's shoot_date, in UK time.
@@ -1931,6 +1948,7 @@ async function syncAgentSheet(env) {
     headers: headers.filter(Boolean),
     booked: (() => { const i = sheetColAny(headers, SHEET_BOOKED_HEADERS); return i >= 0 ? headers[i] : null; })(),
     link: (() => { const i = sheetColAny(headers, SHEET_LINK_HEADERS); return i >= 0 ? headers[i] : null; })(),
+    booking_link: (() => { const i = sheetColAny(headers, SHEET_BOOKLINK_HEADERS); return i >= 0 ? headers[i] : null; })(),
   };
   let writeError = null;
   // Per-row trace so "added to the sheet but never enrolled" is diagnosable —
@@ -2007,8 +2025,10 @@ async function syncAgentSheet(env) {
       try {
         if (!fields) fields = await agentSheetFieldsFor(env, [email, sec]);
         detail.writeback = { booking: fields._booking || null, stage: fields._stage || null, booked: fields.booked || null, link: fields.link || null, why: fields._why || null };
-        if (fields.booked || fields.link) {
-          const w = await agentSheetWrite(env, email, { booked: fields.booked, link: fields.link }, rows);
+        const bookingLink = newStarterBookingLink(env, res, { first_name: first, last_name: last, email });
+        detail.writeback.booking_link = bookingLink || null;
+        if (fields.booked || fields.link || bookingLink) {
+          const w = await agentSheetWrite(env, email, { booked: fields.booked, link: fields.link, bookingLink }, rows);
           if (w) { detail.writeback.wrote = w.wrote; detail.writeback.missing_columns = w.missing; written += w.wrote.length; }
         }
       } catch (e) { writeError = String((e && e.message) || e).slice(0, 160); detail.writeback = { error: writeError }; }
