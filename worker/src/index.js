@@ -1827,6 +1827,9 @@ function sheetColAny(headers, names) {
 // written, so a re-run costs nothing. Best-effort — needs the sheet shared
 // with EDIT access to the service account. Returns what happened, for the
 // sync summary: { row, wrote: [...], missing: [...] }.
+// "Tuesday 10 November 2026, 10:00", "4th Nov", "04/11/2026": a date, which
+// the sync may correct. Plain words are someone's note and are left alone.
+const SHEET_CELL_IS_DATE = /\b\d{1,2}(st|nd|rd|th)?\s+(of\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|\b\d{1,2}[\/.-]\d{1,2}([\/.-]\d{2,4})?\b/i;
 async function agentSheetWrite(env, email, fields, pre) {
   if (!env.GOOGLE_SHEETS_SA_JSON) return null;
   const rows = pre || await googleSheetRows(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!A2:Z`);
@@ -1845,8 +1848,11 @@ async function agentSheetWrite(env, email, fields, pre) {
       const c = cols[k];
       if (c < 0) { out.missing.push(k); continue; }
       const cur = (rows[i] && rows[i][c]) ? String(rows[i][c]).trim() : "";
-      // A booked date typed by hand stays; a link is corrected if it differs.
-      if (k === "booked" && cur) continue;
+      // A booked cell holding a date follows the booking, so a moved shoot
+      // shows its new date (Dani, 4 Nov: Chris moved from the 4th to the 10th
+      // and the sheet kept the 4th). Anything else typed by hand ("Yes",
+      // "Booked", a note) stays. A link is corrected if it differs.
+      if (k === "booked" && cur && !SHEET_CELL_IS_DATE.test(cur)) continue;
       if (cur === String(v)) continue;
       await googleSheetUpdate(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!${colLetter(c)}${2 + i}`, [[String(v)]]);
       out.wrote.push(k);
@@ -1878,9 +1884,10 @@ async function agentSheetFieldsFor(env, emails) {
   const list = emails.filter(Boolean).map((e) => String(e).toLowerCase().replace(/[(),"]/g, ""));
   if (!list.length) return { _why: "no email" };
   // Case-insensitive: a booking typed by hand may carry capitals the sheet doesn't.
-  const q = `or=(${list.map((e) => `client_email.ilike.${encodeURIComponent(e)}`).join(",")})&order=created_at.desc&limit=1&select=id,shoot_date,stage,archive_url,client_email,created_at`;
+  const q = `or=(${list.map((e) => `client_email.ilike.${encodeURIComponent(e)}`).join(",")})&order=created_at.desc&limit=10&select=id,shoot_date,stage,archive_url,client_email,created_at`;
   const bks = await sbGet(env, "videography_bookings", q);
-  const bk = bks && bks[0];
+  // The newest booking still standing; a cancelled one only if that's all there is.
+  const bk = bks && (bks.find((b) => b.stage !== "cancelled") || bks[0]);
   if (!bk) return { _why: "no booking under " + list.join(" / ") };
   const fields = { _booking: bk.id, _stage: bk.stage, _shoot: bk.shoot_date || null, _created: bk.created_at || null };
   if (bk.shoot_date) fields.booked = sheetWhenText(bk.shoot_date);
@@ -4179,6 +4186,11 @@ async function sendPostEmail(env, { email, item, subject }) {
   } catch (_) { return false; }
 }
 
+// The hour in the UK now (0-23), so a job can say "8am UK" across GMT and BST.
+function ukHourNow() {
+  return parseInt(new Date().toLocaleString("en-GB", { timeZone: "Europe/London", hour: "2-digit", hourCycle: "h23" }), 10);
+}
+
 async function runReminders(env) {
   if (!env.RESEND_API_KEY || !env.SUPABASE_SERVICE_ROLE) return;
   // Fired by both the 07:00 and 08:00 UTC crons; only actually send at 8am UK,
@@ -5875,6 +5887,14 @@ export default {
         ctx.waitUntil(runCommunityTopicDue(env));
         ctx.waitUntil(runZernioIdleCheck(env));
       }
+      // The TEG new-starter sheet, once a day at 8am UK (Dani, 4 Nov): new
+      // rows into the funnel, booked dates and gallery links back to the
+      // sheet, then the Studio Days blocked in Jack's calendar. Both daily
+      // crons call in; only the one that lands on 8am UK runs it (07:00 UTC in
+      // summer time, 08:00 UTC in winter). Bookings and reschedules write
+      // their date to the sheet straight away; Automations' Sync button runs
+      // it on demand.
+      if (ukHourNow() === 8) ctx.waitUntil(syncAgentSheet(env).catch(() => {}).then(() => newStarterEnsureBlocks(env)));
     }
     else {
       ctx.waitUntil(runAutomationsTick(env));
@@ -5882,13 +5902,8 @@ export default {
       ctx.waitUntil(runMemberBroadcasts(env));
       ctx.waitUntil(runContactReviewAlerts(env));
       ctx.waitUntil(pollSmmInbox(env));
-      // Poll the TEG new-starter sheet ~every 15 min (the 5-min tick, gated to
-      // :00/:15/:30/:45) so new Pro/Academy rows enrol into the funnel.
       let mins = 0; try { mins = new Date(event.scheduledTime).getUTCMinutes(); } catch (_) {}
-      // Then keep the new-starter Studio Days blocked in Jack's calendar, the
-      // Wednesday included once the new rows open it.
       if (mins === 0) ctx.waitUntil(runAiCreditCheck(env));
-      if (mins % 15 === 0) ctx.waitUntil(syncAgentSheet(env).catch(() => {}).then(() => newStarterEnsureBlocks(env)));
     }
   },
 
@@ -10137,6 +10152,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         }
         await sbPatch(env, "videography_bookings", `id=eq.${bk.id}`, { shoot_date: `${date}T${start}:00` });
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
+        // A new starter moving their Studio Day: TEG's sheet gets the new date
+        // now, rather than at the next morning's check (Dani, 4 Nov).
+        if (/new-starter/i.test(String(bk.service || ""))) { try { await agentSheetWrite(env, bk.client_email, { booked: `${dateNice}, ${start}` }); } catch (_) {} }
         const rsInvite = shootInvite({ serviceType: bk.service_type, service: bk.service, name: bk.client_name, company: bk.company || bk.client_company, email: bk.client_email, phone: bk.client_phone,
           pkgKey: bk.package, address: bk.property_address, postcode: bk.postcode, totalPence: bk.total_pence, lead: "Rescheduled booking.",
           manageUrl: bk.reschedule_token ? `${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(bk.reschedule_token)}` : null });

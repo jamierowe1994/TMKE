@@ -1,0 +1,882 @@
+<title>TMKE OS Styles</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&family=Darker+Grotesque:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: a style picker strip over a working app frame (sidebar + page).
+   The same markup is drawn three ways; .os[data-dir] swaps the tokens. */
+:root {
+  --wine: #371e28; --wine-hover: #2a1620; --taupe: #7e6765; --stone: #c9bcb7; --linen: #eae5e1;
+  --ink: #2b2226; --muted: #887d77; --paper: #ffffff; --hair: #eae5e1; --wash: #faf8f7;
+  --green: #2d5a3d; --green-l: #eaf3ee; --amber: #7a6230; --amber-l: #f7f2e6;
+  --red: #7a3535; --red-l: #f8f0f0; --blue: #2d3a5a; --blue-l: #eaecf3;
+  --serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --sans: "Darker Grotesque", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--paper); color: var(--ink); }
+body { font-family: var(--sans); font-size: 17px; line-height: 1.35; font-weight: 500; }
+button { font: inherit; color: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--taupe); outline-offset: 2px; }
+
+/* ---------- The picker strip (not part of the app) ---------- */
+.picker {
+  background: var(--ink); color: #f3eeef;
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+}
+.picker-t { font-family: var(--serif); font-weight: 300; font-size: 19px; letter-spacing: -0.01em; }
+.picker-set { display: flex; gap: 6px; flex-wrap: wrap; }
+.picker-set button {
+  background: transparent; border: 1px solid rgba(243,238,239,.28); color: #f3eeef; cursor: pointer;
+  padding: 5px 12px; border-radius: 3px; font-size: 15px; font-weight: 700; letter-spacing: .02em;
+}
+.picker-set button[aria-pressed="true"] { background: #f3eeef; color: var(--ink); border-color: #f3eeef; }
+.picker-note { font-size: 15px; color: rgba(243,238,239,.72); flex: 1 1 260px; min-width: 0; }
+.picker-tag { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--stone); }
+
+/* ---------- Direction tokens ---------- */
+.os {
+  --side-w: 264px;
+  display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); min-height: calc(100vh - 52px);
+  background: var(--page-bg); transition: grid-template-columns .2s ease;
+}
+.os.is-folded { --side-w: 72px; }
+
+/* A · Gallery: quiet luxury. Light linen sidebar, hairlines, large light serif. */
+.os[data-dir="a"] {
+  --page-bg: #ffffff; --side-bg: #f7f4f2; --side-fg: var(--wine); --side-muted: #9a8c86; --side-line: #e6dfdb;
+  --side-hover: rgba(55,30,40,.05); --side-on-bg: transparent; --side-on-fg: var(--wine); --side-on-mark: var(--wine);
+  --search-bg: #ffffff; --search-line: #e6dfdb; --search-fg: #9a8c86;
+  --title: 300 46px/1.02 var(--serif); --title-track: -0.025em; --h2: 400 22px/1.15 var(--serif);
+  --num: 300 40px/1 var(--serif); --radius: 2px; --card-line: var(--hair); --card-shadow: none;
+  --eyebrow-c: var(--taupe);
+}
+/* B · By function: wine sidebar; header cards coloured by what they're for. */
+.os[data-dir="b"] {
+  --page-bg: #ffffff; --side-bg: var(--wine); --side-fg: #f3eeef; --side-muted: rgba(243,238,239,.55); --side-line: rgba(243,238,239,.12);
+  --side-hover: rgba(255,255,255,.07); --side-on-bg: rgba(255,255,255,.1); --side-on-fg: #ffffff; --side-on-mark: var(--stone);
+  --search-bg: rgba(255,255,255,.08); --search-line: rgba(255,255,255,.14); --search-fg: rgba(243,238,239,.7);
+  --title: 400 38px/1.05 var(--serif); --title-track: -0.02em; --h2: 500 19px/1.2 var(--serif);
+  --num: 400 34px/1 var(--serif); --radius: 8px; --card-line: #efe9e6; --card-shadow: 0 1px 3px rgba(43,34,38,.06), 0 0 0 1px rgba(43,34,38,.02);
+  --eyebrow-c: var(--taupe);
+}
+/* C · Clean: the TLE OS cleanliness in TMKE's type. White, bold sans, underline tabs. */
+.os[data-dir="c"] {
+  --page-bg: #ffffff; --side-bg: #ffffff; --side-fg: var(--ink); --side-muted: #a0958f; --side-line: #efebe8;
+  --side-hover: #f6f3f1; --side-on-bg: var(--linen); --side-on-fg: var(--wine); --side-on-mark: transparent;
+  --search-bg: #f6f3f1; --search-line: transparent; --search-fg: #8f847e;
+  --title: 800 34px/1.05 var(--sans); --title-track: -0.01em; --h2: 800 19px/1.2 var(--sans);
+  --num: 800 34px/1 var(--sans); --radius: 10px; --card-line: #ece7e4; --card-shadow: none;
+  --eyebrow-c: var(--muted);
+}
+
+/* ---------- Sidebar ---------- */
+.side {
+  position: sticky; top: 0; height: 100vh; overflow-y: auto; overflow-x: hidden;
+  background: var(--side-bg); color: var(--side-fg); border-right: 1px solid var(--side-line);
+  display: flex; flex-direction: column; padding: 18px 12px 14px; gap: 14px;
+}
+.brand { display: flex; align-items: center; gap: 10px; padding: 2px 6px; min-height: 36px; }
+.brand-mark {
+  width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: var(--radius);
+  font-family: var(--serif); font-size: 18px; font-weight: 400;
+  background: var(--side-fg); color: var(--side-bg);
+}
+.os[data-dir="b"] .brand-mark { background: rgba(255,255,255,.12); color: #fff; }
+.brand-name { font-family: var(--serif); font-weight: 300; font-size: 22px; letter-spacing: .01em; white-space: nowrap; }
+.brand-name b { font-family: var(--sans); font-weight: 800; font-size: 12px; letter-spacing: .22em; margin-left: 6px; vertical-align: 3px; color: var(--side-muted); }
+.os[data-dir="c"] .brand-name { font-family: var(--sans); font-weight: 800; font-size: 21px; letter-spacing: 0; }
+.fold {
+  margin-left: auto; width: 28px; height: 28px; border-radius: 6px; border: 0; background: transparent; cursor: pointer;
+  color: var(--side-muted); display: grid; place-items: center; flex: none;
+}
+.fold:hover { background: var(--side-hover); color: var(--side-fg); }
+.fold svg { width: 16px; height: 16px; transition: transform .2s; }
+.is-folded .fold svg { transform: rotate(180deg); }
+
+.search-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%; cursor: pointer; text-align: left;
+  background: var(--search-bg); border: 1px solid var(--search-line); color: var(--search-fg);
+  border-radius: var(--radius); padding: 9px 10px; font-size: 16px; font-weight: 600;
+}
+.search-btn svg { width: 17px; height: 17px; flex: none; }
+.search-btn kbd { margin-left: auto; font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: .06em; opacity: .75; border: 1px solid currentColor; border-radius: 4px; padding: 0 5px; }
+
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.grp-h {
+  display: flex; align-items: center; gap: 11px; width: 100%; border: 0; background: transparent; cursor: pointer;
+  padding: 8px 10px; border-radius: var(--radius); color: var(--side-fg); font-size: 16.5px; font-weight: 700; text-align: left;
+}
+.grp-h:hover { background: var(--side-hover); }
+.grp-h svg.ico { width: 19px; height: 19px; flex: none; stroke-width: 1.6; }
+.grp-h .chev { width: 14px; height: 14px; margin-left: auto; opacity: .55; transition: transform .2s; }
+.grp.is-open .chev { transform: rotate(90deg); }
+.grp-items { display: none; flex-direction: column; gap: 1px; padding: 2px 0 6px 30px; }
+.grp.is-open .grp-items { display: flex; }
+.lnk {
+  display: flex; align-items: center; gap: 8px; text-decoration: none; padding: 6px 10px; border-radius: var(--radius);
+  color: var(--side-fg); opacity: .8; font-size: 16px; font-weight: 600; border-left: 2px solid transparent;
+}
+.lnk:hover { opacity: 1; background: var(--side-hover); }
+.lnk.is-on { opacity: 1; background: var(--side-on-bg); color: var(--side-on-fg); font-weight: 800; border-left-color: var(--side-on-mark); }
+.os[data-dir="a"] .lnk.is-on { border-left-color: var(--wine); border-radius: 0; }
+.lnk .n { margin-left: auto; font-size: 12px; font-weight: 800; padding: 0 7px; border-radius: 999px; background: var(--stone); color: var(--wine); }
+.os[data-dir="c"] .lnk .n { background: var(--wine); color: #fff; }
+.grp-solo { padding-left: 10px; }
+.side-foot { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 6px 0; border-top: 1px solid var(--side-line); }
+.avatar { width: 32px; height: 32px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 800; font-size: 14px; background: var(--stone); color: var(--wine); }
+.who { font-size: 15px; font-weight: 700; white-space: nowrap; }
+.who small { display: block; font-size: 13px; font-weight: 600; color: var(--side-muted); }
+
+/* Folded: icons only. */
+.is-folded .side { padding-inline: 10px; }
+.is-folded .brand-name, .is-folded .search-btn span, .is-folded .search-btn kbd, .is-folded .grp-h span,
+.is-folded .grp-h .chev, .is-folded .grp-items, .is-folded .who { display: none !important; }
+.is-folded .brand { flex-direction: column; gap: 8px; padding: 0; }
+.is-folded .fold { margin: 0; }
+.is-folded .search-btn, .is-folded .grp-h { justify-content: center; padding-inline: 0; }
+.is-folded .side-foot { justify-content: center; padding-inline: 0; }
+
+/* ---------- Main column ---------- */
+.main { min-width: 0; display: flex; flex-direction: column; }
+.top {
+  display: flex; align-items: center; gap: 12px; min-height: 58px; border-bottom: 1px solid var(--hair);
+  padding-block: 10px; padding-left: max(16px, 3.2vw); padding-right: max(16px, 3.2vw);
+}
+.burger { display: none; border: 0; background: transparent; cursor: pointer; padding: 4px; }
+.burger svg { width: 22px; height: 22px; }
+.crumbs { font-size: 15px; font-weight: 600; color: var(--muted); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crumbs b { color: var(--ink); font-weight: 800; }
+.top-acts { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.icon-btn { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--hair); background: var(--paper); border-radius: var(--radius); cursor: pointer; position: relative; color: var(--ink); }
+.icon-btn svg { width: 18px; height: 18px; }
+.icon-btn .dot { position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--wine); }
+
+.page { padding-block: 30px 60px; padding-left: max(16px, 3.2vw); padding-right: max(16px, 3.2vw); display: flex; flex-direction: column; gap: 26px; max-width: 1360px; width: 100%; }
+.view[hidden] { display: none !important; }
+
+/* Type */
+.eyebrow { font-size: 13px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--eyebrow-c); }
+h1.t { margin: 0; font: var(--title); letter-spacing: var(--title-track); color: var(--wine); text-wrap: balance; }
+.os[data-dir="c"] h1.t { color: var(--ink); }
+.sub { margin: 0; font-size: 19px; font-weight: 500; color: var(--muted); max-width: 62ch; }
+h2.h { margin: 0; font: var(--h2); color: var(--ink); letter-spacing: -0.005em; }
+.serif-i { font-family: var(--serif); font-style: italic; font-weight: 300; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 7px; border-radius: var(--radius); cursor: pointer; padding: 9px 16px; font-size: 14px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; line-height: 1; border: 1px solid transparent; white-space: nowrap; text-decoration: none; }
+.btn svg { width: 15px; height: 15px; }
+.btn-p { background: var(--wine); color: #fff; }
+.btn-p:hover { background: var(--wine-hover); }
+.btn-o { background: var(--paper); color: var(--wine); border-color: var(--stone); }
+.btn-o:hover { border-color: var(--wine); }
+.os[data-dir="c"] .btn { text-transform: none; letter-spacing: 0; font-size: 16px; padding: 9px 15px; }
+
+/* Cards */
+.card { background: var(--paper); border: 1px solid var(--card-line); border-radius: var(--radius); box-shadow: var(--card-shadow); min-width: 0; }
+.card-h { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--card-line); }
+.card-h .more { margin-left: auto; font-size: 15px; font-weight: 700; color: var(--taupe); text-decoration: none; white-space: nowrap; }
+.card-b { padding: 16px 20px; }
+.os[data-dir="a"] .card { border: 0; border-top: 1px solid var(--ink); border-radius: 0; }
+.os[data-dir="a"] .card-h { padding: 14px 0 12px; border-bottom-color: var(--hair); }
+.os[data-dir="a"] .card-b { padding: 14px 0; }
+/* B: the head says what the card is for. Money wine, clients stone, people linen, member hub taupe. */
+.os[data-dir="b"] .card-h { border-radius: var(--radius) var(--radius) 0 0; border-bottom: 0; }
+.os[data-dir="b"] [data-fn="money"] > .card-h { background: var(--wine); }
+.os[data-dir="b"] [data-fn="money"] > .card-h .h, .os[data-dir="b"] [data-fn="money"] > .card-h .more { color: #f3eeef; }
+.os[data-dir="b"] [data-fn="hub"] > .card-h { background: var(--taupe); }
+.os[data-dir="b"] [data-fn="hub"] > .card-h .h, .os[data-dir="b"] [data-fn="hub"] > .card-h .more { color: #fff; }
+.os[data-dir="b"] [data-fn="clients"] > .card-h { background: var(--stone); }
+.os[data-dir="b"] [data-fn="clients"] > .card-h .h, .os[data-dir="b"] [data-fn="clients"] > .card-h .more { color: var(--wine); }
+.os[data-dir="b"] [data-fn="people"] > .card-h { background: var(--linen); }
+.os[data-dir="b"] [data-fn="people"] > .card-h .h, .os[data-dir="b"] [data-fn="people"] > .card-h .more { color: var(--wine); }
+.fn-key { display: none; }
+.os[data-dir="b"] .fn-key { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.fn-key i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* Status chips (semantic, separate from the brand palette) */
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; letter-spacing: .03em; padding: 3px 9px; border-radius: 3px; white-space: nowrap; line-height: 1.2; }
+.chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.os[data-dir="c"] .chip { border-radius: 999px; }
+.c-paid { background: var(--green-l); color: var(--green); }
+.c-sent { background: var(--blue-l); color: var(--blue); }
+.c-approve { background: var(--amber-l); color: var(--amber); }
+.c-over { background: var(--red-l); color: var(--red); }
+.c-draft { background: #f3f0ee; color: #6f6560; }
+.c-wine { background: #f3eeef; color: var(--wine); }
+
+/* ---------- Home ---------- */
+.hero { display: flex; flex-direction: column; gap: 10px; }
+.hero-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; justify-content: space-between; }
+.os[data-dir="a"] .hero { padding-bottom: 26px; border-bottom: 1px solid var(--hair); }
+.os[data-dir="b"] .hero { background: var(--wine); color: #f3eeef; border-radius: var(--radius); padding: 30px 32px; position: relative; overflow: hidden; }
+.os[data-dir="b"] .hero::after { content: ""; position: absolute; right: -60px; top: -80px; width: 320px; height: 320px; border-radius: 50%; border: 1px solid rgba(201,188,183,.22); box-shadow: 0 0 0 40px rgba(201,188,183,.04), 0 0 0 90px rgba(201,188,183,.03); pointer-events: none; }
+.os[data-dir="b"] .hero h1.t { color: #fff; }
+.os[data-dir="b"] .hero .sub { color: rgba(243,238,239,.78); }
+.os[data-dir="b"] .hero .eyebrow { color: var(--stone); }
+.os[data-dir="b"] .hero .btn-o { background: transparent; color: #fff; border-color: rgba(255,255,255,.35); }
+.os[data-dir="b"] .hero .btn-p { background: var(--stone); color: var(--wine); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+.stat { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px; border: 1px solid var(--card-line); border-radius: var(--radius); background: var(--paper); box-shadow: var(--card-shadow); min-width: 0; }
+.stat .lab { font-size: 13px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); }
+.stat .val { font: var(--num); color: var(--wine); font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.02em; }
+.os[data-dir="c"] .stat .val { color: var(--ink); }
+.stat .note { font-size: 15px; font-weight: 600; color: var(--muted); }
+.stat .note b { color: var(--ink); }
+.os[data-dir="a"] .stats { gap: 0; }
+.os[data-dir="a"] .stat { border: 0; border-left: 1px solid var(--hair); border-radius: 0; padding: 4px 24px; }
+.os[data-dir="a"] .stat:first-child { border-left: 0; padding-left: 0; }
+.os[data-dir="c"] .stat { background: var(--wash); border-color: transparent; }
+
+.cols { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+.stack { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--hair); }
+.row:first-child { border-top: 0; }
+.row .tag { font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--taupe); width: 78px; }
+.row .what { min-width: 0; }
+.row .what b { display: block; font-weight: 700; font-size: 17px; }
+.row .what span { display: block; font-size: 15px; color: var(--muted); font-weight: 500; }
+.row .go { font-size: 15px; font-weight: 800; color: var(--wine); text-decoration: none; white-space: nowrap; }
+.os[data-dir="b"] .row .tag { width: auto; padding: 3px 8px; border-radius: 4px; letter-spacing: .08em; }
+.os[data-dir="b"] .row .tag[data-fn="money"] { background: var(--wine); color: #fff; }
+.os[data-dir="b"] .row .tag[data-fn="clients"] { background: var(--stone); color: var(--wine); }
+.os[data-dir="b"] .row .tag[data-fn="people"] { background: var(--linen); color: var(--wine); }
+.os[data-dir="b"] .row .tag[data-fn="hub"] { background: var(--taupe); color: #fff; }
+
+.shoot { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 11px 0; border-top: 1px solid var(--hair); }
+.shoot:first-child { border-top: 0; }
+.date { text-align: center; border: 1px solid var(--hair); border-radius: var(--radius); padding: 5px 0 6px; }
+.date small { display: block; font-size: 11px; font-weight: 800; letter-spacing: .14em; color: var(--taupe); }
+.date b { display: block; font: 400 24px/1 var(--serif); color: var(--wine); }
+.os[data-dir="c"] .date b { font: 800 22px/1 var(--sans); color: var(--ink); }
+.shoot .what b { font-weight: 700; display: block; }
+.shoot .what span { font-size: 15px; color: var(--muted); display: block; }
+
+.month-job { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-top: 1px solid var(--hair); }
+.month-job:first-child { border-top: 0; padding-top: 0; }
+.month-job .line { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.month-job b { font-weight: 700; }
+.month-job span { font-size: 15px; color: var(--muted); }
+.bar { height: 6px; background: var(--linen); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--wine); border-radius: 3px; }
+
+/* ---------- Invoices ---------- */
+.ph { display: flex; flex-wrap: wrap; gap: 16px 24px; justify-content: space-between; align-items: flex-end; }
+.ph-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.money { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+.os[data-dir="b"] .money .stat:first-child { background: var(--wine); border-color: var(--wine); }
+.os[data-dir="b"] .money .stat:first-child .val { color: #fff; }
+.os[data-dir="b"] .money .stat:first-child .lab, .os[data-dir="b"] .money .stat:first-child .note { color: rgba(243,238,239,.75); }
+.os[data-dir="b"] .money .stat:first-child .note b { color: #fff; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.fbar { display: flex; flex-wrap: wrap; gap: 6px; }
+.fbar button { cursor: pointer; border: 1px solid var(--hair); background: var(--paper); border-radius: 4px; padding: 6px 12px; font-size: 15px; font-weight: 700; color: var(--ink); display: inline-flex; gap: 7px; align-items: center; }
+.fbar button em { font-style: normal; font-size: 13px; font-weight: 800; color: var(--muted); }
+.fbar button[aria-pressed="true"] { background: var(--wine); border-color: var(--wine); color: #fff; }
+.fbar button[aria-pressed="true"] em { color: var(--stone); }
+.os[data-dir="c"] .fbar { gap: 0; border-bottom: 1px solid var(--hair); }
+.os[data-dir="c"] .fbar button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 12px; background: transparent; }
+.os[data-dir="c"] .fbar button[aria-pressed="true"] { background: transparent; color: var(--wine); border-bottom-color: var(--wine); }
+.os[data-dir="c"] .fbar button[aria-pressed="true"] em { color: var(--wine); }
+.find { margin-left: auto; display: flex; align-items: center; gap: 8px; border: 1px solid var(--hair); border-radius: var(--radius); padding: 7px 11px; min-width: 0; flex: 0 1 300px; background: var(--paper); }
+.find svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+.find input { border: 0; outline: 0; font: inherit; font-size: 16px; width: 100%; min-width: 0; background: transparent; color: var(--ink); }
+
+.tbl-wrap { overflow-x: auto; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 16px; min-width: 720px; }
+.tbl th { text-align: left; font-size: 12px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--hair); white-space: nowrap; }
+.tbl td { padding: 12px 14px; border-bottom: 1px solid var(--hair); white-space: nowrap; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl tbody tr { cursor: pointer; }
+.tbl tbody tr:hover td { background: var(--wash); }
+.tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+.tbl .inv { font-weight: 800; color: var(--wine); }
+.tbl .cl b { font-weight: 700; display: block; }
+.tbl .cl span { font-size: 14px; color: var(--muted); }
+.os[data-dir="a"] .tbl th { color: var(--taupe); border-bottom-color: var(--ink); }
+.os[data-dir="a"] .tbl-card { border: 0; border-radius: 0; }
+.os[data-dir="a"] .tbl td:first-child, .os[data-dir="a"] .tbl th:first-child { padding-left: 0; }
+.empty-line { padding: 12px 14px; font-size: 15px; color: var(--muted); }
+
+/* ---------- Client card (TLE OS property-page model) ---------- */
+.steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; }
+.step { position: relative; padding-top: 18px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.step::before { content: ""; position: absolute; top: 5px; left: 0; right: 0; height: 2px; background: var(--hair); }
+.step::after { content: ""; position: absolute; top: 0; left: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--paper); border: 2px solid var(--stone); }
+.step.done { color: var(--ink); }
+.step.done::before { background: var(--wine); }
+.step.done::after { background: var(--wine); border-color: var(--wine); }
+.step.now { color: var(--wine); font-weight: 800; }
+.step.now::before { background: linear-gradient(90deg, var(--wine) 0 50%, var(--hair) 50%); }
+.step.now::after { border-color: var(--wine); box-shadow: 0 0 0 4px #f3eeef; }
+.step small { display: block; font-weight: 600; color: var(--muted); font-size: 13px; }
+
+.cc-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; align-items: flex-start; }
+.cc-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.cc-sub { margin: 6px 0 0; font-family: var(--serif); font-style: italic; font-weight: 300; font-size: 22px; color: var(--taupe); }
+.os[data-dir="c"] .cc-sub { font-size: 20px; }
+.cc-top { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 22px; }
+.frame {
+  position: relative; border-radius: var(--radius); overflow: hidden; min-height: 300px; aspect-ratio: 16 / 9; max-width: 100%;
+  background:
+    radial-gradient(120% 90% at 78% 18%, rgba(234,229,225,.55), transparent 55%),
+    radial-gradient(90% 70% at 15% 95%, rgba(55,30,40,.85), transparent 60%),
+    linear-gradient(160deg, #a49189 0%, #7e6765 42%, #4d3540 100%);
+  color: #fff; display: flex; flex-direction: column; justify-content: flex-end; padding: 22px;
+}
+.frame .play { position: absolute; inset: 0; margin: auto; width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.5); display: grid; place-items: center; }
+.frame .play svg { width: 22px; height: 22px; margin-left: 3px; }
+.frame .cap { font-size: 13px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; opacity: .85; }
+.frame .ttl { font-family: var(--serif); font-weight: 300; font-size: 26px; }
+.frame .mock-note { position: absolute; top: 14px; right: 14px; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; background: rgba(0,0,0,.25); padding: 3px 8px; border-radius: 3px; }
+.dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0; margin: 0; }
+.dl dt, .dl dd { padding: 10px 0; border-top: 1px solid var(--hair); margin: 0; }
+.dl dt:first-of-type, .dl dd:first-of-type { border-top: 0; }
+.dl dt { font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding-right: 18px; white-space: nowrap; }
+.dl dd { font-weight: 600; text-align: right; }
+.dl dd small { display: block; font-size: 14px; color: var(--muted); font-weight: 500; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hair); overflow-x: auto; }
+.tabs button { border: 0; background: transparent; cursor: pointer; padding: 10px 14px; font-size: 16px; font-weight: 700; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs button[aria-selected="true"] { color: var(--wine); border-bottom-color: var(--wine); font-weight: 800; }
+.os[data-dir="a"] .tabs button { font-family: var(--serif); font-weight: 400; font-size: 18px; }
+.os[data-dir="a"] .tabs button[aria-selected="true"] { font-weight: 400; }
+.cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 22px; }
+.check { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.check li { display: flex; gap: 10px; align-items: baseline; font-weight: 600; }
+.check li::before { content: ""; width: 14px; height: 14px; flex: none; border: 1.5px solid var(--stone); border-radius: 3px; transform: translateY(2px); }
+.check li.ok::before { background: var(--wine); border-color: var(--wine); box-shadow: inset 0 0 0 2px var(--paper); }
+.check li span { margin-left: auto; font-size: 14px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.kv { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; font-size: 16px; }
+.kv span { color: var(--muted); font-weight: 600; }
+.kv b { font-weight: 700; text-align: right; }
+.pass { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 15px; letter-spacing: .08em; }
+
+/* ---------- Search palette ---------- */
+.pal-scrim { position: fixed; inset: 0; background: rgba(43,34,38,.38); z-index: 40; display: flex; align-items: flex-start; justify-content: center; padding: max(70px, 10vh) 16px 16px; }
+.pal { width: min(640px, 100%); background: #fff; border-radius: 10px; box-shadow: 0 24px 60px rgba(43,34,38,.28); overflow: hidden; display: flex; flex-direction: column; max-height: 76vh; }
+.pal-in { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--hair); }
+.pal-in svg { width: 20px; height: 20px; color: var(--taupe); flex: none; }
+.pal-in input { flex: 1; min-width: 0; border: 0; outline: 0; font: 600 19px var(--sans); color: var(--ink); background: transparent; }
+.pal-in kbd { font: 800 12px var(--sans); color: var(--muted); border: 1px solid var(--hair); border-radius: 4px; padding: 1px 6px; }
+.pal-list { overflow-y: auto; padding: 6px; }
+.pal-sec { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 10px 12px 4px; }
+.pal-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 9px 12px; border-radius: 6px; cursor: pointer; }
+.pal-item.is-on { background: #f3eeef; }
+.pal-item .p-name { font-weight: 800; color: var(--ink); }
+.pal-item .p-path { font-size: 14px; color: var(--taupe); font-weight: 700; white-space: nowrap; align-self: center; }
+.pal-item .p-job { grid-column: 1 / -1; font-size: 15px; color: var(--muted); font-weight: 500; }
+.pal-item mark { background: transparent; color: var(--wine); text-decoration: underline; text-decoration-color: var(--stone); text-underline-offset: 3px; }
+.pal-ask { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 6px; cursor: pointer; }
+.pal-ask.is-on { background: #f3eeef; }
+.pal-ask .spark { width: 26px; height: 26px; border-radius: 6px; background: var(--wine); color: #fff; display: grid; place-items: center; flex: none; }
+.pal-ask .spark svg { width: 15px; height: 15px; }
+.pal-ask b { font-weight: 800; display: block; }
+.pal-ask span { font-size: 15px; color: var(--muted); }
+.pal-foot { border-top: 1px solid var(--hair); padding: 9px 16px; font-size: 14px; color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap; }
+.pal-foot kbd { font: 800 11px var(--sans); border: 1px solid var(--hair); border-radius: 3px; padding: 0 4px; margin-right: 3px; }
+.pal-answer { margin: 4px 6px 8px; padding: 12px 14px; background: var(--wash); border-left: 2px solid var(--wine); font-size: 16px; }
+
+.toast { position: fixed; left: 50%; bottom: max(22px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 6px; font-weight: 700; font-size: 15px; z-index: 50; max-width: calc(100% - 32px); }
+
+/* ---------- Narrow screens ---------- */
+@media (max-width: 900px) {
+  .os, .os.is-folded { grid-template-columns: minmax(0, 1fr); }
+  .side { position: fixed; z-index: 30; left: 0; top: 0; width: 280px; transform: translateX(-100%); transition: transform .2s; box-shadow: 0 0 40px rgba(0,0,0,.2); padding-left: max(12px, env(safe-area-inset-left, 0px)); }
+  .os.is-drawer .side { transform: none; }
+  .fold { display: none; }
+  .burger { display: grid; }
+  .cols, .cc-top { grid-template-columns: minmax(0, 1fr); }
+  .os[data-dir="a"] .stat { border-left: 0; padding: 10px 0; border-top: 1px solid var(--hair); }
+  .os[data-dir="a"] .stat:first-child { border-top: 0; }
+}
+@media (max-width: 560px) {
+  h1.t { font-size: 32px; }
+  .steps { grid-template-columns: repeat(5, minmax(56px, 1fr)); overflow-x: auto; }
+  .find { flex-basis: 100%; margin-left: 0; }
+  .frame { min-height: 200px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="picker" role="region" aria-label="Style picker">
+  <span class="picker-t">Three looks for TMKE OS</span>
+  <div class="picker-set" id="dirs">
+    <button type="button" data-dir="a" aria-pressed="true">A · Gallery</button>
+    <button type="button" data-dir="b" aria-pressed="false">B · By function</button>
+    <button type="button" data-dir="c" aria-pressed="false">C · Clean</button>
+  </div>
+  <span class="picker-note" id="dir-note"></span>
+  <span class="picker-tag">Example data</span>
+</div>
+
+<div class="os" id="os" data-dir="a">
+  <aside class="side" id="side" aria-label="TMKE OS navigation">
+    <div class="brand">
+      <span class="brand-mark">T</span>
+      <span class="brand-name">TMKE<b>OS</b></span>
+      <button type="button" class="fold" id="fold" aria-label="Fold the sidebar" title="Fold the sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+    </div>
+    <button type="button" class="search-btn" id="open-search" aria-label="Search or ask">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <span>Search or ask…</span><kbd>⌘K</kbd>
+    </button>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <span class="avatar">D</span>
+      <span class="who">Danielle<small>Admin</small></span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <button type="button" class="burger" id="burger" aria-label="Open the menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+      <div class="crumbs" id="crumbs"></div>
+      <div class="top-acts">
+        <button type="button" class="icon-btn" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot"></span></button>
+      </div>
+    </header>
+
+    <main class="page">
+      <!-- ================= HOME ================= -->
+      <section class="view" id="v-home" data-crumb="<b>Home</b>">
+        <div class="hero">
+          <span class="eyebrow">Wednesday 4 November</span>
+          <div class="hero-row">
+            <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+              <h1 class="t">Good afternoon, Danielle</h1>
+              <p class="sub">Six things need you today: three invoices to approve, two films to deliver and the December trends to write.</p>
+            </div>
+            <div class="ph-acts">
+              <button type="button" class="btn btn-o" data-search-open>Find something</button>
+              <button type="button" class="btn btn-p" data-go="invoices">Approve invoices</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><span class="lab">Paid in November</span><span class="val">£18,420</span><span class="note"><b>+12%</b> on October so far</span></div>
+          <div class="stat"><span class="lab">To approve</span><span class="val">3</span><span class="note">invoices · <b>£4,860</b></span></div>
+          <div class="stat"><span class="lab">Shoots this week</span><span class="val">4</span><span class="note">next: <b>Thu 10:00</b>, Penarth</span></div>
+          <div class="stat"><span class="lab">New enquiries</span><span class="val">5</span><span class="note"><b>2</b> not yet replied to</span></div>
+        </div>
+
+        <div class="fn-key" aria-label="Colour key">
+          <span><i style="background:var(--wine)"></i>Money</span>
+          <span><i style="background:var(--stone)"></i>Clients</span>
+          <span><i style="background:var(--linen);box-shadow:inset 0 0 0 1px var(--stone)"></i>People</span>
+          <span><i style="background:var(--taupe)"></i>Member hub</span>
+        </div>
+
+        <div class="cols">
+          <div class="stack">
+            <div class="card" data-fn="money">
+              <div class="card-h"><h2 class="h">Needs you</h2><a class="more" href="#" data-go="invoices">See all</a></div>
+              <div class="card-b">
+                <ul class="rows">
+                  <li class="row"><span class="tag" data-fn="money">Money</span><span class="what"><b>Approve INV-1042, Harbourside Estates</b><span>£1,450 · Spring listings film · sent for approval by Abbie</span></span><a class="go" href="#" data-go="invoices">Approve</a></li>
+                  <li class="row"><span class="tag" data-fn="money">Money</span><span class="what"><b>Approve two October social invoices</b><span>Marlow &amp; Finch, Oakridge Lettings · £3,410</span></span><a class="go" href="#" data-go="invoices">Approve</a></li>
+                  <li class="row"><span class="tag" data-fn="clients">Clients</span><span class="what"><b>Deliver Harbourside's four films</b><span>Captions done · portal folder ready</span></span><a class="go" href="#" data-go="client">Open</a></li>
+                  <li class="row"><span class="tag" data-fn="clients">Clients</span><span class="what"><b>Kestrel Homes, final cut</b><span>Edited by Jack · waiting on your review</span></span><a class="go" href="#" data-go="client">Open</a></li>
+                  <li class="row"><span class="tag" data-fn="people">People</span><span class="what"><b>Reply to two enquiries</b><span>Website form · Monday and Tuesday</span></span><a class="go" href="#" data-stub>Open</a></li>
+                  <li class="row"><span class="tag" data-fn="hub">Member hub</span><span class="what"><b>Write December's trends</b><span>Five topics for the monthly carousel · due 25 Nov</span></span><a class="go" href="#" data-stub>Start</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="stack">
+            <div class="card" data-fn="clients">
+              <div class="card-h"><h2 class="h">This week's shoots</h2><a class="more" href="#" data-go="client">Videography</a></div>
+              <div class="card-b">
+                <div class="shoot"><span class="date"><small>THU</small><b>5</b></span><span class="what"><b>Harbourside Estates</b><span>Penarth Marina · Jack</span></span><span class="chip c-wine">10:00</span></div>
+                <div class="shoot"><span class="date"><small>FRI</small><b>6</b></span><span class="what"><b>Ivy Lane Estates</b><span>Studio Day · Jack &amp; Abbie</span></span><span class="chip c-wine">09:30</span></div>
+                <div class="shoot"><span class="date"><small>MON</small><b>9</b></span><span class="what"><b>Bramwell Property</b><span>Llandaff · Jack</span></span><span class="chip c-wine">13:00</span></div>
+                <div class="shoot"><span class="date"><small>TUE</small><b>10</b></span><span class="what"><b>Kestrel Homes</b><span>Cowbridge · Abbie</span></span><span class="chip c-wine">11:00</span></div>
+              </div>
+            </div>
+            <div class="card" data-fn="hub">
+              <div class="card-h"><h2 class="h">Monthly member content</h2><a class="more" href="#" data-stub>Open</a></div>
+              <div class="card-b">
+                <div class="month-job"><div class="line"><b>December trends</b><span>2 of 5 topics</span></div><div class="bar"><i style="width:40%"></i></div><span>The five-topic carousel members see as "See what's working"</span></div>
+                <div class="month-job"><div class="line"><b>December prompts</b><span>12 of 31 days</span></div><div class="bar"><i style="width:39%"></i></div><span>A post idea for each day of the month</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= INVOICES ================= -->
+      <section class="view" id="v-invoices" data-crumb="Money › <b>Invoices</b>" hidden>
+        <div class="ph">
+          <div style="display:flex;flex-direction:column;gap:8px;min-width:0">
+            <span class="eyebrow">Money · November 2026</span>
+            <h1 class="t">Invoices</h1>
+          </div>
+          <div class="ph-acts">
+            <button type="button" class="btn btn-o" data-stub>Month end</button>
+            <button type="button" class="btn btn-p" data-stub><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>New invoice</button>
+          </div>
+        </div>
+
+        <div class="money">
+          <div class="stat"><span class="lab">Invoiced in November</span><span class="val">£24,310</span><span class="note"><b>42</b> invoices</span></div>
+          <div class="stat"><span class="lab">Paid</span><span class="val">£18,420</span><span class="note"><b>26</b> invoices</span></div>
+          <div class="stat"><span class="lab">Waiting</span><span class="val">£4,320</span><span class="note"><b>11</b> sent, not yet due</span></div>
+          <div class="stat"><span class="lab">Overdue</span><span class="val">£1,570</span><span class="note"><b>2</b> past their due date</span></div>
+        </div>
+
+        <div class="toolbar">
+          <div class="fbar" id="inv-filter" role="group" aria-label="Show invoices">
+            <button type="button" aria-pressed="true" data-f="all">All <em>42</em></button>
+            <button type="button" aria-pressed="false" data-f="approve">To approve <em>3</em></button>
+            <button type="button" aria-pressed="false" data-f="sent">Sent <em>11</em></button>
+            <button type="button" aria-pressed="false" data-f="over">Overdue <em>2</em></button>
+            <button type="button" aria-pressed="false" data-f="paid">Paid <em>26</em></button>
+          </div>
+          <label class="find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="inv-find" type="search" placeholder="Client, invoice number or month"></label>
+        </div>
+
+        <div class="card tbl-card">
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Invoice</th><th>Client</th><th>For</th><th>Status</th><th>Due</th><th class="num">Amount</th></tr></thead>
+              <tbody id="inv-rows"></tbody>
+            </table>
+            <div class="empty-line" id="inv-empty" hidden>No invoices match that.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= CLIENT CARD ================= -->
+      <section class="view" id="v-client" data-crumb="Clients › Videography › <b>Harbourside Estates</b>" hidden>
+        <div class="cc-head">
+          <div style="min-width:0">
+            <div class="cc-chips"><span class="chip c-approve">Editing</span><span class="chip c-wine">Shot &amp; Scheduled</span><span class="chip c-draft">Fine &amp; Country captions</span></div>
+            <h1 class="t">Harbourside Estates</h1>
+            <p class="cc-sub">Spring listings · four films from one shoot</p>
+          </div>
+          <div class="ph-acts">
+            <button type="button" class="btn btn-o" data-stub>Message</button>
+            <button type="button" class="btn btn-o" data-stub>Open portal</button>
+            <button type="button" class="btn btn-p" data-stub>Mark delivered</button>
+          </div>
+        </div>
+
+        <div class="steps" aria-label="Where this shoot is">
+          <div class="step done">Booked<small>21 Oct</small></div>
+          <div class="step done">Filmed<small>29 Oct</small></div>
+          <div class="step now">Editing<small>3 of 4 films</small></div>
+          <div class="step">Delivered<small>due 7 Nov</small></div>
+          <div class="step">Invoiced<small>INV-1042</small></div>
+        </div>
+
+        <div class="cc-top">
+          <div class="frame">
+            <span class="mock-note">Cover frame</span>
+            <span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg></span>
+            <span class="cap">Film 1 of 4 · 0:46</span>
+            <span class="ttl">The Marina penthouse</span>
+          </div>
+          <div class="card">
+            <div class="card-h"><h2 class="h">The shoot</h2></div>
+            <div class="card-b">
+              <dl class="dl">
+                <dt>Filmed</dt><dd>Thu 29 Oct, 10:00</dd>
+                <dt>Where</dt><dd>Penarth Marina<small>CF64 · 26 miles each way</small></dd>
+                <dt>Filmed by</dt><dd>Jack</dd>
+                <dt>Edited by</dt><dd>Abbie</dd>
+                <dt>Package</dt><dd>Shot &amp; Scheduled<small>4 films, fancy captions</small></dd>
+                <dt>Contact</dt><dd>Sarah Lewin<small>Branch manager</small></dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs" role="tablist" id="cc-tabs">
+          <button type="button" role="tab" aria-selected="true">Overview</button>
+          <button type="button" role="tab" aria-selected="false">Films</button>
+          <button type="button" role="tab" aria-selected="false">Delivery</button>
+          <button type="button" role="tab" aria-selected="false">Files</button>
+          <button type="button" role="tab" aria-selected="false">Invoice</button>
+          <button type="button" role="tab" aria-selected="false">Notes</button>
+        </div>
+
+        <div class="cgrid">
+          <div class="card" data-fn="clients">
+            <div class="card-h"><h2 class="h">Films</h2><a class="more" href="#" data-stub>Edit</a></div>
+            <div class="card-b">
+              <ul class="check">
+                <li class="ok">The Marina penthouse<span>0:46</span></li>
+                <li class="ok">Meet the team<span>0:58</span></li>
+                <li class="ok">Why Penarth<span>0:39</span></li>
+                <li>Market update, November<span>editing</span></li>
+              </ul>
+            </div>
+          </div>
+          <div class="card" data-fn="clients">
+            <div class="card-h"><h2 class="h">Client portal</h2><a class="more" href="#" data-stub>Copy link</a></div>
+            <div class="card-b">
+              <div class="kv"><span>Link</span><b>tmke.co.uk/c/harbourside</b></div>
+              <div class="kv"><span>Passcode</span><b class="pass">MARINA-24</b></div>
+              <div class="kv"><span>Folders shown</span><b>Spring films, Stills</b></div>
+              <div class="kv"><span>Last opened</span><b>not yet</b></div>
+            </div>
+          </div>
+          <div class="card" data-fn="money">
+            <div class="card-h"><h2 class="h">Invoice</h2><a class="more" href="#" data-go="invoices">Open</a></div>
+            <div class="card-b">
+              <div class="kv"><span>INV-1042</span><b><span class="chip c-approve">To approve</span></b></div>
+              <div class="kv"><span>Package</span><b>£1,400.00</b></div>
+              <div class="kv"><span>Travel (12 miles over)</span><b>£50.00</b></div>
+              <div class="kv"><span>Total</span><b>£1,450.00</b></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="pal-scrim" id="pal" hidden>
+  <div class="pal" role="dialog" aria-modal="true" aria-label="Search TMKE OS">
+    <div class="pal-in">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="pal-q" type="text" placeholder="Where do I…  (try “monthly content ideas”)" autocomplete="off">
+      <kbd>esc</kbd>
+    </div>
+    <div class="pal-list" id="pal-list"></div>
+    <div class="pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd>choose</span><span><kbd>↵</kbd>go</span><span>Matches by everyday words first; Claude helps when nothing clear comes up.</span></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const store = { get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} } };
+
+  const ICON = {
+    home: '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>',
+    money: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
+    studio: '<path d="M12 19l7-7a2.8 2.8 0 0 0-4-4l-7 7-1 5z"/><path d="M14 6l4 4"/>',
+    clients: '<path d="m23 7-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/>',
+    people: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+    email: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/>',
+    hub: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+    insights: '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>',
+    system: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  };
+  const svg = (k) => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
+  const chev = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+
+  // The proposed sidebar: nine groups instead of twenty-five links.
+  const NAV = [
+    { k: "home", label: "Home", go: "home" },
+    { k: "money", label: "Money", items: [["Invoices", "invoices", 3], ["Payments"]] },
+    { k: "studio", label: "Studio", items: [["Catalogue"], ["Design studio"], ["Content calendar"]] },
+    { k: "clients", label: "Clients", items: [["Videography", "client"], ["Social media"], ["Content suite"]] },
+    { k: "people", label: "People", items: [["Contacts"], ["Enquiries", null, 2], ["Reviews"]] },
+    { k: "email", label: "Email", items: [["Email studio"], ["Automations"]] },
+    { k: "hub", label: "Member hub", items: [["Monthly content"], ["Training centre"], ["Community"], ["Ask the Expert"], ["Hub notices"]] },
+    { k: "insights", label: "Insights", items: [["Website"], ["Blog"]] },
+    { k: "system", label: "System", items: [["TEG sync"], ["Website editor"], ["Settings"]] },
+  ];
+
+  const os = $("#os");
+  const nav = $("#nav");
+  let open = new Set((store.get("tmkeos.open") || "money,clients").split(",").filter(Boolean));
+  let view = "home";
+
+  function drawNav() {
+    nav.innerHTML = NAV.map((g) => {
+      if (!g.items) return `<div class="grp"><button type="button" class="grp-h" data-go="${g.go}" title="${g.label}">${svg(g.k)}<span>${g.label}</span></button></div>`;
+      const items = g.items.map(([label, go, n]) => `<a href="#" class="lnk${go === view ? " is-on" : ""}" ${go ? `data-go="${go}"` : "data-stub"}>${label}${n ? `<span class="n">${n}</span>` : ""}</a>`).join("");
+      return `<div class="grp${open.has(g.k) ? " is-open" : ""}" data-g="${g.k}"><button type="button" class="grp-h" data-toggle="${g.k}" aria-expanded="${open.has(g.k)}" title="${g.label}">${svg(g.k)}<span>${g.label}</span>${chev}</button><div class="grp-items">${items}</div></div>`;
+    }).join("");
+  }
+
+  function show(v) {
+    view = v;
+    $$(".view").forEach((s) => (s.hidden = s.id !== "v-" + v));
+    $("#crumbs").innerHTML = $("#v-" + v).dataset.crumb;
+    if (v === "invoices") open.add("money");
+    if (v === "client") open.add("clients");
+    drawNav();
+    os.classList.remove("is-drawer");
+    try { history.replaceState(null, "", "#" + v); } catch (_) {}
+    window.scrollTo(0, 0);
+  }
+
+  let toastT;
+  function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 2600); }
+
+  document.addEventListener("click", (e) => {
+    const tg = e.target.closest("[data-toggle]");
+    if (tg) {
+      const k = tg.dataset.toggle;
+      if (os.classList.contains("is-folded")) { os.classList.remove("is-folded"); open.add(k); }
+      else open.has(k) ? open.delete(k) : open.add(k);
+      store.set("tmkeos.open", [...open].join(",")); drawNav(); return;
+    }
+    const go = e.target.closest("[data-go]");
+    if (go) { e.preventDefault(); show(go.dataset.go); return; }
+    const stub = e.target.closest("[data-stub]");
+    if (stub) { e.preventDefault(); toast("That page isn't in this mock-up. Home, Invoices and Videography are."); return; }
+    if (e.target.closest("[data-search-open]")) openPal();
+  });
+
+  // Style directions
+  const NOTES = {
+    a: "Quiet luxury: light linen sidebar, hairline rules instead of boxes, big light serif titles. Most like a gallery or a magazine.",
+    b: "Colour by function: wine sidebar, a wine header feature, and card heads coloured by what they're for (money wine, clients stone, people linen, member hub taupe).",
+    c: "Clean: the TLE OS cleanliness in TMKE's type. White everywhere, bold sans titles, rounded cards, underline tabs. Quickest to scan.",
+  };
+  function setDir(d) {
+    os.dataset.dir = d;
+    $$("#dirs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.dir === d)));
+    $("#dir-note").textContent = NOTES[d];
+    store.set("tmkeos.dir", d);
+  }
+  $("#dirs").addEventListener("click", (e) => { const b = e.target.closest("button[data-dir]"); if (b) setDir(b.dataset.dir); });
+
+  $("#fold").addEventListener("click", () => { os.classList.toggle("is-folded"); store.set("tmkeos.folded", os.classList.contains("is-folded") ? "1" : ""); });
+  $("#burger").addEventListener("click", () => os.classList.toggle("is-drawer"));
+  document.addEventListener("click", (e) => { if (os.classList.contains("is-drawer") && !e.target.closest(".side") && !e.target.closest("#burger")) os.classList.remove("is-drawer"); });
+
+  // Invoices
+  const INV = [
+    ["INV-1042", "Harbourside Estates", "Fine & Country", "Spring listings film", "approve", "—", 1450],
+    ["INV-1041", "Marlow & Finch", "The Property Experts", "Social media, October", "approve", "—", 1860],
+    ["INV-1040", "Oakridge Lettings", "The Letting Experts", "Social media, October", "approve", "—", 1550],
+    ["INV-1039", "Ivy Lane Estates", "Fine & Country", "Studio Day, 30 Oct", "sent", "14 Nov", 920],
+    ["INV-1038", "Bramwell Property", "The Property Experts", "Print pack, autumn", "sent", "12 Nov", 340],
+    ["INV-1036", "Kestrel Homes", "The Letting Experts", "Videography, 3 films", "over", "28 Oct", 1170],
+    ["INV-1033", "Seaview Lettings", "The Letting Experts Scotland", "Social media, September", "over", "21 Oct", 400],
+    ["INV-1035", "Marlow & Finch", "The Property Experts", "Videography, 2 films", "paid", "paid 2 Nov", 980],
+    ["INV-1034", "Harbourside Estates", "Fine & Country", "Social media, October", "paid", "paid 1 Nov", 1650],
+    ["INV-1032", "Ivy Lane Estates", "Fine & Country", "Social media, October", "paid", "paid 30 Oct", 1650],
+  ];
+  const ST = { approve: ["To approve", "c-approve"], sent: ["Sent", "c-sent"], over: ["Overdue", "c-over"], paid: ["Paid", "c-paid"] };
+  let invF = "all";
+  function drawInv() {
+    const q = $("#inv-find").value.trim().toLowerCase();
+    const rows = INV.filter((r) => (invF === "all" || r[4] === invF) && (!q || r.join(" ").toLowerCase().includes(q)));
+    $("#inv-rows").innerHTML = rows.map((r) => `<tr data-go="client"><td class="inv">${r[0]}</td><td class="cl"><b>${r[1]}</b><span>${r[2]}</span></td><td>${r[3]}</td><td><span class="chip ${ST[r[4]][1]}">${ST[r[4]][0]}</span></td><td>${r[5]}</td><td class="num">£${r[6].toLocaleString("en-GB", { minimumFractionDigits: 2 })}</td></tr>`).join("");
+    $("#inv-empty").hidden = rows.length > 0;
+  }
+  $("#inv-filter").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; invF = b.dataset.f; $$("#inv-filter button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); drawInv(); });
+  $("#inv-find").addEventListener("input", drawInv);
+  $("#cc-tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $$("#cc-tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === b))); });
+
+  // ---------- Search: an index of every place, with the words people use ----------
+  const IDX = [
+    ["Home", "Home", "Today's to-dos, money this month and the week's shoots.", "dashboard overview today start", "home"],
+    ["Invoices", "Money", "Every invoice: find one, approve, send or chase it.", "invoice bill billing chase overdue unpaid send invoice find invoice", "invoices"],
+    ["Approvals", "Money › Invoices", "Invoices Abbie and Jack sent for sign-off before they go out.", "approve approval sign off check invoice morning run", "invoices"],
+    ["New invoice", "Money › Invoices", "Make an invoice by hand, outside the 08:00 run.", "create invoice new invoice raise invoice make invoice", "invoices"],
+    ["Month end", "Money › Invoices", "The month-end checklist and the F&C fee check for Paula.", "month end checklist close month paula fee check", null],
+    ["Payments", "Money", "Money in from Stripe: gross, VAT, fees, landed, by source.", "payments stripe money in revenue income vat fees takings", null],
+    ["Pack orders", "Money › Payments", "Packs members have bought.", "orders pack orders purchases sales bought", null],
+    ["Catalogue", "Studio", "Social and print packs: make, edit and price them.", "catalogue catalog packs pack print social shop products", null],
+    ["Design studio", "Studio", "Templates members design from.", "design studio templates designs canva editor", null],
+    ["Content calendar", "Studio", "The month's posts that arrive in members' calendars.", "content calendar posts schedule planner monthly posts", null],
+    ["Videography", "Clients", "Every shoot from booking to delivery, with each client's card.", "videography video shoots filming booking studio day delivery films", "client"],
+    ["Video editing", "Clients › Content suite", "Cut a video and add brand captions in the browser.", "video editing captions subtitles cut video edit reel caption", null],
+    ["Library", "Clients › Content suite", "Clients' files and folders, and what their portal shows.", "library files folders uploads stills footage portal", null],
+    ["Social media", "Clients", "Social clients, their reports and recommendations.", "social media smm reports instagram clients reporting", null],
+    ["Contacts", "People", "Everyone: members, agents, clients and external contacts.", "contacts members agents people customers external leads", null],
+    ["Enquiries", "People", "Website form enquiries to reply to.", "enquiries enquiry contact form leads messages inbox", null],
+    ["Reviews", "People", "Client reviews and testimonials.", "reviews testimonials google reviews feedback", null],
+    ["Email studio", "Email", "Newsletters and campaigns, in series like the Autumn Edit.", "email studio newsletter campaign mailout autumn edit emails", null],
+    ["Automations", "Email", "Emails that send themselves: welcomes, reminders.", "automations automatic emails flows sequences welcome reminder", null],
+    ["Trending month", "Member hub › Monthly content", "The five-topic carousel members see as \"See what's working\". Written monthly.", "trending trends five topics monthly carousel what's working monthly content ideas what we take from our social", null],
+    ["Prompts", "Member hub › Monthly content", "A post idea for each day of the month. Written monthly.", "prompts post ideas daily ideas monthly prompts content ideas monthly content", null],
+    ["Training centre", "Member hub", "Guides and walkthroughs members learn from.", "training centre guides guide how to walkthroughs courses learn", null],
+    ["Community", "Member hub", "Members' community and the fortnight's topics.", "community forum fortnight topics discussion", null],
+    ["Ask the Expert", "Member hub", "The members' AI helper: which model, what it knows.", "ask the expert assistant ai chatbot claude helper", null],
+    ["Hub notices", "Member hub", "Notices that appear in members' hub.", "hub notices notifications announcements banner members news", null],
+    ["Website", "Insights", "Website visitors and where they came from.", "website stats analytics traffic visitors insights", null],
+    ["Blog", "Insights", "Write and publish articles.", "blog articles posts write article publish", null],
+    ["TEG sync", "System", "Agents brought in from TEG.", "teg sync agents import roster", null],
+    ["Website editor", "System", "Edit the public website's pages.", "website editor edit site pages homepage", null],
+    ["Our brand", "System › Settings", "TMKE's own colours, fonts and email styles.", "brand kit our brand fonts colours logo email styles", null],
+  ];
+  const STOP = new Set("where do i the a an to for of in on is my we our how can find put enter add go page it what with and or at".split(" "));
+  const stem = (w) => w.replace(/'s$/, "").replace(/(ies)$/, "y").replace(/(ing|es|s)$/, "");
+  const toks = (s) => s.toLowerCase().replace(/[^a-z0-9£&' ]+/g, " ").split(/\s+/).filter((w) => w && !STOP.has(w)).map(stem);
+  const PRE = IDX.map((r) => ({ r, name: toks(r[0]), words: new Set(toks(r[0] + " " + r[1] + " " + r[3])), hay: (r[0] + " " + r[3]).toLowerCase() }));
+
+  function search(q) {
+    const qt = toks(q);
+    if (!qt.length) return [];
+    const ql = q.toLowerCase().trim();
+    return PRE.map((p) => {
+      let s = 0;
+      for (const t of qt) { if (p.name.includes(t)) s += 3; else if (p.words.has(t)) s += 2; else if (t.length > 3 && [...p.words].some((w) => w.startsWith(t))) s += 1; }
+      for (let i = 0; i < qt.length - 1; i++) if (p.hay.includes(qt[i] + " " + qt[i + 1]) || p.hay.includes(qt[i]) && p.hay.includes(qt[i + 1]) && p.hay.indexOf(qt[i + 1]) - p.hay.indexOf(qt[i]) < 12 && p.hay.indexOf(qt[i + 1]) > p.hay.indexOf(qt[i])) s += 2;
+      if (p.hay.includes(ql)) s += 4;
+      return { p, s };
+    }).filter((x) => x.s >= 2).sort((a, b) => b.s - a.s).slice(0, 6);
+  }
+
+  const pal = $("#pal"), palQ = $("#pal-q"), palList = $("#pal-list");
+  let sel = 0, items = [];
+  function drawPal() {
+    const q = palQ.value;
+    const res = q.trim() ? search(q) : IDX.slice(0, 1).concat(IDX.filter((r) => ["Invoices", "Trending month", "Prompts", "Videography"].includes(r[0]))).map((r) => ({ p: { r } }));
+    items = res.map((x) => ({ type: "go", r: x.p.r }));
+    let html = `<div class="pal-sec">${q.trim() ? (res.length ? "Best matches" : "No clear match") : "Jump to"}</div>`;
+    html += items.map((it, i) => `<div class="pal-item${i === sel ? " is-on" : ""}" data-i="${i}"><span class="p-name">${it.r[0]}</span><span class="p-path">${it.r[1]}</span><span class="p-job">${it.r[2]}</span></div>`).join("");
+    if (q.trim()) {
+      items.push({ type: "ask" });
+      const i = items.length - 1;
+      html += `<div class="pal-sec">Not it?</div><div class="pal-ask${i === sel ? " is-on" : ""}" data-i="${i}"><span class="spark"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/></svg></span><span><b>Ask Claude: “${q.trim().replace(/</g, "&lt;")}”</b><span>Reads the same list of places and tells you which page and tab, in a sentence.</span></span></div>`;
+    }
+    palList.innerHTML = html;
+  }
+  function choose(i) {
+    const it = items[i]; if (!it) return;
+    if (it.type === "ask") {
+      const best = search(palQ.value)[0];
+      const ans = document.createElement("div"); ans.className = "pal-answer";
+      ans.textContent = best ? `In the live version Claude would answer here, for example: "That's ${best.p.r[0]}, under ${best.p.r[1]}. ${best.p.r[2]}"` : "In the live version Claude reads the list of every page and tab and points you to the closest two or three.";
+      palList.appendChild(ans); return;
+    }
+    closePal();
+    if (it.r[4]) show(it.r[4]); else toast(`${it.r[0]} lives under ${it.r[1]}. That page isn't in this mock-up.`);
+  }
+  function openPal() { pal.hidden = false; palQ.value = ""; sel = 0; drawPal(); setTimeout(() => palQ.focus(), 0); }
+  function closePal() { pal.hidden = true; }
+  $("#open-search").addEventListener("click", openPal);
+  palQ.addEventListener("input", () => { sel = 0; drawPal(); });
+  palQ.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); sel = Math.min(items.length - 1, sel + 1); drawPal(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); sel = Math.max(0, sel - 1); drawPal(); }
+    else if (e.key === "Enter") { e.preventDefault(); choose(sel); }
+  });
+  palList.addEventListener("click", (e) => { const el = e.target.closest("[data-i]"); if (el) choose(+el.dataset.i); });
+  pal.addEventListener("click", (e) => { if (e.target === pal) closePal(); });
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); pal.hidden ? openPal() : closePal(); }
+    else if (e.key === "Escape" && !pal.hidden) closePal();
+  });
+
+  // Start
+  setDir(store.get("tmkeos.dir") || "a");
+  if (store.get("tmkeos.folded")) os.classList.add("is-folded");
+  drawInv();
+  const start = (location.hash || "").slice(1);
+  show(["home", "invoices", "client"].includes(start) ? start : "home");
+})();
+</script>
