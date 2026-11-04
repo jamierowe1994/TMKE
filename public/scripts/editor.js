@@ -16211,7 +16211,7 @@ import { createResizeEngine } from "./resize-engine.js";
       items.push({ head: "Move to" });
       upMeta.folders.forEach((f) => items.push({ label: f.name, current: f.id === cur, run: () => { upSetItem(src, { folder: f.id }); renderUploads(); } }));
       if (cur) items.push({ label: "Out of this folder", run: () => { upSetItem(src, { folder: null }); renderUploads(); } });
-    } else if (upMetaState === "ready" || upMetaState === "local") {
+    } else if (upMetaState === "ready") {
       items.push({ label: "New folder for this…", run: () => upNewFolder(src) });
     }
     /* Another admin's image, filed in a shared folder: it can come out of
@@ -16288,16 +16288,20 @@ import { createResizeEngine } from "./resize-engine.js";
     return t;
   }
   // Name a folder in place: the tile becomes a box to type in.
-  function upNameInPlace(initial, onDone) {
+  function upNameInPlace(initial, onDone, folderId) {
+    const stale = upFoldersEl.querySelector(".is-naming");
+    if (stale && stale._finish) stale._finish(true);   // finish the one already open
     const t = document.createElement("div");
     t.className = "ed-up-folder is-naming";
+    if (folderId) t.dataset.folder = folderId;
     t.innerHTML = '<span class="ed-up-folder-ic">' + UP_FOLDER_SVG + '</span>';
     const inp = document.createElement("input");
     inp.type = "text"; inp.maxLength = 40; inp.value = initial || ""; inp.placeholder = "Folder name";
     inp.className = "ed-up-folder-input";
     t.appendChild(inp);
     let done = false;
-    const finish = (keep) => { if (done) return; done = true; onDone(keep ? inp.value.trim() : null); };
+    const finish = (keep) => { if (done) return; done = true; t.remove(); onDone(keep ? inp.value.trim() : null); };
+    t._finish = finish;
     inp.addEventListener("keydown", (e) => {
       e.stopPropagation();   // typing, not shortcuts
       if (e.key === "Enter") finish(true);
@@ -16309,7 +16313,7 @@ import { createResizeEngine } from "./resize-engine.js";
     inp.focus(); inp.select();
   }
   function upNewFolder(thenFile) {
-    if (upMetaState === "broken" || upMetaState === "loading") return;
+    if (upMetaState !== "ready") return;
     if (upFolder) { upFolder = null; renderUploads(); }
     upNameInPlace("", (name) => {
       if (name) {
@@ -16325,7 +16329,7 @@ import { createResizeEngine } from "./resize-engine.js";
   function upRenameFolder(f) {
     const tile = [...upFoldersEl.children].find((c) => c.querySelector(".ed-up-folder-name") && c.querySelector(".ed-up-folder-name").textContent === f.name);
     if (tile) tile.remove();
-    upNameInPlace(f.name, (name) => { if (name && name !== f.name) { f.name = name; upDirty.folders.add(f.id); upSave(); } renderUploads(); });
+    upNameInPlace(f.name, (name) => { if (name && name !== f.name) { f.name = name; upDirty.folders.add(f.id); upSave(); } renderUploads(); }, f.id);
   }
   function upDeleteFolder(f) {
     const n = state.uploads.filter((s2) => upFolderOf(s2) === f.id).length;
@@ -16343,14 +16347,26 @@ import { createResizeEngine } from "./resize-engine.js";
     const q = ((upQ && upQ.value) || "").trim().toLowerCase();
     const open = upFolder && upMeta.folders.find((f) => f.id === upFolder);
     if (upFolder && !open) upFolder = null;
-    const foldersOk = upMetaState === "ready" || upMetaState === "local";
+    /* "local" is a Studio with nobody signed in (or a demo hiding who is):
+       there is nowhere to keep folders. They used to be made anyway and gone
+       on the next visit, without a word; now there's no New folder and the
+       list says why. */
+    const foldersOk = upMetaState === "ready";
     if (upBack) upBack.hidden = !open || !!q;
     if (upWhere) upWhere.textContent = q ? "Results" : (open ? open.name : "All uploads");
     if (upNew) upNew.hidden = !!open || !!q || !foldersOk;
     // Folders first, at the top level only.
-    upFoldersEl.innerHTML = "";
+    /* A folder being named stays put, focus and all. Clearing the list took
+       the box away mid-typing whenever anything redrew it (an upload landing,
+       the last folder's save), so the folder was never made: Dani, 4 Nov, "my
+       folders keep disappearing". The folder being renamed isn't drawn twice. */
+    const naming = upFoldersEl.querySelector(".is-naming");
+    [...upFoldersEl.children].forEach((c) => { if (c !== naming) c.remove(); });
     if (!open && !q) {
-      upMeta.folders.forEach((f) => upFoldersEl.appendChild(upFolderTile(f, state.uploads.filter((s2) => upFolderOf(s2) === f.id).length)));
+      upMeta.folders.forEach((f) => {
+        if (naming && naming.dataset.folder === f.id) return;
+        upFoldersEl.appendChild(upFolderTile(f, state.uploads.filter((s2) => upFolderOf(s2) === f.id).length));
+      });
     }
     upFoldersEl.hidden = !upFoldersEl.children.length;
     // Then the pictures: the open folder's, or those in no folder; a search
@@ -16367,6 +16383,7 @@ import { createResizeEngine } from "./resize-engine.js";
     list.forEach((src) => uploadGridEl.appendChild(upTile(src)));
     let msg = "";
     if (upMetaState === "broken") msg = "Your folders couldn't load just now, so they're hidden. Reload to try again; your images are all here.";
+    else if (upMetaState === "local" && !q && !open) msg = "Folders can only be saved when you're signed in, so they're switched off here." + (state.uploads.length ? "" : " Nothing uploaded yet.");
     else if (q && !list.length) msg = "Nothing in your uploads matches “" + q + "”. Images uploaded before 3 November have no name to search by.";
     else if (open && !list.length) msg = "This folder is empty. Drag an image onto it, or use the … on an image to move it here.";
     else if (!state.uploads.length) msg = "Nothing uploaded yet.";
