@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>TMKE OS Styles</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -95,7 +96,7 @@ a { color: inherit; }
 .bell i { position: absolute; top: 8px; right: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--wine); }
 .page { padding-block: 8px 100px; padding-left: clamp(22px, 2.6vw, 56px); padding-right: clamp(22px, 2.6vw, 56px); max-width: 1840px; width: 100%; }
 .view { display: flex; flex-direction: column; gap: 32px; }
-.view[hidden] { display: none !important; }
+.view[hidden], [hidden] { display: none !important; }
 
 /* ---------- Page head: one slim row (no big header, Dani 4 Nov) ---------- */
 .phead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; padding: 24px 22px; background: var(--linen); border-radius: var(--r); }
@@ -408,9 +409,195 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
   .burger { display: grid; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+/* ===== Client file, round two (Dani, 4 Nov): read on the card, edit in a pop-out ===== */
+.cf { --cf-fs: 14px; --cf-row: 36px; --cf-edge: #e2d9d4; display: flex; flex-direction: column; gap: 20px; }
+.cf :is(p, span, dt, dd, li, a, label, input, select, textarea, b, strong, em, small, div, td, th, button) { font-size: var(--cf-fs); font-weight: 400; letter-spacing: normal; text-transform: none; font-style: normal; }
+.cf .btn, .cf .btn *, .cfx .btn, .cfx .btn * { font-size: 11px !important; font-weight: 600 !important; letter-spacing: .08em !important; text-transform: uppercase !important; }
+.cf-card { background: #fff; border: 1px solid var(--cf-edge); border-radius: 4px; padding: 16px 18px; min-width: 0; }
+/* Progress: the bar, and the one thing holding it up underneath. */
+.cf-tl { position: relative; height: 52px; margin: 2px 0 0; }
+.cf-tl-track { position: absolute; top: 6px; left: 0; right: 0; height: 2px; background: var(--linen); }
+.cf-tl-track i { display: block; height: 100%; background: var(--wine); }
+.cf-tl-step { position: absolute; top: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; transform: translateX(-50%); }
+.cf-tl-step.is-first { transform: none; align-items: flex-start; }
+.cf-tl-step.is-last { transform: translateX(-100%); align-items: flex-end; }
+.cf-tl-dot { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--stone); }
+.cf-tl-step.done .cf-tl-dot { background: var(--wine); border-color: var(--wine); }
+.cf-tl-step.now .cf-tl-dot { box-shadow: 0 0 0 4px rgba(55,30,40,.14); }
+.cf-tl-step span { color: var(--tx); white-space: nowrap; }
+.cf-tl-step.done span { color: var(--ink); }
+.cf-call { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 24px; align-items: center; margin-top: 14px; padding: 14px 16px; background: var(--amber-l); border-radius: 4px; }
+.cf-call h4 { margin: 0 0 8px; font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.1; letter-spacing: -0.04em; color: var(--ink); }
+.cf-call ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 26px; }
+.cf-call li { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); }
+.cf-call li::before { content: ""; width: 16px; height: 16px; flex: none; border-radius: 50%; border: 1.5px solid var(--amber); box-sizing: border-box; }
+.cf-call li.ok { color: var(--tx); }
+.cf-call li.ok::before { border-color: var(--green); background: var(--green) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat; }
+.cf-call .cf-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+/* The boxes: fixed rows, label then value, never move. */
+.cf-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
+.cf-grid > .cf-card { height: 100%; }
+.cf-wide { grid-column: span 6; } .cf-third { grid-column: span 2; } .cf-half { grid-column: span 3; }
+.cf-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 30px; margin-bottom: 6px; }
+.cf-h h3 { margin: 0 !important; font-family: var(--serif) !important; font-weight: 300 !important; font-size: 19px !important; line-height: 1 !important; letter-spacing: -0.04em !important; color: var(--ink) !important; }
+.cf-acts-h { display: inline-flex; gap: 18px; }
+.cf-act { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font-family: var(--sans); color: var(--wine); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(55,30,40,.3); white-space: nowrap; }
+.cf-act:hover { text-decoration-color: currentColor; }
+.cf-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 32px; }
+.cf-dl { margin: 0; min-width: 0; }
+.cf-r { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); align-items: center; column-gap: 12px; height: var(--cf-row); border-top: 1px solid var(--line); }
+.cf-r:first-child { border-top: 0; }
+.cf-r dt { color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cf-r dd { margin: 0; min-width: 0; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cf-r dd a { color: var(--wine); }
+.cf-none { color: var(--tx) !important; }
+.cf-chip { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 4px; }
+.cf-chip.good { background: var(--green-l); color: var(--green); }
+.cf-chip.wait { background: var(--amber-l); color: var(--amber); }
+.cf-chip.bad { background: var(--red-l); color: var(--red); }
+.cf-chip.info { background: var(--blue-l); color: var(--blue); }
+.cf-chip.plain { background: var(--linen); color: var(--wine); }
+.cf-note { display: grid; grid-template-columns: 6em minmax(0, 1fr) auto; column-gap: 12px; align-items: center; height: var(--cf-row); border-top: 1px solid var(--line); }
+.cf-note:first-child { border-top: 0; }
+.cf-note span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cf-note span:first-child, .cf-note span:last-child { color: var(--tx); }
+@container main (max-width: 1100px) { .cf-third { grid-column: span 3; } .cf-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container main (max-width: 700px) { .cf-third, .cf-half { grid-column: span 6; } .cf-cols { grid-template-columns: minmax(0, 1fr); } .cf-call { grid-template-columns: minmax(0, 1fr); } }
+
+/* ===== Pop-outs: a centred box for Booking and Travel, a side panel for Invoicing, Delivery and Notes ===== */
+.cfx { --cf-fs: 14px; --cf-edge: #e2d9d4; position: fixed; inset: 0; z-index: 70; background: rgba(55,30,40,.32); display: flex; }
+.cfx[hidden] { display: none; }
+.cfx :is(p, span, dt, dd, li, a, label, input, select, textarea, b, strong, small, div, td, th, button) { font-size: 14px; font-weight: 400; letter-spacing: normal; text-transform: none; }
+.cfx { align-items: center; justify-content: center; padding: max(24px, 9vh) 16px; }
+.cfx-box { background: #fff; display: flex; flex-direction: column; max-height: 100%; min-height: 0; box-shadow: 0 24px 60px -20px rgba(55,30,40,.45); }
+.cfx-box { width: min(780px, 100%); border-radius: 6px; overflow: hidden; }
+.cfx-box.is-narrow { width: min(560px, 100%); }
+/* The top: a linen band with the client, the title and the close, so the panel reads as a page. */
+.cfx-top { flex: none; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 56px 26px 22px; background: var(--linen); }
+.cfx-top p { margin: 0 0 4px; color: var(--tx); }
+.cfx-top h2 { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 26px; line-height: 1.05; letter-spacing: -0.05em; color: var(--ink); }
+.cfx-top .cf-chip { margin-top: 10px; }
+.cfx-x { flex: none; width: 32px; height: 32px; border: 1px solid rgba(55,30,40,.18); border-radius: 4px; background: #fff; color: var(--wine); font-size: 20px !important; line-height: 1; cursor: pointer; display: grid; place-items: center; }
+.cfx-x:hover { border-color: var(--wine); }
+.cfx-tabs { flex: none; display: flex; gap: 24px; padding: 0 24px; border-bottom: 1px solid var(--line); background: #fff; }
+.cfx-tabs button { border: 0; background: none; cursor: pointer; padding: 12px 0 10px; color: var(--tx); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.cfx-tabs button[aria-selected="true"] { color: var(--wine); border-bottom-color: var(--wine); }
+.cfx-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 24px 28px; }
+/* In a pop-out a row grows to fit, so nothing is ever cut off. */
+.cfx-r { display: grid; grid-template-columns: 10em minmax(0, 1fr); column-gap: 14px; align-items: start; padding: 9px 0; min-height: 36px; box-sizing: border-box; border-top: 1px solid var(--line); }
+.cfx-r:first-of-type { border-top: 0; }
+.cfx-r dt, .cfx-r > span:first-child { color: var(--tx); padding-top: 1px; }
+.cfx-r dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; white-space: pre-line; }
+.cfx-r dd a { color: var(--wine); }
+.cfx-r.is-field { align-items: center; padding: 5px 0; }
+.cfx-in { width: 100%; min-width: 0; height: 32px; box-sizing: border-box; border: 1px solid var(--cf-edge); border-radius: 4px; padding: 0 9px; font-family: var(--sans); color: var(--ink); background: #fff; }
+select.cfx-in { padding-right: 26px; }
+textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height: 1.35; resize: vertical; }
+.cfx-in:focus { outline: 0; border-color: var(--wine); }
+.cfx-pair { display: grid; grid-template-columns: minmax(0, 1fr) 7.5em; gap: 8px; }
+.cfx-foot { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--line); background: #fff; }
+.cfx-foot .cfx-say { margin-right: auto; color: var(--tx); }
+.cfx-lock { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 4px; padding: 12px 14px; border-radius: 4px; background: var(--amber-l); color: var(--ink); }
+.cfx-lock b { color: var(--amber); }
+/* The invoice as the client will see it. */
+.cfx-doc { margin-top: 14px; border: 1px solid var(--cf-edge); border-radius: 4px; padding: 6px 16px 10px; }
+.cfx-li { display: grid; grid-template-columns: minmax(0, 1fr) 7em; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
+.cfx-li:first-child { border-top: 0; color: var(--tx); }
+.cfx-li span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.cfx-li small { display: block; color: var(--tx); }
+.cfx-li.sub span { color: var(--tx); }
+.cfx-li.tot { border-top: 1px solid var(--stone); }
+.cfx-li.tot span { color: var(--ink); }
+.cfx-li .cfx-in { height: 30px; }
+.cfx-li .cfx-in.num { text-align: right; }
+.cfx-hist { list-style: none; margin: 0; padding: 0; }
+.cfx-hist li { display: grid; grid-template-columns: 7em minmax(0, 1fr); gap: 14px; padding: 9px 0; border-top: 1px solid var(--line); }
+.cfx-hist li:first-child { border-top: 0; }
+.cfx-hist li span:first-child { color: var(--tx); }
+.cfx-calc { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.cfx-sum { margin-top: 14px; padding: 4px 16px; border-radius: 4px; background: var(--soft); }
+.cfx-sum .cfx-r { border-color: var(--linen); }
+.cfx-folders { list-style: none; margin: 0; padding: 0; }
+.cfx-folders li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.cfx-folders li:first-child { border-top: 0; }
+.cfx-folders input { width: 16px; height: 16px; accent-color: var(--wine); margin: 0; }
+.cfx-folders small { margin-left: auto; color: var(--tx); }
+.cfx-body > .cfx-lock:first-child { margin-top: 4px; }
+.cf-call.is-done { background: var(--green-l); }
+.cf-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 10px; border: 1px dashed var(--stone); border-radius: 4px; color: var(--tx); }
+.cf-pick span { margin-right: 4px; color: var(--tx); }
+.cf-pick button { height: 28px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 4px; background: #fff; color: var(--ink); cursor: pointer; }
+.cf-pick button[aria-pressed="true"] { background: var(--wine); border-color: var(--wine); color: #fff; }
+/* Pop-out sections (Dani, 4 Nov): each a little card under the house wine strip. */
+.cfx-sec { margin-top: 14px; border: 1px solid var(--cf-edge); border-radius: 4px; overflow: hidden; }
+.cfx-sec h4 { display: flex; align-items: center; height: 30px; margin: 0; padding: 0 14px; background: var(--wine); color: #fff; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+.cfx-sec-b { padding: 4px 14px 8px; }
+.cfx-sec-b > textarea.cfx-in { margin: 6px 0 2px; }
+/* Editing: the fields have their own boxes, so no lines between rows. */
+.cfx-box.is-edit .cfx-r { border-top: 0; }
+.cfx-box.is-edit .cfx-r.is-field { padding: 4px 0; }
+.cfx-hint { display: block; margin-top: 4px; color: var(--tx); }
+.cfx-say { color: var(--tx); }
+.cfx-r .cfx-say { margin: 0; }
+.cf-miss { color: var(--red) !important; }
+.cfx-tog { display: inline-flex; border: 1px solid var(--cf-edge); border-radius: 4px; overflow: hidden; }
+.cfx-tog button { height: 30px; padding: 0 16px; border: 0; background: #fff; color: var(--tx); cursor: pointer; }
+.cfx-tog button[aria-pressed="true"] { background: var(--wine); color: #fff; }
+.cfx-doc.is-ed { border: 0; padding: 0; margin: 4px 0 0; }
+.cfx-li.is-ed { grid-template-columns: minmax(0, 1fr) 8em 28px; align-items: center; padding: 5px 0; border-top: 0; }
+.cfx-rm { width: 28px; height: 28px; border: 0; background: none; color: var(--tx); font-size: 18px !important; cursor: pointer; }
+.cfx-rm:hover { color: var(--red); }
+.cfx-plain { margin-top: 14px; }
+/* The invoice preview: the paper, roughly as the PDF lays it out. */
+.cfx-paper { margin-top: 14px; border: 1px solid var(--cf-edge); border-radius: 4px; padding: 22px 24px; background: #fff; box-shadow: 0 10px 30px -18px rgba(55,30,40,.35); }
+.cfx-paper-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.cfx-paper-h span:last-child { text-align: right; color: var(--tx); }
+.cfx-paper-h b { color: var(--ink); }
+.cfx-logo { font-family: var(--serif) !important; font-weight: 300 !important; font-size: 26px !important; letter-spacing: -0.05em !important; color: var(--wine); }
+.cfx-paper-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+.cfx-paper-2 small { display: block; color: var(--tx); margin-bottom: 2px; }
+.cfx-paper .cfx-doc { border: 0; padding: 0; }
+.cfx-paper-n { margin: 16px 0 0; }
+.cfx-paper-f { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--tx); }
+/* The email preview. */
+.cfx-mail { margin-top: 14px; border: 1px solid var(--cf-edge); border-radius: 4px; padding: 6px 18px 18px; }
+.cfx-mail-b { margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--line); white-space: pre-wrap; line-height: 1.45; color: var(--ink); }
+/* All invoices: a row each, with View and Resend at the end. */
+.cfx-list { margin-top: 14px; border: 1px solid var(--cf-edge); border-radius: 4px; padding: 0 14px; }
+.cfx-list-r { display: grid; grid-template-columns: 6.5em minmax(0, 1fr) 6.5em auto auto; gap: 14px; align-items: center; min-height: 44px; border-top: 1px solid var(--line); }
+.cfx-list-r:first-child { border-top: 0; }
+.cfx-list-r > span:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; }
+.cfx-list-a { display: inline-flex; gap: 14px; }
+@media (max-width: 640px) { .cfx-list-r { grid-template-columns: 1fr auto; padding: 8px 0; } .cfx-paper-2 { grid-template-columns: 1fr; } .cfx-top { padding-top: 32px; } }
+.cfx-zones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 6px; }
+.cfx-zone { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 12px 14px; border: 1px dashed var(--stone); border-radius: 4px; cursor: pointer; background: #fff; transition: background .15s, border-color .15s; }
+.cfx-zone:hover, .cfx-zone.is-over { border-color: var(--wine); background: var(--soft); }
+.cfx-zone-n { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cfx-zone-c { color: var(--tx); }
+.cfx-zone-a { grid-column: 1 / -1; color: var(--tx); }
+.cfx-ups { display: flex; flex-direction: column; }
+.cfx-up { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 12em) 8em 3.5em; gap: 12px; align-items: center; min-height: 36px; border-top: 1px solid var(--line); }
+.cfx-up span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cfx-up-f, .cfx-up-p { color: var(--tx); }
+.cfx-up-p { text-align: right; }
+.cfx-bar { height: 4px; border-radius: 2px; background: var(--linen); overflow: hidden; }
+.cfx-bar i { display: block; height: 100%; width: 0; background: var(--wine); transition: width .15s; }
+@media (max-width: 640px) { .cfx-zones { grid-template-columns: 1fr; } .cfx-up { grid-template-columns: minmax(0, 1fr) 5em 3.5em; } .cfx-up-f { display: none; } }
+.cfx-inline-acts { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 0 4px; }
+.cfx-box .cfx-sec .cfx-r.is-field { border-top: 0; }
+.cfx-more { margin-top: 8px; border-top: 1px solid var(--line); }
+.cfx-more summary { cursor: pointer; padding: 10px 0 6px; color: var(--wine); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(55,30,40,.3); list-style: none; }
+.cfx-more summary::-webkit-details-marker { display: none; }
+.cfx-more summary::after { content: " ▾"; text-decoration: none; display: inline-block; margin-left: 4px; }
+.cfx-more[open] summary::after { content: " ▴"; }
+/* The pop-out's scroll bar: just the bar, no dark track behind it (Dani, 4 Nov). */
+.cfx-body { scrollbar-width: thin; scrollbar-color: var(--stone) transparent; }
+.cfx-body::-webkit-scrollbar { width: 8px; background: transparent; }
+.cfx-body::-webkit-scrollbar-track { background: transparent; }
+.cfx-body::-webkit-scrollbar-thumb { background: var(--stone); border-radius: 4px; }
 </style>
 
-<div class="note"><b>TMKE OS, round five</b><span>Wine sidebar, linen page heads, no greys: everything from the palette. Smaller type and tighter lines. Example data. Home, Invoices and the Harbourside client card are clickable; ⌘K opens the search.</span></div>
+<div class="note"><b>TMKE OS, round five</b><span>Wine sidebar, linen page heads, no greys: everything from the palette. Smaller type and tighter lines. Example data. Home, Invoices and the Trentside Estates client file are clickable; ⌘K opens the search.</span></div>
 
 <div class="os" id="os">
   <aside class="side" id="side" aria-label="TMKE OS navigation">
@@ -437,7 +624,7 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
         <div class="cbanner" id="home-banner" style="background-image:url('img/table.jpg')">
           <div class="ctags"><button type="button" class="chip c-glass pic-btn" id="pic-btn">Change picture</button></div>
           <div class="cb-row">
-            <div><p class="cb-eye">Wednesday 4 November</p><h1>Good afternoon, Danielle.</h1><p class="cb-sub">Three invoices are waiting for your approval, and Harbourside's films are ready to send.</p></div>
+            <div><p class="cb-eye">Wednesday 4 November</p><h1>Good afternoon, Danielle.</h1><p class="cb-sub">Three invoices are waiting for your approval, and Trentside's gallery is waiting on payment.</p></div>
           <div class="acts">
             <button type="button" class="btn btn--ghost" data-search-open>Find something</button>
             <button type="button" class="btn btn--primary" data-go="invoices">Approve invoices <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
@@ -469,9 +656,9 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
         <div class="block">
           <div class="block-head"><h2 class="block-h"><span class="ch">02</span>Needs you</h2><a class="block-link" href="#" data-go="invoices">See everything <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
           <div class="grid2">
-            <a class="card tool" href="#" data-go="invoices"><span class="tool-ic is-money"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></span><span class="tool-tx"><span class="kk">Money</span><strong>Approve Harbourside Estates, £1,450</strong><span>Spring listings film, sent for approval by Abbie</span></span><span class="tool-go">→</span></a>
+            <a class="card tool" href="#" data-go="invoices"><span class="tool-ic is-money"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></span><span class="tool-tx"><span class="kk">Money</span><strong>Approve Trentside Estates, £1,450</strong><span>Spring listings film, sent for approval by Abbie</span></span><span class="tool-go">→</span></a>
             <a class="card tool" href="#" data-go="invoices"><span class="tool-ic is-money"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg></span><span class="tool-tx"><span class="kk">Money</span><strong>Approve two October social invoices</strong><span>Marlow &amp; Finch and Oakridge Lettings, £3,410</span></span><span class="tool-go">→</span></a>
-            <a class="card tool" href="#" data-go="client"><span class="tool-ic is-clients"><svg viewBox="0 0 24 24"><path d="m22 7.5-6 4.5 6 4.5z"/><rect x="2" y="5.5" width="14" height="13" rx="1.5"/></svg></span><span class="tool-tx"><span class="kk">Clients</span><strong>Send Harbourside their four films</strong><span>Captions done, portal folder ready</span></span><span class="tool-go">→</span></a>
+            <a class="card tool" href="#" data-go="client"><span class="tool-ic is-clients"><svg viewBox="0 0 24 24"><path d="m22 7.5-6 4.5 6 4.5z"/><rect x="2" y="5.5" width="14" height="13" rx="1.5"/></svg></span><span class="tool-tx"><span class="kk">Clients</span><strong>Chase Trentside's invoice</strong><span>Gallery ready, held until paid</span></span><span class="tool-go">→</span></a>
             <a class="card tool" href="#" data-stub><span class="tool-ic is-people"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="tool-tx"><span class="kk">People</span><strong>Reply to two enquiries</strong><span>From the website form, Monday and Tuesday</span></span><span class="tool-go">→</span></a>
           </div>
         </div>
@@ -480,7 +667,7 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
           <div class="block">
             <div class="block-head bh-clients"><h2 class="block-h"><span class="ch">03</span>This week's shoots</h2><a class="block-link" href="#" data-go="client">Videography <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
             <div class="grid3">
-              <a class="card shoot" href="#" data-go="client" style="text-decoration:none;color:inherit"><span class="d"><b>5</b><small>Thursday</small></span><span><strong>Harbourside Estates</strong><span>Penarth Marina</span></span><span class="time"><span>10:00</span><span>Jack</span></span></a>
+              <a class="card shoot" href="#" data-go="client" style="text-decoration:none;color:inherit"><span class="d"><b>5</b><small>Thursday</small></span><span><strong>Trentside Estates</strong><span>Canal Street, Nottingham</span></span><span class="time"><span>10:00</span><span>Jack</span></span></a>
               <div class="card shoot"><span class="d"><b>6</b><small>Friday</small></span><span><strong>Ivy Lane Estates</strong><span>Studio Day</span></span><span class="time"><span>09:30</span><span>Jack and Abbie</span></span></div>
               <div class="card shoot"><span class="d"><b>9</b><small>Monday</small></span><span><strong>Bramwell Property</strong><span>Llandaff</span></span><span class="time"><span>13:00</span><span>Jack</span></span></div>
             </div>
@@ -535,88 +722,18 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
       </section>
 
       <!-- ================= CLIENT CARD ================= -->
-      <section class="view" id="v-client" data-crumb="Clients · Videography · <em>Harbourside Estates</em>" hidden>
+      <section class="view" id="v-client" data-crumb="Clients · Videography · <em>Trentside Estates</em>" hidden>
         <div class="cbanner" style="background-image:url('img/bookings.jpg')">
-          <div class="ctags"><span class="chip c-glass">Editing</span><span class="chip c-glass">Fine &amp; Country</span><span class="chip pay pay-awaiting" title="Payment: Awaiting invoice, Invoice sent, Payment overdue or Paid">Awaiting invoice</span></div>
+          <div class="ctags"><span class="chip c-glass">Gallery ready</span><span class="chip c-glass">Fine &amp; Country</span><span class="chip pay pay-sent">Invoice sent</span></div>
           <div class="cb-row">
-            <div><p class="cb-eye">Videography · Property video</p><h1>Harbourside Estates</h1><p class="cb-sub">8 Marina Way, Penarth · Thursday 29 October</p></div>
+            <div><p class="cb-eye">Videography · Property video</p><h1>Trentside Estates</h1><p class="cb-sub">8 Canal Street, Nottingham · Thursday 29 October</p></div>
             <div class="acts">
+              <button type="button" class="btn btn--ghost" data-stub>Contact</button>
               <button type="button" class="btn btn--ghost" data-stub>Open in Library</button>
-              <button type="button" class="btn btn--primary" data-stub>Send gallery</button>
             </div>
           </div>
         </div>
-
-        <div class="card steps" aria-label="Where this shoot is">
-          <div class="step done">Booked<small>21 October</small></div>
-          <div class="step done">Shoot day<small>29 October</small></div>
-          <div class="step now">Editing<small>since 30 October</small></div>
-          <div class="step">Sent<small>gallery and PIN</small></div>
-          <div class="step">Delivered<small>paid, edits settled</small></div>
-        </div>
-
-        <div class="block" style="gap:14px">
-          <div class="cc-grid">
-            <div class="card panel cc-wide">
-              <div class="box-h"><h3>Booking</h3><a class="box-act" href="#" data-edit-box>Edit</a></div>
-              <div class="facts">
-                <div><span>Service</span><b>Property video</b></div>
-                <div><span>Shoot</span><b>Thu 29 October, 10:00 · 2 hours</b></div>
-                <div><span>Where</span><b>8 Marina Way, Penarth CF64 1TQ</b></div>
-                <div><span>Client</span><b>Harbourside Estates · Fine &amp; Country</b></div>
-                <div><span>Contact</span><b>Sarah Lewin · 07700 900412</b></div>
-                <div><span>Filmed by</span><b>Jack</b></div>
-              </div>
-            </div>
-            <div class="card panel cc-third">
-              <div class="box-h"><h3>Travel</h3><a class="box-act" href="#" data-stub>Recalculate</a></div>
-              <dl class="dl">
-                <dt>From</dt><dd>Rugby studio</dd>
-                <dt>Distance</dt><dd>52 miles each way</dd>
-                <dt>Free</dt><dd>40 miles each way</dd>
-                <dt>Charged</dt><dd>24 miles there and back</dd>
-                <dt>Travel charge</dt><dd>£50.00</dd>
-              </dl>
-            </div>
-            <div class="card panel cc-third box-money">
-              <div class="box-h"><h3>Invoicing</h3><a class="box-act" href="#" data-open-invoice>Open invoice <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-              <dl class="dl">
-                <dt>Who pays</dt><dd>The brand (F&amp;C)</dd>
-                <dt>F&amp;C office</dt><dd>Cardiff, confirmed</dd>
-                <dt>Marketing fee</dt><dd><span class="chip c-paid">Held</span></dd>
-                <dt>Invoice</dt><dd>INV-1042 · £1,450.00</dd>
-                <dt>Status</dt><dd><span class="chip c-approve">To approve</span></dd>
-              </dl>
-            </div>
-            <div class="card panel cc-third">
-              <div class="box-h"><h3>Delivery</h3><a class="box-act" href="#" data-stub>Send gallery</a></div>
-              <dl class="dl">
-                <dt>Pixieset gallery</dt><dd>gallery.tmke.co.uk/harbourside</dd>
-                <dt>Gallery email</dt><dd>sarah@harbourside.example</dd>
-                <dt>PIN</dt><dd>Held until paid</dd>
-                <dt>Sent</dt><dd>Not yet</dd>
-                <dt>Edits</dt><dd>10 days from sending</dd>
-              </dl>
-            </div>
-            <div class="card panel cc-half box-clients">
-              <div class="box-h"><h3>Content</h3><a class="box-act" href="#" data-stub>Open in Library <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>
-              <dl class="dl">
-                <dt>Library folder</dt><dd>38 files · 2.4 GB</dd>
-                <dt>Archive copy</dt><dd><span class="chip c-paid">Uploaded</span></dd>
-                <dt>Client portal</dt><dd>Fine &amp; Country · waiting</dd>
-                <dt>Video editing</dt><dd>3 of 4 films captioned</dd>
-              </dl>
-            </div>
-            <div class="card panel cc-half">
-              <div class="box-h"><h3>Notes, documents &amp; messages</h3><a class="box-act" href="#" data-stub>Add</a></div>
-              <ul class="feed">
-                <li><span class="feed-k">Note</span><span class="feed-t">Drone shots only after 11, marina rule.</span><span class="feed-w">Jack · 28 Oct</span></li>
-                <li><span class="feed-k">Document</span><span class="feed-t">Location release form.pdf</span><span class="feed-w">27 Oct</span></li>
-                <li><span class="feed-k">Email</span><span class="feed-t">Booking confirmed, sent to Sarah</span><span class="feed-w">21 Oct</span></li>
-              </ul>
-            </div>
-          </div>
-        </div>
+        <div class="cf" id="cf"></div>
       </section>
     </main>
   </div>
@@ -630,31 +747,8 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
-<!-- The invoice itself, in a panel from the right (Dani, 4 Nov: "Open invoice"
-     should open the invoice, not the Invoices page). -->
-<div class="drawer-scrim" id="inv-drawer" hidden>
-  <aside class="drawer" role="dialog" aria-modal="true" aria-label="Invoice INV-1042">
-    <header class="drawer-h">
-      <div><p class="eyebrow" style="margin:0 0 4px;padding:0">Invoice · Harbourside Estates</p><h2>INV-1042</h2></div>
-      <button type="button" class="drawer-x" data-close-drawer aria-label="Close">×</button>
-    </header>
-    <div class="drawer-chips"><span class="chip c-approve">To approve</span><span class="chip c-clients">Bill to Fine &amp; Country, Cardiff</span></div>
-    <div class="inv-doc">
-      <div class="inv-row inv-head"><span>Item</span><span>Amount</span></div>
-      <div class="inv-row"><span>Property video package<small>Shoot 29 October, 8 Marina Way, Penarth</small></span><span>£1,166.67</span></div>
-      <div class="inv-row"><span>Travel<small>24 miles beyond the free 40 each way</small></span><span>£41.67</span></div>
-      <div class="inv-row inv-sub"><span>Subtotal</span><span>£1,208.34</span></div>
-      <div class="inv-row inv-sub"><span>VAT at 20%</span><span>£241.66</span></div>
-      <div class="inv-row inv-total"><span>Total</span><span>£1,450.00</span></div>
-      <dl class="dl inv-meta"><dt>Issued</dt><dd>Not yet</dd><dt>Due</dt><dd>14 days after sending</dd><dt>Sent for approval</dt><dd>By Abbie, 3 November</dd></dl>
-    </div>
-    <footer class="drawer-f">
-      <button type="button" class="btn btn--ghost" data-stub>Download PDF</button>
-      <button type="button" class="btn btn--ghost" data-stub>Edit</button>
-      <button type="button" class="btn btn--primary" data-stub>Approve and send</button>
-    </footer>
-  </aside>
-</div>
+<!-- Client file pop-outs (Dani, 4 Nov): Booking and Travel open in the middle, Invoicing, Delivery and Notes slide in from the right. -->
+<div class="cfx" id="cfx" hidden role="dialog" aria-modal="true"><div class="cfx-box" id="cfx-box"></div></div>
 
 <script>
 (() => {
@@ -726,7 +820,7 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
   document.addEventListener("click", (e) => { if (os.classList.contains("is-drawer") && !e.target.closest(".side") && !e.target.closest("#burger")) os.classList.remove("is-drawer"); });
 
   const INV = [
-    ["INV-1042", "Harbourside Estates", "Fine & Country", "Spring listings film", "approve", "—", 1450],
+    ["INV-1042", "Trentside Estates", "Fine & Country", "Spring listings film", "approve", "—", 1450],
     ["INV-1041", "Marlow & Finch", "The Property Experts", "Social media, October", "approve", "—", 1860],
     ["INV-1040", "Oakridge Lettings", "The Letting Experts", "Social media, October", "approve", "—", 1550],
     ["INV-1039", "Ivy Lane Estates", "Fine & Country", "Studio Day", "sent", "14 Nov", 920],
@@ -734,7 +828,7 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
     ["INV-1036", "Kestrel Homes", "The Letting Experts", "Three films", "over", "28 Oct", 1170],
     ["INV-1033", "Seaview Lettings", "The Letting Experts Scotland", "Social media, September", "over", "21 Oct", 400],
     ["INV-1035", "Marlow & Finch", "The Property Experts", "Two films", "paid", "Paid 2 Nov", 980],
-    ["INV-1034", "Harbourside Estates", "Fine & Country", "Social media, October", "paid", "Paid 1 Nov", 1650],
+    ["INV-1034", "Trentside Estates", "Fine & Country", "Social media, October", "paid", "Paid 1 Nov", 1650],
   ];
   const ST = { approve: ["To approve", "c-approve"], sent: ["Sent", "c-sent"], over: ["Overdue", "c-over"], paid: ["Paid", "c-paid"] };
   let invF = "all";
@@ -885,16 +979,407 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 760px; }
   });
   document.addEventListener("click", (e) => { if (!pop.hidden && !e.target.closest("#pic-pop")) pop.hidden = true; });
 
-  const drawer = $("#inv-drawer");
-  document.addEventListener("click", (e) => {
-    if (e.target.closest("[data-open-invoice]")) { e.preventDefault(); drawer.hidden = false; return; }
-    if (e.target.closest("[data-close-drawer]") || e.target === drawer) drawer.hidden = true;
-  });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !drawer.hidden) drawer.hidden = true; });
-
   if (store.get("tmkeos3.folded")) os.classList.add("is-folded");
   drawInv();
   const start = (location.hash || "").slice(1);
   show(["home", "invoices", "client"].includes(start) ? start : "home");
 })();
 </script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const money = (n) => "£" + Number(n || 0).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const longDate = (x, yr) => x ? new Date(x + "T12:00").toLocaleDateString("en-GB", yr ? { day: "numeric", month: "long", year: "numeric" } : { weekday: "long", day: "numeric", month: "long" }) : "";
+  const dm = (x) => x ? new Date(x + "T12:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "";
+  const addDays = (x, n) => { const d = new Date(x + "T12:00"); d.setDate(d.getDate() + n); return iso(d); };
+  let toastT;
+  const toast = (m) => { const t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 3000); };
+
+  // ---- Example shoot (nothing here is a real client) ----
+  const B = {
+    service: "Property video", date: "2026-10-29", time: "10:00", location: "At the property",
+    address: "8 Canal Street, Nottingham NG1 7EH", client: "Sarah Lewin", company: "Trentside Estates",
+    email: "sarah@trentside-estates.example", phone: "07700 900412", quote: 950, booked: "21 October", filmer: "Jack",
+    notes: "Vacant property. Keys from the Nottingham office by 9:30.\nDrone shots only after 11, the canal-side rule.\nSarah wants a 60-second cut for Instagram as well as the full walkthrough. She'll send the floor plan the day before.",
+  };
+  // Travel: the code's rule (travelCharge): miles over 40 each way, rounded up, charged twice, at 55p.
+  const T = { postcode: "NG1 7EH", miles: 60.4, free: 40, rate: 55, base: "NN14 1AA" };
+  const tc = (miles) => { const over = Math.max(0, Math.ceil(miles - T.free)); return { over, charged: over * 2, cost: over * 2 * T.rate / 100 }; };
+  const travelLine = (miles) => `Travel charge (${Math.round(miles)} miles each way, ${Math.round(miles * 2)} miles there and back, less the free ${T.free} miles each way: ${tc(miles).charged} miles at ${T.rate}p a mile)`;
+  const firstLine = () => B.address.split(",")[0].trim();
+  const seedItems = () => [{ d: `${B.service} - ${B.client} - ${firstLine()}`, a: B.quote }, ...(tc(T.miles).cost ? [{ d: travelLine(T.miles), a: tc(T.miles).cost }] : [])];
+  // The F&C route, as the automatic invoicing sets it (VIDEO_INVOICE_ROUTES.brand_invoice).
+  const I = {
+    no: "TMKE1071", office: "Fine & Country Midlands", brand: "Fine & Country", billTo: "Fine & Country Midlands", email: "Paula@newman.uk.com",
+    cc: "accountspayable@newman.uk.com, Rosie-Anne@newman.uk.com", address: "", card: false, issued: "2026-10-27", terms: 10,
+    notes: "", items: null, fee: "Held. Fine & Country Midlands confirmed on 22 October.",
+  };
+  const sub = (items) => items.reduce((a, l) => a + (Number(l.a) || 0), 0);
+  const vat = (items) => Math.round(sub(items) * 20) / 100;
+  const total = (items) => sub(items) + vat(items);
+  const due = () => addDays(I.issued, I.terms);
+  const notesFor = () => `${B.address} - ${longDate(B.date, true).replace(/^\w+ /, "")}\nThank you for your business - TMKE`;
+  const D = { link: "", email: "sarah@trentside-estates.example", pin: false, portal: "Fine & Country Midlands", portalLink: "tmke.co.uk/portal?c=fc-midlands", expires: "" };
+  const NOTES = [
+    ["Note", "Drone shots only after 11, the canal-side rule.", "Jack · 28 Oct"],
+    ["Document", "Floor plan.pdf", "27 Oct"],
+    ["Email", "Booking confirmed, sent to Sarah", "21 Oct"],
+    ["Call", "Sarah asked for a 60-second cut as well", "20 Oct"],
+  ];
+  // Our own storage (Cloudflare R2): one folder per shoot, named by the rule in lib/archive-folder.js,
+  // with the sub-folders for the service (archiveFoldersFor in videography-config.js).
+  const SUBS = ["Property Photography Exterior", "Property Photography Interior", "Floor Plans", "Twilight", "Drone Footage", "Video", "Other"];
+  const FULL = { "Property Photography Exterior": 12, "Property Photography Interior": 18, "Floor Plans": 2, "Twilight": 0, "Drone Footage": 4, "Video": 2, "Other": 0 };
+  let UP = {};
+  const upTotal = () => Object.values(UP).reduce((a, n) => a + n, 0);
+  const folderName = () => `${B.service} - ${B.client} - ${B.date} - ${firstLine()}`;
+  const STEPS = ["Booked", "Invoiced", "Shoot day", "Edited", "Gallery ready", "Sent", "Delivered"];
+
+  // Four example moments (mock-up only).
+  let S = "sent";
+  const STATES = [["raise", "Not invoiced yet"], ["shot", "Edited, gallery not added"], ["sent", "Gallery ready, not paid"], ["paid", "Paid and delivered"]];
+  function setState(k) {
+    S = k;
+    const pre = S === "raise";
+    B.date = pre ? "2026-11-12" : "2026-10-29"; B.booked = pre ? "4 November" : "21 October";
+    I.issued = pre ? "2026-11-04" : "2026-10-27"; I.items = pre ? null : seedItems(); I.notes = notesFor();
+    D.link = S === "sent" || S === "paid" ? "gallery.tmke.co.uk/trentside-canal-street" : ""; D.pin = !!D.link;
+    UP = S === "raise" ? {} : { ...FULL };
+    D.expires = D.link ? (() => { const d = new Date(B.date + "T12:00"); d.setMonth(d.getMonth() + 3); return iso(d); })() : "";
+  }
+  const raised = () => !!I.items;
+  const items = () => I.items || seedItems();
+
+  // ---- The card ----
+  const r = (k, v, title) => `<div class="cf-r"><dt>${k}</dt><dd${title ? ` title="${esc(title)}"` : ""}>${v === "" || v == null ? '<span class="cf-none">—</span>' : v}</dd></div>`;
+  const chip = (cls, t) => `<span class="cf-chip ${cls}">${t}</span>`;
+  const box = (cls, title, acts, body) => `<div class="cf-card ${cls}"><div class="cf-h"><h3>${title}</h3><span class="cf-acts-h">${acts}</span></div>${body}</div>`;
+  const act = (k, t) => `<button type="button" class="cf-act" data-cf="${k}">${t}</button>`;
+  const btn = (cls, attrs, t) => `<button type="button" class="btn btn--${cls}" ${attrs}>${t}</button>`;
+
+  function draw() {
+    const NOW = { raise: 0, shot: 3, sent: 4, paid: 6 }[S];
+    $("#v-client .ctags").innerHTML = `<span class="chip c-glass">${STEPS[NOW]}</span><span class="chip c-glass">Fine &amp; Country</span>` + { raise: '<span class="chip pay pay-awaiting">Awaiting invoice</span>', shot: '<span class="chip pay pay-sent">Invoice sent</span>', sent: '<span class="chip pay pay-sent">Invoice sent</span>', paid: '<span class="chip pay pay-paid">Paid</span>' }[S];
+    $("#v-client .cb-sub").textContent = "8 Canal Street, Nottingham · " + longDate(B.date);
+    const pick = `<div class="cf-pick" role="group" aria-label="Example"><span>Mock-up only. Show this shoot when:</span>${STATES.map(([k, t]) => `<button type="button" data-cf-state="${k}" aria-pressed="${S === k}">${t}</button>`).join("")}</div>`;
+    const tl = `<div class="cf-tl"><div class="cf-tl-track"><i style="width:${(NOW / (STEPS.length - 1)) * 100}%"></i></div>${STEPS.map((s, i) => `<div class="cf-tl-step${i === 0 ? " is-first" : ""}${i === STEPS.length - 1 ? " is-last" : ""}${i <= NOW ? " done" : ""}${i === NOW ? " now" : ""}" style="left:${(i / (STEPS.length - 1)) * 100}%"><span class="cf-tl-dot"></span><span>${s}</span></div>`).join("")}</div>`;
+    const due1 = `Invoice paid: ${I.no}, due ${dm(due())}`;
+    const call = {
+      raise: `<div class="cf-call"><div><h4>Before invoicing</h4><ul><li class="ok">Quote and travel in</li><li>Fee check: ${I.office} confirm they hold the seller's marketing fee</li></ul></div><div class="cf-acts">${btn("ghost", `data-cf-stub="Emails ${I.office} to ask whether they hold the fee."`, `Ask ${I.office}`)}${btn("primary", 'data-cf="invoice"', "Raise invoice")}</div></div>`,
+      shot: `<div class="cf-call"><div><h4>Before delivery</h4><ul><li class="ok">Edited</li><li class="ok">Files in our storage</li><li>Pixieset gallery and PIN added</li><li>${due1}</li></ul></div><div class="cf-acts">${btn("ghost", 'data-cf="invoice"', "Open invoice")}${btn("primary", 'data-cf="gallery"', "Add gallery")}</div></div>`,
+      sent: `<div class="cf-call"><div><h4>Before delivery</h4><ul><li class="ok">Edited</li><li class="ok">Files in our storage</li><li class="ok">Pixieset gallery and PIN added</li><li>${due1}</li></ul></div><div class="cf-acts">${btn("ghost", 'data-cf="invoice"', "Open invoice")}${btn("primary", `data-cf-stub="A chase email to ${I.email}, with the invoice attached."`, "Chase payment")}</div></div>`,
+      paid: `<div class="cf-call is-done"><div><h4>Delivered</h4><ul><li class="ok">Paid 30 October</li><li class="ok">Gallery and PIN sent 30 October</li><li class="ok">Edits settled 4 November</li></ul></div></div>`,
+    }[S];
+    const booking = box("cf-wide", "Booking", act("view", "View") + act("edit", "Edit"), `<div class="cf-cols">
+      <dl class="cf-dl">${r("Service", esc(B.service))}${r("Shoot date", esc(longDate(B.date) + ", " + B.time))}${r("Shoot location", esc(B.location))}${r("Property address", esc(B.address), B.address)}</dl>
+      <dl class="cf-dl">${r("Client", esc(B.client))}${r("Company", esc(B.company))}${r("Email", `<a href="#" data-cf-stub="Opens a new email to ${esc(B.email)}.">${esc(B.email)}</a>`, B.email)}${r("Phone", esc(B.phone))}</dl>
+      <dl class="cf-dl">${r("Quote", money(B.quote) + " + travel")}${r("Booked on", esc(B.booked))}${r("Filmed by", esc(B.filmer))}${r("Booking notes", esc(B.notes.split("\n")[0]), B.notes)}</dl></div>`);
+    const t = tc(T.miles);
+    const travel = box("cf-third", "Travel", act("travel", "Calculate"), `<dl class="cf-dl">${r("Shoot postcode", esc(T.postcode))}${r("Distance", T.miles.toFixed(1) + " miles each way")}${r("Free", T.free + " miles each way")}${r("Charged", t.charged + " miles there and back")}${r("Travel charge", money(t.cost))}${r("On invoice", raised() ? "Yes, " + I.no : "Goes on when it's raised")}</dl>`);
+    const invRow = !raised() ? chip("plain", "Not raised") : S === "paid" ? `${I.no} &nbsp;${chip("good", "Paid 30 October")}` : `${I.no} &nbsp;${chip("info", "Sent, due " + dm(due()))}`;
+    const inv = box("cf-third", "Invoicing", act("invoice", "Open"), `<dl class="cf-dl">${r("Brand", esc(I.brand))}${r("Bill to", esc(I.billTo))}${r("Invoice email", esc(I.email), I.email)}${r("Billing address", esc(I.address), I.address)}${r("Total", money(total(items())) + " inc. VAT")}${r("Invoice", invRow)}</dl>`);
+    const del = box("cf-third", "Delivery", act("delivery", "Open"), `<dl class="cf-dl">${delRows()}</dl>`);
+    const content = box("cf-half", "Content", act("content", "Open") + act("library", "Open in Library"), `<dl class="cf-dl">${r("Our storage", upTotal() ? chip("good", `${upTotal()} files uploaded`) : chip("plain", "Nothing uploaded yet"))}${r("Storage folder", esc(folderName()), folderName())}${r("Client portal link", D.portal && D.portal !== "None" ? `<a href="#" data-cf-stub="Copies the portal link. The passcode is in Videography › Settings › Client portals.">${esc(D.portalLink)}</a>` : "", D.portalLink)}${r("Video editing", S === "raise" ? "" : "2 of 2 films captioned")}</dl>`);
+    const notes = box("cf-half", "Notes", act("notes", "All notes") + act("notes", "Add"), `<div>${NOTES.slice(0, 4).map((n) => `<div class="cf-note"><span>${n[0]}</span><span title="${esc(n[1])}">${esc(n[1])}</span><span>${n[2]}</span></div>`).join("")}</div>`);
+    $("#cf").innerHTML = pick + `<div class="cf-card">${tl}${call}</div><div class="cf-grid">${booking}${travel}${inv}${del}${content}${notes}</div>`;
+  }
+  // Delivery, the same six rows at every stage:
+  //   Edits = the client's one round of changes: Not sent yet, Open until (10 days after sending), Settled.
+  //   Gallery expires = the day Pixieset deletes the gallery, three months after the shoot. The archive copy stays.
+  function delRows() {
+    const link = D.link ? `<a href="#" data-cf-stub="Opens the gallery in a new tab.">${esc(D.link)}</a>` : (S === "shot" ? '<span class="cf-miss">Not added</span>' : "");
+    const pin = D.pin ? (S === "paid" ? chip("good", "Released 30 October") : chip("wait", "Held until paid")) : (S === "shot" ? '<span class="cf-miss">Not added</span>' : "");
+    const portal = !(D.portal && D.portal !== "None") ? "Not in a portal" : S === "raise" ? esc(D.portal) : S === "paid" ? chip("good", "Showing") : chip("wait", "Shows once paid");
+    return r("Pixieset gallery", link, D.link) + r("PIN", pin) + r("Client portal", portal) + r("Sent", S === "paid" ? "30 October" : "Not yet") +
+      r("Edits", S === "paid" ? chip("good", "Settled 4 November") : chip("plain", "Not sent yet")) + r("Gallery expires", D.expires ? dm(D.expires) + " " + new Date(D.expires).getFullYear() : '<span class="cf-none">Set when the link goes in</span>');
+  }
+
+  // ---- Pop-outs: one kind, centred on the page beside the sidebar ----
+  const scrim = $("#cfx"), boxEl = $("#cfx-box");
+  let opts_scroll = 0, pEdit = false;
+  let mode = null, tab = "this", edit = false, pv = null, newItems = null, pend = T.miles;
+  const top = (eye, title, chipHtml = "") => `<header class="cfx-top"><div><p>${eye}</p><h2>${title}</h2>${chipHtml}</div><button type="button" class="cfx-x" data-cfx-close aria-label="Close">×</button></header>`;
+  const vr = (k, v) => `<div class="cfx-r"><dt>${k}</dt><dd>${v === "" || v == null ? '<span class="cf-none">—</span>' : v}</dd></div>`;
+  const fr = (k, field, hint) => `<div class="cfx-r is-field"><span>${k}</span><div>${field}${hint ? `<small class="cfx-hint">${hint}</small>` : ""}</div></div>`;
+  const inp = (id, v, type = "text", ph = "") => `<input class="cfx-in" id="${id}" type="${type}" value="${esc(v)}"${ph ? ` placeholder="${esc(ph)}"` : ""}>`;
+  const sel = (id, opts, cur) => `<select class="cfx-in" id="${id}">${opts.map((o) => `<option${o === cur ? " selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+  const sec = (h, inner) => `<section class="cfx-sec"><h4>${h}</h4><div class="cfx-sec-b">${inner}</div></section>`;
+  const SERVICES = ["New-starter Studio Day", "New-starter on location", "Content Studio Day", "Property video", "Agent shoot on location", "Shot & Scheduled shoot", "Event coverage", "Photography"];
+  const CLIENT = "Trentside Estates";
+
+  function place() { const m = $(".main"); scrim.style.left = (m && innerWidth > 900 ? m.getBoundingClientRect().left : 0) + "px"; }
+  addEventListener("resize", () => { if (!scrim.hidden) place(); });
+  function open(m, opts = {}) {
+    mode = m; edit = !!opts.edit; pv = null; tab = opts.tab || "this"; newItems = null;
+    scrim.hidden = false; place();
+    boxEl.className = "cfx-box" + (m === "travel" ? " is-narrow" : "");
+    render();
+    setTimeout(() => (boxEl.querySelector(".cfx-in") || boxEl.querySelector(".cfx-x")).focus(), 0);
+  }
+  function close() { scrim.hidden = true; mode = null; edit = false; pEdit = false; pv = null; }
+  function shell(eye, title, chipHtml, tabs, body, foot) {
+    boxEl.classList.toggle("is-edit", edit || (mode === "invoice" && (tab === "new" || (tab === "this" && !raised()))) && !pv);
+    boxEl.innerHTML = top(eye, title, chipHtml) + (tabs || "") + `<div class="cfx-body">${body}</div>` + (foot ? `<footer class="cfx-foot">${foot}</footer>` : "");
+    boxEl.querySelector(".cfx-body").scrollTop = 0;
+  }
+
+  // The invoice builder: the same pattern as the live one, in the order Danielle uses.
+  function builder(pfx, its, isNew) {
+    const lines = its.map((l, i) => `<div class="cfx-li is-ed"><span>${inp(`${pfx}-d${i}`, l.d, "text", "Description")}</span><span>${inp(`${pfx}-a${i}`, l.a === "" ? "" : Number(l.a).toFixed(2), "number", "0.00").replace('class="cfx-in"', 'class="cfx-in num"')}</span><button type="button" class="cfx-rm" data-cfx-rm="${i}" aria-label="Remove line">×</button></div>`).join("");
+    return sec("Who it's for", `<dl style="margin:0">${fr("Client", inp(pfx + "-client", B.client + ", " + B.company), "Names the shoot for Paula, who pays for several agents at once.")}${fr("Bill to", inp(pfx + "-billto", I.billTo))}${fr("Invoice email", inp(pfx + "-email", I.email, "email"))}${fr("Copy to", inp(pfx + "-cc", I.cc))}${fr("Billing address", `<textarea class="cfx-in" id="${pfx}-addr" rows="2" placeholder="Optional">${esc(I.address)}</textarea>`)}${fr("Card payment", `<div class="cfx-tog" data-cfx-tog><button type="button" aria-pressed="${!I.card}">Off</button><button type="button" aria-pressed="${I.card}">On</button></div>`, "Off: the brand settles this, not the client.")}</dl>`) +
+      sec("Dates", `<dl style="margin:0">${fr("Issued", inp(pfx + "-issued", isNew ? "2026-11-04" : I.issued, "date"))}${fr("Due date", inp(pfx + "-due", isNew ? "2026-11-14" : due(), "date"), "10 days after issue.")}</dl>`) +
+      sec("What it's for", `<div class="cfx-doc is-ed"><div class="cfx-li"><span>Item</span><span>Amount</span></div>${lines}<div class="cfx-li"><span><button type="button" class="cf-act" data-cfx="add-line">Add a line</button></span><span></span></div><div class="cfx-li sub"><span>Subtotal</span><span>${money(sub(its))}</span></div><div class="cfx-li sub"><span>VAT at 20%</span><span>${money(vat(its))}</span></div><div class="cfx-li tot"><span>Total</span><span>${money(total(its))}</span></div></div>`) +
+      sec("Notes on the invoice", `<textarea class="cfx-in" id="${pfx}-notes" rows="2">${esc(isNew ? "Thank you for your business - TMKE" : I.notes || notesFor())}</textarea>`);
+  }
+  function readItems(pfx) {
+    const out = []; let i = 0;
+    while ($(`#${pfx}-d${i}`)) { out.push({ d: $(`#${pfx}-d${i}`).value, a: $(`#${pfx}-a${i}`).value === "" ? "" : parseFloat($(`#${pfx}-a${i}`).value) }); i++; }
+    return out;
+  }
+  function invoiceDoc(its, no) {
+    return `<div class="cfx-paper"><div class="cfx-paper-h"><span class="cfx-logo">TMKE</span><span><b>Invoice ${esc(no)}</b><br>Issued ${dm(I.issued)} · Due ${longDate(due(), true)}</span></div>
+      <div class="cfx-paper-2"><div><small>Bill to</small>${esc(I.billTo)}${I.address ? "<br>" + esc(I.address).replace(/\n/g, "<br>") : ""}</div><div><small>Client</small>${esc(B.client)}, ${esc(B.company)}</div></div>
+      <div class="cfx-doc" style="margin-top:16px"><div class="cfx-li"><span>Item</span><span>Amount</span></div>${its.map((l) => `<div class="cfx-li"><span>${esc(l.d)}</span><span>${money(l.a)}</span></div>`).join("")}<div class="cfx-li sub"><span>Subtotal</span><span>${money(sub(its))}</span></div><div class="cfx-li sub"><span>VAT at 20%</span><span>${money(vat(its))}</span></div><div class="cfx-li tot"><span>Total due</span><span>${money(total(its))}</span></div></div>
+      <p class="cfx-paper-n">${esc(I.notes || notesFor()).replace(/\n/g, "<br>")}</p>
+      <p class="cfx-paper-f">Bank transfer to the account on the invoice, quoting ${esc(no)}. The Marketing Experts (Nationwide) Ltd.</p></div>`;
+  }
+  // The covering email: the words in src/lib/invoice-email.js for a Fine & Country shoot (signed off 22 Oct).
+  function emailFor(its, no) {
+    const d = longDate(B.date), dueL = longDate(due(), true);
+    return { to: I.email, cc: I.cc, subject: `Invoice ${no}: ${B.client}, ${I.office}, shoot on ${d}.`,
+      body: `Hi Paula,\n\nPlease find attached invoice ${no} for ${B.client} at ${I.office}. It's for their ${B.service} shoot on ${d} at ${B.address}.\n\nAmount due: ${money(total(its))}\nDue date: ${dueL}\n\nThe shoot is paid from the marketing fee charged to ${B.client}'s client, which Fine & Country have confirmed they hold.\n\nWhen the payment has been applied, please reply to let us know, so we can record it on our system.\n\nIf you have any questions, just reply to this email.\n\nKind regards,\nThe TMKE team` };
+  }
+  function emailView(its, no) {
+    const e = emailFor(its, no);
+    return `<div class="cfx-mail"><dl style="margin:0">${vr("To", esc(e.to))}${vr("Copy to", esc(e.cc))}${vr("Subject", esc(e.subject))}${vr("Attached", esc(no) + ".pdf")}</dl><div class="cfx-mail-b">${esc(e.body)}</div></div>`;
+  }
+
+  function render() {
+    if (mode === "view" || mode === "edit") {
+      const e = mode === "edit"; edit = e;
+      const secs = e ? [
+        ["The shoot", fr("Service", sel("f-service", SERVICES, B.service)) + fr("Shoot date", `<div class="cfx-pair">${inp("f-date", B.date, "date")}${inp("f-time", B.time, "time")}</div>`) + fr("Shoot location", sel("f-loc", ["At the property", "Our studio", "Elsewhere"], B.location)) + fr("Property address", inp("f-address", B.address)) + fr("Filmed by", sel("f-filmer", ["Jack", "Abbie"], B.filmer))],
+        ["The client", fr("Client", inp("f-client", B.client)) + fr("Company", inp("f-company", B.company)) + fr("Email", inp("f-email", B.email, "email")) + fr("Phone", inp("f-phone", B.phone, "tel"))],
+        ["The booking", fr("Quote", inp("f-quote", B.quote.toFixed(2), "number"), "Before travel and VAT.") + vr("Booked on", esc(B.booked)) + fr("Booking notes", `<textarea class="cfx-in" id="f-notes" rows="5">${esc(B.notes)}</textarea>`)],
+      ] : [
+        ["The shoot", vr("Service", esc(B.service)) + vr("Shoot date", esc(longDate(B.date) + ", " + B.time)) + vr("Shoot location", esc(B.location)) + vr("Property address", esc(B.address)) + vr("Filmed by", esc(B.filmer))],
+        ["The client", vr("Client", esc(B.client)) + vr("Company", esc(B.company)) + vr("Email", `<a href="#">${esc(B.email)}</a>`) + vr("Phone", esc(B.phone))],
+        ["The booking", vr("Quote", money(B.quote) + " before travel and VAT") + vr("Booked on", esc(B.booked)) + vr("Booking notes", esc(B.notes))],
+      ];
+      shell("Booking · " + CLIENT, e ? "Edit this booking" : "The booking in full", "", "", secs.map(([h, x]) => sec(h, `<dl style="margin:0">${x}</dl>`)).join(""),
+        e ? `<span class="cfx-say">Saves to this booking and ${esc(B.filmer)}'s calendar.</span>${btn("ghost", "data-cfx-close", "Cancel")}${btn("primary", 'data-cfx="save-booking"', "Save")}`
+          : `${btn("ghost", "data-cfx-close", "Close")}${btn("primary", 'data-cfx="to-edit"', "Edit")}`);
+      return;
+    }
+    if (mode === "travel") {
+      edit = true;
+      shell("Travel · " + CLIENT, "Work out the travel charge", "", "", sec("The journey", `<dl style="margin:0">${vr("From", esc(T.base) + ", our base")}${fr("Shoot postcode", `<div class="cfx-calc">${inp("f-pc", T.postcode)}${btn("ghost", 'data-cfx="calc"', "Calculate")}</div>`)}</dl>`) +
+        sec("The charge", `<div id="cfx-sum">${travelSum(pend)}</div>`) + `<p class="cfx-say" style="margin:14px 0 0">Driving distance from Google. The first ${T.free} miles each way are free, then ${T.rate}p a mile, there and back. Studio shoots carry no travel.</p>`,
+        `<span class="cfx-say">${raised() && S !== "paid" ? "The invoice updates too." : raised() ? "Paid already: the invoice won't change." : "It goes on the invoice when it's raised."}</span>${btn("ghost", "data-cfx-close", "Cancel")}${btn("primary", 'data-cfx="use-travel"', "Use this charge")}`);
+      return;
+    }
+    if (mode === "invoice") {
+      const tabs = `<nav class="cfx-tabs">${[["this", raised() ? "This invoice" : "Raise this invoice"], ["new", "Raise new"], ["all", `All invoices (${raised() ? 2 : 1})`]].map(([k, t]) => `<button type="button" data-cfx-tab="${k}" aria-selected="${tab === k}">${t}</button>`).join("")}</nav>`;
+      const eye = "Invoicing · " + CLIENT;
+      // Previews (invoice or email), from whichever builder is open.
+      if (pv) {
+        const its = pv.items, no = pv.no;
+        shell(eye, pv.kind === "invoice" ? "Preview: the invoice" : "Preview: the email", chip("plain", (pv.kind === "invoice" ? "As the PDF will read" : "As Paula will get it") + (pv.fresh ? ". The number is confirmed when it's approved" : "")), "",
+          pv.kind === "invoice" ? invoiceDoc(its, no) : emailView(its, no),
+          `${btn("ghost", 'data-cfx="pv-back"', "Back to the invoice")}${pv.kind === "invoice" ? btn("ghost", 'data-cfx="pv-email"', "Preview email") : btn("ghost", 'data-cfx="pv-invoice"', "Preview invoice")}${pv.resend ? btn("primary", 'data-cfx="do-resend"', "Resend") : btn("primary", 'data-cfx="approve"', "Send for approval")}`);
+        return;
+      }
+      if (tab === "all") {
+        const rows = [
+          ...(raised() ? [[I.no, "Property video, Canal Street", money(total(items())), S === "paid" ? chip("good", "Paid 30 Oct") : chip("info", "Sent, due " + dm(due()))]] : []),
+          ["TMKE0987", "Floor plans, September", money(144), chip("good", "Paid 12 Oct")],
+        ];
+        shell(eye, "Invoices for this client", "", tabs, `<div class="cfx-list">${rows.map((x) => `<div class="cfx-list-r"><span>${x[0]}</span><span>${x[1]}</span><span>${x[2]}</span><span>${x[3]}</span><span class="cfx-list-a"><button type="button" class="cf-act" data-cfx-viewinv="${x[0]}">View</button><button type="button" class="cf-act" data-cfx-resend="${x[0]}">Resend</button></span></div>`).join("")}</div>`,
+          btn("primary", 'data-cfx-tab="new"', "Raise new"));
+        return;
+      }
+      if (tab === "new") {
+        if (!newItems) newItems = [{ d: "", a: "" }];
+        shell(eye, "Raise a new invoice", chip("plain", "Draft"), tabs, builder("n", newItems, true),
+          `${btn("ghost", 'data-cfx="pv-invoice"', "Preview invoice")}${btn("ghost", 'data-cfx="pv-email"', "Preview email")}${btn("ghost", 'data-cf-stub="Saved as a draft."', "Save draft")}${btn("primary", 'data-cfx="approve"', "Send for approval")}`);
+        return;
+      }
+      if (!raised() || edit) {
+        if (!newItems) newItems = items().map((l) => ({ ...l }));
+        const lock = !raised() ? `<div class="cfx-lock"><span><b>Fee check first.</b> ${I.office} haven't yet confirmed they hold the seller's marketing fee, which pays for this shoot. You can get it approved now; it waits for their yes before it goes to Paula.</span></div>` : "";
+        shell(eye, raised() ? "Edit " + I.no : "Raise this invoice", raised() ? chip("info", "Sent " + dm(I.issued)) : chip("plain", "Built from the booking and travel"), tabs, lock + builder("b", newItems, false),
+          raised() ? `<span class="cfx-say">It's been sent: saving asks whether to resend.</span>${btn("ghost", 'data-cfx="inv-cancel"', "Cancel")}${btn("primary", 'data-cfx="inv-save"', "Save changes")}`
+            : `${btn("ghost", 'data-cfx="pv-invoice"', "Preview invoice")}${btn("ghost", 'data-cfx="pv-email"', "Preview email")}${btn("primary", 'data-cfx="approve"', "Send for approval")}`);
+        return;
+      }
+      const its = items();
+      const hist = `<ul class="cfx-hist"><li><span>${dm(I.issued)}</span><span>Approved by Jack, sent to ${esc(I.email)}</span></li><li><span>28 October</span><span>Opened</span></li>${S === "paid" ? `<li><span>30 October</span><span>Paid, ${money(total(its))}. Marked by Abbie.</span></li>` : `<li><span>${dm(addDays(due(), 1))}</span><span>Reminder goes if it's still unpaid</span></li>`}</ul>`;
+      shell(eye, I.no, S === "paid" ? chip("good", "Paid 30 October") : chip("info", `Sent ${dm(I.issued)} · due ${dm(due())}`), tabs,
+        `<div class="cfx-plain">${invoiceDoc(its, I.no)}</div>` + sec("Who it goes to", `<dl style="margin:0">${vr("Invoice email", esc(I.email))}${vr("Copy to", esc(I.cc))}${vr("Fee check", esc(I.fee))}</dl>`) + sec("What's happened", hist),
+        S === "paid" ? `<span class="cfx-say">Paid, so it can't be changed.</span>${btn("ghost", `data-cf-stub="Downloads ${I.no}.pdf."`, "Download PDF")}${btn("primary", `data-cfx-resend="${I.no}"`, "Send paid copy")}`
+          : `${btn("ghost", `data-cf-stub="Downloads ${I.no}.pdf."`, "Download PDF")}${btn("ghost", 'data-cfx="inv-edit"', "Edit")}${btn("primary", `data-cfx-resend="${I.no}"`, "Resend")}`);
+      return;
+    }
+    if (mode === "content") {
+      edit = false;
+      const has = upTotal() > 0;
+      const zones = SUBS.map((f) => `<label class="cfx-zone" data-zone="${esc(f)}"><input type="file" multiple hidden data-zone-in="${esc(f)}"><span class="cfx-zone-n">${esc(f)}</span><span class="cfx-zone-c">${UP[f] ? UP[f] + " files" : "Empty"}</span><span class="cfx-zone-a">Drop files here, or click to choose</span></label>`).join("");
+      const filled = SUBS.filter((f) => UP[f]).map((f) => `${esc(f)} (${UP[f]})`).join(", ");
+      shell("Content · " + CLIENT, "Our storage", has ? chip("good", upTotal() + " files uploaded") : chip("plain", "Nothing uploaded yet"), "",
+        sec("Our storage", `<p class="cfx-say" style="margin:10px 0 6px">Our own copy of every file, on our Cloudflare storage. The team uses it, the Library shows it, and a client portal shares it. Pixieset deletes its gallery after three months; this stays.</p>
+          <dl style="margin:0">${vr("Folder", esc(folderName()))}${vr("Uploaded", `<span id="cfx-uptotal">${has ? upTotal() + " files" : "Nothing yet"}</span>`)}${has ? vr("In", filled) : ""}</dl>
+          <details class="cfx-more"${has ? "" : " open"}><summary>${has ? "Add more files" : "Upload the files"}</summary><p class="cfx-say" style="margin:6px 0 8px">One box for each folder, set by the service. Files go in 50 MB pieces, so a dropped connection carries on where it stopped.</p><div class="cfx-zones">${zones}</div><div id="cfx-ups" class="cfx-ups"></div></details>`) +
+        sec("Video editing", `<dl style="margin:0">${vr("Films", S === "raise" ? "" : "2 of 2 captioned")}${vr("Captions", S === "raise" ? "" : "Brand captions, burnt in")}</dl><div class="cfx-inline-acts">${btn("ghost", 'data-cf-stub="Opens Video captions with this shoot\'s films."', "Open Video captions")}</div>`),
+        `${btn("ghost", 'data-cf="library"', "Open in Library")}${btn("primary", "data-cfx-close", "Done")}`);
+      return;
+    }
+    if (mode === "delivery") {
+      const paid = S === "paid";
+      const lock = paid ? "" : `<div class="cfx-lock"><span><b>${raised() ? `Locked until ${I.no} is paid.` : "Nothing goes to the client yet."}</b> The gallery and portal can be set up now. The PIN, the portal folder and the gallery email wait until the invoice is paid.</span></div>`;
+      const exp0 = D.expires || (() => { const d = new Date(B.date + "T12:00"); d.setMonth(d.getMonth() + 3); return iso(d); })();
+      const intro1 = `<p class="cfx-say" style="margin:10px 0 6px">What the client sees and downloads. Jack builds it in Pixieset, then puts the details here.</p>`;
+      const step1 = edit
+        ? sec("1 · Pixieset gallery", intro1 + `<dl style="margin:0">${fr("Gallery link", inp("g-link", D.link, "url", "Paste the Pixieset link"))}${fr("Gallery email", inp("g-email", D.email, "email"), "The address the gallery was set up with. The PIN goes here.")}${fr("PIN", inp("g-pin", D.pin ? "••••" : "", "password", "From Pixieset"), "Kept for the gallery email. Never shown on the card.")}${fr("Gallery expires", inp("g-exp", exp0, "date"), "Three months after the shoot, filled in for you.")}</dl><div class="cfx-inline-acts">${btn("ghost", 'data-cfx="del-cancel"', "Cancel")}${btn("primary", 'data-cfx="del-save"', "Save gallery")}</div>`)
+        : sec("1 · Pixieset gallery", intro1 + `<dl style="margin:0">${vr("Gallery link", D.link ? `<a href="#">${esc(D.link)}</a>` : "")}${vr("Gallery email", esc(D.email))}${vr("PIN", D.pin ? (paid ? "Released 30 October in the gallery email." : "Added. Held until paid.") : "")}${vr("Gallery expires", D.link ? longDate(D.expires, true) : "")}</dl><div class="cfx-inline-acts">${btn(D.link ? "ghost" : "primary", 'data-cfx="del-edit"', D.link ? "Edit gallery" : "Add gallery")}</div>`);
+      const intro2 = `<p class="cfx-say" style="margin:10px 0 6px">For clients who have a portal: their own link and passcode to watch and download from our storage. Not another upload; it shares this shoot's folder.</p>`;
+      const inPortal = D.portal && D.portal !== "None";
+      const step2 = pEdit
+        ? sec("2 · Client portal", intro2 + `<dl style="margin:0">${fr("Portal", sel("p-pick", ["Not in a portal", "Fine & Country Midlands", "TEG New Starter", "+ New portal for " + B.company], inPortal ? D.portal : "Not in a portal"), "A new portal gets its own link and passcode. Its name, passcode and who it emails are in Videography › Settings › Client portals.")}</dl><div class="cfx-inline-acts">${btn("ghost", 'data-cfx="p-cancel"', "Cancel")}${btn("primary", 'data-cfx="p-save"', "Save portal")}</div>`)
+        : sec("2 · Client portal", intro2 + `<dl style="margin:0">${vr("Portal", inPortal ? esc(D.portal) : "Not in a portal")}${inPortal ? vr("Portal link", `<a href="#">${esc(D.portalLink)}</a>`) + vr("This shoot", upTotal() ? `${esc(folderName())} · ${paid ? "showing" : "shows once paid"}` : "Shows once files are in our storage and it's paid") : ""}</dl>
+          <div class="cfx-inline-acts">${inPortal ? btn("ghost", 'data-cf-stub="Copied the portal link."', "Copy link") + btn("ghost", 'data-cf-stub="Copied the passcode."', "Copy passcode") + btn("ghost", 'data-cfx="p-edit"', "Change or remove") : btn("primary", 'data-cfx="p-edit"', "Add to a portal")}</div>`);
+      const step3 = sec("3 · Edits", `<p class="cfx-say" style="margin:10px 0 4px">The client gets one round of changes, for 10 days after the gallery is sent. Settled means that round is done, so the shoot can close.</p><dl style="margin:0">${vr("Sent", paid ? "30 October" : "Not yet")}${vr("Edits open until", paid ? "9 November" : "10 days after sending")}${vr("Edit requests", paid ? "1 November: shorten the intro" : "None")}${vr("Edits", paid ? chip("good", "Settled 4 November, by Danielle") : chip("plain", "Not sent yet"))}</dl>`);
+      shell("Delivery · " + CLIENT, "Deliver this shoot", paid ? chip("good", "Delivered") : chip("plain", "Not sent"), "", lock + step1 + step2 + step3,
+        `<span class="cfx-say">${paid ? "Sent 30 October." : "Send unlocks when the invoice is paid."}</span>${paid ? btn("primary", 'data-cf-stub="Resends the gallery email with the PIN."', "Resend gallery email") : btn("primary", 'disabled style="opacity:.45;cursor:default" title="Unlocks when the invoice is paid"', "Send gallery")}`);
+      boxEl.classList.remove("is-edit");
+      if (opts_scroll) { const t = boxEl.querySelectorAll(".cfx-sec")[opts_scroll - 1]; if (t) t.scrollIntoView({ block: "start" }); opts_scroll = 0; }
+      return;
+    }
+    if (mode === "notes") {
+      edit = false;
+      shell("Notes · " + CLIENT, "Notes, documents and messages", "", "", sec("Add a note", `<textarea class="cfx-in" id="f-note" rows="3" placeholder="What does the team need to know? Type @ to tag someone."></textarea>`) +
+        sec("Everything so far", `<ul class="cfx-hist">${NOTES.map((n) => `<li><span>${n[0]}</span><span>${esc(n[1])}<br><span class="cfx-say">${n[2]}</span></span></li>`).join("")}</ul>`),
+        `${btn("ghost", "data-cfx-close", "Close")}${btn("primary", 'data-cfx="add-note"', "Add note")}`);
+    }
+  }
+  function travelSum(miles) {
+    const t = tc(miles);
+    return `<dl style="margin:0">${vr("Distance", miles.toFixed(1) + " miles each way, driving")}${vr("Free", T.free + " miles each way")}${vr("Charged", `${t.charged} miles there and back (${t.over} over, each way)`)}${vr("Travel charge", money(t.cost) + " + VAT")}</dl>`;
+  }
+  // Keep typed values when the builder redraws (adding or removing a line).
+  function syncBuilder() { const pfx = $("#n-d0") ? "n" : $("#b-d0") ? "b" : null; if (pfx) newItems = readItems(pfx); return pfx; }
+
+  document.addEventListener("click", (e) => {
+    const st = e.target.closest("[data-cf-state]");
+    if (st) { setState(st.dataset.cfState); draw(); return; }
+    const stub = e.target.closest("[data-cf-stub]");
+    if (stub) { e.preventDefault(); toast(stub.dataset.cfStub + " (Mock-up.)"); return; }
+    const a = e.target.closest("[data-cf]");
+    if (a) {
+      const k = a.dataset.cf;
+      if (k === "invoice") open("invoice");
+      else if (k === "gallery") { opts_scroll = 1; open("delivery", { edit: true }); }
+      else if (k === "library") toast("Opens this shoot's folder in the Library. (Mock-up.)");
+      else if (k === "upload") open("content");
+      else open(k);
+      return;
+    }
+    if (e.target.closest("[data-cfx-close]") || e.target === scrim) { close(); return; }
+    const t = e.target.closest("[data-cfx-tab]");
+    if (t) { tab = t.dataset.cfxTab; edit = false; pv = null; newItems = null; render(); return; }
+    const vi = e.target.closest("[data-cfx-viewinv]");
+    if (vi) { if (vi.dataset.cfxViewinv === I.no) { tab = "this"; render(); } else toast("Opens TMKE0987. (Mock-up.)"); return; }
+    const rs = e.target.closest("[data-cfx-resend]");
+    if (rs) { if (rs.dataset.cfxResend === I.no) { pv = { kind: "email", items: items(), no: I.no, resend: true }; render(); } else toast("Opens TMKE0987's email to check before it goes. (Mock-up.)"); return; }
+    const rm = e.target.closest("[data-cfx-rm]");
+    if (rm) { syncBuilder(); newItems.splice(+rm.dataset.cfxRm, 1); render(); return; }
+    const tg = e.target.closest("[data-cfx-tog] button");
+    if (tg) { I.card = tg.textContent === "On"; tg.parentElement.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === tg))); return; }
+    const c = e.target.closest("[data-cfx]");
+    if (!c) return;
+    const k = c.dataset.cfx, v = (id) => ($("#" + id) || {}).value;
+    if (k === "to-edit") { mode = "edit"; render(); }
+    else if (k === "save-booking") {
+      Object.assign(B, { service: v("f-service"), date: v("f-date"), time: v("f-time"), location: v("f-loc"), address: v("f-address"), filmer: v("f-filmer"), client: v("f-client"), company: v("f-company"), email: v("f-email"), phone: v("f-phone"), quote: parseFloat(v("f-quote")) || 0, notes: v("f-notes") });
+      close(); draw(); toast("Saved.");
+    } else if (k === "calc") {
+      const pc = (v("f-pc") || "").trim().toUpperCase();
+      pend = pc === "NG1 7EH" ? 60.4 : 20 + ([...pc].reduce((s, ch) => s + ch.charCodeAt(0), 0) % 90) + 0.3;
+      $("#cfx-sum").innerHTML = travelSum(pend);
+    } else if (k === "use-travel") {
+      T.postcode = (v("f-pc") || T.postcode).trim().toUpperCase(); T.miles = pend;
+      if (raised() && S !== "paid") I.items = seedItems();
+      close(); draw(); toast(raised() && S !== "paid" ? "Travel charge saved and " + I.no + " updated." : "Travel charge saved.");
+    } else if (k === "add-line") { syncBuilder(); newItems.push({ d: "", a: "" }); render(); }
+    else if (k === "pv-invoice" || k === "pv-email") {
+      const kind = k === "pv-invoice" ? "invoice" : "email";
+      if (pv) { pv.kind = kind; render(); return; }
+      const pfx = syncBuilder();
+      pv = { kind, items: (newItems || items()).filter((l) => l.d || l.a), no: pfx === "n" ? (raised() ? "TMKE1072" : "TMKE1072") : I.no, fresh: pfx === "n" || !raised() };
+      render();
+    } else if (k === "pv-back") { pv = null; render(); }
+    else if (k === "approve") {
+      if (pv) pv = null; syncBuilder();
+      if (tab === "this" && !raised()) { toast("Sent to Jack to approve. It goes to Paula once he does and F&C confirm the fee."); close(); return; }
+      toast("Sent to Jack to approve. (Mock-up.)"); close();
+    } else if (k === "do-resend") { toast(`Resent to ${I.email}. (Mock-up.)`); pv = null; render(); }
+    else if (k === "inv-edit") { edit = true; newItems = null; render(); }
+    else if (k === "inv-cancel") { edit = false; newItems = null; render(); }
+    else if (k === "inv-save") {
+      syncBuilder(); I.items = newItems.filter((l) => l.d || l.a); Object.assign(I, { billTo: v("b-billto"), email: v("b-email"), cc: v("b-cc"), address: v("b-addr"), notes: v("b-notes") });
+      edit = false; newItems = null; render(); draw(); toast("Saved. In the build it asks whether to resend.");
+    } else if (k === "del-edit") { edit = true; opts_scroll = 1; render(); }
+    else if (k === "del-cancel") { edit = false; opts_scroll = 1; render(); }
+    else if (k === "p-edit") { pEdit = true; opts_scroll = 2; render(); }
+    else if (k === "p-cancel") { pEdit = false; opts_scroll = 2; render(); }
+    else if (k === "p-save") {
+      const v0 = v("p-pick");
+      if (v0.startsWith("+ New portal")) { D.portal = B.company; D.portalLink = "tmke.co.uk/portal?c=trentside"; toast(`Portal made for ${B.company}, with its own link and passcode.`); }
+      else if (v0 === "Not in a portal") { D.portal = "None"; toast("Taken out of the portal. The files stay in our storage."); }
+      else { D.portal = v0; D.portalLink = v0 === "TEG New Starter" ? "tmke.co.uk/portal?c=teg-new-starter" : "tmke.co.uk/portal?c=fc-midlands"; toast("Saved. This shoot goes into " + v0 + "."); }
+      pEdit = false; opts_scroll = 2; render(); draw();
+    }
+    else if (k === "del-save") {
+      D.link = (v("g-link") || "").trim(); D.email = v("g-email"); D.pin = !!(v("g-pin") || "").trim(); D.expires = D.link ? v("g-exp") : ""; D.portal = v("g-portal");
+      edit = false;
+      if (S === "shot" && D.link && D.pin) { S = "sent"; toast("Saved. The shoot moves to Gallery ready."); } else toast("Saved.");
+      opts_scroll = 1; render(); draw();
+    } else if (k === "add-note") {
+      const n = (v("f-note") || "").trim(); if (!n) return;
+      NOTES.unshift(["Note", n, "Danielle · 4 Nov"]); render(); draw(); toast("Note added.");
+    }
+  });
+  document.addEventListener("input", (e) => {
+    if (!e.target.matches('[id^="n-a"], [id^="b-a"]')) return;
+    syncBuilder(); const its = newItems.filter((l) => l.a !== "");
+    const sums = boxEl.querySelectorAll(".cfx-doc.is-ed .cfx-li.sub span:last-child, .cfx-doc.is-ed .cfx-li.tot span:last-child");
+    if (sums.length === 3) { sums[0].textContent = money(sub(its)); sums[1].textContent = money(vat(its)); sums[2].textContent = money(total(its)); }
+  });
+  // Uploads (mock-up: the files go nowhere; the bars show how it will look).
+  function fakeUpload(folder, names) {
+    const host = $("#cfx-ups"); if (!host) return;
+    names.forEach((n) => {
+      const row = document.createElement("div"); row.className = "cfx-up";
+      row.innerHTML = `<span>${esc(n)}</span><span class="cfx-up-f">${esc(folder)}</span><span class="cfx-bar"><i></i></span><span class="cfx-up-p">0%</span>`;
+      host.prepend(row);
+      let p = 0; const bar = row.querySelector("i"), pc = row.querySelector(".cfx-up-p");
+      const t = setInterval(() => {
+        p = Math.min(100, p + 8 + Math.random() * 18); bar.style.width = p + "%"; pc.textContent = Math.round(p) + "%";
+        if (p >= 100) { clearInterval(t); pc.textContent = "Done"; UP[folder] = (UP[folder] || 0) + 1;
+          const z = boxEl.querySelector(`[data-zone="${CSS.escape(folder)}"] .cfx-zone-c`); if (z) z.textContent = UP[folder] + " files"; const ut = $("#cfx-uptotal"); if (ut) ut.textContent = upTotal() + " files"; draw(); }
+      }, 160);
+    });
+  }
+  document.addEventListener("change", (e) => {
+    const inp = e.target.closest("[data-zone-in]"); if (!inp) return;
+    fakeUpload(inp.dataset.zoneIn, [...inp.files].map((f) => f.name)); inp.value = "";
+  });
+  document.addEventListener("dragover", (e) => { const z = e.target.closest(".cfx-zone"); if (z) { e.preventDefault(); z.classList.add("is-over"); } });
+  document.addEventListener("dragleave", (e) => { const z = e.target.closest(".cfx-zone"); if (z) z.classList.remove("is-over"); });
+  document.addEventListener("drop", (e) => { const z = e.target.closest(".cfx-zone"); if (!z) return; e.preventDefault(); z.classList.remove("is-over"); fakeUpload(z.dataset.zone, [...e.dataTransfer.files].map((f) => f.name)); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !scrim.hidden) close(); });
+  setState("sent"); draw();
+})();
+</script>
+

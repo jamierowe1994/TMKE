@@ -767,7 +767,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       display: flex; flex-direction: column; gap: 20px; color: var(--vc-ink); font-family: var(--sans); font-size: var(--vc-fs); font-weight: 400; line-height: 1.35; }
     #vid-cand .vc :is(p, span, dt, dd, li, a, label, input, select, textarea, b, strong, em, i, small, div, td, th, code) {
       font-size: var(--vc-fs); font-weight: 400; letter-spacing: normal; text-transform: none; font-style: normal; }
-    #vid-cand .vc :is(.admin-btn, .admin-btn *, .vc-btn, .vc-btn2) { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+    #vid-cand .vc :is(.admin-btn, .admin-btn *, .vc-btn, .vc-btn2, .vc-hb) { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
     .vc-banner { position: relative; overflow: hidden; border-radius: 6px; min-height: clamp(220px, 20vw, 290px); background-size: cover; background-position: center 45%; color: #fff; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; padding: 18px 22px 32px; }
     .vc-banner::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(43,34,38,.05) 0%, rgba(43,34,38,0) 35%, rgba(43,34,38,.72) 100%); }
     .vc-banner > * { position: relative; }
@@ -817,27 +817,88 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     .vc-chip.is-bad { background: #f9f0f0; color: #8a3f3f; }
     .vc-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 32px; }
     @media (max-width: 1000px) { .vc-cols { grid-template-columns: minmax(0, 1fr); } .vc-cols > .vc-dl + .vc-dl { border-top: 1px solid var(--vc-line); } }
-    .vc-box.is-editing { border-color: var(--vc-wine); box-shadow: 0 0 0 1px var(--vc-wine); }
-    .vc-box.is-editing .vc-r dd { display: flex; align-items: center; gap: 8px; overflow: visible; }
-    #vid-cand .vc .vc-in { flex: 1 1 auto; min-width: 0; width: 100%; height: 30px; line-height: 28px; margin: 0; box-sizing: border-box; border: 1px solid var(--vc-edge); border-radius: 4px; padding: 0 8px; font-family: var(--sans); color: var(--vc-ink); background: #fff; }
-    #vid-cand .vc select.vc-in { padding: 0 26px 0 8px; }
-    #vid-cand .vc .vc-in:focus { outline: 0; border-color: var(--vc-wine); }
-    .vc-in--short { flex: 0 1 8em; }
+    .vc-chip.is-info { background: #eef0f5; color: #3e4a6a; }
+    .vc-chip.is-plain { background: #eae5e1; color: #371e28; }
 
-    /* The side panel: a section opened without leaving the card. */
-    .vc-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(55,30,40,.28); display: flex; justify-content: flex-end; }
+    /* The callout under the progress steps (Dani, 4 Nov): the one thing
+       holding the shoot up. Its edges line up with the first and last steps. */
+    .vc-call { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 24px; align-items: center; margin-top: 4px; padding: 14px 16px; background: #f8f2e6; border-radius: 4px; }
+    .vc-call.is-done { background: #edf4ef; }
+    #vid-cand .vc .vc-call h4 { margin: 0 0 8px; font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.1; letter-spacing: -0.04em; text-transform: none; color: var(--vc-ink); }
+    .vc-call ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 26px; }
+    .vc-call li { display: inline-flex; align-items: center; gap: 8px; color: var(--vc-ink); }
+    .vc-call li::before { content: ""; width: 16px; height: 16px; flex: none; border-radius: 50%; border: 1.5px solid #85693a; box-sizing: border-box; }
+    #vid-cand .vc .vc-call li.ok { color: var(--vc-tx); }
+    .vc-call li.ok::before { border-color: #3f7a56; background: #3f7a56 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat; }
+    .vc-call-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    #vc-call:empty { display: none; }
+    @media (max-width: 720px) { .vc-call { grid-template-columns: minmax(0, 1fr); } .vc-call-acts { justify-content: flex-start; } }
+
+    /* The house button inside the client file: white, or wine for the main one. */
+    .vc-hb { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 14px; border-radius: 4px; border: 1px solid var(--vc-edge); background: #fff; color: var(--vc-ink); cursor: pointer; text-decoration: none; white-space: nowrap; font-family: var(--sans); }
+    .vc-hb:hover { border-color: var(--vc-wine); color: var(--vc-wine); }
+    .vc-hb--primary { background: var(--vc-wine); border-color: var(--vc-wine); color: #fff; }
+    .vc-hb--primary:hover { background: #2a1620; color: #fff; }
+    .vc-hb[disabled] { opacity: .45; cursor: default; }
+
+    /* The pop-outs (Dani, 4 Nov): one kind, centred on the page beside the
+       sidebar; a linen top with room above the title; sections under the
+       wine strip; a plain scroll bar; buttons at the foot. */
+    .vc-scrim { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 60; background: rgba(55,30,40,.32); display: flex; align-items: center; justify-content: center; padding: max(24px, 9vh) 16px; }
     .vc-scrim[hidden] { display: none; }
-    .vc-panel { width: min(640px, 100%); height: 100%; background: #fff; display: flex; flex-direction: column; box-shadow: -20px 0 50px -20px rgba(55,30,40,.35); }
-    .vc-panel-h { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 20px 24px 10px; }
-    .vc-panel-h h3 { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 26px; letter-spacing: -0.05em; }
-    .vc-panel-x { border: 0; background: none; font-size: 26px; line-height: 1; color: var(--vc-tx); cursor: pointer; }
-    .vc-panel-b { flex: 1; overflow-y: auto; border: 0 !important; border-radius: 0 !important; padding: 6px 24px 28px !important; }
-    .vc-panel-b > .vc-pane > div + div { margin-top: 26px; }
-    #vid-cand .vc-panel-b :is(h3, h4, h5) { margin: 0 0 10px; font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.15; letter-spacing: -0.04em; text-transform: none; color: var(--vc-ink); }
-    .vc-panel-b .vid-gate, .vc-panel-b .vid-gate.is-done { margin: 0; background: #fff; border: 1px solid var(--vc-edge); border-radius: 4px; }
-    #vid-cand .vc-panel-b button:not(.vc-act):not(.vc-panel-x) { height: 30px; padding: 0 14px; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
-    .vc-panel-b .vc-gate-slot:empty { display: none; }
-    .vc-pane-note { margin: 0 0 18px; color: var(--vc-tx); }
+    .vc-panel { width: min(780px, 100%); max-height: 100%; min-height: 0; background: #fff; display: flex; flex-direction: column; border-radius: 6px; overflow: hidden; box-shadow: 0 24px 60px -20px rgba(55,30,40,.45); }
+    .vc-panel.is-narrow { width: min(560px, 100%); }
+    .vc-panel-h { flex: none; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 56px 26px 22px; background: #eae5e1; }
+    #vid-cand .vc .vc-panel-eye { margin: 0 0 4px; color: var(--vc-tx); }
+    #vid-cand .vc .vc-panel-h h3 { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 26px; line-height: 1.05; letter-spacing: -0.05em; color: var(--vc-ink); }
+    .vc-panel-chip { margin-top: 10px; }
+    .vc-panel-chip:empty { display: none; }
+    #vid-cand .vc .vc-panel-x { flex: none; width: 32px; height: 32px; padding: 0; border: 1px solid rgba(55,30,40,.18); border-radius: 4px; background: #fff; color: var(--vc-wine); font-size: 20px; line-height: 1; cursor: pointer; display: grid; place-items: center; }
+    .vc-panel-x:hover { border-color: var(--vc-wine); }
+    .vc-panel-b { flex: 1; min-height: 0; overflow-y: auto; margin: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: #fff !important; padding: 14px 24px 28px !important; scrollbar-width: thin; scrollbar-color: #c9bcb7 transparent; }
+    .vc-panel-b::-webkit-scrollbar { width: 8px; background: transparent; }
+    .vc-panel-b::-webkit-scrollbar-track { background: transparent; }
+    .vc-panel-b::-webkit-scrollbar-thumb { background: #c9bcb7; border-radius: 4px; }
+    .vc-panel-f { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 24px; border-top: 1px solid var(--vc-line); background: #fff; }
+    .vc-panel-f:empty { display: none; }
+    #vid-cand .vc .vc-say { margin-right: auto; color: var(--vc-tx); }
+    .vc-pane[hidden] { display: none; }
+    /* A section: a little card under the house wine strip. */
+    .vc-sec { margin-top: 14px; border: 1px solid var(--vc-edge); border-radius: 4px; overflow: hidden; }
+    .vc-pane > .vc-sec:first-child, .vc-pane > .vc-pane-note + .vc-sec { margin-top: 0; }
+    #vid-cand .vc .vc-sec-h { display: flex; align-items: center; height: 30px; margin: 0; padding: 0 14px; background: var(--vc-wine); color: #fff; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+    .vc-sec-b { padding: 4px 14px 8px; }
+    .vc-sec-b > div > h4:first-child { display: none; }
+    #vid-cand .vc .vc-sec-b h4, #vid-cand .vc .vc-sec-b h5 { margin: 12px 0 6px; font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.15; letter-spacing: -0.04em; text-transform: none; color: var(--vc-ink); }
+    .vc-sec-b .vid-gate, .vc-sec-b .vid-gate.is-done { margin: 10px 0 6px; background: #fff; border: 1px solid var(--vc-edge); border-radius: 4px; }
+    .vc-sec-b .vc-gate-slot:empty { display: none; }
+    #vid-cand .vc .vc-sec-b button:not(.vc-act):not(.vc-panel-x) { height: 30px; padding: 0 14px; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+    .vc-pane-note { margin: 0 0 14px; color: var(--vc-tx); }
+    /* In a pop-out a row grows to fit, so nothing is ever cut off. */
+    .vc-pdl { margin: 0; }
+    .vc-pr { display: grid; grid-template-columns: 10em minmax(0, 1fr); column-gap: 14px; align-items: start; padding: 9px 0; min-height: 36px; box-sizing: border-box; border-top: 1px solid var(--vc-line); }
+    .vc-pdl > .vc-pr:first-child { border-top: 0; }
+    .vc-pr dt { color: var(--vc-tx); }
+    .vc-pr dd { margin: 0; min-width: 0; color: var(--vc-ink); overflow-wrap: anywhere; white-space: pre-line; }
+    .vc-pr dd a { color: var(--vc-wine); }
+    .vc-pr.is-field { align-items: center; padding: 4px 0; }
+    .vc-panel.is-edit .vc-pr { border-top: 0; }
+    #vid-cand .vc .vc-hint { display: block; margin-top: 4px; color: var(--vc-tx); }
+    #vid-cand .vc .vc-in { width: 100%; min-width: 0; height: 32px; line-height: 30px; margin: 0; box-sizing: border-box; border: 1px solid var(--vc-edge); border-radius: 4px; padding: 0 9px; font-family: var(--sans); color: var(--vc-ink); background: #fff; }
+    #vid-cand .vc select.vc-in { padding: 0 26px 0 9px; }
+    #vid-cand .vc textarea.vc-in { height: auto; min-height: 72px; line-height: 1.35; padding: 7px 9px; resize: vertical; }
+    #vid-cand .vc .vc-in:focus { outline: 0; border-color: var(--vc-wine); }
+    .vc-pair { display: flex; align-items: center; gap: 8px; }
+    .vc-pair > span { white-space: nowrap; color: var(--vc-ink); }
+    .vc-pair > .vc-in { flex: 1 1 auto; }
+    .vc-inline-acts { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 0 4px; }
+    .vc-more { margin-top: 8px; border-top: 1px solid var(--vc-line); }
+    #vid-cand .vc .vc-more > summary { cursor: pointer; padding: 10px 0 6px; color: var(--vc-wine); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(55,30,40,.3); list-style: none; }
+    .vc-more > summary::-webkit-details-marker { display: none; }
+    .vc-more > summary::after { content: " ▾"; display: inline-block; margin-left: 4px; }
+    .vc-more[open] > summary::after { content: " ▴"; }
+    .vc-more #vid-archive { margin-top: 6px; }
+    @media (max-width: 640px) { .vc-panel-h { padding-top: 32px; } .vc-pr { grid-template-columns: minmax(0, 1fr); row-gap: 4px; } }
 
     .vid-cand-card {
       background: var(--paper); border: 1px solid rgba(var(--violet-rgb), 0.16); border-radius: 14px;
@@ -2126,7 +2187,6 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       const where = b.property_address || b.location || "";
       const brandName = vcBrandName(b);
       if (vcFor !== b.id) { vcFor = b.id; vcCache = {}; }
-      vcEditing = null;
       const started = ["editing", "gallery_ready", "sent", "delivered"].includes(b.stage);
       const payCls = isSmmCovered(b) || b.paid_at ? "pay-paid" : (vcCache.payCls || "pay-awaiting");
       const payTxt = isSmmCovered(b) ? "Covered by package" : (b.paid_at ? "Paid" : (vcCache.pay || "…"));
@@ -2153,9 +2213,9 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
             </div>
           </div>
 
-          <!-- Just the steps (Dani, 4 Nov, later): what has to be filled in
-               lives in the boxes, and the checks in the side panel. -->
-          <div class="vc-card vc-progress">${renderTimeline(b)}</div>
+          <!-- The steps, and under them the one thing holding the shoot up
+               (Dani, 4 Nov). -->
+          <div class="vc-card vc-progress">${renderTimeline(b)}<div id="vc-call">${vcCallout(b)}</div></div>
 
           <div class="vc-grid">
             ${vcBookingBox(b)}
@@ -2166,28 +2226,35 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
             ${vcNotesBox(b)}
           </div>
 
-          <!-- The detailed sections, in a panel from the right. The checks
-               that used to sit under the progress steps open with them: the
-               Fine & Country fee with the invoice, paid and edits with
-               delivery. -->
+          <!-- The pop-outs: one kind, centred on the page beside the sidebar. -->
           <div class="vc-scrim" id="vc-panel" hidden>
-            <aside class="vc-panel" role="dialog" aria-modal="true" aria-labelledby="vc-panel-t">
-              <header class="vc-panel-h"><h3 id="vc-panel-t"></h3><button type="button" class="vc-panel-x" data-vc-close aria-label="Close">&times;</button></header>
+            <div class="vc-panel" role="dialog" aria-modal="true" aria-labelledby="vc-panel-t">
+              <header class="vc-panel-h"><div><p class="vc-panel-eye" id="vc-panel-eye"></p><h3 id="vc-panel-t"></h3><div class="vc-panel-chip" id="vc-panel-chip"></div></div><button type="button" class="vc-panel-x" data-vc-close aria-label="Close">&times;</button></header>
               <div class="vc-panel-b vid-cand-card">
-                <div class="vc-pane" data-pane="invoice"><div class="vc-gate-slot">${renderBrandGate(b)}</div><div id="vid-cand-invoice"></div></div>
-                <div class="vc-pane" data-pane="delivery">${started ? "" : `<p class="vc-pane-note">Delivery starts once the shoot is filmed and in editing. Until then there's nothing to upload or send.</p>`}<div class="vc-gate-slot">${renderCloseGate(b)}</div><div id="vid-cand-edits-gate"></div><div id="vid-cand-delivery" hidden></div></div>
-                <div class="vc-pane" data-pane="notes"><div id="vid-cand-notes"></div><div id="vid-cand-docs"></div><div id="vid-cand-thread"></div></div>
+                <div class="vc-pane" data-pane="view"></div>
+                <div class="vc-pane" data-pane="edit"></div>
+                <div class="vc-pane" data-pane="travel"></div>
+                <div class="vc-pane" data-pane="invoice">${renderBrandGate(b) ? vcSec("Before invoicing", `<div class="vc-gate-slot">${renderBrandGate(b)}</div>`) : ""}${vcSec("Invoices", '<div id="vid-cand-invoice"></div>')}</div>
+                <div class="vc-pane" data-pane="delivery">
+                  ${vcSec("1 · Pixieset gallery", `${started ? "" : `<p class="vc-hint" style="margin:10px 0 6px">What the client sees and downloads. It opens up once the shoot is filmed and in editing.</p>`}<div id="vid-cand-delivery" hidden></div>`)}
+                  ${isSmmCovered(b) ? "" : vcSec("2 · Client portal", `<p class="vc-hint" style="margin:10px 0 6px">For clients who have a portal: their own link and passcode to watch and download from our storage. Not another upload; it shares this shoot's folder.</p><div class="cpt-shoot" id="vc-portal-host"></div>`)}
+                  ${vcSec(isSmmCovered(b) ? "2 · Edits" : "3 · Edits", `<p class="vc-hint" style="margin:10px 0 6px">The client gets one round of changes, for 10 days after the gallery is sent. Settled means that round is done, so the shoot can close.</p><div class="vc-gate-slot">${renderCloseGate(b)}</div><div id="vid-cand-edits-gate"></div>`)}
+                </div>
+                <div class="vc-pane" data-pane="content"></div>
+                <div class="vc-pane" data-pane="notes">${vcSec("Notes", '<div id="vid-cand-notes"></div>')}${vcSec("Documents", '<div id="vid-cand-docs"></div>')}${vcSec("Messages", '<div id="vid-cand-thread"></div>')}</div>
               </div>
-            </aside>
+              <footer class="vc-panel-f" id="vc-panel-f"></footer>
+            </div>
           </div>
         </div>`;
       el.querySelectorAll("[data-vc-open]").forEach((btn) => btn.addEventListener("click", () => vcOpen(btn.getAttribute("data-vc-open"))));
       el.querySelectorAll("[data-vc-close]").forEach((btn) => btn.addEventListener("click", vcClose));
       el.querySelector("#vc-panel")?.addEventListener("click", (e) => { if (e.target.id === "vc-panel") vcClose(); });
-      el.querySelectorAll("[data-vc-edit]").forEach((btn) => btn.addEventListener("click", () => vcEdit(btn.getAttribute("data-vc-edit"))));
       vcFillMoney(b);
       vcFillPortal(b);
-      vcFillSmm(b);
+      vcFillStorage(b);
+      vcFillPin(b);
+      if (!isSmmCovered(b)) renderShootPortal(document.getElementById("vc-portal-host"), b, folderFor(b), portalDeps());
       el.querySelector("#vid-gate-confirm")?.addEventListener("change", (e) => saveBrandConfirm(b, e.target.checked));
       el.querySelector("#vid-fc-send")?.addEventListener("click", () => sendFcConfirm(b));
       el.querySelector("#vid-edits-done")?.addEventListener("change", (e) => saveEditsSettled(b, e.target.checked));
@@ -2214,7 +2281,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
             if (!ok) { openModal(b.id); return; }
           }
           if (isBrandInvoiced(b) && !b.brand_fee_confirmed) {
-            alert("Before you raise an invoice:\n\nFine & Country haven't confirmed the marketing fee is held. Ask the office from the invoice panel, then set Marketing fee to Held under Edit on Invoicing once they've confirmed.");
+            alert("Before you raise an invoice:\n\nFine & Country haven't confirmed the marketing fee is held. Ask the office from Invoicing, and tick it there once they've confirmed.");
             vcOpen("invoice");
             return;
           }
@@ -2246,22 +2313,20 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       loadThread(b);
       // A section that was open stays open across a re-render (saving in it
       // re-draws the card).
-      if (vcPane) vcOpen(vcPane, true);
+      if (vcPane && vcPane !== "edit" && vcPane !== "travel") vcOpen(vcPane, true); else vcPane = null;
     }
 
 
-    /* ================= The client file's boxes (Dani, 4 Nov 2026) =================
-       Regimented (Dani, 4 Nov, later): every box is rows of label then
-       value, one size and one weight, and a box always shows all its rows,
-       with a dash where there's nothing yet, so nothing moves as a shoot
-       fills in. Booking, Travel and Invoicing are edited where they sit:
-       Edit turns the values into fields in the same rows, and Cancel and
-       Save take its place. Delivery and Notes open their full sections in
-       the side panel. */
-    var vcPane = null;                 // the side-panel section that's open
-    var vcEditing = null;              // the box being edited
-    var vcFor = null, vcCache = {};    // filled-in values (invoice, portal, contact), so a redraw doesn't flick
-    var VC_PANE_TITLE = { invoice: "Invoice", delivery: "Delivery", notes: "Notes, documents & messages" };
+    /* ================= The client file (Dani, 4 Nov 2026, agreed on the TMKE OS mock-up) =================
+       Six boxes of fixed rows to read, one size and one weight, with a dash
+       where there's nothing yet, so nothing moves as a shoot fills in.
+       Nothing is edited inside a box: each box's buttons open a pop-out in
+       the middle of the page (Booking View and Edit, Travel Calculate,
+       Invoicing, Delivery, Content and Notes), where a row grows to fit so
+       nothing is cut off. Under the progress steps sits one callout: the
+       thing holding the shoot up, with the button that deals with it. */
+    var vcPane = null;                 // the pop-out that's open
+    var vcFor = null, vcCache = {};    // filled-in values (invoice, portal, files, PIN), so a redraw doesn't flick
     var VC_DASH = '<span class="vc-none">—</span>';
     // Until a shoot has its own picture, one of ours by kind of shoot.
     function vcPicture(b) {
@@ -2274,8 +2339,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       return "/assets/table.jpg";
     }
     function vcDay(iso) { try { return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long" }); } catch (_) { return ""; } }
+    function vcDayYear(iso) { try { return new Date(String(iso).length === 10 ? iso + "T12:00:00" : iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }); } catch (_) { return ""; } }
     function vcShort(iso) { try { return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch (_) { return ""; } }
     function vcWhen(b) { return b.shoot_date ? new Date(b.shoot_date).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""; }
+    function vcWhenLong(b) { return b.shoot_date ? new Date(b.shoot_date).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""; }
     function vcIsStudio(b) { return /content|studio/i.test((b.service_type || "") + " " + (b.service || "")); }
     function vcBrandName(b) { if (!b.brand) return ""; const o = document.querySelector(`[data-f="brand"] option[value="${CSS.escape(b.brand)}"]`); return o ? o.textContent : b.brand; }
     function vcRouteName(route) { const o = document.querySelector(`#vid-route option[value="${CSS.escape(route || "agent_card")}"]`); return o ? o.textContent : ""; }
@@ -2284,158 +2351,193 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       const m = String((b.property_address || "") + " " + (b.location || "")).match(/\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i);
       return m ? `${m[1]} ${m[2]}`.toUpperCase() : "";
     }
+    function vcAddrLine(b) { return String(b.property_address || "").replace(/\s*\n\s*/g, ", "); }
+    function vcQuote(b) { return b.amount_pence != null ? gbpFromPence(b.amount_pence) : (b.total_pence != null ? gbpFromPence(b.total_pence) : ""); }
+    // The day Pixieset deletes the gallery: what was saved, or three months
+    // after the shoot once there's a gallery (Dani, 4 Nov: always filled in).
+    function vcExpires(b) {
+      if (b.gallery_expires_on) return String(b.gallery_expires_on).slice(0, 10);
+      if (!b.gallery_url || !b.shoot_date) return "";
+      const d = new Date(b.shoot_date); d.setMonth(d.getMonth() + 3);
+      return d.toISOString().slice(0, 10);
+    }
     // One row: label, then value. Every box is made of these.
-    function vcR(label, html, need) {
+    function vcR(label, html, need, id) {
       // A value too long for its row ends in "…"; hovering shows all of it.
-      const tip = html && !/<(input|select)/.test(html) ? ` title="${String(html).replace(/<[^>]*>/g, "").replace(/"/g, "&quot;")}"` : "";
-      return `<div class="vc-r"><dt>${escapeHtml(label)}</dt><dd${tip}>${html || (need ? '<span class="vc-missing">Not filled in</span>' : VC_DASH)}</dd></div>`;
+      const tip = html ? ` title="${String(html).replace(/<[^>]*>/g, "").replace(/"/g, "&quot;")}"` : "";
+      return `<div class="vc-r"><dt>${escapeHtml(label)}</dt><dd${id ? ` id="${id}"` : ""}${tip}>${html || (need ? '<span class="vc-missing">Not filled in</span>' : VC_DASH)}</dd></div>`;
     }
-    function vcIn(k, v, type, extra) { return `<input class="vc-in" data-vcf="${k}" type="${type || "text"}" value="${escapeHtml(v == null ? "" : String(v))}"${extra || ""}>`; }
-    function vcSel(k, opts, cur, redraw) {
-      return `<select class="vc-in" data-vcf="${k}"${redraw ? " data-vc-redraw" : ""}>${opts.map(([v, l]) => `<option value="${escapeHtml(String(v))}"${String(v) === String(cur == null ? "" : cur) ? " selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select>`;
-    }
-    function vcEditBtn(kind) { return `<button type="button" class="vc-act" data-vc-edit="${kind}">Edit</button>`; }
-    function vcBox(kind, cls, title, act, body, editing) {
-      const acts = editing
-        ? `<button type="button" class="vc-act" data-vc-cancel>Cancel</button><button type="button" class="vc-act" data-vc-save>Save</button>`
-        : (act || "");
-      return `<section class="vc-card vc-box ${cls}${editing ? " is-editing" : ""}" id="vc-box-${kind}"><div class="vc-box-h"><h3>${escapeHtml(title)}</h3><span class="vc-act-pair">${acts}</span></div>${body}</section>`;
+    function vcChip(cls, t) { return `<span class="vc-chip ${cls}">${escapeHtml(t)}</span>`; }
+    function vcAct(key, label) { return `<button type="button" class="vc-act" data-vc-open="${key}">${label}</button>`; }
+    function vcBox(kind, cls, title, acts, body) {
+      return `<section class="vc-card vc-box ${cls}" id="vc-box-${kind}"><div class="vc-box-h"><h3>${escapeHtml(title)}</h3><span class="vc-act-pair">${acts || ""}</span></div>${body}</section>`;
     }
 
-    /* Booking: what, when, where; who; and the record. Twelve rows, three
-       columns of four. */
-    function vcBookingBox(b, editing) {
-      const E = !!editing;
-      const cur = b._svcOther ? null : serviceByLabel(b.service);
+    /* Booking: what, when, where; who; and the deal. Twelve rows, three
+       columns of four. View shows all of it in full; Edit changes it. */
+    function vcBookingBox(b) {
       const studio = vcIsStudio(b);
-      const addr = String(b.property_address || "").replace(/\s*\n\s*/g, ", ");
+      const addr = vcAddrLine(b);
       const notes = String(b.notes || "").split(/\s*\n\s*/).filter(Boolean).join(" / ");
-      const brandOpts = [...document.querySelectorAll('[data-f="brand"] option')].map((o) => [o.value, o.value ? o.textContent : "Not set"]);
       const col1 = [
-        vcR("Service", E
-          ? `${vcSel("service", [...VIDEO_SERVICES.map((sv) => [sv.label, sv.label]), ["__other", "Other…"]], cur ? cur.label : "__other", true)}${cur ? "" : vcIn("service_other", b.service, "text", ' placeholder="What is it?"')}`
-          : escapeHtml(b.service || ""), true),
-        vcR("Shoot date", E
-          ? `<span>${escapeHtml(vcWhen(b) || "No date yet")}</span><button type="button" class="vc-act" data-act="reschedule">Reschedule</button>`
-          : escapeHtml(vcWhen(b)), true),
-        vcR("Shoot location", E ? vcIn("location", b.location) : escapeHtml(b.location || ""), !studio),
-        vcR("Property address", E ? vcIn("property_address", addr) : escapeHtml(addr)),
+        vcR("Service", escapeHtml(b.service || ""), true),
+        vcR("Shoot date", escapeHtml(vcWhen(b)), true),
+        vcR("Shoot location", escapeHtml(b.location || ""), !studio),
+        vcR("Property address", escapeHtml(addr)),
       ];
       const col2 = [
-        vcR("Client", E ? vcIn("client_name", b.client_name) : escapeHtml(b.client_name || ""), true),
-        vcR("Company", E ? vcIn("client_company", b.client_company) : escapeHtml(b.client_company || "")),
-        vcR("Email", E ? vcIn("client_email", b.client_email, "email") : (b.client_email ? `<a href="mailto:${escapeHtml(b.client_email)}">${escapeHtml(b.client_email)}</a>` : ""), true),
-        vcR("Phone", E ? vcIn("client_phone", b.client_phone, "tel") : escapeHtml(b.client_phone || "")),
+        vcR("Client", escapeHtml(b.client_name || ""), true),
+        vcR("Company", escapeHtml(b.client_company || "")),
+        vcR("Email", b.client_email ? `<a href="mailto:${escapeHtml(b.client_email)}">${escapeHtml(b.client_email)}</a>` : "", true),
+        vcR("Phone", escapeHtml(b.client_phone || "")),
       ];
+      const q = vcQuote(b);
       const col3 = [
-        vcR("Brand", E ? vcSel("brand", brandOpts, b.brand || "") : escapeHtml(vcBrandName(b)), true),
-        vcR("Contact card", `<span data-contact>${escapeHtml(vcCache.contact || (b.contact_id ? "" : "Not linked"))}</span>`),
-        vcR("Booked on", b.created_at ? escapeHtml(new Date(b.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })) : ""),
-        vcR("Booking notes", E ? vcIn("notes", notes) : escapeHtml(notes)),
+        vcR("Quote", isSmmCovered(b) ? "Covered by their package" : (q ? escapeHtml(q) + (b.total_pence != null && b.amount_pence == null ? " inc. travel" : " + travel") : ""), !isSmmCovered(b)),
+        vcR("Who pays", escapeHtml(vcRouteName(b.payment_route)), true),
+        vcR("Booked on", b.created_at ? escapeHtml(vcDayYear(b.created_at)) : ""),
+        vcR("Booking notes", escapeHtml(notes)),
       ];
-      return vcBox("booking", "vc-wide", "Booking", vcEditBtn("booking"),
-        `<div class="vc-cols"><dl class="vc-dl">${col1.join("")}</dl><dl class="vc-dl">${col2.join("")}</dl><dl class="vc-dl">${col3.join("")}</dl></div>`, E);
+      return vcBox("booking", "vc-wide", "Booking", vcAct("view", "View") + vcAct("edit", "Edit"),
+        `<div class="vc-cols"><dl class="vc-dl">${col1.join("")}</dl><dl class="vc-dl">${col2.join("")}</dl><dl class="vc-dl">${col3.join("")}</dl></div>`);
     }
 
-    /* Travel: six rows. The postcode works out the distance and the charge,
-       which can then be changed by hand. */
-    function vcTravelBox(b, editing) {
-      const E = !!editing, studio = vcIsStudio(b);
+    /* Travel: six rows. Calculate opens the calculator. */
+    function vcTravelBox(b) {
+      const studio = vcIsStudio(b);
       const has = b.distance_miles != null && b.distance_miles !== "";
       const t = has ? travelCharge(Number(b.distance_miles), vidSettings) : null;
       const charge = b.surcharge_pence != null ? (b.surcharge_pence ? gbpFromPence(b.surcharge_pence) + " + VAT" : "None") : (studio ? "None" : "");
       const rows = [
-        vcR("Shoot postcode", E
-          ? `${vcIn("postcode", vcPostcode(b), "text", ' style="flex:0 1 8em"')}<button type="button" class="vc-act" data-vc-calc>Work out travel</button>`
-          : escapeHtml(vcPostcode(b) || (studio ? "At the studio" : "")), !studio),
-        vcR("From", escapeHtml(vidSettings.base_postcode || "")),
-        `<div class="vc-r"><dt>Distance</dt><dd data-vc-dist>${has ? `${Math.round(t.oneWay)} miles each way` : (studio ? VC_DASH : '<span class="vc-none">Not worked out</span>')}</dd></div>`,
+        vcR("Shoot postcode", escapeHtml(vcPostcode(b) || (studio ? "At the studio" : "")), !studio),
+        vcR("Distance", has ? `${Math.round(t.oneWay)} miles each way` : (studio ? "" : '<span class="vc-none">Not worked out</span>')),
         vcR("Free", escapeHtml(`${vidSettings.free_radius_miles || 40} miles each way`)),
-        `<div class="vc-r"><dt>Charged</dt><dd data-vc-charged>${has ? (t.chargeable ? `${t.chargeable} miles there and back` : "None") : VC_DASH}</dd></div>`,
-        vcR("Travel charge", E
-          ? `<span>£</span>${vcIn("surcharge_gbp", b.surcharge_pence != null ? (b.surcharge_pence / 100).toFixed(2) : "", "number", ' min="0" step="0.01" style="flex:0 1 7em"')}<span>+ VAT</span>`
-          : escapeHtml(charge)),
+        vcR("Charged", has ? (t.chargeable ? `${t.chargeable} miles there and back` : "None") : ""),
+        vcR("Travel charge", escapeHtml(charge)),
+        vcR("On invoice", isSmmCovered(b) ? "Covered by their package" : (vcCache.travelOn || ""), false, "vc-travel-on"),
       ];
-      return vcBox("travel", "vc-third", "Travel", vcEditBtn("travel"), `<dl class="vc-dl">${rows.join("")}</dl>`, E);
+      return vcBox("travel", "vc-third", "Travel", vcAct("travel", "Calculate"), `<dl class="vc-dl">${rows.join("")}</dl>`);
     }
 
-    /* Invoicing: six rows. Rows two and three follow who pays: the office
-       and the marketing fee for Fine & Country, the brand and the reason
-       for TEG, the client and the brand for a social media package. */
-    function vcInvoiceBox(b, editing) {
-      const E = !!editing;
-      const route = b.payment_route || "agent_card";
-      const fc = route === "brand_invoice", teg = route === "brand_invoice_teg", smm = route === "smm_package";
-      const routes = [...document.querySelectorAll("#vid-route option")].map((o) => [o.value, o.textContent]);
-      const brands = [["", "Choose the brand"], ...TEG_BRANDS.map((o) => [o.key, o.label])];
-      let r2, r3;
-      if (fc) {
-        r2 = vcR("Billed to", E ? vcSel("fc_office", [["", "Choose the office"], ...FC_OFFICES.map((o) => [o.key, o.label])], b.fc_office) : escapeHtml((FC_OFFICES.find((o) => o.key === b.fc_office) || {}).label || ""), true);
-        r3 = vcR("Marketing fee", E
-          ? vcSel("fee", [["0", "Not confirmed"], ["1", "Held: the office has confirmed"]], b.brand_fee_confirmed ? "1" : "0")
-          : (b.brand_fee_confirmed ? `<span class="vc-chip is-good">Held${b.brand_fee_confirmed_at ? ", confirmed " + escapeHtml(vcShort(b.brand_fee_confirmed_at)) : ""}</span>` : '<span class="vc-chip is-wait">Not confirmed</span>'));
-      } else if (teg) {
-        r2 = vcR("Billed to", E ? vcSel("teg_brand", brands, b.teg_brand) : escapeHtml(tegBrandLabel(b.teg_brand) || ""), true);
-        const reason = b.teg_reason === "other" ? (b.teg_reason_other || "Other") : tegReasonLabel(b.teg_reason);
-        r3 = vcR("Reason", E
-          ? `${vcSel("teg_reason", [["", "Choose a reason"], ...TEG_REASONS.map((o) => [o.key, o.label])], b.teg_reason, true)}${b.teg_reason === "other" ? vcIn("teg_reason_other", b.teg_reason_other, "text", ' placeholder="What for?"') : ""}`
-          : escapeHtml(reason || ""), true);
-      } else if (smm) {
-        const opts = [["", "Not linked"], ...(smmClientsCache || []).map((r) => [r.id, vcSmmLabel(r)])];
-        if (b.smm_lead_id && !opts.some(([v]) => v === b.smm_lead_id)) opts.push([b.smm_lead_id, "Linked client (no longer active)"]);
-        r2 = vcR("Social media client", E ? vcSel("smm_lead_id", opts, b.smm_lead_id || "") : `<span data-vc-smm>${escapeHtml(vcCache.smm || (b.smm_lead_id ? "" : "Not linked"))}</span>`);
-        r3 = vcR("Brand", E ? vcSel("teg_brand", brands, b.teg_brand) : escapeHtml(tegBrandLabel(b.teg_brand) || ""));
-      } else {
-        r2 = vcR("Billed to", escapeHtml(b.client_company || b.client_name || ""));
-        r3 = vcR("Reason", "");
-      }
-      const quote = b.amount_pence != null ? gbpFromPence(b.amount_pence) : (b.total_pence != null ? gbpFromPence(b.total_pence) : "");
+    /* Invoicing: what the invoice needs. Before one is raised it shows what
+       it would be (the same draft the morning run makes); after, the invoice's own. */
+    function vcInvDraft(b) {
+      try { return bookingInvoiceDraft(b, { accountsCc: invSettings && invSettings.accounts_cc_email, settings: vidSettings }) || null; } catch (_) { return null; }
+    }
+    function vcInvoiceBox(b) {
+      const smm = isSmmCovered(b);
+      const d = vcInvDraft(b) || {};
+      const inv = vcCache.invRow || null;
+      const sub = (d.line_items || []).reduce((s, it) => s + (it.unit_pence || 0) * (it.qty || 1), 0);
+      const total = inv ? inv.total_pence : (sub ? sub + Math.round(sub * VAT_RATE) : null);
       const rows = [
-        vcR("Who pays", E ? vcSel("payment_route", routes, route, true) : escapeHtml(vcRouteName(route)), true),
-        r2, r3,
-        vcR("Quote", E
-          ? `<span>£</span>${vcIn("amount_gbp", b.amount_pence != null ? (b.amount_pence / 100).toFixed(2) : "", "number", ` min="0" step="0.01" style="flex:0 1 7em"${b.total_pence != null ? ` placeholder="${(b.total_pence / 100).toFixed(2)}"` : ""}`)}`
-          : escapeHtml(quote), !smm),
-        `<div class="vc-r"><dt>Invoice</dt><dd id="vc-inv-line">${smm ? "None: covered by their package" : (vcCache.inv || "")}</dd></div>`,
-        vcR("Paid", smm ? "Covered by their package" : (b.paid_at ? escapeHtml(vcDay(b.paid_at)) : "Not yet")),
+        vcR("Brand", escapeHtml(vcBrandName(b)), !smm),
+        vcR("Bill to", smm ? "Covered by their package" : escapeHtml((inv && inv.bill_to_name) || d.bill_to_name || ""), !smm),
+        vcR("Invoice email", smm ? "" : escapeHtml((inv && inv.bill_to_email) || d.bill_to_email || ""), !smm),
+        vcR("Billing address", smm ? "" : escapeHtml(String((inv ? inv.bill_to_address : d.bill_to_address) || "").replace(/\s*\n\s*/g, ", "))),
+        vcR("Total", smm ? "" : (total != null ? escapeHtml(gbpFromPence(total)) + " inc. VAT" : "")),
+        vcR("Invoice", smm ? "None needed" : (vcCache.inv || ""), false, "vc-inv-line"),
       ];
-      const act = `${vcEditBtn("invoice")}${smm ? "" : `<button type="button" class="vc-act" data-vc-open="invoice" id="vc-inv-act">${vcCache.invAct || "Invoice"} &rarr;</button>`}`;
-      return vcBox("invoice", "vc-third", "Invoicing", act, `<dl class="vc-dl">${rows.join("")}</dl>`, E);
+      return vcBox("invoice", "vc-third", "Invoicing", vcAct("invoice", "Open"), `<dl class="vc-dl">${rows.join("")}</dl>`);
     }
 
-    /* Delivery: six rows to read; Open brings up the uploads, the gallery,
-       the PIN and the edits in the side panel. */
+    /* Delivery: what goes to the client. */
     function vcDeliveryBox(b) {
       const smm = isSmmCovered(b);
+      const started = ["editing", "gallery_ready", "sent", "delivered"].includes(b.stage);
       const editsUntil = b.gallery_sent_at ? vcDay(new Date(Date.parse(b.gallery_sent_at) + 10 * 864e5).toISOString()) : "";
+      const exp = vcExpires(b);
+      const pin = smm ? "Not needed"
+        : b.pin_released_at ? vcChip("is-good", "Released " + vcDay(b.pin_released_at))
+        : vcCache.pin ? (b.paid_at ? "Goes with the gallery" : vcChip("is-wait", "Held until paid"))
+        : vcCache.pin === false && started ? '<span class="vc-missing">Not added</span>' : "";
       const rows = [
-        vcR("Gallery", b.gallery_url
+        vcR("Pixieset gallery", b.gallery_url
           ? `<a href="${escapeHtml(b.gallery_url)}" target="_blank" rel="noopener">${escapeHtml(String(b.gallery_url).replace(/^https?:\/\//, "").replace(/\/$/, ""))}</a>`
-          : (smm ? "Through their social media manager" : "")),
-        vcR("Gallery email", escapeHtml(b.gallery_email || "")),
+          : (smm ? "Not needed: it goes to their social media manager" : (started ? '<span class="vc-missing">Not added</span>' : ""))),
+        vcR("PIN", pin, false, "vc-pin-line"),
+        vcR("Client portal", vcCache.portal || "", false, "vc-portal"),
         vcR("Sent", b.gallery_sent_at ? escapeHtml(vcDay(b.gallery_sent_at)) : "Not yet"),
-        vcR("PIN", smm ? "Not needed" : (b.pin_released_at ? "Released " + escapeHtml(vcDay(b.pin_released_at)) : (b.paid_at ? "Goes with the gallery" : "Held until paid"))),
-        vcR("Edits", b.edits_settled_at ? "Settled " + escapeHtml(vcDay(b.edits_settled_at)) : (editsUntil ? "Open until " + escapeHtml(editsUntil) : "10 days from sending")),
-        vcR("Gallery closes", b.gallery_expires_on ? escapeHtml(vcDay(b.gallery_expires_on)) : ""),
+        vcR("Edits", b.edits_settled_at ? vcChip("is-good", "Settled " + vcDay(b.edits_settled_at)) : (editsUntil ? "Open until " + escapeHtml(editsUntil) : vcChip("is-plain", "Not sent yet"))),
+        vcR("Gallery expires", exp ? escapeHtml(vcDayYear(exp)) : '<span class="vc-none">Set when the link goes in</span>'),
       ];
-      return vcBox("delivery", "vc-third", "Delivery", `<button type="button" class="vc-act" data-vc-open="delivery">Open &rarr;</button>`, `<dl class="vc-dl">${rows.join("")}</dl>`);
+      return vcBox("delivery", "vc-third", "Delivery", vcAct("delivery", "Open"), `<dl class="vc-dl">${rows.join("")}</dl>`);
     }
+
+    /* Content: our own copy of the files, the portal link, the editing. */
     function vcContentBox(b) {
       const folder = folderFor(b);
-      const act = folder ? `<a class="vc-act" href="/admin/content?folder=${encodeURIComponent(folder)}">Library &rarr;</a>` : "";
-      return vcBox("content", "vc-half", "Content", act, `<dl class="vc-dl">
-        ${vcR("Library folder", folder ? escapeHtml(folder) : "")}
-        ${vcR("Archive copy", b.archived_at ? '<span class="vc-chip is-good">Uploaded</span>' : "Not yet")}
-        <div class="vc-r"><dt>Client portal</dt><dd id="vc-portal">${vcCache.portal || ""}</dd></div>
+      const lib = folder ? `<a class="vc-act" href="/admin/content?folder=${encodeURIComponent(folder)}">Open in Library</a>` : "";
+      return vcBox("content", "vc-half", "Content", vcAct("content", "Open") + lib, `<dl class="vc-dl">
+        ${vcR("Our storage", vcStorageLine(b), false, "vc-storage")}
+        ${vcR("Storage folder", folder ? escapeHtml(folder) : "")}
+        ${vcR("Client portal link", vcCache.portalLink || "", false, "vc-portal-link")}
         ${vcR("Video editing", `<a href="/admin/video-captions">Captions and cuts</a>`)}
       </dl>`);
     }
+    function vcStorageLine(b) {
+      const n = vcCache.files;
+      if (n) return vcChip("is-good", `${n} file${n === 1 ? "" : "s"} uploaded`);
+      if (b.archived_at) return vcChip("is-good", "Uploaded " + vcDay(b.archived_at));
+      return n === 0 ? vcChip("is-plain", "Nothing uploaded yet") : "";
+    }
     function vcNotesBox(b) {
-      return vcBox("notes", "vc-half", "Notes, documents & messages", `<button type="button" class="vc-act" data-vc-open="notes">Open &rarr;</button>`,
+      return vcBox("notes", "vc-half", "Notes", vcAct("notes", "All notes") + vcAct("notes", "Add"),
         `<dl class="vc-dl" id="vc-feed">${vcCache.feed || ""}</dl>`);
     }
 
-    // Where the money is: the flag on the banner and the invoice line.
+    /* The callout under the progress steps (Dani, 4 Nov): the one thing
+       holding the shoot up, ticked off as it's done, with the button that
+       deals with what's left. Nothing shows between invoicing and the shoot. */
+    function vcCallout(b) {
+      const smm = isSmmCovered(b), st = b.stage;
+      const item = (ok, t) => `<li class="${ok ? "ok" : ""}">${escapeHtml(t)}</li>`;
+      const btn = (key, label, primary) => `<button type="button" class="vc-hb${primary ? " vc-hb--primary" : ""}" data-vc-open="${key}">${escapeHtml(label)}</button>`;
+      const box = (h, items, acts, done) => `<div class="vc-call${done ? " is-done" : ""}"><div><h4>${escapeHtml(h)}</h4><ul>${items.join("")}</ul></div>${acts ? `<div class="vc-call-acts">${acts}</div>` : ""}</div>`;
+      if (st === "delivered") {
+        const items = [
+          item(true, smm ? "Covered by their package" : (b.paid_at ? "Paid " + vcDay(b.paid_at) : "Paid")),
+          b.gallery_sent_at ? item(true, (smm ? "Handed over " : "Gallery sent ") + vcDay(b.gallery_sent_at)) : "",
+          b.edits_settled_at ? item(true, "Edits settled " + vcDay(b.edits_settled_at)) : "",
+        ];
+        return box("Delivered", items, "", true);
+      }
+      if ((st === "booked" || st === "awaiting_invoice") && !smm) {
+        const fc = isBrandInvoiced(b);
+        const office = (FC_OFFICES.find((o) => o.key === b.fc_office) || {}).label || "the Fine & Country office";
+        const items = [item(b.amount_pence != null || b.total_pence != null, "Quote in")];
+        if (fc) items.push(item(!!b.brand_fee_confirmed, `Fee check: ${office} confirm they hold the seller's marketing fee`));
+        items.push(item(!!vcCache.invRow, "Invoice raised"));
+        const acts = (fc && !b.brand_fee_confirmed ? btn("invoice", "Fee check") : "") + btn("invoice", vcCache.invRow ? "Open invoice" : "Raise invoice", true);
+        return box("Before invoicing", items, acts);
+      }
+      if (["editing", "gallery_ready", "sent"].includes(st)) {
+        const files = !!(vcCache.files || b.archived_at);
+        const gallery = !!(b.gallery_url && vcCache.pin);
+        const items = [item(files, "Files in our storage")];
+        if (!smm) {
+          items.push(item(gallery, "Pixieset gallery and PIN added"));
+          items.push(item(!!b.paid_at, b.paid_at ? "Invoice paid" : `Invoice paid${vcCache.invNo ? ": " + vcCache.invNo : ""}`));
+        }
+        if (st === "sent" && !smm) items.push(item(!!b.edits_settled_at, "Edits settled"));
+        let acts = "";
+        if (!files) acts = btn("content", "Upload files", true);
+        else if (!smm && !gallery) acts = btn("delivery", b.gallery_url ? "Add the PIN" : "Add gallery", true);
+        else if (!smm && !b.paid_at) acts = btn("invoice", "Open invoice", true);
+        else if (st === "sent" && !b.edits_settled_at) acts = btn("delivery", "Edits", true);
+        return box("Before delivery", items, acts);
+      }
+      return "";
+    }
+    function vcDrawCall(b) {
+      const host = document.getElementById("vc-call");
+      if (!host || b.id !== candId) return;
+      host.innerHTML = vcCallout(b);
+      host.querySelectorAll("[data-vc-open]").forEach((x) => x.addEventListener("click", () => vcOpen(x.getAttribute("data-vc-open"))));
+    }
+    function vcSetRow(id, html) { const el = document.getElementById(id); if (el) { el.innerHTML = html || VC_DASH; el.title = String(html || "").replace(/<[^>]*>/g, ""); } }
+
+    // Where the money is: the flag on the banner, the invoice row, and the callout.
     async function vcFillMoney(b) {
       if (isSmmCovered(b)) return;
       const invs = (await fetchInvoicesFor(b)).filter((iv) => iv.status !== "void");
@@ -2449,31 +2551,62 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         label = late ? "Payment overdue" : "Invoice sent"; cls = late ? "pay-overdue" : "pay-sent";
       }
       vcCache.pay = label; vcCache.payCls = cls;
-      vcCache.inv = newest
-        ? `${escapeHtml(newest.number || "Draft")} · ${gbpFromPence(newest.total_pence || 0)} <span class="vc-chip ${cls === "pay-paid" ? "is-good" : cls === "pay-overdue" ? "is-bad" : "is-wait"}">${escapeHtml(newest.status === "draft" ? "Draft" : label)}</span>`
-        : '<span class="vc-none">Not raised yet</span>';
-      vcCache.invAct = newest ? "Open invoice" : "Create invoice";
+      vcCache.invRow = newest || null;
+      vcCache.invNo = newest ? newest.number || "" : "";
+      const st = !newest ? "" : newest.status === "paid" ? vcChip("is-good", "Paid" + (newest.paid_date ? " " + vcDay(newest.paid_date) : ""))
+        : newest.status === "draft" ? vcChip("is-plain", "Draft")
+        : newest.status === "sent" ? vcChip(cls === "pay-overdue" ? "is-bad" : "is-info", (cls === "pay-overdue" ? "Overdue, due " : "Sent, due ") + vcDay(newest.due_date))
+        : vcChip("is-plain", newest.status);
+      vcCache.inv = newest ? `${escapeHtml(newest.number || "Draft")} &nbsp;${st}` : vcChip("is-plain", "Not raised");
+      const travelLine = newest && (newest.line_items || []).some((it) => /^travel/i.test(String(it.description || "")));
+      vcCache.travelOn = !newest ? "Goes on when it's raised" : travelLine ? "Yes, " + escapeHtml(newest.number || "") : (b.surcharge_pence ? '<span class="vc-missing">Not on ' + escapeHtml(newest.number || "the invoice") + "</span>" : "No travel to charge");
       const flag = document.getElementById("vc-pay");
       if (flag) { flag.textContent = label; flag.className = "vc-tag vc-pay " + cls; }
-      const line = document.getElementById("vc-inv-line");
-      if (line) line.innerHTML = vcCache.inv;
-      const act = document.getElementById("vc-inv-act");
-      if (act) act.innerHTML = vcCache.invAct + " &rarr;";
+      // The box's other rows follow the invoice once there is one.
+      const box = document.getElementById("vc-box-invoice");
+      if (box) box.outerHTML = vcInvoiceBox(b);
+      document.querySelector("#vc-box-invoice [data-vc-open]")?.addEventListener("click", () => vcOpen("invoice"));
+      vcSetRow("vc-travel-on", vcCache.travelOn);
+      vcDrawCall(b);
     }
-    // Which client portal the shoot's folder is in.
+    // Which client portal the shoot's folder is in, and its link.
     async function vcFillPortal(b) {
       const folder = folderFor(b);
-      let html = VC_DASH;
+      let html = "", link = "";
       if (folder) {
         const prefix = "deliverables/" + folder.replace(/^\/+|\/+$/g, "") + "/";
-        const { data } = await supabase.from("client_portals").select("name, enabled, folders");
+        const { data } = await supabase.from("client_portals").select("name, enabled, folders, token");
         const p = (data || []).find((x) => (x.folders || []).some((f) => String(f) === prefix || String(f).replace(/\/?$/, "/") === prefix));
         html = p ? `${escapeHtml(p.name)}${p.enabled ? "" : " (off)"}` : '<span class="vc-none">Not in a portal</span>';
+        if (p && p.token) { const u = `${location.origin}/portal?c=${encodeURIComponent(p.token)}`; link = `<a href="${escapeHtml(u)}" target="_blank" rel="noopener">${escapeHtml(u.replace(/^https?:\/\//, ""))}</a>`; }
       }
       if (b.id !== candId) return;
-      vcCache.portal = html;
-      const el = document.getElementById("vc-portal");
-      if (el) el.innerHTML = html;
+      vcCache.portal = html; vcCache.portalLink = link;
+      vcSetRow("vc-portal", html); vcSetRow("vc-portal-link", link);
+    }
+    // How many files are in our storage for this shoot. Once there are some,
+    // the archive copy counts as done by itself (Dani, 4 Nov: no tick to forget).
+    async function vcFillStorage(b) {
+      const { count, error } = await supabase.from("videography_deliverables").select("id", { count: "exact", head: true }).eq("booking_id", b.id);
+      if (error || b.id !== candId) return;
+      vcCache.files = count || 0;
+      if (count && !b.archived_at) {
+        const at = new Date().toISOString();
+        const { error: e2 } = await supabase.from("videography_bookings").update({ archived_at: at }).eq("id", b.id);
+        if (!e2) b.archived_at = at;
+      }
+      vcSetRow("vc-storage", vcStorageLine(b));
+      vcDrawCall(b);
+    }
+    // Whether a PIN has been put in (never what it is).
+    async function vcFillPin(b) {
+      if (isSmmCovered(b)) return;
+      const { data } = await supabase.from("videography_gallery_pins").select("pin").eq("booking_id", b.id).maybeSingle();
+      if (b.id !== candId) return;
+      vcCache.pin = !!(data && data.pin);
+      const box = document.getElementById("vc-box-delivery");
+      if (box) { box.outerHTML = vcDeliveryBox(b); document.querySelector("#vc-box-delivery [data-vc-open]")?.addEventListener("click", () => vcOpen("delivery")); }
+      vcDrawCall(b);
     }
     // The social media client a package shoot belongs to.
     function vcSmmLabel(r) { return r.business || [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || r.full_name || r.email || "Client"; }
@@ -2486,14 +2619,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       if (!error) smmClientsCache = data || [];
       return smmClientsCache || [];
     }
-    async function vcFillSmm(b) {
-      if (!isSmmCovered(b) || !b.smm_lead_id) return;
-      const r = (await vcLoadSmm()).find((x) => x.id === b.smm_lead_id);
-      if (b.id !== candId) return;
-      vcCache.smm = r ? vcSmmLabel(r) : "Linked client (no longer active)";
-      const el = document.querySelector("#vid-cand [data-vc-smm]");
-      if (el) el.textContent = vcCache.smm;
-    }
+    function vcFillSmm() { /* the social media client now shows in Booking › View */ }
     // The latest notes, documents and messages, newest first, one row each.
     function vcFillFeed(data) {
       const host = document.getElementById("vc-feed");
@@ -2505,128 +2631,131 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       ].sort((a, b2) => String(b2.w || "").localeCompare(String(a.w || ""))).slice(0, 4);
       vcCache.feed = items.length
         ? items.map((it) => { const t = String(it.t).split("\n")[0]; return `<div class="vc-r"><dt>${escapeHtml(it.k + (it.w ? ", " + vcShort(it.w) : ""))}</dt><dd title="${escapeHtml(t)}">${escapeHtml(t)}</dd></div>`; }).join("")
-        : `<div class="vc-r"><dt>Nothing yet</dt><dd><span class="vc-none">Open to add a note, a document or a message.</span></dd></div>`;
+        : `<div class="vc-r"><dt>Nothing yet</dt><dd><span class="vc-none">Add a note, a document or a message.</span></dd></div>`;
       host.innerHTML = vcCache.feed;
     }
 
-    function vcOpen(key) {
-      const panel = document.getElementById("vc-panel");
-      if (!panel) return;
-      vcPane = key;
-      panel.hidden = false;
-      document.getElementById("vc-panel-t").textContent = VC_PANE_TITLE[key] || "";
-      panel.querySelectorAll(".vc-pane").forEach((x) => { x.hidden = x.getAttribute("data-pane") !== key; });
+    /* ---- The pop-outs ----
+       One kind, centred on the page beside the sidebar (Dani, 4 Nov): a linen
+       top with the client, the title and the close; sections under the wine
+       strip; the buttons at the foot. */
+    function vcSec(title, inner, cls) { return `<section class="vc-sec${cls ? " " + cls : ""}"><div class="vc-sec-h">${escapeHtml(title)}</div><div class="vc-sec-b">${inner}</div></section>`; }
+    function vcPR(label, html) { return `<div class="vc-pr"><dt>${escapeHtml(label)}</dt><dd>${html || VC_DASH}</dd></div>`; }
+    function vcPF(label, field, hint) { return `<div class="vc-pr is-field"><dt>${escapeHtml(label)}</dt><dd>${field}${hint ? `<small class="vc-hint">${hint}</small>` : ""}</dd></div>`; }
+    function vcIn(k, v, type, extra) { return `<input class="vc-in" data-vcf="${k}" type="${type || "text"}" value="${escapeHtml(v == null ? "" : String(v))}"${extra || ""}>`; }
+    function vcTa(k, v, rows) { return `<textarea class="vc-in" data-vcf="${k}" rows="${rows || 3}">${escapeHtml(v == null ? "" : String(v))}</textarea>`; }
+    function vcSel(k, opts, cur, redraw) {
+      return `<select class="vc-in" data-vcf="${k}"${redraw ? " data-vc-redraw" : ""}>${opts.map(([v, l]) => `<option value="${escapeHtml(String(v))}"${String(v) === String(cur == null ? "" : cur) ? " selected" : ""}>${escapeHtml(l)}</option>`).join("")}</select>`;
     }
-    function vcClose() {
-      vcPane = null;
-      const panel = document.getElementById("vc-panel");
-      if (panel) panel.hidden = true;
-    }
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && vcPane) vcClose(); });
+    function vcFootBtn(attr, label, primary) { return `<button type="button" class="vc-hb${primary ? " vc-hb--primary" : ""}" ${attr}>${escapeHtml(label)}</button>`; }
 
-    /* Editing a box where it sits. One box at a time; a choice that changes
-       which rows a box has (who pays, the reason, Other service) redraws it
-       with what's been typed so far. */
-    async function vcEdit(kind, draft) {
-      const b = bookings.find((x) => x.id === candId);
-      const make = { booking: vcBookingBox, travel: vcTravelBox, invoice: vcInvoiceBox }[kind];
-      if (!b || !make) return;
-      if (vcEditing && vcEditing !== kind) renderCandidate();
-      if (kind === "invoice") await vcLoadSmm();
-      const box = document.getElementById("vc-box-" + kind);
-      if (!box) return;
-      const miles = box.dataset.miles;
-      vcEditing = kind;
-      box.outerHTML = make(draft || b, true);
-      const nb = document.getElementById("vc-box-" + kind);
-      if (miles) nb.dataset.miles = miles;
-      nb.querySelector("[data-vc-cancel]").addEventListener("click", () => renderCandidate());
-      nb.querySelector("[data-vc-save]").addEventListener("click", () => vcSave(kind, b, nb));
-      nb.querySelectorAll("[data-act]").forEach((x) => x.addEventListener("click", () => candAction(x.getAttribute("data-act"))));
-      nb.querySelector("[data-vc-calc]")?.addEventListener("click", () => vcCalcTravel(nb));
-      nb.querySelectorAll("[data-vc-redraw]").forEach((x) => x.addEventListener("change", () => vcEdit(kind, Object.assign({}, b, vcCollect(kind, nb, b)))));
-      nb.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && e.target.matches("input")) { e.preventDefault(); vcSave(kind, b, nb); }
-        else if (e.key === "Escape" && !vcPane) { e.preventDefault(); renderCandidate(); }
-      });
-      if (!draft) nb.querySelector("[data-vcf]")?.focus();
+    // Who pays decides which rows the deal has: the office for Fine & Country,
+    // the brand and reason for TEG, the client for a social media package.
+    function vcRouteRows(d, E) {
+      const route = d.payment_route || "agent_card";
+      const routes = [...document.querySelectorAll("#vid-route option")].map((o) => [o.value, o.textContent]);
+      const brands = [["", "Choose the brand"], ...TEG_BRANDS.map((o) => [o.key, o.label])];
+      const rows = [E ? vcPF("Who pays", vcSel("payment_route", routes, route, true)) : vcPR("Who pays", escapeHtml(vcRouteName(route)))];
+      if (route === "brand_invoice") {
+        rows.push(E ? vcPF("Fine & Country office", vcSel("fc_office", [["", "Choose the office"], ...FC_OFFICES.map((o) => [o.key, o.label])], d.fc_office), "The invoice goes to this office. The fee check is in Invoicing.")
+          : vcPR("Fine & Country office", escapeHtml((FC_OFFICES.find((o) => o.key === d.fc_office) || {}).label || "")));
+      } else if (route === "brand_invoice_teg") {
+        rows.push(E ? vcPF("Billed to", vcSel("teg_brand", brands, d.teg_brand)) : vcPR("Billed to", escapeHtml(tegBrandLabel(d.teg_brand) || "")));
+        const reason = d.teg_reason === "other" ? (d.teg_reason_other || "Other") : tegReasonLabel(d.teg_reason);
+        rows.push(E ? vcPF("Reason", vcSel("teg_reason", [["", "Choose a reason"], ...TEG_REASONS.map((o) => [o.key, o.label])], d.teg_reason, true) + (d.teg_reason === "other" ? vcIn("teg_reason_other", d.teg_reason_other, "text", ' placeholder="What for?" style="margin-top:6px"') : ""))
+          : vcPR("Reason", escapeHtml(reason || "")));
+      } else if (route === "smm_package") {
+        const opts = [["", "Not linked"], ...(smmClientsCache || []).map((r) => [r.id, vcSmmLabel(r)])];
+        if (d.smm_lead_id && !opts.some(([v]) => v === d.smm_lead_id)) opts.push([d.smm_lead_id, "Linked client (no longer active)"]);
+        const cur = (smmClientsCache || []).find((r) => r.id === d.smm_lead_id);
+        rows.push(E ? vcPF("Social media client", vcSel("smm_lead_id", opts, d.smm_lead_id || "")) : vcPR("Social media client", escapeHtml(cur ? vcSmmLabel(cur) : (d.smm_lead_id ? "Linked" : ""))));
+        rows.push(E ? vcPF("Brand", vcSel("teg_brand", brands, d.teg_brand)) : vcPR("Brand", escapeHtml(tegBrandLabel(d.teg_brand) || "")));
+      }
+      return rows.join("");
     }
-    // What's in a box's fields, as columns to save.
-    function vcCollect(kind, box, b) {
+    // Booking › View and Booking › Edit: the same three sections.
+    function vcBookingPane(b, E, draft) {
+      const d = draft || b;
+      const cur = d._svcOther ? null : serviceByLabel(d.service);
+      const brandOpts = [...document.querySelectorAll('[data-f="brand"] option')].map((o) => [o.value, o.value ? o.textContent : "Not set"]);
+      const shoot = E ? [
+        vcPF("Service", vcSel("service", [...VIDEO_SERVICES.map((sv) => [sv.label, sv.label]), ["__other", "Other…"]], cur ? cur.label : "__other", true) + (cur ? "" : vcIn("service_other", d.service, "text", ' placeholder="What is it?" style="margin-top:6px"'))),
+        vcPF("Shoot date", `<div class="vc-pair"><span>${escapeHtml(vcWhenLong(d) || "No date yet")}</span>${vcFootBtn('data-vc-resched', "Reschedule")}</div>`, "Moving the date also moves it in Jack's calendar."),
+        vcPF("Shoot location", vcIn("location", d.location)),
+        vcPF("Property address", vcTa("property_address", d.property_address, 3)),
+      ] : [
+        vcPR("Service", escapeHtml(d.service || "")),
+        vcPR("Shoot date", escapeHtml(vcWhenLong(d))),
+        vcPR("Shoot location", escapeHtml(d.location || "")),
+        vcPR("Property address", escapeHtml(d.property_address || "")),
+      ];
+      const client = E ? [
+        vcPF("Client", vcIn("client_name", d.client_name)),
+        vcPF("Company", vcIn("client_company", d.client_company)),
+        vcPF("Email", vcIn("client_email", d.client_email, "email")),
+        vcPF("Phone", vcIn("client_phone", d.client_phone, "tel")),
+      ] : [
+        vcPR("Client", escapeHtml(d.client_name || "")),
+        vcPR("Company", escapeHtml(d.client_company || "")),
+        vcPR("Email", d.client_email ? `<a href="mailto:${escapeHtml(d.client_email)}">${escapeHtml(d.client_email)}</a>` : ""),
+        vcPR("Phone", escapeHtml(d.client_phone || "")),
+      ];
+      const deal = E ? [
+        vcPF("Quote", vcIn("amount_gbp", d.amount_pence != null ? (d.amount_pence / 100).toFixed(2) : "", "number", ` min="0" step="0.01"${d.total_pence != null ? ` placeholder="${(d.total_pence / 100).toFixed(2)}"` : ""}`), "Before travel and VAT."),
+        vcRouteRows(d, true),
+        vcPF("Brand", vcSel("brand", brandOpts, d.brand || ""), "The price tier."),
+        vcPR("Booked on", d.created_at ? escapeHtml(vcDayYear(d.created_at)) : ""),
+        vcPF("Booking notes", vcTa("notes", d.notes, 5)),
+      ] : [
+        vcPR("Quote", isSmmCovered(d) ? "Covered by their package" : escapeHtml(vcQuote(d) ? vcQuote(d) + (d.amount_pence != null ? " before travel and VAT" : " including travel") : "")),
+        vcRouteRows(d, false),
+        vcPR("Brand", escapeHtml(vcBrandName(d))),
+        vcPR("Booked on", d.created_at ? escapeHtml(vcDayYear(d.created_at)) : ""),
+        vcPR("Booking notes", escapeHtml(d.notes || "")),
+      ];
+      return vcSec("The shoot", `<dl class="vc-pdl">${shoot.join("")}</dl>`) + vcSec("The client", `<dl class="vc-pdl">${client.join("")}</dl>`) + vcSec("The booking", `<dl class="vc-pdl">${deal.join("")}</dl>`);
+    }
+    // What's in the Edit pop-out's fields, as columns to save.
+    function vcCollect(box, b) {
       const has = (k) => !!box.querySelector(`[data-vcf="${k}"]`);
       const val = (k) => { const x = box.querySelector(`[data-vcf="${k}"]`); return x ? x.value.trim() : ""; };
       const money = (k) => { const v = parseFloat(val(k)); return isNaN(v) ? null : Math.round(v * 100); };
       const p = {};
-      if (kind === "booking") {
-        const pick = val("service");
-        if (pick === "__other") { p.service = val("service_other") || null; p._svcOther = true; } else p.service = pick || null;
-        p.location = val("location") || null;
-        // Shown on one line; only written back if it was changed.
-        const addr = String(b.property_address || "").replace(/\s*\n\s*/g, ", ").trim();
-        if (val("property_address") !== addr) p.property_address = val("property_address") || null;
-        p.client_name = val("client_name");
-        p.client_company = val("client_company") || null;
-        p.client_email = val("client_email") || null;
-        p.client_phone = val("client_phone") || null;
-        p.brand = val("brand") || null;
-        const notes = String(b.notes || "").split(/\s*\n\s*/).filter(Boolean).join(" / ").trim();
-        if (val("notes") !== notes) p.notes = val("notes") ? val("notes").split(/\s*\/\s*/).join("\n") : null;
-      } else if (kind === "travel") {
-        const pc = val("postcode").toUpperCase();
-        p.postcode = pc || null;
-        p.surcharge_pence = money("surcharge_gbp");
-        if (box.dataset.miles) p.distance_miles = Number(box.dataset.miles);
-        else if (pc !== vcPostcode(b)) p.distance_miles = null;   // a new postcode: the old distance no longer applies
-        // A booking made online has travel inside its total; it moves by the difference.
-        if (b.total_pence != null && p.surcharge_pence != null && p.surcharge_pence !== (b.surcharge_pence || 0)) {
-          p.total_pence = b.total_pence - (b.surcharge_pence || 0) + p.surcharge_pence;
-        }
-      } else if (kind === "invoice") {
-        const route = val("payment_route") || "agent_card";
-        p.payment_route = route;
-        p.amount_pence = money("amount_gbp");
-        if (route === "brand_invoice") {
-          if (has("fc_office")) p.fc_office = val("fc_office") || null;
-          if (has("fee")) p.brand_fee_confirmed = val("fee") === "1";
-        }
-        if ((route === "brand_invoice_teg" || route === "smm_package") && has("teg_brand")) p.teg_brand = val("teg_brand") || null;
-        if (route === "brand_invoice_teg" && has("teg_reason")) {
-          p.teg_reason = val("teg_reason") || null;
-          p.teg_reason_other = p.teg_reason === "other" ? (val("teg_reason_other") || null) : null;
-        }
-        if (route === "smm_package") { p.teg_reason = SMM_REASON.key; p.smm_lead_id = has("smm_lead_id") ? (val("smm_lead_id") || null) : (b.smm_lead_id || null); }
-        else p.smm_lead_id = null;
+      const pick = val("service");
+      if (pick === "__other") { p.service = val("service_other") || null; p._svcOther = true; } else p.service = pick || null;
+      p.location = val("location") || null;
+      if (val("property_address") !== String(b.property_address || "").trim()) p.property_address = val("property_address") || null;
+      p.client_name = val("client_name");
+      p.client_company = val("client_company") || null;
+      p.client_email = val("client_email") || null;
+      p.client_phone = val("client_phone") || null;
+      p.brand = val("brand") || null;
+      if (val("notes") !== String(b.notes || "").trim()) p.notes = val("notes") || null;
+      const route = val("payment_route") || "agent_card";
+      p.payment_route = route;
+      p.amount_pence = money("amount_gbp");
+      if (route === "brand_invoice" && has("fc_office")) p.fc_office = val("fc_office") || null;
+      if ((route === "brand_invoice_teg" || route === "smm_package") && has("teg_brand")) p.teg_brand = val("teg_brand") || null;
+      if (route === "brand_invoice_teg" && has("teg_reason")) {
+        p.teg_reason = val("teg_reason") || null;
+        p.teg_reason_other = p.teg_reason === "other" ? (val("teg_reason_other") || null) : null;
       }
+      if (route === "smm_package") { p.teg_reason = SMM_REASON.key; p.smm_lead_id = has("smm_lead_id") ? (val("smm_lead_id") || null) : (b.smm_lead_id || null); }
+      else p.smm_lead_id = null;
       return p;
     }
-    async function vcSave(kind, b, box) {
-      const p = vcCollect(kind, box, b);
+    async function vcSaveBooking(b, box, btn) {
+      const p = vcCollect(box, b);
       Object.keys(p).forEach((k) => { if (k.startsWith("_")) delete p[k]; });
-      if (kind === "booking") {
-        if (!p.client_name) { alert("The client's name can't be empty."); return; }
-        const sv = serviceByLabel(p.service); if (sv && sv.type) p.service_type = sv.type;
-        if (!b.archive_folder) { const nm = archiveFolderName(b); if (nm) p.archive_folder = nm; }
-      }
-      let feeNote = "";
-      if (kind === "invoice" && "brand_fee_confirmed" in p) {
-        if (p.brand_fee_confirmed === !!b.brand_fee_confirmed) delete p.brand_fee_confirmed;
-        else {
-          p.brand_fee_confirmed_at = p.brand_fee_confirmed ? new Date().toISOString() : null;
-          p.brand_fee_confirmed_by = p.brand_fee_confirmed ? (adminEmail || null) : null;
-          const office = (FC_OFFICES.find((o) => o.key === (p.fc_office || b.fc_office)) || {}).label || "the office";
-          feeNote = p.brand_fee_confirmed
-            ? `F&C office confirmed — ${office} has confirmed the seller's marketing fee has been received.`
-            : `F&C office confirmation withdrawn — ${office}.`;
-        }
-      }
-      const btn = box.querySelector("[data-vc-save]");
+      if (!p.client_name) { alert("The client's name can't be empty."); return; }
+      const sv = serviceByLabel(p.service); if (sv && sv.type) p.service_type = sv.type;
+      if (!b.archive_folder) { const nm = archiveFolderName(b); if (nm) p.archive_folder = nm; }
       btn.disabled = true; btn.textContent = "Saving…";
       const { error } = await supabase.from("videography_bookings").update(p).eq("id", b.id);
       if (error) { alert("Couldn't save: " + error.message); btn.disabled = false; btn.textContent = "Save"; return; }
-      const movedLocation = kind === "booking" && ((b.location || "") !== (p.location || "") || ("property_address" in p && (b.property_address || "") !== (p.property_address || "")));
-      const newEmail = kind === "booking" && (b.client_email || "") !== (p.client_email || "") && !!p.client_email;
+      const movedLocation = (b.location || "") !== (p.location || "") || ("property_address" in p && (b.property_address || "") !== (p.property_address || ""));
+      const newEmail = (b.client_email || "") !== (p.client_email || "") && !!p.client_email;
       Object.assign(b, p);
-      if (feeNote) await addNote(b, feeNote, "audit");
       // A changed address goes to Jack's calendar, a changed email to the contact card.
       if (WORKER_URL && (movedLocation || newEmail)) {
         try {
@@ -2635,27 +2764,171 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           if (newEmail) await fetch(`${WORKER_URL}/booking/contact`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: b.id }) });
         } catch (_) { /* saved; the calendar and contact can be nudged again */ }
       }
+      vcPane = null;
       renderCandidate();
       renderClients(document.getElementById("vid-client-search")?.value || "");
     }
-    // Driving miles from Jack's base, as the booking page works them out.
-    async function vcCalcTravel(box) {
+
+    // Travel › Calculate: driving miles from Jack's base, as the booking page works them out.
+    function vcTravelPane(b) {
+      const has = b.distance_miles != null && b.distance_miles !== "";
+      return vcSec("The journey", `<dl class="vc-pdl">
+          ${vcPR("From", escapeHtml((vidSettings.base_postcode || "") + ", our base"))}
+          ${vcPF("Shoot postcode", `<div class="vc-pair">${vcIn("postcode", vcPostcode(b))}${vcFootBtn("data-vc-calc", "Calculate")}</div>`)}
+        </dl>`) +
+        vcSec("The charge", `<dl class="vc-pdl" id="vc-calc-sum">${vcTravelSum(has ? Number(b.distance_miles) : null)}</dl>
+          <dl class="vc-pdl">${vcPF("Travel charge", `<div class="vc-pair"><span>£</span>${vcIn("surcharge_gbp", b.surcharge_pence != null ? (b.surcharge_pence / 100).toFixed(2) : "", "number", ' min="0" step="0.01"')}<span>+ VAT</span></div>`, "Filled in by Calculate. Change it by hand if something else was agreed.")}</dl>`) +
+        `<p class="vc-hint" style="margin:14px 0 0">Driving distance from Google. The first ${escapeHtml(String(vidSettings.free_radius_miles || 40))} miles each way are free, then ${escapeHtml(String(vidSettings.surcharge_pence_per_mile || 55))}p a mile, there and back. Studio shoots carry no travel.</p>`;
+    }
+    function vcTravelSum(miles) {
+      if (miles == null || isNaN(miles)) return vcPR("Distance", '<span class="vc-none">Not worked out yet</span>');
+      const t = travelCharge(miles, vidSettings);
+      return vcPR("Distance", `${Math.round(t.oneWay)} miles each way, ${Math.round(t.returnMiles)} there and back`)
+        + vcPR("Free", `${t.radius} miles each way`)
+        + vcPR("Charged", t.chargeable ? `${t.chargeable} miles there and back, at ${t.rate}p a mile` : "None")
+        + vcPR("Comes to", t.pence ? gbpFromPence(t.pence) + " + VAT" : "Nothing");
+    }
+    async function vcCalc(box) {
       const pc = (box.querySelector('[data-vcf="postcode"]')?.value || "").trim();
-      const dist = box.querySelector("[data-vc-dist]"), chg = box.querySelector("[data-vc-charged]");
-      if (!pc) { dist.textContent = "Add the postcode first"; return; }
-      dist.textContent = "Working it out…";
+      const sum = box.querySelector("#vc-calc-sum");
+      if (!pc) { sum.innerHTML = vcPR("Distance", '<span class="vc-missing">Add the postcode first</span>'); return; }
+      sum.innerHTML = vcPR("Distance", "Working it out…");
       try {
         const res = await fetch(`${WORKER_URL}/videography/distance?to=${encodeURIComponent(pc)}`);
         const d = await res.json().catch(() => ({}));
         if (!res.ok || typeof d.miles !== "number") throw new Error(d.error || "Couldn't find that postcode");
-        const t = travelCharge(d.miles, { free_radius_miles: d.free_radius_miles ?? vidSettings.free_radius_miles, pence_per_mile: d.pence_per_mile ?? vidSettings.surcharge_pence_per_mile });
+        const settings = { free_radius_miles: d.free_radius_miles ?? vidSettings.free_radius_miles, pence_per_mile: d.pence_per_mile ?? vidSettings.surcharge_pence_per_mile };
+        const t = travelCharge(d.miles, settings);
         box.dataset.miles = String(d.miles);
-        dist.textContent = `${Math.round(t.oneWay)} miles each way${d.source === "estimate" ? " (straight line)" : ""}`;
-        chg.textContent = t.chargeable ? `${t.chargeable} miles there and back` : "None";
+        sum.innerHTML = vcTravelSum(d.miles) + (d.source === "estimate" ? vcPR("Note", "Straight-line estimate: Google couldn't give a driving distance.") : "");
         const g = box.querySelector('[data-vcf="surcharge_gbp"]');
         if (g) g.value = (t.pence / 100).toFixed(2);
-      } catch (e) { dist.textContent = e.message; }
+      } catch (e) { sum.innerHTML = vcPR("Distance", `<span class="vc-missing">${escapeHtml(e.message)}</span>`); }
     }
+    async function vcSaveTravel(b, box, btn) {
+      const val = (k) => (box.querySelector(`[data-vcf="${k}"]`)?.value || "").trim();
+      const pc = val("postcode").toUpperCase();
+      const v = parseFloat(val("surcharge_gbp"));
+      const p = { postcode: pc || null, surcharge_pence: isNaN(v) ? null : Math.round(v * 100) };
+      if (box.dataset.miles) p.distance_miles = Number(box.dataset.miles);
+      else if (pc !== vcPostcode(b)) p.distance_miles = null;   // a new postcode: the old distance no longer applies
+      // A booking made online has travel inside its total; it moves by the difference.
+      if (b.total_pence != null && p.surcharge_pence != null && p.surcharge_pence !== (b.surcharge_pence || 0)) {
+        p.total_pence = b.total_pence - (b.surcharge_pence || 0) + p.surcharge_pence;
+      }
+      btn.disabled = true; btn.textContent = "Saving…";
+      const { error } = await supabase.from("videography_bookings").update(p).eq("id", b.id);
+      if (error) { alert("Couldn't save: " + error.message); btn.disabled = false; btn.textContent = "Use this charge"; return; }
+      Object.assign(b, p);
+      vcPane = null;
+      renderCandidate();
+    }
+
+    // Content › Open: our storage. The uploader is the one from Deliver work,
+    // lifted into the pop-out while it's open and put back after.
+    var vcUplHome = null;
+    function vcContentPane(b) {
+      const folder = folderFor(b);
+      const n = vcCache.files || 0;
+      return vcSec("Our storage", `<p class="vc-hint" style="margin:10px 0 6px">Our own copy of every file, on our Cloudflare storage. The team uses it, the Library shows it, and a client portal shares it. Pixieset deletes its gallery after three months; this stays.</p>
+          <dl class="vc-pdl">${vcPR("Folder", escapeHtml(folder || ""))}${vcPR("Uploaded", n ? `${n} file${n === 1 ? "" : "s"}` : "Nothing yet")}</dl>
+          <details class="vc-more"${n ? "" : " open"}><summary>${n ? "Add more files" : "Upload the files"}</summary><div id="vc-upl-host"></div></details>`) +
+        vcSec("Video editing", `<p class="vc-hint" style="margin:10px 0 6px">Cut the films and add brand captions.</p><div class="vc-inline-acts"><a class="vc-hb" href="/admin/video-captions">Open Video captions</a></div>`);
+    }
+    function vcUplIn(b) {
+      const host = document.getElementById("vc-upl-host");
+      const sel = document.getElementById("vid-deliver-booking");
+      if (!host || !sel) return;
+      populateDeliverBookings();
+      sel.value = b.id;
+      sel.dispatchEvent(new Event("change"));
+      const parts = ["vid-archive", "vid-catgrid-intro", "vid-catgrid", "vid-uploads"].map((id) => document.getElementById(id)).filter(Boolean);
+      const files = document.querySelector(".vid-files");
+      if (files) parts.push(files);
+      if (!parts.length) return;
+      vcUplHome = { parent: parts[0].parentNode, parts };
+      parts.forEach((x) => host.appendChild(x));
+    }
+    function vcUplOut() {
+      if (!vcUplHome) return;
+      vcUplHome.parts.forEach((x) => vcUplHome.parent.appendChild(x));
+      vcUplHome = null;
+    }
+
+    const VC_PANES = {
+      view:     { t: "The booking in full", eye: "Booking" },
+      edit:     { t: "Edit this booking", eye: "Booking" },
+      travel:   { t: "Work out the travel charge", eye: "Travel", narrow: true },
+      invoice:  { t: "Invoices", eye: "Invoicing" },
+      delivery: { t: "Deliver this shoot", eye: "Delivery" },
+      content:  { t: "Our storage", eye: "Content" },
+      notes:    { t: "Notes, documents and messages", eye: "Notes" },
+    };
+    function vcPlace() {
+      const scrim = document.getElementById("vc-panel");
+      const main = document.querySelector(".ash-main");
+      if (scrim) scrim.style.left = (main && window.innerWidth > 900 ? Math.max(0, main.getBoundingClientRect().left) : 0) + "px";
+    }
+    window.addEventListener("resize", () => { if (vcPane) vcPlace(); });
+    function vcOpen(key, keep, draft) {
+      const panel = document.getElementById("vc-panel");
+      const b = bookings.find((x) => x.id === candId);
+      if (!panel || !b || !VC_PANES[key]) return;
+      if (vcPane === "content" && key !== "content") vcUplOut();
+      vcPane = key;
+      const cfg = VC_PANES[key];
+      panel.hidden = false;
+      vcPlace();
+      panel.querySelector(".vc-panel").classList.toggle("is-narrow", !!cfg.narrow);
+      panel.querySelector(".vc-panel").classList.toggle("is-edit", key === "edit" || key === "travel");
+      document.getElementById("vc-panel-eye").textContent = `${cfg.eye} · ${b.client_name || "Client"}`;
+      document.getElementById("vc-panel-t").textContent = cfg.t;
+      const chip = document.getElementById("vc-panel-chip");
+      chip.innerHTML = key === "invoice" && vcCache.pay ? vcChip(vcCache.payCls === "pay-paid" ? "is-good" : vcCache.payCls === "pay-overdue" ? "is-bad" : vcCache.payCls === "pay-sent" ? "is-info" : "is-plain", vcCache.pay)
+        : key === "delivery" ? (b.stage === "delivered" ? vcChip("is-good", "Delivered") : b.gallery_sent_at ? vcChip("is-info", "Sent " + vcDay(b.gallery_sent_at)) : vcChip("is-plain", "Not sent"))
+        : key === "content" ? (vcCache.files ? vcChip("is-good", `${vcCache.files} files uploaded`) : vcChip("is-plain", "Nothing uploaded yet")) : "";
+      panel.querySelectorAll(".vc-pane").forEach((x) => { x.hidden = x.getAttribute("data-pane") !== key; });
+      const pane = panel.querySelector(`.vc-pane[data-pane="${key}"]`);
+      const foot = document.getElementById("vc-panel-f");
+      foot.innerHTML = "";
+      if (key === "view") {
+        pane.innerHTML = vcBookingPane(b, false);
+        foot.innerHTML = vcFootBtn("data-vc-close", "Close") + vcFootBtn('data-vc-go="edit"', "Edit", true);
+      } else if (key === "edit") {
+        pane.innerHTML = vcBookingPane(b, true, draft);
+        foot.innerHTML = `<span class="vc-say">Saves to this booking, and a new address goes to Jack's calendar.</span>` + vcFootBtn("data-vc-close", "Cancel") + vcFootBtn("data-vc-save", "Save", true);
+        pane.querySelectorAll("[data-vc-redraw]").forEach((x) => x.addEventListener("change", () => vcOpen("edit", true, Object.assign({}, b, vcCollect(pane, b)))));
+        pane.querySelector("[data-vc-resched]")?.addEventListener("click", () => { vcClose(); candAction("reschedule"); });
+        foot.querySelector("[data-vc-save]").addEventListener("click", (e) => vcSaveBooking(b, pane, e.currentTarget));
+        if (!draft) setTimeout(() => pane.querySelector("[data-vcf]")?.focus(), 0);
+      } else if (key === "travel") {
+        pane.innerHTML = vcTravelPane(b);
+        foot.innerHTML = `<span class="vc-say">${vcCache.invRow && vcCache.invRow.status !== "draft" ? "The invoice is already raised: change it in Invoicing too." : "It goes on the invoice when it's raised."}</span>` + vcFootBtn("data-vc-close", "Cancel") + vcFootBtn("data-vc-save", "Use this charge", true);
+        pane.querySelector("[data-vc-calc]").addEventListener("click", () => vcCalc(pane));
+        pane.querySelector('[data-vcf="postcode"]').addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); vcCalc(pane); } });
+        foot.querySelector("[data-vc-save]").addEventListener("click", (e) => vcSaveTravel(b, pane, e.currentTarget));
+        delete pane.dataset.miles;
+      } else if (key === "content") {
+        if (!keep || !vcUplHome) { pane.innerHTML = vcContentPane(b); vcUplIn(b); }
+        const folder = folderFor(b);
+        foot.innerHTML = (folder ? `<a class="vc-hb" href="/admin/content?folder=${encodeURIComponent(folder)}">Open in Library</a>` : "") + vcFootBtn("data-vc-close", "Done", true);
+      } else if (key === "notes") {
+        foot.innerHTML = vcFootBtn("data-vc-close", "Close", true);
+      }
+      foot.querySelectorAll("[data-vc-close]").forEach((x) => x.addEventListener("click", vcClose));
+      foot.querySelector('[data-vc-go="edit"]')?.addEventListener("click", () => vcOpen("edit"));
+      if (!keep) panel.querySelector(".vc-panel-b").scrollTop = 0;
+    }
+    function vcClose() {
+      const wasContent = vcPane === "content";
+      vcPane = null;
+      if (wasContent) vcUplOut();
+      const panel = document.getElementById("vc-panel");
+      if (panel) panel.hidden = true;
+      const b = bookings.find((x) => x.id === candId);
+      if (wasContent && b) vcFillStorage(b);
+    }
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && vcPane) vcClose(); });
 
     /* Booking details (Danielle, 22 Oct 2026): what's in the first part of
        Edit booking, to read at a glance, with anything not filled in
@@ -3183,14 +3456,9 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
             Two uploads, and the second isn't optional: Pixieset for the client, and our own
             storage as the archive. Pixieset only holds a gallery for about three months.
           </p>
-          <label class="vid-check">
-            <input type="checkbox" id="vd-archived" ${b.archived_at ? "checked" : ""} />
-            <span>Archive copy uploaded to our own storage</span>
-          </label>
-          <div class="cpt-shoot" id="vd-portal"></div>
-          ${b.archived_at ? `<p class="vid-hint">Uploaded ${escapeHtml(new Date(b.archived_at).toLocaleDateString("en-GB"))}.</p>` : ""}
-          <div class="vid-cand-actions" style="margin-top:14px">
-            <button type="button" class="admin-btn admin-btn-ghost" id="vd-goupload">Open Deliver work</button>
+          <p class="vid-hint">${b.archived_at ? `Our storage: uploaded ${escapeHtml(new Date(b.archived_at).toLocaleDateString("en-GB", { day: "numeric", month: "long" }))}.` : "Our storage: nothing uploaded yet."}</p>
+          <div class="vid-cand-actions" style="margin-top:10px">
+            <button type="button" class="admin-btn admin-btn-ghost" id="vd-goupload">Upload to our storage</button>
           </div>
 
           <!-- The second upload. Deliberately its own step with its own tick:
@@ -3227,16 +3495,9 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
               ? `<p class="vid-hint">Uploaded ${escapeHtml(new Date(b.pixieset_uploaded_at).toLocaleDateString("en-GB"))}. Move to Gallery ready to add the links.</p>`
               : `<p class="vid-hint">Tick this once the collection is live, then move the shoot to Gallery ready.</p>`}
           </div>`}`;
-        document.getElementById("vd-archived").addEventListener("change", (e) => saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
-        renderShootPortal(document.getElementById("vd-portal"), b, folderFor(b), portalDeps());
         document.getElementById("vd-pixieset")?.addEventListener("change", (e) =>
           saveBookingPatch(b, { pixieset_uploaded_at: e.target.checked ? (b.pixieset_uploaded_at || new Date().toISOString()) : null }));
-        document.getElementById("vd-goupload").addEventListener("click", () => {
-        panelFrom.candId = b.id;
-        const sel = document.getElementById("vid-deliver-booking");
-        if (sel) { sel.value = b.id; sel.dispatchEvent(new Event("change")); }
-        showPanel("deliver");
-      });
+        document.getElementById("vd-goupload").addEventListener("click", () => vcOpen("content"));
         return;
       }
 
@@ -3254,10 +3515,6 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           <p style="margin:0 0 14px">
             <a class="admin-btn admin-btn-primary" href="/admin/content?folder=${encodeURIComponent(folder)}">Open it in the Library</a>
           </p>
-          <label class="vid-check">
-            <input type="checkbox" id="vd-archived" ${b.archived_at ? "checked" : ""} />
-            <span>Archive copy uploaded to our own storage</span>
-          </label>
           <div class="cpt-shoot" id="vd-portal"></div>
           <div class="vid-cand-actions" style="margin-top:14px">
             <button type="button" class="admin-btn admin-btn-ghost" id="vd-telagain">${b.gallery_sent_at ? "Tell them again" : "Tell them it's ready"}</button>
@@ -3266,8 +3523,6 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
             ? `<p class="vid-hint">Told ${escapeHtml(new Date(b.gallery_sent_at).toLocaleString("en-GB"))}.</p>`
             : `<p class="vid-hint">Nobody has been told yet.</p>`}
           <p class="vid-hint">Nothing to invoice: this shoot is covered by their package. If something extra was agreed, raise an invoice from the Invoice tab.</p>`;
-        document.getElementById("vd-archived").addEventListener("change", (e) =>
-          saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
         renderShootPortal(document.getElementById("vd-portal"), b, folderFor(b), portalDeps());
         document.getElementById("vd-telagain").addEventListener("click", async (e) => {
           const btn = e.currentTarget, was = btn.textContent;
@@ -3304,11 +3559,6 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           <div class="vid-field"><span>Anything else — link</span>
             <input type="text" inputmode="url" spellcheck="false" id="vd-extra-url" value="${escapeHtml(b.extra_link_url || "")}" /></div>
         </div>
-        <label class="vid-check">
-          <input type="checkbox" id="vd-archived" ${b.archived_at ? "checked" : ""} />
-          <span>Archive copy uploaded to our own storage</span>
-        </label>
-        <div class="cpt-shoot" id="vd-portal"></div>
         <p class="vid-warn" id="vd-msg" hidden></p>
         <div class="vid-cand-actions" style="margin-top:14px">
           <button type="button" class="admin-btn admin-btn-primary" id="vd-save">Save</button>
@@ -3343,9 +3593,6 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           renderCandidate();
         } catch (err) { vdMsg("Couldn't send the PIN: " + err.message, true); }
       });
-      document.getElementById("vd-archived").addEventListener("change", (e) =>
-        saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
-      renderShootPortal(document.getElementById("vd-portal"), b, folderFor(b), portalDeps());
     }
 
     async function getGalleryPin(b) {
