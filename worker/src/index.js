@@ -1819,6 +1819,9 @@ const SHEET_BOOKED_HEADERS = ["shoot booked", "shoot booked date", "booked", "sh
 // Their personal Studio Day booking link (Dani, 4 Nov: column K, "Booking
 // Link"), so Michelle can send it herself. The same link the funnel emails
 // carry and the contact card shows under the tags.
+// Where the edits stand, for Michelle (Dani, 4 Nov): "Edits pending…" while
+// the agent can still ask for changes, then "Final…". A column she adds.
+const SHEET_EDITSTATUS_HEADERS = ["edit status", "edits status", "edits", "status of edits", "edit notes"];
 const SHEET_BOOKLINK_HEADERS = ["booking link", "booking links", "new starter booking link", "studio day booking link"];
 const SHEET_LINK_HEADERS = ["headshot link", "headshots link", "headshot links", "headshots", "content link", "gallery link", "delivery link", "shoot link", "link"];
 function sheetColAny(headers, names) {
@@ -1841,7 +1844,7 @@ async function agentSheetWrite(env, email, fields, pre) {
   const headers = (rows[0] || []).map((h) => String(h || "").trim().toLowerCase());
   const emailCol = headers.indexOf("email");
   if (emailCol < 0) return null;
-  const cols = { booked: sheetColAny(headers, SHEET_BOOKED_HEADERS), link: sheetColAny(headers, SHEET_LINK_HEADERS), bookingLink: sheetColAny(headers, SHEET_BOOKLINK_HEADERS) };
+  const cols = { booked: sheetColAny(headers, SHEET_BOOKED_HEADERS), link: sheetColAny(headers, SHEET_LINK_HEADERS), bookingLink: sheetColAny(headers, SHEET_BOOKLINK_HEADERS), editStatus: sheetColAny(headers, SHEET_EDITSTATUS_HEADERS) };
   const want = String(email || "").toLowerCase();
   for (let i = 1; i < rows.length; i++) {
     const val = (rows[i] && rows[i][emailCol]) ? String(rows[i][emailCol]).trim().toLowerCase() : "";
@@ -1868,6 +1871,7 @@ async function agentSheetWrite(env, email, fields, pre) {
       if (cur === String(v)) continue;
       await googleSheetUpdate(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!${colLetter(c)}${2 + i}`, [[String(v)]]);
       out.wrote.push(k);
+      (out.was = out.was || {})[k] = cur;
     }
     return out;
   }
@@ -1908,7 +1912,7 @@ function sheetWhenText(iso) {
 async function agentSheetFieldsFor(env, emails, name) {
   const list = emails.filter(Boolean).map((e) => String(e).toLowerCase().replace(/[(),"]/g, ""));
   if (!list.length) return { _why: "no email" };
-  const cols = "id,shoot_date,stage,archive_url,archive_folder,client_email,client_name,created_at,kind,service_type";
+  const cols = "id,shoot_date,stage,archive_url,archive_folder,client_email,client_name,created_at,kind,service_type,paid_at,gallery_sent_at,edits_settled_at,edits_settled_by";
   // Case-insensitive: a booking typed by hand may carry capitals the sheet doesn't.
   const q = `or=(${list.map((e) => `client_email.ilike.${encodeURIComponent(e)}`).join(",")})&order=created_at.desc&limit=10&select=${cols}`;
   const bks = await sbGet(env, "videography_bookings", q);
@@ -1933,7 +1937,7 @@ async function agentSheetFieldsFor(env, emails, name) {
     }
   }
   if (!bk) return { _why: "no booking under " + list.join(" / ") + (name ? ` or the name ${name}` : "") };
-  const fields = { _booking: bk.id, _stage: bk.stage, _shoot: bk.shoot_date || null, _created: bk.created_at || null, _matchedBy: matchedBy, _bookingEmail: bk.client_email || null, _folder: bk.archive_folder || null };
+  const fields = { _booking: bk.id, _stage: bk.stage, _shoot: bk.shoot_date || null, _created: bk.created_at || null, _matchedBy: matchedBy, _bookingEmail: bk.client_email || null, _folder: bk.archive_folder || null, _paid: bk.paid_at || null, _sentAt: bk.gallery_sent_at || null, _settledAt: bk.edits_settled_at || null, _settledBy: bk.edits_settled_by || null, _name: bk.client_name || null };
   if (bk.shoot_date) fields.booked = sheetWhenText(bk.shoot_date);
   /* The Content Link is OUR gallery page (/deliver), once the delivery has
      been sent: the files come from our storage, so downloads there never use
@@ -1949,6 +1953,76 @@ async function agentSheetFieldsFor(env, emails, name) {
   return fields;
 }
 
+/* Where a shoot's edits stand, in words for Michelle (Dani, 4 Nov). The agent
+   has 10 days from the gallery being sent to ask for changes; after that the
+   shoot closes itself (runEditAutoClose). "" when there's nothing to say yet. */
+const EDIT_WINDOW_DAYS = 10;
+function ukDay(iso) {
+  try { return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }); } catch (_) { return ""; }
+}
+function starterEditStatus(f) {
+  if (!f) return "";
+  if (f.settledAt) {
+    return /^automatic/i.test(String(f.settledBy || ""))
+      ? `Final: no edits requested by ${ukDay(f.settledAt)}. Treat as final.`
+      : `Final: edits settled on ${ukDay(f.settledAt)}. Treat as final.`;
+  }
+  if (!f.sentAt) return "";
+  const until = new Date(Date.parse(f.sentAt) + EDIT_WINDOW_DAYS * 864e5).toISOString();
+  return `Edits pending: sent to ${String(f.name || "the agent").split(/\s+/)[0]} on ${ukDay(f.sentAt)}, who can ask for changes until ${ukDay(until)}. Some images may still change.`;
+}
+async function tegFinalEmail(env, portal, name, link, status) {
+  const esc = (v) => String(v || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const hi = portal.first_name ? `Hi ${esc(portal.first_name)},` : "Hi,";
+  const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">${hi}</p><p style="${EM_P}">${esc(name)}'s content is now final. ${esc(status.replace(/^Final:\s*/i, "").replace(/\s*Treat as final\.?$/i, ""))}, so everything in their folder can be used as it is.</p>${link ? `<p style="${EM_P}"><a href="${esc(link)}" style="${EM_BTN}">Open ${esc(name)}'s folder</a></p>` : ""}</div>`);
+  return sendEmail(env, { to: portal.notify_email, subject: `${name}'s content is final.`, html });
+}
+// Sent to the agent and paid: what puts a new starter in the TEG portal.
+function starterReadyForTeg(stage, paidAt) {
+  return (stage === "sent" || stage === "delivered") && !!paidAt;
+}
+
+/* ── No edit request in 10 days: the shoot closes itself (Dani, 4 Nov) ─────
+   A shoot sent to the client, edits not settled, nothing asked for in the
+   10 days since the gallery went (no edit request through the gallery and no
+   message from them on the booking): the edits are marked settled, the note
+   "Edit request not received. Shoot marked as closed." goes on the booking,
+   and a paid one moves to Delivered. Reopen by unticking "edits settled" and
+   moving it back a step. Package shoots have no round of edits, so they're
+   left alone. 8am, before the TEG sheet check, so Michelle sees "Final" the
+   same morning. */
+async function runEditAutoClose(env) {
+  const cutoff = new Date(Date.now() - EDIT_WINDOW_DAYS * 864e5).toISOString();
+  const bks = (await sbGet(env, "videography_bookings",
+    `stage=eq.sent&edits_settled_at=is.null&gallery_sent_at=lte.${encodeURIComponent(cutoff)}`
+    + `&and=(or(payment_route.is.null,payment_route.neq.smm_package),or(kind.is.null,kind.eq.booking))`
+    + `&select=id,client_name,client_email,paid_at,gallery_sent_at,payment_route`)) || [];
+  for (const b of bks) {
+    try {
+      const reqs = await sbGet(env, "videography_edit_requests", `booking_id=eq.${encodeURIComponent(b.id)}&select=id&limit=1`);
+      if (reqs && reqs.length) continue;
+      const heard = await sbGet(env, "booking_messages",
+        `booking_id=eq.${encodeURIComponent(b.id)}&direction=eq.inbound&created_at=gte.${encodeURIComponent(b.gallery_sent_at)}&select=id&limit=1`);
+      if (heard && heard.length) continue;
+      const now = new Date().toISOString();
+      const patch = { edits_settled_at: now, edits_settled_by: "Automatic: no edit request in 10 days" };
+      if (b.paid_at) patch.stage = "delivered";
+      const r = await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(b.id)}&edits_settled_at=is.null`, patch);
+      if (!r || !r.ok) continue;
+      await logBookingMessage(env, {
+        booking_id: b.id, booking_source: "videography", client_email: b.client_email || null,
+        channel: "note", kind: "audit", body: "Edit request not received. Shoot marked as closed.", created_by: "automatic",
+      });
+      await notifyAdmins(env, {
+        area: "videography", event: "edits_auto_closed",
+        title: `${b.client_name || "A shoot"} closed: no edit request in ${EDIT_WINDOW_DAYS} days`,
+        body: b.paid_at ? "Moved to Delivered. Reopen it if they get in touch." : "Edits marked settled; it moves to Delivered once paid. Reopen it if they get in touch.",
+        href: `/admin/videography?booking=${encodeURIComponent(b.id)}`, key: b.id,
+      });
+    } catch (_) {}
+  }
+}
+
 /* ── The TEG new-starter portal (Dani, 4 Nov) ──────────────────────────────
    One client portal, named with "TEG" and "New Starter", holds every new
    starter's Library folder, so Michelle has one place to see them all. The
@@ -1958,7 +2032,7 @@ async function agentSheetFieldsFor(env, emails, name) {
    allowance. */
 const TEG_PORTAL_NAME = /\bteg\b.*new.?starter|new.?starter.*\bteg\b/i;
 async function tegStarterPortal(env) {
-  const rows = await sbGet(env, "client_portals", "enabled=eq.true&select=id,name,token,folders&order=created_at.asc");
+  const rows = await sbGet(env, "client_portals", "enabled=eq.true&select=id,name,first_name,token,passcode,folders,notify_email&order=created_at.asc");
   return (rows || []).find((p) => TEG_PORTAL_NAME.test(String(p.name || ""))) || null;
 }
 function portalFolderLink(env, portal, prefix) {
@@ -1987,7 +2061,7 @@ async function runStarterPortalAdds(env) {
   const portal = await tegStarterPortal(env);
   if (!portal) return;
   const bks = (await sbGet(env, "videography_bookings",
-    "stage=eq.delivered&archive_folder=not.is.null&service=ilike.*new*starter*&select=id,service,archive_folder")) || [];
+    "stage=in.(sent,delivered)&paid_at=not.is.null&archive_folder=not.is.null&service=ilike.*new*starter*&select=id,service,archive_folder")) || [];
   const have = new Set(portalFolders(portal));
   const add = [];
   for (const b of bks) {
@@ -2023,18 +2097,19 @@ async function runPortalFolderNotices(env) {
     }
     const names = fresh.map((f) => f.slice(0, -1).split("/").pop());
     const bks = (await sbGet(env, "videography_bookings",
-      `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=client_name,client_email,service,shoot_date,archive_folder`)) || [];
+      `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=client_name,client_email,service,shoot_date,archive_folder,gallery_sent_at,edits_settled_at,edits_settled_by`)) || [];
     const items = fresh.map((f, i) => {
       const bk = bks.find((b) => archivePrefix(b.archive_folder) === f);
       const when = bk && bk.shoot_date ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
-      return { prefix: f, name: names[i], bk, line: [bk && bk.service, when].filter(Boolean).join(", "), link: `${site}/portal?c=${encodeURIComponent(p.token)}&f=${encodeURIComponent(f)}` };
+      const status = bk ? starterEditStatus({ settledAt: bk.edits_settled_at, settledBy: bk.edits_settled_by, sentAt: bk.gallery_sent_at, name: bk.client_name }) : "";
+      return { prefix: f, name: names[i], bk, status, line: [bk && bk.service, when].filter(Boolean).join(", "), link: `${site}/portal?c=${encodeURIComponent(p.token)}&f=${encodeURIComponent(f)}` };
     });
     const esc = (v) => String(v || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     const hi = p.first_name ? `Hi ${esc(p.first_name)},` : "Hi,";
     const intro = items.length === 1
       ? `${esc(items[0].name)}'s content is ready in your TMKE portal.`
       : `There are ${items.length} new folders in your TMKE portal.`;
-    const list = items.map((it) => `<p style="${EM_P}"><strong>${esc(it.name)}</strong>${it.line ? `<br>${esc(it.line)}` : ""}</p><p style="${EM_P}"><a href="${esc(it.link)}" style="${EM_BTN}">Open ${esc(it.name)}'s folder</a></p>`).join("");
+    const list = items.map((it) => `<p style="${EM_P}"><strong>${esc(it.name)}</strong>${it.line ? `<br>${esc(it.line)}` : ""}${it.status ? `<br><em>${esc(it.status)}${/^edits pending/i.test(it.status) ? " We'll email you when it's final." : ""}</em>` : ""}</p><p style="${EM_P}"><a href="${esc(it.link)}" style="${EM_BTN}">Open ${esc(it.name)}'s folder</a></p>`).join("");
     const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">${hi}</p><p style="${EM_P}">${intro} You can watch and download everything in it.</p>${list}<p style="${EM_P}">The passcode is <strong>${esc(p.passcode)}</strong>. Once you've entered it, you'll stay signed in on that browser for 7 days.</p></div>`);
     const subject = items.length === 1 ? `${items[0].name}'s content is ready.` : `${items.length} new folders in your TMKE portal.`;
     const sent = await sendEmail(env, { to: p.notify_email, subject, html });
@@ -2046,7 +2121,7 @@ async function runPortalFolderNotices(env) {
     // The TEG portal: the starter's row on the sheet gets the link now.
     if (TEG_PORTAL_NAME.test(String(p.name || ""))) {
       for (const it of items) {
-        if (it.bk && it.bk.client_email) { try { await agentSheetWrite(env, it.bk.client_email, { link: it.link }); } catch (_) {} }
+        if (it.bk && it.bk.client_email) { try { await agentSheetWrite(env, it.bk.client_email, { link: it.link, editStatus: it.status || null }); } catch (_) {} }
       }
     }
   }
@@ -2170,25 +2245,32 @@ async function syncAgentSheet(env) {
         detail.writeback = { booking: fields._booking || null, matched_by: fields._matchedBy || null, booking_email: fields._matchedBy === "name" ? fields._bookingEmail : undefined, stage: fields._stage || null, booked: fields.booked || null, link: fields.link || null, why: fields._why || null };
         // Their Library folder into the TEG portal once it has files, and the
         // sheet's Content Link opens the portal at it.
-        // Only once the shoot is finished (Dani, 4 Nov): Delivered on the
-        // board, which needs the invoice paid and the edits marked settled.
-        // Until then the folder stays out of the portal, off the sheet and
-        // nobody is emailed.
+        // Once it's been sent to the agent and paid (Dani, 4 Nov, later):
+        // Michelle needs them before the 10-day edit window ends, so the
+        // sheet says where the edits stand instead of waiting for them.
         if (tegPortal && fields._folder && fields._stage !== "cancelled") {
           const prefix = archivePrefix(fields._folder);
           let inPortal = portalFolders(tegPortal).includes(prefix);
-          if (!inPortal && fields._stage === "delivered" && await folderHasFiles(env, prefix)) {
+          if (!inPortal && starterReadyForTeg(fields._stage, fields._paid) && await folderHasFiles(env, prefix)) {
             const folders = [...(tegPortal.folders || []), prefix];
             const r = await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(tegPortal.id)}`, { folders });
             if (r && r.ok !== false) { tegPortal.folders = folders; inPortal = true; detail.writeback.portal = "added"; }
           }
-          if (inPortal) { fields.link = portalFolderLink(env, tegPortal, prefix); detail.writeback.link = fields.link; detail.writeback.why = null; }
-          else detail.writeback.portal = fields._stage !== "delivered" ? `waiting: the shoot is "${fields._stage}", not Delivered` : "folder has no files yet";
+          if (inPortal) {
+            fields.link = portalFolderLink(env, tegPortal, prefix); detail.writeback.link = fields.link; detail.writeback.why = null;
+            fields.editStatus = starterEditStatus({ settledAt: fields._settledAt, settledBy: fields._settledBy, sentAt: fields._sentAt, name: fields._name || first });
+          }
+          else detail.writeback.portal = !starterReadyForTeg(fields._stage, fields._paid) ? `waiting: the shoot is "${fields._stage}"${fields._paid ? "" : ", not paid"}` : "folder has no files yet";
         }
         const bookingLink = newStarterBookingLink(env, res, { first_name: first, last_name: last, email });
         detail.writeback.booking_link = bookingLink || null;
         if (fields.booked || fields.link || bookingLink) {
-          const w = await agentSheetWrite(env, email, { booked: fields.booked, link: fields.link, bookingLink }, rows);
+          const w = await agentSheetWrite(env, email, { booked: fields.booked, link: fields.link, bookingLink, editStatus: fields.editStatus || null }, rows);
+          // Pending turned Final: tell whoever the TEG portal emails.
+          const was = w && w.was && w.was.editStatus;
+          if (was && /^edits pending/i.test(was) && /^final/i.test(fields.editStatus || "") && tegPortal && tegPortal.notify_email) {
+            await tegFinalEmail(env, tegPortal, fields._name || [first, last].filter(Boolean).join(" "), fields.link, fields.editStatus);
+          }
           if (w) { detail.writeback.wrote = w.wrote; detail.writeback.missing_columns = w.missing; written += w.wrote.length; }
         }
       } catch (e) { writeError = String((e && e.message) || e).slice(0, 160); detail.writeback = { error: writeError }; }
@@ -6074,7 +6156,7 @@ export default {
       // summer time, 08:00 UTC in winter). Bookings and reschedules write
       // their date to the sheet straight away; Automations' Sync button runs
       // it on demand.
-      if (ukHourNow() === 8) ctx.waitUntil(syncAgentSheet(env).catch(() => {}).then(() => newStarterEnsureBlocks(env)).then(() => runPortalFolderNotices(env)));
+      if (ukHourNow() === 8) ctx.waitUntil(runEditAutoClose(env).catch(() => {}).then(() => syncAgentSheet(env)).catch(() => {}).then(() => newStarterEnsureBlocks(env)).then(() => runPortalFolderNotices(env)));
     }
     else {
       ctx.waitUntil(runAutomationsTick(env));
