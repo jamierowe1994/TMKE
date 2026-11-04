@@ -2023,6 +2023,62 @@ async function runEditAutoClose(env) {
   }
 }
 
+/* ── A shoot's Library folder, pinned (4 Nov) ──────────────────────────────
+   A booking that never saved its folder name has it worked out from service,
+   client, date and place (src/lib/archive-folder.js). Renaming the services
+   on 4 Nov changed that worked-out name, so those bookings pointed at an
+   empty folder while their files sat under the old one: Raj Chinger's sheet
+   link never came through. This finds the folder that actually holds each
+   such booking's files (same client and shoot date) and saves its name on
+   the booking, so no later edit can move it; any portal holding the empty
+   name gets the real one instead. Every 5 minutes, before the portal jobs. */
+function archiveNameFor(b) {
+  const clean = (v) => String(v || "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+  const when = b.shoot_date ? new Date(b.shoot_date).toISOString().slice(0, 10) : "";
+  const where = clean(b.property_address || b.location || b.postcode).split(",")[0];
+  return [clean(b.service || b.service_type), clean(b.client_name || b.client_company), when, where].filter(Boolean).join(" - ");
+}
+async function pinArchiveFolders(env) {
+  if (!env.BUCKET) return;
+  const listed = await env.BUCKET.list({ prefix: `${PART_PREFIX}/`, delimiter: "/" });
+  const folders = (listed.delimitedPrefixes || []).map((p) => p.slice(PART_PREFIX.length + 1, -1)).filter(Boolean);
+  if (!folders.length) return;
+  const bks = (await sbGet(env, "videography_bookings",
+    "archive_folder=is.null&shoot_date=not.is.null&or=(kind.is.null,kind.eq.booking)&select=id,client_name,client_company,shoot_date,service,service_type,property_address,location,postcode")) || [];
+  const clean = (v) => String(v || "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+  let portals = null;
+  for (const b of bks) {
+    const who = clean(b.client_name || b.client_company);
+    if (!who) continue;
+    const key = `${who} - ${new Date(b.shoot_date).toISOString().slice(0, 10)}`;
+    const cands = folders.filter((f) => { const l = f.toLowerCase(); return l === key || l.startsWith(key + " - ") || l.includes(" - " + key); });
+    let withFiles = [];
+    for (const f of cands) { try { if (await folderHasFiles(env, `${PART_PREFIX}/${f}/`)) withFiles.push(f); } catch (_) {} }
+    // Two shoots for one client on one day: the folder under the name it
+    // works out to now, else the one ending in this shoot's address.
+    if (withFiles.length > 1) {
+      const exact = withFiles.filter((f) => f === archiveNameFor(b));
+      const where = clean(b.property_address || b.location || b.postcode).split(",")[0].trim();
+      withFiles = exact.length ? exact : (where ? withFiles.filter((f) => f.toLowerCase().endsWith(" - " + where)) : []);
+    }
+    if (withFiles.length !== 1) continue;            // none yet, or still two to choose between: leave it
+    const real = withFiles[0];
+    const r = await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(b.id)}&archive_folder=is.null`, { archive_folder: real });
+    if (!r || !r.ok) continue;
+    const derived = archivePrefix(archiveNameFor(b));
+    const realPrefix = archivePrefix(real);
+    if (derived === realPrefix) continue;
+    if (!portals) portals = (await sbGet(env, "client_portals", "select=id,folders,notified_folders")) || [];
+    for (const p of portals) {
+      const fs = (p.folders || []).map((f) => archivePrefix(f));
+      if (!fs.includes(derived)) continue;
+      const next = [...new Set(fs.map((f) => (f === derived ? realPrefix : f)))];
+      await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(p.id)}`, { folders: next });
+      p.folders = next;
+    }
+  }
+}
+
 /* ── The TEG new-starter portal (Dani, 4 Nov) ──────────────────────────────
    One client portal, named with "TEG" and "New Starter", holds every new
    starter's Library folder, so Michelle has one place to see them all. The
@@ -6167,7 +6223,7 @@ export default {
       let mins = 0; try { mins = new Date(event.scheduledTime).getUTCMinutes(); } catch (_) {}
       if (mins === 0) ctx.waitUntil(runAiCreditCheck(env));
       // A folder added to a portal that emails someone (the TEG new-starter portal).
-      ctx.waitUntil(runStarterPortalAdds(env).catch(() => {}).then(() => runPortalFolderNotices(env)).catch(() => {}));
+      ctx.waitUntil(pinArchiveFolders(env).catch(() => {}).then(() => runStarterPortalAdds(env)).catch(() => {}).then(() => runPortalFolderNotices(env)).catch(() => {}));
     }
   },
 
@@ -12170,6 +12226,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       if (path.endsWith("/agent/sync") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        try { await pinArchiveFolders(env); await runStarterPortalAdds(env); } catch (_) {}
         const summary = await syncAgentSheet(env);
         try { await newStarterEnsureBlocks(env); } catch (_) {}
         try { await runPortalFolderNotices(env); } catch (_) {}
