@@ -1848,10 +1848,18 @@ async function agentSheetWrite(env, email, fields, pre) {
     if (val !== want) continue;
     const out = { row: 2 + i, wrote: [], missing: [] };
     for (const k of Object.keys(fields)) {
-      const v = fields[k]; if (v == null || v === "") continue;
+      const v = fields[k];
       const c = cols[k];
+      const cur = (c >= 0 && rows[i] && rows[i][c]) ? String(rows[i][c]).trim() : "";
+      // A Cloudflare storage link we wrote before 4 Nov opens only for our own
+      // logins, so it comes off the sheet until our gallery link replaces it.
+      if ((v == null || v === "") && k === "link" && /dash\.cloudflare\.com/i.test(cur)) {
+        await googleSheetUpdate(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!${colLetter(c)}${2 + i}`, [[""]]);
+        out.wrote.push("link (cleared)");
+        continue;
+      }
+      if (v == null || v === "") continue;
       if (c < 0) { out.missing.push(k); continue; }
-      const cur = (rows[i] && rows[i][c]) ? String(rows[i][c]).trim() : "";
       // A booked cell holding a date follows the booking, so a moved shoot
       // shows its new date (Dani, 4 Nov: Chris moved from the 4th to the 10th
       // and the sheet kept the 4th). Anything else typed by hand ("Yes",
@@ -1927,17 +1935,17 @@ async function agentSheetFieldsFor(env, emails, name) {
   if (!bk) return { _why: "no booking under " + list.join(" / ") + (name ? ` or the name ${name}` : "") };
   const fields = { _booking: bk.id, _stage: bk.stage, _shoot: bk.shoot_date || null, _created: bk.created_at || null, _matchedBy: matchedBy, _bookingEmail: bk.client_email || null };
   if (bk.shoot_date) fields.booked = sheetWhenText(bk.shoot_date);
-  // The Content Link is the person's folder in our storage; failing that, the
-  // gallery page once the delivery has been sent. Never the Pixieset link.
-  if (bk.archive_url) fields.link = bk.archive_url;
-  else {
-    const dls = await sbGet(env, "videography_deliveries", `booking_id=eq.${encodeURIComponent(bk.id)}&select=token,status`);
-    const dl = dls && dls[0];
-    if (dl && dl.token && (dl.status === "sent" || dl.status === "paid")) {
-      const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
-      fields.link = `${site}/deliver?d=${dl.token}`;
-    } else fields._why = dl ? `delivery is ${dl.status}, no folder link yet` : "no folder or delivery yet";
-  }
+  /* The Content Link is OUR gallery page (/deliver), once the delivery has
+     been sent: the files come from our storage, so downloads there never use
+     up the Pixieset allowance (Dani, 4 Nov: Michelle mustn't take one of the
+     agent's downloads). Never the Pixieset link, and never the storage
+     folder, which is a Cloudflare page only our own logins can open. */
+  const dls = await sbGet(env, "videography_deliveries", `booking_id=eq.${encodeURIComponent(bk.id)}&select=token,status`);
+  const dl = dls && dls[0];
+  if (dl && dl.token && (dl.status === "sent" || dl.status === "paid")) {
+    const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+    fields.link = `${site}/deliver?d=${dl.token}`;
+  } else fields._why = dl ? `our gallery is ${dl.status}, not sent yet` : "not delivered through our gallery (Pixieset only, or not yet)";
   return fields;
 }
 
