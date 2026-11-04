@@ -833,7 +833,8 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     .vc-panel-b { flex: 1; overflow-y: auto; border: 0 !important; border-radius: 0 !important; padding: 6px 24px 28px !important; }
     .vc-panel-b > .vc-pane > div + div { margin-top: 26px; }
     #vid-cand .vc-panel-b :is(h3, h4, h5) { margin: 0 0 10px; font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.15; letter-spacing: -0.04em; text-transform: none; color: var(--vc-ink); }
-    .vc-panel-b .vid-gate { margin: 0; }
+    .vc-panel-b .vid-gate, .vc-panel-b .vid-gate.is-done { margin: 0; background: #fff; border: 1px solid var(--vc-edge); border-radius: 4px; }
+    #vid-cand .vc-panel-b button:not(.vc-act):not(.vc-panel-x) { height: 30px; padding: 0 14px; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
     .vc-panel-b .vc-gate-slot:empty { display: none; }
     .vc-pane-note { margin: 0 0 18px; color: var(--vc-tx); }
 
@@ -2284,7 +2285,9 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     }
     // One row: label, then value. Every box is made of these.
     function vcR(label, html, need) {
-      return `<div class="vc-r"><dt>${escapeHtml(label)}</dt><dd>${html || (need ? '<span class="vc-missing">Not filled in</span>' : VC_DASH)}</dd></div>`;
+      // A value too long for its row ends in "…"; hovering shows all of it.
+      const tip = html && !/<(input|select)/.test(html) ? ` title="${String(html).replace(/<[^>]*>/g, "").replace(/"/g, "&quot;")}"` : "";
+      return `<div class="vc-r"><dt>${escapeHtml(label)}</dt><dd${tip}>${html || (need ? '<span class="vc-missing">Not filled in</span>' : VC_DASH)}</dd></div>`;
     }
     function vcIn(k, v, type, extra) { return `<input class="vc-in" data-vcf="${k}" type="${type || "text"}" value="${escapeHtml(v == null ? "" : String(v))}"${extra || ""}>`; }
     function vcSel(k, opts, cur, redraw) {
@@ -2771,14 +2774,14 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           </div>
         </div>
         ${b.fc_confirm_sent_at
-          ? `<p class="vid-hint">Asked ${escapeHtml(new Date(b.fc_confirm_sent_at).toLocaleDateString("en-GB"))}${b.fc_confirm_email ? " — " + escapeHtml(b.fc_confirm_email) : ""}.${done ? "" : " Waiting on their reply."}</p>`
+          ? `<p class="vid-hint">Asked ${escapeHtml(new Date(b.fc_confirm_sent_at).toLocaleDateString("en-GB", { day: "numeric", month: "long" }))}${b.fc_confirm_email ? " — " + escapeHtml(b.fc_confirm_email) : ""}.${done ? "" : " Waiting on their reply."}</p>`
           : `<p class="vid-hint">Send this once you've checked the booking details. Tick below only when they've actually replied.</p>`}
         <label class="vid-check">
           <input type="checkbox" id="vid-gate-confirm" ${done ? "checked" : ""} ${officeName ? "" : "disabled"} />
           <span>The office has confirmed the marketing fee has been received</span>
         </label>
         ${done && b.brand_fee_confirmed_at
-          ? `<p class="vid-hint">Confirmed ${escapeHtml(new Date(b.brand_fee_confirmed_at).toLocaleDateString("en-GB"))}${b.brand_fee_confirmed_by ? " by " + escapeHtml(b.brand_fee_confirmed_by) : ""}.</p>`
+          ? `<p class="vid-hint">Confirmed ${escapeHtml(new Date(b.brand_fee_confirmed_at).toLocaleDateString("en-GB", { day: "numeric", month: "long" }))}${b.brand_fee_confirmed_by ? " by " + escapeHtml(b.brand_fee_confirmed_by) : ""}.</p>`
           : `<p class="vid-hint">We don't invoice against a fee nobody has verified is held.</p>`}
       </div>`;
     }
@@ -2800,7 +2803,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           <div class="vid-gate-h">Before you send</div>
           <dl class="vid-gate-list">
             <div><dt>Invoice paid</dt><dd>${paid
-              ? escapeHtml("Yes — " + new Date(b.paid_at).toLocaleDateString("en-GB"))
+              ? escapeHtml("Yes — " + new Date(b.paid_at).toLocaleDateString("en-GB", { day: "numeric", month: "long" }))
               : "Not yet"}</dd></div>
           </dl>
           <p class="vid-hint">${paid
@@ -2816,10 +2819,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           <div class="vid-gate-h">Before this can be delivered</div>
           <dl class="vid-gate-list">
             <div><dt>Invoice paid</dt><dd>${paid
-              ? escapeHtml(new Date(b.paid_at).toLocaleDateString("en-GB"))
+              ? escapeHtml(new Date(b.paid_at).toLocaleDateString("en-GB", { day: "numeric", month: "long" }))
               : "Not yet"}</dd></div>
             <div><dt>PIN released</dt><dd>${b.pin_released_at
-              ? escapeHtml(new Date(b.pin_released_at).toLocaleDateString("en-GB"))
+              ? escapeHtml(new Date(b.pin_released_at).toLocaleDateString("en-GB", { day: "numeric", month: "long" }))
               : (paid ? "Sent with the gallery" : "Held — not paid")}</dd></div>
           </dl>
           <label class="vid-check">
@@ -2827,7 +2830,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
             <span>The client's round of edits has been settled</span>
           </label>
           ${edits && b.edits_settled_at
-            ? `<p class="vid-hint">Settled ${escapeHtml(new Date(b.edits_settled_at).toLocaleDateString("en-GB"))}${b.edits_settled_by ? " by " + escapeHtml(b.edits_settled_by) : ""}.</p>`
+            ? `<p class="vid-hint">Settled ${escapeHtml(new Date(b.edits_settled_at).toLocaleDateString("en-GB", { day: "numeric", month: "long" }))}${b.edits_settled_by ? " by " + escapeHtml(b.edits_settled_by) : ""}.</p>`
             : `<p class="vid-hint">Their agreement includes a round of edits. Tick this once they are done, or once the client has confirmed they don't want any.${b.gallery_sent_at && b.payment_route !== "smm_package" ? ` If they haven't asked for any by ${escapeHtml(new Date(Date.parse(b.gallery_sent_at) + 10 * 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "long" }))}, it ticks itself at 8am the next morning and the shoot closes, with a note saying so.` : ""}</p>`}
         </div>`;
       }
@@ -3314,7 +3317,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         </div>
         ${b.gallery_sent_at ? `<p class="vid-hint">Sent ${escapeHtml(new Date(b.gallery_sent_at).toLocaleString("en-GB"))}.</p>` : ""}
         <p class="vid-hint">${b.pin_released_at
-          ? `PIN released ${escapeHtml(new Date(b.pin_released_at).toLocaleDateString("en-GB"))}.`
+          ? `PIN released ${escapeHtml(new Date(b.pin_released_at).toLocaleDateString("en-GB", { day: "numeric", month: "long" }))}.`
           : b.paid_at
             ? "Paid, so the email will include the PIN."
             : "Not paid, so the email will withhold the PIN and ask for payment. They'll see the watermarked gallery — the PIN follows automatically when payment lands."}</p>
