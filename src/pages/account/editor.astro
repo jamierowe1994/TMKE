@@ -5826,6 +5826,22 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     #ed-ob-shop-grid .ws-news-card.is-wide .ws-news-art,
     #ed-ob-shop-grid.is-cover-capped .ws-news-card.is-wide .ws-news-art { height: auto; aspect-ratio: var(--ar, 1.6); align-self: center; background-color: transparent; }
     #ed-ob-shop-grid .ws-news-card.is-wide .ws-news-desc { -webkit-line-clamp: 2; }
+    /* The Print view (Dani, 5 Nov): the Studio page's Print shelf, same cards.
+       One height for every card (--pr-h, fitPrintShelf), each as wide as its
+       cover's own shape (--ar), sideways when they run off the edge. */
+    #ed-ob-shop-grid.ed-ob-pshelf { display: flex; gap: var(--ws-gap); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding-bottom: 2px; }
+    #ed-ob-shop-grid.ed-ob-pshelf::-webkit-scrollbar { display: none; }
+    .ed-ob-pcard {
+      flex: 0 0 auto; width: calc(var(--pr-h, 200px) * var(--ar, 1.414) + 16px); box-sizing: border-box; scroll-snap-align: start;
+      display: flex; flex-direction: column; gap: 4px; padding: 7px 7px 10px;
+      border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
+      text-decoration: none; color: var(--ws-ink);
+      transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease);
+    }
+    .ed-ob-pcard:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
+    .ed-ob-pcard-img { width: 100%; height: var(--pr-h, 200px); border-radius: 4px; background-size: cover; background-position: center; background-color: #e9e6e2; margin-bottom: 4px; }
+    .ed-ob-pcard-name { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 400; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ed-ob-pcard-go { font-size: var(--ws-t-meta); color: var(--ws-faint); }
 
     /* Design cards, on the same grid the rest of the hub uses. */
     #ed-ob-designs-grid, #ed-onboard-design-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--ws-gap); }
@@ -9174,8 +9190,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       if (!sec || !grid || !MORE.packs) return;
       const { morePacks } = await import("../../lib/pack-access.js");
       const pick = morePacks({ packs: MORE.packs, paidPackIds: MORE.paid, memberBrand: MORE.brand, kind });
-      const card = ({ pack: p, owned }, print) => {
-        const ar = MORE.ar.get(p.id) || (print ? 1.6 : 0.75);
+      const card = ({ pack: p, owned }, print, sameAr) => {
+        const ar = sameAr || MORE.ar.get(p.id) || (print ? 1.6 : 0.75);
         const href = owned ? `/account/editor?pack=${encodeURIComponent(p.id)}` : `/edit/${encodeURIComponent(p.slug || "")}`;
         return `<a class="ws-news-card${ar > 1 ? " is-wide" : ""}" href="${href}" style="--ar:${ar.toFixed(4)}">
           <span class="ws-news-tx">
@@ -9186,15 +9202,47 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           <span class="ws-news-art"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></span>
         </a>`;
       };
-      // Two by two, print on top (Dani, 5 Nov).
-      grid.innerHTML = pick.print.map((x) => card(x, true)).join("") + pick.digital.map((x) => card(x, false)).join("");
+      if (kind === "print") {
+        /* Print mirrors the Studio page's Print shelf (Chapter 01, Your packs):
+           every print pack of theirs, one height, each card as wide as its
+           own cover's shape, running off to the side when there are more. */
+        grid.className = "ed-ob-pshelf";
+        grid.setAttribute("data-lenis-prevent", "");
+        grid.innerHTML = pick.print.map(({ pack: p }) => `
+          <a class="ed-ob-pcard" href="/account/editor?pack=${encodeURIComponent(p.id)}" style="--ar:${(MORE.ar.get(p.id) || 1.414).toFixed(4)}">
+            <span class="ed-ob-pcard-img"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></span>
+            <span class="ed-ob-pcard-name">${escapeHtml(p.title || "Pack")}</span>
+            <span class="ed-ob-pcard-go">Open pack &rarr;</span>
+          </a>`).join("");
+        fitPrintShelf();
+      } else {
+        grid.className = "ws-news";
+        grid.removeAttribute("data-lenis-prevent");
+        /* Two by two, print on top (Dani, 5 Nov). The print pair is the
+           business stationery and the canvassing cards: both landscape, so
+           they take one shape (the wider of the two) and match exactly. */
+        const pairAr = Math.max(1.2, ...pick.print.map((x) => MORE.ar.get(x.pack.id) || 1.6));
+        grid.innerHTML = pick.print.map((x) => card(x, true, pairAr)).join("") + pick.digital.map((x) => card(x, false)).join("");
+      }
       const any = pick.print.length + pick.digital.length > 0;
       sec.hidden = !any;
       if (cta) cta.hidden = any;
       // Print packs are not sold, so the Print view has no way to the shop.
       if (shop) shop.hidden = kind === "print";
-      if (any) fitPackCovers();
+      if (any && kind !== "print") fitPackCovers();
     }
+    /* The Print shelf's height, worked out as the Studio page does it
+       (fitPrintRow there): a design card's picture width at this window's
+       number across, so the shelf sits at the same size as it does there. */
+    function fitPrintShelf() {
+      const grid = document.getElementById("ed-ob-shop-grid");
+      if (!grid || !grid.classList.contains("ed-ob-pshelf")) return;
+      const w = window.innerWidth, across = w <= 560 ? 1.3 : w <= 900 ? 2.4 : w <= 1200 ? 4 : 5;
+      const gap = parseFloat(getComputedStyle(grid).columnGap) || 16;
+      const col = (grid.clientWidth - (across - 1) * gap) / across;
+      grid.style.setProperty("--pr-h", Math.max(90, Math.round(col - 26)) + "px");
+    }
+    window.addEventListener("resize", fitPrintShelf, { passive: true });
     /* Up to iPad portrait width the cards are as tall as their words (see the CSS),
        and the cover's width is worked out from that height so it stays 3:4.
        A narrower cover gives the words more room, which can shorten the card,

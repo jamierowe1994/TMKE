@@ -121,9 +121,11 @@ export function shopPacks(packs) {
  *   Digital    up to two digital packs they have, then packs for sale they
  *              don't have, four in all. Nothing of theirs: four for sale.
  *              The same for everybody, TEG agent or not.
- *   Print      up to four of their brand's print packs.
- *   All        a TEG agent (anyone with a print pack): two print on top, two
- *              digital under them, by the Digital rule. Anyone else: Digital.
+ *   Print      every print pack of theirs, as the Studio's Print shelf.
+ *   All        a TEG agent (anyone with a print pack): their main brand's
+ *              business stationery and canvassing cards on top (both
+ *              landscape, so they sit as a matching pair), two digital under
+ *              them by the Digital rule. Anyone else: Digital.
  *
  * A pack they have opens in the Studio; one for sale opens its page in The
  * Edit. Only packs for sale have a page there, so nothing else may be sent to
@@ -146,7 +148,15 @@ export function morePacks({ packs, paidPackIds, memberBrand, kind = 'all', now =
     return [...theirs, ...more, ...sale];
   };
   const tag = (list) => list.map((p) => ({ pack: p, owned: mineIds.has(p.id) }));
-  if (kind === 'print') return { print: tag(print.slice(0, 4)), digital: [] };
+  if (kind === 'print') return { print: tag(print), digital: [] };
   if (kind === 'digital' || !print.length) return { print: [], digital: tag(digital(4)) };
-  return { print: tag(print.slice(0, 2)), digital: tag(digital(2)) };
+  // Their main brand (the first the database names), else any of theirs.
+  const norm = (v) => String(v == null ? '' : v).trim().toLowerCase();
+  const main = norm(Array.isArray(memberBrand) ? memberBrand[0] : memberBrand);
+  const ofMain = main ? print.filter((p) => (Array.isArray(p.brands) ? p.brands : []).some((b) => norm(b) === main)) : [];
+  const pool = ofMain.length ? ofMain : print;
+  const named = (re) => pool.find((p) => re.test(`${p.title || ''} ${p.slug || ''}`));
+  const pair = [named(/station[ae]ry/i), named(/canvass/i)].filter(Boolean);
+  for (const p of pool) { if (pair.length >= 2) break; if (!pair.includes(p)) pair.push(p); }
+  return { print: tag(pair), digital: tag(digital(2)) };
 }
