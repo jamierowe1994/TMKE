@@ -13327,15 +13327,16 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         }
         if (!row.name || !row.match_email) return json({ error: "A name and the address the invoice goes to, please." }, 400, request, env);
         // From a social media client's file (Dani, 5 Nov 2026): the row is
-        // theirs, card payment is set there, and a new one is approved and
-        // sent the same way as the other social clients'.
+        // theirs, card payment is set there, and a new one is sent the same way
+        // as the other social clients'. No per-invoice approver: Abbie's ticks
+        // on Monthly invoices are the approval (22 Oct, invoicing_automation_3.sql).
         if (b.pay_by_card !== undefined) row.pay_by_card = !!b.pay_by_card;
         if (b.due_day !== undefined && b.due_day !== "" && b.due_day != null) row.due_day = Math.min(28, Math.max(1, Math.round(Number(b.due_day))));
         if (b.social && b.lead_id) {
           row.kind = "social"; row.lead_id = String(b.lead_id);
           if (!b.id) {
             const sib = (await sbGet(env, "recurring_invoices", "active=eq.true&kind=eq.social&select=approver_email,template,due_day,bcc_email&order=created_at.asc&limit=1"))?.[0];
-            if (sib) for (const k of ["approver_email", "template", "due_day", "bcc_email"]) if (sib[k] != null && row[k] === undefined) row[k] = sib[k];
+            if (sib) for (const k of ["template", "due_day", "bcc_email"]) if (sib[k] != null && row[k] === undefined) row[k] = sib[k];
           }
         }
         const r = b.id
