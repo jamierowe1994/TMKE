@@ -2335,7 +2335,8 @@ const mgmtPackages = (management && management.packages) || [];
         const o = onbState(r), cctx = onbCtx(r), item = (k) => { const it = ONB_ITEMS.find((x) => x.key === k); return it && (!it.when || it.when(r, o)) ? onbDone(r, it, o, cctx) : null; };
         const invsOut = (sfData.invoices || []).filter((v) => v.status !== "void" && v.status !== "draft").length > 0;
         const items = [li(!!F.agreement, F.agreement ? `Signed contract back ${esc(sfDay(F.agreement.created_at))}` : "Signed contract on file"),
-          li(invsOut, invsOut ? "Onboarding invoices sent" : "Onboarding invoices: outstanding"),
+          (() => { const oi = sfOnbInvs(sfData.invoices).filter((v) => v.status !== "draft"); const paid = oi.length && oi.every((v) => v.status === "paid");
+            return li(!!oi.length, paid ? "Onboarding invoices paid" : oi.length ? "Onboarding invoices sent, waiting for payment" : "Onboarding invoices: outstanding"); })(),
           (() => { const cs = onbCallState(r); return li(cs.done, cs.k === "waiting" ? `Waiting for the onboarding call, ${esc(sfWhen(cs.at))}` : cs.k === "held" ? "Onboarding call held: write the notes" : cs.k === "skip" ? "Onboarding call skipped" : cs.done ? "Onboarding call done" : "Onboarding call: book it or skip it"); })(),
           li(!!item("access"), "Accounts linked"),
           item("approval") === null ? "" : li(!!item("approval"), "Approval process agreed"),
@@ -3884,10 +3885,34 @@ const mgmtPackages = (management && management.packages) || [];
       // Inquiry has to count as a move.
       if (stageKey === (r.pipeline_stage === "lost" ? "lost" : stageOf(r))) return;
       if (stageKey === "active_client" && STAGE_INDEX[stageOf(r)] >= STAGE_INDEX["onboarding"]) {
-        const c = onbCount(r);
-        if (c.open && !confirm(ONB_COPY.activeConfirm(c.open))) return;
+        // Not active until the onboarding invoices are paid, if there are any (Dani, 5 Nov 2026).
+        sfOnbUnpaid(r).then((unpaid) => {
+          if (unpaid.length) { sfBlockActive(r, unpaid); return; }
+          const c = onbCount(r);
+          if (c.open && !confirm(ONB_COPY.activeConfirm(c.open))) return;
+          setStage(r, stageKey);
+        });
+        return;
       }
       setStage(r, stageKey);
+    }
+    // Onboarding invoices: the one-offs (not the monthly ones), not voided.
+    const sfOnbInvs = (list) => (list || []).filter((v) => !v.recurring_id && !v.billing_month && v.status !== "void");
+    async function sfOnbUnpaid(r) {
+      let list = current === r && Array.isArray(sfData.invoices) ? sfData.invoices : null;
+      if (!list) {
+        if (isDemo(r) || !WORKER) list = [];
+        else { try { const token = await authToken(); const res = await fetch(`${WORKER}/invoicing/invoices?booking_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); list = ((await res.json().catch(() => ({}))).invoices) || []; } catch (_) { list = []; } }
+      }
+      return sfOnbInvs(list).filter((v) => v.status !== "paid");
+    }
+    function sfBlockActive(r, unpaid) {
+      const what = unpaid.map((v) => `${v.number || "A draft"} (${v.status === "draft" ? "draft, not sent" : "not paid yet"})`);
+      if (current !== r) { alert(`${nameOf(r)} can't be made an active client until their onboarding invoices are paid: ${what.join(", ")}.`); return; }
+      sfShell(`Client · ${nameOf(r)}`, "Not active yet", "", "",
+        sfSec("Onboarding invoices", `<p class="sf-say sf-note" style="margin-top:0">${sfFirst(r)} becomes an active client once their onboarding invoices are paid.</p><dl class="sf-pdl">${unpaid.map((v) => sfPR(esc(v.number || "Draft"), sfInvChip(v))).join("")}</dl><p class="sf-say sf-note">Mark it paid on the Invoicing page when the money's in. A draft that was never sent can be deleted under Invoicing › All invoices.</p>`),
+        `${sfFootBtn(false, "data-sf-close", "Close")}${sfFootBtn(true, 'data-sf="invoice"', "Open invoicing")}`, { narrow: true });
+      sfPop = "blocked";
     }
     async function deleteCard(r) {
       if (!confirm(`Delete "${nameOf(r)}" entirely? This permanently removes the card and its notes, files and invoices. It can't be undone.`)) return;
