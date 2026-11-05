@@ -10,28 +10,18 @@ const mgmtPackages = (management && management.packages) || [];
 ---
 
 <AdminShell active="social" title="Social media" skin="hub">
-  <div class="page-header">
-    <div class="page-header-top">
-      <div class="page-header-left">
-        <div>
-          <div class="page-header-title">Social media</div>
-          <div class="page-header-sub">Every enquiry through to active, managed client.</div>
-        </div>
-      </div>
-    </div>
-  </div>
   <div class="ash-panel ash-page">
-    <!-- Same shape as Videography's: an action bar, then the panel it acts on.
-         The two pages sit next to each other in the rail and were laid out
-         differently for no reason other than being written apart. -->
-    <section class="admin-bar">
-      <div class="admin-bar-actions">
-        <button type="button" class="admin-btn admin-btn-primary" id="smm-add-lead">+ New client</button>
+    <!-- The page head, as Videography's (Dani, 5 Nov 2026): linen, the title and
+         what the page is for, with Settings and New client. -->
+    <section class="vb-head">
+      <div>
+        <p class="vb-eye">Clients</p>
+        <h1 class="vb-title">Social media</h1>
+        <p class="vb-sub">Everyone from the first enquiry through to an active client. Drag a card to move it on; click it to open their file.</p>
+      </div>
+      <div class="vb-acts">
         <div class="smm-cog-wrap">
-          <button type="button" class="smm-cog" id="smm-cog" aria-label="Social settings" aria-expanded="false">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            <span>Settings</span>
-          </button>
+          <button type="button" class="vb-btn" id="smm-cog" aria-label="Settings" aria-expanded="false">Settings</button>
           <div class="smm-cog-menu" id="smm-cog-menu" hidden>
             <button type="button" data-go="pipeline">Contacts</button>
             <button type="button" data-go="rates">Packages &amp; pricing</button>
@@ -47,20 +37,16 @@ const mgmtPackages = (management && management.packages) || [];
             <a class="smm-cog-link" href="/admin/scheduling-test">Post scheduling</a>
           </div>
         </div>
+        <button type="button" class="vb-btn vb-btn--primary" id="smm-add-lead">New client</button>
       </div>
     </section>
 
     <!-- ===================== CONTACTS (the pipeline) ===================== -->
     <section class="smm-panel wrap is-active" data-panel="pipeline">
-      <div class="smm-pagehead">
-        <div>
-          <h2 class="smm-panel-title">Contacts</h2>
-          <p class="smm-panel-sub">Everyone from the first enquiry through to an active client, by stage. Drag a card onto a stage to move it on; click it to open their file.</p>
-        </div>
-      </div>
       <!-- The board (Dani, 4 Nov mock-up; built 5 Nov 2026): one strip per stage, cards in a grid. -->
       <div class="bd-bar">
         <label class="bd-find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="smm-search" placeholder="Find a person or a business" aria-label="Find a person or a business"></label>
+        <div class="bd-chips" id="bd-chips" role="group" aria-label="Show"></div>
         <label class="bd-check"><input type="checkbox" id="smm-show-lost"> Show lost</label>
         <span class="bd-sum" id="bd-sum"></span>
       </div>
@@ -480,6 +466,27 @@ const mgmtPackages = (management && management.packages) || [];
     .smm-rate-hours { display: block; font-size: 11.5px; color: rgba(28,29,34,0.5); margin-top: 3px; }
     .smm-rate-unit { font-size: 11.5px; color: rgba(28,29,34,0.5); }
     .smm-rate-note { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.6); margin: 12px 0 0; max-width: 88ch; }
+
+    /* ---- The page head, as Videography's (Dani, 5 Nov 2026) ---- */
+    .vb-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; margin: 0 0 22px; padding: 24px 22px; background: #eae5e1; border-radius: 4px; font-family: var(--sans); }
+    .vb-head .vb-eye { margin: 0 0 8px; font-size: 11px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: #7e6765; }
+    .vb-head .vb-title { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 30px; line-height: 1.05; letter-spacing: -0.05em; color: #2b2226; }
+    .vb-head .vb-sub { margin: 10px 0 0; font-size: 14px; font-weight: 400; color: #7e6765; }
+    .vb-acts { display: flex; gap: 8px; align-items: center; }
+    .vb-btn { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 14px; border-radius: 4px; border: 1px solid #e2d9d4; background: #fff; color: #2b2226; cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+    .vb-btn:hover { border-color: #371e28; color: #371e28; }
+    .vb-btn--primary { background: #371e28; border-color: #371e28; color: #fff; }
+    .vb-btn--primary:hover { background: #2a1620; color: #fff; }
+    .vb-head .smm-cog-menu { z-index: 40; }
+    @media (max-width: 640px) { .vb-head { padding: 18px 16px; } }
+    body:has(.vb-head) :is(.ash, .ash-content) { background: #fff !important; background-image: none !important; }
+    body.sf-open .vb-head { display: none !important; }
+    .bd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .bd-chips button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; color: #2b2226; cursor: pointer; font-family: var(--sans); font-size: 14px; }
+    .bd-chips button:hover { border-color: #371e28; }
+    .bd-chips button[aria-pressed="true"] { background: #371e28; border-color: #371e28; color: #fff; }
+    .bd-chips button i { font-style: normal; color: #7e6765; }
+    .bd-chips button[aria-pressed="true"] i { color: rgba(255,255,255,.7); }
 
     /* ---- The board (Dani's 4 Nov mock-up, built 5 Nov 2026) ---- */
     .smm-panel[data-panel="pipeline"] .bd-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 18px; font-family: var(--sans); font-size: 14px; }
@@ -1728,13 +1735,31 @@ const mgmtPackages = (management && management.packages) || [];
     // with its cards in a grid; empty stages fold into one "Nothing in" line that
     // still takes a drop; Active clients show 8 until See all.
     const bdOpen = {};
+    // Filters, with how many each catches (Dani, 5 Nov 2026: as Videography's).
+    const BD_FILTERS = [
+      ["all", "All", () => true],
+      ["calls", "Calls booked", (r) => r.meeting_at && new Date(r.meeting_at) > new Date()],
+      ["nomgr", "No manager", (r) => !r.social_media_manager && stageOf(r) !== "waitlist"],
+      ["proposed", "Proposals out", (r) => ["proposal_sent", "pricing_call"].includes(stageOf(r))],
+      ["onboarding", "Onboarding", (r) => stageOf(r) === "onboarding"],
+      ["paused", "Paused or leaving", (r) => stageOf(r) === "active_client" && (r.client_status === "paused" || !!r.leaving_on)],
+    ];
+    let bdFilter = "all";
+    function drawBdChips(base) {
+      const host = $("bd-chips"); if (!host) return;
+      host.innerHTML = BD_FILTERS.map(([k, l, f]) => `<button type="button" data-bdf="${k}" aria-pressed="${bdFilter === k}">${esc(l)}${k === "all" ? "" : ` <i>${base.filter((r) => r.pipeline_stage !== "lost" && f(r)).length}</i>`}</button>`).join("");
+    }
+    document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest("[data-bdf]"); if (!b) return; bdFilter = b.getAttribute("data-bdf"); renderBoard(); });
     function renderBoard() {
       const board = $("smm-board");
-      const rows = visible();
+      const base = visible();
+      drawBdChips(base);
+      const pass = (BD_FILTERS.find((f) => f[0] === bdFilter) || BD_FILTERS[0])[2];
+      const rows = base.filter((r) => r.pipeline_stage === "lost" || pass(r));
       const stages = [...STAGES.map((s) => ({ key: s.key, label: s.key === "active_client" ? "Active clients" : s.label })), ...(showLost ? [{ key: "lost", label: "Lost" }] : [])];
       const inStage = (k) => k === "lost" ? rows.filter((r) => r.pipeline_stage === "lost") : rows.filter((r) => r.pipeline_stage !== "lost" && stageOf(r) === k);
       let html = "", quiet = [];
-      const flush = () => { if (q) { quiet = []; return; } if (quiet.length) { html += `<div class="bd-quiet"><span>Nothing in</span>${quiet.map((s) => `<span class="bd-quiet-s" data-drop="${s.key}">${esc(s.label)}</span>`).join("")}</div>`; quiet = []; } };
+      const flush = () => { if (q || bdFilter !== "all") { quiet = []; return; } if (quiet.length) { html += `<div class="bd-quiet"><span>Nothing in</span>${quiet.map((s) => `<span class="bd-quiet-s" data-drop="${s.key}">${esc(s.label)}</span>`).join("")}</div>`; quiet = []; } };
       stages.forEach((s) => {
         const list = inStage(s.key);
         if (!list.length) { quiet.push(s); return; }
@@ -1745,7 +1770,7 @@ const mgmtPackages = (management && management.packages) || [];
         html += `<section class="bd-stage"><div class="bd-strip" data-drop="${s.key}"><h2 class="bd-h">${esc(s.label)}<span class="bd-n">${list.length}</span></h2>${more}</div><div class="bd-grid">${shown.map(bdCard).join("")}</div></section>`;
       });
       flush();
-      board.innerHTML = rows.length ? html : `<div class="bd-empty">${q ? "Nobody matches that. Clear the search to see everyone." : "No one here yet."}</div>`;
+      board.innerHTML = rows.length ? html : `<div class="bd-empty">${q || bdFilter !== "all" ? "Nobody matches that. Try All, or clear the search." : "No one here yet."}</div>`;
       const n = rows.filter((r) => r.pipeline_stage !== "lost").length, c = rows.filter((r) => r.pipeline_stage !== "lost" && stageOf(r) === "active_client").length;
       const sum = $("bd-sum"); if (sum) sum.textContent = `${n - c} in progress, ${c} active ${c === 1 ? "client" : "clients"}`;
     }
