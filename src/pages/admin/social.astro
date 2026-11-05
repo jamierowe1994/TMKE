@@ -1845,6 +1845,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const card = (attrs, head, body, foot, cls = "") => `<article class="sf-c${cls}" tabindex="0" ${attrs}><div class="sf-c-h">${head}</div>${body}<div class="sf-c-f">${foot || ""}</div></article>`;
       const none = (t) => `<div class="sf-c is-none"><p class="sf-c-p">${t}</p></div>`;
       const row = (id, label, cards) => `<div class="sf-prow"><div class="sf-prow-h"><span>${label}</span><span class="sf-nav"><button type="button" data-sf-scroll="${id}" data-dir="-1" aria-label="Back">&lsaquo;</button><button type="button" data-sf-scroll="${id}" data-dir="1" aria-label="More">&rsaquo;</button></span></div><div class="sf-strip" id="sf-strip-${id}">${cards}</div></div>`;
+      /* Before they're an active client there isn't enough for two rows
+         (Dani, 5 Nov): one row, outstanding first, and you scroll. */
+      const isNone = (h) => String(h || "").startsWith('<div class="sf-c is-none"');
+      const two = (l1, c1, l2, c2) => F.client
+        ? row("a", l1, c1) + row("b", l2, c2)
+        : row("a", "", [c1, c2].filter((x) => x && !isNone(x)).join("") || c1 || c2);
       const loading = !F.thread;
       const first = sfFirst(r);
       let acts = "", rows = "";
@@ -1865,13 +1871,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           return cells.length ? `<div class="sf-figs">${cells.slice(0, 4).map(([v, k, d]) => `<div class="sf-fig"><b>${esc(v)}</b><span>${esc(k)}${d ? " · " + esc(d) : ""}</span></div>`).join("")}</div>` : `<p class="sf-c-p">The figures are in the full report.</p>`; };
         const ins = (x) => { const i = (((x.data || {}).client || {}).insights || [])[0]; const h = i && (i.headline || i.title || (typeof i === "string" ? i : "")); return h ? `<p class="sf-c-ins">${esc(h)}</p>` : ""; };
         const done = !sfData.reports ? none("Loading…") : pub.length ? pub.map((x) => card(`data-sf-card="report" data-id="${esc(x.id)}"`, `<h4>${RI_MONTHS[x.month]}</h4>${sfChip("good", "Published")}`, figs(x) + ins(x), `<span>${esc(sfDay(x.published_at))}${x.published_by ? ", " + esc(sfStaff(x.published_by)) : ""}</span><span class="sf-ics">${["instagram", "facebook", "linkedin"].filter((k) => k === "instagram" ? (x.data || {}).profile : (x.data || {})[k]).map((k) => sfIcon(PLATFORM_NAMES[k])).join("")}</span>`)).join("") : none("No reports published yet.");
-        rows = row("a", "Outstanding", due) + row("b", "Published", done);
+        rows = two("Outstanding", due, "Published", done);
       } else if (sfTab === "plan") {
         acts = sfAct("plan-upload", "Upload a plan");
         const need = [F.ym, sfYmAdd(F.ym, 1)].filter((ym) => !F.plans.some((p) => p.ym === ym));
         const dueCards = loading ? none("Loading…") : need.length ? need.map((ym) => { const late = ym === F.ym && F.now.getDate() > 2; return card(`data-sf="plan-upload" data-ym="${ym}"`, `<h4>${esc(sfYmName(ym).split(" ")[0])}</h4>${sfChip(late ? "bad" : "wait", late ? "Overdue, was due the 2nd" : `Due by 2 ${sfYmName(ym).split(" ")[0]}`)}`, `<p class="sf-c-p">Upload ${esc(sfYmName(ym).split(" ")[0])}'s plan. It needs to be in before the report that says what's coming next.</p>`, `<span></span>${sfHb(true, `data-sf="plan-upload" data-ym="${ym}"`, "Upload the plan")}`, " is-todo"); }).join("") : none("Nothing outstanding. This month's and next month's plans are in.");
         const doneCards = loading ? none("Loading…") : F.plans.length ? F.plans.map((p) => card(`data-sf-card="plan" data-id="${esc(p.id)}"`, `<h4>${esc(sfYmName(p.ym).split(" ")[0])}</h4>${sfChip("good", "On file")}`, `<p class="sf-c-file">${esc(p.title || p.file_name)}</p>`, `<span>${esc(sfShort(p.created_at))}${p.uploaded_by && p.uploaded_by !== "system" ? ", " + esc(sfStaff(p.uploaded_by)) : ""}</span>${sfHb(false, `data-sf-doc="${esc(p.id)}" data-name="${esc(p.file_name || "plan")}"`, "Open")}`)).join("") : none("No plans uploaded yet.");
-        rows = row("a", "Outstanding", dueCards) + row("b", "On file", doneCards);
+        rows = two("Outstanding", dueCards, "On file", doneCards);
       } else if (sfTab === "comm") {
         acts = r.email ? sfAct("write", "Write") : "";
         const list = F.msgs.filter((m) => m.channel === "email" || m.channel === "hub" || m.channel === "system").sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -1880,13 +1886,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           `<p class="sf-c-sub">${esc(m.subject || String(m.body || "").split("\n")[0] || "Message")}</p><p class="sf-c-p sf-c-2">${esc(m.body || "")}</p>`,
           `<span>${inbound(m) ? "From " + esc(name) + (m.channel === "hub" ? ", in their hub" : "") : "To " + esc(m.to_email || r.email || name) + (m.is_automated || m.created_by === "system" ? ", sent automatically" : m.created_by ? ", by " + esc(sfStaff(m.created_by)) : "")}</span>`);
         const ins = list.filter(inbound), outs = list.filter((m) => !inbound(m));
-        rows = row("a", `Received from ${first}`, loading ? none("Loading…") : ins.map(cc).join("") || none("Nothing from them yet.")) + row("b", `Sent to ${first}`, loading ? none("Loading…") : outs.map(cc).join("") || none("Nothing sent yet."));
+        rows = two(`Received from ${first}`, loading ? none("Loading…") : ins.map(cc).join("") || none("Nothing from them yet."), `Sent to ${first}`, loading ? none("Loading…") : outs.map(cc).join("") || none("Nothing sent yet."));
       } else if (sfTab === "notes") {
         acts = sfAct("activity", "Client activity");
         const notes = F.msgs.filter((m) => m.channel === "note").sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         const nc = (m) => card(`data-sf-card="note" data-id="${esc(m.id)}"`, `<h4>${esc(sfShort(m.created_at))}</h4><span class="sf-c-who">${m.is_pinned ? "Pinned · " : ""}${esc(m.created_by && m.created_by !== "system" ? sfStaff(m.created_by) : "")}</span>`, `<p class="sf-c-p sf-c-note">${esc(m.body || "")}</p>`, "", m.is_pinned ? " is-pin" : "");
         const add = card('data-sf="note-add"', `<h4>Add a note</h4>`, `<p class="sf-c-p">What happened, what was agreed. Pin it and it stays up here for everyone working on ${first}.</p>`, `<span></span>${sfHb(true, 'data-sf="note-add"', "Add a note")}`, " is-todo");
-        rows = row("a", "Add and pinned", add + (loading ? "" : notes.filter((m) => m.is_pinned).map(nc).join(""))) + row("b", "All notes", loading ? none("Loading…") : notes.filter((m) => !m.is_pinned).map(nc).join("") || none("No other notes."));
+        rows = two("Add and pinned", add + (loading ? "" : notes.filter((m) => m.is_pinned).map(nc).join("")), "All notes", loading ? none("Loading…") : notes.filter((m) => !m.is_pinned).map(nc).join("") || none("No other notes."));
       } else {
         acts = sfAct("file-add", "Add a file");
         const doc = (d) => card(`data-sf-doc="${esc(d.id)}" data-name="${esc(d.file_name || "document")}"`, `<h4>${esc(catLabel(d.category))}</h4>${sfChip("good", "On file")}`, `<p class="sf-c-file">${esc(d.title || d.file_name)}</p>`, `<span>${esc(sfShort(d.created_at))}${d.uploaded_by && d.uploaded_by !== "system" ? ", " + esc(sfStaff(d.uploaded_by)) : ""}</span>${sfHb(false, `data-sf-doc="${esc(d.id)}" data-name="${esc(d.file_name || "document")}"`, "Open")}`);
@@ -1896,7 +1902,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         const onb = F.signedUp ? card('data-sf="onboarding"', `<h4>Onboarding</h4>${sfChip(cd === items.length ? "good" : "wait", `${cd} of ${items.length}`)}`, `<span class="sf-bar"><i style="width:${items.length ? (cd / items.length) * 100 : 0}%"></i></span><p class="sf-c-p">${cd === items.length ? "Everything's done." : `Still open: ${esc(items.filter((x) => !x.ok).slice(0, 2).map((x) => x.label.toLowerCase()).join(", "))}${items.length - cd > 2 ? " and more" : ""}.`}</p>`, `<span></span>${sfHb(cd !== items.length, 'data-sf="onboarding"', "Open")}`) : "";
         const signing = onb + (prep.length ? prep.map(doc).join("") : F.idx >= STAGE_INDEX.meeting_set ? want("prep", "Proposal") : "") + (agr.length ? agr.map(doc).join("") : F.idx >= STAGE_INDEX.proposal_sent ? want("agreement", "Contract") : "");
         const other = F.docs.filter((d) => !["prep", "agreement", "invoice", "content_plan"].includes(d.category));
-        rows = row("a", "Signing up", loading ? none("Loading…") : signing || none("The proposal and contract go here.")) + row("b", "Working files", loading ? none("Loading…") : other.map(doc).join("") || none("Strategy, brand files and anything else go here."));
+        rows = two("Signing up", loading ? none("Loading…") : signing || none("The proposal and contract go here."), "Working files", loading ? none("Loading…") : other.map(doc).join("") || none("Strategy, brand files and anything else go here."));
       }
       return `<div class="sf-pan">
           <div class="sf-switch"><div class="sf-seg" role="group" aria-label="Show">${tabs.map(([k, t]) => `<button type="button" data-sf-tab="${k}" aria-pressed="${sfTab === k}">${t}</button>`).join("")}</div><span class="sf-acts">${acts}</span></div>
