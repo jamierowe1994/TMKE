@@ -444,6 +444,12 @@ export function columnCellPads(n, gap) {
 }
 function columnsResponsiveCss(block) {
   const m = block.mobile || {};
+  const padRule = mobPad(block) ? `.eb-pw-${block.id}{${mobPad(block)};}` : '';
+  const gapCss = columnsGapCss(block);
+  return [padRule, gapCss].filter(Boolean).join('\n    ');
+}
+function columnsGapCss(block) {
+  const m = block.mobile || {};
   if (m.colGap == null || m.colGap === '') return '';
   const layout = (COLUMN_LAYOUTS.find((l) => l.key === block.layout)) || COLUMN_LAYOUTS[1];
   const n = layout.w.length;
@@ -978,7 +984,14 @@ function renderColumns(block, brand, ctx) {
     const cls = [stack ? 'eb-col' : '', block.id ? `eb-cg-${block.id}-${i}` : ''].filter(Boolean).join(' ');
     return `<td${cls ? ` class="${cls}"` : ''} valign="${va}" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:${va};font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
   }).join('');
-  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${tds}</tr></table>`;
+  const table = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${tds}</tr></table>`;
+  // The block's own padding (inside), on a wrapper round the columns. It was
+  // never drawn, so Columns ignored its padding on both devices (Dani, 5 Nov).
+  // The class gives the mobile padding something to target.
+  const padCss = padStyleResolved(block);
+  const mobPadOn = block.id && block.mobile && hasAnyValue(block.mobile.pad);
+  if (!padCss && !mobPadOn) return table;
+  return `<div${mobPadOn ? ` class="eb-pw-${block.id}"` : ''} style="${padCss}">${table}</div>`;
 }
 
 export function renderBlock(block, brand, ctx) {

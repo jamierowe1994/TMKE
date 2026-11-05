@@ -686,7 +686,10 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
             const vaCss = va==="top" ? "" : `display:flex;flex-direction:column;justify-content:${va==="middle"?"center":"flex-end"};`;
             return `<div class="cv-col" data-colof="${b.id}" data-coli="${i}" style="flex:0 0 calc(${w}% - ${share}px);max-width:${w}%;${vaCss}${bg}">${inner}</div>`;
           }).join("");
-          return `<div class="cv-cols${b.stackMobile!==false?" cv-cols-stack":""}" style="gap:${gap}px;">${colsHtml}</div>`;
+          // The block's own padding, as the sent email draws it (renderColumns).
+          const cpad = cvPad(resolvePad(effectiveBlock(b, canvasDevice)));
+          const colsRow = `<div class="cv-cols${b.stackMobile!==false?" cv-cols-stack":""}" style="gap:${gap}px;">${colsHtml}</div>`;
+          return cpad ? `<div style="${cpad}">${colsRow}</div>` : colsRow;
         }
         case "spacer":
           return `<div class="cv-spacer" style="height:${Math.max(4,Math.min(160,Number(b.height)||24))}px;">Spacer · ${Math.max(4,Math.min(160,Number(b.height)||24))}px</div>`;
