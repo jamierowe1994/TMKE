@@ -4,10 +4,10 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/booking_document_brand.sql — brand assets for social media clients: several files uploaded from Onboarding, kept as one Brand assets folder in Paperwork (5 Nov)
 
 ## Done
 
+- [x] supabase/booking_document_brand.sql — brand assets for social media clients: several files uploaded from Onboarding, kept as one Brand assets folder in Paperwork (5 Nov; ran 5 Nov)
 - [x] supabase/smm_pricing_settings.sql — the social media calculator figures (planning, creation, reporting hours, rates, software, property pack, margins), so they can be edited and saved on Packages & pricing; only management can change them (5 Nov; ran 5 Nov)
 - [x] supabase/smm_meeting_link.sql — a booked social media call remembers if it's a Teams call and its link, so the file can ask for the link and add it to everyone's invite (5 Nov; ran 5 Nov)
 - [x] supabase/smm_discovery_booked_stage.sql — social media cards with a discovery call booked move from Enquiry to Discovery call, with the call on the file (5 Nov; ran 5 Nov)
