@@ -532,7 +532,10 @@ import "../../styles/admin.css";
     .ct-dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; font-family: var(--sans); font-size: 13.5px; line-height: 1.4; }
     .ct-dl dt { color: rgba(28,29,34,0.5); flex: none; }
     .ct-dl dd { color: var(--ink); margin: 0; text-align: right; min-width: 0; word-break: break-word; }
-  </style>
+    /* An account email Microsoft refused (Danielle, 5 Nov 2026). */
+  .ct-tl-item.is-bad .ct-tl-body > div:first-child { color: #8a3f3f; }
+  .ct-tl-item.is-bad .ct-tl-dot { background: #8a3f3f; }
+</style>
 
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
@@ -770,7 +773,7 @@ import "../../styles/admin.css";
       $("ct-drawer-body").innerHTML = `<p class="ct-meta">Loading…</p>`;
       const email = current.email;
       // Purchases, bookings + activity are derived live by email, always accurate.
-      const [{ data: notes }, { data: tasks }, ord, vidb, smmb, agentProfile, consent] = await Promise.all([
+      const [{ data: notes }, { data: tasks }, ord, vidb, smmb, agentProfile, consent, acctMail] = await Promise.all([
         supabase.from("contact_notes").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("contact_tasks").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("orders").select("pack_title, amount_pence, status, created_at").ilike("buyer_email", email).order("created_at", { ascending: false }),
@@ -778,6 +781,9 @@ import "../../styles/admin.css";
         supabase.from("smm_leads").select("kind, call_at, stage, created_at").ilike("email", email).order("created_at", { ascending: false }),
         fetchAgentProfile(id),
         supabase.from("contact_consent_events").select("action, basis, source, occurred_at").eq("contact_id", id).order("occurred_at", { ascending: false }),
+        // Sign-up confirmations and password resets, sent through Microsoft 365
+        // and logged by the Worker (Danielle, 5 Nov 2026): did it go?
+        supabase.from("email_events").select("event, subject, detail, occurred_at").eq("provider", "m365").ilike("email", email).order("occurred_at", { ascending: false }).limit(20),
       ]);
       current.agentProfile = agentProfile;
       // Every brand this person works for. The panel shows one at a time.
@@ -785,6 +791,8 @@ import "../../styles/admin.css";
       const orders = (ord && ord.data) || [], vrows = (vidb && vidb.data) || [], srows = (smmb && smmb.data) || [];
       // Empty until supabase/contact_consent_events.sql has been run.
       const crows = (consent && consent.data) || [];
+      const mrows = (acctMail && acctMail.data) || [];
+      const acctWhat = (subj) => /confirm/i.test(subj || "") ? "Confirmation email" : /password/i.test(subj || "") ? "Password reset email" : "Account email";
       // Booked = actual sessions + discovery calls (not enquiries/brochures).
       const bookings = [
         ...vrows.filter((b) => b.kind === "booking").map((b) => ({ label: b.service || b.service_type || "Videography session", when: b.shoot_date, stage: b.stage })),
@@ -821,6 +829,9 @@ import "../../styles/admin.css";
         ...vrows.map((b) => ({ when: b.created_at || b.shoot_date, label: VID_ACT[b.kind] || "Videography activity" })),
         ...srows.map((b) => ({ when: b.created_at || b.call_at, label: SMM_ACT[b.kind] || "Social media activity" })),
         ...crows.map((e) => ({ when: e.occurred_at, label: consentLabel(e) })),
+        ...mrows.map((e) => e.event === "sent"
+          ? { when: e.occurred_at, label: `${acctWhat(e.subject)} sent, from hello@tmke.co.uk` }
+          : { when: e.occurred_at, label: `${acctWhat(e.subject)} failed: ${e.detail || "Microsoft 365 didn't accept it"}`, bad: true }),
       ].filter((a) => a.when).sort((a, b) => new Date(b.when) - new Date(a.when));
       drawNote(notes || [], tasks || [], orders, bookings, activity);
     }
@@ -1345,7 +1356,7 @@ import "../../styles/admin.css";
                useful at a glance; the tab has the lot. -->
           <div class="ct-sec">
             <h3>Activity</h3>
-            <div class="ct-timeline">${activity && activity.length ? activity.slice(0, 12).map((a) => `<div class="ct-tl-item"><span class="ct-tl-dot"></span><div class="ct-tl-body"><div>${esc(a.label)}</div><div class="ct-item-meta">${fmtDate(a.when)}</div></div></div>`).join("") : '<p class="ct-meta">No activity yet</p>'}</div>
+            <div class="ct-timeline">${activity && activity.length ? activity.slice(0, 12).map((a) => `<div class="ct-tl-item${a.bad ? " is-bad" : ""}"><span class="ct-tl-dot"></span><div class="ct-tl-body"><div>${esc(a.label)}</div><div class="ct-item-meta">${fmtDate(a.when)}</div></div></div>`).join("") : '<p class="ct-meta">No activity yet</p>'}</div>
           </div>
           </div>
           </div>
@@ -1372,7 +1383,7 @@ import "../../styles/admin.css";
               <div><dt>First interaction</dt><dd>${fmtDate(c.created_at)}</dd></div>
               ${c.user_id ? `<div><dt>Last hub login</dt><dd id="ct-lastlogin">…</dd></div>` : ""}
             </dl>
-            <div class="ct-timeline">${activity && activity.length ? activity.map((a) => `<div class="ct-tl-item"><span class="ct-tl-dot"></span><div class="ct-tl-body"><div>${esc(a.label)}</div><div class="ct-item-meta">${fmtDate(a.when)}</div></div></div>`).join("") : '<p class="ct-meta">No activity yet</p>'}</div>
+            <div class="ct-timeline">${activity && activity.length ? activity.map((a) => `<div class="ct-tl-item${a.bad ? " is-bad" : ""}"><span class="ct-tl-dot"></span><div class="ct-tl-body"><div>${esc(a.label)}</div><div class="ct-item-meta">${fmtDate(a.when)}</div></div></div>`).join("") : '<p class="ct-meta">No activity yet</p>'}</div>
           </div>
         </div>
         <div class="ct-tabpanel" data-panel="notes"${activeTab !== "notes" ? " hidden" : ""}>

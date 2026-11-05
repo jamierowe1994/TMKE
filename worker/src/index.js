@@ -5105,6 +5105,17 @@ async function smmManagerEmail(env, managerName) {
 // successful delivery.
 const SOFT_BOUNCE_LIMIT = 3;
 
+// Sign-up confirmations and password resets go through Microsoft 365, so they
+// never show in Resend. Each one is logged against the person (Danielle,
+// 5 Nov 2026), so their contact says it went, or that Microsoft refused it,
+// and a refusal tells the admins straight away.
+async function logAccountEmail(env, email, subject, sent) {
+  await logEmailEvent(env, { email, event: sent && sent.ok ? "sent" : "failed", provider: "m365", subject, detail: sent && sent.ok ? null : String((sent && sent.error) || "Microsoft 365 didn't accept it").slice(0, 300) });
+  if (!(sent && sent.ok)) {
+    try { await notifyAdmins(env, { area: "problem", event: "send_failed", title: `${subject} didn't send`, body: `To ${email}: ${String((sent && sent.error) || "").slice(0, 160)}`, href: "/admin/contacts", key: `account-email:${email}:${new Date().toISOString().slice(0, 10)}` }); } catch (_) {}
+  }
+}
+
 // Record what happened to an email. Best-effort: logging must never be the
 // reason a send fails, so every path swallows its errors.
 async function logEmailEvent(env, {
@@ -7458,6 +7469,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             <p style="${EM_SMALL}">Didn't sign up? Ignore this email &mdash; the account stays unconfirmed and can't be used.</p>`;
           const html = await wrapInBrandedBase(env, content);
           const sent = await sendEmail(env, { to: email, subject: "Confirm your email - TMKE", html });
+          await logAccountEmail(env, email, "Confirm your email - TMKE", sent);
           if (!sent.ok) {
             // The account exists now, so saying "try again" would be a lie - a
             // second attempt hits "already registered". Say what is true.
@@ -7533,6 +7545,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             <p style="${EM_SMALL}">The link works once and expires after an hour. If you didn't ask for this, ignore this email &mdash; your password stays exactly as it is.</p>`;
           const html = await wrapInBrandedBase(env, content);
           const sent = await sendEmail(env, { to: email, subject: "Set a new password - TMKE", html });
+          await logAccountEmail(env, email, "Set a new password - TMKE", sent);
           // Logged, not returned: the caller is told the same thing either way.
           if (!sent.ok) console.error("reset-link send failed", sent.error);
         } catch (e) {

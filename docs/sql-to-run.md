@@ -4,10 +4,10 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/smm_stages_and_follow_ups.sql — the social media client file by stage: how someone added by hand came in (referral and who), the brand that pays for an inter-brand client, and follow-up and check-in dates (5 Nov)
 
 ## Done
 
+- [x] supabase/smm_stages_and_follow_ups.sql — the social media client file by stage: how someone added by hand came in (referral and who), the brand that pays for an inter-brand client, and follow-up and check-in dates (5 Nov; ran 5 Nov)
 - [x] supabase/client_portal_smm.sql — social media clients get their own portal automatically: made when their first shoot is booked, emailing their manager (Abby for hers) when Jack presses Content ready (4 Nov; ran 4 Nov)
 - [x] supabase/videography_service_names.sql — renames every existing videography booking's service to the new list (New-starter Studio Day, Property video, Event coverage…) and shows you each change; old names are kept in the booking's notes (4 Nov; ran 4 Nov)
 - [x] supabase/client_portal_notify.sql — a portal can email someone when a folder is added (Michelle, for the TEG New Starter portal), and you can choose a passcode such as TEG (4 Nov; ran 4 Nov)
