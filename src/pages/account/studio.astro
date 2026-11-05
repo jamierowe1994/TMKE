@@ -355,6 +355,16 @@ const inspo = [
     .st-kind:hover { color: var(--ink); }
     .st-kind.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(28,29,34,0.16); }
     .st-kind:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    /* A member's brands, on the right of the same bar, on Print only. */
+    .st-kinds { flex-wrap: wrap; }
+    .st-brands { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+    .st-brands[hidden] { display: none; }
+    .st-bn-short { display: none; }
+    @media (max-width: 560px) {
+      .st-bn-long { display: none; }
+      .st-bn-short { display: inline; }
+      .st-brands .st-kind { padding: 7px 12px; }
+    }
     /* "See all designs" sits on the shelf now, so it reads as the last card
        rather than a link in the heading the toggle has taken. A whole card
        like "New design", in the brand's second colour so the two read as a
@@ -919,9 +929,80 @@ const inspo = [
           window.__ST_REWIRE_RAILS__?.();
           return shaped;
         };
+        /* The brand buttons (Dani, 5 Nov). Someone in two brands or more —
+           a Property Expert who is also a Letting Expert — has both brands'
+           stationery, canvassing cards and leaflets on the Print shelf. On
+           Print, the bar also offers each of their brands that has print
+           packs, on the right, and narrows the shelf to one. A pack drawn for
+           no brand in particular stays whichever is chosen. Remembered for
+           the tab, as Social / Print is. */
+        const { byBrandOrder } = await import('../../data/brands.js');
+        const brandKey = 'tmke.studio.packbrand';
+        const packBrands = (p) => (Array.isArray(p.brands) ? p.brands.filter(Boolean) : []);
+        const printBrands = (Array.isArray(memberBrand) ? [...new Set(memberBrand)] : [])
+          .filter((b) => printPacks.some((p) => packBrands(p).includes(b)))
+          .sort(byBrandOrder);
+        let brandOn = '';
+        try { const b = sessionStorage.getItem(brandKey); if (b && printBrands.includes(b)) brandOn = b; } catch (_) {}
+        const forBrand = (list) => brandOn ? list.filter((p) => { const l = packBrands(p); return !l.length || l.includes(brandOn); }) : list;
+        let brandBox = null;
+        const SHORT = { 'The Property Experts': 'TPE', 'Prestige Property Experts': 'PPE', 'The Letting Experts': 'TLE', 'The Letting Experts Scotland': 'TLE Scotland', 'The Marketing Experts': 'TMKE' };
+        /* The Social / Print buttons share the bar, and switching between
+           them resets every button in it, so the brand marks itself again. */
+        const syncBrands = () => {
+          if (!brandBox) return;
+          brandBox.querySelectorAll('button').forEach((x) => {
+            const on = x.dataset.brand === brandOn;
+            x.classList.toggle('is-on', on);
+            x.setAttribute('aria-pressed', on ? 'true' : 'false');
+            x.removeAttribute('aria-selected');
+          });
+        };
+        const mountBrands = (bar, kind) => {
+          if (printBrands.length < 2 || !bar) return;
+          brandBox = document.createElement('div');
+          brandBox.className = 'st-brands';
+          brandBox.setAttribute('role', 'group');
+          brandBox.setAttribute('aria-label', 'Brand');
+          [['', 'All brands']].concat(printBrands.map((b) => [b, b])).forEach(([value, label]) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'st-kind' + (value === brandOn ? ' is-on' : '');
+            b.dataset.brand = value;
+            // The full name, or on a phone the short one the pack titles use.
+            const long = document.createElement('span'); long.className = 'st-bn-long'; long.textContent = label;
+            const short = document.createElement('span'); short.className = 'st-bn-short'; short.textContent = value ? (SHORT[value] || value) : 'All';
+            short.setAttribute('aria-hidden', 'true');
+            b.append(long, short);
+            b.setAttribute('aria-pressed', value === brandOn ? 'true' : 'false');
+            b.addEventListener('click', () => {
+              if (value === brandOn) return;
+              brandOn = value;
+              try { if (value) sessionStorage.setItem(brandKey, value); else sessionStorage.removeItem(brandKey); } catch (_) {}
+              syncBrands();
+              draw(forBrand(printPacks), true);
+            });
+            brandBox.appendChild(b);
+          });
+          brandBox.hidden = kind !== 'print';
+          bar.appendChild(brandBox);
+        };
         if (printPacks.length && socialPacks.length) {
-          const startKind = window.__ST_KIND_TOGGLE__?.(row.closest('.st-rail'), 'packs', (kind) => draw(kind === 'print' ? printPacks : socialPacks, kind === 'print')) || 'social';
-          await draw(startKind === 'print' ? printPacks : socialPacks, startKind === 'print');
+          const rail = row.closest('.st-rail');
+          const startKind = window.__ST_KIND_TOGGLE__?.(rail, 'packs', (kind) => {
+            if (brandBox) { brandBox.hidden = kind !== 'print'; syncBrands(); }
+            draw(kind === 'print' ? forBrand(printPacks) : socialPacks, kind === 'print');
+          }) || 'social';
+          mountBrands(rail && rail.parentNode.querySelector('.st-kinds'), startKind);
+          await draw(startKind === 'print' ? forBrand(printPacks) : socialPacks, startKind === 'print');
+        } else if (printPacks.length && printBrands.length > 1) {
+          // Print packs only: the bar carries just the brands.
+          const rail = row.closest('.st-rail');
+          const bar = document.createElement('div');
+          bar.className = 'st-kinds';
+          rail.parentNode.insertBefore(bar, rail);
+          mountBrands(bar, 'print');
+          await draw(forBrand(owned), true);
         } else {
           await draw(owned, !socialPacks.length && printPacks.length > 0);
         }
