@@ -13481,7 +13481,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const leadId = b && b.lead_id;
         const date = b && b.date, start = b && b.start;
         if (!leadId || !date || !start) return json({ error: "Missing lead, date or time." }, 400, request, env);
-        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,account_user_id,phone,social_media_manager`);
+        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,account_user_id,phone,social_media_manager,ms_event_id,meeting_at`);
         const lead = rows && rows[0];
         if (!lead) return json({ error: "Lead not found." }, 404, request, env);
         const meetingAt = `${date}T${start}:00`;
@@ -13519,7 +13519,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const dur = parseInt(b.duration || "30", 10);
         const endHm = minToHm(hmToMin(start) + dur);
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
-        let invited = false, joinUrl = "", teamsFailed = false, teamsWhy = "";
+        let invited = false, joinUrl = "", teamsFailed = false, teamsWhy = "", moved = false;
+        const moving = !!(b.replace && lead.ms_event_id);
         if (b.send_invite && cal && lead.email) {
           try {
             // The event in hello@'s Outlook calendar: Outlook sends the invite
@@ -13546,14 +13547,25 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
                 : { isOnlineMeeting: false, location: { displayName: how === "phone" ? `Phone call${lead.phone ? ": we'll call " + lead.phone : ""}` : (where || "In person") } }),
             };
             let made;
-            try { made = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, event); }
-            catch (e) {
-              // A mailbox that can't host Teams still gets the meeting, just without the link.
-              if (how !== "teams") throw e;
-              teamsFailed = true;
-              const plain = { ...event, isOnlineMeeting: false }; delete plain.onlineMeetingProvider;
-              made = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, plain);
+            // Moving a call (Danielle, 5 Nov 2026): the same Outlook meeting is
+            // updated, so everyone's diary moves it rather than getting a second
+            // one. If it can't be updated, the old one is cancelled first.
+            if (moving) {
+              try { made = await graph(env, "PATCH", `/users/${encodeURIComponent(cal)}/events/${encodeURIComponent(lead.ms_event_id)}`, event); moved = true; }
+              catch (_) { try { await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events/${encodeURIComponent(lead.ms_event_id)}/cancel`, { comment: "This call has moved; a new invite follows." }); } catch (_) {} }
             }
+            if (!made) {
+              try { made = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, event); }
+              catch (e) {
+                // A mailbox that can't host Teams still gets the meeting, just without the link.
+                if (how !== "teams") throw e;
+                teamsFailed = true;
+                const plain = { ...event, isOnlineMeeting: false }; delete plain.onlineMeetingProvider;
+                made = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, plain);
+              }
+            }
+            // Kept, so the next move or cancel finds this meeting.
+            if (made && made.id) { try { await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`, { method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({ ms_event_id: made.id }) }); } catch (_) {} }
             joinUrl = (made && made.onlineMeeting && made.onlineMeeting.joinUrl) || "";
             // No link and no error: Microsoft quietly made a plain meeting. Ask the
             // calendar what it can host, so the note can say why.
@@ -13568,10 +13580,29 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         }
         await logBookingMessage(env, {
           booking_id: leadId, booking_source: "smm", account_user_id: lead.account_user_id, client_email: lead.email,
-          kind: "meeting", subject: "Meeting booked", is_automated: false, created_by: user.email || "admin",
-          body: `${howLabel} booked for ${dateNice} at ${start}${how === "in_person" && where ? `, at ${where}` : ""}.${invited ? " Outlook invite sent to the client from hello@tmke.co.uk." : ""}${joinUrl ? ` Teams link: ${joinUrl}` : ""}${teamsFailed ? ` The Teams link couldn't be made, so the invite went without one.${teamsWhy}` : ""}${lead.email && cal && lead.email.toLowerCase() === cal.toLowerCase() ? ` No invite: the client's email is ${cal}, the calendar the meeting is in.` : ""}`,
+          kind: "meeting", subject: moving ? "Meeting moved" : "Meeting booked", is_automated: false, created_by: user.email || "admin",
+          body: `${moving ? "Moved: " : ""}${howLabel} ${moving ? "now" : "booked"} for ${dateNice} at ${start}${how === "in_person" && where ? `, at ${where}` : ""}.${invited ? " Outlook invite sent to the client from hello@tmke.co.uk." : ""}${joinUrl ? ` Teams link: ${joinUrl}` : ""}${teamsFailed ? ` The Teams link couldn't be made, so the invite went without one.${teamsWhy}` : ""}${lead.email && cal && lead.email.toLowerCase() === cal.toLowerCase() ? ` No invite: the client's email is ${cal}, the calendar the meeting is in.` : ""}`,
         });
         return json({ ok: true, invited, join_url: joinUrl || null, teams_failed: teamsFailed }, 200, request, env);
+      }
+
+      // ---- Admin: cancel a social media client's booked call -------------------
+      // Outlook sends everyone the cancellation (Danielle, 5 Nov 2026), and the
+      // call comes off the card.
+      if (path.endsWith("/smm/meeting/cancel") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const lead = (await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(String(b.lead_id || ""))}&select=id,email,account_user_id,ms_event_id,meeting_at`))?.[0];
+        if (!lead) return json({ error: "Lead not found." }, 404, request, env);
+        const cal = env.SMM_MANAGER_UPN;
+        let cancelled = false;
+        if (lead.ms_event_id && cal) {
+          try { await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events/${encodeURIComponent(lead.ms_event_id)}/cancel`, { comment: "We've had to cancel this call. We'll be in touch to find another time." }); cancelled = true; }
+          catch (_) { try { await graph(env, "DELETE", `/users/${encodeURIComponent(cal)}/events/${encodeURIComponent(lead.ms_event_id)}`); cancelled = true; } catch (_) {} }
+        }
+        await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(lead.id)}`, { method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({ meeting_at: null, ms_event_id: null }) });
+        return json({ ok: true, cancelled }, 200, request, env);
       }
 
       // ---- Admin: add a lead manually (other channels / existing clients) ----
