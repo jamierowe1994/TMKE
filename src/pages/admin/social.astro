@@ -1795,7 +1795,6 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <div class="sf-bacts">
               ${F.signedUp || F.lost ? `<button type="button" class="sf-btn" data-sf="status">Client status</button>` : `<button type="button" class="sf-btn" data-sf="lost">Mark lost</button>`}
               ${r.email ? `<button type="button" class="sf-btn" data-sf="write">Send a message</button>` : ""}
-              ${!F.lost && STAGE_INDEX[F.st] > STAGE_INDEX.inquiry ? `<button type="button" class="sf-btn" data-sf="back-stage">Move back a stage</button>` : ""}
             </div>
           </div>
         </div>`;
@@ -1922,7 +1921,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     function sfCallout(r, F) {
       const li = (ok, t) => `<li${ok ? ' class="ok"' : ""}>${t}</li>`;
       const lead = !F.lost && !F.signedUp;
-      const links = lead ? `<span class="sf-call-links">${sfAct("followup", r.follow_up_on ? "Move the follow-up" : "Schedule a follow-up")}${sfAct("lost", "Mark lost")}</span>` : "";
+      // Mark lost is in the banner, so not here too (Dani, 5 Nov): Go back a stage
+      // and Schedule a follow-up instead.
+      const canBack = !F.lost && F.st !== "active_client" && STAGE_INDEX[F.st] > STAGE_INDEX.inquiry;
+      const links = lead || canBack ? `<span class="sf-call-links">${canBack ? sfAct("back-stage", "Go back a stage") : ""}${lead ? sfAct("followup", r.follow_up_on ? "Move the follow-up" : "Schedule a follow-up") : ""}</span>` : "";
       const box = (h, items, acts, cls) => `<div class="sf-call${cls ? " " + cls : ""}"><div><h4>${h}</h4>${items.length ? `<ul>${items.join("")}</ul>` : ""}</div>${acts || links ? `<div class="sf-call-side">${links}${acts ? `<div class="sf-call-acts">${acts}</div>` : ""}</div>` : ""}</div>`;
       const reason = r.lost_reason ? esc(r.lost_reason) : "";
       const fu = r.follow_up_on ? li(sfDate(r.follow_up_on) < new Date() ? 0 : 1, `Follow-up: ${esc((r.follow_up_how || "call").toLowerCase())}, ${esc(sfDayYear(r.follow_up_on))}${r.follow_up_by ? ", " + esc(r.follow_up_by) : ""}`) : "";
