@@ -2721,6 +2721,8 @@ const mgmtPackages = (management && management.packages) || [];
           const ro = (h) => (ib ? h.replace("<input", "<input readonly") : h);
           const line = rec && Array.isArray(rec.line_items) && rec.line_items[0] ? rec.line_items[0].description : `Social media management${r.package_name ? " - " + r.package_name : ""} (Month YYYY)`;
           const nextYm = sfYmAdd(F.ym, 1);
+          // New clients pay ahead (Dani, 5 Nov 2026): on by default at Onboarding or once their first invoice has gone.
+          const aheadDefault = F.st === "onboarding" || (r._onbInvSent || 0) > 0;
           const bill = ib ? ib.billTo : (rec && (rec.bill_to_name || rec.name)) || (last && last.bill_to_name) || r.business || (name === "—" ? "" : name);
           const mail = ib ? ib.to : (rec && (rec.bill_to_email || rec.match_email)) || (last && last.bill_to_email) || r.email || "";
           const cc = ib ? ib.cc : (rec && rec.cc_email) || (last && last.cc_email) || "";
@@ -2731,7 +2733,8 @@ const mgmtPackages = (management && management.packages) || [];
             (!rec ? `<div class="sf-lock"><b>No monthly invoice yet.</b> Until this is saved, ${esc(name)} isn't invoiced each month and won't show on Monthly invoices.</div>` : "") + ibNote
             + sfSec("What we charge", sfPF("Monthly fee", sfIn("sfm-amt", rec && rec.amount_pence ? (rec.amount_pence / 100).toFixed(2) : (parseMoney(r.price) ? (parseMoney(r.price) / 100).toFixed(2) : ""), "number", "0.00"), "Before VAT.")
               + sfPF("Line on the invoice", sfIn("sfm-line", line), "(Month YYYY) becomes the month, such as December 2026.")
-              + sfPF("First month", `<input class="sf-in" id="sfm-start" type="month" value="${esc((rec && rec.start_month) || nextYm)}">`)
+              + sfPF("Pays a month ahead", sfTog("sfm-ahead", rec ? !!rec.pays_ahead : aheadDefault), "Yes for every new client: their first invoice covered their first month, so the invoice raised in December is for January. Most existing clients are No.")
+              + sfPF("First month", `<input class="sf-in" id="sfm-start" type="month" value="${esc((rec && rec.start_month) || (aheadDefault ? sfFirstPlanYm(r, F) : nextYm))}">`, "The first month it's raised in.")
               + sfPF("Raised on", `<select class="sf-in" id="sfm-day">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}"${Number(day) === i + 1 ? " selected" : ""}>The ${i + 1}${ordinal(i + 1)} of each month</option>`).join("")}</select>`, "The automatic invoicing raises every social client's on the 5th.")
               + sfPF("Due on", `<select class="sf-in" id="sfm-due">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}"${Number(dueOn) === i + 1 ? " selected" : ""}>The ${i + 1}${ordinal(i + 1)}</option>`).join("")}</select>`))
             + sfSec("Who pays", sfPF("Bill to", ro(sfIn("sfm-bill", bill, "text", ib ? "Choose the brand in Client › Edit" : ""))) + sfPF("Invoice email", ro(sfIn("sfm-email", mail, "email")), ib ? "TEG accounts." : "")
@@ -2745,7 +2748,7 @@ const mgmtPackages = (management && management.packages) || [];
           const line = Array.isArray(rec.line_items) && rec.line_items[0] ? rec.line_items[0].description : rec.name;
           const lock = r.client_status === "paused" ? `<div class="sf-lock"><b>Paused.</b> No monthly invoice is raised, and nothing is chased, until they're Active again.</div>` : r.leaving_on ? `<div class="sf-lock"><b>Leaving ${esc(sfDayYear(r.leaving_on))}.</b> Nothing is raised after they've gone.</div>` : "";
           sfShell(eye, "Monthly invoice", chip, tabs, lock
-            + sfSec("What we charge", `<dl class="sf-pdl">${sfPR("Monthly fee", rec.amount_pence ? `${sfGbp(rec.amount_pence)} + VAT` : sfMiss("No amount"))}${sfPR("Line on the invoice", esc(String(line || "").replace(/\{month year\}|\{month\}|Month YYYY/g, sfYmName(F.ym))))}${sfPR("First month", rec.start_month ? esc(sfYmName(rec.start_month)) : "")}${sfPR("Raised on", rec.day_of_month ? `The ${rec.day_of_month}${ordinal(rec.day_of_month)} of each month` : "")}${sfPR("Due on", rec.due_day ? `The ${rec.due_day}${ordinal(rec.due_day)}` : "")}</dl>`)
+            + sfSec("What we charge", `<dl class="sf-pdl">${sfPR("Monthly fee", rec.amount_pence ? `${sfGbp(rec.amount_pence)} + VAT` : sfMiss("No amount"))}${sfPR("Line on the invoice", esc(String(line || "").replace(/\{month year\}|\{month\}|Month YYYY/g, sfYmName(rec.pays_ahead ? sfYmAdd(F.ym, 1) : F.ym))))}${sfPR("Pays a month ahead", rec.pays_ahead ? "Yes: each invoice is for the month after it's raised" : "No")}${sfPR("First month", rec.start_month ? esc(sfYmName(rec.start_month)) : "")}${sfPR("Raised on", rec.day_of_month ? `The ${rec.day_of_month}${ordinal(rec.day_of_month)} of each month` : "")}${sfPR("Due on", rec.due_day ? `The ${rec.due_day}${ordinal(rec.due_day)}` : "")}</dl>`)
             + sfSec("Who pays", `<dl class="sf-pdl">${sfPR("Bill to", esc(rec.bill_to_name || rec.name || ""))}${sfPR("Invoice email", esc(rec.bill_to_email || rec.match_email || ""))}${sfPR("Copy to", esc(rec.cc_email || ""))}${sfPR("Billing address", esc(rec.bill_to_address || ""))}${r.inter_brand_invoice ? sfPR("Client name", esc(rec.contact_name || nameOf(r))) : sfPR("Card payment", rec.pay_by_card ? "Yes: the email has a Pay by card button" : "No")}</dl>`),
             `${sfFootBtn(false, "data-sf-close", "Close")}${sfData.canMoney ? sfFootBtn(true, 'data-sf="inv-edit"', "Edit") : ""}`);
         }
@@ -2836,7 +2839,7 @@ const mgmtPackages = (management && management.packages) || [];
       if (!email) { sfMsg("Add the email it goes to.", true); $("sfm-email")?.focus(); return; }
       if (r.inter_brand_invoice && !r.billed_brand) { sfMsg("Choose the brand that pays in Client › Edit first.", true); return; }
       const body = {
-        id: rec ? rec.id : undefined, social: true, lead_id: r.id, pay_by_card: r.inter_brand_invoice ? false : sfTogOn("sfm-card"), due_day: v("sfm-due"),
+        id: rec ? rec.id : undefined, social: true, lead_id: r.id, pay_by_card: r.inter_brand_invoice ? false : sfTogOn("sfm-card"), pays_ahead: sfTogOn("sfm-ahead"), due_day: v("sfm-due"),
         name: rec ? rec.name : `${nameOf(r) === "—" ? (r.business || "Client") : nameOf(r)}: social media`, contact_name: nameOf(r) === "—" ? "" : nameOf(r),
         amount_pence: Math.round(pounds * 100), match_email: rec ? (rec.match_email || email) : email, match_text: rec ? rec.match_text : "", start_month: v("sfm-start"),
         auto: { auto_send: rec ? !!rec.auto_send : true, day_of_month: v("sfm-day"), frequency: (rec && rec.frequency) || "monthly", end_month: (rec && rec.end_month) || "", bill_to_name: v("sfm-bill"), bill_to_email: email, cc_email: v("sfm-cc"), bill_to_address: v("sfm-addr"), terms_days: rec && rec.terms_days != null ? rec.terms_days : "", line: v("sfm-line") },
@@ -4712,6 +4715,8 @@ const mgmtPackages = (management && management.packages) || [];
       const money = await CAN_MONEY;
       const dt = { classic: "minimal", editorial: "minimal", modern: "banded" }[invSettings.template] || invSettings.template;
       sivTemplate = ["minimal", "banded"].includes(dt) ? dt : "minimal";
+      // Card payment as on their monthly invoice (Dani, 5 Nov 2026).
+      sivPayByCard = !!(current === r && sfData.recurring && sfData.recurring.pay_by_card) && !r.inter_brand_invoice;
       // Seed one line item from the agreed monthly price (editable; add more rows).
       sivItems = sivPreset && sivPreset.length ? sivPreset : [{ description: "Social media management" + (r.package_name ? " — " + r.package_name : "") + " (monthly)", amount: parseMoney(r.price) ? (parseMoney(r.price) / 100).toFixed(2) : "" }];
       sivPreset = null;

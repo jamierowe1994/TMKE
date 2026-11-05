@@ -510,7 +510,8 @@ async function runInvoiceAutomation(env) {
     const rows = (await sbGet(env, "recurring_invoices", "active=eq.true&auto_send=eq.true&select=*")) || [];
     for (const r of rows) {
       if (!r.day_of_month || !invRecurringDue(r, today.ym)) continue;
-      const month = invMonthLabel(today.ym);
+      // Pays a month ahead (Dani, 5 Nov 2026): raised in December, for January.
+      const month = invMonthLabel(r.pays_ahead ? ymAdd(today.ym, 1) : today.ym);
       let qty = null;
       if (r.quantity_label) {
         const q = (await sbGet(env, "recurring_quantities", `recurring_id=eq.${r.id}&month=eq.${today.ym}&select=qty`))?.[0];
@@ -13385,6 +13386,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         // as the other social clients'. No per-invoice approver: Abbie's ticks
         // on Monthly invoices are the approval (22 Oct, invoicing_automation_3.sql).
         if (b.pay_by_card !== undefined) row.pay_by_card = !!b.pay_by_card;
+        if (b.pays_ahead !== undefined) row.pays_ahead = !!b.pays_ahead;
         if (b.due_day !== undefined && b.due_day !== "" && b.due_day != null) row.due_day = Math.min(28, Math.max(1, Math.round(Number(b.due_day))));
         if (b.social && b.lead_id) {
           row.kind = "social"; row.lead_id = String(b.lead_id);
@@ -13398,6 +13400,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           : await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices`, { method: "POST", headers: hdr, body: JSON.stringify(row) });
         if (!r.ok) {
           const t = await r.text().catch(() => "");
+          if (/pays_ahead/.test(t)) return json({ error: "Run supabase/recurring_pays_ahead.sql first: it adds Pays a month ahead." }, 502, request, env);
           return json({ error: /auto_send|day_of_month|line_items|bill_to_|frequency|end_month|terms_days/.test(t) ? "Run supabase/invoicing_automation.sql first." : /recurring_invoices/.test(t) ? "Run supabase/recurring_invoices.sql first." : "Couldn't save it." }, 502, request, env);
         }
         return json({ ok: true }, 200, request, env);

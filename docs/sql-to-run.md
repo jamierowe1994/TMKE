@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/recurring_pays_ahead.sql — Pays a month ahead on a social media client's monthly invoice: raised in December, for January. On for new clients and Terry; until it's run, monthly invoices can't be saved from a client file (5 Nov)
 
 ## Done
 
