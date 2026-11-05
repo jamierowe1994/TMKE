@@ -100,6 +100,21 @@ export function invoiceEmail(inv, settings, ctx = {}) {
   const month = monthOf(inv);
   // Social media
   if ((rec && rec.kind === "social") || inv.booking_source === "smm") {
+    // An invoice for more than one thing, such as the first one (the onboarding
+    // fee and the first month, paid ahead), says what it's for under the
+    // amount, before the due date (Danielle, 5 Nov 2026).
+    const items = (inv.line_items || []).filter((l) => l && (l.description || l.unit_pence));
+    if (items.length > 1) {
+      const each = items.map((l) => `${String(l.description || "").trim()} (${gbp((l.unit_pence || 0) * (l.qty || 1))})`);
+      const list = each.length < 2 ? each.join("") : each.slice(0, -1).join(", ") + " and " + each[each.length - 1];
+      const amtFor = [amt[0], `For: ${list}, plus VAT`, ...amt.slice(1)];
+      const firstOne = items.some((l) => /onboarding/i.test(String(l.description || "")));
+      return brand
+        ? out(`Invoice ${n}: social media for ${clientName}${firstOne ? ", first invoice" : ""}.`,
+            [`Please find attached invoice ${n} for ${clientName}'s social media${firstOne ? ": the onboarding fee and their first month, paid in advance" : ""}. It's billed to ${inv.bill_to_name}.`, "", ...amtFor])
+        : out(firstOne ? `Invoice ${n}: your first social media invoice.` : `Invoice ${n}: social media.`,
+            [firstOne ? `Please find attached invoice ${n}, your first invoice for social media management. It covers the one-off onboarding fee and your first month, paid in advance.` : `Please find attached invoice ${n} for your social media.`, "", ...amtFor]);
+    }
     return brand
       ? out(`Invoice ${n}: social media management for ${clientName}, ${month}.`,
           [`Please find attached invoice ${n} for ${clientName}'s social media management in ${month}. It's billed to ${inv.bill_to_name}.`, "", ...amt])
