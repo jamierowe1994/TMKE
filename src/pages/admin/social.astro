@@ -1446,6 +1446,21 @@ const mgmtPackages = (management && management.packages) || [];
     #smm-file .sf-c-sub { margin: 0; color: var(--sf-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #smm-file .sf-c-file { margin: 0; color: var(--sf-tx); overflow-wrap: anywhere; }
     #smm-file .sf-c-ins { margin: 0; padding-top: 8px; border-top: 1px solid var(--sf-line); color: var(--sf-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Raise a one-off, in the file's own style (Dani, 5 Nov 2026). */
+    #sf-oneoff-slot .smm-panel-head, #sf-oneoff-slot .siv-list-head, #sf-oneoff-slot #siv-list { display: none; }
+    #sf-oneoff-slot .siv-build.sf-oneoff { border: 0; background: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+    #smm-file .sf-tog button.is-active { background: var(--sf-wine); color: #fff; }
+    #smm-file .sf-lines-h, #smm-file .siv-item { display: grid; grid-template-columns: minmax(0, 1fr) 120px 30px; gap: 8px; align-items: center; }
+    #smm-file .sf-lines-h { color: var(--sf-tx); margin-bottom: 6px; }
+    #smm-file .siv-item { margin-bottom: 8px; }
+    #smm-file .siv-item .siv-amt { text-align: right; font-variant-numeric: tabular-nums; }
+    #smm-file .sf-lines-f { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-top: 4px; }
+    #smm-file .sf-tot { margin: 0; min-width: 220px; font-variant-numeric: tabular-nums; }
+    #smm-file .sf-tot > div { display: flex; justify-content: space-between; gap: 18px; padding: 3px 0; }
+    #smm-file .sf-tot dt { color: var(--sf-tx); }
+    #smm-file .sf-tot dd { margin: 0; }
+    #smm-file .sf-tot .is-total { border-top: 1px solid var(--sf-edge); margin-top: 4px; padding-top: 6px; }
+    #smm-file .sf-tot .is-total dd { color: var(--sf-ink); }
     .sf-c-btns { display: inline-flex; align-items: center; gap: 6px; flex: none; }
     #smm-file .sf-bin { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--sf-edge); border-radius: 4px; background: #fff; color: var(--sf-tx); cursor: pointer; }
     #smm-file .sf-bin svg { width: 15px; height: 15px; }
@@ -2663,7 +2678,7 @@ const mgmtPackages = (management && management.packages) || [];
           sfSec("On the invoice", sfPF("Onboarding fee", sfIn("sfi-ob", pdI.onboarding_fee ?? "", "number", "0.00"), "Before VAT. From Edit › Package.")
             + sfPF("First month", `<select class="sf-in" id="sfi-month">${[sfYmAdd(F.ym, 0), sfYmAdd(F.ym, 1), sfYmAdd(F.ym, 2)].concat(first > sfYmAdd(F.ym, 2) ? [first] : []).map((ym) => `<option value="${ym}"${ym === first ? " selected" : ""}>${esc(sfYmName(ym))}</option>`).join("")}</select>`)
             + sfPF("Monthly fee", sfIn("sfi-month-amt", monthly, "number", "0.00"), "Before VAT.")
-            + (po ? sfPF("Profile optimisation", `<label class="sf-check"><input type="checkbox" id="sfi-po"> Add ${esc(po.name)}, ${esc(sfGbp(po.from_pence))} a ${esc(po.unit)}</label>`) : ""))
+            + (po ? sfPF("Profile optimisation", `<label class="sf-check"><input type="checkbox" id="sfi-po"${onbState(r).ask.optimise === "yes" ? " checked" : ""}> Add ${esc(po.name)}, ${esc(sfGbp(po.from_pence))} a ${esc(po.unit)}</label>`) : ""))
           + `<p class="sf-say sf-note">Next, the invoice opens with these on it, for you to check and send.</p>`,
           `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="firstinv-go"', "Continue to the invoice")}`, { edit: true });
       } else if (key === "proposed") {
@@ -2735,9 +2750,11 @@ const mgmtPackages = (management && management.packages) || [];
             `${sfFootBtn(false, "data-sf-close", "Close")}${sfData.canMoney ? sfFootBtn(true, 'data-sf="inv-edit"', "Edit") : ""}`);
         }
       } else if (sfInvTab === "oneoff") {
-        const b = sfShell(eye, "Raise a one-off", chip, tabs, `<p class="sf-say sf-note" style="margin-top:0">For work outside the monthly fee, such as an extra reel.</p><div id="sf-oneoff-slot"></div>`, sfFootBtn(true, "data-sf-close", "Close"));
+        const b = sfShell(eye, "Raise a one-off", chip, tabs, `<p class="sf-say sf-note" style="margin-top:0">For anything outside the monthly fee, such as an extra reel or their first invoice.</p><div id="sf-oneoff-slot"></div>`,
+          `<span class="sf-say" id="siv-msg"></span>${sfFootBtn(false, "data-sf-close", "Close")}${sfFootBtn(false, 'id="siv-pdf"', "Preview")}${sfFootBtn(false, 'id="siv-create"', "Save draft")}${sfFootBtn(true, 'id="siv-send"', "Create and send")}`, { edit: true });
         sfLend("smm-panel-invoices", b.querySelector("#sf-oneoff-slot"));
-        renderInvoicing(r, $("smm-panel-invoices"), r._lastDocs || F.docs, false, r._lastWarn || null);
+        renderInvoicing(r, $("smm-panel-invoices"), r._lastDocs || F.docs, false, r._lastWarn || null)
+          .then(() => { if (!$("siv-name")) ["siv-pdf", "siv-create", "siv-send"].forEach((id) => $(id)?.remove()); });
       } else {
         const rows = sfData.invoices === null ? `<p class="sf-say sf-note">Loading…</p>` : F.invs.length ? `<div class="sf-tbl"><div class="sf-tbl-h"><span>Invoice</span><span>Issued</span><span class="num">Amount</span><span>Status</span><span></span></div>${F.invs.map((v) => `<div class="sf-tbl-r"><span>${esc(v.number || "Draft")}</span><span>${esc(sfDayYear(v.issued_date || v.created_at))}</span><span class="num">${sfGbp(v.total_pence)}</span><span>${sfInvChip(v)}</span><span class="sf-tbl-a"><button type="button" class="sf-act" data-sf="inv-view" data-id="${esc(v.id)}">View</button>${v.status !== "draft" ? `<button type="button" class="sf-act" data-sf="inv-resend" data-id="${esc(v.id)}">Resend</button>` : ""}</span></div>`).join("")}</div><p class="sf-say sf-note">Amounts include VAT. Marking paid, voiding and deleting are on the Invoicing page.</p>` : `<p class="sf-say sf-note">No invoices yet.</p>`;
         sfShell(eye, "All invoices", chip, tabs, rows, sfFootBtn(true, "data-sf-close", "Close"));
@@ -4347,7 +4364,7 @@ const mgmtPackages = (management && management.packages) || [];
       activeConfirm: (n) => `There ${n === 1 ? "is still 1 onboarding item" : `are still ${n} onboarding items`} open for this client. Do you want to make them an active client anyway? Click OK to carry on, or Cancel to go back and finish them.`,
       tickedBy: (who, when) => `Ticked by ${who}, ${when}`,
       autoDone: "Ticked automatically", autoOpen: "Ticks itself when this is on the file",
-      groups: { paper: "Paperwork and billing", access: "Accounts and access", work: "How we'll work together", optimise: "Profile optimisation" },
+      groups: { paper: "Paperwork and billing", call: "Onboarding call", access: "Accounts and access", work: "How we'll work together", optimise: "Profile optimisation" },
       items: {
         contract: { label: "Signed contract on file", todo: "Upload the signed contract to **Paperwork** on the left, with the file type set to **Contract**.", done: "Done. There's a Contract file in **Paperwork**." },
         proposal: { label: "Proposal on file", todo: "Upload the proposal we sent them to **Paperwork**, with the file type set to **Proposal**, so anyone picking up the account can see what was offered.", done: "Done. There's a Proposal file in **Paperwork**." },
@@ -4361,7 +4378,7 @@ const mgmtPackages = (management && management.packages) || [];
         socialpilot: { label: "Connected to SocialPilot", todo: "Add each platform to SocialPilot, so we can schedule their posts and run their monthly reports from it." },
         assets: { label: "Brand assets received", todo: "Their logo, brand colours, fonts and any photos or video they'd like us to use. Upload them here and they go in the **Brand assets** folder in **Paperwork**.", done: "Done. They're in the **Brand assets** folder in **Paperwork**." },
         firstinv: { label: "First invoice sent", todo: "The onboarding fee and their first month, with profile optimisation if they're having it, on one invoice.", done: "Done. Their first invoice has gone." },
-        call: { label: "Onboarding call", todo: "Book it like the other calls, or skip it if you've already been through this with them." },
+        call: { label: "Held or skipped", todo: "Book it like the other calls, or skip it if you've already been through this with them." },
         approvalQ: { label: "Do they want to approve every post before it goes out?", todo: "If they do, we need content ready further ahead, so they have time to review it before it's due to go out." },
         approval: { label: "Approval process agreed", todo: "Agree how they'll approve posts, for example by email or in a shared calendar, and how long they have to reply before we post anyway.", notePlaceholder: "e.g. Monday email with the week's posts. Two working days to reply, then we post." },
         shoot: { label: "First shoot booked", todo: "Book their first shoot in the **Videography** tab.", done: "Done. A shoot is booked in **Videography**." },
@@ -4391,29 +4408,30 @@ const mgmtPackages = (management && management.packages) || [];
     };
     // kind: auto (read from the file), manual (ticked), ask (Yes/No).
     const ONB_ITEMS = [
-      { g: "paper", key: "contract", kind: "auto", test: (r, c) => c.docs.some((d) => d.category === "agreement") },
+      // In the order Dani works through them (5 Nov 2026).
+      { g: "paper", key: "manager", kind: "auto", test: (r) => !!String(r.social_media_manager || "").trim() },
       { g: "paper", key: "proposal", kind: "auto", test: (r, c) => c.docs.some((d) => d.category === "prep") },
       { g: "paper", key: "package", kind: "auto", test: (r) => !!(r.package_name && (r.package_details || {}).tier) },
+      { g: "paper", key: "contract", kind: "auto", test: (r, c) => c.docs.some((d) => d.category === "agreement") },
       { g: "paper", key: "start", kind: "auto", test: (r) => !!r.start_date },
-      { g: "paper", key: "firstinv", kind: "auto", test: (r, c) => (r._onbInvSent || 0) > 0 },
       { g: "paper", key: "billing", kind: "auto", test: (r, c) => !!r.direct_debit || c.recurring || c.invoices > 0 || c.docs.some((d) => d.category === "invoice") },
-      { g: "paper", key: "manager", kind: "auto", test: (r) => !!String(r.social_media_manager || "").trim() },
+      { g: "paper", key: "optimiseQ", kind: "ask", ask: "optimise" },
+      { g: "paper", key: "firstinv", kind: "auto", test: (r, c) => (r._onbInvSent || 0) > 0 },
+      { g: "call", key: "call", kind: "call" },
       { g: "access", key: "hub", kind: "auto", test: (r) => !!r.account_user_id },
       { g: "access", key: "channels", kind: "auto", test: (r) => { const ps = Array.isArray(r.platforms) ? r.platforms : []; return ps.length > 0 && ps.every((p) => !CHANNEL_FIELD[p] || String(r[CHANNEL_FIELD[p]] || "").trim()); } },
       { g: "access", key: "access", kind: "manual" },
       { g: "access", key: "assets", kind: "auto", test: (r, c) => c.docs.some((d) => d.category === "brand") || !!onbState(r).done.assets },
-      { g: "work", key: "call", kind: "call" },
       { g: "work", key: "approvalQ", kind: "ask", ask: "approval" },
       { g: "work", key: "approval", kind: "manual", note: "approval", when: (r, o) => o.ask.approval === "yes" },
       { g: "work", key: "shoot", kind: "auto", when: (r) => !!(r.package_details || {}).video, test: (r, c) => c.shoots.some((b) => b.stage !== "cancelled") },
-      { g: "optimise", key: "optimiseQ", kind: "ask", ask: "optimise" },
       { g: "optimise", key: "bios", kind: "manual", when: (r, o) => o.ask.optimise === "yes" },
       { g: "optimise", key: "images", kind: "manual", when: (r, o) => o.ask.optimise === "yes" },
       { g: "optimise", key: "pinned", kind: "manual", when: (r, o) => o.ask.optimise === "yes" },
       { g: "optimise", key: "highlights", kind: "manual", when: (r, o) => o.ask.optimise === "yes" && (Array.isArray(r.platforms) ? r.platforms : []).includes("Instagram") },
       { g: "optimise", key: "links", kind: "manual", when: (r, o) => o.ask.optimise === "yes" },
     ];
-    const ONB_GROUPS = ["paper", "access", "work", "optimise"];
+    const ONB_GROUPS = ["paper", "call", "access", "work", "optimise"];
     const ONB_TOPICS = ["competitors", "audience", "groups", "pillars", "tone", "goals"];
     const onbDone = (r, it, o, c) => it.kind === "auto" ? !!it.test(r, c) : it.kind === "call" ? onbCallState(r).done : it.kind === "ask" ? !!o.ask[it.ask] : !!o.done[it.key];
     /* The onboarding call (Dani, 5 Nov 2026): booked like the other calls, or
@@ -4674,11 +4692,11 @@ const mgmtPackages = (management && management.packages) || [];
       };
     }
     function sivRenderItems() {
-      $("siv-items").innerHTML = sivItems.map((it, i) => `<div class="siv-item"><input class="siv-desc" data-i="${i}" placeholder="Description of the service" value="${esc(it.description)}"><input class="siv-amt" data-i="${i}" type="number" step="0.01" placeholder="0.00" value="${esc(it.amount)}"><button type="button" class="siv-del" data-i="${i}" title="Remove">&times;</button></div>`).join("");
+      $("siv-items").innerHTML = sivItems.map((it, i) => `<div class="siv-item"><input class="sf-in siv-desc" data-i="${i}" placeholder="Description of the service" value="${esc(it.description)}"><input class="sf-in siv-amt" data-i="${i}" type="number" step="0.01" placeholder="0.00" value="${esc(it.amount)}"><button type="button" class="sf-bin siv-del" data-i="${i}" aria-label="Remove this line" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button></div>`).join("");
     }
     function sivRenderTotals() {
       const t = sivTotals();
-      $("siv-totals").innerHTML = `<span>Sub-total ${gbp(t.subtotal)} · VAT (${t.vatRate}%) ${gbp(t.vat)}</span><strong>Total ${gbp(t.total)}</strong>`;
+      $("siv-totals").innerHTML = `<dl class="sf-tot"><div><dt>Sub-total</dt><dd>${gbp(t.subtotal)}</dd></div><div><dt>VAT (${t.vatRate}%)</dt><dd>${gbp(t.vat)}</dd></div><div class="is-total"><dt>Total</dt><dd>${gbp(t.total)}</dd></div></dl>`;
     }
     function sivRefreshItems() { sivRenderItems(); sivRenderTotals(); wireSivItems(); }
     function wireSivItems() {
@@ -4717,42 +4735,22 @@ const mgmtPackages = (management && management.packages) || [];
           <p class="smm-hint" id="dd-recip-status" style="min-height:15px"></p>
           <p class="smm-hint">Invoices auto-raise on the <strong>1st of each month</strong> — line "Social media management (month)", amount from <strong>Pricing</strong>, due on their DD date — and are emailed here as a reminder. Mark each paid once the Direct Debit clears.</p>
         </div>` : `
-        <div class="siv-build">
-          <div class="siv-tpl">
-            <span class="siv-tpl-lbl">Template</span>
-            <div class="siv-tpl-opts" id="siv-tpl">
-              <button type="button" class="siv-tpl-opt" data-tpl="minimal">Minimal</button>
-              <button type="button" class="siv-tpl-opt" data-tpl="banded">Banded</button>
-            </div>
-          </div>
-          <div class="siv-tpl">
-            <span class="siv-tpl-lbl">Card payment</span>
-            <div class="siv-tpl-opts" id="siv-pay">
-              <button type="button" class="siv-tpl-opt" data-pay="no">Off</button>
-              <button type="button" class="siv-tpl-opt" data-pay="yes">On</button>
-            </div>
-            <span class="siv-pay-hint">Adds a &ldquo;Pay by card&rdquo; button to the email. Bank details stay on the invoice either way.</span>
-          </div>
-          <div class="siv-grid2">
-            <label class="siv-f"><span>Bill to</span><input id="siv-name" value="${esc(billName)}"></label>
-            <label class="siv-f"><span>Email</span><input id="siv-email" type="email" value="${esc(ib ? ib.to : (r.email || ""))}"></label>
-          </div>
-          <label class="siv-f"><span>Client <small style="font-weight:400;opacity:.7">only when billing another brand - blank leaves it off the invoice</small></span><input id="siv-client" value="${esc(r.inter_brand_invoice ? clientName : "")}" placeholder="Who the work was for, if different"></label>
-          <label class="siv-f"><span>Billing address</span><textarea id="siv-address" rows="2" placeholder="Optional">${esc(ib && ib.address ? ib.address : (r.business_address || ""))}</textarea></label>
-          <label class="siv-f"><span>CC</span><input id="siv-cc" value="${esc(ib ? ib.cc : (invSettings.accounts_cc_email || ""))}" placeholder="Accounts, comma-separated"></label>
-          <div class="siv-grid2">
-            <label class="siv-f"><span>Issued</span><input id="siv-issued" type="date" value="${today}"></label>
-            <label class="siv-f"><span>Due</span><input id="siv-due" type="date" value="${dueISO}"></label>
-          </div>
-          <div class="siv-f"><span>Line items</span><div id="siv-items"></div><button type="button" class="smm-btn smm-btn--sm" id="siv-add">${PLUS_SVG}Add line</button></div>
-          <div class="siv-totals" id="siv-totals"></div>
-          <label class="siv-f"><span>Notes (optional)</span><textarea id="siv-notes" rows="2" placeholder="e.g. Thank you for your business.">Thank you for your business - TMKE</textarea></label>
-          <p class="smm-modal-status" id="siv-msg" hidden></p>
-          <div class="siv-actions">
-            <button type="button" class="smm-btn" id="siv-pdf">Preview / PDF</button>
-            <button type="button" class="smm-btn" id="siv-create">Save draft</button>
-            <button type="button" class="smm-btn smm-btn--primary" id="siv-send">Create &amp; send</button>
-          </div>
+        <div class="siv-build sf-oneoff">
+          ${sfSec("Who it's to", `<dl class="sf-pdl">
+            ${sfPF("Bill to", `<input class="sf-in" id="siv-name" value="${esc(billName)}">`)}
+            ${sfPF("Email", `<input class="sf-in" id="siv-email" type="email" value="${esc(ib ? ib.to : (r.email || ""))}">`)}
+            ${sfPF("Client", `<input class="sf-in" id="siv-client" value="${esc(r.inter_brand_invoice ? clientName : "")}" placeholder="Who the work was for, if different">`, "Only when another brand pays. Left blank, it's not on the invoice.")}
+            ${sfPF("Billing address", `<textarea class="sf-in" id="siv-address" rows="2" placeholder="Optional">${esc(ib && ib.address ? ib.address : (r.business_address || ""))}</textarea>`)}
+            ${sfPF("Copy to", `<input class="sf-in" id="siv-cc" value="${esc(ib ? ib.cc : (invSettings.accounts_cc_email || ""))}" placeholder="Accounts, comma-separated">`)}</dl>`)}
+          ${sfSec("Dates", `<dl class="sf-pdl">
+            ${sfPF("Issued", `<input class="sf-in" id="siv-issued" type="date" value="${today}">`)}
+            ${sfPF("Due", `<input class="sf-in" id="siv-due" type="date" value="${dueISO}">`)}</dl>`)}
+          ${sfSec("What it's for", `<div class="sf-lines-h"><span>Description</span><span>Amount</span><span></span></div><div id="siv-items"></div>
+            <div class="sf-lines-f"><button type="button" class="sf-act" id="siv-add">+ Add a line</button><div class="siv-totals" id="siv-totals"></div></div>`)}
+          ${sfSec("How it's sent", `<dl class="sf-pdl">
+            ${sfPF("Template", `<span class="sf-tog" id="siv-tpl"><button type="button" class="siv-tpl-opt" data-tpl="minimal">Minimal</button><button type="button" class="siv-tpl-opt" data-tpl="banded">Banded</button></span>`)}
+            ${sfPF("Card payment", `<span class="sf-tog" id="siv-pay"><button type="button" class="siv-tpl-opt" data-pay="no">Off</button><button type="button" class="siv-tpl-opt" data-pay="yes">On</button></span>`, "Adds a Pay by card button to the email. Bank details stay on the invoice either way.")}
+            ${sfPF("Notes", `<textarea class="sf-in" id="siv-notes" rows="2" placeholder="e.g. Thank you for your business.">Thank you for your business - TMKE</textarea>`, "Optional. Printed at the foot of the invoice.")}</dl>`)}
         </div>`}
         <div class="siv-list-head">Raised invoices</div>
         <div id="siv-list"><p class="smm-soon">Loading…</p></div>
@@ -4770,9 +4768,11 @@ const mgmtPackages = (management && management.packages) || [];
         $("siv-pay")?.addEventListener("click", (e) => { const b = e.target.closest(".siv-tpl-opt"); if (!b) return; sivPayByCard = b.getAttribute("data-pay") === "yes"; syncSivPay(); });
         syncSivPay();
         $("siv-add").addEventListener("click", () => { sivItems.push({ description: "", amount: "" }); sivRefreshItems(); });
-        $("siv-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: sivSettings(), invoice: sivBuildInvoice(r) })); w.document.close(); });
-        $("siv-create").addEventListener("click", () => createSmmInvoice(r, false));
-        $("siv-send").addEventListener("click", () => createSmmInvoice(r, true));
+        // In the pop-out's footer (Dani, 5 Nov 2026): wired once, whatever redraws the form.
+        const once = (id, fn) => { const b = $(id); if (b && !b.dataset.wired) { b.dataset.wired = "1"; b.addEventListener("click", () => fn(current || r)); } };
+        once("siv-pdf", (rr) => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: sivSettings(), invoice: sivBuildInvoice(rr) })); w.document.close(); });
+        once("siv-create", (rr) => createSmmInvoice(rr, false));
+        once("siv-send", (rr) => createSmmInvoice(rr, true));
         loadSmmInvoices(r);
       }
       panel.querySelectorAll("[data-invpaid]").forEach((el) => el.addEventListener("change", () => setInvoicePaid(r, el.getAttribute("data-invpaid"), el.value)));
@@ -4903,7 +4903,7 @@ const mgmtPackages = (management && management.packages) || [];
     async function createSmmInvoice(r, send) {
       const inv = sivBuildInvoice(r);
       const msgEl = $("siv-msg");
-      const show = (t, ok) => { msgEl.hidden = false; msgEl.textContent = t; msgEl.style.color = ok ? "#2e6b40" : "#a3372b"; };
+      const show = (t, ok) => { if (!msgEl) { alert(t); return; } msgEl.hidden = false; msgEl.textContent = t; msgEl.style.color = ok ? "#3f7a56" : "#8a3f3f"; };
       if (!inv.bill_to_name) { show("Add a recipient name.", false); return; }
       if (send && !inv.bill_to_email) { show("Add a recipient email to send to.", false); return; }
       if (!inv.line_items.some((it) => it.description || it.unit_pence)) { show("Add at least one line item.", false); return; }
