@@ -1279,6 +1279,16 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .sf-tog { display: inline-flex; border: 1px solid var(--sf-edge); border-radius: 4px; overflow: hidden; }
     #smm-file .sf-tog button { height: 30px; padding: 0 16px; border: 0; background: #fff; color: var(--sf-tx); cursor: pointer; }
     #smm-file .sf-tog button[aria-pressed="true"] { background: var(--sf-wine); color: #fff; }
+    /* A section that opens on a click: "From a recording" (Dani, 5 Nov). */
+    .sf-fold > summary { cursor: pointer; list-style: none; }
+    .sf-fold > summary::-webkit-details-marker { display: none; }
+    #smm-file .sf-fold > summary::after { content: "Open"; margin-left: auto; font-size: 11px; letter-spacing: .08em; opacity: .8; }
+    #smm-file .sf-fold[open] > summary::after { content: "Close"; }
+    /* The file picker's button in the house strip, not the browser's grey one (Dani, 5 Nov). */
+    #smm-file input.sf-file { font-size: 14px; color: var(--sf-tx); }
+    #smm-file input.sf-file::file-selector-button { height: 30px; margin-right: 12px; padding: 0 14px; border: 1px solid var(--sf-edge); border-radius: 4px; background: #fff; color: var(--sf-ink); cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+    #smm-file input.sf-file::file-selector-button:hover { border-color: var(--sf-wine); color: var(--sf-wine); }
+    #smm-file input.sf-file::-webkit-file-upload-button { height: 30px; margin-right: 12px; padding: 0 14px; border: 1px solid var(--sf-edge); border-radius: 4px; background: #fff; color: var(--sf-ink); cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
     .sf-plat { display: flex; flex-wrap: wrap; gap: 6px; }
     #smm-file .sf-plat label { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--sf-edge); border-radius: 4px; cursor: pointer; }
     #smm-file .sf-plat input, #smm-file .sf-check input, #smm-file .sf-stat input { margin: 0; accent-color: var(--sf-wine); }
@@ -2143,15 +2153,30 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const name = nameOf(r), eye = (t) => `${t} · ${name}`;
       const F = sfFacts(r);
       if (key === "view") {
+        // Client details follow the stages too (Danielle, 5 Nov 2026): what came
+        // in, the calls and their notes, the proposal and contract, as far as
+        // they've got.
+        const idx = STAGE_INDEX[F.st];
+        const D = F.discovery || {}, Pn = F.pricing || {};
+        const notesRows = (f) => sfPR("What they want", esc(f["what they want"] || "")) + sfPR("Package interest", esc(f["package interest"] || "")) + sfPR("Platforms", esc(f.platforms || "")) + sfPR("Budget", esc(f.budget || "")) + sfPR("Wants to start", esc(f["wants to start"] || "")) + sfPR("Next step", esc(f["next step"] || ""));
+        const transcript = (kind) => F.msgs.find((m) => m.channel === "note" && String(m.subject || "").toLowerCase() === `${kind} call transcript`);
+        const tLink = (kind) => { const m = transcript(kind); return m ? sfPR("Transcript", `<button type="button" class="sf-act" data-sf="note" data-id="${esc(m.id)}">Read the transcript</button>`) : ""; };
+        const pd = r.package_details || {};
+        const propSent = F.reached("proposal_sent") || (F.prep && F.prep.created_at);
+        const showCalls = !F.lost || true;
         const b = sfShell(eye("Client"), "Client details", "", "",
           sfSec("Contact", `<dl class="sf-pdl">${sfPR("Contact name", esc(name === "—" ? "" : name))}${sfPR("Business", esc(r.business || ""))}${sfPR("Email", esc(r.email || ""))}${sfPR("Phone", esc(r.phone || ""))}</dl>`)
-          + sfSec("Package", `<div id="sf-pkg-slot"></div>`)
-          + sfSec("Working with us", `<dl class="sf-pdl">${sfPR("Managed by", esc(r.social_media_manager || ""))}${sfPR("Started", esc(sfDayYear(r.start_date)))}${sfPR("Inter-brand", r.inter_brand_invoice ? "Yes: another of our brands pays" : "No")}${sfPR("How they came in", esc((sfSource(r) || KIND_LABEL[r.kind] || "Added by hand") + ", " + sfDayYear(r.created_at)))}${r.inter_brand_invoice ? sfPR("Brand that pays", r.billed_brand ? esc((TEG_BRANDS.find((b) => b.key === r.billed_brand) || {}).label || r.billed_brand) : sfMiss("Not chosen")) : ""}${r.follow_up_on ? sfPR("Follow-up", esc(`${sfDayYear(r.follow_up_on)}, ${(r.follow_up_how || "call").toLowerCase()}${r.follow_up_by ? ", " + r.follow_up_by : ""}${r.follow_up_note ? ". " + r.follow_up_note : ""}`)) : ""}${r.meeting_at ? sfPR("Meeting", esc(fmtDateTime(r.meeting_at))) : ""}${sfPR("Marketing", r.marketing_opt_in ? "Opted in" : "Not opted in")}
+          + sfSec("How they came in", `<dl class="sf-pdl">${sfPR("Enquiry received", esc(sfDayYear(r.created_at)))}${sfPR("How", esc(sfSource(r) || KIND_LABEL[r.kind] || "Added by hand"))}${sfPR("What they said", esc(r.message || ""))}${sfPR("Marketing", r.marketing_opt_in ? "Opted in" : "Not opted in")}</dl>`)
+          + (idx >= STAGE_INDEX.meeting_set || F.discovery ? sfSec("Discovery call", `<dl class="sf-pdl">${F.st === "meeting_set" || F.st === "inquiry" ? sfPR("When", esc(sfWhen(r.meeting_at))) : ""}${F.discovery ? notesRows(D) + tLink("discovery") : sfPR("Call notes", `Not written yet &nbsp;<button type="button" class="sf-act" data-sf="callnotes" data-id="discovery">Write them</button>`)}</dl>`) : "")
+          + (idx >= STAGE_INDEX.proposal_sent ? sfSec("Proposal", `<dl class="sf-pdl">${sfPR("Sent", esc(sfDayYear(propSent)))}${sfPR("File", F.prep ? `<button type="button" class="sf-act" data-sf-doc="${esc(F.prep.id)}" data-name="${esc(F.prep.file_name || "proposal")}">${esc(F.prep.title || F.prep.file_name)}</button>` : "")}${sfPR("Monthly fee", esc(r.price || ""))}${sfPR("Onboarding fee", pd.onboarding_fee != null && pd.onboarding_fee !== "" ? `£${esc(pd.onboarding_fee)} + VAT` : "")}</dl>`) : "")
+          + (idx >= STAGE_INDEX.pricing_call ? sfSec("Pricing call", `<dl class="sf-pdl">${F.st === "pricing_call" ? sfPR("When", esc(sfWhen(r.meeting_at))) : ""}${F.pricing ? notesRows(Pn) + tLink("pricing") : sfPR("Call notes", `Not written yet &nbsp;<button type="button" class="sf-act" data-sf="callnotes" data-id="pricing">Write them</button>`)}</dl>`) : "")
+          + (idx >= STAGE_INDEX.contract_signed ? sfSec("Contract", `<dl class="sf-pdl">${sfPR("Sent", esc(sfDayYear(F.reached("contract_signed"))))}${sfPR("Signed copy", F.agreement ? `<button type="button" class="sf-act" data-sf-doc="${esc(F.agreement.id)}" data-name="${esc(F.agreement.file_name || "contract")}">${esc(F.agreement.title || F.agreement.file_name)}</button>, ${esc(sfDay(F.agreement.created_at))}` : "Not back yet")}</dl>`) : "")
+          + (idx >= STAGE_INDEX.proposal_sent ? sfSec("Package", `<div id="sf-pkg-slot"></div>`) : "")
+          + sfSec("Working with us", `<dl class="sf-pdl">${sfPR("Managed by", esc(r.social_media_manager || ""))}${F.signedUp ? sfPR("Started", esc(sfDayYear(r.start_date))) : ""}${sfPR("Inter-brand", r.inter_brand_invoice ? `Yes: ${esc((TEG_BRANDS.find((x) => x.key === r.billed_brand) || {}).label || "brand not chosen")} pays` : "No")}${r.follow_up_on ? sfPR("Follow-up", esc(`${sfDayYear(r.follow_up_on)}, ${(r.follow_up_how || "call").toLowerCase()}${r.follow_up_by ? ", " + r.follow_up_by : ""}${r.follow_up_note ? ". " + r.follow_up_note : ""}`)) : ""}
               ${sfPR("Member hub", r.account_user_id ? `Linked &nbsp;<button type="button" class="sf-act" data-sf="unlink">Unlink</button>` : r.email ? `Not linked &nbsp;<button type="button" class="sf-act" data-sf="link">Link to their hub account</button>` : "Add an email to link their hub")}
-              ${sfPR("In the CRM", `<span id="sf-crm-slot"></span>`)}</dl>`)
-          + (r.message ? sfSec("Their enquiry", `<p class="sf-read">${esc(r.message)}</p>`) : ""),
+              ${sfPR("In the CRM", `<span id="sf-crm-slot"></span>`)}</dl>`),
           `<span class="sf-say">Billing details are in Invoicing.</span>${sfFootBtn(false, "data-sf-close", "Close")}${sfFootBtn(true, 'data-sf="edit"', "Edit")}`);
-        sfLend("smm-pkg", b.querySelector("#sf-pkg-slot")); renderPackage(r);
+        const slot = b.querySelector("#sf-pkg-slot"); if (slot) { sfLend("smm-pkg", slot); renderPackage(r); }
         sfLend("smm-crm-row", b.querySelector("#sf-crm-slot")); renderCrmRow(r);
       } else if (key === "edit") {
         const plats = Array.isArray(r.platforms) ? r.platforms : [];
@@ -2270,10 +2295,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         sfShell(eye("Notes"), SF_CALLS[kind], f._m ? sfChip("plain", "Last written " + sfShort(f._m.created_at)) : "", "",
           // A recorded call (Danielle, 5 Nov 2026): paste or upload the transcript
           // and Claude fills the notes in below, to check before saving.
-          sfSec("From a recording", `<p class="sf-say sf-note" style="margin:6px 0 8px">Recorded the call instead of taking notes? Paste the transcript, or upload the .vtt or .txt file from Teams, and Claude fills the notes in below for you to check.</p>`
+          `<details class="sf-sec sf-fold"><summary class="sf-sec-h">From a recording</summary><div class="sf-sec-b">` + `<p class="sf-say sf-note" style="margin:6px 0 8px">Recorded the call instead of taking notes? Paste the transcript, or upload the .vtt or .txt file from Teams, and Claude fills the notes in below for you to check.</p>`
             + sfPF("Transcript", `<textarea class="sf-in" id="sfn-transcript" rows="5" placeholder="Paste the transcript here"></textarea>`)
             + sfPF("Or upload", `<input class="sf-file" id="sfn-tfile" type="file" accept=".vtt,.txt,text/plain,text/vtt">`, "A Word (.docx) transcript: open it, copy everything and paste it above.")
-            + `<div class="sf-inline">${sfHb(true, `data-sf="ai-callnotes" data-id="${kind}"`, "Fill in from the transcript")}<span class="sf-say" id="sfn-ai-msg"></span></div>`)
+            + `<div class="sf-inline">${sfHb(true, `data-sf="ai-callnotes" data-id="${kind}"`, "Fill in from the transcript")}<span class="sf-say" id="sfn-ai-msg"></span></div>` + `</div></details>`
           + sfSec("What they want", sfPF("In their words", `<textarea class="sf-in" id="sfn-want" rows="4">${esc(f["what they want"] || "")}</textarea>`)
             + sfPF("Package interest", `<select class="sf-in" id="sfn-pkg">${packageOptions(f["package interest"] || r.package_name)}</select>`)
             + sfPF("Platforms", `<span class="sf-plat">${SF_PLATS.map((pl) => `<label><input type="checkbox" data-sfn-plat="${pl}"${plats.includes(pl) ? " checked" : ""}> ${sfIcon(pl)} ${pl}</label>`).join("")}</span>`)
