@@ -12830,7 +12830,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           sbGetAll(env, "booking_documents", "booking_source=eq.smm&select=booking_id,category,title,file_name,created_at&order=created_at.asc"),
           sbGetAll(env, "smm_stage_events", "select=lead_id,stage,reached_at&order=reached_at.asc"),
           sbGetAll(env, "smm_reports", "select=lead_id,month,year,published_at").then((x) => x || sbGetAll(env, "smm_reports", "select=lead_id,month,year")),
-          sbGetAll(env, "videography_bookings", `smm_lead_id=not.is.null&shoot_date=gte.${new Date().toISOString().slice(0, 10)}&stage=neq.cancelled&select=smm_lead_id,shoot_date,service`),
+          sbGetAll(env, "videography_bookings", "smm_lead_id=not.is.null&stage=neq.cancelled&select=smm_lead_id,shoot_date,service,stage"),
         ]);
         const out = {};
         const L = (id) => (out[id] = out[id] || { last: null, plans: [], notes: {}, prep: null, agreement: null, emails: [], reports: {}, reached: {}, shoots: [] });
@@ -12849,7 +12849,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         }
         for (const e of evs || []) { const o = L(e.lead_id); bump(o, e.reached_at); o.reached[e.stage] = e.reached_at; }
         for (const r of reps || []) { const o = L(r.lead_id); const ym = `${r.year}-${String(Number(r.month) + 1).padStart(2, "0")}`; o.reports[ym] = o.reports[ym] || !!r.published_at; }
-        for (const v of shoots || []) L(v.smm_lead_id).shoots.push({ at: v.shoot_date, service: v.service });
+        for (const v of shoots || []) if (v.shoot_date) L(v.smm_lead_id).shoots.push({ at: v.shoot_date, shoot_date: v.shoot_date, stage: v.stage, service: v.service });
         return json({ ok: true, byLead: out }, 200, request, env);
       }
       // ---- Admin: every social media client's unpaid invoices, for the board ----
