@@ -2263,7 +2263,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         const f = sfCallNotes(F.msgs, kind) || {};
         const plats = Array.isArray(r.platforms) ? r.platforms : [];
         sfShell(eye("Notes"), SF_CALLS[kind], f._m ? sfChip("plain", "Last written " + sfShort(f._m.created_at)) : "", "",
-          sfSec("What they want", sfPF("In their words", `<textarea class="sf-in" id="sfn-want" rows="4">${esc(f["what they want"] || "")}</textarea>`)
+          // A recorded call (Danielle, 5 Nov 2026): paste or upload the transcript
+          // and Claude fills the notes in below, to check before saving.
+          sfSec("From a recording", `<p class="sf-say sf-note" style="margin:6px 0 8px">Recorded the call instead of taking notes? Paste the transcript, or upload the .vtt or .txt file from Teams, and Claude fills the notes in below for you to check.</p>`
+            + sfPF("Transcript", `<textarea class="sf-in" id="sfn-transcript" rows="5" placeholder="Paste the transcript here"></textarea>`)
+            + sfPF("Or upload", `<input class="sf-file" id="sfn-tfile" type="file" accept=".vtt,.txt,text/plain,text/vtt">`, "A Word (.docx) transcript: open it, copy everything and paste it above.")
+            + `<div class="sf-inline">${sfHb(true, `data-sf="ai-callnotes" data-id="${kind}"`, "Fill in from the transcript")}<span class="sf-say" id="sfn-ai-msg"></span></div>`)
+          + sfSec("What they want", sfPF("In their words", `<textarea class="sf-in" id="sfn-want" rows="4">${esc(f["what they want"] || "")}</textarea>`)
             + sfPF("Package interest", `<select class="sf-in" id="sfn-pkg">${packageOptions(f["package interest"] || r.package_name)}</select>`)
             + sfPF("Platforms", `<span class="sf-plat">${SF_PLATS.map((pl) => `<label><input type="checkbox" data-sfn-plat="${pl}"${plats.includes(pl) ? " checked" : ""}> ${sfIcon(pl)} ${pl}</label>`).join("")}</span>`)
             + sfPF("Budget", sfIn("sfn-budget", f.budget || "", "text", "e.g. around £600 a month"))
@@ -2524,6 +2530,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         if (!res.ok) throw new Error(j.error || "Couldn't save the notes.");
         const id = (j.message && j.message.id) || j.id;
         if (id) await fetch(`${WORKER}/booking/message/pin`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id, pinned: true }) }).catch(() => {});
+        // The transcript the notes came from, kept on the file as its own note.
+        const tr = ($("sfn-transcript")?.value || "").trim();
+        if (tr) await fetch(`${WORKER}/booking/message`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, source: "smm", subject: `${SF_CALLS[kind].replace(" notes", "")} transcript`, body: tr.slice(0, 100000) }) }).catch(() => {});
         // What they told us fills in the file too.
         const patch = {};
         if (plats.length) patch.platforms = plats;
@@ -2645,6 +2654,31 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         case "save-callnotes": sfSaveCallNotes(r, id, a); return;
         case "save-proposal": sfSaveProposal(r, a); return;
         case "book-call": sfClosePop(); openMeeting(r); return;
+        case "ai-callnotes": {
+          const msg = (t, bad) => { const el = $("sfn-ai-msg"); if (el) { el.textContent = t; el.style.color = bad ? "#8a3f3f" : ""; } };
+          (async () => {
+            let text = ($("sfn-transcript")?.value || "").trim();
+            const f = $("sfn-tfile")?.files?.[0];
+            if (!text && f) { try { text = (await f.text()).trim(); } catch (_) {} }
+            if (!text) { msg("Paste the transcript or choose the file first.", true); return; }
+            a.disabled = true; msg("Claude is reading it…");
+            try {
+              const token = await authToken();
+              const res = await fetch(`${WORKER}/smm/call-notes/ai`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, kind: id, transcript: text, client: [nameOf(r), r.business].filter(Boolean).join(", "), packages: PACKAGES }) });
+              const j = await res.json().catch(() => ({}));
+              if (!res.ok || !j.notes) throw new Error(j.error || "Claude couldn't read it.");
+              const n = j.notes, put = (el, v) => { const x = $(el); if (x && v) x.value = v; };
+              put("sfn-want", n.what_they_want); put("sfn-budget", n.budget); put("sfn-start", n.wants_to_start); put("sfn-next", n.next_step);
+              if (n.package_interest && $("sfn-pkg") && [...$("sfn-pkg").options].some((o) => o.value === n.package_interest)) $("sfn-pkg").value = n.package_interest;
+              if (Array.isArray(n.platforms) && n.platforms.length) document.querySelectorAll("[data-sfn-plat]").forEach((c) => { c.checked = n.platforms.includes(c.getAttribute("data-sfn-plat")); });
+              const t = $("sfn-transcript"); if (t && !t.value) t.value = text;
+              msg("Filled in below. Check it, then Save notes.");
+              $("sfn-want")?.scrollIntoView({ block: "center", behavior: "smooth" });
+            } catch (e) { msg(e.message, true); }
+            a.disabled = false;
+          })();
+          return;
+        }
         case "save-teams-link": {
           const url = ($("sft-link")?.value || "").trim();
           if (!url) { sfMsg("Paste the Teams link first.", true); return; }

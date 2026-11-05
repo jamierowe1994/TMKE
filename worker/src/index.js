@@ -13607,6 +13607,49 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         return json({ ok: true, invited, join_url: joinUrl || null, teams_failed: teamsFailed }, 200, request, env);
       }
 
+      // ---- Admin: call notes from a recording's transcript ----------------------
+      // Danielle, 5 Nov 2026: a call that was recorded rather than written up.
+      // Claude reads the transcript and fills the call notes in; the person
+      // checks them before they're saved. Nothing is saved here.
+      if (path.endsWith("/smm/call-notes/ai") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const transcript = String(b.transcript || "").trim();
+        if (transcript.length < 40) return json({ error: "Paste the transcript first." }, 400, request, env);
+        if (transcript.length > 200000) return json({ error: "That transcript is too long to read in one go. Paste the part that covers what they want." }, 400, request, env);
+        const kind = b.kind === "pricing" ? "pricing call" : b.kind === "discovery" ? "discovery call" : "call";
+        const packages = (Array.isArray(b.packages) ? b.packages : []).map((x) => String(x)).filter(Boolean).slice(0, 12);
+        const PLATS = ["Instagram", "Facebook", "LinkedIn", "YouTube", "TikTok"];
+        const schema = { type: "object", additionalProperties: false, required: ["what_they_want", "package_interest", "platforms", "budget", "wants_to_start", "next_step"], properties: {
+          what_they_want: { type: "string" }, package_interest: { type: "string" },
+          platforms: { type: "array", items: { type: "string", enum: PLATS } },
+          budget: { type: "string" }, wants_to_start: { type: "string" }, next_step: { type: "string" } } };
+        const prompt = `This is the transcript of a ${kind} between The Marketing Experts (TMKE), a social media agency for estate and letting agents, and a prospective client${b.client ? ` (${String(b.client).slice(0, 120)})` : ""}. Fill in our call notes from it.
+
+Rules:
+- Only what was actually said in the call. If something wasn't covered, give an empty string (or an empty list), never a guess.
+- British English, plain and short. Write as notes for our team, not as a summary of the conversation.
+- what_they_want: what they're after and why now, in two to four sentences.
+- package_interest: one of ${packages.length ? packages.map((x) => `"${x}"`).join(", ") : "our packages"} if they leaned towards one, otherwise "".
+- platforms: the social platforms they want us to run.
+- budget: what they said about money, with their figures, e.g. "Around £600 a month".
+- wants_to_start: when they want to start, as they said it.
+- next_step: what was agreed would happen next, and who does it.
+
+Transcript:
+${transcript}`;
+        let aiRes;
+        try { aiRes = await aiFetch(env, "admin", { max_tokens: 8000, output_config: { format: { type: "json_schema", schema } }, messages: [{ role: "user", content: prompt }] }); }
+        catch (e) { return json({ error: "Couldn't reach Claude." }, 502, request, env); }
+        const out = await aiRes.json().catch(() => null);
+        if (!aiRes.ok || !out) return json({ error: aiFailMessage(aiRes.status, out && out.error && out.error.message) }, 502, request, env);
+        const text = (out.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+        let notes = null; try { notes = JSON.parse(text); } catch (_) {}
+        if (!notes) return json({ error: "Claude's notes couldn't be read. Try again." }, 502, request, env);
+        return json({ ok: true, notes }, 200, request, env);
+      }
+
       // ---- Admin: add the Teams link to a booked call -------------------------
       // The manager makes the link in their own Teams and pastes it on the file;
       // the Outlook meeting is updated, so everyone invited gets it (Danielle,
