@@ -13525,13 +13525,14 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const autoTeams = !!env.SMM_MEETING_UPN;
         // What the invite says (Danielle, 5 Nov 2026; wording by the copywriter):
         // which call it is, how we'll meet, how to move it.
-        const callKind = ["discovery", "pricing"].includes(b.call) ? b.call : "meeting";
+        const callKind = ["discovery", "pricing", "onboarding"].includes(b.call) ? b.call : "meeting";
         const inviteBody = (() => {
           const e = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
           const mins = parseInt(b.duration || "30", 10);
           const what = {
             discovery: `Thanks for booking a call with us.</p><p>We'll spend ${mins} minutes getting to know your business, what you're looking to achieve with your social media and where we might be able to help. It's also a chance for us both to see whether we're the right fit.`,
             pricing: `Thanks for taking the time to read through our proposal. Over ${mins} minutes, we'll talk you through the package, the price and the onboarding fee, and answer any questions you have. We'll also talk about when you'd like to start.`,
+            onboarding: `Welcome to The Marketing Experts. Over ${mins} minutes, we'll go through how we'll work together: access to your accounts, your brand, who we'll be speaking to and what happens in your first month.`,
             meeting: `We're looking forward to speaking with you. We've set aside ${mins} minutes, and if there's anything you'd like us to cover, reply to this invite and let us know.`,
           }[callKind];
           const meet = how === "teams" ? (autoTeams ? "We'll meet on Microsoft Teams. You'll find the joining details in this invite, but if you have any trouble accessing them, just let us know." : `<span data-teams-line>We'll meet on Microsoft Teams. We'll update this invite with your joining link before the call.</span>`)
@@ -13539,7 +13540,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             : `We'll see you at ${e(where || "the place we agreed")}.`;
           return [`Hi ${e(lead.first_name || "there")},`, what, meet, "If you need to rearrange, simply reply to this invite or email us at hello@tmke.co.uk.", "Speak soon,", "The Team at The Marketing Experts"].map((x) => `<p>${x}</p>`).join("");
         })();
-        const callTitle = { discovery: "Discovery call", pricing: "Pricing call", meeting: "Meeting" }[callKind];
+        const callTitle = { discovery: "Discovery call", pricing: "Pricing call", onboarding: "Onboarding call", meeting: "Meeting" }[callKind];
         // Advance to Meeting set only when asked (a booking for a later-stage
         // client just records the meeting without moving them back).
         const meetingPatch = { meeting_at: meetingAt };
@@ -16029,7 +16030,7 @@ async function sendGalleryPinEmail(env, bookingId) {
         const q = url.searchParams;
         const bookingId = (q.get("booking_id") || "").trim();
         const source = q.get("source") === "smm" ? "smm" : "videography";
-        const category = ["agreement", "prep", "strategy", "invoice", "delivery", "content_plan", "insights_report", "other"].includes(q.get("category")) ? q.get("category") : "other";
+        const category = ["agreement", "prep", "strategy", "brand", "invoice", "delivery", "content_plan", "insights_report", "other"].includes(q.get("category")) ? q.get("category") : "other";
         const fileName = (q.get("file_name") || "document").replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
         const title = q.get("title") || null;
         const invoiceDate = /^\d{4}-\d{2}-\d{2}$/.test(q.get("invoice_date") || "") ? q.get("invoice_date") : null;

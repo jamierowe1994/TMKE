@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/booking_document_brand.sql — brand assets for social media clients: several files uploaded from Onboarding, kept as one Brand assets folder in Paperwork (5 Nov)
 
 ## Done
 
