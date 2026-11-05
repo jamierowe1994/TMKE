@@ -35,6 +35,7 @@ const mgmtPackages = (management && management.packages) || [];
           <div class="smm-cog-menu" id="smm-cog-menu" hidden>
             <button type="button" data-go="pipeline">Contacts</button>
             <button type="button" data-go="rates">Packages &amp; pricing</button>
+            <button type="button" data-go="calc">Package calculator</button>
             <button type="button" data-go="status">Client status</button>
             <button type="button" data-go="invoices">Monthly invoices</button>
             <button type="button" data-go="mgmt" id="smm-cog-mgmt" hidden>Monthly management report</button>
@@ -202,6 +203,102 @@ const mgmtPackages = (management && management.packages) || [];
           <strong>{sv.name}</strong> is one service at one price for now. It splits into {sv.futurePackages.join(", ")} once those are packaged and priced.
         </p>
       ))}
+
+      <!-- The figures the package calculator prices from (Dani, 5 Nov): saved in
+           smm_pricing_settings, edited here by management, read by the calculator. -->
+      <h3 class="smm-rate-sub" id="pf">Calculator figures</h3>
+      <p class="smm-rate-note" id="pf-state">Loading…</p>
+      <div class="pf" id="pf-box"></div>
+      <div class="pf-foot" id="pf-foot" hidden>
+        <span class="pf-status" id="pf-status"></span>
+        <button type="button" class="admin-btn" id="pf-undo">Undo changes</button>
+        <button type="button" class="admin-btn admin-btn-primary" id="pf-save">Save figures</button>
+      </div>
+    </section>
+
+    <!-- ===================== PACKAGE CALCULATOR (Dani, 5 Nov 2026) ===================== -->
+    <!-- What they want against what they want to spend, priced both ways round
+         from the Calculator figures on Packages & pricing (src/lib/smm-calc.js). -->
+    <section class="smm-panel wrap" data-panel="calc" hidden>
+      <div class="smm-pagehead">
+        <div>
+          <h2 class="smm-panel-title">Package calculator</h2>
+          <p class="smm-panel-sub">Put in what they want and what they want to spend. It prices it both ways round, then suggests the plan that fits both best. The hours and rates come from the calculator figures on Packages &amp; pricing.</p>
+        </div>
+      </div>
+      <p class="pc-flag" id="pc-flag" hidden></p>
+      <div class="pc">
+        <div class="pc-col">
+          <section class="pc-box">
+            <div class="pc-strip">Who they are</div>
+            <div class="pc-body">
+              <div class="pc-row"><div class="pc-lab">Price list</div>
+                <div class="pc-seg" id="pc-buyer"><button type="button" data-v="teg">TEG brand</button><button type="button" data-v="standard">External agency</button></div>
+              </div>
+            </div>
+          </section>
+          <section class="pc-box">
+            <div class="pc-strip">What they want</div>
+            <div class="pc-body">
+              <div class="pc-row"><div class="pc-lab">Videos</div>
+                <div class="pc-seg" id="pc-maker"><button type="button" data-v="us">We film them</button><button type="button" data-v="own">They send their own</button></div>
+                <div class="pc-hint" id="pc-maker-hint"></div>
+              </div>
+              <div class="pc-row"><div class="pc-lab">Reels a week</div><div class="pc-seg" id="pc-v"></div></div>
+              <div class="pc-row"><div class="pc-lab">Carousels a week</div><div class="pc-seg" id="pc-c"></div></div>
+              <div class="pc-row"><div class="pc-lab">Statics a week</div><div class="pc-seg" id="pc-s"></div></div>
+              <div class="pc-row"><div class="pc-lab">Platforms</div><div class="pc-chips" id="pc-plats"></div><div class="pc-hint">Reporting takes longer with each platform.</div></div>
+              <div class="pc-row"><div class="pc-lab">Sharing to Stories and 5 groups</div>
+                <div class="pc-seg" id="pc-stories"><button type="button" data-v="0">No</button><button type="button" data-v="1">Yes</button></div>
+              </div>
+              <div class="pc-row" id="pc-comments-row" hidden><div class="pc-lab">Replying to comments and messages</div>
+                <div class="pc-seg" id="pc-comments"><button type="button" data-v="0">No</button><button type="button" data-v="1">Yes</button></div>
+              </div>
+              <div class="pc-row"><div class="pc-lab">Monthly property pack</div>
+                <div class="pc-seg" id="pc-pack"><button type="button" data-v="0">None</button><button type="button" data-v="4">4 posts</button><button type="button" data-v="8">8 posts</button><button type="button" data-v="12">12 posts</button></div>
+                <div class="pc-hint" id="pc-pack-hint"></div>
+              </div>
+            </div>
+          </section>
+          <section class="pc-box">
+            <div class="pc-strip">What they want to spend</div>
+            <div class="pc-body">
+              <div class="pc-row"><div class="pc-lab">A month, before VAT</div>
+                <div class="pc-money"><label class="pc-in"><span>£</span><input type="number" id="pc-budget" min="0" step="5" aria-label="Monthly budget in pounds"></label><input type="range" id="pc-budget-r" min="100" max="2500" step="5" aria-label="Monthly budget"></div>
+                <div class="pc-hint">Onboarding is charged once, on top.</div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="pc-col">
+          <section class="pc-box">
+            <div class="pc-strip">The two ways round</div>
+            <div class="pc-body">
+              <div class="pc-ways">
+                <div class="pc-way"><div class="pc-lab">Everything they asked for</div><div class="pc-big" id="pc-w1"></div><span class="pc-tag" id="pc-w1-tag"></span><ul id="pc-w1-list"></ul></div>
+                <div class="pc-way"><div class="pc-lab">What their budget buys</div><div class="pc-big" id="pc-w2"></div><span class="pc-tag" id="pc-w2-tag"></span><ul id="pc-w2-list"></ul></div>
+              </div>
+              <div class="pc-best"><div class="pc-lab">Best fit</div><div class="pc-name" id="pc-best"></div><p id="pc-why"></p><p class="pc-alt" id="pc-alt"></p></div>
+            </div>
+          </section>
+          <section class="pc-box">
+            <div class="pc-strip"><span id="pc-pk-title">Against the packages</span></div>
+            <div class="pc-table"><table>
+              <thead><tr><th>Package</th><th>Posts a week</th><th class="pc-num" id="pc-pk-sheet-h">On the sheet</th><th class="pc-num">From the figures</th><th class="pc-num">With their extras</th><th>Against their budget</th></tr></thead>
+              <tbody id="pc-pk"></tbody>
+            </table></div>
+          </section>
+          <section class="pc-box">
+            <div class="pc-strip">How it's worked out</div>
+            <div class="pc-table"><table><tbody id="pc-work"></tbody></table></div>
+          </section>
+          <section class="pc-box">
+            <div class="pc-strip">For the proposal</div>
+            <div class="pc-body"><div class="pc-prop" id="pc-prop"></div></div>
+            <div class="pc-foot"><span class="pf-status" id="pc-copied"></span><button type="button" class="admin-btn" id="pc-copy">Copy the wording</button></div>
+          </section>
+        </div>
+      </div>
     </section>
 
     <!-- ===================== MONTHLY REPORT (management) ===================== -->
@@ -395,6 +492,72 @@ const mgmtPackages = (management && management.packages) || [];
     .smm-rate-hours { display: block; font-size: 11.5px; color: rgba(28,29,34,0.5); margin-top: 3px; }
     .smm-rate-unit { font-size: 11.5px; color: rgba(28,29,34,0.5); }
     .smm-rate-note { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.6); margin: 12px 0 0; max-width: 88ch; }
+
+    /* ---- Calculator figures + Package calculator (Dani, 5 Nov) ---- */
+    .pf { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
+    .pf-card, .pc-box { border: 1px solid #eae5e1; border-radius: 4px; background: #fff; overflow: hidden; }
+    .pf-card h4, .pc-strip { margin: 0; background: #371e28; color: #fff; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 9px 14px; display: flex; align-items: center; gap: 10px; }
+    .pf-card table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 14px; font-variant-numeric: tabular-nums; }
+    .pf-card th, .pf-card td { padding: 7px 14px; border-bottom: 1px solid #eae5e1; text-align: left; font-weight: 400; color: #2b2226; vertical-align: middle; }
+    .pf-card thead th { color: #7e6765; }
+    .pf-card tbody tr:last-child td { border-bottom: 0; }
+    .pf-card td.pf-in { width: 96px; text-align: right; }
+    .pf-card input[type=number] { width: 84px; height: 30px; border: 1px solid #c9bcb7; border-radius: 4px; padding: 0 8px; text-align: right; font-family: var(--sans); font-size: 14px; color: #2b2226; background: #fff; font-variant-numeric: tabular-nums; }
+    .pf-card input[type=number]:focus { outline: none; border-color: #371e28; }
+    .pf-card input[disabled] { background: #f7f4f2; color: #7e6765; }
+    .pf-card .pf-sub { display: block; color: #9a8884; }
+    .pf-card select { height: 30px; border: 1px solid #c9bcb7; border-radius: 4px; font-family: var(--sans); font-size: 14px; background: #fff; color: #2b2226; }
+    .pf-foot, .pc-foot { display: flex; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 12px; }
+    .pc-foot { margin: 0; padding: 10px 14px; border-top: 1px solid #eae5e1; background: #f7f4f2; }
+    .pf-status { margin-right: auto; font-family: var(--sans); font-size: 14px; color: #7e6765; }
+    .pf-status.is-bad { color: #8a3f3f; }
+    .pf-status.is-ok { color: #3f7a56; }
+    .pc-flag { font-family: var(--sans); font-size: 14px; color: #371e28; background: #eae5e1; border-radius: 4px; padding: 10px 14px; margin: 0 0 14px; }
+    .pc { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 14px; align-items: start; font-family: var(--sans); font-size: 14px; color: #2b2226; }
+    @media (max-width: 900px) { .pc { grid-template-columns: 1fr; } }
+    .pc-col { display: grid; gap: 14px; }
+    .pc-body { padding: 14px; display: grid; gap: 16px; }
+    .pc-row { display: grid; gap: 7px; }
+    .pc-row[hidden] { display: none; }
+    .pc-lab { color: #7e6765; }
+    .pc-hint { color: #9a8884; }
+    .pc-seg { display: flex; flex-wrap: wrap; border: 1px solid #c9bcb7; border-radius: 4px; overflow: hidden; width: max-content; max-width: 100%; }
+    .pc-seg button { font-family: var(--sans); font-size: 14px; border: 0; border-right: 1px solid #c9bcb7; background: #fff; color: #2b2226; height: 32px; min-width: 38px; padding: 0 12px; cursor: pointer; }
+    .pc-seg button:last-child { border-right: 0; }
+    .pc-seg button:hover { background: #eae5e1; }
+    .pc-seg button[aria-pressed="true"] { background: #371e28; color: #fff; }
+    .pc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pc-chips button { font-family: var(--sans); font-size: 14px; height: 32px; padding: 0 12px; border-radius: 4px; border: 1px solid #c9bcb7; background: #fff; color: #2b2226; cursor: pointer; }
+    .pc-chips button[aria-pressed="true"] { border-color: #371e28; background: #371e28; color: #fff; }
+    .pc-money { display: flex; align-items: center; gap: 10px; }
+    .pc-in { display: flex; align-items: center; border: 1px solid #c9bcb7; border-radius: 4px; height: 34px; padding: 0 10px; width: 130px; background: #fff; color: #7e6765; }
+    .pc-in input { border: 0; outline: 0; width: 100%; padding: 0 4px; font-family: var(--sans); font-size: 14px; color: #2b2226; background: transparent; font-variant-numeric: tabular-nums; }
+    .pc-money input[type=range] { flex: 1; min-width: 0; accent-color: #371e28; }
+    .pc-ways { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 560px) { .pc-ways { grid-template-columns: 1fr; } }
+    .pc-way { display: grid; gap: 6px; align-content: start; }
+    .pc-way ul { margin: 2px 0 0; padding: 0 0 0 16px; display: grid; gap: 2px; }
+    .pc-way li.is-off { color: #9a8884; text-decoration: line-through; }
+    .pc-big { font-family: var(--serif); font-weight: 300; font-size: 32px; line-height: 1.1; color: #371e28; font-variant-numeric: lining-nums tabular-nums; }
+    .pc-big small { font-family: var(--sans); font-size: 14px; color: #7e6765; }
+    .pc-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; width: max-content; }
+    .pc-tag.is-ok { background: #edf4ef; color: #3f7a56; }
+    .pc-tag.is-over { background: #f9f0f0; color: #8a3f3f; }
+    .pc-tag.is-near { background: #eae5e1; color: #371e28; }
+    .pc-best { border-top: 1px solid #eae5e1; padding-top: 14px; display: grid; gap: 6px; }
+    .pc-best p { margin: 0; max-width: 64ch; }
+    .pc-alt { color: #7e6765; }
+    .pc-name { font-family: var(--serif); font-weight: 300; font-size: 22px; color: #371e28; }
+    .pc-table { overflow-x: auto; }
+    .pc-table table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    .pc-table th, .pc-table td { text-align: left; padding: 9px 14px; border-bottom: 1px solid #eae5e1; font-weight: 400; white-space: nowrap; }
+    .pc-table thead th { color: #7e6765; border-bottom-color: #c9bcb7; }
+    .pc-table tbody tr:last-child td { border-bottom: 0; }
+    .pc-table .pc-num { text-align: right; }
+    .pc-table tr.is-pick td { background: #f7f4f2; }
+    .pc-table tr.is-pick td:first-child { box-shadow: inset 3px 0 0 #371e28; }
+    .pc-table tr.is-total td { border-top: 1px solid #c9bcb7; }
+    .pc-prop { white-space: pre-wrap; border: 1px solid #eae5e1; border-radius: 4px; background: #f7f4f2; padding: 12px 14px; max-height: 260px; overflow: auto; }
 
     .smm-bar { display: flex; flex-direction: column; gap: 12px; max-width: 1360px; margin: 0 auto; padding: 34px 36px 20px; }
     .smm-bar-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
@@ -1397,6 +1560,7 @@ const mgmtPackages = (management && management.packages) || [];
     import { TEG_BRANDS, TEG_ACCOUNTS_EMAIL, VIDEO_INVOICE_ROUTES } from "../../lib/videography-config.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { SOCIAL_SERVICES as PKG_SERVICES } from "../../lib/smm-config.js";
+    import { mergeFigures, priceOf, fitBudget, score, sell, PLANNING_STEPS, PLATFORM_STEPS, POST_TYPES, PLATFORMS as PC_PLATFORMS, MGMT_PACKAGES, SAS_PACKAGES } from "../../lib/smm-calc.js";
     import { listVideoNotes, addVideoNote, setVideoNoteDone, deleteVideoNote, noteAuthor, VIDEO_NOTES_MISSING } from "../../lib/video-notes.js";
 
     const STAGES = [
@@ -5753,6 +5917,7 @@ const mgmtPackages = (management && management.packages) || [];
           closeCog();
           if (want === "status") loadClientStatus();
           if (want === "invoices") loadMonthlyInvoices();
+          if (want === "rates" || want === "calc") loadPricing();
           window.scrollTo({ top: 0, behavior: "smooth" });
         });
         // A link straight to a Settings page (Abbie's email: ?go=invoices).
@@ -5775,5 +5940,296 @@ const mgmtPackages = (management && management.packages) || [];
         if (!$("smm-file").hidden) closeFile();
       });
     })();
+
+    /* ===================== Calculator figures + Package calculator (Dani, 5 Nov 2026) =====================
+       The figures live in smm_pricing_settings (one row). Management edit them on
+       Packages & pricing; unsaved edits are kept in this browser until saved, and
+       "Saved" shows only once the database hands the same figures back. The
+       calculator prices from the saved figures (src/lib/smm-calc.js). `var`, not
+       let: a ?go= link can open these panels before this part of the script runs. */
+    var PF = mergeFigures(null), pfRow = null, pfState = "loading", pfErr = "", pfDraft = null, pfLoading = null;
+    var PF_DRAFT_KEY = "tmke-smm-pricing-draft";
+    var pcS = { buyer: "standard", maker: "own", v: 2, c: 1, s: 1, platforms: ["Instagram", "Facebook"], stories: false, comments: false, pack: 0, budget: 500 };
+    var pcWired = false;
+    function pcEl(id) { return document.getElementById(id); }
+    function pcGbp(n) { return "£" + Math.round(n).toLocaleString("en-GB"); }
+
+    function loadPricing(force) {
+      if (pfLoading && !force) return pfLoading;
+      pfLoading = (async () => {
+        const { data, error } = await supabase.from("smm_pricing_settings").select("figures, updated_at, updated_by").eq("id", 1).maybeSingle();
+        if (error) {
+          pfState = /does not exist|schema cache|relation/i.test(error.message || "") ? "missing" : "error";
+          pfErr = error.message || "";
+          pfRow = null; PF = mergeFigures(null);
+        } else {
+          pfRow = data || null; pfState = data ? "saved" : "unsaved";
+          PF = mergeFigures(data && data.figures);
+        }
+        try { const d = localStorage.getItem(PF_DRAFT_KEY); pfDraft = d ? mergeFigures(JSON.parse(d)) : null; } catch (_) { pfDraft = null; }
+        drawFigures(); drawCalc();
+      })();
+      return pfLoading;
+    }
+
+    function pfStateText() {
+      if (pfState === "missing") return "These figures can't be saved yet: run supabase/smm_pricing_settings.sql in Supabase. Until then the calculator uses the starting figures from 5 November.";
+      if (pfState === "error") return "Couldn't load the saved figures (" + pfErr + "). The calculator is using the starting figures from 5 November.";
+      if (pfState === "unsaved") return "These are the starting figures from 5 November. They haven't been saved yet, so press Save figures once they're right.";
+      if (pfState === "saved" && pfRow) {
+        const when = pfRow.updated_at ? new Date(pfRow.updated_at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+        return "The calculator prices from these. Last saved " + when + (pfRow.updated_by ? " by " + pfRow.updated_by : "") + ".";
+      }
+      return "Loading…";
+    }
+
+    function drawFigures() {
+      const box = pcEl("pf-box"); if (!box) return;
+      pcEl("pf-state").textContent = pfStateText();
+      const F = pfDraft || PF;
+      CAN_MONEY.then((can) => {
+        const dis = can && pfState !== "missing" ? "" : " disabled";
+        const inp = (path, val, step) => `<input type="number" min="0" step="${step || 0.5}" data-pf="${path}" value="${esc(val)}"${dis}>`;
+        const card = (title, head, rows) => `<div class="pf-card"><h4>${title}</h4><table>${head ? `<thead><tr>${head}</tr></thead>` : ""}<tbody>${rows}</tbody></table></div>`;
+        const planning = PLANNING_STEPS.map((n) => `<tr><td>${n} posts a month<span class="pf-sub">${n / 4} a week</span></td><td class="pf-in">${inp("planning." + n, F.planning[n])}</td></tr>`).join("");
+        const creation = POST_TYPES.map((t) => `<tr><td>${esc(t.label)}${t.note ? `<span class="pf-sub">${esc(t.note)}</span>` : ""}</td><td class="pf-in">${inp("creation." + t.key + ".create", F.creation[t.key].create, 5)}</td><td class="pf-in">${inp("creation." + t.key + ".caption", F.creation[t.key].caption, 5)}</td></tr>`).join("");
+        const reporting = PLATFORM_STEPS.map((n) => `<tr><td>${n} ${n === 1 ? "platform" : "platforms"}</td><td class="pf-in">${inp("reporting." + n, F.reporting[n])}</td></tr>`).join("");
+        const other = [
+          ["strategy_hours_quarter", "Strategy meeting, hours a quarter", F.strategy_hours_quarter, 0.25],
+          ["amends_hours_month", "Amends, hours a month", F.amends_hours_month, 0.25, "One request built in"],
+          ["stories_minutes_per_post", "Stories and groups, minutes a post", F.stories_minutes_per_post, 5, "Its own add-on"],
+          ["comments.minutes_per_post", "Comments and messages, minutes a post", F.comments.minutes_per_post, 5, "Its own section"],
+        ].map((r) => `<tr><td>${r[1]}${r[4] ? `<span class="pf-sub">${r[4]}</span>` : ""}</td><td class="pf-in">${inp(r[0], r[2], r[3])}</td></tr>`).join("")
+          + `<tr><td>Offer comments and messages<span class="pf-sub">Shows it in the calculator</span></td><td class="pf-in"><select data-pf="comments.offered"${dis}><option value="no"${F.comments.offered ? "" : " selected"}>Not yet</option><option value="yes"${F.comments.offered ? " selected" : ""}>Yes</option></select></td></tr>`;
+        const money = [
+          ["rates.content", "Content creation, £ an hour", F.rates.content, 1, "Creating posts"],
+          ["rates.management", "Social media management, £ an hour", F.rates.management, 1, "Everything else"],
+          ["software.upto8", "Software, £ a month, up to 8 posts", F.software.upto8, 1],
+          ["software.upto16", "Software, £ a month, 12 or 16 posts", F.software.upto16, 1],
+          ["software.more", "Software, £ a month, 20 or more posts", F.software.more, 1],
+          ["pack_per_4", "Property pack, £ for every 4 posts", F.pack_per_4, 5],
+          ["margins.teg_markup", "TEG brand, % added to cost", F.margins.teg_markup, 1],
+          ["margins.external_margin", "External agency, % of the price that's margin", F.margins.external_margin, 1],
+        ].map((r) => `<tr><td>${r[1]}${r[4] ? `<span class="pf-sub">${r[4]}</span>` : ""}</td><td class="pf-in">${inp(r[0], r[2], r[3])}</td></tr>`).join("");
+        box.innerHTML =
+          card("1. Planning", "<th>Posts</th><th class=\"pf-in\">Hours a month</th>", planning)
+          + card("2. Creation", "<th>Post</th><th class=\"pf-in\">Create, min</th><th class=\"pf-in\">Caption and schedule, min</th>", creation)
+          + card("3. Reporting", "<th>Platforms</th><th class=\"pf-in\">Hours a month</th>", reporting)
+          + card("Other time", "", other)
+          + card("Rates, software and margins", "", money);
+        pcEl("pf-foot").hidden = !(can && pfState !== "missing");
+        pfMarkDirty();
+      });
+    }
+
+    function pfSet(obj, path, val) { const k = path.split("."); let o = obj; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = val; }
+    function pfMarkDirty() {
+      const st = pcEl("pf-status"); if (!st) return;
+      st.className = "pf-status"; st.textContent = pfDraft ? "Not saved yet. These changes are kept in this browser until you save." : "";
+    }
+
+    async function pfSave() {
+      const btn = pcEl("pf-save"), st = pcEl("pf-status");
+      const figures = pfDraft || PF;
+      btn.disabled = true; btn.textContent = "Saving…";
+      const { error } = await supabase.from("smm_pricing_settings").upsert({ id: 1, figures, updated_by: sfMyName() || ME || null }, { onConflict: "id" });
+      let back = null, err2 = null;
+      if (!error) { const r = await supabase.from("smm_pricing_settings").select("figures, updated_at, updated_by").eq("id", 1).maybeSingle(); back = r.data; err2 = r.error; }
+      btn.disabled = false; btn.textContent = "Save figures";
+      const same = back && JSON.stringify(mergeFigures(back.figures)) === JSON.stringify(mergeFigures(figures));
+      if (error || err2 || !same) {
+        st.className = "pf-status is-bad";
+        st.textContent = "Couldn't save: " + ((error || err2 || {}).message || "the saved figures didn't come back the same") + ". Your changes are still here.";
+        return;
+      }
+      pfRow = back; pfState = "saved"; PF = mergeFigures(back.figures); pfDraft = null;
+      try { localStorage.removeItem(PF_DRAFT_KEY); } catch (_) {}
+      pcEl("pf-state").textContent = pfStateText();
+      st.className = "pf-status is-ok"; st.textContent = "Saved.";
+      drawCalc();
+    }
+
+    /* ---- the calculator ---- */
+    function pcItems(w) {
+      const a = [];
+      const parts = [];
+      if (w.v) parts.push(w.v + (w.v === 1 ? " reel" : " reels"));
+      if (w.c) parts.push(w.c + (w.c === 1 ? " carousel" : " carousels"));
+      if (w.s) parts.push(w.s + (w.s === 1 ? " static" : " statics"));
+      if (parts.length) a.push(pcList(parts) + " a week" + (w.v ? (w.maker === "us" ? ", filmed by us" : ", from their footage") : ""));
+      if (parts.length) a.push(pcList(w.platforms));
+      if (w.stories) a.push("Shared to Stories and 5 groups");
+      if (w.comments) a.push("Replies to comments and messages");
+      if (w.pack) a.push("A property pack of " + w.pack + " posts a month");
+      return a;
+    }
+    function pcList(a) { return a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]; }
+    function pcDropped(W, w) {
+      const out = [], n = (k, one, many) => k + " " + (k === 1 ? one : many);
+      if (w.v < W.v) out.push(n(W.v - w.v, "reel", "reels") + " a week");
+      if (w.c < W.c) out.push(n(W.c - w.c, "carousel", "carousels") + " a week");
+      if (w.s < W.s) out.push(n(W.s - w.s, "static", "statics") + " a week");
+      W.platforms.forEach((p) => { if (!w.platforms.includes(p)) out.push(p); });
+      if (W.stories && !w.stories) out.push("Stories and groups");
+      if (W.comments && !w.comments) out.push("Comments and messages");
+      if (w.pack < W.pack) out.push((W.pack - w.pack) + " property pack posts");
+      return out;
+    }
+    function pcWant() {
+      return { maker: pcS.maker, v: pcS.v, c: pcS.c, s: pcS.s, platforms: pcS.platforms.slice(), stories: pcS.stories, comments: PF.comments.offered && pcS.comments, pack: pcS.pack };
+    }
+
+    function drawCalc() {
+      if (!pcEl("pc-w1")) return;
+      wireCalc();
+      const F = PF, B = pcS.buyer, W = pcWant();
+      const flag = pcEl("pc-flag");
+      flag.hidden = pfState === "saved";
+      flag.textContent = pfState === "saved" ? "" : pfStateText();
+      pcEl("pc-comments-row").hidden = !F.comments.offered;
+      pcEl("pc-maker-hint").textContent = pcS.maker === "us"
+        ? "Filmed reels are priced from Shot and Scheduled, which includes a shoot each quarter."
+        : "We make a cover for each reel, then caption and schedule it.";
+      pcEl("pc-pack-hint").textContent = "Standard statics for their listings, the same property or different ones. " + pcGbp(F.pack_per_4) + " for every 4.";
+      // Buttons show the state
+      [["pc-buyer", pcS.buyer], ["pc-maker", pcS.maker], ["pc-v", pcS.v], ["pc-c", pcS.c], ["pc-s", pcS.s], ["pc-stories", pcS.stories ? 1 : 0], ["pc-comments", pcS.comments ? 1 : 0], ["pc-pack", pcS.pack]]
+        .forEach(([id, v]) => pcEl(id).querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v) === String(v) ? "true" : "false")));
+      pcEl("pc-plats").innerHTML = PC_PLATFORMS.map((p) => `<button type="button" data-plat="${esc(p)}" aria-pressed="${pcS.platforms.includes(p)}">${esc(p)}</button>`).join("");
+      if (document.activeElement !== pcEl("pc-budget")) pcEl("pc-budget").value = pcS.budget;
+      pcEl("pc-budget-r").value = Math.min(2500, Math.max(100, pcS.budget));
+
+      const full = priceOf(W, B, F);
+      pcEl("pc-w1").innerHTML = pcGbp(full.price) + " <small>a month</small>";
+      const t1 = pcEl("pc-w1-tag");
+      if (full.price <= pcS.budget) { t1.className = "pc-tag is-ok"; t1.textContent = full.price === pcS.budget ? "On budget" : pcGbp(pcS.budget - full.price) + " under budget"; }
+      else { t1.className = "pc-tag is-over"; t1.textContent = pcGbp(full.price - pcS.budget) + " over budget"; }
+      pcEl("pc-w1-list").innerHTML = pcItems(W).map((t) => `<li>${esc(t)}</li>`).join("");
+
+      const fit = fitBudget(W, pcS.budget, B, F), t2 = pcEl("pc-w2-tag");
+      if (fit) {
+        const gone = pcDropped(W, fit.w);
+        pcEl("pc-w2").innerHTML = pcGbp(fit.price) + " <small>a month</small>";
+        t2.className = gone.length ? "pc-tag is-near" : "pc-tag is-ok";
+        t2.textContent = gone.length ? "Within " + pcGbp(pcS.budget) : "Everything they asked for";
+        pcEl("pc-w2-list").innerHTML = pcItems(fit.w).map((t) => `<li>${esc(t)}</li>`).join("") + gone.map((t) => `<li class="is-off">${esc(t)}</li>`).join("");
+      } else {
+        pcEl("pc-w2").textContent = "—"; t2.className = "pc-tag is-over"; t2.textContent = "Below the smallest plan"; pcEl("pc-w2-list").innerHTML = "";
+      }
+
+      // The packages, worked out from the same figures, plus their extras.
+      const us = pcS.maker === "us";
+      const fam = us ? SAS_PACKAGES.map((p) => ({ name: p.name, v: p.v, c: 0, s: 0, sheet: p.price[B] }))
+                     : MGMT_PACKAGES.map((p) => ({ name: p.name, v: p.v, c: p.c, s: p.s, sheet: p.sheet[B] }));
+      const pk = fam.map((p) => {
+        const bare = { maker: pcS.maker, v: p.v, c: p.c, s: p.s, platforms: ["Instagram", "Facebook"].concat(us ? ["TikTok"] : []), stories: false, comments: false, pack: 0 };
+        const withX = Object.assign({}, W, { v: p.v, c: p.c, s: p.s });
+        const cov = Object.assign({}, W, { v: Math.min(p.v, W.v), c: Math.min(p.c, W.c), s: Math.min(p.s, W.s) });
+        return { name: p.name, p, sheet: p.sheet, worked: priceOf(bare, B, F).price, withX: priceOf(withX, B, F).price, score: score(cov), w: withX };
+      });
+      pcEl("pc-pk-title").textContent = us ? "Against Shot and Scheduled" : "Against Social Media Management";
+
+      const cands = pk.map((p) => ({ kind: "pkg", name: p.name, price: p.withX, score: p.score, w: p.w }));
+      cands.push({ kind: "full", name: "Made to measure", price: full.price, score: score(W), w: W });
+      if (fit) cands.push({ kind: "fit", name: "Made to measure", price: fit.price, score: fit.score, w: fit.w });
+      let pick = null;
+      cands.filter((c) => c.price <= pcS.budget).forEach((c) => {
+        if (!pick || c.score > pick.score + 1e-9) { pick = c; return; }
+        if (Math.abs(c.score - pick.score) < 1e-9) {
+          if (c.kind === "pkg" && pick.kind !== "pkg" && c.price <= pick.price + 25) pick = c;
+          else if (c.kind === pick.kind && c.price < pick.price) pick = c;
+          else if (pick.kind === "pkg" && c.kind !== "pkg" && c.price + 25 < pick.price) pick = c;
+        }
+      });
+      const fullScore = score(W);
+      const under = (p) => (pcS.budget === p ? "exactly their budget" : pcGbp(pcS.budget - p) + " under their budget");
+      let name = "Nothing fits yet", why = "", alt = "";
+      if (!pick) {
+        why = "Nothing we offer comes in at " + pcGbp(pcS.budget) + " a month.";
+      } else {
+        const xs = [];
+        if (pick.kind === "pkg") {
+          W.platforms.filter((p) => !["Instagram", "Facebook"].concat(us ? ["TikTok"] : []).includes(p)).forEach((p) => xs.push(p));
+          if (W.stories) xs.push("Stories and groups");
+          if (W.comments) xs.push("comments and messages");
+          if (W.pack) xs.push("a " + W.pack + "-post property pack");
+        }
+        name = pick.name + (xs.length ? " with " + pcList(xs) : "");
+        const all = pick.score >= fullScore - 1e-9;
+        if (all && pick.kind === "pkg") why = "It covers everything they asked for, at " + pcGbp(pick.price) + " a month, " + under(pick.price) + ".";
+        else if (all) why = "Everything they asked for comes to " + pcGbp(pick.price) + " a month, " + under(pick.price) + ". No package matches it, so we'd quote it as it stands.";
+        else why = "Their budget doesn't stretch to everything, which is " + pcGbp(full.price) + " a month. The most we can do for " + pcGbp(pcS.budget) + " is " + pcItems(pick.w).join("; ").replace(/^./, (m) => m.toLowerCase()) + ", for " + pcGbp(pick.price) + ". Everything is " + pcGbp(full.price - pick.price) + " a month more.";
+        if (!all && us) {
+          const own = priceOf(Object.assign({}, W, { maker: "own" }), B, F).price;
+          alt = "If they send their own footage instead, everything they asked for is " + pcGbp(own) + " a month" + (own <= pcS.budget ? ", within their budget." : ".");
+        }
+      }
+      pcEl("pc-best").textContent = name; pcEl("pc-why").textContent = why; pcEl("pc-alt").textContent = alt;
+
+      pcEl("pc-pk").innerHTML = pk.map((p) => {
+        const diff = pcS.budget - p.withX;
+        const tag = diff >= 0 ? `<span class="pc-tag is-ok">${pcGbp(diff)} under</span>` : `<span class="pc-tag is-over">${pcGbp(-diff)} over</span>`;
+        const posts = pcList([p.p.v && p.p.v + (p.p.v === 1 ? " reel" : " reels"), p.p.c && p.p.c + (p.p.c === 1 ? " carousel" : " carousels"), p.p.s && p.p.s + (p.p.s === 1 ? " static" : " statics")].filter(Boolean));
+        return `<tr${pick && pick.kind === "pkg" && pick.name === p.name ? ' class="is-pick"' : ""}><td>${esc(p.name)}</td><td>${esc(posts)}</td><td class="pc-num">${pcGbp(p.sheet)}</td><td class="pc-num">${us ? pcGbp(p.sheet) : pcGbp(p.worked)}</td><td class="pc-num">${pcGbp(p.withX)}</td><td>${tag}</td></tr>`;
+      }).join("");
+      pcEl("pc-pk-sheet-h").textContent = us ? "Rate card" : "On the sheet";
+
+      // The working for "everything they asked for".
+      const costLines = full.lines.filter((l) => !l.sold);
+      const soldLines = full.lines.filter((l) => l.sold);
+      const marginTxt = B === "teg" ? "TEG brand: cost plus " + F.margins.teg_markup + "%" : "External agency: " + F.margins.external_margin + "% of the price is margin";
+      pcEl("pc-work").innerHTML = costLines.map((l) => `<tr><td>${esc(l.label)}</td><td class="pc-num">${pcGbp(l.amount)}</td></tr>`).join("")
+        + (costLines.length ? `<tr class="is-total"><td>Cost a month</td><td class="pc-num">${pcGbp(full.cost)}</td></tr><tr><td>${esc(marginTxt)}</td><td class="pc-num">${pcGbp(sell(full.cost, B, F))}</td></tr>` : "")
+        + soldLines.map((l) => `<tr><td>${esc(l.label)}</td><td class="pc-num">${pcGbp(l.amount)}</td></tr>`).join("")
+        + `<tr class="is-total"><td>A month, rounded to the nearest £5</td><td class="pc-num">${pcGbp(full.price)}</td></tr>`;
+
+      // Wording for the proposal (a starting point to change in the email).
+      const L = ["Option 1: everything you asked for", pcItems(W).join("; ") + ". " + pcGbp(full.price) + " a month.", ""];
+      if (fit && full.price > pcS.budget) L.push("Option 2: within your " + pcGbp(pcS.budget) + " a month", pcItems(fit.w).join("; ") + ". " + pcGbp(fit.price) + " a month.", "");
+      if (pick) { L.push("Our recommendation: " + name, why); if (alt) L.push(alt); L.push(""); }
+      L.push("All prices are a month, before VAT, with a one-off onboarding fee.");
+      pcEl("pc-prop").textContent = L.join("\n");
+    }
+
+    function wireCalc() {
+      if (pcWired) return; pcWired = true;
+      const seg = (id, from, to) => { const b = pcEl(id); for (let i = from; i <= to; i++) b.insertAdjacentHTML("beforeend", `<button type="button" data-v="${i}">${i}</button>`); };
+      seg("pc-v", 0, 7); seg("pc-c", 0, 5); seg("pc-s", 0, 5);
+      const on = (id, key, kind) => pcEl(id).addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-v]"); if (!b) return;
+        pcS[key] = kind === "num" ? Number(b.dataset.v) : kind === "bool" ? b.dataset.v === "1" : b.dataset.v;
+        drawCalc();
+      });
+      on("pc-buyer", "buyer", "str"); on("pc-maker", "maker", "str"); on("pc-v", "v", "num"); on("pc-c", "c", "num"); on("pc-s", "s", "num");
+      on("pc-stories", "stories", "bool"); on("pc-comments", "comments", "bool"); on("pc-pack", "pack", "num");
+      pcEl("pc-plats").addEventListener("click", (e) => {
+        const b = e.target.closest("button[data-plat]"); if (!b) return;
+        const p = b.dataset.plat, i = pcS.platforms.indexOf(p);
+        if (i >= 0) { if (pcS.platforms.length > 1) pcS.platforms.splice(i, 1); } else pcS.platforms.push(p);
+        pcS.platforms.sort((a, b2) => PC_PLATFORMS.indexOf(a) - PC_PLATFORMS.indexOf(b2));
+        drawCalc();
+      });
+      const setB = (v) => { pcS.budget = Math.max(0, Math.round(Number(v) || 0)); drawCalc(); };
+      pcEl("pc-budget").addEventListener("input", (e) => setB(e.target.value));
+      pcEl("pc-budget-r").addEventListener("input", (e) => setB(e.target.value));
+      pcEl("pc-copy").addEventListener("click", () => {
+        const done = (ok) => { const c = pcEl("pc-copied"); c.className = "pf-status" + (ok ? " is-ok" : " is-bad"); c.textContent = ok ? "Copied." : "Couldn't copy. Select the text instead."; };
+        try { navigator.clipboard.writeText(pcEl("pc-prop").textContent).then(() => done(true), () => done(false)); } catch (_) { done(false); }
+      });
+    }
+
+    // The figures editor: typing keeps a draft; Save writes it; Undo drops it.
+    document.addEventListener("input", (e) => {
+      const el = e.target.closest && e.target.closest("[data-pf]"); if (!el) return;
+      if (!pfDraft) pfDraft = JSON.parse(JSON.stringify(PF));
+      const v = el.tagName === "SELECT" ? el.value === "yes" : (el.value === "" ? "" : Number(el.value));
+      pfSet(pfDraft, el.dataset.pf, v);
+      try { localStorage.setItem(PF_DRAFT_KEY, JSON.stringify(pfDraft)); } catch (_) {}
+      pfMarkDirty();
+    });
+    document.addEventListener("change", (e) => { if (e.target.closest && e.target.closest("select[data-pf]")) e.target.dispatchEvent(new Event("input", { bubbles: true })); });
+    document.addEventListener("click", (e) => {
+      if (e.target.closest("#pf-save")) pfSave();
+      if (e.target.closest("#pf-undo")) { pfDraft = null; try { localStorage.removeItem(PF_DRAFT_KEY); } catch (_) {} drawFigures(); }
+    });
   </script>
 </AdminShell>

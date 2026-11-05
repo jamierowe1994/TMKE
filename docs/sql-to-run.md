@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/smm_pricing_settings.sql — the social media calculator figures (planning, creation, reporting hours, rates, software, property pack, margins), so they can be edited and saved on Packages & pricing; only management can change them (5 Nov)
 
 ## Done
 
