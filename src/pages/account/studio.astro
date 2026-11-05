@@ -942,9 +942,14 @@ const inspo = [
         const printBrands = (Array.isArray(memberBrand) ? [...new Set(memberBrand)] : [])
           .filter((b) => printPacks.some((p) => packBrands(p).includes(b)))
           .sort(byBrandOrder);
-        let brandOn = '';
-        try { const b = sessionStorage.getItem(brandKey); if (b && printBrands.includes(b)) brandOn = b; } catch (_) {}
-        const forBrand = (list) => brandOn ? list.filter((p) => { const l = packBrands(p); return !l.length || l.includes(brandOn); }) : list;
+        /* Several can be on at once (Dani, 5 Nov): none on is All brands. */
+        const brandOn = new Set();
+        try {
+          const b = JSON.parse(sessionStorage.getItem(brandKey) || '[]');
+          (Array.isArray(b) ? b : [b]).forEach((x) => { if (printBrands.includes(x)) brandOn.add(x); });
+        } catch (_) {}
+        const isOn = (value) => value ? brandOn.has(value) : brandOn.size === 0;
+        const forBrand = (list) => brandOn.size ? list.filter((p) => { const l = packBrands(p); return !l.length || l.some((b) => brandOn.has(b)); }) : list;
         let brandBox = null;
         const SHORT = { 'The Property Experts': 'TPE', 'Prestige Property Experts': 'PPE', 'The Letting Experts': 'TLE', 'The Letting Experts Scotland': 'TLE Scotland', 'The Marketing Experts': 'TMKE' };
         /* The Social / Print buttons share the bar, and switching between
@@ -952,7 +957,7 @@ const inspo = [
         const syncBrands = () => {
           if (!brandBox) return;
           brandBox.querySelectorAll('button').forEach((x) => {
-            const on = x.dataset.brand === brandOn;
+            const on = isOn(x.dataset.brand);
             x.classList.toggle('is-on', on);
             x.setAttribute('aria-pressed', on ? 'true' : 'false');
             x.removeAttribute('aria-selected');
@@ -967,18 +972,19 @@ const inspo = [
           [['', 'All brands']].concat(printBrands.map((b) => [b, b])).forEach(([value, label]) => {
             const b = document.createElement('button');
             b.type = 'button';
-            b.className = 'st-kind' + (value === brandOn ? ' is-on' : '');
+            b.className = 'st-kind' + (isOn(value) ? ' is-on' : '');
             b.dataset.brand = value;
             // The full name, or on a phone the short one the pack titles use.
             const long = document.createElement('span'); long.className = 'st-bn-long'; long.textContent = label;
             const short = document.createElement('span'); short.className = 'st-bn-short'; short.textContent = value ? (SHORT[value] || value) : 'All';
             short.setAttribute('aria-hidden', 'true');
             b.append(long, short);
-            b.setAttribute('aria-pressed', value === brandOn ? 'true' : 'false');
+            b.setAttribute('aria-pressed', isOn(value) ? 'true' : 'false');
             b.addEventListener('click', () => {
-              if (value === brandOn) return;
-              brandOn = value;
-              try { if (value) sessionStorage.setItem(brandKey, value); else sessionStorage.removeItem(brandKey); } catch (_) {}
+              if (!value) brandOn.clear();
+              else if (brandOn.has(value)) brandOn.delete(value);
+              else brandOn.add(value);
+              try { if (brandOn.size) sessionStorage.setItem(brandKey, JSON.stringify([...brandOn])); else sessionStorage.removeItem(brandKey); } catch (_) {}
               syncBrands();
               draw(forBrand(printPacks), true);
             });
