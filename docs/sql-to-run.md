@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/smm_discovery_booked_stage.sql — social media cards with a discovery call booked move from Enquiry to Discovery call, with the call on the file (5 Nov)
 
 ## Done
 

@@ -3419,8 +3419,8 @@ async function upsertSmmLead(env, email, fields) {
     const patch = {};
     // Only refresh the "most recent action" type if they haven't progressed in
     // the pipeline yet — never downgrade a client back to "brochure".
-    const early = !existing.pipeline_stage || existing.pipeline_stage === "inquiry";
-    if (early) { for (const k of ["kind", "tag", "stage"]) if (fields[k] != null) patch[k] = fields[k]; }
+    const early = !existing.pipeline_stage || existing.pipeline_stage === "inquiry" || existing.pipeline_stage === "waitlist";
+    if (early) { for (const k of ["kind", "tag", "stage", "pipeline_stage", "meeting_at"]) if (fields[k] != null) patch[k] = fields[k]; }
     // Fill in any contact details we didn't already have (don't clobber).
     for (const k of ["first_name", "last_name", "full_name", "phone", "business", "message", "account_user_id"]) {
       if (fields[k] != null && fields[k] !== "" && !existing[k]) patch[k] = fields[k];
@@ -9579,6 +9579,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
 
         const up = await upsertSmmLead(env, email, {
           kind: "discovery", tag: "Discovery Call", stage: "discovery_call_booked",
+          // Booked is enough to be at Discovery call (Danielle, 5 Nov 2026); the
+          // call itself is the file's meeting.
+          pipeline_stage: "meeting_set", meeting_at: `${date}T${start}:00`,
           first_name, last_name, full_name: fullName, email, phone: phone || null, business: business || null,
           call_at: `${date}T${start}:00`, duration_min: dur, reschedule_token: token, ms_event_id: ev.id || null,
           marketing_opt_in: !!marketing_opt_in, account_user_id: accountUserId, account_created: accountCreated,
