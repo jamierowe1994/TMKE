@@ -3686,13 +3686,15 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const setStage = STAGE_INDEX[stageOf(r)] < STAGE_INDEX["meeting_set"];
       // Booked once the proposal's out, it's the pricing call (Dani, 5 Nov).
       const toPricing = stageOf(r) === "proposal_sent";
-      r.meeting_at = `${date}T${start}:00`; if (setStage) r.pipeline_stage = "meeting_set";
+      // No silent fallback (Dani, 5 Nov): if the booking fails, say so and save
+      // nothing, rather than putting a call on the file with no invite behind it.
       if (!isDemo(r)) {
-        let ok = false;
-        if (WORKER) { try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/meeting`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, date, start, duration, send_invite: invite, set_stage: setStage, mode, location: where, replace: !!openMeeting.moving, call: STAGE_INDEX[stageOf(r)] <= STAGE_INDEX.meeting_set ? "discovery" : ["proposal_sent", "pricing_call"].includes(stageOf(r)) ? "pricing" : "meeting" }) }); ok = res.ok; } catch (_) {} }
-        if (!ok) { try { const patch = { meeting_at: r.meeting_at }; if (setStage) patch.pipeline_stage = "meeting_set"; await supabase.from("smm_leads").update(patch).eq("id", r.id); } catch (_) {} }
+        let ok = false, fail = "";
+        if (WORKER) { try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/meeting`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, date, start, duration, send_invite: invite, set_stage: setStage, mode, location: where, replace: !!openMeeting.moving, call: STAGE_INDEX[stageOf(r)] <= STAGE_INDEX.meeting_set ? "discovery" : ["proposal_sent", "pricing_call"].includes(stageOf(r)) ? "pricing" : "meeting" }) }); ok = res.ok; if (!res.ok) { const j = await res.json().catch(() => ({})); fail = j.error || `the server said ${res.status}`; } } catch (e) { fail = e.message || "couldn't reach the server"; } }
+        if (!ok) { const s = $("smm-mt-status"); s.hidden = false; s.textContent = `Couldn't book it: ${fail || "the Worker isn't connected"}. Nothing was sent; try again.`; btn.disabled = false; btn.textContent = "Save meeting"; return; }
         if (toPricing) { try { await supabase.from("smm_leads").update({ pipeline_stage: "pricing_call" }).eq("id", r.id); } catch (_) {} }
       }
+      r.meeting_at = `${date}T${start}:00`; if (setStage) r.pipeline_stage = "meeting_set";
       if (toPricing) r.pipeline_stage = "pricing_call";
       r.meeting_how = mode; r.meeting_link = null;
       closeModal(); renderBoard(); openFile(r.id);
