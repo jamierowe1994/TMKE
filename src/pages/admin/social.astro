@@ -1819,6 +1819,45 @@ const mgmtPackages = (management && management.packages) || [];
     };
     const sfIcon = (p, off) => `<svg class="sf-ic${off ? " is-off" : ""}" viewBox="0 0 24 24" role="img" aria-label="${esc(p)}"><title>${esc(p)}</title>${SF_IC[p] || ""}</svg>`;
     const sfChip = (cls, t) => `<span class="sf-chip is-${cls}">${esc(t)}</span>`;
+    const sfGbpWhole = (n) => "£" + Number(n).toLocaleString("en-GB", { maximumFractionDigits: 2 });
+    /* What we proposed (Dani, 5 Nov 2026): package, price a month, platforms and
+       notes, kept in package_details.proposed. Asked for when the proposal goes,
+       and needed before the pricing call is booked. */
+    const SF_PROPOSE_PKGS = (() => {
+      const out = [];
+      PKG_SERVICES.forEach((sv) => (sv.packages || []).forEach((p) => out.push(`${sv.alias || sv.name}: ${p.name || p.label}`)));
+      out.push("Made to measure");
+      return out;
+    })();
+    function sfProposedDone(r) { const p = (r.package_details || {}).proposed || {}; return !!(p.package && p.price != null && p.price !== "" && Array.isArray(p.platforms) && p.platforms.length); }
+    function sfProposedFields(r) {
+      const pd = r.package_details || {}, p = pd.proposed || {}, q = pd.quote || {};
+      const pkg = p.package || "";
+      const price = p.price != null && p.price !== "" ? p.price : (q.best_price != null ? q.best_price : (q.everything != null ? q.everything : ""));
+      const qp = q.inputs && Array.isArray(q.inputs.platforms) ? q.inputs.platforms.map((x) => (/^youtube/i.test(x) ? "YouTube" : x)) : null;
+      const plats = Array.isArray(p.platforms) && p.platforms.length ? p.platforms : (qp || (Array.isArray(r.platforms) ? r.platforms : []));
+      const opts = [""].concat(SF_PROPOSE_PKGS, pkg && !SF_PROPOSE_PKGS.includes(pkg) ? [pkg] : []).map((o) => `<option value="${esc(o)}"${o === pkg ? " selected" : ""}>${o ? esc(o) : "Choose…"}</option>`).join("");
+      return sfSec("What we're proposing", sfPF("Proposed package", `<select class="sf-in" id="sfq-pkg">${opts}</select>`)
+        + sfPF("Proposed price", sfIn("sfq-price", price, "number", "e.g. 495"), q.at ? "A month, before VAT. Filled in from Price it; change it if you've agreed something else." : "A month, before VAT.")
+        + sfPF("Proposed platforms", `<span class="sf-plat">${SF_PLATS.map((pl) => `<label><input type="checkbox" data-sfq-plat="${pl}"${plats.includes(pl) ? " checked" : ""}> ${sfIcon(pl)} ${pl}</label>`).join("")}</span>`)
+        + sfPF("Notes", `<textarea class="sf-in" id="sfq-notes" rows="3" placeholder="Anything else in the proposal: extras, a start date, what we said about price.">${esc(p.notes || "")}</textarea>`));
+    }
+    function sfReadProposed() {
+      const v = { package: ($("sfq-pkg")?.value || "").trim(), price: ($("sfq-price")?.value || "").trim(), platforms: [...document.querySelectorAll("[data-sfq-plat]:checked")].map((x) => x.getAttribute("data-sfq-plat")), notes: ($("sfq-notes")?.value || "").trim() };
+      const missing = [!v.package && "the package", v.price === "" && "the price", !v.platforms.length && "the platforms"].filter(Boolean);
+      return { v: { ...v, price: v.price === "" ? "" : Number(v.price), at: new Date().toISOString() }, missing };
+    }
+    async function sfSaveProposedValues(r, v) {
+      const next = Object.assign({}, r.package_details || {}, { proposed: v });
+      if (isDemo(r)) { r.package_details = next; return null; }
+      const { data, error } = await supabase.from("smm_leads").update({ package_details: next }).eq("id", r.id).select("package_details").maybeSingle();
+      if (error) return error;
+      if (!data || !data.package_details || !data.package_details.proposed || data.package_details.proposed.at !== v.at) return { message: "it didn't come back from the database" };
+      r.package_details = next;
+      return null;
+    }
+    const sfProposedNote = (v) => [`Package: ${v.package}`, `Price: ${sfGbpWhole(v.price)} a month`, `Platforms: ${v.platforms.join(", ")}`, v.notes ? `Notes: ${v.notes}` : ""].filter(Boolean).join("\n");
+    let sfAfterProposed = null;
     const sfR = (label, html, title) => `<div class="sf-r"><dt>${label}</dt><dd${title ? ` title="${esc(title)}"` : ""}>${html === "" || html == null ? '<span class="sf-none">—</span>' : html}</dd></div>`;
     const sfBox = (cls, title, acts, body) => `<section class="sf-card sf-box ${cls}"><div class="sf-box-h"><h3>${esc(title)}</h3><span class="sf-acts">${acts || ""}</span></div>${body}</section>`;
     const sfAct = (key, label, data = "") => `<button type="button" class="sf-act" data-sf="${key}"${data}>${label}</button>`;
@@ -2077,8 +2116,15 @@ const mgmtPackages = (management && management.packages) || [];
       } else if (F.st === "proposal_sent") {
         const chased = chasesAfter(propSent);
         const callBooked = r.meeting_at && propSent && new Date(r.meeting_at) > new Date(propSent);
-        col2 = sfR("Proposal sent", esc(sfDayYear(propSent))) + sfR("Package", pkg) + sfR("Monthly fee", esc(fee)) + sfR("Onboarding fee", esc(obFee));
-        col3 = sfR("Last update", F.quiet == null ? "" : sfChip(F.late ? "bad" : "plain", F.quiet === 0 ? "Today" : `${F.quiet} day${F.quiet === 1 ? "" : "s"} ago`)) + sfR("Chased", esc(chased.slice(0, 2).map((m) => sfShort(m.created_at)).join(" and "))) + sfR("Next chase", nextChase(propSent)) + sfR("Pricing call", callBooked ? esc(sfWhen(r.meeting_at)) : sfChip("wait", "Not booked"));
+        // What we proposed in the middle, the dates on the right (Dani, 5 Nov 2026).
+        const pr = pd.proposed || {};
+        const fill = `<button type="button" class="sf-act" data-sf="proposed">Fill in</button>`;
+        const prPlats = Array.isArray(pr.platforms) ? pr.platforms : [];
+        col2 = sfR("Proposed package", pr.package ? `<button type="button" class="sf-act" data-sf="proposed">${esc(pr.package)}</button>` : fill)
+          + sfR("Proposed price", pr.price != null && pr.price !== "" ? esc(sfGbpWhole(pr.price) + " a month") : sfMiss("Not filled in"))
+          + sfR("Proposed platforms", prPlats.length ? `<span class="sf-ics">${prPlats.map((x) => sfIcon(x)).join("")}</span>` : sfMiss("Not filled in"), prPlats.join(", "))
+          + sfR("Notes", esc(String(pr.notes || "").split("\n")[0]), pr.notes || "");
+        col3 = sfR("Proposal sent", esc(sfDayYear(propSent))) + sfR("Last update", F.quiet == null ? "" : sfChip(F.late ? "bad" : "plain", F.quiet === 0 ? "Today" : `${F.quiet} day${F.quiet === 1 ? "" : "s"} ago`)) + sfR("Next chase", nextChase(propSent)) + sfR("Pricing call", callBooked ? esc(sfWhen(r.meeting_at)) : sfChip("wait", "Not booked"));
       } else if (F.st === "pricing_call") {
         const held = r.meeting_at && new Date(r.meeting_at) <= new Date();
         col2 = sfR("Pricing call", esc(sfWhen(r.meeting_at))) + sfR("Held", r.meeting_at ? (held ? sfChip("good", "Held") : "Not yet") : sfChip("wait", "Not booked")) + sfR("Booked", esc(sfDayYear(sentAt("pricing_call")))) + sfR("Call notes", notesLink(F.pricing, "pricing"));
@@ -2396,7 +2442,7 @@ const mgmtPackages = (management && management.packages) || [];
           sfSec("Contact", `<dl class="sf-pdl">${sfPR("Contact name", esc(name === "—" ? "" : name))}${sfPR("Business", esc(r.business || ""))}${sfPR("Email", esc(r.email || ""))}${sfPR("Phone", esc(r.phone || ""))}</dl>`)
           + sfSec("How they came in", `<dl class="sf-pdl">${sfPR("Enquiry received", esc(sfDayYear(r.created_at)))}${sfPR("How", esc(sfSource(r) || KIND_LABEL[r.kind] || "Added by hand"))}${sfPR("What they said", esc(r.message || ""))}${sfPR("Marketing", r.marketing_opt_in ? "Opted in" : "Not opted in")}</dl>`)
           + (idx >= STAGE_INDEX.meeting_set || F.discovery ? sfSec("Discovery call", `<dl class="sf-pdl">${F.st === "meeting_set" || F.st === "inquiry" ? sfPR("When", esc(sfWhen(r.meeting_at))) : ""}${F.discovery ? notesRows(D) + tLink("discovery") : sfPR("Call notes", `Not written yet &nbsp;<button type="button" class="sf-act" data-sf="callnotes" data-id="discovery">Write them</button>`)}</dl>`) : "")
-          + (idx >= STAGE_INDEX.proposal_sent ? sfSec("Proposal", `<dl class="sf-pdl">${sfPR("Sent", esc(sfDayYear(propSent)))}${sfPR("File", F.prep ? `<button type="button" class="sf-act" data-sf-doc="${esc(F.prep.id)}" data-name="${esc(F.prep.file_name || "proposal")}">${esc(F.prep.title || F.prep.file_name)}</button>` : "")}${sfPR("Priced", pd.quote ? `${esc(pcQuoteLine(pd.quote))} <button type="button" class="sf-act" data-sf="quote">Open</button>` : `Not yet <button type="button" class="sf-act" data-sf="quote">Price it</button>`)}${sfPR("Monthly fee", esc(r.price || ""))}${sfPR("Onboarding fee", pd.onboarding_fee != null && pd.onboarding_fee !== "" ? `£${esc(pd.onboarding_fee)} + VAT` : "")}</dl>`) : "")
+          + (idx >= STAGE_INDEX.proposal_sent ? sfSec("Proposal", `<dl class="sf-pdl">${sfPR("Sent", esc(sfDayYear(propSent)))}${sfPR("File", F.prep ? `<button type="button" class="sf-act" data-sf-doc="${esc(F.prep.id)}" data-name="${esc(F.prep.file_name || "proposal")}">${esc(F.prep.title || F.prep.file_name)}</button>` : "")}${pd.proposed ? sfPR("Proposed", esc([pd.proposed.package, pd.proposed.price !== "" && pd.proposed.price != null ? sfGbpWhole(pd.proposed.price) + " a month" : "", (pd.proposed.platforms || []).join(", ")].filter(Boolean).join(" · ")) + ` <button type="button" class="sf-act" data-sf="proposed">Change</button>`) + (pd.proposed.notes ? sfPR("Proposal notes", esc(pd.proposed.notes)) : "") : ""}${sfPR("Priced", pd.quote ? `${esc(pcQuoteLine(pd.quote))} <button type="button" class="sf-act" data-sf="quote">Open</button>` : `Not yet <button type="button" class="sf-act" data-sf="quote">Price it</button>`)}${sfPR("Monthly fee", esc(r.price || ""))}${sfPR("Onboarding fee", pd.onboarding_fee != null && pd.onboarding_fee !== "" ? `£${esc(pd.onboarding_fee)} + VAT` : "")}</dl>`) : "")
           + (idx >= STAGE_INDEX.pricing_call ? sfSec("Pricing call", `<dl class="sf-pdl">${F.st === "pricing_call" ? sfPR("When", esc(sfWhen(r.meeting_at))) : ""}${F.pricing ? notesRows(Pn) + tLink("pricing") : sfPR("Call notes", `Not written yet &nbsp;<button type="button" class="sf-act" data-sf="callnotes" data-id="pricing">Write them</button>`)}</dl>`) : "")
           + (idx >= STAGE_INDEX.contract_signed ? sfSec("Contract", `<dl class="sf-pdl">${sfPR("Sent", esc(sfDayYear(F.reached("contract_signed"))))}${sfPR("Signed copy", F.agreement ? `<button type="button" class="sf-act" data-sf-doc="${esc(F.agreement.id)}" data-name="${esc(F.agreement.file_name || "contract")}">${esc(F.agreement.title || F.agreement.file_name)}</button>, ${esc(sfDay(F.agreement.created_at))}` : "Not back yet")}</dl>`) : "")
           + (idx >= STAGE_INDEX.proposal_sent ? sfSec("Package", `<div id="sf-pkg-slot"></div>`) : "")
@@ -2543,6 +2589,10 @@ const mgmtPackages = (management && management.packages) || [];
           `<div id="sf-quote-slot"></div>`,
           `<span class="sf-say" id="sf-save-msg">Saved on their file. The prices go into the email that sends the proposal.</span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-quote"', "Save to their file")}`, { wide: true, edit: true });
         if (b) { sfLend("smm-pc", b.querySelector("#sf-quote-slot")); pcForClient(r, F); }
+      } else if (key === "proposed") {
+        sfShell(eye("Proposal"), "What we proposed", "", "", sfProposedFields(r)
+          + (sfAfterProposed ? `<p class="sf-say sf-note">Fill this in before the pricing call is booked. The booking opens straight after.</p>` : ""),
+          `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-proposed"', sfAfterProposed ? "Save and carry on" : "Save")}`, { edit: true });
       } else if (key === "proposal") {
         // Already in Paperwork (Dani, 5 Nov 2026): send that one; choosing a file replaces it.
         const have = F.prep;
@@ -2552,6 +2602,7 @@ const mgmtPackages = (management && management.packages) || [];
               + sfPF("Use a different file", `<input class="sf-file" id="sfp-prop" type="file">`, "Only if this one's changed. The new file goes into Paperwork.")
             : sfPF("File", `<input class="sf-file" id="sfp-prop" type="file">`, "The pitch deck you're sending them. It's kept in Paperwork."))
             + `<label class="sf-check"><input type="checkbox" id="sfp-mark" checked> Mark the proposal sent, so the chase dates start today</label>`)
+          + sfProposedFields(r)
           + `<p class="sf-say sf-note">Next, an email to send it with opens, with the proposal attached, for you to finish and send. The chases are counted from today.</p>`,
           `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-proposal"', "Save")}`, { edit: true });
       } else if (key === "invoice") {
@@ -2817,6 +2868,8 @@ const mgmtPackages = (management && management.packages) || [];
       const f = $("sfp-prop")?.files?.[0], mark = !!$("sfp-mark")?.checked;
       const have = !f ? sfFacts(r).prep : null;
       if (!f && !have && !mark) { sfMsg("Choose the file, or tick Mark the proposal sent.", true); return; }
+      const prop = sfReadProposed();
+      if (prop.missing.length) { sfMsg("Fill in " + prop.missing.join(", ").replace(/, ([^,]*)$/, " and $1") + " you're proposing.", true); return; }
       btn.disabled = true; sfMsg(f ? "Uploading…" : "Saving…");
       let docId = null;
       try {
@@ -2829,6 +2882,9 @@ const mgmtPackages = (management && management.packages) || [];
           docId = j.document.id;
         }
         if (!f && have) docId = have.id;
+        const perr = await sfSaveProposedValues(r, prop.v);
+        if (perr) throw new Error("Couldn't save what you're proposing: " + perr.message);
+        sfAutoNote(r, "What we proposed", sfProposedNote(prop.v));
         sfClosePop();
         if (mark && stageOf(r) !== "proposal_sent") await setStage(r, "proposal_sent"); else loadThread(r);
         // Then the email to send it with (Danielle, 5 Nov 2026): written for them
@@ -2879,7 +2935,8 @@ const mgmtPackages = (management && management.packages) || [];
       const doc = t("[data-sf-doc]"); if (doc) { downloadDoc(doc.getAttribute("data-sf-doc"), doc.getAttribute("data-name")); return; }
       // Move straight to a stage (Dani, 5 Nov): no booking forced on the way.
       // Becoming a client still checks onboarding first.
-      const fo = t("[data-sf-force]"); if (fo) { const k = fo.getAttribute("data-sf-force"); sfClosePop(); const go = () => { if (k === "active_client") moveToStage(r, k); else if (k !== r.pipeline_stage) setStage(r, k); }; if (!["inquiry", "waitlist", "lost"].includes(k) && sfNeedsManager(r, go)) return; go(); return; }
+      const fo = t("[data-sf-force]"); if (fo) { const k = fo.getAttribute("data-sf-force"); sfClosePop(); const go = () => { if (k === "active_client") moveToStage(r, k); else if (k !== r.pipeline_stage) setStage(r, k); };
+        if (stageOf(r) === "proposal_sent" && STAGE_INDEX[k] > STAGE_INDEX.proposal_sent && !sfProposedDone(r)) { sfAfterProposed = go; sfOpen("proposed"); return; } if (!["inquiry", "waitlist", "lost"].includes(k) && sfNeedsManager(r, go)) return; go(); return; }
       const a = t("[data-sf]");
       const cd = !a && t("[data-sf-card]");
       if (cd) { sfEditing = false; sfOpen(cd.getAttribute("data-sf-card"), cd.getAttribute("data-id")); return; }
@@ -2892,6 +2949,9 @@ const mgmtPackages = (management && management.packages) || [];
         return;
       }
       if (["write", "book-call", "proposal", "book"].includes(k) && sfNeedsManager(r, () => { const el = document.querySelector(`#smm-file [data-sf="${k}"]`); if (el) el.click(); })) return;
+      // The pricing call waits for what we proposed (Dani, 5 Nov 2026).
+      if (k === "book-call" && stageOf(r) === "proposal_sent" && !sfProposedDone(r)) { sfAfterProposed = () => openMeeting(r); sfEditing = false; sfOpen("proposed"); return; }
+      if (k === "proposed") sfAfterProposed = null;
       switch (k) {
         case "back": closeFile(); return;
         // A call that isn't happening (Danielle, 5 Nov 2026): off the file, back a
@@ -2939,6 +2999,19 @@ const mgmtPackages = (management && management.packages) || [];
         case "save-callnotes": sfSaveCallNotes(r, id, a); return;
         case "save-proposal": sfSaveProposal(r, a); return;
         case "save-quote": sfSaveQuote(r, a); return;
+        case "save-proposed": {
+          const prop = sfReadProposed();
+          if (prop.missing.length) { sfMsg("Fill in " + prop.missing.join(", ").replace(/, ([^,]*)$/, " and $1") + ".", true); return; }
+          a.disabled = true; sfMsg("Saving…");
+          sfSaveProposedValues(r, prop.v).then((err) => {
+            if (err) { a.disabled = false; sfMsg("Couldn't save it: " + err.message, true); return; }
+            sfAutoNote(r, "What we proposed", sfProposedNote(prop.v));
+            const then = sfAfterProposed; sfAfterProposed = null;
+            sfClosePop(); sfDraw(r); loadThread(r);
+            if (then) then();
+          });
+          return;
+        }
         case "book-call": sfClosePop(); openMeeting(r); return;
         case "ai-callnotes": {
           const msg = (t, bad) => { const el = $("sfn-ai-msg"); if (el) { el.textContent = t; el.style.color = bad ? "#8a3f3f" : ""; } };

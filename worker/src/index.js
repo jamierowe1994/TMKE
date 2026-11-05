@@ -11343,7 +11343,10 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         if (!bookingId || !bodyText) return json({ error: "Missing booking or message." }, 400, request, env);
         const bk = await lookupBooking(env, source, bookingId);
         if (!bk) return json({ error: "Booking not found." }, 404, request, env);
-        await logBookingMessage(env, {
+        // An email is logged on the thread only once Microsoft has taken it
+        // (Dani, 5 Nov 2026): a failed send used to be logged as sent and
+        // reported ok, so a proposal could vanish with nobody told.
+        const logIt = () => logBookingMessage(env, {
           booking_id: bookingId, booking_source: source,
           account_user_id: bk.account_user_id, client_email: bk.email,
           channel: b.notify ? "email" : "note",
@@ -11351,6 +11354,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           subject: b.subject || null,
           body: bodyText, is_automated: b.kind === "audit", created_by: user.email || "admin",
         });
+        if (!(b.notify && bk.email)) await logIt();
 
         // Anyone @-tagged in an internal note gets told, or the tag is decoration.
         if (!b.notify && Array.isArray(b.mentions) && b.mentions.length) {
@@ -11383,7 +11387,17 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
                 if (obj) { const buf = await obj.arrayBuffer(); attachments = [{ filename: d.file_name || "attachment", content: bufToBase64(buf), contentType: d.content_type || "application/octet-stream" }]; }
               }
             } catch (_) {}
+            if (!attachments) return json({ error: "Couldn't attach the file, so nothing was sent. Try again, or attach it from your computer." }, 502, request, env);
           }
+          // Whatever happens is recorded: the email on the thread when it went,
+          // a note saying it didn't when it failed, and the send in the email log.
+          const settle = async (sent, subject) => {
+            try { await logEmailEvent(env, { email: bk.email, event: sent && sent.ok ? "sent" : "failed", provider: "m365", subject, detail: sent && sent.ok ? null : String((sent && sent.error) || "Microsoft 365 didn't accept it").slice(0, 300) }); } catch (_) {}
+            if (sent && sent.ok) { await logIt(); return json({ ok: true }, 200, request, env); }
+            const why = String((sent && sent.error) || "Microsoft 365 didn't accept it").slice(0, 200);
+            try { await logBookingMessage(env, { booking_id: bookingId, booking_source: source, account_user_id: bk.account_user_id, client_email: bk.email, channel: "note", kind: "manual", subject: "Email not sent", body: `${subject} to ${bk.email} didn't send: ${why}`, is_automated: true, created_by: "system" }); } catch (_) {}
+            return json({ error: `The email didn't send: ${why}` }, 502, request, env);
+          };
           // SMM correspondence sends from the SMM manager's mailbox when one is
           // configured (SMM_MAIL_SENDER — Danielle's for now, Abby's later), so
           // replies land in her inbox; otherwise falls back to the TMKE mailbox.
@@ -11397,12 +11411,15 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             const paras = String(bodyText).split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px;">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
             const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#2b2226;max-width:640px;">${paras}
               <p style="margin:22px 0 0;padding-top:12px;border-top:1px solid #e2d9d4;font-size:13px;line-height:1.5;color:#7e6765;">${sign ? `<strong style="color:#2b2226;font-weight:600;">${esc(sign)}</strong><br>` : ""}The Marketing Experts<br><a href="mailto:hello@tmke.co.uk" style="color:#371e28;">hello@tmke.co.uk</a> &middot; <a href="https://tmke.co.uk" style="color:#371e28;">tmke.co.uk</a></p></div>`;
-            try { await sendEmail(env, { to: bk.email, subject: b.subject || "A message from The Marketing Experts", html, attachments, from: smmFrom || undefined, fromName: smmFrom ? smmFromName : undefined }); } catch (_) {}
-            return json({ ok: true }, 200, request, env);
+            const subj = b.subject || "A message from The Marketing Experts";
+            let sent; try { sent = await sendEmail(env, { to: bk.email, subject: subj, html, attachments, from: smmFrom || undefined, fromName: smmFrom ? smmFromName : undefined }); } catch (e) { sent = { ok: false, error: e && e.message }; }
+            return settle(sent, subj);
           }
+          const subj = b.subject || `A message about your ${bk.service || "booking"}`;
+          let sent;
           try {
-            await sendEmail(env, {
-              to: bk.email, subject: b.subject || `A message about your ${bk.service || "booking"}`,
+            sent = await sendEmail(env, {
+              to: bk.email, subject: subj,
               html: await wrapInBrandedBase(env, `
                 <p style="${EM_P}">Hi ${esc(bk.name || "")},</p>
                 <div style="font-size:12px;line-height:1.6;color:#40353a;white-space:pre-wrap;margin:0 0 14px;">${esc(bodyText)}</div>
@@ -11411,7 +11428,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
               attachments,
               from: smmFrom || undefined, fromName: smmFrom ? smmFromName : undefined,
             });
-          } catch (_) {}
+          } catch (e) { sent = { ok: false, error: e && e.message }; }
+          return settle(sent, subj);
         }
         return json({ ok: true }, 200, request, env);
       }
