@@ -160,6 +160,13 @@ const activeGroup = (NAV.find((g) => g.key === active || (g.items || []).some((i
         <!-- What happened while you were elsewhere. Every page has this, so
              a thing that wants attention is visible from wherever you are
              rather than only on the page it belongs to. -->
+        <!-- Refresh (Dani, 5 Nov 2026): a hard reload without the keyboard.
+             It fetches the page fresh past the browser's cache, then reloads.
+             Nothing saved in the browser is cleared, so sign-in and unsaved
+             edits stay put. -->
+        <button type="button" class="ash-notif-btn ash-refresh" id="ash-refresh" aria-label="Refresh the page" title="Refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+        </button>
         <div class="ash-notif" id="ash-notif">
           <button type="button" class="ash-notif-btn" id="ash-notif-btn" aria-label="Notifications" aria-expanded="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
@@ -394,6 +401,14 @@ const activeGroup = (NAV.find((g) => g.key === active || (g.items || []).some((i
          somebody else's list by accident. Read state is per person, which is
          why marking read appends rather than flips a flag. */
       (function notifications() {
+        document.getElementById("ash-refresh")?.addEventListener("click", async (e) => {
+          const b = e.currentTarget; b.disabled = true; b.classList.add("is-busy");
+          try {
+            if ("caches" in window) { const keys = await caches.keys(); await Promise.all(keys.map((k) => caches.delete(k))); }
+            await fetch(location.href, { cache: "reload", credentials: "same-origin" });
+          } catch (_) {}
+          location.reload();
+        });
         const btn = document.getElementById("ash-notif-btn");
         const panel = document.getElementById("ash-notif-panel");
         const list = document.getElementById("ash-notif-list");
