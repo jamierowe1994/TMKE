@@ -1924,7 +1924,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       // Mark lost is in the banner, so not here too (Dani, 5 Nov): Go back a stage
       // and Schedule a follow-up instead.
       const canBack = !F.lost && F.st !== "active_client" && STAGE_INDEX[F.st] > STAGE_INDEX.inquiry;
-      const links = lead || canBack ? `<span class="sf-call-links">${canBack ? sfAct("back-stage", "Go back a stage") : ""}${lead ? sfAct("followup", r.follow_up_on ? "Move the follow-up" : "Schedule a follow-up") : ""}</span>` : "";
+      const canCancel = !F.lost && r.meeting_at && new Date(r.meeting_at) > new Date() && ["inquiry", "meeting_set", "pricing_call"].includes(F.st);
+      const links = lead || canBack ? `<span class="sf-call-links">${canCancel ? sfAct("cancel-call", "Cancel the call") : ""}${canBack ? sfAct("back-stage", "Go back a stage") : ""}${lead ? sfAct("followup", r.follow_up_on ? "Move the follow-up" : "Schedule a follow-up") : ""}</span>` : "";
       const box = (h, items, acts, cls) => `<div class="sf-call${cls ? " " + cls : ""}"><div><h4>${h}</h4>${items.length ? `<ul>${items.join("")}</ul>` : ""}</div>${acts || links ? `<div class="sf-call-side">${links}${acts ? `<div class="sf-call-acts">${acts}</div>` : ""}</div>` : ""}</div>`;
       const reason = r.lost_reason ? esc(r.lost_reason) : "";
       const fu = r.follow_up_on ? li(sfDate(r.follow_up_on) < new Date() ? 0 : 1, `Follow-up: ${esc((r.follow_up_how || "call").toLowerCase())}, ${esc(sfDayYear(r.follow_up_on))}${r.follow_up_by ? ", " + esc(r.follow_up_by) : ""}`) : "";
@@ -2590,6 +2591,18 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       if (["write", "book-call", "proposal", "book"].includes(k) && sfNeedsManager(r, () => { const el = document.querySelector(`#smm-file [data-sf="${k}"]`); if (el) el.click(); })) return;
       switch (k) {
         case "back": closeFile(); return;
+        // A call that isn't happening (Danielle, 5 Nov 2026): off the file, back a
+        // stage if it was the discovery call, and a note saying so.
+        case "cancel-call": {
+          if (!confirm(`Cancel the call on ${sfWhen(r.meeting_at)}? Take it out of hello@'s calendar too, and let ${nameOf(r)} know.`)) return;
+          const when = sfWhen(r.meeting_at);
+          sfUpdate(r, { meeting_at: null }).then(async (err) => {
+            if (err) { alert("Couldn't cancel it: " + err.message); return; }
+            await sfAutoNote(r, "Call cancelled", `The call on ${when} was cancelled.`);
+            if (r.pipeline_stage === "meeting_set") setStage(r, "inquiry"); else { renderBoard(); loadThread(r); sfDraw(r); }
+          });
+          return;
+        }
         // One step back (Danielle, 5 Nov 2026), for a card moved on too soon.
         case "back-stage": { const i = STAGE_INDEX[stageOf(r)]; const prev = STAGES[i - 1] && STAGES[i - 1].key !== "waitlist" ? STAGES[i - 1].key : "inquiry"; if (prev && prev !== r.pipeline_stage) setStage(r, prev); return; }
         case "lost": sfClosePop(); openLost(r, r.pipeline_stage === "active_client" ? "ended" : "lost"); return;
