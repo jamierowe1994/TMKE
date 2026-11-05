@@ -263,7 +263,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </a>
             </header>
-            <div class="ed-ob-more" id="ed-ob-shop-grid"></div>
+            <div class="ws-news" id="ed-ob-shop-grid"></div>
           </section>
 
           <div class="ed-ob-cta" id="ed-ob-cta">
@@ -5773,52 +5773,101 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-ob-backlink { color: inherit; text-decoration: none; }
     .ed-ob-sec { display: flex; flex-direction: column; gap: var(--ws-gap); }
     #ed-ob-shop-sec[hidden], #ed-ob-cta[hidden], #ed-ob-shop-link[hidden] { display: none; }
-    /* More to work with (Dani, 5 Nov): the same cards as Your designs above,
-       no bigger. Each row is the design grid, so a digital pack card is one
-       design card wide. A print card keeps its cover's own shape (--ar, read
-       from the picture before it is drawn), never stretched: a landscape one
-       takes two columns, about a design card's height. Print sits on top. */
-    #ed-ob-shop-grid { display: flex; flex-direction: column; gap: var(--ws-gap); }
-    #ed-ob-shop-grid .ed-onboard-card.is-wide { grid-column: span 2; }
-    #ed-ob-shop-grid .ed-onboard-card.is-print .ed-onboard-card-cover { aspect-ratio: var(--ar, 1.6); background-size: cover; }
+    /* Four packs, two by two, so each card has the width to show its cover at
+       the shape it was designed in: a portrait template, big enough to read,
+       edge to edge. The art box IS 1080x1440, so "cover" crops nothing. */
+    #ed-ob-shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    /* The cover takes at most 38% of the card, so on a narrow window it gives
+       way and the words keep their room (Dani, 13 Oct: at reduced sizes the
+       title broke one word to a line). Full size it is the 216px it always was. */
+    #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) clamp(110px, 38%, 216px); min-height: 0; }
+    #ed-ob-shop-grid .ws-news-art {
+      background-size: cover; background-repeat: no-repeat; background-position: center;
+      background-color: #f2f0ef; margin: 0; border-radius: 0;
+      width: 100%; aspect-ratio: 1080 / 1440;
+    }
+    /* The copy sits against a tall cover, so centre it rather than leaving it
+       stranded at the top of the card. */
+    #ed-ob-shop-grid .ws-news-tx { padding: 20px 24px; gap: 8px; justify-content: center; }
+    #ed-ob-shop-grid .ws-news-h { font-size: 19px; }
+    /* Pack descriptions run to a paragraph or a sentence depending on the pack;
+       clamped, every card is the same card. */
+    #ed-ob-shop-grid .ws-news-desc {
+      font-size: 12.5px; line-height: 1.5; margin-top: 10px;
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 7; overflow: hidden;
+    }
+    /* iPad portrait and smaller (Dani, 13 Oct): one pack a row, as on a phone;
+       iPad landscape keeps two a row, like the desktop.
+       The words set the height: every card is as tall as the one with the
+       most to say, with the same space above and below its words as to their
+       left. The cover fills that height, 10px in from the card's top, right
+       and bottom edges, and fitPackCovers() gives it the width that keeps it
+       at 3:4. Until that runs it is 20% wide and crops a little. */
+    @media (max-width: 900px) {
+      #ed-ob-shop-grid { grid-template-columns: 1fr; grid-auto-rows: 1fr; }
+      #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) var(--pack-art-w, 20%); }
+      #ed-ob-shop-grid .ws-news-tx { padding: 24px; }
+      #ed-ob-shop-grid .ws-news-art { width: auto; height: auto; aspect-ratio: auto; margin: 10px 10px 10px 0; align-self: stretch; }
+      #ed-ob-shop-grid.is-cover-capped .ws-news-art { aspect-ratio: 1080 / 1440; align-self: center; }
+    }
+    /* A phone, as Dani approved it: each card its own height, the cover a
+       quarter of the card at 3:4, in the middle. */
+    @media (max-width: 560px) {
+      #ed-ob-shop-grid { grid-auto-rows: auto; }
+      #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) clamp(96px, 28%, 150px); }
+      #ed-ob-shop-grid .ws-news-art { aspect-ratio: 1080 / 1440; align-self: center; }
+    }
+    /* A landscape cover (print, mostly) keeps its own shape (Dani, 5 Nov):
+       a wider picture column, the picture its own height and no taller, so
+       the card is shorter than a portrait one. Both cards in a row are the
+       same height (the grid stretches them); the picture sits in the middle
+       of a taller neighbour's height. --ar is read from the picture itself
+       before the card is drawn. */
+    #ed-ob-shop-grid .ws-news-card.is-wide { grid-template-columns: minmax(0, 1fr) clamp(140px, 46%, 300px); }
+    #ed-ob-shop-grid .ws-news-card.is-wide .ws-news-art,
+    #ed-ob-shop-grid.is-cover-capped .ws-news-card.is-wide .ws-news-art { width: auto; height: auto; aspect-ratio: var(--ar, 1.6); align-self: center; margin: 10px 10px 10px 0; }
+    #ed-ob-shop-grid .ws-news-card.is-wide .ws-news-desc { -webkit-line-clamp: 3; }
+    @media (max-width: 900px) {
+      #ed-ob-shop-grid .ws-news-card.is-wide { grid-template-columns: minmax(0, 1fr) clamp(120px, 42%, 260px); }
+    }
 
     /* Design cards, on the same grid the rest of the hub uses. */
-    #ed-ob-designs-grid, #ed-onboard-design-grid, #ed-ob-shop-grid .ed-ob-more-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--ws-gap); }
-    @media (max-width: 1200px) { #ed-ob-designs-grid, #ed-onboard-design-grid, #ed-ob-shop-grid .ed-ob-more-row { grid-template-columns: repeat(4, 1fr); } }
+    #ed-ob-designs-grid, #ed-onboard-design-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--ws-gap); }
+    @media (max-width: 1200px) { #ed-ob-designs-grid, #ed-onboard-design-grid { grid-template-columns: repeat(4, 1fr); } }
     /* Three a row on a smaller window, not two (Dani, 13 Oct: two was "quite
        large"); two only on a phone. */
-    @media (max-width: 900px)  { #ed-ob-designs-grid, #ed-onboard-design-grid, #ed-ob-shop-grid .ed-ob-more-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-    @media (max-width: 560px)  { #ed-ob-designs-grid, #ed-onboard-design-grid, #ed-ob-shop-grid .ed-ob-more-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 900px)  { #ed-ob-designs-grid, #ed-onboard-design-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 560px)  { #ed-ob-designs-grid, #ed-onboard-design-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     #ed-onboard-design-grid.is-print { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     @media (max-width: 900px) { #ed-onboard-design-grid.is-print { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 560px) { #ed-onboard-design-grid.is-print { grid-template-columns: 1fr; } }
     #ed-onboard-design-grid.is-print.is-print-tall { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     @media (max-width: 900px) { #ed-onboard-design-grid.is-print.is-print-tall { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 560px) { #ed-onboard-design-grid.is-print.is-print-tall { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    #ed-ob-designs-grid .ed-onboard-card, #ed-onboard-design-grid .ed-onboard-card, #ed-ob-shop-grid .ed-onboard-card {
+    #ed-ob-designs-grid .ed-onboard-card, #ed-onboard-design-grid .ed-onboard-card {
       /* 40% less round the picture, so it's more picture than card (Dani, 17 Oct). */
       display: flex; flex-direction: column; gap: 4px; padding: 7px 7px 10px;
       border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
       text-decoration: none; color: var(--ws-ink);
       transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease);
     }
-    #ed-ob-designs-grid .ed-onboard-card:hover, #ed-onboard-design-grid .ed-onboard-card:hover, #ed-ob-shop-grid .ed-onboard-card:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
+    #ed-ob-designs-grid .ed-onboard-card:hover, #ed-onboard-design-grid .ed-onboard-card:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
     /* The shape of the thing it previews, like the Studio shelves. */
     /* One frame per grid, set from the pack's own designs, and `contain` so
        a card that is a different shape shows whole rather than cropped. */
-    #ed-ob-designs-grid .ed-onboard-card-cover, #ed-onboard-design-grid .ed-onboard-card-cover, #ed-ob-shop-grid .ed-onboard-card-cover { width: 100%; aspect-ratio: var(--ob-frame, 1080 / 1440); border-radius: 4px; background-size: contain; background-repeat: no-repeat; background-position: center; background-color: #e9e6e2; margin-bottom: 8px; }
-    #ed-ob-designs-grid .ed-onboard-card-body, #ed-onboard-design-grid .ed-onboard-card-body, #ed-ob-shop-grid .ed-onboard-card-body { display: flex; flex-direction: column; gap: 2px; }
+    #ed-ob-designs-grid .ed-onboard-card-cover, #ed-onboard-design-grid .ed-onboard-card-cover { width: 100%; aspect-ratio: var(--ob-frame, 1080 / 1440); border-radius: 4px; background-size: contain; background-repeat: no-repeat; background-position: center; background-color: #e9e6e2; margin-bottom: 8px; }
+    #ed-ob-designs-grid .ed-onboard-card-body, #ed-onboard-design-grid .ed-onboard-card-body { display: flex; flex-direction: column; gap: 2px; }
     /* "+ Create a folder"'s size, not bold, and one line: a longer name ends "…". */
-    #ed-ob-designs-grid .ed-onboard-card-title, #ed-onboard-design-grid .ed-onboard-card-title, #ed-ob-shop-grid .ed-onboard-card-title { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 400; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #ed-ob-designs-grid .ed-onboard-card-cover, #ed-onboard-design-grid .ed-onboard-card-cover, #ed-ob-shop-grid .ed-onboard-card-cover { margin-bottom: 4px; }
-    #ed-ob-designs-grid .ed-onboard-card-cat, #ed-onboard-design-grid .ed-onboard-card-cat, #ed-ob-shop-grid .ed-onboard-card-cat { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #ed-ob-designs-grid .ed-onboard-card-title, #ed-onboard-design-grid .ed-onboard-card-title { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 400; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #ed-ob-designs-grid .ed-onboard-card-cover, #ed-onboard-design-grid .ed-onboard-card-cover { margin-bottom: 4px; }
+    #ed-ob-designs-grid .ed-onboard-card-cat, #ed-onboard-design-grid .ed-onboard-card-cat { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* All / Digital / Print on the wine bar. */
     .ed-ob-k3s { display: inline-flex; gap: 4px; }
     .ed-ob-k3 { all: unset; cursor: pointer; height: 25px; padding: 0 10px; box-sizing: border-box; display: inline-flex; align-items: center; border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.85); transition: background 0.2s, color 0.2s, border-color 0.2s; }
     .ed-ob-k3:hover { border-color: #fff; color: #fff; }
     .ed-ob-k3.is-on { background: #fff; border-color: #fff; color: var(--english-violet); }
     .ed-ob-k3:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-    #ed-ob-designs-grid .ed-onboard-card-cat, #ed-onboard-design-grid .ed-onboard-card-cat, #ed-ob-shop-grid .ed-onboard-card-cat { font-size: var(--ws-t-meta); color: var(--ws-faint); }
+    #ed-ob-designs-grid .ed-onboard-card-cat, #ed-onboard-design-grid .ed-onboard-card-cat { font-size: var(--ws-t-meta); color: var(--ws-faint); }
 
     /* Folders, sort, selection and the action bar. */
     .ed-ob-tools { display: flex; align-items: center; gap: 8px; }
@@ -9131,25 +9180,50 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const pick = morePacks({ packs: MORE.packs, paidPackIds: MORE.paid, memberBrand: MORE.brand, kind });
       const card = ({ pack: p, owned }, print) => {
         const ar = MORE.ar.get(p.id) || (print ? 1.6 : 0.75);
-        const wide = print && ar > 1;
         const href = owned ? `/account/editor?pack=${encodeURIComponent(p.id)}` : `/edit/${encodeURIComponent(p.slug || "")}`;
-        return `<a class="ed-onboard-card${print ? " is-print" : ""}${wide ? " is-wide" : ""}" href="${href}" style="--ar:${ar.toFixed(4)}">
-          <span class="ed-onboard-card-cover"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></span>
-          <span class="ed-onboard-card-body">
-            <span class="ed-onboard-card-title">${escapeHtml(p.title || "Pack")}</span>
-            <span class="ed-onboard-card-cat">${owned ? "Open pack" : "See the pack"} &rarr;</span>
+        return `<a class="ws-news-card${ar > 1 ? " is-wide" : ""}" href="${href}" style="--ar:${ar.toFixed(4)}">
+          <span class="ws-news-tx">
+            <span class="ws-news-flag">${owned ? "Your pack" : "Template pack"}</span>
+            <strong class="ws-news-h">${escapeHtml(p.title || "Pack")}</strong>
+            <span class="ws-news-desc">${escapeHtml(p.description || "Ready-made templates you can edit.")}</span>
           </span>
+          <span class="ws-news-art"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></span>
         </a>`;
       };
-      const row = (list, print) => list.length ? `<div class="ed-ob-more-row">${list.map((x) => card(x, print)).join("")}</div>` : "";
-      // Print on top (Dani, 5 Nov).
-      grid.innerHTML = row(pick.print, true) + row(pick.digital, false);
+      // Two by two, print on top (Dani, 5 Nov).
+      grid.innerHTML = pick.print.map((x) => card(x, true)).join("") + pick.digital.map((x) => card(x, false)).join("");
       const any = pick.print.length + pick.digital.length > 0;
       sec.hidden = !any;
       if (cta) cta.hidden = any;
       // Print packs are not sold, so the Print view has no way to the shop.
       if (shop) shop.hidden = kind === "print";
+      if (any) fitPackCovers();
     }
+    /* Up to iPad portrait width the cards are as tall as their words (see the CSS),
+       and the cover's width is worked out from that height so it stays 3:4.
+       A narrower cover gives the words more room, which can shorten the card,
+       so it settles over a pass or two. */
+    function fitPackCovers() {
+      const grid = document.getElementById("ed-ob-shop-grid");
+      if (!grid) return;
+      grid.style.removeProperty("--pack-art-w");
+      grid.classList.remove("is-cover-capped");
+      if (!matchMedia("(min-width: 561px) and (max-width: 900px)").matches) return;
+      for (let i = 0; i < 4; i++) {
+        const card = grid.querySelector(".ws-news-card:not(.is-wide)");
+        if (!card) return;
+        const r = card.getBoundingClientRect();
+        const w = Math.round((r.height - 20) * 0.75) + 10;   // + the 10px right inset
+        /* Near phone width the words wrap so much that the cover would take
+           the card. It stops at 28%, keeps its shape and sits in the middle. */
+        const cap = Math.round(r.width * 0.28);
+        if (w > cap) { grid.style.setProperty("--pack-art-w", cap + "px"); grid.classList.add("is-cover-capped"); return; }
+        if (Math.abs(w - (parseFloat(grid.style.getPropertyValue("--pack-art-w")) || 0)) < 2) return;
+        grid.style.setProperty("--pack-art-w", w + "px");
+      }
+    }
+    window.addEventListener("resize", fitPackCovers, { passive: true });
+    document.fonts?.ready.then(fitPackCovers);
     const bannerLoaded = loadPackBanner();
 
     // ---- The gallery: folders, sorting, selection and the quick actions ----
