@@ -4799,6 +4799,18 @@ const mgmtPackages = (management && management.packages) || [];
       }
       loadSmmInvoices(r);
     }
+    /* Whenever the invoice list is read again (after creating, sending, marking
+       paid), the client file, All invoices and Onboarding's ticks catch up too,
+       so a sent invoice never still looks like a draft (Dani, 5 Nov 2026). */
+    function sfSyncInvoices(r, list) {
+      if (!r || current !== r) return;
+      const live = (list || []).filter((v) => v.status !== "void");
+      sfData.invoices = list || [];
+      r._onbInvoices = live.length; r._onbInvSent = live.filter((v) => v.status !== "draft").length;
+      if (sfPop === "onboarding") renderOnboarding(r);
+      else if (sfPop === "invoice" && sfInvTab === "all") sfOpen("invoice");
+      sfRefresh(r);
+    }
     async function loadSmmInvoices(r) {
       const wrap = $("siv-list"); if (!wrap) return;
       const money = await CAN_MONEY;
@@ -4813,7 +4825,7 @@ const mgmtPackages = (management && management.packages) || [];
       if (isDemo(r)) { sivInvoices = r._invoices || []; wrap.innerHTML = rowsHtml(sivInvoices); }
       else if (!WORKER) { wrap.innerHTML = '<p class="smm-doc-empty">Connect the Worker to raise invoices.</p>'; return; }
       else {
-        try { const token = await authToken(); const res = await fetch(`${WORKER}/invoicing/invoices?booking_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); const j = await res.json().catch(() => ({})); sivInvoices = (j && j.invoices) || []; wrap.innerHTML = rowsHtml(sivInvoices); }
+        try { const token = await authToken(); const res = await fetch(`${WORKER}/invoicing/invoices?booking_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); const j = await res.json().catch(() => ({})); sivInvoices = (j && j.invoices) || []; wrap.innerHTML = rowsHtml(sivInvoices); sfSyncInvoices(r, sivInvoices); }
         catch (_) { wrap.innerHTML = '<p class="smm-doc-empty">Couldn\'t load invoices.</p>'; }
       }
       wrap.querySelectorAll("[data-sivpaid]").forEach((b) => b.addEventListener("click", async () => {
