@@ -13087,7 +13087,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         // PostgREST rejects the whole query for one unknown column, so if
         // supabase/invoicing_stripe.sql hasn't run yet, asking for pay_by_card
         // would blank the entire invoice list rather than just omitting a badge.
-        let rows = await sbGet(env, "invoices", `select=${BASE},sent_to,sent_at,payment_ref,pay_by_card,terms_days,release_on_payment${tail}`);
+        // recurring_id tells a client's first monthly invoice from their onboarding fee.
+        let rows = await sbGet(env, "invoices", `select=${BASE},sent_to,sent_at,payment_ref,pay_by_card,terms_days,release_on_payment,recurring_id${tail}`);
+        if (!rows) rows = await sbGet(env, "invoices", `select=${BASE},sent_to,sent_at,payment_ref,pay_by_card,terms_days,release_on_payment${tail}`);
         if (!rows) rows = await sbGet(env, "invoices", `select=${BASE},sent_to,payment_ref,pay_by_card,terms_days,release_on_payment${tail}`);
         if (!rows) rows = (await sbGet(env, "invoices", `select=${BASE}${tail}`)) || [];
         return json({ ok: true, invoices: rows }, 200, request, env);
@@ -13315,6 +13317,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         // theirs, card payment is set there, and a new one is approved and
         // sent the same way as the other social clients'.
         if (b.pay_by_card !== undefined) row.pay_by_card = !!b.pay_by_card;
+        if (b.due_day !== undefined && b.due_day !== "" && b.due_day != null) row.due_day = Math.min(28, Math.max(1, Math.round(Number(b.due_day))));
         if (b.social && b.lead_id) {
           row.kind = "social"; row.lead_id = String(b.lead_id);
           if (!b.id) {

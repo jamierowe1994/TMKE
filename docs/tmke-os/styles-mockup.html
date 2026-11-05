@@ -817,6 +817,14 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
 .sf-seg button:hover { background: var(--stone); color: var(--wine); }
 .sf-seg button[aria-pressed="true"], .sf-seg button[aria-pressed="true"]:hover { background: var(--wine); color: #fff; }
 .sf-seg button[aria-pressed="true"] + button, .sf-seg button:has(+ button[aria-pressed="true"]) { border-left-color: transparent; }
+/* Update needed (Dani, 5 Nov): 5 days with nothing happening turns the callout red. */
+.cf-call.is-late { background: var(--red-l); }
+.cf-call.is-late h4 { color: var(--red) !important; }
+.cf-call.is-late li:not(.ok)::before { border-color: var(--red); }
+/* Round seven (Dani, 5 Nov): buttons level with the last line of points, never centred top to bottom. */
+.cf-call { align-items: end; }
+.cf-acts-col { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.cf-links { display: inline-flex; gap: 18px; }
 </style>
 
 <div class="note"><b>TMKE OS, round five</b><span>Wine sidebar, linen page heads, no greys: everything from the palette. Smaller type and tighter lines. Example data. Home, Invoices, Videography (board and calendar), Social media and the Trentside Estates client file are clickable; ⌘K opens the search.</span></div>
@@ -1844,16 +1852,18 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
   const P = {
     name: "Terry Rowan", co: "Fine & Country", email: "terry@rowan-estates.example", phone: "07700 900412",
     pkg: "Shot & Scheduled", tier: "Tier 2", fee: 650, hours: 6, plats: ["Instagram", "Facebook", "LinkedIn"],
-    mgr: "Abby", start: "2026-03-02", from: "Brochure, 3 February 2026", inter: false,
+    mgr: "Abigail", start: "2026-03-02", from: "Brochure, 3 February 2026", inter: false,
     billTo: "Rowan Estates Ltd", invEmail: "accounts@rowan-estates.example", address: "14 Parliament Street, Harrogate HG1 2QU",
     card: false, line: "Social media management - Shot & Scheduled",
     links: { Instagram: "instagram.com/rowanestates", Facebook: "facebook.com/rowanestates", LinkedIn: "linkedin.com/company/rowan-estates", YouTube: "", TikTok: "" },
     leaveOn: "2026-11-30", leaveWhy: "Taking it in-house",
   };
   const PACKAGES = ["Planned & Posted", "Shot & Scheduled", "Bespoke", "Newsletter"];
-  const MANAGERS = ["Abby", "Danielle", "Jack"];
-  const STEPS = ["Enquiry", "Meeting set", "Proposal sent", "Contract sent", "Onboarding", "Active client"];
-  const STATES = [["proposal", "Proposal sent"], ["onboarding", "Onboarding"], ["active", "Active, all in order"], ["noinv", "Active, no monthly invoice"], ["paused", "Paused"], ["leaving", "Leaving"]];
+  const MANAGERS = ["Abigail", "Danielle", "Jack"];
+  const STEPS = ["Enquiry", "Discovery call", "Proposal sent", "Pricing call", "Contract sent", "Onboarding", "Active client"];
+  const STATES = [["enquiry", "Enquiry"], ["discovery", "Discovery call"], ["proposal", "Proposal sent, no reply"], ["pricing", "Pricing call"], ["contract", "Contract sent"], ["onboarding", "Onboarding"], ["active", "Active"], ["noinv", "Active, invoice not set up"], ["paused", "Paused"], ["leaving", "Leaving"], ["lost", "Lost"]];
+  const LEADS = ["enquiry", "discovery", "proposal", "pricing", "contract", "lost"];
+  const isLead = () => LEADS.includes(S);
   let S = "active", T = "reports";
   const isClient = () => ["active", "noinv", "paused", "leaving"].includes(S);
   const vatOn = (n) => Math.round(n * 120) / 100;
@@ -1864,7 +1874,7 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
     ["Paperwork and billing", "Package details filled in", "auto", true], ["Paperwork and billing", "Start date set", "auto", true],
     ["Paperwork and billing", "Billing set up", "auto", true], ["Paperwork and billing", "Account manager named", "auto", true],
     ["Accounts and access", "Linked to their Member Hub", "auto", true], ["Accounts and access", "Platforms and links recorded", "auto", true],
-    ["Accounts and access", "Access to every platform", "hand", false], ["Accounts and access", "Connected to SocialPilot", "hand", false],
+    ["Accounts and access", "Accounts linked: admin access to every platform, and each one in SocialPilot", "hand", false],
     ["Accounts and access", "Brand assets received", "hand", true], ["How we'll work together", "Onboarding call held", "hand", true],
     ["How we'll work together", "Approval process agreed", "hand", false], ["How we'll work together", "First shoot booked", "auto", false],
   ].map(([g, t, k, ok]) => ({ g, t, k, ok }));
@@ -1878,10 +1888,10 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
     ["TMKE1019", "Monthly, September 2026", 780, "Paid 2 September", "good"],
   ];
   const NOTES = [
-    ["3 Nov", "October report walked through on a call. Happy with reach; wants more of the team on camera.", "Abby"],
-    ["28 Oct", "Asked for an extra reel for the Ripon launch. Quoted £120 + VAT, raised as a one-off.", "Abby"],
+    ["3 Nov", "October report walked through on a call. Happy with reach; wants more of the team on camera.", "Abigail"],
+    ["28 Oct", "Asked for an extra reel for the Ripon launch. Quoted £120 + VAT, raised as a one-off.", "Abigail"],
     ["14 Oct", "Prefers posts approved by Monday noon for the week.", "Danielle"],
-    ["2 Oct", "New listings photographer starts in November; send the shot list.", "Abby"],
+    ["2 Oct", "New listings photographer starts in November; send the shot list.", "Abigail"],
     ["10 Sept", "Shoot day went well, 3 reels and 40 stills.", "Jack"],
   ];
   const MAIL = [
@@ -1910,12 +1920,12 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
     return ["1 November 2026", "TMKE1084", chip("info", "Outstanding, due 15 November")];
   }
 
-  // ---- The lower panel: the things Abby uses every week, as cards you swipe through ----
+  // ---- The lower panel: the things Abigail uses every week, as cards you swipe through ----
   // Two rows a tab (Dani, 5 Nov): what's outstanding (or pinned) on top, everything else below.
   const PLANS = [
-    { m: "November", file: "November plan.pdf", by: "Abby", in: "30 October", ok: "Terry, 31 October", posts: 14, days: "Monday, Wednesday, Friday", pillars: [["Listings", 4], ["Local", 4], ["Team", 4], ["Market", 2]],
+    { m: "November", file: "November plan.pdf", by: "Abigail", in: "30 October", ok: "Terry, 31 October", posts: 14, days: "Monday, Wednesday, Friday", pillars: [["Listings", 4], ["Local", 4], ["Team", 4], ["Market", 2]],
       sum: "The Ripon office opening leads the month: a launch reel, two team intros and the opening day itself. Listings drop to four so the new photographer's work gets a week of its own." },
-    { m: "October", file: "October plan.pdf", by: "Abby", in: "1 October", ok: "Terry, 2 October", posts: 12, days: "Monday, Wednesday, Friday", pillars: [["Listings", 5], ["Local", 3], ["Team", 2], ["Market", 2]],
+    { m: "October", file: "October plan.pdf", by: "Abigail", in: "1 October", ok: "Terry, 2 October", posts: 12, days: "Monday, Wednesday, Friday", pillars: [["Listings", 5], ["Local", 3], ["Team", 2], ["Market", 2]],
       sum: "Sold boards and the September shoot: twelve posts, a weekly market update on LinkedIn, and the first reels with the team on camera." },
   ];
   const REPORTS = [
@@ -1935,17 +1945,20 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
     { d: "30 Oct", dir: "in", ch: "email", s: "Re: Ripon launch reel", who: "Terry Rowan", by: "", p: "Could we do one more reel for the Ripon office opening? Happy to pay extra for it, just let me know the cost." },
     { d: "31 Oct", dir: "in", ch: "hub", s: "November plan approved", who: "Terry Rowan", by: "", p: "Approved in his Member Hub, with a note: love the Ripon week, can we add the coffee morning on the 21st?" },
     { d: "12 Oct", dir: "in", ch: "hub", s: "Question on the September report", who: "Terry Rowan", by: "", p: "What counts as reach? It looks lower on Facebook than what Meta shows me." },
-    { d: "4 Nov", dir: "out", ch: "notice", s: "Your October report is ready", who: "Terry Rowan", by: "Abby", p: "October's report is in your Member Hub. Reach is up 12% on September, led by the team reels." },
+    { d: "4 Nov", dir: "out", ch: "notice", s: "Your October report is ready", who: "Terry Rowan", by: "Abigail", p: "October's report is in your Member Hub. Reach is up 12% on September, led by the team reels." },
     { d: "1 Nov", dir: "out", ch: "email", s: "Invoice TMKE1084", who: "Rowan Estates accounts", by: "Automatic", p: "Please find attached invoice TMKE1084 for November's social media management, due 15 November." },
-    { d: "30 Oct", dir: "out", ch: "hub", s: "Your November content plan", who: "Terry Rowan", by: "Abby", p: "Here's November's plan: 14 posts, with the Ripon opening leading. Approve it in your hub by the 2nd." },
+    { d: "30 Oct", dir: "out", ch: "hub", s: "Your November content plan", who: "Terry Rowan", by: "Abigail", p: "Here's November's plan: 14 posts, with the Ripon opening leading. Approve it in your hub by the 2nd." },
     { d: "22 Oct", dir: "out", ch: "email", s: "Invoice TMKE1063", who: "Rowan Estates accounts", by: "Automatic", p: "Please find attached invoice TMKE1063 for the extra reel edit." },
   ];
   const LEAD_COMMS = [
-    { d: "6 Oct", dir: "in", ch: "email", s: "Re: Brochure request", who: "Terry Rowan", by: "", p: "Could we have a chat about what this would look like for us? Free most mornings next week." },
-    { d: "23 Oct", dir: "out", ch: "email", s: "Your proposal from TMKE", who: "Terry Rowan", by: "Danielle", p: "Attached is the proposal we talked through on Friday, with the Shot & Scheduled package." },
-    { d: "9 Oct", dir: "out", ch: "email", s: "Meeting notes and next steps", who: "Terry Rowan", by: "Danielle", p: "Thanks for your time this morning. Here's what we covered and what happens next." },
+    { d: "30 Oct", dir: "in", ch: "email", s: "Re: Your proposal from TMKE", who: "Terry Rowan", by: "", p: "Looks good. Can we talk numbers next week? Thursday works.", from: "pricing" },
+    { d: "12 Oct", dir: "in", ch: "email", s: "Reels for the Ripon office", who: "Terry Rowan", by: "", p: "Sarah Lyle said you might be able to help with reels for our new Ripon office. Free most mornings.", from: "enquiry" },
+    { d: "28 Oct", dir: "out", ch: "email", s: "Following up on your proposal", who: "Terry Rowan", by: "Abigail", p: "Just checking the proposal came through, and whether you'd like to talk it through.", from: "proposal" },
+    { d: "23 Oct", dir: "out", ch: "email", s: "Your proposal from TMKE", who: "Terry Rowan", by: "Abigail", p: "Attached is the proposal we talked through, with the Shot & Scheduled package.", from: "proposal" },
+    { d: "14 Oct", dir: "out", ch: "email", s: "Booking your discovery call", who: "Terry Rowan", by: "Abigail", p: "Lovely to hear from you. Here's an invite for a 45-minute call on Friday.", from: "enquiry" },
   ];
-  const comms = () => (S === "proposal" ? LEAD_COMMS : COMMS);
+  const LEAD_ORDER = ["enquiry", "discovery", "proposal", "pricing", "contract"];
+  const comms = () => (isLead() ? LEAD_COMMS.filter((c) => S === "lost" ? c.from !== "pricing" : LEAD_ORDER.indexOf(c.from) <= LEAD_ORDER.indexOf(S)) : COMMS);
   NOTES.forEach((n, i) => { n.pin = i === 1 || i === 2; });
 
   const card = (attrs, head, body, foot, cls = "") => `<article class="sf-c${cls}" tabindex="0" ${attrs}><div class="sf-c-h">${head}</div>${body}<div class="sf-c-f">${foot}</div></article>`;
@@ -1953,11 +1966,15 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
   const hb = (cls, attrs, t) => `<button type="button" class="btn btn--${cls} sf-hb" ${attrs}>${t}</button>`;
   const figs = (x, cls = "") => `<div class="sf-figs${cls}">${x.figs.map(([n, k, d]) => `<div class="sf-fig"><b>${n}</b><span>${k} · ${d}</span></div>`).join("")}</div>`;
   const row = (id, label, cards) => `<div class="sf-row"><div class="sf-row-h"><span>${label}</span><span class="sf-nav"><button type="button" data-sf-scroll="${id}" data-dir="-1" aria-label="Back">‹</button><button type="button" data-sf-scroll="${id}" data-dir="1" aria-label="More">›</button></span></div><div class="sf-strip" id="sf-strip-${id}">${cards}</div></div>`;
+  // Before they're an active client: one row, outstanding first (Dani, 5 Nov).
+  const isNone = (h) => String(h || "").startsWith('<div class="sf-c is-none"');
+  const two = (l1, c1, l2, c2) => isClient() ? row("a", l1, c1) + row("b", l2, c2) : row("a", "", [c1, c2].filter((x) => x && !isNone(x)).join("") || c1 || c2);
   const commCard = (c, i) => card(`data-sf-card="comm" data-i="${i}"`, `${chip(c.ch === "email" ? "plain" : "info", c.ch === "email" ? "Email" : c.ch === "hub" ? "Member Hub" : "Hub and email")}<span class="sf-c-who">${c.d}</span>`,
     `<p class="sf-c-sub">${esc(c.s)}</p><p class="sf-c-p sf-c-2">${esc(c.p)}</p>`, `<span>${c.dir === "in" ? "From " + esc(c.who) : "To " + esc(c.who) + (c.by ? ", " + (c.by === "Automatic" ? "sent automatically" : "by " + esc(c.by)) : "")}</span>`);
 
   function tabsFor() {
-    return S === "proposal" ? [["paper", "Paperwork"], ["comm", "Communication"], ["notes", "Notes"]]
+    return isLead() ? [["paper", "Paperwork"], ["comm", "Communication"], ["notes", "Notes"]]
+      : S === "onboarding" ? [["plan", "Content plan"], ["comm", "Communication"], ["notes", "Notes"], ["paper", "Paperwork"]]
       : [["reports", "Reports"], ["plan", "Content plan"], ["comm", "Communication"], ["notes", "Notes"], ["paper", "Paperwork"]];
   }
   function tabPanel() {
@@ -1970,38 +1987,100 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
       const due = S === "paused" ? none("Nothing due while they're paused.") : card('data-sf-stub="Uploads November\'s SocialPilot export, then the report builds from it."', `<h4>November</h4>${chip("wait", "Due by 7 December")}`,
         `<p class="sf-c-p">Upload November's SocialPilot export and the report builds from it. Its Into December section comes from December's plan, due by the 2nd.</p>`, `<span></span>${hb("primary", 'data-sf-stub="Uploads November\'s SocialPilot export."', "Upload")}`, " is-todo");
       const done = S === "onboarding" ? none("No reports yet. The first is November's.") : REPORTS.map((x, i) => card(`data-sf-card="report" data-i="${i}"`, `<h4>${x.m}</h4>${chip("good", "Published")}`,
-        figs(x) + `<p class="sf-c-ins">${esc(x.ins[0][0])}</p>`, `<span>${x.pub}, Abby</span><span class="sf-ics">${P.plats.map(icon).join("")}</span>`)).join("");
-      rows = row("a", "Outstanding", due) + row("b", "Published", done);
+        figs(x) + `<p class="sf-c-ins">${esc(x.ins[0][0])}</p>`, `<span>${x.pub}, Abigail</span><span class="sf-ics">${P.plats.map(icon).join("")}</span>`)).join("");
+      rows = two("Outstanding", due, "Published", done);
     } else if (T === "plan") {
       acts = stubAct("Uploads a month's plan: a PDF, a spreadsheet or a deck.", "Upload a plan");
-      const due = card('data-sf-card="plan" data-i="-1"', `<h4>December</h4>${chip("wait", "Due by 2 December")}`, `<p class="sf-c-p">Upload December's plan for ${first} to approve. It needs to be in before November's report, which says what's coming next.</p>`, `<span></span>${hb("primary", 'data-sf-card="plan" data-i="-1"', "Upload the plan")}`, " is-todo");
+      const due = card('data-sf-card="plan" data-i="-1"', `<h4>December</h4>${chip("wait", "Due by 2 Dec")}`, `<p class="sf-c-p">Upload December's plan for ${first} to approve. It needs to be in before November's report, which says what's coming next.</p>`, `<span></span>${hb("primary", 'data-sf-card="plan" data-i="-1"', "Upload the plan")}`, " is-todo");
       const done = S === "onboarding" ? none("No plans yet. The first is December's.") : PLANS.map((x, i) => card(`data-sf-card="plan" data-i="${i}"`, `<h4>${x.m}</h4>${chip("good", "Approved")}`,
         `<p class="sf-c-p sf-c-3"><span class="sf-ai">✦ Focus</span> ${esc(x.sum)}</p>`, `<span>${x.posts} posts · approved ${esc(x.ok.split(", ")[1])}</span>`)).join("");
-      rows = row("a", "Outstanding", due) + row("b", "Approved", done);
+      rows = two("Outstanding", due, "Approved", done);
     } else if (T === "comm") {
       acts = stubAct("Opens a new email to " + P.email + ", saved to this thread.", "Write");
       const list = comms();
       const ins = list.map((c, i) => [c, i]).filter(([c]) => c.dir === "in"), outs = list.map((c, i) => [c, i]).filter(([c]) => c.dir === "out");
-      rows = row("a", `Received from ${first}`, ins.map(([c, i]) => commCard(c, i)).join("") || none("Nothing from them yet.")) + row("b", `Sent to ${first}`, outs.map(([c, i]) => commCard(c, i)).join("") || none("Nothing sent yet."));
+      rows = two(`Received from ${first}`, ins.map(([c, i]) => commCard(c, i)).join("") || none("Nothing from them yet."), `Sent to ${first}`, outs.map(([c, i]) => commCard(c, i)).join("") || none("Nothing sent yet."));
     } else if (T === "notes") {
-      const list = S === "proposal" ? [["9 Oct", "Met at their office. Keen on reels; wants the team on camera.", "Danielle"]] : NOTES;
+      const list = isLead() ? (S === "enquiry" ? [["2 Nov", "Rang Abigail after Sarah Lyle recommended us. Wants reels for the Ripon office opening.", "Abigail"]] : [Object.assign(["16 Oct", "Discovery call notes: wants reels and the team on camera, 3 platforms, around £600 a month, start in December.", "Abigail"], { pin: true }), ["12 Oct", "Rang Abigail after Sarah Lyle recommended us. Wants reels for the Ripon office opening.", "Abigail"]]) : NOTES;
       const nc = (n) => card(`data-sf-card="note" data-i="${NOTES.indexOf(n)}"`, `<h4>${n[0]}</h4><span class="sf-c-who">${n.pin ? "Pinned · " : ""}${n[2]}</span>`, `<p class="sf-c-p sf-c-note">${esc(n[1])}</p>`, "", n.pin ? " is-pin" : "");
       const add = card('data-sf="notes"', `<h4>Add a note</h4>`, `<p class="sf-c-p">What happened, what was agreed. Pin it and it stays up here for everyone working on ${first}.</p>`, `<span></span>${hb("primary", 'data-sf="notes"', "Add a note")}`, " is-todo");
-      rows = row("a", "Add and pinned", add + list.filter((n) => n.pin).map(nc).join("")) + row("b", "All notes", list.filter((n) => !n.pin).map(nc).join("") || none("No other notes."));
+      rows = two("Add and pinned", add + list.filter((n) => n.pin).map(nc).join(""), "All notes", list.filter((n) => !n.pin).map(nc).join("") || none("No other notes."));
     } else {
       acts = stubAct("Adds a file: choose it, then say what it is.", "Add a file");
-      const lead = S === "proposal";
+      const lead = isLead();
       const doc = (t, name, when, ok = true) => card(`data-sf-stub="${ok ? "Opens " + esc(name) + "." : "Adds the file."}"`, `<h4>${t}</h4>${ok ? chip("good", "On file") : chip("plain", "Not yet")}`, `<p class="sf-c-file">${ok ? esc(name) : "Nothing uploaded"}</p>`, `<span>${when}</span>${ok ? hb("ghost", `data-sf-stub="Opens ${esc(name)}."`, "Open") : hb("primary", 'data-sf-stub="Adds the file."', "Add")}`, ok ? "" : " is-todo");
       const n = onbDone(), all = ONB.length;
       const onb = card('data-sf="onboarding"', `<h4>Onboarding</h4>${chip(n === all ? "good" : "wait", `${n} of ${all}`)}`, `<div class="sf-bar"><i style="width:${(n / all) * 100}%"></i></div><p class="sf-c-p">${n === all ? "Done 2 March." : `${all - n} still open: ${esc(ONB.filter((o) => !o.ok).map((o) => o.t.toLowerCase()).slice(0, 2).join(", "))}${all - n > 2 ? " and more" : ""}.`}</p>`, `<span></span>${hb(n === all ? "ghost" : "primary", 'data-sf="onboarding"', "Open")}`);
-      rows = row("a", "Signing up", (lead ? "" : onb) + doc("Proposal", `Proposal - ${P.co}.pdf`, "Sent 23 October") + doc("Contract", "Contract - signed.pdf", lead ? "" : "Signed 24 February", !lead))
-        + row("b", "Working files", lead ? none("Their strategy and brand files go here once they sign.") : doc("Strategy", "Strategy 2026.pdf", S === "onboarding" ? "" : "Written 2 March", S !== "onboarding") + doc("Brand assets", "Logo, fonts, 2 colours", "Received 26 February") + doc("Platform access", "Logins and admin roles.pdf", "Updated 2 March"));
+      // Leads: the pitch deck once the call's held; the contract out for signing (e-signing is planned).
+      const hasProp = ["proposal", "pricing", "contract", "lost"].includes(S);
+      const contractCard = S === "contract" ? card('data-sf-stub="Shows who has signed and when. E-signing is planned; for now, upload the signed copy."', `<h4>Contract</h4>${chip("wait", "Out for signing")}`, `<p class="sf-c-file">Sent to sign 3 November, opened 3 November.</p>`, `<span>Chase on 6 November</span>${hb("primary", 'data-sf-stub="Sends Terry a reminder to sign."', "Chase")}`) : "";
+      rows = lead
+        ? two("", (hasProp ? doc("Proposal", `Proposal - ${P.co}.pdf`, "Sent 23 October") : doc("Proposal", "", S === "discovery" ? "Due by 5 November" : "After the discovery call", false)) + contractCard, "", "")
+        : two("Signing up", onb + doc("Contract", "Contract - signed.pdf", S === "onboarding" ? "Signed 4 November" : "Signed 24 February") + doc("Proposal", `Proposal - ${P.co}.pdf`, "Sent 23 October"),
+          "Working files", doc("Strategy", "Strategy 2026.pdf", S === "onboarding" ? "" : "Written 2 March", S !== "onboarding") + doc("Brand assets", "Logo, fonts, 2 colours", "Received 26 February") + doc("Platform access", "Logins and admin roles.pdf", "Updated 2 March"));
     }
     return `<div class="sf-panel"><div class="sf-switch"><div class="sf-seg" role="group" aria-label="Show">${tabs.map(([k, t]) => `<button type="button" data-sf-tab="${k}" aria-pressed="${T === k}">${t}</button>`).join("")}</div><span class="cf-acts-h">${acts}</span></div><div class="cf-card sf-tabs-card"><div class="sf-tabbody">${rows}</div></div></div>`;
   }
 
+  // ---- The stages before they're a client (Dani, 5 Nov): each shows what that stage needs ----
+  // Her process: interest, discovery call, proposal, pricing call, contract, onboarding, active.
+  // Anything with no update for 5 days is flagged: Update needed.
+  function leadDraw() {
+    const NOW = { enquiry: 0, discovery: 1, proposal: 2, pricing: 3, contract: 4, lost: -1 }[S];
+    const late = S === "proposal";
+    $("#sf-name").textContent = P.name;
+    $("#sf-eye").textContent = "Social media · " + (S === "enquiry" || S === "lost" ? "Referral" : P.pkg);
+    $("#sf-sub").textContent = P.co + " · " + (S === "lost" ? "Lost 30 October 2026" : S === "enquiry" ? "Enquiry received 2 November 2026" : "Enquiry received 12 October 2026");
+    $("#sf-tags").innerHTML = (S === "lost" ? '<span class="chip pay pay-overdue">Lost</span>' : glass(STEPS[NOW])) + (late ? '<span class="chip pay pay-overdue">Update needed</span>' : "") + glass("Managed by " + esc(P.mgr));
+    $("#v-sclient").dataset.crumb = `Clients · Social media · <em>${esc(P.name)}</em>`;
+    const cr = $("#crumbs"); if (cr && !$("#v-sclient").hidden) cr.innerHTML = $("#v-sclient").dataset.crumb;
+    const pick = `<div class="cf-pick" role="group" aria-label="Example"><span>Mock-up only. Show this client when:</span>${STATES.map(([k, t]) => `<button type="button" data-sf-state="${k}" aria-pressed="${S === k}">${t}</button>`).join("")}</div>`;
+    const tl = `<div class="cf-tl"><div class="cf-tl-track"><i style="width:${(Math.max(0, NOW) / (STEPS.length - 1)) * 100}%"></i></div>${STEPS.map((s, i) => `<div class="cf-tl-step${i === 0 ? " is-first" : ""}${i === STEPS.length - 1 ? " is-last" : ""}${i <= NOW ? " done" : ""}${i === NOW ? " now" : ""}" style="left:${(i / (STEPS.length - 1)) * 100}%"><span class="cf-tl-dot"></span><span>${s}</span></div>`).join("")}</div>`;
+    const li = (ok, t) => `<li${ok ? ' class="ok"' : ""}>${t}</li>`;
+    // Buttons sit level with the last line of points (Dani, 5 Nov); Schedule a follow-up and
+    // Mark lost are on every stage before they're a client.
+    const quiet = S === "lost" ? "" : `<span class="cf-links">${act("follow-up", "Schedule a follow-up")}${act("mark-lost", "Mark lost")}</span>`;
+    const callBox = (h, items, acts, cls = "") => `<div class="cf-call${cls}"><div><h4>${h}</h4><ul>${items.join("")}</ul></div><div class="cf-acts-col">${quiet}<div class="cf-acts">${acts}</div></div></div>`;
+    const stub = (cls, msg, t) => btn(cls, `data-sf-stub="${esc(msg)}"`, t);
+    const call = {
+      enquiry: callBox("Next: book the discovery call", [li(1, "Enquiry received 2 November, referral from Sarah Lyle"), li(1, "Replied 2 November, by Abigail"), li(0, "Discovery call booked: due by 7 November")],
+        btn("ghost", 'data-sf="force-stage" data-to="discovery"', "Move to Discovery call") + stub("primary", "Opens the calendar to book the call, with an invite to Terry.", "Book the discovery call")),
+      discovery: callBox("Discovery call held. Next: the proposal", [li(1, "Discovery call held 2 November"), li(1, "Call notes written"), li(0, "Proposal due by Thursday 5 November")],
+        btn("ghost", 'data-sf="call-notes"', "Call notes") + btn("primary", 'data-sf="force-stage" data-to="proposal"', "Upload and send the proposal")),
+      proposal: callBox("Update needed: 8 days since anything", [li(1, "Proposal sent 23 October"), li(1, "Chased 26 October"), li(1, "Chased again 28 October"), li(0, "No reply since")],
+        btn("ghost", 'data-sf="call-notes"', "Add an update") + stub("ghost", "Writes a chase email to Terry, saved to this file.", "Chase again") + btn("primary", 'data-sf="force-stage" data-to="pricing"', "Book the pricing call"), " is-late"),
+      pricing: callBox("Pricing call on Thursday 12 November, 10:00", [li(1, "Proposal sent 23 October"), li(1, "Call booked in 30 October"), li(1, "Invite sent 30 October"), li(0, "Contract out by Friday 13 November")],
+        btn("ghost", 'data-sf="call-notes"', "Call notes") + btn("primary", 'data-sf="force-stage" data-to="contract"', "Send the contract")),
+      contract: callBox("Contract out for signing", [li(1, "Contract sent 3 November"), li(1, "Opened 3 November"), li(0, "Signed: chase on 6 November, then 8 November")],
+        stub("ghost", "Sends Terry a reminder to sign.", "Chase") + stub("ghost", "For a contract signed on paper: upload the signed copy.", "Upload signed copy") + btn("primary", 'data-sf="force-stage" data-to="onboarding"', "Start onboarding")),
+      lost: callBox("Lost: gone with another agency", [li(1, "Lost 30 October, after the proposal"), li(1, "Said they'd look again in the spring"), li(0, "Follow-up: call and email, Monday 1 March 2027")],
+        btn("ghost", 'data-sf="follow-up"', "Schedule a follow-up") + btn("primary", 'data-sf="force-stage" data-to="enquiry"', "Bring back")),
+    }[S];
+    const deal = (extra) => r("Package", esc(P.pkg + ", " + P.tier)) + r("Monthly fee", money(P.fee) + " + VAT") + r("Onboarding fee", money(350) + " + VAT") + extra;
+    const cols = {
+      enquiry: [r("Enquiry received", "2 November 2026") + r("How", "Referral: Sarah Lyle, Lyle &amp; Co") + r("What they said", "Wants reels for the new Ripon office", "Rang Abigail: wants reels for the new Ripon office opening in December.") + r("Marketing", "Opted in"),
+        r("Last contact", "2 Nov, call with Abigail") + r("Discovery call", chip("wait", "Due by 7 Nov")) + r("Days since enquiry", "3") + r("Managed by", "Abigail")],
+      discovery: [r("Discovery call", "Monday 2 November, 14:00") + r("Held", chip("good", "Held")) + r("Invite", "Sent to " + esc(P.email), "Sent to " + P.email) + r("Call notes", `<a href="#" data-sf="call-notes">What they want, budget, timing</a>`),
+        r("Package interest", esc(P.pkg)) + r("Platforms", `<span class="sf-ics">${P.plats.map(icon).join("")}</span>`) + r("Budget", "Around £600 a month") + r("Wants to start", "December")],
+      proposal: [r("Proposal sent", "23 October 2026") + deal(""),
+        r("Last update", chip("bad", "8 days ago")) + r("Chased", "26 and 28 October") + r("Next chase", "Overdue") + r("Pricing call", chip("wait", "Not booked"))],
+      pricing: [r("Pricing call", "Thursday 12 November, 10:00") + r("Held", "Not yet") + r("Invite", "Sent 30 October") + r("Call notes", "After the call"),
+        deal(r("Wants to start", "1 December"))],
+      contract: [deal(r("Start date", "1 December 2026")),
+        r("Sent to sign", "3 November 2026") + r("Opened", "3 November") + r("Signed", chip("wait", "Not yet")) + r("Next chase", "6 November")],
+      lost: [r("Why", "Gone with another agency") + r("Lost on", "30 October 2026") + r("Got as far as", "Proposal sent") + r("Enquiry received", "2 October 2026"),
+        r("Last contact", "28 Oct, chase from Abigail") + r("Managed by", "Abigail") + r("Follow-up", "1 March 2027, call and email") + r("Proposal", `<a href="#" data-sf-stub="Opens the proposal.">Proposal - ${esc(P.co)}.pdf</a>`)],
+    }[S];
+    const client = box("cf-wide sf-client", "Client", act("view", "View") + act("edit", "Edit"), `<div class="cf-cols">
+      <dl class="cf-dl">${r("Contact name", esc(P.name))}${r("Business", esc(P.co))}${r("Email", `<a href="#" data-sf-stub="Opens a new email to ${esc(P.email)}.">${esc(P.email)}</a>`, P.email)}${r("Phone", esc(P.phone))}</dl>
+      <dl class="cf-dl">${cols[0]}</dl><dl class="cf-dl">${cols[1]}</dl></div>`);
+    const fn = esc(P.name.split(" ")[0]);
+    $("#sf").innerHTML = (pick + `<div class="cf-card">${tl}${call}</div><div class="cf-grid">${client}</div>` + tabPanel()).replace(/Terry Rowan/g, esc(P.name)).replace(/Terry/g, fn);
+  }
+
   function draw() {
-    const NOW = { proposal: 2, onboarding: 4 }[S] ?? 5;
+    if (isLead()) return leadDraw();
+    const NOW = { onboarding: 5 }[S] ?? 6;
     $("#sf-name").textContent = P.name;
     $("#sf-eye").textContent = "Social media · " + P.pkg;
     $("#sf-sub").textContent = P.co + " · " + (S === "proposal" ? "Proposal sent 23 October 2026" : S === "onboarding" ? "Starts " + longDate(P.start) : "Client since " + longDate(P.start));
@@ -2018,10 +2097,10 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
     const open = ONB.filter((o) => !o.ok);
     const call = {
       proposal: `<div class="cf-call"><div><h4>Next: the contract</h4><ul>${li(1, "Meeting held 9 October")}${li(1, "Proposal on file, sent 23 October")}${li(0, "Contract sent")}</ul></div><div class="cf-acts">${btn("ghost", 'data-sf-stub="A follow-up email to ' + esc(P.email) + ', checking they have the proposal."', "Chase the proposal")}${btn("primary", 'data-sf-stub="Moves the card to Contract sent."', "Mark contract sent")}</div></div>`,
-      onboarding: `<div class="cf-call"><div><h4>Onboarding: ${onbDone()} of ${ONB.length} done</h4><ul>${open.map((o) => li(0, esc(o.t))).join("")}</ul></div><div class="cf-acts">${btn("ghost", 'data-sf="onboarding"', "Open onboarding")}${btn("primary", 'data-sf="make-active"', "Make active client")}</div></div>`,
+      onboarding: `<div class="cf-call"><div><h4>Onboarding: ${onbDone()} of ${ONB.length} done</h4><ul>${li(1, "Signed contract back 4 November")}${li(0, "Onboarding invoices: outstanding")}${li(0, "Accounts linked")}${li(0, "Approval process agreed")}${li(0, "First shoot booked")}</ul></div><div class="cf-acts">${btn("ghost", 'data-sf="onboarding"', "Open onboarding")}${btn("primary", 'data-sf="make-active"', "Make client active")}</div></div>`,
       active: `<div class="cf-call"><div><h4>November</h4><ul>${li(1, "October report published 4 November")}${li(1, "November plan approved 28 October")}${li(1, "November invoice sent: TMKE1084, due 15 November")}${li(0, "Shoot due in December, not booked")}</ul></div><div class="cf-acts">${btn("primary", 'data-sf-stub="Opens a new Shot &amp; Scheduled booking in Videography, with their details filled in."', "Book the shoot")}</div></div>`,
       noinv: `<div class="cf-call"><div><h4>Before November's invoice</h4><ul>${li(1, "October report published 4 November")}${li(0, "Monthly invoice set up: there's no amount on file, so November hasn't been raised")}</ul></div><div class="cf-acts">${btn("primary", 'data-sf="invoice-setup"', "Set up invoicing")}</div></div>`,
-      paused: `<div class="cf-call"><div><h4>Paused since 1 October</h4><ul>${li(1, "No monthly invoice")}${li(1, "No chasing")}${li(1, "No missing-report flags")}</ul></div><div class="cf-acts">${btn("primary", 'data-sf="make-active"', "Make active again")}</div></div>`,
+      paused: `<div class="cf-call"><div><h4>Paused since 1 October</h4><ul>${li(1, "No monthly invoice, no chasing, no missing-report flags")}${li(0, "Check-in call with Terry: Tuesday 1 December, 10:00")}</ul></div><div class="cf-acts">${btn("ghost", 'data-sf="status"', "Move the check-in")}${btn("primary", 'data-sf="make-active"', "Make client active")}</div></div>`,
       leaving: `<div class="cf-call"><div><h4>Leaving on ${esc(longDate(P.leaveOn))}</h4><ul>${li(1, "Notice given 28 October: " + esc(P.leaveWhy))}${li(0, "November is the last monthly invoice")}${li(0, "On " + esc(dayMonth(P.leaveOn)) + " the card moves to Lost, was a client")}</ul></div><div class="cf-acts">${btn("ghost", 'data-sf="cancel-leaving"', "Cancel the date")}</div></div>`,
     }[S];
 
@@ -2034,7 +2113,9 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
 
     const mInv = S === "noinv" ? miss("Not set up") : money(vatOn(P.fee)) + " inc. VAT" + (S === "leaving" ? ", last one November" : "");
     const [lastOn, lastNo, lastSt] = lastInvoiced();
-    const inv = box("cf-third", "Invoicing", act("invoice", "Open"), `<dl class="cf-dl">${r("Bill to", esc(P.billTo))}${r("Invoice email", esc(P.invEmail), P.invEmail)}${r("Card payment", P.card ? "Yes" : "No")}${r("Monthly invoice", mInv)}${r("Last invoiced", lastOn)}${r("Invoice", lastNo)}${r("Status", lastSt)}</dl>`);
+    const inv = box("cf-third", "Invoicing", act("invoice", "Open"), `<dl class="cf-dl">${r("Bill to", esc(P.billTo))}${r("Invoice email", esc(P.invEmail), P.invEmail)}${r("Card payment", P.card ? "Yes" : "No")}${r("Monthly invoice", mInv)}${S === "onboarding"
+      ? r("Onboarding fee", "£350 &nbsp;" + chip("wait", "Awaiting invoice")) + r("First invoice", "£650 &nbsp;" + chip("wait", "Awaiting invoice")) + r("First due", "1 December, in advance")
+      : r("Last invoiced", lastOn) + r("Invoice", lastNo) + r("Status", lastSt)}</dl>`);
 
     // All five platforms, every time: an icon, then the link or Not included.
     const link = (p) => P.plats.includes(p) && P.links[p] ? `<a href="#" data-sf-stub="Opens ${esc(P.links[p])}.">${esc(P.links[p])}</a>` : P.plats.includes(p) ? miss("No link yet") : '<span class="cf-none">Not included</span>';
@@ -2089,6 +2170,7 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
     } else if (mode === "edit") {
       shell(eye("Client"), "Edit this client", "", "", sec("Contact", fr("Contact name", inp("e-name", P.name)) + fr("Business", inp("e-co", P.co)) + fr("Email", inp("e-email", P.email, "email")) + fr("Phone", inp("e-phone", P.phone, "tel")))
         + sec("Package", fr("Package", `<div class="cfx-pair">${sel("e-pkg", PACKAGES, P.pkg)}${sel("e-tier", ["Tier 1", "Tier 2", "Tier 3"], P.tier)}</div>`) + fr("Monthly fee", inp("e-fee", P.fee, "number"), "Before VAT. Changing it changes the next invoice, not one already raised.") + fr("Hours a month", inp("e-hours", P.hours, "number")) + fr("Platforms we manage", platPicks()))
+        + sec("How they came in", fr("How", sel("e-src", ["Website enquiry", "Brochure download", "Discovery call booking", "Waitlist", "Referral", "Phone call", "Event", "Existing client", "Other"], "Referral")) + fr("Who or where", inp("e-srcwho", "Sarah Lyle, Lyle & Co"), "For a referral, who sent them. For an event, which one."))
         + sec("Working with us", fr("Managed by", sel("e-mgr", MANAGERS, P.mgr)) + fr("Started", inp("e-start", P.start, "date")) + fr("Inter-brand", tog("inter", "Yes", "No", P.inter), "Yes when one of our own brands pays.")),
         `${B("ghost", "close", "Cancel")}${B("primary", "save-client", "Save")}`, true);
     } else if (mode === "chan") {
@@ -2100,18 +2182,18 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
       if (tab === "monthly" && (edit || !setUp)) {
         const hint = !setUp ? `<div class="cfx-lock"><span><b>No monthly invoice yet.</b> Until this is saved, November isn't raised and ${esc(P.name)} won't show on Monthly invoices.</span></div>` : "";
         shell(eye("Invoicing"), setUp ? "Edit the monthly invoice" : "Set up the monthly invoice", "", tabs, hint
-          + sec("What we charge", fr("Monthly fee", inp("m-fee", setUp ? P.fee : "", "number", "0.00"), "Before VAT. 20% VAT is added.") + fr("Line on the invoice", inp("m-line", P.line), "The month goes on the end: " + esc(P.line) + " - November 2026.") + fr("First invoice", sel("m-first", ["November 2026", "December 2026", "January 2027"], "November 2026"), "Raised on the 1st at 8am, then to Abbie to approve."))
+          + sec("What we charge", fr("Monthly fee", inp("m-fee", setUp ? P.fee : "", "number", "0.00"), "Before VAT. 20% VAT is added.") + fr("Line on the invoice", inp("m-line", P.line), "The month goes on the end: " + esc(P.line) + " - November 2026.") + fr("First invoice", sel("m-first", ["November 2026", "December 2026", "January 2027"], "November 2026"), "Raised on the 1st at 8am, then to Abigail to approve."))
           + sec("Who pays", fr("Bill to", inp("m-bill", P.billTo)) + fr("Invoice email", inp("m-email", P.invEmail, "email")) + fr("Billing address", `<textarea class="cfx-in" id="m-addr" rows="2" style="min-height:60px">${esc(P.address)}</textarea>`) + fr("Card payment", tog("card", "Yes", "No", P.card), "Yes puts a Pay by card button on the invoice. No shows our bank details instead.")),
           `${setUp ? B("ghost", "cancel-edit", "Cancel") : B("ghost", "close", "Not now")}${B("primary", "save-monthly", setUp ? "Save" : "Set up invoicing")}`, true);
       } else if (tab === "monthly") {
         const lock = S === "paused" ? `<div class="cfx-lock"><span><b>Paused.</b> No monthly invoice is raised, and nothing is chased, until they're Active again.</span></div>`
           : S === "leaving" ? `<div class="cfx-lock"><span><b>Leaving ${esc(longDate(P.leaveOn))}.</b> November is the last monthly invoice. Nothing is raised after that.</span></div>` : "";
         shell(eye("Invoicing"), "Monthly invoice", "", tabs, lock
-          + sec("What we charge", `<dl style="margin:0">${vr("Monthly fee", money(P.fee) + " + VAT = " + money(vatOn(P.fee)))}${vr("Line on the invoice", esc(P.line) + " - November 2026")}${vr("Raised", "1st of each month at 8am, then to Abbie to approve")}${vr("Next one", S === "paused" || S === "leaving" ? "None" : "1 December 2026")}</dl>`)
+          + sec("What we charge", `<dl style="margin:0">${vr("Monthly fee", money(P.fee) + " + VAT = " + money(vatOn(P.fee)))}${vr("Line on the invoice", esc(P.line) + " - November 2026")}${vr("Raised", "1st of each month at 8am, then to Abigail to approve")}${vr("Next one", S === "paused" || S === "leaving" ? "None" : "1 December 2026")}</dl>`)
           + sec("Who pays", `<dl style="margin:0">${vr("Bill to", esc(P.billTo))}${vr("Invoice email", esc(P.invEmail))}${vr("Billing address", esc(P.address))}${vr("Card payment", P.card ? "Yes: the invoice has a Pay by card button" : "No: the invoice shows our bank details")}</dl>`),
           `${B("ghost", "close", "Close")}${B("primary", "to-edit-monthly", "Edit")}`);
       } else if (tab === "oneoff") {
-        shell(eye("Invoicing"), "Raise a one-off", "", tabs, `<p class="cfx-say" style="margin:10px 0 0">For work outside the monthly fee, such as an extra reel. It goes to Abbie to approve, then to ${esc(P.invEmail)}.</p>`
+        shell(eye("Invoicing"), "Raise a one-off", "", tabs, `<p class="cfx-say" style="margin:10px 0 0">For work outside the monthly fee, such as an extra reel. It goes to Abigail to approve, then to ${esc(P.invEmail)}.</p>`
           + sec("Invoice", fr("Description", inp("o-desc", "Additional work - ", "text")) + fr("Amount", inp("o-amt", "", "number", "0.00"), "Before VAT.") + fr("Due", sel("o-due", ["14 days", "7 days", "On receipt"], "14 days"))),
           `${B("ghost", "close", "Cancel")}${B("primary", "send-oneoff", "Send for approval")}`, true);
       } else {
@@ -2123,15 +2205,29 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
       const cur = S === "paused" ? "paused" : "active";
       const opt = (k, t, d) => `<label><input type="radio" name="sf-st" value="${k}"${cur === k ? " checked" : ""}><span><b>${t}</b><small>${d}</small></span></label>`;
       shell(eye("Client"), "Client status", "", "", sec("Status", `<div class="sf-stat">${opt("active", "Active", "Invoiced monthly, reported on monthly, chased when late.")}${opt("paused", "Paused", "No monthly invoice, no chasing and no missing-report flags until they're Active again.")}${opt("internal", "Internal", "One of our own brands: run as a client, never invoiced.")}</div>`)
+        + sec("When paused", `<p class="cfx-say" style="margin:10px 0 6px">Book a check-in to see if they're ready to go active again. It goes in the diary for whoever manages them.</p>${fr("Check in on", inp("s-check", S === "paused" ? "2026-12-01" : "", "date"))}${fr("How", sel("s-checkhow", ["Call", "Email", "Call and email"], "Call"))}`)
         + sec("They're leaving", `<p class="cfx-say" style="margin:10px 0 6px">Set the day they leave. They stay Active until then, with their last invoice; on the day the card moves to Lost, was a client.</p>${fr("Leaving on", inp("s-on", S === "leaving" ? P.leaveOn : "", "date"))}${fr("Why", sel("s-why", ["Choose a reason", "Taking it in-house", "Gone with another agency", "Cost", "Business closed", "Other"], S === "leaving" ? P.leaveWhy : "Choose a reason"))}`),
         `${B("ghost", "close", "Cancel")}${B("primary", "save-status", "Save")}`, true);
     } else if (mode === "onboarding") {
       const groups = [...new Set(ONB.map((o) => o.g))];
       const done = isClient();
       const body = `<p class="cfx-say" style="margin:10px 0 0">Everything that needs to be in place before we start posting. Anything marked <i>from the file</i> ticks itself once the details are on the client's file.</p>`
-        + groups.map((g) => sec(g, `<ul class="sf-onb">${ONB.filter((o) => o.g === g).map((o) => { const ok = done || o.ok; return `<li class="${ok ? "ok" : ""}${!ok && o.k === "hand" ? " is-tick" : ""}"${!ok && o.k === "hand" ? ` data-sfx-tick="${esc(o.t)}"` : ""}><span>${esc(o.t)}</span><small>${o.k === "auto" ? "From the file" : ok ? "Ticked by Abby" : "Click to tick"}</small></li>`; }).join("")}</ul>`)).join("");
+        + groups.map((g) => sec(g, `<ul class="sf-onb">${ONB.filter((o) => o.g === g).map((o) => { const ok = done || o.ok; return `<li class="${ok ? "ok" : ""}${!ok && o.k === "hand" ? " is-tick" : ""}"${!ok && o.k === "hand" ? ` data-sfx-tick="${esc(o.t)}"` : ""}><span>${esc(o.t)}</span><small>${o.k === "auto" ? "From the file" : ok ? "Ticked by Abigail" : "Click to tick"}</small></li>`; }).join("")}</ul>`)).join("");
       shell(eye("Onboarding"), "Onboarding", chip(onbDone() === ONB.length ? "good" : "plain", `${onbDone()} of ${ONB.length} done`), "", body,
-        S === "onboarding" ? `<span class="cfx-say">${ONB.length - onbDone()} still open.</span>${B("primary", "make-active", "Make active client")}` : `${B("ghost", "close", "Close")}`);
+        S === "onboarding" ? `<span class="cfx-say">${ONB.length - onbDone()} still open.</span>${B("primary", "make-active", "Make client active")}` : `${B("ghost", "close", "Close")}`);
+    } else if (mode === "followup") {
+      shell(eye("Client"), "Schedule a follow-up", "", "", sec("The follow-up", `<p class="cfx-say" style="margin:10px 0 6px">For "interested, just not yet". It goes in the diary for whoever manages them, and turns red if the day passes with nothing done.</p>${fr("On", inp("fu-on", S === "lost" ? "2027-03-01" : "2027-02-01", "date"))}${fr("How", sel("fu-how", ["Call", "Email", "Call and email"], "Call and email"))}${fr("Who", sel("fu-who", ["Abigail", "Danielle", "Jack"], "Abigail"))}${fr("Note", `<textarea class="cfx-in" id="fu-note" style="min-height:60px" placeholder="e.g. Said they'd be ready after the spring launch"></textarea>`)}`)
+        + sec("Meanwhile", `<label class="sf-pin"><input type="checkbox" checked> Move the card to Lost until then, with the reason Not the right time</label>`),
+        `${B("ghost", "close", "Cancel")}<button type="button" class="btn btn--primary" data-sf-stub="Saves the follow-up to the diary.">Schedule it</button>`, true);
+    } else if (mode === "marklost") {
+      shell(eye("Client"), "Mark lost", "", "", sec("Why", `${fr("Reason", sel("ml-why", ["Choose a reason", "Price", "Gone with another agency", "Doing it themselves", "Not the right time", "Stopped replying", "Not a good fit for us", "Other"], "Choose a reason"))}${fr("Anything to add", `<textarea class="cfx-in" id="ml-note" style="min-height:60px"></textarea>`)}`)
+        + sec("Come back to them?", `<label class="sf-pin"><input type="checkbox"> Schedule a follow-up as well</label><p class="cfx-say" style="margin:4px 0 6px">Everything on the file stays: notes, messages, the proposal, reports and plans.</p>`),
+        `${B("ghost", "close", "Cancel")}<button type="button" class="btn btn--primary" data-sf-stub="Moves the card to Lost with the reason.">Mark lost</button>`, true);
+    } else if (mode === "callnotes") {
+      shell(eye("Notes"), "Call notes", "", "", sec("The call", fr("Which call", sel("cn-which", ["Discovery call", "Pricing call", "Other call"], S === "pricing" ? "Pricing call" : "Discovery call")) + fr("When", inp("cn-when", "2026-11-02", "date")))
+        + sec("What they want", fr("In their words", `<textarea class="cfx-in" id="cn-want" placeholder="What they're after, and why now"></textarea>`) + fr("Platforms", `<span class="sf-plat">${ALL_PLATS.map((p) => `<label><input type="checkbox"${P.plats.includes(p) ? " checked" : ""}> <span class="sf-chan">${icon(p)}${p}</span></label>`).join("")}</span>`) + fr("Budget", inp("cn-budget", "", "text", "e.g. around £600 a month")) + fr("Wants to start", inp("cn-start", "", "text", "e.g. December")))
+        + sec("Next step", fr("What happens next", `<textarea class="cfx-in" id="cn-next" style="min-height:60px" placeholder="e.g. Proposal by Thursday, pricing call after"></textarea>`)),
+        `<span class="cfx-say">Saves to Notes, pinned, and fills in the Client box.</span>${B("ghost", "close", "Cancel")}<button type="button" class="btn btn--primary" data-sf-stub="Saves the call notes, pinned to the top of Notes.">Save notes</button>`, true);
     } else if (mode === "notes") {
       shell(eye("Notes"), "Add a note", "", "", sec("The note", `<textarea class="cfx-in" id="n-new" placeholder="What happened, what was agreed"></textarea><label class="sf-pin"><input type="checkbox" id="n-pin"> Pin it to the top row, so everyone sees it first</label>`),
         `${B("ghost", "close", "Cancel")}${B("primary", "save-note", "Save note")}`, true);
@@ -2146,7 +2242,7 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
         sec("Headline figures", figs(x, " is-pop"))
         + sec("What it means", `<ul class="cfx-hist sf-ins">${x.ins.map(([h, t]) => `<li><span><i class="sf-dot"></i></span><span><b>${esc(h)}</b><br><span class="cfx-say">${esc(t)}</span></span></li>`).join("")}</ul>`)
         + sec("Into " + nextM, plan ? `<p class="sf-read is-quiet">${esc(plan.sum)}</p><p class="cfx-say" style="margin:0 0 6px">From the ${nextM} content plan, approved by ${esc(plan.ok)}.</p>` : `<p class="cfx-say" style="margin:10px 0 6px">No ${nextM} plan on file, so this part was written by hand.</p>`)
-        + sec("The client", `<dl style="margin:0">${vr("Published", x.pub + ", by Abby")}${vr("Seen", esc(x.seen))}${vr("Platforms", `<span class="sf-ics">${P.plats.map(icon).join("")}</span>`)}</dl>`),
+        + sec("The client", `<dl style="margin:0">${vr("Published", x.pub + ", by Abigail")}${vr("Seen", esc(x.seen))}${vr("Platforms", `<span class="sf-ics">${P.plats.map(icon).join("")}</span>`)}</dl>`),
         `${B("ghost", "report-prev", "‹ Earlier")}${B("ghost", "report-next", "Later ›")}<span class="cfx-say" style="margin-right:auto"></span><button type="button" class="btn btn--primary" data-sf-stub="Opens the ${x.m} report in full: Overview, Content, Audience, Trends.">Open the full report</button>`);
     } else if (mode === "plan") {
       const x = PLANS[cur];
@@ -2177,7 +2273,7 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
       P.name = c.n; P.co = c.co || P.co;
       if (c.pkg && PACKAGES.includes(c.pkg)) P.pkg = c.pkg;
       const f = parseFloat(String(c.fee || "").replace(/[^0-9.]/g, "")); if (f) P.fee = f;
-      S = c.s === "onboarding" ? "onboarding" : c.s !== "client" ? "proposal" : c.warn ? "noinv" : /Paused/.test(c.st?.[1]) ? "paused" : /Leaving/.test(c.st?.[1]) ? "leaving" : "active";
+      S = c.s === "onboarding" ? "onboarding" : c.s === "lost" ? "lost" : c.s === "meeting" ? "discovery" : c.s === "proposal" ? "proposal" : c.s === "contract" ? "contract" : c.s !== "client" ? "enquiry" : c.warn ? "noinv" : /Paused/.test(c.st?.[1]) ? "paused" : /Leaving/.test(c.st?.[1]) ? "leaving" : "active";
     }
     draw(); $("#go-sclient").click();
   };
@@ -2191,7 +2287,11 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
     const a = e.target.closest("[data-sf]");
     if (a) {
       const k = a.dataset.sf;
-      if (k === "make-active") { close(); setState("active"); toast("Now an active client. The first monthly invoice goes on 1 December."); }
+      if (k === "force-stage") { close(); setState(a.dataset.to); toast("Moved on. (Mock-up.)"); }
+      else if (k === "call-notes") openP("callnotes");
+      else if (k === "follow-up") openP("followup");
+      else if (k === "mark-lost") openP("marklost");
+      else if (k === "make-active") { close(); setState("active"); toast("Now an active client. The first monthly invoice goes on 1 December."); }
       else if (k === "cancel-leaving") { setState("active"); toast("Leaving date cancelled. Still Active."); }
       else if (k === "invoice-setup") openP("invoice", { tab: "monthly", edit: true });
       else if (k === "edit-chan") openP("chan");
@@ -2225,10 +2325,10 @@ textarea.cfx-in { height: auto; min-height: 96px; padding: 7px 9px; line-height:
       if (!fee) { toast("Add the monthly fee first."); $("#m-fee").focus(); return; }
       Object.assign(P, { fee, line: v("m-line"), billTo: v("m-bill"), invEmail: v("m-email"), address: v("m-addr"), card: pressed("card") === "Yes" });
       const was = S; if (S === "noinv") S = "active";
-      edit = false; render(); draw(); toast(was === "noinv" ? "Set up. November's invoice goes to Abbie to approve in the morning." : "Saved. Changes apply from the next invoice.");
+      edit = false; render(); draw(); toast(was === "noinv" ? "Set up. November's invoice goes to Abigail to approve in the morning." : "Saved. Changes apply from the next invoice.");
     } else if (k === "send-oneoff") {
       if (!(parseFloat(v("o-amt")) > 0)) { toast("Add an amount first."); $("#o-amt").focus(); return; }
-      close(); toast("Sent to Abbie to approve. (Mock-up.)");
+      close(); toast("Sent to Abigail to approve. (Mock-up.)");
     } else if (k === "save-status") {
       const on = v("s-on"), why = v("s-why"), pick = boxEl.querySelector('input[name="sf-st"]:checked')?.value;
       if (on) { if (why === "Choose a reason") { toast("Choose why they're leaving."); return; } P.leaveOn = on; P.leaveWhy = why; close(); setState("leaving"); toast("Leaving date set."); return; }

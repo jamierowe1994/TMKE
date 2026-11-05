@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/smm_stages_and_follow_ups.sql — the social media client file by stage: how someone added by hand came in (referral and who), the brand that pays for an inter-brand client, and follow-up and check-in dates (5 Nov)
 
 ## Done
 
