@@ -1442,6 +1442,11 @@ const mgmtPackages = (management && management.packages) || [];
     #smm-file .sf-c-sub { margin: 0; color: var(--sf-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #smm-file .sf-c-file { margin: 0; color: var(--sf-tx); overflow-wrap: anywhere; }
     #smm-file .sf-c-ins { margin: 0; padding-top: 8px; border-top: 1px solid var(--sf-line); color: var(--sf-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sf-c-btns { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+    #smm-file .sf-bin { width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--sf-edge); border-radius: 4px; background: #fff; color: var(--sf-tx); cursor: pointer; }
+    #smm-file .sf-bin svg { width: 15px; height: 15px; }
+    #smm-file .sf-bin:hover { border-color: #8a3f3f; color: #8a3f3f; }
+    #smm-file .sf-bin:disabled { opacity: .5; cursor: default; }
     .sf-c-f { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; }
     #smm-file .sf-c-f > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--sf-tx); }
     .sf-c .sf-ics { gap: 8px; }
@@ -2192,7 +2197,7 @@ const mgmtPackages = (management && management.packages) || [];
           sfHb(false, 'data-sf="book-call"', r.meeting_at ? "Move the call" : "Book the discovery call") + sfHb(true, 'data-sf="callnotes" data-id="discovery"', "Call notes"), r.meeting_at ? "" : lateC);
         const due = sfAddWork(r.meeting_at, 3);
         return box(lateH("Discovery call held. Next: the proposal"), [li(1, `Discovery call held ${esc(sfDay(r.meeting_at))}`), li(!!F.discovery, F.discovery ? "Call notes written" : "Call notes not written yet"), li(0, `Proposal due by ${esc(sfDate(due).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }))}`), fu].filter(Boolean),
-          sfHb(false, 'data-sf="callnotes" data-id="discovery"', "Call notes") + sfHb(false, 'data-sf="quote"', "Price it") + sfHb(true, 'data-sf="proposal"', "Upload and send the proposal"), lateC);
+          sfHb(false, 'data-sf="callnotes" data-id="discovery"', "Call notes") + sfHb(false, 'data-sf="quote"', "Price it") + sfHb(true, 'data-sf="proposal"', F.prep ? "Send the proposal" : "Upload and send the proposal"), lateC);
       }
       if (st === "proposal_sent") {
         const sent = F.reached("proposal_sent") || (F.prep && F.prep.created_at);
@@ -2320,7 +2325,8 @@ const mgmtPackages = (management && management.packages) || [];
         rows = two("Add and pinned", add + (loading ? "" : notes.filter((m) => m.is_pinned).map(nc).join("")), "All notes", loading ? none("Loading…") : notes.filter((m) => !m.is_pinned).map(nc).join("") || none("No other notes."));
       } else {
         acts = sfAct("file-add", "Add a file");
-        const doc = (d) => card(`data-sf-doc="${esc(d.id)}" data-name="${esc(d.file_name || "document")}"`, `<h4>${esc(catLabel(d.category))}</h4>${sfChip("good", "On file")}`, `<p class="sf-c-file">${esc(d.title || d.file_name)}</p>`, `<span>${esc(sfShort(d.created_at))}${d.uploaded_by && d.uploaded_by !== "system" ? ", " + esc(sfStaff(d.uploaded_by)) : ""}</span>${sfHb(false, `data-sf-doc="${esc(d.id)}" data-name="${esc(d.file_name || "document")}"`, "Open")}`);
+        // A bin beside Open (Dani, 5 Nov 2026): deletes the file from the client, after a check.
+        const doc = (d) => card(`data-sf-doc="${esc(d.id)}" data-name="${esc(d.file_name || "document")}"`, `<h4>${esc(catLabel(d.category))}</h4>${sfChip("good", "On file")}`, `<p class="sf-c-file">${esc(d.title || d.file_name)}</p>`, `<span>${esc(sfShort(d.created_at))}${d.uploaded_by && d.uploaded_by !== "system" ? ", " + esc(sfStaff(d.uploaded_by)) : ""}</span><span class="sf-c-btns"><button type="button" class="sf-bin" data-sf-deldoc="${esc(d.id)}" aria-label="Delete ${esc(d.file_name || "this file")}" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>${sfHb(false, `data-sf-doc="${esc(d.id)}" data-name="${esc(d.file_name || "document")}"`, "Open")}</span>`);
         const want = (cat, t) => card(`data-sf="file-add" data-cat="${cat}"`, `<h4>${t}</h4>${sfChip("plain", "Not yet")}`, `<p class="sf-c-file">Nothing uploaded</p>`, `<span></span>${sfHb(true, `data-sf="file-add" data-cat="${cat}"`, "Add")}`, " is-todo");
         const prep = F.docs.filter((d) => d.category === "prep"), agr = F.docs.filter((d) => d.category === "agreement");
         const items = sfOnbItems(r), cd = items.filter((x) => x.ok).length;
@@ -2538,8 +2544,13 @@ const mgmtPackages = (management && management.packages) || [];
           `<span class="sf-say" id="sf-save-msg">Saved on their file. The prices go into the email that sends the proposal.</span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-quote"', "Save to their file")}`, { wide: true, edit: true });
         if (b) { sfLend("smm-pc", b.querySelector("#sf-quote-slot")); pcForClient(r, F); }
       } else if (key === "proposal") {
-        sfShell(eye("Proposal"), "Upload and send the proposal", "", "",
-          sfSec("The proposal", sfPF("File", `<input class="sf-file" id="sfp-prop" type="file">`, "The pitch deck you're sending them. It's kept in Paperwork.")
+        // Already in Paperwork (Dani, 5 Nov 2026): send that one; choosing a file replaces it.
+        const have = F.prep;
+        sfShell(eye("Proposal"), have ? "Send the proposal" : "Upload and send the proposal", "", "",
+          sfSec("The proposal", (have
+            ? sfPF("File", `<button type="button" class="sf-act" data-sf-doc="${esc(have.id)}" data-name="${esc(have.file_name || "proposal")}">${esc(have.title && have.title !== "Proposal" ? have.title : have.file_name || "Proposal")}</button>`, `In Paperwork since ${esc(sfDay(have.created_at))}. This is the one that's attached.`)
+              + sfPF("Use a different file", `<input class="sf-file" id="sfp-prop" type="file">`, "Only if this one's changed. The new file goes into Paperwork.")
+            : sfPF("File", `<input class="sf-file" id="sfp-prop" type="file">`, "The pitch deck you're sending them. It's kept in Paperwork."))
             + `<label class="sf-check"><input type="checkbox" id="sfp-mark" checked> Mark the proposal sent, so the chase dates start today</label>`)
           + `<p class="sf-say sf-note">Next, an email to send it with opens, with the proposal attached, for you to finish and send. The chases are counted from today.</p>`,
           `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-proposal"', "Save")}`, { edit: true });
@@ -2804,7 +2815,8 @@ const mgmtPackages = (management && management.packages) || [];
     }
     async function sfSaveProposal(r, btn) {
       const f = $("sfp-prop")?.files?.[0], mark = !!$("sfp-mark")?.checked;
-      if (!f && !mark) { sfMsg("Choose the file, or tick Mark the proposal sent.", true); return; }
+      const have = !f ? sfFacts(r).prep : null;
+      if (!f && !have && !mark) { sfMsg("Choose the file, or tick Mark the proposal sent.", true); return; }
       btn.disabled = true; sfMsg(f ? "Uploading…" : "Saving…");
       let docId = null;
       try {
@@ -2816,13 +2828,14 @@ const mgmtPackages = (management && management.packages) || [];
           if (!res.ok || !j.document) throw new Error(j.error || "Upload failed.");
           docId = j.document.id;
         }
+        if (!f && have) docId = have.id;
         sfClosePop();
         if (mark && stageOf(r) !== "proposal_sent") await setStage(r, "proposal_sent"); else loadThread(r);
         // Then the email to send it with (Danielle, 5 Nov 2026): written for them
         // to change, the proposal attached.
         if (r.email && docId) {
           const call = r.meeting_at && new Date(r.meeting_at) <= new Date() ? sfDay(r.meeting_at) : "";
-          sfWritePreset = { title: "Send the proposal", docId, docName: f.name, subject: "Your proposal from The Marketing Experts.",
+          sfWritePreset = { title: "Send the proposal", docId, docName: f ? f.name : (have.file_name || "Proposal"), subject: "Your proposal from The Marketing Experts.",
             body: `Hi ${r.first_name || (nameOf(r) !== "—" ? nameOf(r).split(" ")[0] : "there")},\n\nThank you for your time on the call${call ? " on " + call : ""}. As promised, I've attached our proposal${r.business && r.business !== nameOf(r) ? " for " + r.business : ""}.\n\nIt sets out what we'd do for you each month, the package we'd recommend and what it costs.${(r.package_details || {}).quote && r.package_details.quote.wording ? "\n\n" + r.package_details.quote.wording : ""}\n\nOnce you've had a chance to read it, I'd love to talk it through. Would you have half an hour next week? Just reply with a couple of times that suit you.\n\nBest wishes,` };
           sfOpen("write");
         }
@@ -2862,6 +2875,7 @@ const mgmtPackages = (management && management.packages) || [];
       const sc = t("[data-sf-scroll]"); if (sc) { const s = $("sf-strip-" + sc.getAttribute("data-sf-scroll")); if (s) s.scrollBy({ left: Number(sc.getAttribute("data-dir")) * s.clientWidth, behavior: "smooth" }); return; }
       const tg = t("[data-sf-tog] button"); if (tg) { tg.parentElement.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === tg))); return; }
       const stage = t("[data-sf-stage]"); if (stage) { sfClosePop(); moveToStage(r, stage.getAttribute("data-sf-stage")); return; }
+      const del = t("[data-sf-deldoc]"); if (del) { sfDeleteDoc(r, del.getAttribute("data-sf-deldoc"), del); return; }
       const doc = t("[data-sf-doc]"); if (doc) { downloadDoc(doc.getAttribute("data-sf-doc"), doc.getAttribute("data-name")); return; }
       // Move straight to a stage (Dani, 5 Nov): no booking forced on the way.
       // Becoming a client still checks onboarding first.
@@ -5725,6 +5739,19 @@ const mgmtPackages = (management && management.packages) || [];
       });
     }
 
+    async function sfDeleteDoc(r, id, btn) {
+      const d = ((r._thread && r._thread.documents) || []).find((x) => String(x.id) === String(id));
+      const what = d ? (d.title && d.title !== d.file_name ? `${d.title} (${d.file_name})` : d.file_name || "this file") : "this file";
+      if (!confirm(`Delete ${what}? It goes from ${nameOf(r)}'s file for good.`)) return;
+      if (isDemo(r)) { r._thread.documents = r._thread.documents.filter((x) => String(x.id) !== String(id)); sfDraw(r); return; }
+      btn.disabled = true;
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/booking/document?id=${encodeURIComponent(id)}`, { method: "DELETE", headers: { Authorization: "Bearer " + token } });
+        if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `the server said ${res.status}`); }
+        loadThread(r);
+      } catch (e) { btn.disabled = false; alert("Couldn't delete it: " + (e.message || "something went wrong") + "."); }
+    }
     async function delNote(r, id) {
       if (!confirm("Delete this note?")) return;
       if (isDemo(r)) { r._thread.messages = r._thread.messages.filter((x) => x.id !== id); renderThread(r, r._thread); return; }
