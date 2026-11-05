@@ -3405,6 +3405,7 @@ const SMM_INVITE_MANAGER = false;
 const SMM_MANAGER_EMAILS = {
   "Danielle Law": "danielle@tmke.co.uk",
   "Abigail Saunders": "Abigail.Saunders@themarketingexperts.co.uk",
+  "Samantha Thornicroft": "samantha@themarketingexperts.co.uk",
 };
 
 // An enquiry summed up as a note on the card (Danielle, 5 Nov 2026): how it
