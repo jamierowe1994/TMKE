@@ -5,6 +5,8 @@ import { SOCIAL_SERVICES, SOCIAL_EXTRAS, PRICE_COLUMNS } from "../../lib/smm-con
 import { gbpFromPence } from "../../lib/supabase.js";
 
 const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing");
+const management = SOCIAL_SERVICES.find((s) => s.key === "social-media-management");
+const mgmtPackages = (management && management.packages) || [];
 ---
 
 <AdminShell active="social" title="Social media" skin="hub">
@@ -132,6 +134,58 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         Nothing client-facing picks a column: the website and the hub show &ldquo;from&rdquo; the lowest, because neither can tell who someone is.
       </p>
 
+      {mgmtPackages.length > 0 && (
+        <>
+          <h3 class="smm-rate-sub">{management.name} &mdash; the three packages</h3>
+          <div class="smm-rate-wrap">
+            <table class="smm-rate">
+              <thead>
+                <tr>
+                  <th>Package</th><th>Posts a week</th><th>Content creation</th><th>Amends</th>
+                  <th class="smm-rate-num">Cost</th>
+                  {PRICE_COLUMNS.map((c) => <th class="smm-rate-num">{c.label}</th>)}
+                  <th class="smm-rate-num">Max clients</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mgmtPackages.map((pk) => (
+                  <tr>
+                    <td><strong>{pk.name || pk.label}</strong>{!pk.name && <span class="smm-rate-unit"> (name to come)</span>}<span class="smm-rate-hours">{pk.hours.content}h content creation at {gbpFromPence(management.rates_pence.content)} · {pk.hours.management}h management at {gbpFromPence(management.rates_pence.management)} · {gbpFromPence(pk.software_pence)} software, a month</span></td>
+                    <td>{pk.postsPerWeek}</td>
+                    <td>{pk.contentCreation ? "Carousels, statics and so on" : "No"}</td>
+                    <td>{pk.amends}</td>
+                    <td class="smm-rate-num">{gbpFromPence(pk.cost_pence)}</td>
+                    {PRICE_COLUMNS.map((c) => <td class="smm-rate-num">{gbpFromPence(pk.price_pence[c.key])}</td>)}
+                    <td class="smm-rate-num">{pk.maxClientsPerSmm ?? "To set"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p class="smm-rate-note">
+            Every package includes {management.packageIncludes.map((x) => x.charAt(0).toLowerCase() + x.slice(1)).join(", ").replace(/, ([^,]*)$/, " and $1")}.
+            Prices are a month, before VAT, with {gbpFromPence(management.onboarding_pence)} onboarding once.
+            TEG is {management.margins.teg}; standard and scaleable are priced so {management.margins.standard.replace(" margin", "")} and {management.margins.scaleable.replace(" margin", "")} of the price is margin.
+          </p>
+          {(management.addOns || []).map((ad) => (
+            <>
+              <h3 class="smm-rate-sub">Add-on &mdash; {ad.name}</h3>
+              <div class="smm-rate-wrap">
+                <table class="smm-rate">
+                  <thead><tr><th>With</th><th class="smm-rate-num">Hours a month</th><th class="smm-rate-num">Cost a month</th></tr></thead>
+                  <tbody>
+                    {mgmtPackages.map((pk) => (
+                      <tr><td>{pk.name || pk.label}</td><td class="smm-rate-num">{ad.hours[pk.key]}</td><td class="smm-rate-num">{gbpFromPence(ad.cost_pence[pk.key])}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p class="smm-rate-note">At {gbpFromPence(management.rates_pence.management)} an hour. This is cost; the selling price is still to be set.</p>
+            </>
+          ))}
+        </>
+      )}
+
       <h3 class="smm-rate-sub">Also on social</h3>
       <div class="smm-rate-wrap">
         <table class="smm-rate">
@@ -143,7 +197,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           </tbody>
         </table>
       </div>
-      {SOCIAL_SERVICES.filter((sv) => sv.futurePackages).map((sv) => (
+      {SOCIAL_SERVICES.filter((sv) => sv.futurePackages && !(sv.packages && sv.packages.length)).map((sv) => (
         <p class="smm-rate-note">
           <strong>{sv.name}</strong> is one service at one price for now. It splits into {sv.futurePackages.join(", ")} once those are packaged and priced.
         </p>

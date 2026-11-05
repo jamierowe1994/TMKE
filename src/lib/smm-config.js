@@ -102,6 +102,57 @@ export const SOCIAL_SERVICES = [
     openToNewClients: false,
     /* Priced and separated out later; listed so the intent is on the record. */
     futurePackages: ["Planned and Posted", "Present and Performing", "Managed and Moving"],
+    /* The three packages, from Danielle's costing sheet (5 Nov 2026). Names are
+       still to be decided, so name is null and the rate card says "Service one"
+       and so on. Internal only for now: nothing public reads this list.
+       Hours are per MONTH. Cost = content hours × £30 + management hours × £20
+       + software. Selling prices: TEG is cost + 25%; standard and scaleable are
+       cost ÷ (1 − 35%) and cost ÷ (1 − 45%), so 35% and 45% of the price is
+       margin. Prices below are the sheet's, rounded to the nearest £5. */
+    packageIncludes: [
+      "Instagram and Facebook",
+      "A quarterly strategy meeting",
+      "An audience-targeted strategy",
+      "Monthly content planning",
+      "Scheduling and publishing",
+      "A monthly insights report",
+    ],
+    rates_pence: { content: 3000, management: 2000 },   // per hour
+    margins: { teg: "25% on cost", standard: "35% margin", scaleable: "45% margin" },
+    packages: [
+      {
+        key: "mgmt-1", name: null, label: "Service one",
+        postsPerWeek: "2 videos", contentCreation: false, amends: "1 request",
+        hours: { content: 0, management: 8 }, software_pence: 8500, cost_pence: 24500,
+        maxClientsPerSmm: null,
+        price_pence: { teg: 30500, standard: 37500, scaleable: 45000 },
+      },
+      {
+        key: "mgmt-2", name: null, label: "Service two",
+        postsPerWeek: "2 videos and 1 carousel", contentCreation: true, amends: "2 requests",
+        hours: { content: 4, management: 12 }, software_pence: 9000, cost_pence: 45000,
+        maxClientsPerSmm: null,
+        price_pence: { teg: 56500, standard: 69500, scaleable: 82500 },
+      },
+      {
+        key: "mgmt-3", name: null, label: "Service three",
+        postsPerWeek: "2 videos, 2 carousels and 1 static", contentCreation: true, amends: "Unlimited",
+        hours: { content: 10, management: 18 }, software_pence: 9500, cost_pence: 75500,
+        maxClientsPerSmm: null,
+        price_pence: { teg: 94500, standard: 116500, scaleable: 137500 },
+      },
+    ],
+    /* Optional on any of the three: sharing to Stories and up to 5 groups, at
+       the management rate. The sheet gives cost only; whether it's marked up
+       like the packages is still to be decided. */
+    addOns: [
+      {
+        key: "stories-groups", name: "Sharing to Stories and Groups (5)",
+        hours: { "mgmt-1": 4, "mgmt-2": 6, "mgmt-3": 10 },
+        cost_pence: { "mgmt-1": 8000, "mgmt-2": 12000, "mgmt-3": 20000 },
+      },
+    ],
+    onboarding_pence: 11000,
   },
   {
     key: "social-media-marketing",
