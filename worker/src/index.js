@@ -8389,7 +8389,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const busy = {};
         let calError = null;
         try {
-          let next = `/users/${encodeURIComponent(env.JACK_UPN)}/calendarView?startDateTime=${from}T00:00:00Z&endDateTime=${nsNextDay(to)}T01:00:00Z&$select=id,subject,start,end,showAs,isAllDay&$top=250`;
+          let next = `/users/${encodeURIComponent(env.JACK_UPN)}/calendarView?startDateTime=${from}T00:00:00Z&endDateTime=${nsNextDay(to)}T01:00:00Z&$select=id,subject,start,end,showAs,isAllDay,sensitivity&$top=250`;
           for (let page = 0; next && page < 4; page++) {
             const r = await graph(env, "GET", next);
             next = r && r["@odata.nextLink"] ? r["@odata.nextLink"].replace("https://graph.microsoft.com/v1.0", "") : null;
@@ -8402,7 +8402,10 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
               for (const d of dates) {
                 if (a.ymd > d || b.ymd < d || (b.ymd === d && b.min === 0 && a.ymd < d)) continue;
                 const x = a.ymd < d ? 0 : a.min, y = b.ymd > d ? 1440 : b.min;
-                if (y > x) (busy[d] = busy[d] || []).push([x, y]);
+                // What it is (Danielle, 5 Nov): the event's own title, or
+                // "Private" for one Jack has marked private.
+                const what = ev.sensitivity && ev.sensitivity !== "normal" ? "Private" : String(ev.subject || "").trim() || "Busy";
+                if (y > x) (busy[d] = busy[d] || []).push([x, y, what]);
               }
             }
           }
@@ -8445,7 +8448,13 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
               .reduce((acc, r) => { const last = acc[acc.length - 1]; if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]); else acc.push(r.slice()); return acc; }, []);
             if (merged.length) {
               const whole = merged.length === 1 && merged[0][0] <= open0 && merged[0][1] >= open1;
-              notes.push({ kind: "busy", text: whole ? "Busy all day in Jack's calendar." : `Busy in Jack's calendar ${merged.map(([x, y]) => `${t12(x)} to ${t12(y)}`).join(", ")}.` });
+              // Each thing in his calendar that day, by name, longest first.
+              const named = busy[d].filter(([x, y]) => Math.min(y, open1) > Math.max(x, open0)).sort((p, q) => (q[1] - q[0]) - (p[1] - p[0]));
+              const seenW = new Set(), whats = named.map((e) => e[2]).filter((w) => !seenW.has(w) && seenW.add(w));
+              const allDay = (e) => e[0] <= open0 && e[1] >= open1;
+              notes.push({ kind: "busy", short: whats[0] || "Busy",
+                text: whole && named.length && allDay(named[0]) ? `${whats.join(", ")}: all day in Jack's calendar.`
+                  : named.map((e) => allDay(e) ? `${e[2]}: all day.` : `${e[2]}: ${t12(Math.max(e[0], open0))} to ${t12(Math.min(e[1], open1))}.`).filter((t, i, a) => a.indexOf(t) === i).join(" ") });
               if (whole) closed = true;
             }
           }
