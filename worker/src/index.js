@@ -13490,14 +13490,14 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           const e = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
           const mins = parseInt(b.duration || "30", 10);
           const what = {
-            discovery: `Thanks for making time to talk to us. Over ${mins} minutes, we'd like to find out what you want from your social media, so we can both see whether we're the right fit for you at the moment.`,
+            discovery: `Thanks for booking a call with us.</p><p>We'll spend ${mins} minutes getting to know your business, what you're looking to achieve with your social media and where we might be able to help. It's also a chance for us both to see whether we're the right fit.`,
             pricing: `Thanks for taking the time to read through our proposal. Over ${mins} minutes, we'll talk you through the package, the price and the onboarding fee, and answer any questions you have. We'll also talk about when you'd like to start.`,
             meeting: `We're looking forward to speaking with you. We've set aside ${mins} minutes, and if there's anything you'd like us to cover, reply to this invite and let us know.`,
           }[callKind];
-          const meet = how === "teams" ? "We'll meet on Microsoft Teams. The joining details are in this invite, and if you can't see them, reply and we'll send them over."
+          const meet = how === "teams" ? "We'll meet on Microsoft Teams. You'll find the joining details in this invite, but if you have any trouble accessing them, just let us know."
             : how === "phone" ? (lead.phone ? `We'll call you on ${e(lead.phone)}.` : "We'll give you a call at the time booked.")
             : `We'll see you at ${e(where || "the place we agreed")}.`;
-          return [`Hi ${e(lead.first_name || "there")},`, what, meet, "If you need to change the time, reply to this invite or email us at hello@tmke.co.uk.", "Speak soon,<br>the team at The Marketing Experts"].map((x) => `<p>${x}</p>`).join("");
+          return [`Hi ${e(lead.first_name || "there")},`, what, meet, "If you need to rearrange, simply reply to this invite or email us at hello@tmke.co.uk.", "Speak soon,", "The Team at The Marketing Experts"].map((x) => `<p>${x}</p>`).join("");
         })();
         const callTitle = { discovery: "Discovery call", pricing: "Pricing call", meeting: "Meeting" }[callKind];
         // Advance to Meeting set only when asked (a booking for a later-stage
@@ -13549,18 +13549,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
               teamsFailed = true;
               try { const c = await graph(env, "GET", `/users/${encodeURIComponent(cal)}/calendar?$select=allowedOnlineMeetingProviders,defaultOnlineMeetingProvider`); teamsWhy = (c && Array.isArray(c.allowedOnlineMeetingProviders) && !c.allowedOnlineMeetingProviders.includes("teamsForBusiness")) ? ` ${cal} isn't set up for Teams meetings (it allows: ${c.allowedOnlineMeetingProviders.join(", ") || "none"}).` : ` Microsoft didn't say why; ${cal} may not have a Teams licence.`; } catch (_) { teamsWhy = ` Microsoft didn't say why; ${cal} may not have a Teams licence.`; }
             }
-            // Outlook has already put the invite in their calendar, so this is a
-            // confirmation with how to join, and no second .ics to double it up.
-            const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            const joinHtml = how === "teams"
-              ? (joinUrl ? `<p style="${EM_P}">It's a Teams call. Join from the invite in your calendar, or here:</p><p style="margin:0 0 24px;"><a href="${esc(joinUrl)}" style="${EM_BTN}">Join on Teams</a></p>` : `<p style="${EM_P}">It's an online call; the details are in the invite in your calendar.</p>`)
-              : how === "phone" ? `<p style="${EM_P}">It's a phone call. We'll call you${lead.phone ? ` on <strong>${esc(lead.phone)}</strong>` : ""}.</p>`
-              : `<p style="${EM_P}">We'll see you${where ? ` at <strong>${esc(where)}</strong>` : " in person"}.</p>`;
-            await sendEmail(env, {
-              to: lead.email, subject: `Your meeting with TMKE - ${dateNice}`,
-              html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">Hi ${esc(lead.first_name || "")},</p><p style="${EM_P}">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. The invite is in your calendar, from hello@tmke.co.uk.</p>${joinHtml}</div>`),
-              from: env.SMM_MAIL_SENDER || undefined, fromName: env.SMM_MAIL_SENDER ? (env.SMM_MAIL_FROM_NAME || "TMKE Social Media") : undefined,
-            });
+            // The Outlook invite is all they get (Danielle, 5 Nov 2026): no
+            // separate confirmation email alongside it.
             invited = true;
           } catch (_) {}
         }
