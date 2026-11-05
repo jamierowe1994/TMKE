@@ -1147,7 +1147,7 @@ const mgmtPackages = (management && management.packages) || [];
     .smm-onb-label { font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--ink); }
     button.smm-onb-go { display: inline; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
     button.smm-onb-go:hover, button.smm-onb-go:focus-visible { color: var(--sf-wine, #371e28); text-decoration: underline; text-underline-offset: 3px; }
-    .sf-flash { outline: 2px solid #371e28 !important; outline-offset: 3px; border-radius: 4px; transition: outline-color .4s; }
+
     .smm-onb-hint { font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 0; }
     .smm-onb-by { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.42); }
     .smm-onb-yn { margin-top: 6px; align-self: flex-start; }
@@ -2461,23 +2461,31 @@ const mgmtPackages = (management && management.packages) || [];
           + (idx >= STAGE_INDEX.proposal_sent ? sfSec("Proposal", `<dl class="sf-pdl">${sfPR("Sent", esc(sfDayYear(propSent)))}${sfPR("File", F.prep ? `<button type="button" class="sf-act" data-sf-doc="${esc(F.prep.id)}" data-name="${esc(F.prep.file_name || "proposal")}">${esc(F.prep.title || F.prep.file_name)}</button>` : "")}${pd.proposed ? sfPR("Proposed", esc([pd.proposed.package, pd.proposed.price !== "" && pd.proposed.price != null ? sfGbpWhole(pd.proposed.price) + " a month" : "", (pd.proposed.platforms || []).join(", ")].filter(Boolean).join(" · ")) + ` <button type="button" class="sf-act" data-sf="proposed">Change</button>`) + (pd.proposed.notes ? sfPR("Proposal notes", esc(pd.proposed.notes)) : "") : ""}${sfPR("Priced", pd.quote ? `${esc(pcQuoteLine(pd.quote))} <button type="button" class="sf-act" data-sf="quote">Open</button>` : `Not yet <button type="button" class="sf-act" data-sf="quote">Price it</button>`)}${sfPR("Monthly fee", esc(r.price || ""))}${sfPR("Onboarding fee", pd.onboarding_fee != null && pd.onboarding_fee !== "" ? `£${esc(pd.onboarding_fee)} + VAT` : "")}</dl>`) : "")
           + (idx >= STAGE_INDEX.pricing_call ? sfSec("Pricing call", `<dl class="sf-pdl">${F.st === "pricing_call" ? sfPR("When", esc(sfWhen(r.meeting_at))) : ""}${F.pricing ? notesRows(Pn) + tLink("pricing") : sfPR("Call notes", `Not written yet &nbsp;<button type="button" class="sf-act" data-sf="callnotes" data-id="pricing">Write them</button>`)}</dl>`) : "")
           + (idx >= STAGE_INDEX.contract_signed ? sfSec("Contract", `<dl class="sf-pdl">${sfPR("Sent", esc(sfDayYear(F.reached("contract_signed"))))}${sfPR("Signed copy", F.agreement ? `<button type="button" class="sf-act" data-sf-doc="${esc(F.agreement.id)}" data-name="${esc(F.agreement.file_name || "contract")}">${esc(F.agreement.title || F.agreement.file_name)}</button>, ${esc(sfDay(F.agreement.created_at))}` : "Not back yet")}</dl>`) : "")
-          + (idx >= STAGE_INDEX.proposal_sent ? sfSec("Package", `<div id="sf-pkg-slot"></div>`) : "")
+          + (idx >= STAGE_INDEX.proposal_sent ? sfSec("Package", `<dl class="sf-pdl">${sfPR("Package", esc(r.package_name || ""))}${sfPR("Tier", esc(tierLabel(r.package_name, pd.tier)))}${sfPR("Monthly fee", esc(r.price || ""))}${sfPR("Hours a month", r.contracted_hours_per_month != null ? esc(String(r.contracted_hours_per_month)) : "")}${sfPR("Includes video", pd.video == null ? "" : pd.video ? "Yes" : "No")}${pd.video ? sfPR("Shoot", esc(pd.shoot_frequency || "")) : ""}${sfPR("What comes out of it", esc(pd.outputs || "").replace(/\n/g, "<br>"))}</dl><div class="sf-inline">${sfHb(false, 'data-sf="edit" data-id="package"', "Change in Edit")}</div>`) : "")
           + sfSec("Working with us", `<dl class="sf-pdl">${sfPR("Managed by", esc(r.social_media_manager || ""))}${F.signedUp ? sfPR("Started", esc(sfDayYear(r.start_date))) : ""}${sfPR("Inter-brand", r.inter_brand_invoice ? `Yes: ${esc((TEG_BRANDS.find((x) => x.key === r.billed_brand) || {}).label || "brand not chosen")} pays` : "No")}${r.follow_up_on ? sfPR("Follow-up", esc(`${sfDayYear(r.follow_up_on)}, ${(r.follow_up_how || "call").toLowerCase()}${r.follow_up_by ? ", " + r.follow_up_by : ""}${r.follow_up_note ? ". " + r.follow_up_note : ""}`)) : ""}
               ${sfPR("Member hub", r.account_user_id ? `Linked &nbsp;<button type="button" class="sf-act" data-sf="unlink">Unlink</button>` : r.email ? `Not linked &nbsp;<button type="button" class="sf-act" data-sf="link">Link to their hub account</button>` : "Add an email to link their hub")}
               ${sfPR("In the CRM", `<span id="sf-crm-slot"></span>`)}</dl>`),
           `<span class="sf-say">Billing details are in Invoicing.</span>${sfFootBtn(false, "data-sf-close", "Close")}${sfFootBtn(true, 'data-sf="edit"', "Edit")}`);
-        const slot = b.querySelector("#sf-pkg-slot"); if (slot) { sfLend("smm-pkg", slot); renderPackage(r); }
+
         sfLend("smm-crm-row", b.querySelector("#sf-crm-slot")); renderCrmRow(r);
       } else if (key === "edit") {
         const plats = Array.isArray(r.platforms) ? r.platforms : [];
+        const pdE = r.package_details || {};
+        const pkgNow = r.package_name ? { pkg: r.package_name, tier: pdE.tier || "" } : sfPkgFromProposed(r);
         sfShell(eye("Client"), "Edit this client", "", "",
           sfSec("Contact", sfPF("Contact name", sfIn("sfe-name", name === "—" ? "" : name)) + sfPF("Business", sfIn("sfe-business", r.business)) + sfPF("Email", sfIn("sfe-email", r.email, "email")) + sfPF("Phone", sfIn("sfe-phone", r.phone, "tel")))
           + sfSec("How they came in", sfPF("How", `<select class="sf-in" id="sfe-src"><option value="">Choose…</option>${SF_SOURCES.map((o) => `<option${(r.source || sfSource(r).split(":")[0]) === o ? " selected" : ""}>${o}</option>`).join("")}</select>`) + sfPF("Who or where", sfIn("sfe-srcwho", r.source_detail, "text", "e.g. Sarah Lyle at Lyle & Co"), "For a referral, who sent them; for an event, which one.") + sfPF("What they said", `<textarea class="sf-in" id="sfe-msg" rows="3" placeholder="What they asked for, in their words">${esc(r.message || "")}</textarea>`, "Filled in by itself for website enquiries."))
-          + sfSec("Package", sfPF("Package", `<select class="sf-in" id="sfe-pkg">${packageOptions(r.package_name)}</select>`, "The tier and what's included are under View › Package.") + sfPF("Monthly fee", sfIn("sfe-price", r.price, "text", "e.g. £650 a month"), "What we agreed. The invoice amount itself is in Invoicing › Monthly invoice.") + sfPF("Onboarding fee", sfIn("sfe-obfee", (r.package_details || {}).onboarding_fee, "number", "0.00"), "Before VAT. Invoiced when the signed contract is back.") + sfPF("Hours a month", sfIn("sfe-hours", r.contracted_hours_per_month, "number", "e.g. 6"))
+          + sfSec("Package", `<div id="sfe-pkg-sec"></div>` + sfPF("Package", `<select class="sf-in" id="sfe-pkg">${packageOptions(pkgNow.pkg)}</select>`, !r.package_name && pkgNow.pkg ? "Filled in from what we proposed." : "")
+            + sfPF("Tier", `<span id="sfe-tier-slot">${sfTierSelect(pkgNow.pkg, pkgNow.tier)}</span>`, `<span id="sfe-tier-card"></span>`)
+            + sfPF("Monthly fee", sfIn("sfe-price", r.price, "text", "e.g. £650 a month"), "What we agreed. The invoice amount itself is in Invoicing › Monthly invoice.") + sfPF("Onboarding fee", sfIn("sfe-obfee", pdE.onboarding_fee, "number", "0.00"), "Before VAT. Invoiced when the signed contract is back.") + sfPF("Hours a month", sfIn("sfe-hours", r.contracted_hours_per_month, "number", "e.g. 6"))
+            + sfPF("Includes video", sfTog("sfe-video", pdE.video === true)) + `<div id="sfe-freq-row"${pdE.video ? "" : " hidden"}>${sfPF("How often they shoot", sfIn("sfe-freq", pdE.shoot_frequency || "", "text", "e.g. Quarterly, 5 hour shoot"))}</div>`
+            + sfPF("What comes out of it", `<textarea class="sf-in" id="sfe-out" rows="3" placeholder="e.g. 36 reels a quarter, 3 posts a week">${esc(pdE.outputs || "")}</textarea>`)
             + sfPF("Platforms we manage", `<span class="sf-plat">${SF_PLATS.map((p) => `<label><input type="checkbox" data-sfe-plat="${p}"${plats.includes(p) ? " checked" : ""}> ${sfIcon(p)} ${p}</label>`).join("")}</span>`))
           + sfSec("Working with us", sfPF("Managed by", `<select class="sf-in" id="sfe-mgr">${sfMgrOptions(r.social_media_manager)}</select>`, "Who looks after them, from the first enquiry.") + sfPF("Started", sfIn("sfe-start", r.start_date, "date")) + sfPF("Inter-brand", sfTog("sfe-ibi", !!r.inter_brand_invoice), "Yes when another of our brands pays for this client.")
             + sfPF("Brand that pays", `<select class="sf-in" id="sfe-brand"><option value="">Choose…</option>${SF_BRANDS.map((b) => `<option value="${b.key}"${r.billed_brand === b.key ? " selected" : ""}>${esc(b.label)}</option>`).join("")}</select>`, `Inter-brand only. The invoice goes to Paula at TEG accounts, copied to accounts payable, Rosie-Anne and ${sfFirst(r)}.`)),
           `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-client"', "Save")}`, { edit: true });
+        sfWirePackageFields();
+        if (arg === "package") setTimeout(() => { const el = $("sfe-pkg-sec"); if (el) el.closest(".sf-sec")?.scrollIntoView({ block: "start", behavior: "smooth" }); $("sfe-pkg")?.focus({ preventScroll: true }); }, 60);
       } else if (key === "channels") {
         sfShell(eye("Client"), "Social channels", "", "", sfSec("Their accounts", SF_PLATS.map((p) => sfPF(`<span class="sf-chan">${sfIcon(p)} ${p}</span>`, sfIn("sfc-" + p, r[SF_URL[p]], "text", p.toLowerCase() + ".com/…"))).join(""))
           + `<p class="sf-say sf-note">SocialPilot and our access tick off in Onboarding.</p>`,
@@ -2728,7 +2736,8 @@ const mgmtPackages = (management && management.packages) || [];
         package_name: v("sfe-pkg") || null, price: v("sfe-price") || null, contracted_hours_per_month: hours === "" ? null : Number(hours),
         platforms: [...document.querySelectorAll("[data-sfe-plat]")].filter((c) => c.checked).map((c) => c.getAttribute("data-sfe-plat")),
         social_media_manager: v("sfe-mgr") || null, start_date: v("sfe-start") || null, inter_brand_invoice: sfTogOn("sfe-ibi"),
-        package_details: Object.assign({}, r.package_details || {}, { onboarding_fee: v("sfe-obfee") === "" ? null : Number(v("sfe-obfee")) }),
+        package_details: Object.assign({}, r.package_details || {}, { onboarding_fee: v("sfe-obfee") === "" ? null : Number(v("sfe-obfee")),
+          tier: v("sfe-tier") || null, video: sfTogOn("sfe-video"), shoot_frequency: sfTogOn("sfe-video") ? (v("sfe-freq") || null) : null, outputs: ($("sfe-out")?.value || "").trim() || null }),
       };
       // These three come with supabase/smm_stages_and_follow_ups.sql.
       const extra = { source: v("sfe-src") || null, source_detail: v("sfe-srcwho") || null, billed_brand: v("sfe-brand") || null };
@@ -4144,7 +4153,11 @@ const mgmtPackages = (management && management.packages) || [];
       fill: { video: true, hours: p.hours.management, shoot_frequency: `Quarterly, ${p.hours.videography} hour shoot`, outputs: `${p.videos} videos a quarter, ${p.postsPerWeek} posts a week. Amends: ${String(p.amends).toLowerCase()}` },
       card: `${p.hours.videography}h film · ${p.hours.editing}h edit · ${p.hours.brief}h brief a quarter; ${p.hours.management}h management a month`,
     }));
-    const SMM_TIERS = ((PKG_SERVICES.find((x) => x.key === "social-media-management") || {}).futurePackages || []).map((n) => ({ key: n, label: n }));
+    const SMM_SVC = PKG_SERVICES.find((x) => x.key === "social-media-management") || {};
+    const SMM_TIERS = (SMM_SVC.packages || []).length
+      ? SMM_SVC.packages.map((p) => ({ key: p.key, label: p.name || p.label, card: `${p.hours.content}h content, ${p.hours.management}h management a month`,
+          fill: { video: false, hours: p.hours.content + p.hours.management, shoot_frequency: "", outputs: `${p.postsPerWeek} a week. Amends: ${String(p.amends).toLowerCase()}` } }))
+      : (SMM_SVC.futurePackages || []).map((n) => ({ key: n, label: n }));
     function tiersFor(pkg) {
       if (isShotAndScheduled(pkg)) return SAS_TIERS;
       if (/social media management/i.test(String(pkg || ""))) return SMM_TIERS;
@@ -4154,61 +4167,100 @@ const mgmtPackages = (management && management.packages) || [];
       const t = tiersFor(pkg).find((x) => x.key === key);
       return t ? (t.spec ? `${t.label} (${t.spec})` : t.label) : (key || "");
     }
+    /* The client's package, in View › Package: drawn like every other section of
+       the file (Dani, 5 Nov 2026), with the package itself here too, so filling
+       this in is what ticks "Package details" in Onboarding. Saving merges into
+       package_details: the onboarding fee, Price it and what we proposed live
+       there as well and used to be wiped by a save here. */
+    function sfPkgFromProposed(r) {
+      const pr = ((r.package_details || {}).proposed || {}).package || "";
+      if (!pr) return { pkg: "", tier: "" };
+      if (/^made to measure/i.test(pr)) return { pkg: "Bespoke", tier: "" };
+      const [svc, name] = pr.split(/:\s*/);
+      const pkg = /shot/i.test(svc) ? "Shot and Scheduled" : /management/i.test(svc) ? "Social Media Management" : "";
+      const t = tiersFor(pkg).find((x) => x.label === name);
+      return { pkg, tier: t ? t.key : "" };
+    }
+    function sfTierSelect(p, cur) {
+      const ts = tiersFor(p);
+      return ts.length
+        ? `<select class="sf-in" id="sfe-tier"><option value="">Choose…</option>${ts.map((t) => `<option value="${esc(t.key)}"${cur === t.key ? " selected" : ""}>${esc(t.spec ? `${t.label} (${t.spec})` : t.label)}</option>`).join("")}${cur && !ts.some((t) => t.key === cur) ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : ""}</select>`
+        : `<input class="sf-in" type="text" id="sfe-tier" value="${esc(cur || "")}" placeholder="${p ? "e.g. Bespoke: monthly shoot" : "Choose the package first"}">`;
+    }
+    // Edit › Package: the tier list follows the package; choosing a tier fills the rest from the rate card.
+    function sfWirePackageFields() {
+      const pk = $("sfe-pkg"); if (!pk) return;
+      const setVideo = (on) => { document.querySelectorAll('[data-sf-tog="sfe-video"] button').forEach((b, i) => b.setAttribute("aria-pressed", String(i === 0 ? on : !on))); $("sfe-freq-row").hidden = !on; };
+      document.querySelector('[data-sf-tog="sfe-video"]')?.addEventListener("click", () => setTimeout(() => { $("sfe-freq-row").hidden = !sfTogOn("sfe-video"); }, 0));
+      const card = () => { const t = tiersFor(pk.value).find((x) => x.key === $("sfe-tier").value); $("sfe-tier-card").textContent = t && t.card ? `Rate card: ${t.card}` : ""; return t; };
+      const wire = () => {
+        card();
+        $("sfe-tier").addEventListener("change", () => {
+          const t = card();
+          if (t && t.fill) { setVideo(!!t.fill.video); $("sfe-freq").value = t.fill.shoot_frequency || ""; $("sfe-out").value = t.fill.outputs || ""; if (t.fill.hours != null) $("sfe-hours").value = t.fill.hours; }
+        });
+      };
+      wire();
+      pk.addEventListener("change", () => { $("sfe-tier-slot").innerHTML = sfTierSelect(pk.value, ""); wire(); });
+    }
     function renderPackage(r, editing) {
       const host = $("smm-pkg"); if (!host) return;
       const pd = r.package_details || {};
       const pkg = r.package_name || "";
-      const tiers = tiersFor(pkg);
       const hours = r.contracted_hours_per_month;
       if (!editing) {
-        const row = (k, v) => `<div class="smm-pkg-row"><span class="smm-pkg-k">${k}</span><span class="smm-pkg-v">${v || '<span class="smm-pkg-none">Not set</span>'}</span></div>`;
-        const empty = !pd.tier && pd.video == null && !pd.outputs && hours == null;
-        host.innerHTML = `<div class="smm-pkg-card">
-            ${row("Package", esc(pkg))}
-            ${row("Tier", esc(tierLabel(pkg, pd.tier)))}
-            ${row("Monthly hours", hours != null ? esc(String(hours)) : "")}
-            ${row("Includes video", pd.video == null ? "" : pd.video ? "Yes" : "No")}
-            ${pd.video ? row("Shoot", esc(pd.shoot_frequency || "")) : ""}
-            ${row("What comes out of it", esc(pd.outputs || "").replace(/\n/g, "<br>")).replace('class="smm-pkg-row"', 'class="smm-pkg-row smm-pkg-row--wide"')}
-            <div class="smm-pkg-foot"><button type="button" class="smm-btn smm-btn--primary smm-btn--sm smm-pkg-editbtn" id="smm-pkg-edit">${empty ? `${PLUS_SVG}Add the package details` : "Edit"}</button></div>
-          </div>`;
+        const empty = !pkg && !pd.tier && pd.video == null && !pd.outputs && hours == null;
+        host.innerHTML = `<dl class="sf-pdl">${sfPR("Package", esc(pkg))}${sfPR("Tier", esc(tierLabel(pkg, pd.tier)))}${sfPR("Hours a month", hours != null ? esc(String(hours)) : "")}${sfPR("Includes video", pd.video == null ? "" : pd.video ? "Yes" : "No")}${pd.video ? sfPR("Shoot", esc(pd.shoot_frequency || "")) : ""}${sfPR("What comes out of it", esc(pd.outputs || "").replace(/\n/g, "<br>"))}</dl>
+          <div class="sf-inline">${sfHb(empty, 'id="smm-pkg-edit"', empty ? "Add the package details" : "Change")}</div>`;
         $("smm-pkg-edit").addEventListener("click", () => renderPackage(r, true));
         return;
       }
-      const tierField = tiers.length
-        ? `<select id="pkg-tier"><option value="">Choose…</option>${tiers.map((t) => `<option value="${esc(t.key)}"${pd.tier === t.key ? " selected" : ""}>${esc(t.spec ? `${t.label} (${t.spec})` : t.label)}</option>`).join("")}${pd.tier && !tiers.some((t) => t.key === pd.tier) ? `<option value="${esc(pd.tier)}" selected>${esc(pd.tier)}</option>` : ""}</select>`
-        : `<input type="text" id="pkg-tier" value="${esc(pd.tier || "")}" placeholder="${pkg ? "e.g. Bespoke: monthly shoot" : "Choose the package under Engagement first"}">`;
-      host.innerHTML = `<div class="smm-pkg-card smm-pkg-form">
-          <label class="smm-pkg-f"><span>Tier</span>${tierField}<em class="smm-pkg-hint" id="pkg-card"></em></label>
-          <label class="smm-pkg-f"><span>Monthly hours</span><input type="number" id="pkg-hours" min="0" step="0.5" value="${hours ?? ""}" placeholder="e.g. 7"></label>
-          <div class="smm-pkg-f"><span>Includes video</span><div class="pay-toggle" id="pkg-video"><button type="button" class="pay-opt${pd.video ? " is-active" : ""}" data-v="yes">Yes</button><button type="button" class="pay-opt${pd.video === false ? " is-active" : ""}" data-v="no">No</button></div></div>
-          <label class="smm-pkg-f" id="pkg-freq-row"${pd.video ? "" : " hidden"}><span>How often they shoot</span><input type="text" id="pkg-freq" value="${esc(pd.shoot_frequency || "")}" placeholder="e.g. Quarterly, 5 hour shoot"></label>
-          <label class="smm-pkg-f smm-pkg-f--wide"><span>What comes out of it</span><textarea id="pkg-out" rows="2" placeholder="e.g. 36 reels a quarter, 3 posts a week">${esc(pd.outputs || "")}</textarea></label>
-          <p class="smm-pkg-status" id="pkg-status"></p>
-          <div class="smm-pkg-foot"><button type="button" class="smm-btn smm-btn--sm" id="pkg-cancel">Cancel</button><button type="button" class="smm-btn smm-btn--primary smm-btn--sm" id="pkg-save">Save</button></div>
-        </div>`;
-      let video = pd.video == null ? null : !!pd.video;
-      const setVideo = (v) => { video = v; host.querySelectorAll("#pkg-video [data-v]").forEach((b) => b.classList.toggle("is-active", (b.dataset.v === "yes") === v)); $("pkg-freq-row").hidden = !v; };
-      host.querySelectorAll("#pkg-video [data-v]").forEach((b) => b.addEventListener("click", () => setVideo(b.dataset.v === "yes")));
-      const showCard = () => { const t = tiers.find((x) => x.key === $("pkg-tier").value); $("pkg-card").textContent = t && t.card ? `Rate card: ${t.card}` : ""; };
-      showCard();
-      if (tiers.length) $("pkg-tier").addEventListener("change", () => {
-        showCard();
-        const t = tiers.find((x) => x.key === $("pkg-tier").value);
-        if (t && t.fill) { setVideo(t.fill.video); $("pkg-freq").value = t.fill.shoot_frequency; $("pkg-out").value = t.fill.outputs; if (t.fill.hours != null) $("pkg-hours").value = t.fill.hours; }
-      });
+      const guess = !pkg ? sfPkgFromProposed(r) : { pkg, tier: pd.tier || "" };
+      const tierSel = (p, cur) => {
+        const ts = tiersFor(p);
+        return ts.length
+          ? `<select class="sf-in" id="pkg-tier"><option value="">Choose…</option>${ts.map((t) => `<option value="${esc(t.key)}"${cur === t.key ? " selected" : ""}>${esc(t.spec ? `${t.label} (${t.spec})` : t.label)}</option>`).join("")}${cur && !ts.some((t) => t.key === cur) ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : ""}</select>`
+          : `<input class="sf-in" type="text" id="pkg-tier" value="${esc(cur || "")}" placeholder="e.g. Bespoke: monthly shoot">`;
+      };
+      host.innerHTML = `<dl class="sf-pdl">
+          ${sfPF("Package", `<select class="sf-in" id="pkg-name">${packageOptions(guess.pkg)}</select>`, !pkg && guess.pkg ? "Filled in from what we proposed." : "")}
+          ${sfPF("Tier", `<span id="pkg-tier-slot">${tierSel(guess.pkg, guess.tier || pd.tier)}</span>`, `<span id="pkg-card"></span>`)}
+          ${sfPF("Hours a month", sfIn("pkg-hours", hours ?? "", "number", "e.g. 7"))}
+          ${sfPF("Includes video", sfTog("pkg-video", pd.video === true))}
+          <div id="pkg-freq-row"${pd.video ? "" : " hidden"}>${sfPF("How often they shoot", sfIn("pkg-freq", pd.shoot_frequency || "", "text", "e.g. Quarterly, 5 hour shoot"))}</div>
+          ${sfPF("What comes out of it", `<textarea class="sf-in" id="pkg-out" rows="3" placeholder="e.g. 36 reels a quarter, 3 posts a week">${esc(pd.outputs || "")}</textarea>`)}
+        </dl>
+        <div class="sf-inline"><span class="sf-say" id="pkg-status"></span>${sfHb(false, 'id="pkg-cancel"', "Cancel")}${sfHb(true, 'id="pkg-save"', "Save")}</div>`;
+      const videoOn = () => sfTogOn("pkg-video");
+      const syncVideo = () => { $("pkg-freq-row").hidden = !videoOn(); };
+      host.querySelector('[data-sf-tog="pkg-video"]').addEventListener("click", () => setTimeout(syncVideo, 0));
+      const setVideo = (v) => { host.querySelectorAll('[data-sf-tog="pkg-video"] button').forEach((b, i) => b.setAttribute("aria-pressed", String(i === 0 ? v : !v))); syncVideo(); };
+      const fillFrom = () => {
+        const t = tiersFor($("pkg-name").value).find((x) => x.key === $("pkg-tier").value);
+        $("pkg-card").textContent = t && t.card ? `Rate card: ${t.card}` : "";
+        return t;
+      };
+      const wireTier = () => {
+        fillFrom();
+        $("pkg-tier").addEventListener("change", () => {
+          const t = fillFrom();
+          if (t && t.fill) { setVideo(!!t.fill.video); $("pkg-freq").value = t.fill.shoot_frequency || ""; $("pkg-out").value = t.fill.outputs || ""; if (t.fill.hours != null) $("pkg-hours").value = t.fill.hours; }
+        });
+      };
+      wireTier();
+      $("pkg-name").addEventListener("change", () => { $("pkg-tier-slot").innerHTML = tierSel($("pkg-name").value, ""); wireTier(); });
       $("pkg-cancel").addEventListener("click", () => renderPackage(r));
       $("pkg-save").addEventListener("click", async () => {
         const st = $("pkg-status");
-        const h = $("pkg-hours").value.trim();
-        const next = { tier: $("pkg-tier").value.trim() || null, video, shoot_frequency: video ? ($("pkg-freq").value.trim() || null) : null, outputs: $("pkg-out").value.trim() || null };
-        const patch = { package_details: next, contracted_hours_per_month: h === "" ? null : Number(h) };
-        const done = () => { Object.assign(r, patch); const hrs = document.querySelector('[data-ef="contracted_hours_per_month"]'); if (hrs) hrs.value = r.contracted_hours_per_month ?? ""; renderPackage(r); };
-        if (isDemo(r)) { done(); return; }
-        st.textContent = "Saving…";
-        const { error } = await supabase.from("smm_leads").update(patch).eq("id", r.id);
-        if (error) { st.textContent = /package_details/.test(error.message || "") ? "Needs supabase/smm_package_details.sql running first." : "Couldn't save: " + error.message; return; }
-        done();
+        const h = $("pkg-hours").value.trim(), v = videoOn();
+        const merged = Object.assign({}, r.package_details || {}, { tier: $("pkg-tier").value.trim() || null, video: v, shoot_frequency: v ? ($("pkg-freq").value.trim() || null) : null, outputs: $("pkg-out").value.trim() || null });
+        const patch = { package_name: $("pkg-name").value || null, package_details: merged, contracted_hours_per_month: h === "" ? null : Number(h) };
+        st.textContent = "Saving…"; st.style.color = "";
+        const err = await sfUpdate(r, patch);
+        if (err) { st.style.color = "#8a3f3f"; st.textContent = /package_details/.test(err.message || "") ? "Needs supabase/smm_package_details.sql running first." : "Couldn't save: " + err.message; return; }
+        const hrs = document.querySelector('[data-ef="contracted_hours_per_month"]'); if (hrs) hrs.value = r.contracted_hours_per_month ?? "";
+        renderBoard();
+        renderPackage(r);
       });
     }
 
@@ -4270,7 +4322,7 @@ const mgmtPackages = (management && management.packages) || [];
     const onbState = (r) => { const o = r.onboarding && typeof r.onboarding === "object" ? r.onboarding : {}; return { done: o.done || {}, ask: o.ask || {}, notes: o.notes || {}, strategy: o.strategy || {} }; };
     const onbCtx = (r) => {
       const t = r._thread || {};
-      return { docs: t.documents || r._lastDocs || [], shoots: t.shoots || [], invoices: r._onbInvoices || 0, loaded: !!r._thread };
+      return { docs: t.documents || r._lastDocs || [], shoots: t.shoots || [], invoices: r._onbInvoices || 0, recurring: !!(current === r && sfData && sfData.recurring), loaded: !!r._thread };
     };
     // kind: auto (read from the file), manual (ticked), ask (Yes/No).
     const ONB_ITEMS = [
@@ -4278,7 +4330,7 @@ const mgmtPackages = (management && management.packages) || [];
       { g: "paper", key: "proposal", kind: "auto", test: (r, c) => c.docs.some((d) => d.category === "prep") },
       { g: "paper", key: "package", kind: "auto", test: (r) => !!(r.package_name && (r.package_details || {}).tier) },
       { g: "paper", key: "start", kind: "auto", test: (r) => !!r.start_date },
-      { g: "paper", key: "billing", kind: "auto", test: (r, c) => !!r.direct_debit || c.invoices > 0 || c.docs.some((d) => d.category === "invoice") },
+      { g: "paper", key: "billing", kind: "auto", test: (r, c) => !!r.direct_debit || c.recurring || c.invoices > 0 || c.docs.some((d) => d.category === "invoice") },
       { g: "paper", key: "manager", kind: "auto", test: (r) => !!String(r.social_media_manager || "").trim() },
       { g: "access", key: "hub", kind: "auto", test: (r) => !!r.account_user_id },
       { g: "access", key: "channels", kind: "auto", test: (r) => { const ps = Array.isArray(r.platforms) ? r.platforms : []; return ps.length > 0 && ps.every((p) => !CHANNEL_FIELD[p] || String(r[CHANNEL_FIELD[p]] || "").trim()); } },
@@ -4320,16 +4372,15 @@ const mgmtPackages = (management && management.packages) || [];
         const el = document.querySelector(sel); if (!el) return;
         el.scrollIntoView({ block: "center", behavior: "smooth" });
         if (/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(el.tagName)) el.focus({ preventScroll: true });
-        el.classList.add("sf-flash"); setTimeout(() => el.classList.remove("sf-flash"), 2200);
       }, 60);
     }
     const ONB_GO = {
       contract: (r) => { sfClosePop(); sfReturnTo = "onboarding"; openAddFile(r, { cat: "agreement", name: "" }); },
       proposal: (r) => { sfClosePop(); sfReturnTo = "onboarding"; openAddFile(r, { cat: "prep", name: "" }); },
-      package: () => { sfReturnTo = "onboarding"; sfEditing = false; sfOpen("view"); sfFlash("#sf-pkg-slot"); },
+      package: () => { sfReturnTo = "onboarding"; sfOpen("edit", "package"); },
       start: () => { sfReturnTo = "onboarding"; sfOpen("edit"); sfFlash("#sfe-start"); },
       manager: () => { sfReturnTo = "onboarding"; sfOpen("edit"); sfFlash("#sfe-mgr"); },
-      billing: () => { sfReturnTo = "onboarding"; sfInvTab = "monthly"; sfEditing = !!sfData.recurring; sfOpen("invoice"); },
+      billing: (r) => { r._onbInvoices = null; sfReturnTo = "onboarding"; sfInvTab = "monthly"; sfEditing = !!sfData.recurring; sfOpen("invoice"); },
       hub: () => { sfReturnTo = "onboarding"; sfEditing = false; sfOpen("view"); sfFlash('#sf-pop [data-sf="link"], #sf-pop [data-sf="unlink"]'); },
       channels: (r) => { sfReturnTo = "onboarding"; sfOpen("channels"); const miss = (Array.isArray(r.platforms) ? r.platforms : []).find((p) => !String(r[SF_URL[p]] || "").trim()); sfFlash(miss ? "#sfc-" + miss : "#sf-pop-b input"); },
       shoot: (r) => { sfClosePop(); sfReturnTo = "onboarding"; openVidBooking(r); },
