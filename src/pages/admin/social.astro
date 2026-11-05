@@ -2255,7 +2255,7 @@ const mgmtPackages = (management && management.packages) || [];
           !sent ? "" : chased[1] ? li(1, `Chased again ${esc(sfDay(chased[1].created_at))}`) : li(0, `Chase again on ${esc(sfDay(sfAddDays(sent, 5)))}`),
           reply ? li(1, `Replied ${esc(sfDay(reply.created_at))}`) : chased.length >= 2 ? li(0, "No reply since") : "", fu].filter(Boolean);
         return box(lateH(reply ? `${name1} replied. Next: the pricing call` : "Waiting on their reply"), items,
-          sfHb(false, 'data-sf="note-add"', "Add an update") + (r.email ? sfHb(false, 'data-sf="write"', "Chase") : "") + sfHb(true, 'data-sf="book-call"', "Book the pricing call"), lateC);
+          sfHb(false, 'data-sf="note-add"', "Add an update") + (r.email ? sfHb(false, 'data-sf="chase"', "Chase") : "") + sfHb(true, 'data-sf="book-call"', "Book the pricing call"), lateC);
       }
       if (st === "pricing_call") {
         const held = r.meeting_at && new Date(r.meeting_at) <= new Date();
@@ -2526,7 +2526,7 @@ const mgmtPackages = (management && management.packages) || [];
           const re = arg ? list.find((m) => String(m.id) === String(arg)) : null;
           const pre = sfWritePreset;
           sfShell(eye("Communication"), pre && pre.title ? pre.title : "Write to " + name, "", "",
-            sfSec("Email", sfPF("To", esc(r.email || "")) + sfPF("Subject", sfIn("sfw-subj", pre ? pre.subject : re ? "Re: " + String(re.subject || "your message").replace(/^re:\s*/i, "") : "")) + sfPF("Message", `<textarea class="sf-in" id="sfw-body" rows="${pre ? 14 : 8}">${pre ? esc(pre.body) : re ? esc("\n\n> " + String(re.body || "").split("\n").join("\n> ")) : ""}</textarea>`, pre ? "Change anything you like: add what you talked about on the call." : "") + (pre && pre.docId ? sfPF("Attached", esc(pre.docName || "The proposal")) : sfPF("Attach", `<input class="sf-file" id="sfw-file" type="file">`)))
+            sfSec("Email", sfPF("To", esc(r.email || "")) + sfPF("Subject", sfIn("sfw-subj", pre ? pre.subject : re ? "Re: " + String(re.subject || "your message").replace(/^re:\s*/i, "") : "")) + sfPF("Message", `<textarea class="sf-in" id="sfw-body" rows="${pre ? 14 : 8}">${pre ? esc(pre.body) : re ? esc("\n\n> " + String(re.body || "").split("\n").join("\n> ")) : ""}</textarea>`, pre ? (pre.hint || "Change anything you like: add what you talked about on the call.") : "") + (pre && pre.docId ? sfPF("Attached", esc(pre.docName || "The proposal")) : sfPF("Attach", `<input class="sf-file" id="sfw-file" type="file">`)))
             + `<p class="sf-say sf-note">A plain email from hello@tmke.co.uk, signed ${esc(sfMyName())}, with a short TMKE footer. It's saved here, and their reply comes back to this file.</p>`,
             `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="send-email"', "Send")}`, { edit: true });
           setTimeout(() => { const t = $("sfw-body"); if (t) { t.focus(); t.setSelectionRange(0, 0); } }, 0);
@@ -2948,7 +2948,7 @@ const mgmtPackages = (management && management.packages) || [];
         sfUpdate(r, { social_media_manager: m }).then((err) => { if (err) { a.disabled = false; sfMsg("Couldn't save: " + err.message, true); return; } renderBoard(); const then = sfAfterMgr; sfAfterMgr = null; sfClosePop(); sfDraw(r); if (then) then(); });
         return;
       }
-      if (["write", "book-call", "proposal", "book"].includes(k) && sfNeedsManager(r, () => { const el = document.querySelector(`#smm-file [data-sf="${k}"]`); if (el) el.click(); })) return;
+      if (["write", "chase", "book-call", "proposal", "book"].includes(k) && sfNeedsManager(r, () => { const el = document.querySelector(`#smm-file [data-sf="${k}"]`); if (el) el.click(); })) return;
       // The pricing call waits for what we proposed (Dani, 5 Nov 2026).
       if (k === "book-call" && stageOf(r) === "proposal_sent" && !sfProposedDone(r)) { sfAfterProposed = () => openMeeting(r); sfEditing = false; sfOpen("proposed"); return; }
       if (k === "proposed") sfAfterProposed = null;
@@ -2999,6 +2999,21 @@ const mgmtPackages = (management && management.packages) || [];
         case "save-callnotes": sfSaveCallNotes(r, id, a); return;
         case "save-proposal": sfSaveProposal(r, a); return;
         case "save-quote": sfSaveQuote(r, a); return;
+        case "chase": {
+          // A chase written for them (Dani, 5 Nov 2026): the proposal email's own
+          // subject, so it threads with it, and a short follow-up to change.
+          const F2 = sfFacts(r);
+          const sent = F2.reached("proposal_sent") || (F2.prep && F2.prep.created_at);
+          const propMail = F2.outs.filter((m) => /proposal/i.test(String(m.subject || ""))).slice(-1)[0]
+            || (sent ? F2.outs.find((m) => new Date(m.created_at) >= new Date(new Date(sent).getTime() - 36e5)) : null);
+          const first = r.first_name || (nameOf(r) !== "—" ? nameOf(r).split(" ")[0] : "there");
+          const when = propMail ? propMail.created_at : sent;
+          sfWritePreset = { title: "Chase the proposal", hint: "Change anything you like before it goes.",
+            subject: (propMail && propMail.subject) || "Your proposal from The Marketing Experts.",
+            body: `Hi ${first},\n\nI hope you're well. I just wanted to follow up on the proposal I sent over${when ? " on " + sfDay(when) : ""}. Have you had a chance to look through it? I'd be keen to hear your thoughts.\n\nIf it would help to talk it through, let me know when you're free and we can book in a quick call.\n\nBest wishes,` };
+          sfEditing = false; sfOpen("write");
+          return;
+        }
         case "save-proposed": {
           const prop = sfReadProposed();
           if (prop.missing.length) { sfMsg("Fill in " + prop.missing.join(", ").replace(/, ([^,]*)$/, " and $1") + ".", true); return; }
