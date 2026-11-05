@@ -109,13 +109,13 @@ export const SOCIAL_SERVICES = [
        + software. Selling prices: TEG is cost + 25%; standard and scaleable are
        cost ÷ (1 − 35%) and cost ÷ (1 − 45%), so 35% and 45% of the price is
        margin. Prices below are the sheet's, rounded to the nearest £5. */
-    packageIncludes: [
+    packageIncludes: [   // written to sit mid-sentence
       "Instagram and Facebook",
-      "A quarterly strategy meeting",
-      "An audience-targeted strategy",
-      "Monthly content planning",
-      "Scheduling and publishing",
-      "A monthly insights report",
+      "a quarterly strategy meeting",
+      "an audience-targeted strategy",
+      "monthly content planning",
+      "scheduling and publishing",
+      "a monthly insights report",
     ],
     rates_pence: { content: 3000, management: 2000 },   // per hour
     margins: { teg: "25% on cost", standard: "35% margin", scaleable: "45% margin" },
