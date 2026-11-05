@@ -1943,7 +1943,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       if (st === "inquiry") {
         const base = F.firstReply ? F.firstReply.created_at : r.created_at;
         const src = sfSource(r);
-        const items = [li(1, `Enquiry received ${esc(sfDay(r.created_at))}${src ? ", " + esc(src.toLowerCase().startsWith("referral") ? src.replace(/^referral:\s*/i, "referral from ") : src.toLowerCase()) : ""}`),
+        const items = [li(1, `Enquiry received ${esc(sfDay(r.created_at))}${src ? ", " + esc(/^referral/i.test(src) ? src.replace(/^referral:?\s*/i, "referral from ").replace(/ from $/, "") : (src.split(":")[0].toLowerCase() + (src.includes(":") ? ":" + src.slice(src.indexOf(":") + 1) : ""))) : ""}`),
           F.firstReply ? li(1, `Replied ${esc(sfDay(F.firstReply.created_at))}${F.firstReply.created_by && F.firstReply.created_by !== "system" ? ", by " + esc(sfStaff(F.firstReply.created_by)) : ""}`) : li(0, `Reply due by ${esc(sfDay(sfAddWork(r.created_at, 1)))}`),
           r.meeting_at ? li(1, `Discovery call booked for ${esc(sfWhen(r.meeting_at))}`) : li(0, `Discovery call booked: due by ${esc(sfDay(sfAddDays(base, 5)))}`), fu].filter(Boolean);
         return box(lateH(r.meeting_at ? "Discovery call booked" : "Next: book the discovery call"), items,
