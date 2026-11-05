@@ -13466,10 +13466,15 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const leadId = b && b.lead_id;
         const date = b && b.date, start = b && b.start;
         if (!leadId || !date || !start) return json({ error: "Missing lead, date or time." }, 400, request, env);
-        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,account_user_id`);
+        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,account_user_id,phone`);
         const lead = rows && rows[0];
         if (!lead) return json({ error: "Lead not found." }, 404, request, env);
         const meetingAt = `${date}T${start}:00`;
+        // How the call happens (Danielle, 5 Nov 2026): a Teams call by default,
+        // or a phone call, or in person somewhere.
+        const how = ["teams", "phone", "in_person"].includes(b.mode) ? b.mode : "teams";
+        const where = String(b.location || "").trim().slice(0, 200);
+        const howLabel = how === "teams" ? "Teams call" : how === "phone" ? "Phone call" : "In person";
         // Advance to Meeting set only when asked (a booking for a later-stage
         // client just records the meeting without moving them back).
         const meetingPatch = { meeting_at: meetingAt };
@@ -13482,11 +13487,13 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const dur = parseInt(b.duration || "30", 10);
         const endHm = minToHm(hmToMin(start) + dur);
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
-        let invited = false;
+        let invited = false, joinUrl = "", teamsFailed = false;
         if (b.send_invite && cal && lead.email) {
           try {
-            await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, {
-              subject: `TMKE Social Media - Meeting with ${lead.full_name || lead.email}`,
+            // The event in hello@'s Outlook calendar: Outlook sends the invite
+            // itself, with the Teams link on it for a Teams call.
+            const event = {
+              subject: `TMKE Social Media - ${howLabel} with ${lead.full_name || lead.email}`,
               start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
               end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
               attendees: [
@@ -13494,15 +13501,29 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
                 ...(env.SMM_NOTIFY && env.SMM_NOTIFY.toLowerCase() !== cal.toLowerCase()
                   ? [{ emailAddress: { address: env.SMM_NOTIFY, name: "TMKE Social Media" }, type: "required" }] : []),
               ],
-              isOnlineMeeting: true,
-            });
-            const ics = buildICS({ uid: `smm-${leadId}-${date}-${start}@tmke.co.uk`, date, start, endHm, summary: "TMKE Social Media - Meeting", description: "A meeting with the TMKE social media team.", location: "Online / phone", organizer: cal, attendeeEmail: lead.email, attendeeName: lead.full_name || "" });
-            const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
+              ...(how === "teams" ? { isOnlineMeeting: true, onlineMeetingProvider: "teamsForBusiness" }
+                : { isOnlineMeeting: false, location: { displayName: how === "phone" ? `Phone call${lead.phone ? ": we'll call " + lead.phone : ""}` : (where || "In person") } }),
+            };
+            let made;
+            try { made = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, event); }
+            catch (e) {
+              // A mailbox that can't host Teams still gets the meeting, just without the link.
+              if (how !== "teams") throw e;
+              teamsFailed = true;
+              const plain = { ...event, isOnlineMeeting: false }; delete plain.onlineMeetingProvider;
+              made = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, plain);
+            }
+            joinUrl = (made && made.onlineMeeting && made.onlineMeeting.joinUrl) || "";
+            // Outlook has already put the invite in their calendar, so this is a
+            // confirmation with how to join, and no second .ics to double it up.
             const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const joinHtml = how === "teams"
+              ? (joinUrl ? `<p style="${EM_P}">It's a Teams call. Join from the invite in your calendar, or here:</p><p style="margin:0 0 24px;"><a href="${esc(joinUrl)}" style="${EM_BTN}">Join on Teams</a></p>` : `<p style="${EM_P}">It's an online call; the details are in the invite in your calendar.</p>`)
+              : how === "phone" ? `<p style="${EM_P}">It's a phone call. We'll call you${lead.phone ? ` on <strong>${esc(lead.phone)}</strong>` : ""}.</p>`
+              : `<p style="${EM_P}">We'll see you${where ? ` at <strong>${esc(where)}</strong>` : " in person"}.</p>`;
             await sendEmail(env, {
               to: lead.email, subject: `Your meeting with TMKE - ${dateNice}`,
-              html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">Hi ${esc(lead.first_name || "")},</p><p style="${EM_P}">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. A calendar invite is attached.</p></div>`),
-              attachments: [{ filename: "meeting.ics", content: icsB64, contentType: "text/calendar" }],
+              html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">Hi ${esc(lead.first_name || "")},</p><p style="${EM_P}">Your meeting with the TMKE social media team is booked for <strong>${esc(dateNice)} at ${esc(start)}</strong>. The invite is in your calendar, from hello@tmke.co.uk.</p>${joinHtml}</div>`),
               from: env.SMM_MAIL_SENDER || undefined, fromName: env.SMM_MAIL_SENDER ? (env.SMM_MAIL_FROM_NAME || "TMKE Social Media") : undefined,
             });
             invited = true;
@@ -13511,9 +13532,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         await logBookingMessage(env, {
           booking_id: leadId, booking_source: "smm", account_user_id: lead.account_user_id, client_email: lead.email,
           kind: "meeting", subject: "Meeting booked", is_automated: false, created_by: user.email || "admin",
-          body: `Meeting booked for ${dateNice} at ${start}.${invited ? " Diary invite sent to the client." : ""}`,
+          body: `${howLabel} booked for ${dateNice} at ${start}${how === "in_person" && where ? `, at ${where}` : ""}.${invited ? " Outlook invite sent to the client from hello@tmke.co.uk." : ""}${joinUrl ? ` Teams link: ${joinUrl}` : ""}${teamsFailed ? " The Teams link couldn't be made, so the invite went without one." : ""}`,
         });
-        return json({ ok: true, invited }, 200, request, env);
+        return json({ ok: true, invited, join_url: joinUrl || null, teams_failed: teamsFailed }, 200, request, env);
       }
 
       // ---- Admin: add a lead manually (other channels / existing clients) ----

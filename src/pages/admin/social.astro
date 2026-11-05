@@ -3576,7 +3576,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               <div class="smm-modal-field"><label>Time</label><input type="time" id="smm-mt-time" value="10:00"></div>
             </div>
             <div class="smm-modal-field"><label>Length</label><select id="smm-mt-dur"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">1 hour</option></select></div>
-            <label class="smm-check"><input type="checkbox" id="smm-mt-invite" checked> Send a diary invite to the client</label>
+            <div class="smm-modal-two">
+              <div class="smm-modal-field"><label>How</label><select id="smm-mt-mode"><option value="teams" selected>Teams call</option><option value="phone">Phone call</option><option value="in_person">In person</option></select></div>
+              <div class="smm-modal-field"><label>Where (in person)</label><input type="text" id="smm-mt-where" placeholder="e.g. Their office, Harrogate"></div>
+            </div>
+            <label class="smm-check"><input type="checkbox" id="smm-mt-invite" checked> Send an Outlook invite to the client, from hello@tmke.co.uk</label>
             <p class="smm-modal-status" id="smm-mt-status" hidden></p>
             <div class="smm-modal-actions">
               <button type="button" class="smm-btn" data-mcancel>Cancel</button>
@@ -3592,6 +3596,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     async function saveMeeting(r) {
       const date = $("smm-mt-date").value, start = $("smm-mt-time").value;
       const duration = $("smm-mt-dur").value, invite = $("smm-mt-invite").checked;
+      const mode = $("smm-mt-mode")?.value || "teams", where = ($("smm-mt-where")?.value || "").trim();
+      if (mode === "in_person" && !where) { const s = $("smm-mt-status"); s.hidden = false; s.textContent = "Say where you're meeting."; return; }
       if (!date || !start) { const s = $("smm-mt-status"); s.hidden = false; s.textContent = "Pick a date and time."; return; }
       const btn = $("smm-mt-save"); btn.disabled = true; btn.textContent = "Saving…";
       // Only move them into Meeting set if they're still before it — booking a
@@ -3602,7 +3608,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       r.meeting_at = `${date}T${start}:00`; if (setStage) r.pipeline_stage = "meeting_set";
       if (!isDemo(r)) {
         let ok = false;
-        if (WORKER) { try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/meeting`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, date, start, duration, send_invite: invite, set_stage: setStage }) }); ok = res.ok; } catch (_) {} }
+        if (WORKER) { try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/meeting`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, date, start, duration, send_invite: invite, set_stage: setStage, mode, location: where }) }); ok = res.ok; } catch (_) {} }
         if (!ok) { try { const patch = { meeting_at: r.meeting_at }; if (setStage) patch.pipeline_stage = "meeting_set"; await supabase.from("smm_leads").update(patch).eq("id", r.id); } catch (_) {} }
         if (toPricing) { try { await supabase.from("smm_leads").update({ pipeline_stage: "pricing_call" }).eq("id", r.id); } catch (_) {} }
       }
