@@ -5792,6 +5792,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     #ed-onboard-design-grid.is-print { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     @media (max-width: 900px) { #ed-onboard-design-grid.is-print { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 560px) { #ed-onboard-design-grid.is-print { grid-template-columns: 1fr; } }
+    #ed-onboard-design-grid.is-print.is-print-tall { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    @media (max-width: 900px) { #ed-onboard-design-grid.is-print.is-print-tall { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 560px) { #ed-onboard-design-grid.is-print.is-print-tall { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     #ed-ob-designs-grid .ed-onboard-card, #ed-onboard-design-grid .ed-onboard-card, #ed-ob-shop-grid .ed-onboard-card {
       /* 40% less round the picture, so it's more picture than card (Dani, 17 Oct). */
       display: flex; flex-direction: column; gap: 4px; padding: 7px 7px 10px;
@@ -9519,7 +9522,15 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const e = shapes.get(k) || { n: 0, w: d.w, h: d.h };
         e.n += 1; shapes.set(k, e);
       });
-      const common = [...shapes.values()].sort((a, b) => b.n - a.n)[0];
+      /* Print with any portrait design in it (a letterhead, a charter) goes
+         four a row in a portrait frame, and a landscape card beside it sits
+         smaller inside that frame (Dani, 5 Nov: three a row made portrait
+         thumbnails far too big). All-landscape print stays three a row. */
+      const upright = (e) => e.h > e.w * 1.05;
+      const tallPrint = selectedPack.kind === "print" && [...shapes.values()].some(upright);
+      designGrid.classList.toggle("is-print-tall", tallPrint);
+      const pool = tallPrint ? [...shapes.values()].filter(upright) : [...shapes.values()];
+      const common = pool.sort((a, b) => b.n - a.n)[0];
       designGrid.style.setProperty("--ob-frame", common ? `${common.w}/${common.h}` : "1080/1440");
       designGrid.innerHTML = designs.map(designCard).join("");
       fillBacks(designs);
