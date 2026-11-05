@@ -55,31 +55,19 @@ const mgmtPackages = (management && management.packages) || [];
       <div class="smm-pagehead">
         <div>
           <h2 class="smm-panel-title">Contacts</h2>
-          <p class="smm-panel-sub">Everyone who has expressed an interest in our SMM services, by pipeline stage. Click a card to open a person&rsquo;s file.</p>
-        </div>
-        <input type="search" id="smm-search" class="admin-search" placeholder="Search name, email, business…" aria-label="Search contacts" />
-      </div>
-
-      <div class="smm-bar-top">
-        <div class="smm-filters" id="smm-filters" role="tablist">
-          <button type="button" class="smm-chip is-active" data-filter="all">All</button>
-          <button type="button" class="smm-chip" data-filter="waitlist">Waitlist</button>
-          <button type="button" class="smm-chip" data-filter="enquiry">Enquiries</button>
-          <button type="button" class="smm-chip" data-filter="brochure">Brochures</button>
-          <button type="button" class="smm-chip" data-filter="meeting_set">Discovery calls</button>
-          <button type="button" class="smm-chip" data-filter="proposal_sent">Proposals</button>
-          <button type="button" class="smm-chip" data-filter="contract_signed">Contracts</button>
-          <button type="button" class="smm-chip" data-filter="onboarding">Onboarding clients</button>
-          <button type="button" class="smm-chip" data-filter="active_client">Clients</button>
-        </div>
-        <div class="smm-bar-actions">
-          <label class="smm-lost-toggle"><input type="checkbox" id="smm-show-lost" /> Show lost</label>
+          <p class="smm-panel-sub">Everyone from the first enquiry through to an active client, by stage. Drag a card onto a stage to move it on; click it to open their file.</p>
         </div>
       </div>
-
-      <p class="smm-loading" id="smm-loading">Loading pipeline…</p>
+      <!-- The board (Dani, 4 Nov mock-up; built 5 Nov 2026): one strip per stage, cards in a grid. -->
+      <div class="bd-bar">
+        <label class="bd-find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="smm-search" placeholder="Find a person or a business" aria-label="Find a person or a business"></label>
+        <label class="bd-check"><input type="checkbox" id="smm-show-lost"> Show lost</label>
+        <span class="bd-sum" id="bd-sum"></span>
+      </div>
+      <div id="smm-filters" hidden></div>
+      <p class="smm-loading" id="smm-loading">Loading…</p>
       <div class="smm-scrolltop" id="smm-scrolltop" hidden><div id="smm-scrolltop-inner"></div></div>
-      <div class="smm-board" id="smm-board" hidden></div>
+      <div class="bd" id="smm-board" hidden></div>
     </section>
 
     <!-- ===================== PACKAGES & PRICING (reference) ===================== -->
@@ -492,6 +480,55 @@ const mgmtPackages = (management && management.packages) || [];
     .smm-rate-hours { display: block; font-size: 11.5px; color: rgba(28,29,34,0.5); margin-top: 3px; }
     .smm-rate-unit { font-size: 11.5px; color: rgba(28,29,34,0.5); }
     .smm-rate-note { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.6); margin: 12px 0 0; max-width: 88ch; }
+
+    /* ---- The board (Dani's 4 Nov mock-up, built 5 Nov 2026) ---- */
+    .smm-panel[data-panel="pipeline"] .bd-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 18px; font-family: var(--sans); font-size: 14px; }
+    .bd-find { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; flex: 0 1 300px; min-width: 0; }
+    .bd-find svg { width: 15px; height: 15px; color: #7e6765; flex: none; }
+    .bd-find input { border: 0; outline: 0; background: none; width: 100%; min-width: 0; color: #2b2226; font-family: var(--sans); font-size: 14px; }
+    .bd-find:focus-within { border-color: #371e28; }
+    .bd-check { display: inline-flex; align-items: center; gap: 8px; color: #7e6765; cursor: pointer; }
+    .bd-check input { width: 16px; height: 16px; margin: 0; accent-color: #371e28; }
+    .bd-sum { margin-left: auto; color: #7e6765; }
+    @media (max-width: 640px) { .bd-sum { margin-left: 0; width: 100%; } }
+    /* The admin's own label and input styles would otherwise win here. */
+    .smm-panel[data-panel="pipeline"] .bd-bar .bd-find { display: flex !important; flex-direction: row !important; margin: 0 !important; text-transform: none !important; letter-spacing: normal !important; font-size: 14px !important; font-weight: 400 !important; }
+    .smm-panel[data-panel="pipeline"] .bd-bar .bd-find input { height: 30px !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; background: none !important; font-size: 14px !important; }
+    .smm-panel[data-panel="pipeline"] .bd-bar .bd-check { display: inline-flex !important; flex-direction: row !important; margin: 0 !important; text-transform: none !important; letter-spacing: normal !important; font-size: 14px !important; font-weight: 400 !important; color: #7e6765 !important; }
+    .bd { font-family: var(--sans); font-size: 14px; color: #2b2226; }
+    .bd-stage { display: flex; flex-direction: column; gap: 10px; }
+    .bd-stage + .bd-stage, .bd-stage + .bd-quiet, .bd-quiet + .bd-stage { margin-top: 26px; }
+    .bd-strip { display: flex; align-items: center; justify-content: space-between; gap: 14px; height: 30px; padding: 0 14px; background: #371e28; border-radius: 4px; transition: background .15s; }
+    .bd-h { margin: 0; font-family: var(--sans); font-weight: 600; font-size: 11px; line-height: 1; letter-spacing: .18em; text-transform: uppercase; color: #fff; }
+    .bd-n { margin-left: 8px; color: rgba(255,255,255,.6); }
+    .bd-more { background: none; border: 0; padding: 0; color: rgba(255,255,255,.8); cursor: pointer; font-family: var(--sans); font-size: 12px; }
+    .bd-more:hover { color: #fff; }
+    .bd-strip.is-over, .bd-quiet-s.is-over { background: #7e6765; }
+    .bd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 10px; }
+    .bd-quiet { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: #7e6765; }
+    .bd-quiet-s { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px dashed #c9bcb7; border-radius: 4px; color: #7e6765; background: #fff; }
+    .bd-quiet-s.is-over { color: #fff; border-style: solid; border-color: #7e6765; }
+    .bd-card { background: #fff; border: 1px solid #e2d9d4; border-radius: 4px; padding: 12px 14px 10px; cursor: pointer; display: flex; flex-direction: column; min-width: 0; transition: border-color .2s, transform .2s, box-shadow .2s; }
+    .bd-card:hover { border-color: #c9bcb7; transform: translateY(-2px); box-shadow: 0 10px 24px -18px rgba(55,30,40,.5); }
+    .bd-card:focus-visible { outline: 2px solid #371e28; outline-offset: 2px; }
+    .bd-card.is-dragging { opacity: .45; }
+    .bd-card-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-height: 28px; margin-bottom: 4px; }
+    .bd-card-t { font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.15; letter-spacing: -0.04em; color: #2b2226; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .bd-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; white-space: nowrap; flex: none; }
+    .bd-chip.is-good { background: #edf4ef; color: #3f7a56; }
+    .bd-chip.is-wait { background: #c9bcb7; color: #371e28; }
+    .bd-chip.is-bad { background: #f9f0f0; color: #8a3f3f; }
+    .bd-chip.is-plain { background: #eae5e1; color: #371e28; }
+    .bd-rows { margin: 0; }
+    .bd-r { display: grid; grid-template-columns: 6.6em minmax(0, 1fr); column-gap: 10px; align-items: center; height: 32px; border-top: 1px solid #eae5e1; }
+    .bd-r dt { color: #7e6765; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bd-r dd { margin: 0; color: #2b2226; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bd-none { color: #9a8884; }
+    .bd-foot { display: flex; align-items: center; gap: 16px; margin-top: 6px; padding-top: 8px; border-top: 1px solid #eae5e1; }
+    .bd-link { background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--sans); font-size: 14px; color: #371e28; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(55,30,40,.3); }
+    .bd-link:hover { text-decoration-color: currentColor; }
+    .bd-next { margin-top: 6px; padding: 6px 10px; border-radius: 4px; background: #eae5e1; color: #2b2226; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bd-empty { padding: 28px; border: 1px dashed #c9bcb7; border-radius: 4px; color: #7e6765; text-align: center; }
 
     /* ---- Calculator figures + Package calculator (Dani, 5 Nov) ---- */
     .pf { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
@@ -1687,57 +1724,89 @@ const mgmtPackages = (management && management.packages) || [];
       document.querySelectorAll(".smm-chip").forEach((c) => c.classList.toggle("is-active", c.getAttribute("data-filter") === key));
       renderBoard();
     }
+    // The board (Dani's 4 Nov mock-up, built 5 Nov 2026): a wine strip per stage
+    // with its cards in a grid; empty stages fold into one "Nothing in" line that
+    // still takes a drop; Active clients show 8 until See all.
+    const bdOpen = {};
     function renderBoard() {
       const board = $("smm-board");
       const rows = visible();
-      if (kindFilter === "all") {
-        // One row per stage; cards run left-to-right and that row scrolls on
-        // its own past ~3 cards (.smm-stage-cards) — no board-wide horizontal
-        // scroll across every stage, and no cap/"see all", the row just scrolls.
-        board.classList.remove("is-list");
-        // "Clients" (active_client) is structurally the busiest stage — it
-        // only grows, never clears out like the others — so it wraps onto a
-        // couple of lines instead of one scrolling row, and past 8 clients
-        // a "See all" hands off to the existing Clients list view rather
-        // than growing a 3rd/4th line.
-        const CLIENTS_WRAP_CAP = 8;
-        // Lost cards have a row of their own, after Active client, when
-        // "Show lost" is on; they no longer fall into Inquiry (30 Sep 2026).
-        const lostRow = showLost ? [{ key: "lost", label: "Lost" }] : [];
-        board.innerHTML = [...STAGES, ...lostRow].map((s) => {
-          const allCards = s.key === "lost" ? rows.filter((r) => r.pipeline_stage === "lost") : rows.filter((r) => r.pipeline_stage !== "lost" && stageOf(r) === s.key);
-          const isClients = s.key === "active_client";
-          const overCap = isClients && allCards.length > CLIENTS_WRAP_CAP;
-          const cards = overCap ? allCards.slice(0, CLIENTS_WRAP_CAP) : allCards;
-          const seeAll = overCap ? `<button type="button" class="smm-see-all" data-goto-filter="active_client">See all ${allCards.length} &rarr;</button>` : "";
-          return `<div class="smm-col smm-stage-row">
-            <div class="smm-col-head"><span class="smm-col-name">${esc(s.label)}</span><span class="smm-col-count">${allCards.length}</span></div>
-            <div class="smm-stage-cards${isClients ? " is-wrap" : ""}" data-stage="${s.key}">${allCards.length ? cards.map(cardHtml).join("") + seeAll : '<div class="smm-col-empty">Drop here</div>'}</div>
-          </div>`;
-        }).join("");
-        wireCards(board);
-        board.querySelectorAll("[data-goto-filter]").forEach((btn) => {
-          btn.addEventListener("click", () => goToFilter(btn.getAttribute("data-goto-filter")));
-        });
-        board.querySelectorAll(".smm-stage-cards").forEach((col) => {
-          col.addEventListener("dragover", (e) => { e.preventDefault(); col.classList.add("drop-hover"); });
-          col.addEventListener("dragleave", () => col.classList.remove("drop-hover"));
-          col.addEventListener("drop", (e) => {
-            e.preventDefault(); col.classList.remove("drop-hover");
-            const id = e.dataTransfer.getData("text/plain");
-            const r = all.find((x) => x.id === id); if (!r) return;
-            moveToStage(r, col.getAttribute("data-stage"));
-          });
-        });
-      } else {
-        // A filter is on → single-column line view of just the matches.
-        board.classList.add("is-list");
-        const label = document.querySelector(".smm-chip.is-active")?.textContent || "Results";
-        board.innerHTML = `<div class="smm-list"><div class="smm-list-head">${esc(label)} · ${rows.length}</div>${rows.length ? rows.map(rowHtml).join("") : '<div class="smm-col-empty">No matches.</div>'}</div>`;
-        wireCards(board);
-      }
-      syncTopScroll();
+      const stages = [...STAGES.map((s) => ({ key: s.key, label: s.key === "active_client" ? "Active clients" : s.label })), ...(showLost ? [{ key: "lost", label: "Lost" }] : [])];
+      const inStage = (k) => k === "lost" ? rows.filter((r) => r.pipeline_stage === "lost") : rows.filter((r) => r.pipeline_stage !== "lost" && stageOf(r) === k);
+      let html = "", quiet = [];
+      const flush = () => { if (q) { quiet = []; return; } if (quiet.length) { html += `<div class="bd-quiet"><span>Nothing in</span>${quiet.map((s) => `<span class="bd-quiet-s" data-drop="${s.key}">${esc(s.label)}</span>`).join("")}</div>`; quiet = []; } };
+      stages.forEach((s) => {
+        const list = inStage(s.key);
+        if (!list.length) { quiet.push(s); return; }
+        flush();
+        const cap = s.key === "active_client" && !bdOpen[s.key] ? 8 : Infinity;
+        const shown = list.slice(0, cap);
+        const more = list.length > shown.length ? `<button type="button" class="bd-more" data-bd-more="${s.key}">See all ${list.length}</button>` : (s.key === "active_client" && bdOpen[s.key] && list.length > 8 ? `<button type="button" class="bd-more" data-bd-more="${s.key}">Show fewer</button>` : "");
+        html += `<section class="bd-stage"><div class="bd-strip" data-drop="${s.key}"><h2 class="bd-h">${esc(s.label)}<span class="bd-n">${list.length}</span></h2>${more}</div><div class="bd-grid">${shown.map(bdCard).join("")}</div></section>`;
+      });
+      flush();
+      board.innerHTML = rows.length ? html : `<div class="bd-empty">${q ? "Nobody matches that. Clear the search to see everyone." : "No one here yet."}</div>`;
+      const n = rows.filter((r) => r.pipeline_stage !== "lost").length, c = rows.filter((r) => r.pipeline_stage !== "lost" && stageOf(r) === "active_client").length;
+      const sum = $("bd-sum"); if (sum) sum.textContent = `${n - c} in progress, ${c} active ${c === 1 ? "client" : "clients"}`;
     }
+    const bdR = (k, v) => `<div class="bd-r"><dt>${k}</dt><dd title="${esc(String(v || "").replace(/<[^>]*>/g, ""))}">${v || '<span class="bd-none">—</span>'}</dd></div>`;
+    const bdDay = (iso) => { try { return iso ? new Date(String(iso).length <= 10 ? iso + "T12:00:00" : iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""; } catch (_) { return ""; } };
+    const bdWhen = (iso) => { try { return iso ? new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).replace(",", "") : ""; } catch (_) { return ""; } };
+    function bdCard(r) {
+      const st = r.pipeline_stage === "lost" ? "lost" : stageOf(r);
+      const pd = r.package_details || {};
+      const chip = (cls, t) => `<span class="bd-chip is-${cls}">${esc(t)}</span>`;
+      const src = (r.source || KIND_LABEL[r.kind] || "").split(":")[0];
+      const tag = st === "lost" ? chip("bad", wasClient(r) ? "Lost, was a client" : "Lost")
+        : r.leaving_on ? chip("bad", leavingLabel(r))
+        : st === "active_client" ? (r.client_status === "paused" ? chip("wait", "Paused") : r.client_status === "internal" ? chip("plain", "Internal") : chip("good", "Active"))
+        : st === "onboarding" ? chip("wait", "Onboarding")
+        : chip("plain", src || "Enquiry");
+      const mgr = r.social_media_manager ? r.social_media_manager.split(" ")[0] : "";
+      const pr = pd.proposed || {};
+      let rows;
+      if (st === "active_client" || st === "onboarding") {
+        rows = bdR("Business", esc(r.business || "")) + bdR("Package", esc([r.package_name, pd.tier ? tierLabel(r.package_name, pd.tier) : ""].filter(Boolean).join(", "))) + bdR(st === "onboarding" ? "Starts" : "Monthly", esc(st === "onboarding" ? bdDay(r.start_date) : (r.price || ""))) + bdR("Managed by", esc(mgr));
+      } else if (st === "proposal_sent" || st === "pricing_call" || st === "contract_signed") {
+        rows = bdR("Business", esc(r.business || "")) + bdR("Proposed", esc([pr.package ? String(pr.package).split(": ").pop() : "", pr.price !== "" && pr.price != null ? "£" + Number(pr.price).toLocaleString("en-GB") + " a month" : ""].filter(Boolean).join(", "))) + bdR(st === "pricing_call" ? "Pricing call" : "Call", esc(bdWhen(r.meeting_at))) + bdR("Managed by", esc(mgr));
+      } else if (st === "lost") {
+        rows = bdR("Business", esc(r.business || "")) + bdR("Got as far as", esc(r.lost_from_stage === "active_client" ? "Active client" : ((STAGES.find((s) => s.key === r.lost_from_stage) || {}).label || ""))) + bdR("Lost on", esc(bdDay(r.lost_at))) + bdR("Why", esc(r.lost_reason || ""));
+      } else {
+        rows = bdR("Business", esc(r.business || "")) + bdR("Enquired", esc(bdDay(r.created_at))) + bdR(st === "meeting_set" ? "Discovery call" : "Call", esc(bdWhen(r.meeting_at))) + bdR("Managed by", esc(mgr));
+      }
+      // What needs doing, when something obviously does; otherwise the two quick links.
+      const warn = st === "lost" ? "" : !r.social_media_manager && st !== "waitlist" ? "No one manages them yet"
+        : st === "active_client" && !r.price && r.client_status !== "internal" ? "No monthly fee on the file"
+        : st === "proposal_sent" && !pr.package ? "What we proposed isn't filled in" : "";
+      const foot = warn ? `<div class="bd-next">${esc(warn)}</div>`
+        : `<div class="bd-foot"><button type="button" class="bd-link" data-bd-open>Open file</button>${st === "lost" ? "" : st === "active_client" || st === "onboarding" ? (r.email ? `<button type="button" class="bd-link" data-bd-msg>Send a message</button>` : "") : `<button type="button" class="bd-link" data-bd-meet>${r.meeting_at && new Date(r.meeting_at) > new Date() ? "Move the call" : "Set a meeting"}</button>`}</div>`;
+      return `<article class="bd-card" draggable="true" data-id="${esc(r.id)}" tabindex="0"><header class="bd-card-h"><div class="bd-card-t">${esc(nameOf(r))}</div>${tag}</header><dl class="bd-rows">${rows}</dl>${foot}</article>`;
+    }
+    // Clicks, keys and drags on the board, wired once.
+    (() => {
+      const board = document.getElementById("smm-board"); if (!board) return;
+      const rec = (el) => all.find((x) => String(x.id) === String(el.getAttribute("data-id")));
+      board.addEventListener("click", (e) => {
+        const m = e.target.closest("[data-bd-more]"); if (m) { const k = m.getAttribute("data-bd-more"); bdOpen[k] = !bdOpen[k]; renderBoard(); return; }
+        const card = e.target.closest(".bd-card"); if (!card) return;
+        const r = rec(card); if (!r) return;
+        if (e.target.closest("[data-bd-meet]")) { openMeeting(r); return; }
+        if (e.target.closest("[data-bd-msg]")) { openFile(r.id); setTimeout(() => sfOpen("write"), 0); return; }
+        openFile(r.id);
+      });
+      board.addEventListener("keydown", (e) => { const card = e.target.closest(".bd-card"); if (card && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openFile(card.getAttribute("data-id")); } });
+      let dragId = null;
+      board.addEventListener("dragstart", (e) => { const c = e.target.closest(".bd-card"); if (!c) return; dragId = c.getAttribute("data-id"); c.classList.add("is-dragging"); e.dataTransfer.setData("text/plain", dragId); e.dataTransfer.effectAllowed = "move"; });
+      board.addEventListener("dragend", (e) => { e.target.closest(".bd-card")?.classList.remove("is-dragging"); board.querySelectorAll(".is-over").forEach((x) => x.classList.remove("is-over")); dragId = null; });
+      board.addEventListener("dragover", (e) => { const d = e.target.closest("[data-drop]"); if (d && dragId) { e.preventDefault(); d.classList.add("is-over"); } });
+      board.addEventListener("dragleave", (e) => { e.target.closest("[data-drop]")?.classList.remove("is-over"); });
+      board.addEventListener("drop", (e) => {
+        const d = e.target.closest("[data-drop]"); if (!d) return; e.preventDefault();
+        const id = dragId || e.dataTransfer.getData("text/plain"); dragId = null;
+        board.querySelectorAll(".is-over").forEach((x) => x.classList.remove("is-over"));
+        const r = all.find((x) => String(x.id) === String(id)); if (r) moveToStage(r, d.getAttribute("data-drop"));
+      });
+    })();
     function syncTopScroll() {
       const board = $("smm-board"), top = $("smm-scrolltop"), inner = $("smm-scrolltop-inner");
       if (!board || !top) return;
