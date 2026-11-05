@@ -1708,6 +1708,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     const sfMon = (ym) => { const [y, m] = String(ym).split("-").map(Number); return RI_MONTHS[m - 1].slice(0, 3); };
     // How they came in: the website routes from the card's kind, or what was
     // recorded for someone added by hand (supabase/smm_follow_ups.sql).
+    // Who looks after a client, from the first enquiry (Danielle, 5 Nov 2026).
+    const SF_MANAGERS = ["Abigail Saunders", "Samantha Thornicroft", "Danielle Law"];
+    const sfMgrOptions = (cur) => { const v = String(cur || ""); return `<option value="">Choose…</option>${SF_MANAGERS.concat(v && !SF_MANAGERS.includes(v) ? [v] : []).map((o) => `<option${o === v ? " selected" : ""}>${esc(o)}</option>`).join("")}`; };
     const SF_SOURCES = ["Website enquiry", "Email enquiry", "Brochure download", "Discovery call booking", "Waitlist", "Referral", "Phone call", "Event", "Existing client", "Internal", "Other"];
     const sfSource = (r) => { const k = r.source || ({ enquiry: "Website enquiry", brochure: "Brochure download", discovery: "Discovery call booking" }[r.kind] || (r.pipeline_stage === "waitlist" ? "Waitlist" : "")); return [k, r.source_detail].filter(Boolean).join(": "); };
     // Call notes are pinned notes headed "Discovery call notes" or "Pricing call
@@ -2146,7 +2149,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           + sfSec("How they came in", sfPF("How", `<select class="sf-in" id="sfe-src"><option value="">Choose…</option>${SF_SOURCES.map((o) => `<option${(r.source || sfSource(r).split(":")[0]) === o ? " selected" : ""}>${o}</option>`).join("")}</select>`) + sfPF("Who or where", sfIn("sfe-srcwho", r.source_detail, "text", "e.g. Sarah Lyle at Lyle & Co"), "For a referral, who sent them; for an event, which one.") + sfPF("What they said", `<textarea class="sf-in" id="sfe-msg" rows="3" placeholder="What they asked for, in their words">${esc(r.message || "")}</textarea>`, "Filled in by itself for website enquiries."))
           + sfSec("Package", sfPF("Package", `<select class="sf-in" id="sfe-pkg">${packageOptions(r.package_name)}</select>`, "The tier and what's included are under View › Package.") + sfPF("Monthly fee", sfIn("sfe-price", r.price, "text", "e.g. £650 a month"), "What we agreed. The invoice amount itself is in Invoicing › Monthly invoice.") + sfPF("Onboarding fee", sfIn("sfe-obfee", (r.package_details || {}).onboarding_fee, "number", "0.00"), "Before VAT. Invoiced when the signed contract is back.") + sfPF("Hours a month", sfIn("sfe-hours", r.contracted_hours_per_month, "number", "e.g. 6"))
             + sfPF("Platforms we manage", `<span class="sf-plat">${SF_PLATS.map((p) => `<label><input type="checkbox" data-sfe-plat="${p}"${plats.includes(p) ? " checked" : ""}> ${sfIcon(p)} ${p}</label>`).join("")}</span>`))
-          + sfSec("Working with us", sfPF("Managed by", sfIn("sfe-mgr", r.social_media_manager, "text", "Who runs this account")) + sfPF("Started", sfIn("sfe-start", r.start_date, "date")) + sfPF("Inter-brand", sfTog("sfe-ibi", !!r.inter_brand_invoice), "Yes when another of our brands pays for this client.")
+          + sfSec("Working with us", sfPF("Managed by", `<select class="sf-in" id="sfe-mgr">${sfMgrOptions(r.social_media_manager)}</select>`, "Who looks after them, from the first enquiry.") + sfPF("Started", sfIn("sfe-start", r.start_date, "date")) + sfPF("Inter-brand", sfTog("sfe-ibi", !!r.inter_brand_invoice), "Yes when another of our brands pays for this client.")
             + sfPF("Brand that pays", `<select class="sf-in" id="sfe-brand"><option value="">Choose…</option>${SF_BRANDS.map((b) => `<option value="${b.key}"${r.billed_brand === b.key ? " selected" : ""}>${esc(b.label)}</option>`).join("")}</select>`, `Inter-brand only. The invoice goes to Paula at TEG accounts, copied to accounts payable, Rosie-Anne and ${sfFirst(r)}.`)),
           `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-client"', "Save")}`, { edit: true });
       } else if (key === "channels") {
@@ -2545,6 +2548,17 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       finally { btn.disabled = false; btn.textContent = was; }
     }
 
+    /* Managed by first (Danielle, 5 Nov 2026): no meeting, email, proposal or
+       stage move goes out until someone owns the client. Asked there and then. */
+    let sfAfterMgr = null;
+    function sfNeedsManager(r, then) {
+      if (r.social_media_manager) return false;
+      sfAfterMgr = then;
+      sfShell(`Client · ${nameOf(r)}`, "Who manages them?", "", "", sfSec("Managed by", sfPF("Managed by", `<select class="sf-in" id="sfm-owner">${sfMgrOptions("")}</select>`, "Needed before any meeting, email or proposal goes out.")),
+        `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-owner"', "Save and carry on")}`, { narrow: true, edit: true });
+      sfPop = "owner";
+      return true;
+    }
     // ---- One listener for the whole file ----
     function sfClick(e) {
       const r = current; if (!r) return;
@@ -2558,12 +2572,19 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const doc = t("[data-sf-doc]"); if (doc) { downloadDoc(doc.getAttribute("data-sf-doc"), doc.getAttribute("data-name")); return; }
       // Move straight to a stage (Dani, 5 Nov): no booking forced on the way.
       // Becoming a client still checks onboarding first.
-      const fo = t("[data-sf-force]"); if (fo) { const k = fo.getAttribute("data-sf-force"); sfClosePop(); if (k === "active_client") moveToStage(r, k); else if (k !== r.pipeline_stage) setStage(r, k); return; }
+      const fo = t("[data-sf-force]"); if (fo) { const k = fo.getAttribute("data-sf-force"); sfClosePop(); const go = () => { if (k === "active_client") moveToStage(r, k); else if (k !== r.pipeline_stage) setStage(r, k); }; if (!["inquiry", "waitlist", "lost"].includes(k) && sfNeedsManager(r, go)) return; go(); return; }
       const a = t("[data-sf]");
       const cd = !a && t("[data-sf-card]");
       if (cd) { sfEditing = false; sfOpen(cd.getAttribute("data-sf-card"), cd.getAttribute("data-id")); return; }
       if (!a || a.disabled) return;
       const k = a.getAttribute("data-sf"), id = a.getAttribute("data-id");
+      if (k === "save-owner") {
+        const m = $("sfm-owner")?.value; if (!m) { sfMsg("Choose who manages them.", true); return; }
+        a.disabled = true;
+        sfUpdate(r, { social_media_manager: m }).then((err) => { if (err) { a.disabled = false; sfMsg("Couldn't save: " + err.message, true); return; } renderBoard(); const then = sfAfterMgr; sfAfterMgr = null; sfClosePop(); sfDraw(r); if (then) then(); });
+        return;
+      }
+      if (["write", "book-call", "proposal", "book"].includes(k) && sfNeedsManager(r, () => { const el = document.querySelector(`#smm-file [data-sf="${k}"]`); if (el) el.click(); })) return;
       switch (k) {
         case "back": closeFile(); return;
         case "lost": sfClosePop(); openLost(r, r.pipeline_stage === "active_client" ? "ended" : "lost"); return;
@@ -3571,6 +3592,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           <div class="smm-modal" role="dialog" aria-modal="true" aria-label="Book a meeting">
             <h3>Book a meeting</h3>
             <p class="smm-modal-sub">with ${esc(nameOf(r))}${r.business ? " · " + esc(r.business) : ""}</p>
+            ${r.social_media_manager ? "" : `<div class="smm-modal-field"><label>Managed by</label><select id="smm-mt-mgr">${sfMgrOptions("")}</select><small class="smm-hint">Who looks after them. Needed before anything goes out.</small></div>`}
             <div class="smm-modal-two">
               <div class="smm-modal-field"><label>Date</label><input type="date" id="smm-mt-date" value="${dstr}"></div>
               <div class="smm-modal-field"><label>Time</label><input type="time" id="smm-mt-time" value="10:00"></div>
@@ -3598,6 +3620,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const duration = $("smm-mt-dur").value, invite = $("smm-mt-invite").checked;
       const mode = $("smm-mt-mode")?.value || "teams", where = ($("smm-mt-where")?.value || "").trim();
       if (mode === "in_person" && !where) { const s = $("smm-mt-status"); s.hidden = false; s.textContent = "Say where you're meeting."; return; }
+      // Nothing goes out without someone owning the client (Dani, 5 Nov).
+      if (!r.social_media_manager) {
+        const m = $("smm-mt-mgr")?.value;
+        if (!m) { const s = $("smm-mt-status"); s.hidden = false; s.textContent = "Choose who manages them first."; return; }
+        await sfUpdate(r, { social_media_manager: m });
+      }
       if (!date || !start) { const s = $("smm-mt-status"); s.hidden = false; s.textContent = "Pick a date and time."; return; }
       const btn = $("smm-mt-save"); btn.disabled = true; btn.textContent = "Saving…";
       // Only move them into Meeting set if they're still before it — booking a
@@ -3608,7 +3636,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       r.meeting_at = `${date}T${start}:00`; if (setStage) r.pipeline_stage = "meeting_set";
       if (!isDemo(r)) {
         let ok = false;
-        if (WORKER) { try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/meeting`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, date, start, duration, send_invite: invite, set_stage: setStage, mode, location: where }) }); ok = res.ok; } catch (_) {} }
+        if (WORKER) { try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/meeting`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, date, start, duration, send_invite: invite, set_stage: setStage, mode, location: where, call: STAGE_INDEX[stageOf(r)] <= STAGE_INDEX.meeting_set ? "discovery" : ["proposal_sent", "pricing_call"].includes(stageOf(r)) ? "pricing" : "meeting" }) }); ok = res.ok; } catch (_) {} }
         if (!ok) { try { const patch = { meeting_at: r.meeting_at }; if (setStage) patch.pipeline_stage = "meeting_set"; await supabase.from("smm_leads").update(patch).eq("id", r.id); } catch (_) {} }
         if (toPricing) { try { await supabase.from("smm_leads").update({ pipeline_stage: "pricing_call" }).eq("id", r.id); } catch (_) {} }
       }
@@ -4997,6 +5025,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               <div class="smm-modal-field"><label>How they came in</label><select id="smm-nl-src"><option value="">Choose…</option>${SF_SOURCES.map((o) => `<option>${o}</option>`).join("")}</select></div>
               <div class="smm-modal-field"><label>Who or where</label><input type="text" id="smm-nl-srcwho" placeholder="e.g. Sarah Lyle at Lyle & Co"></div>
             </div>
+            <div class="smm-modal-field"><label>Managed by</label><select id="smm-nl-mgr">${sfMgrOptions("")}</select></div>
             <div class="smm-modal-field"><label>What they said</label><textarea id="smm-nl-msg" rows="3" placeholder="What they asked for, in their words"></textarea></div>
             <div class="smm-modal-field"><label>Stage</label><select id="smm-nl-stage">${STAGES.map((s) => `<option value="${s.key}"${s.key === "inquiry" ? " selected" : ""}>${s.label}</option>`).join("")}</select></div>
             <p class="smm-modal-status" id="smm-nl-status" hidden></p>
@@ -5022,6 +5051,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         business: $("smm-nl-biz").value.trim() || null, email: email || null, phone: $("smm-nl-phone").value.trim() || null,
         pipeline_stage: $("smm-nl-stage").value, kind: "manual", created_at: new Date().toISOString(),
         source: $("smm-nl-src").value || null, source_detail: $("smm-nl-srcwho").value.trim() || null, message: $("smm-nl-msg").value.trim() || null,
+        social_media_manager: $("smm-nl-mgr").value || null,
         client_status: $("smm-nl-stage").value === "active_client" ? "active" : null,
       };
       const btn = $("smm-nl-add"); btn.disabled = true; btn.textContent = "Adding…";

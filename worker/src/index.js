@@ -3396,6 +3396,11 @@ async function logBookingMessage(env, m) {
   } catch (_) {}
 }
 
+// Whether the social media manager (SMM_NOTIFY, Abigail) is invited to the
+// meetings booked from a client's file. Off from 5 Nov 2026 while Danielle
+// tests the invites; she'll say when to switch it back on.
+const SMM_INVITE_MANAGER = false;
+
 // An enquiry summed up as a note on the card (Danielle, 5 Nov 2026): how it
 // came in, when, who from and what they said, so the file holds the whole
 // story and not just the banner.
@@ -13475,6 +13480,23 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const how = ["teams", "phone", "in_person"].includes(b.mode) ? b.mode : "teams";
         const where = String(b.location || "").trim().slice(0, 200);
         const howLabel = how === "teams" ? "Teams call" : how === "phone" ? "Phone call" : "In person";
+        // What the invite says (Danielle, 5 Nov 2026; wording by the copywriter):
+        // which call it is, how we'll meet, how to move it.
+        const callKind = ["discovery", "pricing"].includes(b.call) ? b.call : "meeting";
+        const inviteBody = (() => {
+          const e = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          const mins = parseInt(b.duration || "30", 10);
+          const what = {
+            discovery: `Thanks for making time to talk to us. Over ${mins} minutes, we'd like to find out what you want from your social media, so we can both see whether we're the right fit for you at the moment.`,
+            pricing: `Thanks for taking the time to read through our proposal. Over ${mins} minutes, we'll talk you through the package, the price and the onboarding fee, and answer any questions you have. We'll also talk about when you'd like to start.`,
+            meeting: `We're looking forward to speaking with you. We've set aside ${mins} minutes, and if there's anything you'd like us to cover, reply to this invite and let us know.`,
+          }[callKind];
+          const meet = how === "teams" ? "We'll meet on Microsoft Teams. The joining details are in this invite, and if you can't see them, reply and we'll send them over."
+            : how === "phone" ? (lead.phone ? `We'll call you on ${e(lead.phone)}.` : "We'll give you a call at the time booked.")
+            : `We'll see you at ${e(where || "the place we agreed")}.`;
+          return [`Hi ${e(lead.first_name || "there")},`, what, meet, "If you need to change the time, reply to this invite or email us at hello@tmke.co.uk.", "Speak soon,<br>the team at The Marketing Experts"].map((x) => `<p>${x}</p>`).join("");
+        })();
+        const callTitle = { discovery: "Discovery call", pricing: "Pricing call", meeting: "Meeting" }[callKind];
         // Advance to Meeting set only when asked (a booking for a later-stage
         // client just records the meeting without moving them back).
         const meetingPatch = { meeting_at: meetingAt };
@@ -13493,12 +13515,16 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             // The event in hello@'s Outlook calendar: Outlook sends the invite
             // itself, with the Teams link on it for a Teams call.
             const event = {
-              subject: `TMKE Social Media - ${howLabel} with ${lead.full_name || lead.email}`,
+              // Their name in it too, so hello@'s calendar says who it's with.
+              subject: `${callTitle}: The Marketing Experts and ${lead.full_name || lead.email}.`,
+              body: { contentType: "HTML", content: inviteBody },
               start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
               end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
               attendees: [
                 { emailAddress: { address: lead.email, name: lead.full_name || "" }, type: "required" },
-                ...(env.SMM_NOTIFY && env.SMM_NOTIFY.toLowerCase() !== cal.toLowerCase()
+                // Abigail is left off while Danielle tests the invites (5 Nov 2026).
+                // Turn SMM_INVITE_MANAGER back on when she says.
+                ...(SMM_INVITE_MANAGER && env.SMM_NOTIFY && env.SMM_NOTIFY.toLowerCase() !== cal.toLowerCase()
                   ? [{ emailAddress: { address: env.SMM_NOTIFY, name: "TMKE Social Media" }, type: "required" }] : []),
               ],
               ...(how === "teams" ? { isOnlineMeeting: true, onlineMeetingProvider: "teamsForBusiness" }
@@ -13562,6 +13588,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           // How they came in and what they said (supabase/smm_stages_and_follow_ups.sql).
           source: String((b && b.source) || "").trim() || null, source_detail: String((b && b.source_detail) || "").trim() || null,
           message: String((b && b.message) || "").trim() || null,
+          social_media_manager: String((b && b.social_media_manager) || "").trim() || null,
         }, "return=representation");
         if (!ins.ok) { const detail = await ins.text().catch(() => ""); console.error("smm manual lead insert failed", ins.status, detail); return json({ error: "Couldn't save the lead." }, 502, request, env); }
         let row = null; try { const arr = await ins.json(); row = Array.isArray(arr) && arr[0] ? arr[0] : null; } catch (_) {}
