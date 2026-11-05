@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/reset_sarah_test.sql — one-off: Sarah Test back to a fresh enquiry for the team walkthrough. Deletes her notes, emails, files, invoices (TMKE1098, TMKE1099) and monthly invoice; keeps her contact details and the original Enquiry received note (5 Nov)
 
 ## Done
 

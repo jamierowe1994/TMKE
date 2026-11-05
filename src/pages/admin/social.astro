@@ -2327,7 +2327,7 @@ const mgmtPackages = (management && management.packages) || [];
         const items = [sent ? li(1, `Contract sent ${esc(sfDay(sent))}`) : li(1, "Contract sent"),
           F.agreement ? li(1, `Signed copy back ${esc(sfDay(F.agreement.created_at))}`) : li(0, sent ? `Signed: chase on ${esc(sfDay(sfAddDays(sent, 3)))}, then ${esc(sfDay(sfAddDays(sent, 5)))}` : "Signed copy back"), fu].filter(Boolean);
         return box(lateH(F.agreement ? "Signed. Next: onboarding" : "Contract out for signing"), items,
-          (F.agreement ? "" : (r.email ? sfHb(false, 'data-sf="write"', "Chase") : "") + sfHb(false, 'data-sf="file-add" data-cat="agreement"', "Upload signed copy")) + sfHb(true, 'data-sf-force="onboarding"', "Start onboarding"), lateC);
+          (F.agreement ? "" : (r.email ? sfHb(false, 'data-sf="chase" data-id="contract"', "Chase") : "") + sfHb(false, 'data-sf="file-add" data-cat="agreement"', "Upload signed copy")) + sfHb(true, 'data-sf-force="onboarding"', "Start onboarding"), lateC);
       }
       if (st === "onboarding") {
         // Two rows at most (Dani, 5 Nov): the contract, the first invoices,
@@ -3139,6 +3139,19 @@ const mgmtPackages = (management && management.packages) || [];
           // A chase written for them (Dani, 5 Nov 2026): the proposal email's own
           // subject, so it threads with it, and a short follow-up to change.
           const F2 = sfFacts(r);
+          if (id === "contract") {
+            // The contract chase (Dani, 5 Nov 2026; words by the copywriter).
+            const sentC = F2.reached("contract_signed");
+            const conMail = F2.outs.filter((m) => /contract|agreement/i.test(String(m.subject || ""))).slice(-1)[0]
+              || (sentC ? F2.outs.find((m) => new Date(m.created_at) >= new Date(new Date(sentC).getTime() - 36e5)) : null);
+            const firstC = r.first_name || (nameOf(r) !== "—" ? nameOf(r).split(" ")[0] : "there");
+            const whenC = conMail ? conMail.created_at : sentC;
+            sfWritePreset = { title: "Chase the contract", hint: "Change anything you like before it goes.",
+              subject: (conMail && conMail.subject) || "Your contract from The Marketing Experts.",
+              body: `Hi ${firstC},\n\nI hope you're well. I just wanted to follow up on the contract I sent over${whenC ? " on " + sfDay(whenC) : ""}. Have you had a chance to look through it?\n\nOnce you've signed it and sent it back, we'll send your first invoice, which covers the one-off onboarding fee and your first month, paid in advance. We'll also book in your onboarding call, and then we can get started.\n\nIf you have any questions about the contract, just reply to this email and I'll be happy to help.\n\nBest wishes,` };
+            sfEditing = false; sfOpen("write");
+            return;
+          }
           const sent = F2.reached("proposal_sent") || (F2.prep && F2.prep.created_at);
           const propMail = F2.outs.filter((m) => /proposal/i.test(String(m.subject || ""))).slice(-1)[0]
             || (sent ? F2.outs.find((m) => new Date(m.created_at) >= new Date(new Date(sent).getTime() - 36e5)) : null);

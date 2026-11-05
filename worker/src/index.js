@@ -3400,7 +3400,7 @@ async function logBookingMessage(env, m) {
 // Whether the social media manager (SMM_NOTIFY, Abigail) is invited to the
 // meetings booked from a client's file. Off from 5 Nov 2026 while Danielle
 // tests the invites; she'll say when to switch it back on.
-const SMM_INVITE_MANAGER = false;
+const SMM_INVITE_MANAGER = true;
 // Managed by, name to email, for meeting invites (Danielle, 5 Nov 2026). Only
 // addresses she's confirmed; a name with no address here gets no invite.
 const SMM_MANAGER_EMAILS = {
