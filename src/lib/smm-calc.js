@@ -26,7 +26,7 @@ export const CALC_DEFAULTS = {
   creation: {                                                     // minutes per post
     static:   { create: 30, caption: 15 },
     carousel: { create: 60, caption: 15 },
-    reel_own: { create: 30, caption: 15 },                        // their footage: we make the cover
+    reel_own: { create: 15, caption: 15 },                        // their footage: we make the cover (15 min, Dani 5 Nov)
   },
   reporting: { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6 },                    // hours a month, by platforms
   strategy_hours_quarter: 1,
