@@ -227,7 +227,7 @@ const mgmtPackages = (management && management.packages) || [];
         </div>
       </div>
       <p class="pc-flag" id="pc-flag" hidden></p>
-      <div class="pc">
+      <div class="pc" id="smm-pc">
         <div class="pc-col">
           <section class="pc-box">
             <div class="pc-strip">Who they are</div>
@@ -557,6 +557,8 @@ const mgmtPackages = (management && management.packages) || [];
     .pc-table tr.is-pick td { background: #f7f4f2; }
     .pc-table tr.is-pick td:first-child { box-shadow: inset 3px 0 0 #371e28; }
     .pc-table tr.is-total td { border-top: 1px solid #c9bcb7; }
+    #sf-pop-b .pc-in input { border: 0; }
+    #sf-pop-b .pc { padding: 2px 0 6px; }
     .pc-prop { white-space: pre-wrap; border: 1px solid #eae5e1; border-radius: 4px; background: #f7f4f2; padding: 12px 14px; max-height: 260px; overflow: auto; }
 
     .smm-bar { display: flex; flex-direction: column; gap: 12px; max-width: 1360px; margin: 0 auto; padding: 34px 36px 20px; }
@@ -2190,7 +2192,7 @@ const mgmtPackages = (management && management.packages) || [];
           sfHb(false, 'data-sf="book-call"', r.meeting_at ? "Move the call" : "Book the discovery call") + sfHb(true, 'data-sf="callnotes" data-id="discovery"', "Call notes"), r.meeting_at ? "" : lateC);
         const due = sfAddWork(r.meeting_at, 3);
         return box(lateH("Discovery call held. Next: the proposal"), [li(1, `Discovery call held ${esc(sfDay(r.meeting_at))}`), li(!!F.discovery, F.discovery ? "Call notes written" : "Call notes not written yet"), li(0, `Proposal due by ${esc(sfDate(due).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }))}`), fu].filter(Boolean),
-          sfHb(false, 'data-sf="callnotes" data-id="discovery"', "Call notes") + sfHb(true, 'data-sf="proposal"', "Upload and send the proposal"), lateC);
+          sfHb(false, 'data-sf="callnotes" data-id="discovery"', "Call notes") + sfHb(false, 'data-sf="quote"', "Price it") + sfHb(true, 'data-sf="proposal"', "Upload and send the proposal"), lateC);
       }
       if (st === "proposal_sent") {
         const sent = F.reached("proposal_sent") || (F.prep && F.prep.created_at);
@@ -2210,7 +2212,7 @@ const mgmtPackages = (management && management.packages) || [];
         const items = [sent ? li(1, `Proposal sent ${esc(sfDay(sent))}`) : "", r.meeting_at ? li(1, `Pricing call ${held ? "held" : "booked for"} ${esc(held ? sfDay(r.meeting_at) : sfWhen(r.meeting_at))}`) : li(0, "Pricing call not booked"),
           held ? li(!!F.pricing, F.pricing ? "Call notes written" : "Call notes not written yet") : "", r.meeting_at ? li(0, `Contract out by ${esc(sfDate(sfAddWork(r.meeting_at, 1)).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }))}`) : "", fu].filter(Boolean);
         return box(lateH(r.meeting_at && !held ? `Pricing call on ${esc(sfWhen(r.meeting_at))}` : "Next: send the contract"), items,
-          (r.meeting_at ? "" : sfHb(false, 'data-sf="book-call"', "Book the pricing call")) + sfHb(false, 'data-sf="callnotes" data-id="pricing"', "Call notes") + sfHb(true, 'data-sf-force="contract_signed"', "Mark contract sent"), lateC);
+          (r.meeting_at ? "" : sfHb(false, 'data-sf="book-call"', "Book the pricing call")) + sfHb(false, 'data-sf="callnotes" data-id="pricing"', "Call notes") + sfHb(false, 'data-sf="quote"', "Price it") + sfHb(true, 'data-sf-force="contract_signed"', "Mark contract sent"), lateC);
       }
       if (st === "contract_signed") {
         const sent = F.reached("contract_signed");
@@ -2343,12 +2345,13 @@ const mgmtPackages = (management && management.packages) || [];
     const sfTogOn = (id) => document.querySelector(`[data-sf-tog="${id}"] button[aria-pressed="true"]`) === document.querySelector(`[data-sf-tog="${id}"] button`);
     // Lent hosts go back to #sf-legacy when the pop-out closes.
     let sfLent = [];
-    function sfLend(id, into) { const el = $(id), legacy = $("sf-legacy"); if (!el || !legacy || !into) return; sfLent.push(id); into.appendChild(el); }
-    function sfReturn() { const legacy = $("sf-legacy"); sfLent.forEach((id) => { const el = $(id); if (el && legacy) legacy.appendChild(el); }); sfLent = []; }
+    // Lent pieces go back where they came from (sf-legacy, or the calculator's own page).
+    function sfLend(id, into) { const el = $(id), legacy = $("sf-legacy"); if (!el || !legacy || !into) return; sfLent.push({ id, home: el.parentElement || legacy }); into.appendChild(el); }
+    function sfReturn() { sfLent.forEach(({ id, home }) => { const el = $(id); if (el && home) home.appendChild(el); }); sfLent = []; }
     function sfPlace() { const scrim = $("sf-pop"), main = document.querySelector(".ash-main"); if (scrim) scrim.style.left = (main && window.innerWidth > 900 ? Math.max(0, main.getBoundingClientRect().left) : 0) + "px"; }
     window.addEventListener("resize", () => { if (sfPop) sfPlace(); });
     // Closing redraws the file: ticks, uploads and publishes inside a pop-out show at once.
-    function sfClosePop() { if (sfPop === "write") sfWritePreset = null; const was = sfPop; sfReturn(); sfPop = null; sfEditing = false; const p = $("sf-pop"); if (p) p.hidden = true; if (was && current) sfDraw(current); }
+    function sfClosePop() { if (sfPop === "write") sfWritePreset = null; if (sfPop === "quote") pcLeaveClient(); const was = sfPop; sfReturn(); sfPop = null; sfEditing = false; const p = $("sf-pop"); if (p) p.hidden = true; if (was && current) sfDraw(current); }
     function sfShell(eye, title, chip, tabs, body, foot, opts = {}) {
       const p = $("sf-pop"); if (!p) return null;
       sfReturn();
@@ -2367,6 +2370,7 @@ const mgmtPackages = (management && management.packages) || [];
 
     function sfOpen(key, arg) {
       const r = current; if (!r) return;
+      if (sfPop === "quote" && key !== "quote") pcLeaveClient();
       sfPop = key; sfCur = arg == null ? null : arg;
       const name = nameOf(r), eye = (t) => `${t} · ${name}`;
       const F = sfFacts(r);
@@ -2386,7 +2390,7 @@ const mgmtPackages = (management && management.packages) || [];
           sfSec("Contact", `<dl class="sf-pdl">${sfPR("Contact name", esc(name === "—" ? "" : name))}${sfPR("Business", esc(r.business || ""))}${sfPR("Email", esc(r.email || ""))}${sfPR("Phone", esc(r.phone || ""))}</dl>`)
           + sfSec("How they came in", `<dl class="sf-pdl">${sfPR("Enquiry received", esc(sfDayYear(r.created_at)))}${sfPR("How", esc(sfSource(r) || KIND_LABEL[r.kind] || "Added by hand"))}${sfPR("What they said", esc(r.message || ""))}${sfPR("Marketing", r.marketing_opt_in ? "Opted in" : "Not opted in")}</dl>`)
           + (idx >= STAGE_INDEX.meeting_set || F.discovery ? sfSec("Discovery call", `<dl class="sf-pdl">${F.st === "meeting_set" || F.st === "inquiry" ? sfPR("When", esc(sfWhen(r.meeting_at))) : ""}${F.discovery ? notesRows(D) + tLink("discovery") : sfPR("Call notes", `Not written yet &nbsp;<button type="button" class="sf-act" data-sf="callnotes" data-id="discovery">Write them</button>`)}</dl>`) : "")
-          + (idx >= STAGE_INDEX.proposal_sent ? sfSec("Proposal", `<dl class="sf-pdl">${sfPR("Sent", esc(sfDayYear(propSent)))}${sfPR("File", F.prep ? `<button type="button" class="sf-act" data-sf-doc="${esc(F.prep.id)}" data-name="${esc(F.prep.file_name || "proposal")}">${esc(F.prep.title || F.prep.file_name)}</button>` : "")}${sfPR("Monthly fee", esc(r.price || ""))}${sfPR("Onboarding fee", pd.onboarding_fee != null && pd.onboarding_fee !== "" ? `£${esc(pd.onboarding_fee)} + VAT` : "")}</dl>`) : "")
+          + (idx >= STAGE_INDEX.proposal_sent ? sfSec("Proposal", `<dl class="sf-pdl">${sfPR("Sent", esc(sfDayYear(propSent)))}${sfPR("File", F.prep ? `<button type="button" class="sf-act" data-sf-doc="${esc(F.prep.id)}" data-name="${esc(F.prep.file_name || "proposal")}">${esc(F.prep.title || F.prep.file_name)}</button>` : "")}${sfPR("Priced", pd.quote ? `${esc(pcQuoteLine(pd.quote))} <button type="button" class="sf-act" data-sf="quote">Open</button>` : `Not yet <button type="button" class="sf-act" data-sf="quote">Price it</button>`)}${sfPR("Monthly fee", esc(r.price || ""))}${sfPR("Onboarding fee", pd.onboarding_fee != null && pd.onboarding_fee !== "" ? `£${esc(pd.onboarding_fee)} + VAT` : "")}</dl>`) : "")
           + (idx >= STAGE_INDEX.pricing_call ? sfSec("Pricing call", `<dl class="sf-pdl">${F.st === "pricing_call" ? sfPR("When", esc(sfWhen(r.meeting_at))) : ""}${F.pricing ? notesRows(Pn) + tLink("pricing") : sfPR("Call notes", `Not written yet &nbsp;<button type="button" class="sf-act" data-sf="callnotes" data-id="pricing">Write them</button>`)}</dl>`) : "")
           + (idx >= STAGE_INDEX.contract_signed ? sfSec("Contract", `<dl class="sf-pdl">${sfPR("Sent", esc(sfDayYear(F.reached("contract_signed"))))}${sfPR("Signed copy", F.agreement ? `<button type="button" class="sf-act" data-sf-doc="${esc(F.agreement.id)}" data-name="${esc(F.agreement.file_name || "contract")}">${esc(F.agreement.title || F.agreement.file_name)}</button>, ${esc(sfDay(F.agreement.created_at))}` : "Not back yet")}</dl>`) : "")
           + (idx >= STAGE_INDEX.proposal_sent ? sfSec("Package", `<div id="sf-pkg-slot"></div>`) : "")
@@ -2524,6 +2528,15 @@ const mgmtPackages = (management && management.packages) || [];
             + sfPF("Wants to start", sfIn("sfn-start", f["wants to start"] || "", "text", "e.g. December")))
           + sfSec("Next step", sfPF("What happens next", `<textarea class="sf-in" id="sfn-next" rows="2">${esc(f["next step"] || "")}</textarea>`)),
           `<span class="sf-say" id="sf-save-msg">Saved to Notes, pinned to the top.</span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, `data-sf="save-callnotes" data-id="${kind}"`, "Save notes")}`, { edit: true });
+      } else if (key === "quote") {
+        // The package calculator, for this client (Dani, 5 Nov 2026): filled in
+        // from their call notes, saved on their file, and its wording goes into
+        // the email that sends the proposal.
+        const q = (r.package_details || {}).quote;
+        const b = sfShell(eye("Proposal"), "Price it", q ? sfChip("good", "Saved " + sfDay(q.at)) : "", "",
+          `<div id="sf-quote-slot"></div>`,
+          `<span class="sf-say" id="sf-save-msg">Saved on their file. The prices go into the email that sends the proposal.</span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-quote"', "Save to their file")}`, { wide: true, edit: true });
+        if (b) { sfLend("smm-pc", b.querySelector("#sf-quote-slot")); pcForClient(r, F); }
       } else if (key === "proposal") {
         sfShell(eye("Proposal"), "Upload and send the proposal", "", "",
           sfSec("The proposal", sfPF("File", `<input class="sf-file" id="sfp-prop" type="file">`, "The pitch deck you're sending them. It's kept in Paperwork.")
@@ -2810,7 +2823,7 @@ const mgmtPackages = (management && management.packages) || [];
         if (r.email && docId) {
           const call = r.meeting_at && new Date(r.meeting_at) <= new Date() ? sfDay(r.meeting_at) : "";
           sfWritePreset = { title: "Send the proposal", docId, docName: f.name, subject: "Your proposal from The Marketing Experts.",
-            body: `Hi ${r.first_name || (nameOf(r) !== "—" ? nameOf(r).split(" ")[0] : "there")},\n\nThank you for your time on the call${call ? " on " + call : ""}. As promised, I've attached our proposal${r.business && r.business !== nameOf(r) ? " for " + r.business : ""}.\n\nIt sets out what we'd do for you each month, the package we'd recommend and what it costs.\n\nOnce you've had a chance to read it, I'd love to talk it through. Would you have half an hour next week? Just reply with a couple of times that suit you.\n\nBest wishes,` };
+            body: `Hi ${r.first_name || (nameOf(r) !== "—" ? nameOf(r).split(" ")[0] : "there")},\n\nThank you for your time on the call${call ? " on " + call : ""}. As promised, I've attached our proposal${r.business && r.business !== nameOf(r) ? " for " + r.business : ""}.\n\nIt sets out what we'd do for you each month, the package we'd recommend and what it costs.${(r.package_details || {}).quote && r.package_details.quote.wording ? "\n\n" + r.package_details.quote.wording : ""}\n\nOnce you've had a chance to read it, I'd love to talk it through. Would you have half an hour next week? Just reply with a couple of times that suit you.\n\nBest wishes,` };
           sfOpen("write");
         }
       } catch (e) { btn.disabled = false; sfMsg(e.message || "Couldn't save it.", true); }
@@ -2911,6 +2924,7 @@ const mgmtPackages = (management && management.packages) || [];
         case "clear-followup": sfSaveFollowup(r, a, true); return;
         case "save-callnotes": sfSaveCallNotes(r, id, a); return;
         case "save-proposal": sfSaveProposal(r, a); return;
+        case "save-quote": sfSaveQuote(r, a); return;
         case "book-call": sfClosePop(); openMeeting(r); return;
         case "ai-callnotes": {
           const msg = (t, bad) => { const el = $("sfn-ai-msg"); if (el) { el.textContent = t; el.style.color = bad ? "#8a3f3f" : ""; } };
@@ -5950,7 +5964,7 @@ const mgmtPackages = (management && management.packages) || [];
     var PF = mergeFigures(null), pfRow = null, pfState = "loading", pfErr = "", pfDraft = null, pfLoading = null;
     var PF_DRAFT_KEY = "tmke-smm-pricing-draft";
     var pcS = { buyer: "standard", maker: "own", v: 2, c: 1, s: 1, platforms: ["Instagram", "Facebook"], stories: false, comments: false, pack: 0, budget: 500 };
-    var pcWired = false;
+    var pcWired = false, pcHome = null, pcLast = null;
     function pcEl(id) { return document.getElementById(id); }
     function pcGbp(n) { return "£" + Math.round(n).toLocaleString("en-GB"); }
 
@@ -6182,12 +6196,89 @@ const mgmtPackages = (management && management.packages) || [];
         + soldLines.map((l) => `<tr><td>${esc(l.label)}</td><td class="pc-num">${pcGbp(l.amount)}</td></tr>`).join("")
         + `<tr class="is-total"><td>A month, rounded to the nearest £5</td><td class="pc-num">${pcGbp(full.price)}</td></tr>`;
 
-      // Wording for the proposal (a starting point to change in the email).
-      const L = ["Option 1: everything you asked for", pcItems(W).join("; ") + ". " + pcGbp(full.price) + " a month.", ""];
-      if (fit && full.price > pcS.budget) L.push("Option 2: within your " + pcGbp(pcS.budget) + " a month", pcItems(fit.w).join("; ") + ". " + pcGbp(fit.price) + " a month.", "");
-      if (pick) { L.push("Our recommendation: " + name, why); if (alt) L.push(alt); L.push(""); }
-      L.push("All prices are a month, before VAT, with a one-off onboarding fee.");
-      pcEl("pc-prop").textContent = L.join("\n");
+      // Wording for the proposal email, written to the client (they change it before it goes).
+      const client = pcClientWording(W, full.price, fit, pick);
+      pcEl("pc-prop").textContent = client;
+      pcLast = { W, full: full.price, fit: fit ? { w: fit.w, price: fit.price } : null, name, why, pickPrice: pick ? pick.price : null, client };
+    }
+
+    // To the client, in their terms: what they asked for, what fits their budget, and the closest package.
+    function pcClientDesc(w) {
+      const parts = [];
+      if (w.v) parts.push(w.v + (w.v === 1 ? " reel" : " reels"));
+      if (w.c) parts.push(w.c + (w.c === 1 ? " carousel" : " carousels"));
+      if (w.s) parts.push(w.s + (w.s === 1 ? " static post" : " static posts"));
+      const bits = [];
+      if (parts.length) bits.push(pcList(parts) + " a week" + (w.v ? (w.maker === "us" ? " (we film the reels)" : " (from your own footage)") : "") + " on " + pcList(w.platforms));
+      if (w.stories) bits.push("shared to your Stories and 5 groups");
+      if (w.comments) bits.push("replies to your comments and messages");
+      if (w.pack) bits.push("a property pack of " + w.pack + " posts a month");
+      const t = pcList(bits);
+      return t.charAt(0).toUpperCase() + t.slice(1);
+    }
+    function pcClientWording(W, full, fit, pick) {
+      const ob = ((PKG_SERVICES.find((x) => x.key === "social-media-management") || {}).onboarding_pence || 11000) / 100;
+      const L = [];
+      if (full <= pcS.budget || !fit) {
+        L.push("What you asked for: " + pcClientDesc(W) + ". " + pcGbp(full) + " a month.");
+      } else {
+        L.push("Everything you asked for: " + pcClientDesc(W) + ". " + pcGbp(full) + " a month.");
+        L.push("Within your " + pcGbp(pcS.budget) + " budget: " + pcClientDesc(fit.w) + ". " + pcGbp(fit.price) + " a month.");
+      }
+      // A package is named only once it has a real name (Service one, two and three are placeholders).
+      if (pick && pick.kind === "pkg" && !/^Service /.test(pick.name)) L.push("The closest of our packages is " + pick.name + ", at " + pcGbp(pick.price) + " a month.");
+      L.push("Prices are a month, before VAT, with a one-off onboarding fee of " + pcGbp(ob) + ".");
+      return L.join("\n\n");
+    }
+    function pcQuoteLine(q) {
+      if (!q) return "";
+      const when = q.at ? " (" + sfDay(q.at) + ")" : "";
+      return q.within != null && q.everything > (q.inputs || {}).budget
+        ? pcGbp(q.everything) + " a month for everything, " + pcGbp(q.within) + " within their " + pcGbp(q.inputs.budget) + when
+        : pcGbp(q.everything) + " a month" + when;
+    }
+
+    // Price it, on a client's file: the calculator lent into the pop-out and filled in
+    // from what we know about them; their own page goes back as it was afterwards.
+    function pcForClient(r, F) {
+      if (!pcHome) pcHome = JSON.parse(JSON.stringify(pcS));
+      const q = (r.package_details || {}).quote;
+      if (q && q.inputs) {
+        Object.assign(pcS, JSON.parse(JSON.stringify(q.inputs)));
+      } else {
+        const notes = (F && (F.pricing || F.discovery)) || {};
+        pcS.buyer = r.inter_brand_invoice ? "teg" : "standard";
+        const from = notes.platforms ? String(notes.platforms).split(/[,;/]| and /) : (Array.isArray(r.platforms) ? r.platforms : []);
+        const plats = from.map((x) => String(x).trim()).map((x) => (/^youtube/i.test(x) ? "YouTube Shorts" : PC_PLATFORMS.find((p) => p.toLowerCase() === x.toLowerCase()))).filter(Boolean);
+        pcS.platforms = plats.length ? Array.from(new Set(plats)).sort((a, b) => PC_PLATFORMS.indexOf(a) - PC_PLATFORMS.indexOf(b)) : ["Instagram", "Facebook"];
+        const m = String(notes.budget || "").replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+        if (m) pcS.budget = Math.round(Number(m[1]));
+      }
+      drawCalc();
+      loadPricing().then(drawCalc);
+    }
+    function pcLeaveClient() {
+      if (pcHome) { pcS = pcHome; pcHome = null; }
+      setTimeout(drawCalc, 0);
+    }
+    async function sfSaveQuote(r, btn) {
+      const L = pcLast; if (!L) return;
+      const plist = pcS.buyer === "teg" ? "TEG brand" : "External agency";
+      const quote = { at: new Date().toISOString(), by: sfMyName() || ME || "", inputs: JSON.parse(JSON.stringify(pcS)), everything: L.full, within: L.fit ? L.fit.price : null, best: L.name, best_price: L.pickPrice, wording: L.client };
+      const next = Object.assign({}, r.package_details || {}, { quote });
+      btn.disabled = true; sfMsg("Saving…");
+      if (!isDemo(r)) {
+        const { data, error } = await supabase.from("smm_leads").update({ package_details: next }).eq("id", r.id).select("package_details").maybeSingle();
+        const back = data && data.package_details && data.package_details.quote;
+        if (error || !back || back.at !== quote.at) { btn.disabled = false; sfMsg("Couldn't save it: " + ((error && error.message) || "it didn't come back from the database") + ".", true); return; }
+      }
+      r.package_details = next;
+      const lines = ["Price list: " + plist, "What they want: " + pcItems(L.W).join("; "), "Everything they asked for: " + pcGbp(L.full) + " a month"];
+      if (L.fit && L.full > pcS.budget) lines.push("Within their " + pcGbp(pcS.budget) + ": " + pcGbp(L.fit.price) + " a month, " + pcItems(L.fit.w).join("; "));
+      if (L.pickPrice != null) lines.push("Best fit: " + L.name + ", " + pcGbp(L.pickPrice) + " a month");
+      sfClosePop();
+      await sfAutoNote(r, "Proposal pricing", lines.join("\n"));
+      loadThread(r);
     }
 
     function wireCalc() {
