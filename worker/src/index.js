@@ -13490,6 +13490,10 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const how = ["teams", "phone", "in_person"].includes(b.mode) ? b.mode : "teams";
         const where = String(b.location || "").trim().slice(0, 200);
         const howLabel = how === "teams" ? "Teams call" : how === "phone" ? "Phone call" : "In person";
+        // hello@ can't make Teams links (no licence), so the link is added later
+        // from the file and the invite updated (Danielle, 5 Nov 2026). Set before
+        // the invite's wording, which reads it.
+        const autoTeams = !!env.SMM_MEETING_UPN;
         // What the invite says (Danielle, 5 Nov 2026; wording by the copywriter):
         // which call it is, how we'll meet, how to move it.
         const callKind = ["discovery", "pricing"].includes(b.call) ? b.call : "meeting";
@@ -13520,9 +13524,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         // guest so its calendar still has every call.
         const cal = env.SMM_MEETING_UPN || env.SMM_MANAGER_UPN;
         const hello = env.SMM_MANAGER_UPN;
-        // hello@ can't make Teams links (no licence), so the link is added later
-        // from the file and the invite updated (Danielle, 5 Nov 2026).
-        const autoTeams = !!env.SMM_MEETING_UPN;
+
         const dur = parseInt(b.duration || "30", 10);
         const endHm = minToHm(hmToMin(start) + dur);
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
