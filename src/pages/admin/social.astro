@@ -1861,6 +1861,12 @@ const mgmtPackages = (management && management.packages) || [];
     }
     const sfProposedNote = (v) => [`Package: ${v.package}`, `Price: ${sfGbpWhole(v.price)} a month`, `Platforms: ${v.platforms.join(", ")}`, v.notes ? `Notes: ${v.notes}` : ""].filter(Boolean).join("\n");
     let sfAfterProposed = null;
+    /* The first content plan is for the month they start: the start date's
+       month if it's this month or later, otherwise next month (Dani, 5 Nov 2026). */
+    function sfFirstPlanYm(r, F) {
+      const sd = r.start_date ? String(r.start_date).slice(0, 7) : "";
+      return sd && sd >= F.ym ? sd : sfYmAdd(F.ym, 1);
+    }
     const sfR = (label, html, title) => `<div class="sf-r"><dt>${label}</dt><dd${title ? ` title="${esc(title)}"` : ""}>${html === "" || html == null ? '<span class="sf-none">—</span>' : html}</dd></div>`;
     const sfBox = (cls, title, acts, body) => `<section class="sf-card sf-box ${cls}"><div class="sf-box-h"><h3>${esc(title)}</h3><span class="sf-acts">${acts || ""}</span></div>${body}</section>`;
     const sfAct = (key, label, data = "") => `<button type="button" class="sf-act" data-sf="${key}"${data}>${label}</button>`;
@@ -2356,8 +2362,11 @@ const mgmtPackages = (management && management.packages) || [];
         rows = two("Outstanding", due, "Published", done);
       } else if (sfTab === "plan") {
         acts = sfAct("plan-upload", "Upload a plan");
-        const need = [F.ym, sfYmAdd(F.ym, 1)].filter((ym) => !F.plans.some((p) => p.ym === ym));
-        const dueCards = loading ? none("Loading…") : need.length ? need.map((ym) => { const late = ym === F.ym && F.now.getDate() > 2; return card(`data-sf="plan-upload" data-ym="${ym}"`, `<h4>${esc(sfYmName(ym).split(" ")[0])}</h4>${sfChip(late ? "bad" : "wait", late ? "Overdue, was due the 2nd" : `Due by 2 ${sfMon(ym)}`)}`, `<p class="sf-c-p">Upload ${esc(sfYmName(ym).split(" ")[0])}'s plan. It needs to be in before the report that says what's coming next.</p>`, `<span></span>${sfHb(true, `data-sf="plan-upload" data-ym="${ym}"`, "Upload the plan")}`, " is-todo"); }).join("") : none("Nothing outstanding. This month's and next month's plans are in.");
+        // Onboarding (Dani, 5 Nov 2026): only the first plan, for the month they
+        // start, and never overdue. Clients: this month's and next month's.
+        const onb = F.st === "onboarding" && !F.lost;
+        const need = (onb ? [sfFirstPlanYm(r, F)] : [F.ym, sfYmAdd(F.ym, 1)]).filter((ym) => !F.plans.some((p) => p.ym === ym));
+        const dueCards = loading ? none("Loading…") : need.length ? need.map((ym) => { const late = !onb && ym === F.ym && F.now.getDate() > 2; return card(`data-sf="plan-upload" data-ym="${ym}"`, `<h4>${esc(sfYmName(ym).split(" ")[0])}</h4>${sfChip(late ? "bad" : "wait", late ? "Overdue, was due the 2nd" : onb && ym === F.ym ? "Due before they start" : `Due by 2 ${sfMon(ym)}`)}`, `<p class="sf-c-p">Upload ${esc(sfYmName(ym).split(" ")[0])}'s plan. It needs to be in before the report that says what's coming next.</p>`, `<span></span>${sfHb(true, `data-sf="plan-upload" data-ym="${ym}"`, "Upload the plan")}`, " is-todo"); }).join("") : none(onb ? "Their first plan is in." : "Nothing outstanding. This month's and next month's plans are in.");
         const doneCards = loading ? none("Loading…") : F.plans.length ? F.plans.map((p) => card(`data-sf-card="plan" data-id="${esc(p.id)}"`, `<h4>${esc(sfYmName(p.ym).split(" ")[0])}</h4>${sfChip("good", "On file")}`, `<p class="sf-c-file">${esc(p.title || p.file_name)}</p>`, `<span>${esc(sfShort(p.created_at))}${p.uploaded_by && p.uploaded_by !== "system" ? ", " + esc(sfStaff(p.uploaded_by)) : ""}</span>${sfHb(false, `data-sf-doc="${esc(p.id)}" data-name="${esc(p.file_name || "plan")}"`, "Open")}`)).join("") : none("No plans uploaded yet.");
         rows = two("Outstanding", dueCards, "On file", doneCards);
       } else if (sfTab === "comm") {
@@ -2514,8 +2523,9 @@ const mgmtPackages = (management && management.packages) || [];
           + sfSec("The client", `<dl class="sf-pdl">${sfPR("Published", esc(sfDayYear(x.published_at)) + (x.published_by ? ", by " + esc(sfStaff(x.published_by)) : ""))}${x.amended_at ? sfPR("Changed since", esc(sfDayYear(x.amended_at))) : ""}</dl>`),
           `${sfFootBtn(false, "data-sf-close", "Close")}${sfFootBtn(true, `data-sf="insights" data-id="${esc(x.id)}"`, "Open the full report")}`);
       } else if (key === "plan-upload") {
-        const months = [F.ym, sfYmAdd(F.ym, 1), sfYmAdd(F.ym, 2)];
-        const pick = arg && months.includes(arg) ? arg : (months.find((ym) => !F.plans.some((p) => p.ym === ym)) || months[1]);
+        const first = F.st === "onboarding" ? sfFirstPlanYm(r, F) : null;
+        const months = first && first > sfYmAdd(F.ym, 2) ? [F.ym, sfYmAdd(F.ym, 1), sfYmAdd(F.ym, 2), first] : [F.ym, sfYmAdd(F.ym, 1), sfYmAdd(F.ym, 2)];
+        const pick = arg && months.includes(arg) ? arg : first && !F.plans.some((p) => p.ym === first) ? first : (months.find((ym) => !F.plans.some((p) => p.ym === ym)) || months[1]);
         sfShell(eye("Content plan"), "Upload a plan", "", "",
           sfSec("The plan", sfPF("For", `<select class="sf-in" id="sfp-month">${months.map((ym) => `<option value="${ym}"${ym === pick ? " selected" : ""}>${esc(sfYmName(ym))}</option>`).join("")}</select>`, "Due by the 2nd of the month it's for.") + sfPF("File", `<input class="sf-file" id="sfp-file" type="file">`, "A PDF, a spreadsheet or a deck."))
           + `<p class="sf-say sf-note">It goes in Paperwork too, as a content plan.</p>`,
