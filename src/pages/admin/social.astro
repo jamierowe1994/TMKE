@@ -1145,6 +1145,9 @@ const mgmtPackages = (management && management.packages) || [];
     .smm-onb-ask .smm-onb-mark:empty { background: none; border: 1.5px dashed rgba(28,29,34,0.3); box-sizing: border-box; }
     .smm-onb-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
     .smm-onb-label { font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--ink); }
+    button.smm-onb-go { display: inline; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+    button.smm-onb-go:hover, button.smm-onb-go:focus-visible { color: var(--sf-wine, #371e28); text-decoration: underline; text-underline-offset: 3px; }
+    .sf-flash { outline: 2px solid #371e28 !important; outline-offset: 3px; border-radius: 4px; transition: outline-color .4s; }
     .smm-onb-hint { font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 0; }
     .smm-onb-by { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.42); }
     .smm-onb-yn { margin-top: 6px; align-self: flex-start; }
@@ -1889,6 +1892,9 @@ const mgmtPackages = (management && management.packages) || [];
         cc: [SF_IB.cc, r.email].filter(Boolean).join(", "), client: nameOf(r) === "—" ? (r.business || "") : nameOf(r) };
     }
     let sfTab = "", sfPop = null, sfCur = null, sfInvTab = "monthly", sfEditing = false;
+    // Where to come back to once a pop-out or form opened from it closes:
+    // Onboarding's checklist (Dani, 5 Nov 2026).
+    let sfReturnTo = null;
     // What the file reads beyond the card itself, for the client on screen.
     let sfData = { id: null, invoices: null, recurring: undefined, shoots: null, reports: false, canMoney: false };
 
@@ -2403,7 +2409,8 @@ const mgmtPackages = (management && management.packages) || [];
     function sfPlace() { const scrim = $("sf-pop"), main = document.querySelector(".ash-main"); if (scrim) scrim.style.left = (main && window.innerWidth > 900 ? Math.max(0, main.getBoundingClientRect().left) : 0) + "px"; }
     window.addEventListener("resize", () => { if (sfPop) sfPlace(); });
     // Closing redraws the file: ticks, uploads and publishes inside a pop-out show at once.
-    function sfClosePop() { if (sfPop === "write") sfWritePreset = null; if (sfPop === "quote") pcLeaveClient(); const was = sfPop; sfReturn(); sfPop = null; sfEditing = false; const p = $("sf-pop"); if (p) p.hidden = true; if (was && current) sfDraw(current); }
+    function sfClosePop() { if (sfPop === "write") sfWritePreset = null; if (sfPop === "quote") pcLeaveClient(); const was = sfPop; sfReturn(); sfPop = null; sfEditing = false; const p = $("sf-pop"); if (p) p.hidden = true; if (was && current) sfDraw(current); sfBackTo(); }
+    function sfBackTo() { if (!sfReturnTo || !current || sfPop) return; const k = sfReturnTo; sfReturnTo = null; setTimeout(() => { if (!sfPop && current) sfOpen(k); }, 0); }
     function sfShell(eye, title, chip, tabs, body, foot, opts = {}) {
       const p = $("sf-pop"); if (!p) return null;
       sfReturn();
@@ -2478,6 +2485,7 @@ const mgmtPackages = (management && management.packages) || [];
           + sfSec("Delete", `<p class="sf-say sf-note">Removes the card and its notes, files and invoices for good. For test cards and mistakes.</p><div class="sf-inline">${sfHb(false, 'data-sf="delete"', "Delete this card")}</div>`),
           F.client ? `${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-status"', "Save")}` : sfFootBtn(true, "data-sf-close", "Close"), { narrow: true });
       } else if (key === "onboarding") {
+        sfReturnTo = null;
         const b = sfShell(eye("Onboarding"), "Onboarding", "", "", `<div id="sf-onb-slot"></div>`,
           stageOf(r) === "onboarding" ? `${sfFootBtn(false, "data-sf-close", "Close")}${sfFootBtn(true, 'data-sf-stage="active_client"', "Make active client")}` : sfFootBtn(true, "data-sf-close", "Close"));
         sfLend("smm-panel-onboarding", b.querySelector("#sf-onb-slot")); renderOnboarding(r);
@@ -4040,7 +4048,7 @@ const mgmtPackages = (management && management.packages) || [];
     }
 
     // ---------- Meeting modal ----------
-    function closeModal() { $("smm-modal-host").innerHTML = ""; }
+    function closeModal() { $("smm-modal-host").innerHTML = ""; sfBackTo(); }
     function openMeeting(r) {
       // A call still to come is being moved, not a second one booked (Danielle, 5 Nov 2026).
       const moving = !!(r.meeting_at && new Date(r.meeting_at) > new Date());
@@ -4295,6 +4303,31 @@ const mgmtPackages = (management && management.packages) || [];
       const { error } = await supabase.from("smm_leads").update({ onboarding: r.onboarding }).eq("id", r.id);
       if (el) el.textContent = error ? (/onboarding/.test(error.message || "") ? "Needs supabase/smm_onboarding.sql running first." : "Couldn't save: " + error.message) : "Saved.";
     }
+    /* Each automatic item opens where it's filled in, with the field picked
+       out; saving or closing there comes back to Onboarding (Dani, 5 Nov 2026). */
+    function sfFlash(sel) {
+      setTimeout(() => {
+        const el = document.querySelector(sel); if (!el) return;
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        if (/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(el.tagName)) el.focus({ preventScroll: true });
+        el.classList.add("sf-flash"); setTimeout(() => el.classList.remove("sf-flash"), 2200);
+      }, 60);
+    }
+    const ONB_GO = {
+      contract: (r) => { sfClosePop(); sfReturnTo = "onboarding"; openAddFile(r, { cat: "agreement", name: "" }); },
+      proposal: (r) => { sfClosePop(); sfReturnTo = "onboarding"; openAddFile(r, { cat: "prep", name: "" }); },
+      package: () => { sfReturnTo = "onboarding"; sfEditing = false; sfOpen("view"); sfFlash("#sf-pkg-slot"); },
+      start: () => { sfReturnTo = "onboarding"; sfOpen("edit"); sfFlash("#sfe-start"); },
+      manager: () => { sfReturnTo = "onboarding"; sfOpen("edit"); sfFlash("#sfe-mgr"); },
+      billing: () => { sfReturnTo = "onboarding"; sfInvTab = "monthly"; sfEditing = !!sfData.recurring; sfOpen("invoice"); },
+      hub: () => { sfReturnTo = "onboarding"; sfEditing = false; sfOpen("view"); sfFlash('#sf-pop [data-sf="link"], #sf-pop [data-sf="unlink"]'); },
+      channels: (r) => { sfReturnTo = "onboarding"; sfOpen("channels"); const miss = (Array.isArray(r.platforms) ? r.platforms : []).find((p) => !String(r[SF_URL[p]] || "").trim()); sfFlash(miss ? "#sfc-" + miss : "#sf-pop-b input"); },
+      shoot: (r) => { sfClosePop(); sfReturnTo = "onboarding"; openVidBooking(r); },
+    };
+    document.addEventListener("click", (e) => {
+      const g = e.target.closest && e.target.closest("[data-onbgo]"); if (!g || !current) return;
+      const fn = ONB_GO[g.getAttribute("data-onbgo")]; if (fn) { e.preventDefault(); e.stopPropagation(); fn(current); }
+    }, true);
     function renderOnboarding(r) {
       const host = $("smm-panel-onboarding");
       const c0 = onbCount(r);
@@ -4320,7 +4353,8 @@ const mgmtPackages = (management && management.packages) || [];
           ? `<input type="checkbox" class="smm-onb-tick" data-onbtick="${it.key}"${done ? " checked" : ""} aria-label="${esc(t.label)}">`
           : `<span class="smm-onb-mark${done ? "" : " is-open"}">${done ? "✓" : ""}</span>`;
         const note = it.note ? `<textarea class="smm-onb-note" rows="2" data-onbnote="${it.note}" placeholder="${esc(t.notePlaceholder || "")}">${esc(o.notes[it.note] || "")}</textarea>` : "";
-        return `<div class="smm-onb-row${done ? " is-done" : ""}${it.kind === "auto" ? " is-auto" : ""}">${box}<div class="smm-onb-main"><span class="smm-onb-label">${esc(t.label)}</span><span class="smm-onb-hint">${onbMd(hint)}</span>${by}${note}</div></div>`;
+        const label = it.kind === "auto" && ONB_GO[it.key] ? `<button type="button" class="smm-onb-label smm-onb-go" data-onbgo="${it.key}">${esc(t.label)}<span aria-hidden="true"> ›</span></button>` : `<span class="smm-onb-label">${esc(t.label)}</span>`;
+        return `<div class="smm-onb-row${done ? " is-done" : ""}${it.kind === "auto" ? " is-auto" : ""}">${box}<div class="smm-onb-main">${label}<span class="smm-onb-hint">${onbMd(hint)}</span>${by}${note}</div></div>`;
       };
       const items = ONB_ITEMS.filter((it) => !it.when || it.when(r, o));
       const practical = `${c0.open ? `<p class="smm-onb-intro">${onbMd(C.practicalIntro)}</p>` : `<p class="smm-onb-intro smm-onb-complete">${onbMd(C.complete)}</p>`}
