@@ -13515,7 +13515,11 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify(meetingPatch),
         });
-        const cal = env.SMM_MANAGER_UPN;
+        // Meetings booked from the file are organised from a mailbox with Teams
+        // (Danielle, 5 Nov 2026: hello@ has no Teams licence), with hello@ as a
+        // guest so its calendar still has every call.
+        const cal = env.SMM_MEETING_UPN || env.SMM_MANAGER_UPN;
+        const hello = env.SMM_MANAGER_UPN;
         const dur = parseInt(b.duration || "30", 10);
         const endHm = minToHm(hmToMin(start) + dur);
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
@@ -13533,6 +13537,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
               end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
               attendees: [
                 { emailAddress: { address: lead.email, name: lead.full_name || "" }, type: "required" },
+                ...(hello && hello.toLowerCase() !== cal.toLowerCase() && hello.toLowerCase() !== String(lead.email || "").toLowerCase() ? [{ emailAddress: { address: hello, name: "TMKE" }, type: "required" }] : []),
                 // The person who manages the client (Managed by), at their own
                 // address. Abigail is left off while Danielle tests (SMM_INVITE_MANAGER).
                 ...(() => {
@@ -13552,7 +13557,10 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             // one. If it can't be updated, the old one is cancelled first.
             if (moving) {
               try { made = await graph(env, "PATCH", `/users/${encodeURIComponent(cal)}/events/${encodeURIComponent(lead.ms_event_id)}`, event); moved = true; }
-              catch (_) { try { await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events/${encodeURIComponent(lead.ms_event_id)}/cancel`, { comment: "This call has moved; a new invite follows." }); } catch (_) {} }
+              catch (_) {
+                // Not this organiser's (booked from hello@ before the switch): cancel it there.
+                for (const box of [cal, hello].filter(Boolean)) { try { await graph(env, "POST", `/users/${encodeURIComponent(box)}/events/${encodeURIComponent(lead.ms_event_id)}/cancel`, { comment: "This call has moved; a new invite follows." }); break; } catch (_) {} }
+              }
             }
             if (!made) {
               try { made = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, event); }
@@ -13581,7 +13589,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         await logBookingMessage(env, {
           booking_id: leadId, booking_source: "smm", account_user_id: lead.account_user_id, client_email: lead.email,
           kind: "meeting", subject: moving ? "Meeting moved" : "Meeting booked", is_automated: false, created_by: user.email || "admin",
-          body: `${moving ? "Moved: " : ""}${howLabel} ${moving ? "now" : "booked"} for ${dateNice} at ${start}${how === "in_person" && where ? `, at ${where}` : ""}.${invited ? " Outlook invite sent to the client from hello@tmke.co.uk." : ""}${joinUrl ? ` Teams link: ${joinUrl}` : ""}${teamsFailed ? ` The Teams link couldn't be made, so the invite went without one.${teamsWhy}` : ""}${lead.email && cal && lead.email.toLowerCase() === cal.toLowerCase() ? ` No invite: the client's email is ${cal}, the calendar the meeting is in.` : ""}`,
+          body: `${moving ? "Moved: " : ""}${howLabel} ${moving ? "now" : "booked"} for ${dateNice} at ${start}${how === "in_person" && where ? `, at ${where}` : ""}.${invited ? ` Outlook invite sent to the client from ${cal}.` : ""}${joinUrl ? ` Teams link: ${joinUrl}` : ""}${teamsFailed ? ` The Teams link couldn't be made, so the invite went without one.${teamsWhy}` : ""}${lead.email && cal && lead.email.toLowerCase() === cal.toLowerCase() ? ` No invite: the client's email is ${cal}, the calendar the meeting is in.` : ""}`,
         });
         return json({ ok: true, invited, join_url: joinUrl || null, teams_failed: teamsFailed }, 200, request, env);
       }
@@ -13595,11 +13603,14 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const b = await request.json().catch(() => ({}));
         const lead = (await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(String(b.lead_id || ""))}&select=id,email,account_user_id,ms_event_id,meeting_at`))?.[0];
         if (!lead) return json({ error: "Lead not found." }, 404, request, env);
-        const cal = env.SMM_MANAGER_UPN;
+        const cal = env.SMM_MEETING_UPN || env.SMM_MANAGER_UPN;
         let cancelled = false;
         if (lead.ms_event_id && cal) {
-          try { await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events/${encodeURIComponent(lead.ms_event_id)}/cancel`, { comment: "We've had to cancel this call. We'll be in touch to find another time." }); cancelled = true; }
-          catch (_) { try { await graph(env, "DELETE", `/users/${encodeURIComponent(cal)}/events/${encodeURIComponent(lead.ms_event_id)}`); cancelled = true; } catch (_) {} }
+          // Whichever calendar organised it: the Teams mailbox, or hello@ (website bookings, and calls booked before 5 Nov).
+          for (const box of [cal, env.SMM_MANAGER_UPN].filter((x, i, a) => x && a.indexOf(x) === i)) {
+            try { await graph(env, "POST", `/users/${encodeURIComponent(box)}/events/${encodeURIComponent(lead.ms_event_id)}/cancel`, { comment: "We've had to cancel this call. We'll be in touch to find another time." }); cancelled = true; break; }
+            catch (_) { try { await graph(env, "DELETE", `/users/${encodeURIComponent(box)}/events/${encodeURIComponent(lead.ms_event_id)}`); cancelled = true; break; } catch (_) {} }
+          }
         }
         await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(lead.id)}`, { method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({ meeting_at: null, ms_event_id: null }) });
         return json({ ok: true, cancelled }, 200, request, env);
