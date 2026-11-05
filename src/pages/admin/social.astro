@@ -2889,10 +2889,13 @@ const mgmtPackages = (management && management.packages) || [];
         if (mark && stageOf(r) !== "proposal_sent") await setStage(r, "proposal_sent"); else loadThread(r);
         // Then the email to send it with (Danielle, 5 Nov 2026): written for them
         // to change, the proposal attached.
+        // No "I've attached", "what it costs" or "reply with times" (5 Nov): with a
+        // PDF that reads like a phishing lure, and two proposals were held while a
+        // chase with the same file and subject arrived at once.
         if (r.email && docId) {
           const call = r.meeting_at && new Date(r.meeting_at) <= new Date() ? sfDay(r.meeting_at) : "";
           sfWritePreset = { title: "Send the proposal", docId, docName: f ? f.name : (have.file_name || "Proposal"), subject: "Your proposal from The Marketing Experts.",
-            body: `Hi ${r.first_name || (nameOf(r) !== "—" ? nameOf(r).split(" ")[0] : "there")},\n\nThank you for your time on the call${call ? " on " + call : ""}. As promised, I've attached our proposal${r.business && r.business !== nameOf(r) ? " for " + r.business : ""}.\n\nIt sets out what we'd do for you each month, the package we'd recommend and what it costs.${(r.package_details || {}).quote && r.package_details.quote.wording ? "\n\n" + r.package_details.quote.wording : ""}\n\nOnce you've had a chance to read it, I'd love to talk it through. Would you have half an hour next week? Just reply with a couple of times that suit you.\n\nBest wishes,` };
+            body: `Hi ${r.first_name || (nameOf(r) !== "—" ? nameOf(r).split(" ")[0] : "there")},\n\nThank you for your time on the call${call ? " on " + call : ""}. Here's the proposal we talked about${r.business && r.business !== nameOf(r) ? " for " + r.business : ""}.\n\nIt covers what we'd do for you each month and the package we'd recommend.${(r.package_details || {}).quote && r.package_details.quote.wording ? "\n\n" + r.package_details.quote.wording : ""}\n\nOnce you've had a chance to read it, I'd love to talk it through. Let me know when you're free next week and we can book in a call.\n\nBest wishes,` };
           sfOpen("write");
         }
       } catch (e) { btn.disabled = false; sfMsg(e.message || "Couldn't save it.", true); }
