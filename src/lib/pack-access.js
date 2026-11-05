@@ -114,3 +114,39 @@ export function shopPacks(packs) {
     && (p.access || 'buy') === 'buy'
     && p.demo !== true);
 }
+
+/* "More to work with" on Your Designs (Dani, 5 Nov 2026). Which packs it
+ * shows, by the All / Digital / Print buttons over the page:
+ *
+ *   Digital    up to two digital packs they have, then packs for sale they
+ *              don't have, four in all. Nothing of theirs: four for sale.
+ *              The same for everybody, TEG agent or not.
+ *   Print      up to four of their brand's print packs.
+ *   All        a TEG agent (anyone with a print pack): two print on top, two
+ *              digital under them, by the Digital rule. Anyone else: Digital.
+ *
+ * A pack they have opens in the Studio; one for sale opens its page in The
+ * Edit. Only packs for sale have a page there, so nothing else may be sent to
+ * one (5 Nov: print and free packs here went to "page not found"). The demo
+ * pack is never shown. Returns { print, digital }, each [{ pack, owned }]. */
+export function morePacks({ packs, paidPackIds, memberBrand, kind = 'all', now = new Date() }) {
+  const live = (packs || []).filter((p) => p && p.status === 'active' && p.demo !== true);
+  const mine = ownedPacks(live, paidPackIds, memberBrand);
+  const mineIds = new Set(mine.map((p) => p.id));
+  const isPrint = (p) => (p.kind || 'social') === 'print';
+  const print = mine.filter(isPrint);
+  const ownDigital = mine.filter((p) => !isPrint(p));
+  const forSale = shopPacks(visibleToMember(live, memberBrand, now)).filter((p) => !mineIds.has(p.id));
+  // Theirs take up to half the places; packs for sale fill the rest. With too
+  // few for sale, more of theirs fill in rather than leave a gap.
+  const digital = (n) => {
+    const theirs = ownDigital.slice(0, Math.floor(n / 2));
+    const sale = forSale.slice(0, n - theirs.length);
+    const more = ownDigital.slice(theirs.length, theirs.length + (n - theirs.length - sale.length));
+    return [...theirs, ...more, ...sale];
+  };
+  const tag = (list) => list.map((p) => ({ pack: p, owned: mineIds.has(p.id) }));
+  if (kind === 'print') return { print: tag(print.slice(0, 4)), digital: [] };
+  if (kind === 'digital' || !print.length) return { print: [], digital: tag(digital(4)) };
+  return { print: tag(print.slice(0, 2)), digital: tag(digital(2)) };
+}
