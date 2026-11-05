@@ -11389,6 +11389,17 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           // replies land in her inbox; otherwise falls back to the TMKE mailbox.
           const smmFrom = source === "smm" ? env.SMM_MAIL_SENDER : null;
           const smmFromName = source === "smm" ? (env.SMM_MAIL_FROM_NAME || "TMKE Social Media") : null;
+          // A plain email, written by a person, with a short TMKE footer instead of
+          // the branded template (Danielle, 5 Nov 2026): proposals, chases and
+          // anything else written from a social media client's file.
+          if (b.plain) {
+            const sign = String(b.sign_as || "").trim().slice(0, 80);
+            const paras = String(bodyText).split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px;">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+            const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#2b2226;max-width:640px;">${paras}
+              <p style="margin:22px 0 0;padding-top:12px;border-top:1px solid #e2d9d4;font-size:13px;line-height:1.5;color:#7e6765;">${sign ? `<strong style="color:#2b2226;font-weight:600;">${esc(sign)}</strong><br>` : ""}The Marketing Experts<br><a href="mailto:hello@tmke.co.uk" style="color:#371e28;">hello@tmke.co.uk</a> &middot; <a href="https://tmke.co.uk" style="color:#371e28;">tmke.co.uk</a></p></div>`;
+            try { await sendEmail(env, { to: bk.email, subject: b.subject || "A message from The Marketing Experts", html, attachments, from: smmFrom || undefined, fromName: smmFrom ? smmFromName : undefined }); } catch (_) {}
+            return json({ ok: true }, 200, request, env);
+          }
           try {
             await sendEmail(env, {
               to: bk.email, subject: b.subject || `A message about your ${bk.service || "booking"}`,

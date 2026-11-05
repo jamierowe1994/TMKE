@@ -1711,6 +1711,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     // Who looks after a client, from the first enquiry (Danielle, 5 Nov 2026).
     const SF_MANAGERS = ["Abigail Saunders", "Samantha Thornicroft", "Danielle Law"];
     const sfMgrOptions = (cur) => { const v = String(cur || ""); return `<option value="">Choose…</option>${SF_MANAGERS.concat(v && !SF_MANAGERS.includes(v) ? [v] : []).map((o) => `<option${o === v ? " selected" : ""}>${esc(o)}</option>`).join("")}`; };
+    // The person writing, for a plain email's footer: their name from Managed by's list.
+    const sfMyName = () => { const first = String(ME || "").split("@")[0].split(/[._]/)[0].toLowerCase(); return SF_MANAGERS.find((n) => n.split(" ")[0].toLowerCase() === first) || sfStaff(ME); };
+    // A ready-written email to open in Write (the proposal's, with it attached).
+    let sfWritePreset = null;
     const SF_SOURCES = ["Website enquiry", "Email enquiry", "Brochure download", "Discovery call booking", "Waitlist", "Referral", "Phone call", "Event", "Existing client", "Internal", "Other"];
     const sfSource = (r) => { const k = r.source || ({ enquiry: "Website enquiry", brochure: "Brochure download", discovery: "Discovery call booking" }[r.kind] || (r.pipeline_stage === "waitlist" ? "Waitlist" : "")); return [k, r.source_detail].filter(Boolean).join(": "); };
     // Call notes are pinned notes headed "Discovery call notes" or "Pricing call
@@ -2116,7 +2120,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     function sfPlace() { const scrim = $("sf-pop"), main = document.querySelector(".ash-main"); if (scrim) scrim.style.left = (main && window.innerWidth > 900 ? Math.max(0, main.getBoundingClientRect().left) : 0) + "px"; }
     window.addEventListener("resize", () => { if (sfPop) sfPlace(); });
     // Closing redraws the file: ticks, uploads and publishes inside a pop-out show at once.
-    function sfClosePop() { const was = sfPop; sfReturn(); sfPop = null; sfEditing = false; const p = $("sf-pop"); if (p) p.hidden = true; if (was && current) sfDraw(current); }
+    function sfClosePop() { if (sfPop === "write") sfWritePreset = null; const was = sfPop; sfReturn(); sfPop = null; sfEditing = false; const p = $("sf-pop"); if (p) p.hidden = true; if (was && current) sfDraw(current); }
     function sfShell(eye, title, chip, tabs, body, foot, opts = {}) {
       const p = $("sf-pop"); if (!p) return null;
       sfReturn();
@@ -2221,9 +2225,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           if (isUnread(m)) markCommsRead(r).then(() => sfRefresh(r));
         } else {
           const re = arg ? list.find((m) => String(m.id) === String(arg)) : null;
-          sfShell(eye("Communication"), "Write to " + name, "", "",
-            sfSec("Email", sfPF("To", esc(r.email || "")) + sfPF("Subject", sfIn("sfw-subj", re ? "Re: " + String(re.subject || "your message").replace(/^re:\s*/i, "") : "")) + sfPF("Message", `<textarea class="sf-in" id="sfw-body" rows="8">${re ? esc("\n\n> " + String(re.body || "").split("\n").join("\n> ")) : ""}</textarea>`) + sfPF("Attach", `<input class="sf-file" id="sfw-file" type="file">`))
-            + `<p class="sf-say sf-note">Sends from hello@tmke.co.uk as TMKE and saves here. Their reply comes back to this file.</p>`,
+          const pre = sfWritePreset;
+          sfShell(eye("Communication"), pre && pre.title ? pre.title : "Write to " + name, "", "",
+            sfSec("Email", sfPF("To", esc(r.email || "")) + sfPF("Subject", sfIn("sfw-subj", pre ? pre.subject : re ? "Re: " + String(re.subject || "your message").replace(/^re:\s*/i, "") : "")) + sfPF("Message", `<textarea class="sf-in" id="sfw-body" rows="${pre ? 14 : 8}">${pre ? esc(pre.body) : re ? esc("\n\n> " + String(re.body || "").split("\n").join("\n> ")) : ""}</textarea>`, pre ? "Change anything you like: add what you talked about on the call." : "") + (pre && pre.docId ? sfPF("Attached", esc(pre.docName || "The proposal")) : sfPF("Attach", `<input class="sf-file" id="sfw-file" type="file">`)))
+            + `<p class="sf-say sf-note">A plain email from hello@tmke.co.uk, signed ${esc(sfMyName())}, with a short TMKE footer. It's saved here, and their reply comes back to this file.</p>`,
             `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="send-email"', "Send")}`, { edit: true });
           setTimeout(() => { const t = $("sfw-body"); if (t) { t.focus(); t.setSelectionRange(0, 0); } }, 0);
         }
@@ -2280,7 +2285,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         sfShell(eye("Proposal"), "Upload and send the proposal", "", "",
           sfSec("The proposal", sfPF("File", `<input class="sf-file" id="sfp-prop" type="file">`, "The pitch deck you're sending them. It's kept in Paperwork.")
             + `<label class="sf-check"><input type="checkbox" id="sfp-mark" checked> Mark the proposal sent, so the chase dates start today</label>`)
-          + `<p class="sf-say sf-note">Send it from Communication › Write, or your own email; either way the chases are counted from today.</p>`,
+          + `<p class="sf-say sf-note">Next, an email to send it with opens, with the proposal attached, for you to finish and send. The chases are counted from today.</p>`,
           `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-proposal"', "Save")}`, { edit: true });
       } else if (key === "invoice") {
         sfInvoicePop(r, F);
@@ -2453,20 +2458,20 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     async function sfSendEmail(r, btn) {
       const subject = ($("sfw-subj")?.value || "").trim(), body = ($("sfw-body")?.value || "").trim();
       const file = $("sfw-file")?.files?.[0];
-      if (!body && !file) { sfMsg("Write the message first.", true); return; }
+      if (!body && !file && !(sfWritePreset && sfWritePreset.docId)) { sfMsg("Write the message first.", true); return; }
       if (isDemo(r)) { r._thread.messages.push({ id: "e" + Date.now(), channel: "email", direction: "outbound", subject, body, created_by: ME, created_at: new Date().toISOString() }); sfClosePop(); sfDraw(r); return; }
       btn.disabled = true; sfMsg("Sending…");
       try {
         const token = await authToken();
-        let documentId = null;
+        let documentId = sfWritePreset && sfWritePreset.docId ? sfWritePreset.docId : null;
         if (file) {
           const qs = new URLSearchParams({ booking_id: r.id, source: "smm", category: "other", file_name: file.name, content_type: file.type || "application/octet-stream" });
           const up = await fetch(`${WORKER}/booking/document?${qs}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file });
           if (up.ok) { const j = await up.json().catch(() => ({})); documentId = j.document ? j.document.id : null; }
         }
-        const res = await fetch(`${WORKER}/booking/message`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, source: "smm", subject, body: body || `I've attached a document for you: ${file.name}`, notify: true, document_id: documentId }) });
+        const res = await fetch(`${WORKER}/booking/message`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, source: "smm", subject, body: body || `I've attached a document for you: ${file.name}`, notify: true, document_id: documentId, plain: true, sign_as: sfMyName() }) });
         if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || "Couldn't send it."); }
-        sfClosePop(); loadThread(r);
+        sfWritePreset = null; sfClosePop(); loadThread(r);
       } catch (e) { btn.disabled = false; sfMsg(e.message || "Couldn't send it.", true); }
     }
     async function sfSaveNote(r, btn) {
@@ -2545,6 +2550,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const f = $("sfp-prop")?.files?.[0], mark = !!$("sfp-mark")?.checked;
       if (!f && !mark) { sfMsg("Choose the file, or tick Mark the proposal sent.", true); return; }
       btn.disabled = true; sfMsg(f ? "Uploading…" : "Saving…");
+      let docId = null;
       try {
         if (f && !isDemo(r)) {
           const token = await authToken();
@@ -2552,9 +2558,18 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           const res = await fetch(`${WORKER}/booking/document?${qs}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": f.type || "application/octet-stream" }, body: f });
           const j = await res.json().catch(() => ({}));
           if (!res.ok || !j.document) throw new Error(j.error || "Upload failed.");
+          docId = j.document.id;
         }
         sfClosePop();
-        if (mark && stageOf(r) !== "proposal_sent") setStage(r, "proposal_sent"); else loadThread(r);
+        if (mark && stageOf(r) !== "proposal_sent") await setStage(r, "proposal_sent"); else loadThread(r);
+        // Then the email to send it with (Danielle, 5 Nov 2026): written for them
+        // to change, the proposal attached.
+        if (r.email && docId) {
+          const call = r.meeting_at && new Date(r.meeting_at) <= new Date() ? sfDay(r.meeting_at) : "";
+          sfWritePreset = { title: "Send the proposal", docId, docName: f.name, subject: "Your proposal from The Marketing Experts.",
+            body: `Hi ${r.first_name || (nameOf(r) !== "—" ? nameOf(r).split(" ")[0] : "there")},\n\nThank you for your time on the call${call ? " on " + call : ""}. As promised, I've attached our proposal${r.business && r.business !== nameOf(r) ? " for " + r.business : ""}.\n\nIt sets out what we'd do for you each month, the package we'd recommend and what it costs.\n\nOnce you've had a chance to read it, I'd love to talk it through. Would you have half an hour next week? Just reply with a couple of times that suit you.\n\nBest wishes,` };
+          sfOpen("write");
+        }
       } catch (e) { btn.disabled = false; sfMsg(e.message || "Couldn't save it.", true); }
     }
     async function sfViewInvoice(id, btn) {
