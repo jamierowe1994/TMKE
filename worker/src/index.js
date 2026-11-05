@@ -13311,6 +13311,17 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           if (row.auto_send && !row.amount_pence) return json({ error: "Add the amount before it can send itself." }, 400, request, env);
         }
         if (!row.name || !row.match_email) return json({ error: "A name and the address the invoice goes to, please." }, 400, request, env);
+        // From a social media client's file (Dani, 5 Nov 2026): the row is
+        // theirs, card payment is set there, and a new one is approved and
+        // sent the same way as the other social clients'.
+        if (b.pay_by_card !== undefined) row.pay_by_card = !!b.pay_by_card;
+        if (b.social && b.lead_id) {
+          row.kind = "social"; row.lead_id = String(b.lead_id);
+          if (!b.id) {
+            const sib = (await sbGet(env, "recurring_invoices", "active=eq.true&kind=eq.social&select=approver_email,template,due_day,bcc_email&order=created_at.asc&limit=1"))?.[0];
+            if (sib) for (const k of ["approver_email", "template", "due_day", "bcc_email"]) if (sib[k] != null && row[k] === undefined) row[k] = sib[k];
+          }
+        }
         const r = b.id
           ? await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices?id=eq.${encodeURIComponent(b.id)}`, { method: "PATCH", headers: hdr, body: JSON.stringify(row) })
           : await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices`, { method: "POST", headers: hdr, body: JSON.stringify(row) });
