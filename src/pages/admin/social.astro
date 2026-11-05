@@ -1756,12 +1756,18 @@ const mgmtPackages = (management && management.packages) || [];
       drawBdChips(base);
       const pass = (BD_FILTERS.find((f) => f[0] === bdFilter) || BD_FILTERS[0])[2];
       const rows = base.filter((r) => r.pipeline_stage === "lost" || pass(r));
-      const stages = [...STAGES.map((s) => ({ key: s.key, label: s.key === "active_client" ? "Active clients" : s.label })), ...(showLost ? [{ key: "lost", label: "Lost" }] : [])];
-      const inStage = (k) => k === "lost" ? rows.filter((r) => r.pipeline_stage === "lost") : rows.filter((r) => r.pipeline_stage !== "lost" && stageOf(r) === k);
+      // Paused clients have their own section under Active clients (Dani, 5 Nov 2026).
+      const stages = [...STAGES.map((s) => ({ key: s.key, label: s.key === "active_client" ? "Active clients" : s.label })), { key: "paused", label: "Paused" }, ...(showLost ? [{ key: "lost", label: "Lost" }] : [])];
+      const isPaused = (r) => stageOf(r) === "active_client" && r.client_status === "paused";
+      const inStage = (k) => k === "lost" ? rows.filter((r) => r.pipeline_stage === "lost")
+        : k === "paused" ? rows.filter((r) => r.pipeline_stage !== "lost" && isPaused(r))
+        : rows.filter((r) => r.pipeline_stage !== "lost" && stageOf(r) === k && !(k === "active_client" && isPaused(r)));
       let html = "", quiet = [];
       const flush = () => { if (q || bdFilter !== "all") { quiet = []; return; } if (quiet.length) { html += `<div class="bd-quiet"><span>Nothing in</span>${quiet.map((s) => `<span class="bd-quiet-s" data-drop="${s.key}">${esc(s.label)}</span>`).join("")}</div>`; quiet = []; } };
       stages.forEach((s) => {
-        const list = inStage(s.key);
+        let list = inStage(s.key);
+        // Internal clients always last among Active clients (Dani, 5 Nov 2026).
+        if (s.key === "active_client") list = [...list.filter((r) => r.client_status !== "internal"), ...list.filter((r) => r.client_status === "internal")];
         if (!list.length) { quiet.push(s); return; }
         flush();
         const cap = s.key === "active_client" && !bdOpen[s.key] ? 8 : Infinity;
@@ -1771,8 +1777,8 @@ const mgmtPackages = (management && management.packages) || [];
       });
       flush();
       board.innerHTML = rows.length ? html : `<div class="bd-empty">${q || bdFilter !== "all" ? "Nobody matches that. Try All, or clear the search." : "No one here yet."}</div>`;
-      const n = rows.filter((r) => r.pipeline_stage !== "lost").length, c = rows.filter((r) => r.pipeline_stage !== "lost" && stageOf(r) === "active_client").length;
-      const sum = $("bd-sum"); if (sum) sum.textContent = `${n - c} in progress, ${c} active ${c === 1 ? "client" : "clients"}`;
+      const live = rows.filter((r) => r.pipeline_stage !== "lost"), c = live.filter((r) => stageOf(r) === "active_client").length, pz = live.filter(isPaused).length;
+      const sum = $("bd-sum"); if (sum) sum.textContent = `${live.length - c} in progress, ${c - pz} active ${c - pz === 1 ? "client" : "clients"}${pz ? `, ${pz} paused` : ""}`;
     }
     const bdR = (k, v) => `<div class="bd-r"><dt>${k}</dt><dd title="${esc(String(v || "").replace(/<[^>]*>/g, ""))}">${v || '<span class="bd-none">—</span>'}</dd></div>`;
     const bdDay = (iso) => { try { return iso ? new Date(String(iso).length <= 10 ? iso + "T12:00:00" : iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""; } catch (_) { return ""; } };
@@ -1829,7 +1835,21 @@ const mgmtPackages = (management && management.packages) || [];
         const d = e.target.closest("[data-drop]"); if (!d) return; e.preventDefault();
         const id = dragId || e.dataTransfer.getData("text/plain"); dragId = null;
         board.querySelectorAll(".is-over").forEach((x) => x.classList.remove("is-over"));
-        const r = all.find((x) => String(x.id) === String(id)); if (r) moveToStage(r, d.getAttribute("data-drop"));
+        const r = all.find((x) => String(x.id) === String(id)); if (!r) return;
+        const to = d.getAttribute("data-drop");
+        // Paused is a client's status, not a stage: dropping on it pauses them;
+        // dropping a paused client back on Active clients makes them active again.
+        const was = r.client_status || "active";
+        if (to === "paused" || (to === "active_client" && stageOf(r) === "active_client" && was === "paused")) {
+          if (to === "paused" && stageOf(r) !== "active_client") { alert("Only an active client can be paused. Move them to Active clients first."); return; }
+          const st = to === "paused" ? "paused" : "active";
+          r.client_status = st;
+          sfAutoNote(r, "Client status", st === "paused" ? "Paused: no monthly invoice, no chasing and no missing-report flags until they're active again." : "Made active again: invoicing, reports and chasing back on.");
+          pushClientStatus(r, st).then(() => renderBoard());
+          renderBoard();
+          return;
+        }
+        moveToStage(r, to);
       });
     })();
     function syncTopScroll() {
