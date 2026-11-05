@@ -12818,6 +12818,27 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const r = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_quantities?on_conflict=recurring_id,month`, { method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ recurring_id: b.recurring_id, month: b.month, qty, entered_by: user.email || null, entered_at: new Date().toISOString() }) });
         return r.ok ? json({ ok: true }, 200, request, env) : json({ error: "Couldn't save it: " + (await r.text()).slice(0, 160) }, 502, request, env);
       }
+      // ---- Admin: every social media client's unpaid invoices, for the board ----
+      // (Dani, 5 Nov 2026): which month, when it's due, overdue or not. No
+      // amounts, so it's the client file's view, not the ledger.
+      if (path.endsWith("/smm/outstanding-invoices") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const recs = (await sbGet(env, "recurring_invoices", "kind=eq.social&select=id,lead_id,pays_ahead")) || (await sbGet(env, "recurring_invoices", "kind=eq.social&select=id,lead_id")) || [];
+        const byRec = Object.fromEntries(recs.filter((r) => r.lead_id).map((r) => [r.id, r]));
+        const ids = Object.keys(byRec);
+        const or = ids.length ? `&or=(booking_source.eq.smm,recurring_id.in.(${ids.join(",")}))` : "&booking_source=eq.smm";
+        const rows = (await sbGet(env, "invoices", `status=not.in.(paid,void,draft)${or}&select=id,number,booking_id,recurring_id,billing_month,issued_date,due_date,status&order=due_date.asc&limit=1000`)) || [];
+        const out = {};
+        for (const v of rows) {
+          const rec = v.recurring_id ? byRec[v.recurring_id] : null;
+          const lead = (rec && rec.lead_id) || v.booking_id;
+          if (!lead) continue;
+          const ym = v.billing_month || String(v.issued_date || "").slice(0, 7);
+          (out[lead] = out[lead] || []).push({ id: v.id, number: v.number, status: v.status, due_date: v.due_date, month: rec && rec.pays_ahead && ym ? ymAdd(ym, 1) : ym });
+        }
+        return json({ ok: true, byLead: out }, 200, request, env);
+      }
       // ---- Admin: Abbie's monthly social media invoice list ------------------
       // Every social media client on the invoice schedule, this month and
       // next: ticked to invoice, and what's been raised (Danielle, 22 Oct).

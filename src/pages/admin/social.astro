@@ -531,6 +531,7 @@ const mgmtPackages = (management && management.packages) || [];
     .bd-r dt { color: #7e6765; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .bd-r dd { margin: 0; color: #2b2226; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .bd-none { color: #9a8884; }
+    .bd-r dd .bd-chip { height: 20px; padding: 0 7px; margin-left: 4px; vertical-align: middle; }
     .bd-foot { display: flex; align-items: center; gap: 16px; margin-top: 6px; padding-top: 8px; border-top: 1px solid #eae5e1; }
     .bd-link { background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--sans); font-size: 14px; color: #371e28; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(55,30,40,.3); }
     .bd-link:hover { text-decoration-color: currentColor; }
@@ -1735,27 +1736,33 @@ const mgmtPackages = (management && management.packages) || [];
     // with its cards in a grid; empty stages fold into one "Nothing in" line that
     // still takes a drop; Active clients show 8 until See all.
     const bdOpen = {};
-    // Filters, with how many each catches (Dani, 5 Nov 2026: as Videography's).
-    const BD_FILTERS = [
-      ["all", "All", () => true],
-      ["calls", "Calls booked", (r) => r.meeting_at && new Date(r.meeting_at) > new Date()],
-      ["nomgr", "No manager", (r) => !r.social_media_manager && stageOf(r) !== "waitlist"],
-      ["proposed", "Proposals out", (r) => ["proposal_sent", "pricing_call"].includes(stageOf(r))],
-      ["onboarding", "Onboarding", (r) => stageOf(r) === "onboarding"],
-      ["paused", "Paused or leaving", (r) => stageOf(r) === "active_client" && (r.client_status === "paused" || !!r.leaving_on)],
-    ];
+    // A button for each stage with people in it, with how many (Dani, 5 Nov 2026).
     let bdFilter = "all";
+    const bdStageOf = (r) => r.pipeline_stage === "lost" ? "lost" : (stageOf(r) === "active_client" && r.client_status === "paused") ? "paused" : stageOf(r);
+    const BD_STAGE_LABELS = () => [...STAGES.map((s) => [s.key, s.key === "active_client" ? "Active clients" : s.label]), ["paused", "Paused"], ["lost", "Lost"]];
     function drawBdChips(base) {
       const host = $("bd-chips"); if (!host) return;
-      host.innerHTML = BD_FILTERS.map(([k, l, f]) => `<button type="button" data-bdf="${k}" aria-pressed="${bdFilter === k}">${esc(l)}${k === "all" ? "" : ` <i>${base.filter((r) => r.pipeline_stage !== "lost" && f(r)).length}</i>`}</button>`).join("");
+      const counts = {}; base.forEach((r) => { const k = bdStageOf(r); counts[k] = (counts[k] || 0) + 1; });
+      if (bdFilter !== "all" && !counts[bdFilter]) bdFilter = "all";
+      host.innerHTML = `<button type="button" data-bdf="all" aria-pressed="${bdFilter === "all"}">All</button>` + BD_STAGE_LABELS().filter(([k]) => counts[k]).map(([k, l]) => `<button type="button" data-bdf="${k}" aria-pressed="${bdFilter === k}">${esc(l)} <i>${counts[k]}</i></button>`).join("");
     }
     document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest("[data-bdf]"); if (!b) return; bdFilter = b.getAttribute("data-bdf"); renderBoard(); });
+    // Every client's unpaid invoices, for the Invoice row on the cards.
+    let bdInv = {};
+    async function loadBdInvoices() {
+      if (!WORKER) return;
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/smm/outstanding-invoices`, { headers: { Authorization: "Bearer " + token } });
+        const j = await res.json().catch(() => ({}));
+        if (res.ok && j.byLead) { bdInv = j.byLead; renderBoard(); }
+      } catch (_) {}
+    }
     function renderBoard() {
       const board = $("smm-board");
       const base = visible();
       drawBdChips(base);
-      const pass = (BD_FILTERS.find((f) => f[0] === bdFilter) || BD_FILTERS[0])[2];
-      const rows = base.filter((r) => r.pipeline_stage === "lost" || pass(r));
+      const rows = bdFilter === "all" ? base : base.filter((r) => bdStageOf(r) === bdFilter);
       // Paused clients have their own section under Active clients (Dani, 5 Nov 2026).
       const stages = [...STAGES.map((s) => ({ key: s.key, label: s.key === "active_client" ? "Active clients" : s.label })), { key: "paused", label: "Paused" }, ...(showLost ? [{ key: "lost", label: "Lost" }] : [])];
       const isPaused = (r) => stageOf(r) === "active_client" && r.client_status === "paused";
@@ -1796,8 +1803,14 @@ const mgmtPackages = (management && management.packages) || [];
       const mgr = r.social_media_manager ? r.social_media_manager.split(" ")[0] : "";
       const pr = pd.proposed || {};
       let rows;
+      // Their oldest unpaid invoice: the month, when it's due, overdue or not (Dani, 5 Nov 2026).
+      const invs = (bdInv[r.id] || []).slice().sort((a, b) => String(a.due_date || "9").localeCompare(String(b.due_date || "9")));
+      const today = new Date().toISOString().slice(0, 10);
+      const iv = invs[0];
+      const invRow = st === "active_client" || st === "onboarding" ? bdR("Invoice", !iv ? `<span class="bd-none">Nothing outstanding</span>`
+        : `${esc(iv.month ? sfYmName(iv.month).split(" ")[0] : (iv.number || ""))}${iv.due_date ? ", due " + esc(bdDay(iv.due_date)) : ""} ${iv.due_date && iv.due_date < today ? `<span class="bd-chip is-bad">Overdue</span>` : `<span class="bd-chip is-plain">Unpaid</span>`}${invs.length > 1 ? ` <span class="bd-none">+${invs.length - 1} more</span>` : ""}`) : "";
       if (st === "active_client" || st === "onboarding") {
-        rows = bdR("Business", esc(r.business || "")) + bdR("Package", esc([r.package_name, pd.tier ? tierLabel(r.package_name, pd.tier) : ""].filter(Boolean).join(", "))) + bdR(st === "onboarding" ? "Starts" : "Monthly", esc(st === "onboarding" ? bdDay(r.start_date) : (r.price || ""))) + bdR("Managed by", esc(mgr));
+        rows = bdR("Business", esc(r.business || "")) + bdR("Package", esc([r.package_name, pd.tier ? tierLabel(r.package_name, pd.tier) : ""].filter(Boolean).join(", "))) + bdR(st === "onboarding" ? "Starts" : "Monthly", esc(st === "onboarding" ? bdDay(r.start_date) : (r.price || ""))) + bdR("Managed by", esc(mgr)) + invRow;
       } else if (st === "proposal_sent" || st === "pricing_call" || st === "contract_signed") {
         rows = bdR("Business", esc(r.business || "")) + bdR("Proposed", esc([pr.package ? String(pr.package).split(": ").pop() : "", pr.price !== "" && pr.price != null ? "£" + Number(pr.price).toLocaleString("en-GB") + " a month" : ""].filter(Boolean).join(", "))) + bdR(st === "pricing_call" ? "Pricing call" : "Call", esc(bdWhen(r.meeting_at))) + bdR("Managed by", esc(mgr));
       } else if (st === "lost") {
@@ -1809,8 +1822,8 @@ const mgmtPackages = (management && management.packages) || [];
       const warn = st === "lost" ? "" : !r.social_media_manager && st !== "waitlist" ? "No one manages them yet"
         : st === "active_client" && !r.price && r.client_status !== "internal" ? "No monthly fee on the file"
         : st === "proposal_sent" && !pr.package ? "What we proposed isn't filled in" : "";
-      const foot = warn ? `<div class="bd-next">${esc(warn)}</div>`
-        : `<div class="bd-foot"><button type="button" class="bd-link" data-bd-open>Open file</button>${st === "lost" ? "" : st === "active_client" || st === "onboarding" ? (r.email ? `<button type="button" class="bd-link" data-bd-msg>Send a message</button>` : "") : `<button type="button" class="bd-link" data-bd-meet>${r.meeting_at && new Date(r.meeting_at) > new Date() ? "Move the call" : "Set a meeting"}</button>`}</div>`;
+      // No links (Dani, 5 Nov 2026): the card opens the file; only what needs doing shows here.
+      const foot = warn ? `<div class="bd-next">${esc(warn)}</div>` : "";
       return `<article class="bd-card" draggable="true" data-id="${esc(r.id)}" tabindex="0"><header class="bd-card-h"><div class="bd-card-t">${esc(nameOf(r))}</div>${tag}</header><dl class="bd-rows">${rows}</dl>${foot}</article>`;
     }
     // Clicks, keys and drags on the board, wired once.
@@ -4982,6 +4995,7 @@ const mgmtPackages = (management && management.packages) || [];
       if (sfPop === "onboarding") renderOnboarding(r);
       else if (sfPop === "invoice" && sfInvTab === "all") sfOpen("invoice");
       sfRefresh(r);
+      loadBdInvoices();
     }
     async function loadSmmInvoices(r) {
       const wrap = $("siv-list"); if (!wrap) return;
@@ -6402,6 +6416,7 @@ const mgmtPackages = (management && management.packages) || [];
       $("smm-loading").hidden = true;
       $("smm-board").hidden = false;
       renderBoard();
+      loadBdInvoices();
 
       /* ?lead=<id> opens that person straight away. The waitlist alert emails
          a link to a specific file, and without this it landed on the board and
