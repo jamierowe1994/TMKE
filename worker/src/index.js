@@ -3400,6 +3400,12 @@ async function logBookingMessage(env, m) {
 // meetings booked from a client's file. Off from 5 Nov 2026 while Danielle
 // tests the invites; she'll say when to switch it back on.
 const SMM_INVITE_MANAGER = false;
+// Managed by, name to email, for meeting invites (Danielle, 5 Nov 2026). Only
+// addresses she's confirmed; a name with no address here gets no invite.
+const SMM_MANAGER_EMAILS = {
+  "Danielle Law": "danielle@tmke.co.uk",
+  "Abigail Saunders": "Abigail.Saunders@themarketingexperts.co.uk",
+};
 
 // An enquiry summed up as a note on the card (Danielle, 5 Nov 2026): how it
 // came in, when, who from and what they said, so the file holds the whole
@@ -13474,7 +13480,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const leadId = b && b.lead_id;
         const date = b && b.date, start = b && b.start;
         if (!leadId || !date || !start) return json({ error: "Missing lead, date or time." }, 400, request, env);
-        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,account_user_id,phone`);
+        const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,account_user_id,phone,social_media_manager`);
         const lead = rows && rows[0];
         if (!lead) return json({ error: "Lead not found." }, 404, request, env);
         const meetingAt = `${date}T${start}:00`;
@@ -13525,10 +13531,15 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
               end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
               attendees: [
                 { emailAddress: { address: lead.email, name: lead.full_name || "" }, type: "required" },
-                // Abigail is left off while Danielle tests the invites (5 Nov 2026).
-                // Turn SMM_INVITE_MANAGER back on when she says.
-                ...(SMM_INVITE_MANAGER && env.SMM_NOTIFY && env.SMM_NOTIFY.toLowerCase() !== cal.toLowerCase()
-                  ? [{ emailAddress: { address: env.SMM_NOTIFY, name: "TMKE Social Media" }, type: "required" }] : []),
+                // The person who manages the client (Managed by), at their own
+                // address. Abigail is left off while Danielle tests (SMM_INVITE_MANAGER).
+                ...(() => {
+                  const name = String(lead.social_media_manager || "").trim();
+                  const addr = SMM_MANAGER_EMAILS[name];
+                  if (!addr || addr.toLowerCase() === cal.toLowerCase() || addr.toLowerCase() === String(lead.email || "").toLowerCase()) return [];
+                  if (name === "Abigail Saunders" && !SMM_INVITE_MANAGER) return [];
+                  return [{ emailAddress: { address: addr, name }, type: "required" }];
+                })(),
               ],
               ...(how === "teams" ? { isOnlineMeeting: true, onlineMeetingProvider: "teamsForBusiness" }
                 : { isOnlineMeeting: false, location: { displayName: how === "phone" ? `Phone call${lead.phone ? ": we'll call " + lead.phone : ""}` : (where || "In person") } }),
