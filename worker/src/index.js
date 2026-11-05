@@ -13487,7 +13487,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const dur = parseInt(b.duration || "30", 10);
         const endHm = minToHm(hmToMin(start) + dur);
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
-        let invited = false, joinUrl = "", teamsFailed = false;
+        let invited = false, joinUrl = "", teamsFailed = false, teamsWhy = "";
         if (b.send_invite && cal && lead.email) {
           try {
             // The event in hello@'s Outlook calendar: Outlook sends the invite
@@ -13514,6 +13514,12 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
               made = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, plain);
             }
             joinUrl = (made && made.onlineMeeting && made.onlineMeeting.joinUrl) || "";
+            // No link and no error: Microsoft quietly made a plain meeting. Ask the
+            // calendar what it can host, so the note can say why.
+            if (how === "teams" && !joinUrl && !teamsFailed) {
+              teamsFailed = true;
+              try { const c = await graph(env, "GET", `/users/${encodeURIComponent(cal)}/calendar?$select=allowedOnlineMeetingProviders,defaultOnlineMeetingProvider`); teamsWhy = (c && Array.isArray(c.allowedOnlineMeetingProviders) && !c.allowedOnlineMeetingProviders.includes("teamsForBusiness")) ? ` ${cal} isn't set up for Teams meetings (it allows: ${c.allowedOnlineMeetingProviders.join(", ") || "none"}).` : ` Microsoft didn't say why; ${cal} may not have a Teams licence.`; } catch (_) { teamsWhy = ` Microsoft didn't say why; ${cal} may not have a Teams licence.`; }
+            }
             // Outlook has already put the invite in their calendar, so this is a
             // confirmation with how to join, and no second .ics to double it up.
             const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -13532,7 +13538,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         await logBookingMessage(env, {
           booking_id: leadId, booking_source: "smm", account_user_id: lead.account_user_id, client_email: lead.email,
           kind: "meeting", subject: "Meeting booked", is_automated: false, created_by: user.email || "admin",
-          body: `${howLabel} booked for ${dateNice} at ${start}${how === "in_person" && where ? `, at ${where}` : ""}.${invited ? " Outlook invite sent to the client from hello@tmke.co.uk." : ""}${joinUrl ? ` Teams link: ${joinUrl}` : ""}${teamsFailed ? " The Teams link couldn't be made, so the invite went without one." : ""}`,
+          body: `${howLabel} booked for ${dateNice} at ${start}${how === "in_person" && where ? `, at ${where}` : ""}.${invited ? " Outlook invite sent to the client from hello@tmke.co.uk." : ""}${joinUrl ? ` Teams link: ${joinUrl}` : ""}${teamsFailed ? ` The Teams link couldn't be made, so the invite went without one.${teamsWhy}` : ""}${lead.email && cal && lead.email.toLowerCase() === cal.toLowerCase() ? ` No invite: the client's email is ${cal}, the calendar the meeting is in.` : ""}`,
         });
         return json({ ok: true, invited, join_url: joinUrl || null, teams_failed: teamsFailed }, 200, request, env);
       }
