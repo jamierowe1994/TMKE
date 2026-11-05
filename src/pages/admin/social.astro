@@ -45,15 +45,18 @@ const mgmtPackages = (management && management.packages) || [];
     <section class="smm-panel wrap is-active" data-panel="pipeline">
       <!-- The board (Dani, 4 Nov mock-up; built 5 Nov 2026): one strip per stage, cards in a grid. -->
       <div class="bd-bar">
+        <div class="bd-seg" role="group" aria-label="View"><button type="button" data-bdv="board" aria-pressed="true">Board</button><button type="button" data-bdv="todo" aria-pressed="false">To do</button></div>
         <label class="bd-find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="smm-search" placeholder="Find a person or a business" aria-label="Find a person or a business"></label>
         <div class="bd-chips" id="bd-chips" role="group" aria-label="Show"></div>
-        <label class="bd-check"><input type="checkbox" id="smm-show-lost"> Show lost</label>
+        <select class="bd-mgr" id="bd-mgr" aria-label="Managed by"><option value="">Everyone's</option><option>Abigail Saunders</option><option>Samantha Thornicroft</option><option>Danielle Law</option><option value="-">No manager</option></select>
+        <label class="bd-check" id="bd-lost-wrap"><input type="checkbox" id="smm-show-lost"> Show lost</label>
         <span class="bd-sum" id="bd-sum"></span>
       </div>
       <div id="smm-filters" hidden></div>
       <p class="smm-loading" id="smm-loading">Loading…</p>
       <div class="smm-scrolltop" id="smm-scrolltop" hidden><div id="smm-scrolltop-inner"></div></div>
       <div class="bd" id="smm-board" hidden></div>
+      <div class="bd td" id="smm-todo" hidden></div>
     </section>
 
     <!-- ===================== PACKAGES & PRICING (reference) ===================== -->
@@ -487,6 +490,54 @@ const mgmtPackages = (management && management.packages) || [];
     .bd-chips button[aria-pressed="true"] { background: #371e28; border-color: #371e28; color: #fff; }
     .bd-chips button i { font-style: normal; color: #7e6765; }
     .bd-chips button[aria-pressed="true"] i { color: rgba(255,255,255,.7); }
+
+    /* ---- Board | To do, Managed by ---- */
+    .bd-seg { display: inline-flex; border: 1px solid #e2d9d4; border-radius: 4px; overflow: hidden; }
+    .bd-seg button { height: 32px; padding: 0 18px; border: 0; background: #fff; color: #7e6765; cursor: pointer; font-family: var(--sans); font-size: 14px; }
+    .bd-seg button + button { border-left: 1px solid #e2d9d4; }
+    .bd-seg button[aria-pressed="true"] { background: #371e28; color: #fff; }
+    .bd-mgr { height: 32px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; padding: 0 8px; font-family: var(--sans); font-size: 14px; color: #2b2226; }
+    .smm-panel[data-panel="pipeline"] .bd-bar .bd-check[hidden] { display: none !important; }
+    .smm-panel[data-panel="pipeline"] .bd-bar select.bd-mgr { height: 32px !important; min-height: 0 !important; padding: 0 28px 0 10px !important; margin: 0 !important; width: auto !important; line-height: normal !important; font-family: var(--sans) !important; font-size: 14px !important; font-weight: 400 !important; text-transform: none !important; letter-spacing: normal !important; border: 1px solid #e2d9d4 !important; border-radius: 4px !important; background-color: #fff !important; color: #2b2226 !important; box-shadow: none !important; }
+    /* ---- To do (Dani, 5 Nov 2026) ---- */
+    .td[hidden] { display: none !important; }
+    .td-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0 0 26px; }
+    .td-tile { display: grid; gap: 4px; align-content: start; padding: 14px 16px 12px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; cursor: pointer; text-align: left; font-family: var(--sans); font-size: 14px; transition: border-color .2s, transform .2s, box-shadow .2s; }
+    .td-tile:hover { border-color: #c9bcb7; transform: translateY(-2px); box-shadow: 0 10px 24px -18px rgba(55,30,40,.5); }
+    .td-tile b { font-family: var(--serif); font-weight: 300; font-size: 38px; line-height: 1; letter-spacing: -0.04em; color: #371e28; font-variant-numeric: lining-nums tabular-nums; }
+    .td-tile.is-bad b { color: #8a3f3f; }
+    .td-tile span { color: #7e6765; }
+    .td-tile[aria-pressed="true"] { background: #371e28; border-color: #371e28; }
+    .td-tile[aria-pressed="true"] b, .td-tile[aria-pressed="true"] span { color: #fff; }
+    .td-tile.is-zero { opacity: .55; cursor: default; }
+    .td-sec { display: grid; gap: 10px; }
+    .td-sec + .td-sec, .td-sec + .bd-empty { margin-top: 26px; }
+    .td-aside { color: rgba(255,255,255,.75); font-size: 12px; }
+    .td-soon { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+    .td-sc { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 14px; align-items: start; padding: 14px 16px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; cursor: pointer; }
+    .td-sc:hover { border-color: #c9bcb7; }
+    .td-sc-d { grid-row: span 3; display: grid; justify-items: center; align-content: start; min-width: 54px; padding: 6px 0 8px; border-radius: 4px; background: #eae5e1; }
+    .td-sc-d b { font-family: var(--serif); font-weight: 300; font-size: 30px; line-height: 1; letter-spacing: -0.04em; color: #371e28; font-variant-numeric: lining-nums; }
+    .td-sc-d span, .td-sc-w { color: #7e6765; }
+    .td-sc-who { font-family: var(--serif); font-weight: 300; font-size: 17px; letter-spacing: -0.03em; color: #371e28; }
+    .td-sc-t { color: #2b2226; }
+    .td-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+    .td-card { display: flex; flex-direction: column; padding: 12px 14px 10px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; cursor: pointer; min-width: 0; transition: border-color .2s, transform .2s, box-shadow .2s; }
+    .td-card:hover { border-color: #c9bcb7; transform: translateY(-2px); box-shadow: 0 10px 24px -18px rgba(55,30,40,.5); }
+    .td-card.is-quiet { background: #f7f4f2; }
+    .td-card-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .td-meta { color: #7e6765; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0 8px; }
+    .td-tasks { list-style: none; margin: 0; padding: 0; }
+    .td-tasks li { display: flex; align-items: center; gap: 10px; min-height: 32px; border-top: 1px solid #eae5e1; }
+    .td-tasks li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; flex: none; background: #c9bcb7; }
+    .td-tasks li.is-bad { color: #8a3f3f; }
+    .td-tasks li.is-bad::before { background: #8a3f3f; }
+    .td-tasks li.is-due::before { background: #371e28; }
+    .td-tasks li.is-info { color: #7e6765; }
+    .td-gq { display: flex; gap: 6px; margin: 8px 0 4px; }
+    .td-card-f { display: flex; justify-content: space-between; margin-top: 4px; padding-top: 8px; border-top: 1px solid #eae5e1; color: #7e6765; }
+    .td-card-f .is-none { color: #8a3f3f; }
+    .td :focus-visible { outline: 2px solid #371e28; outline-offset: 2px; }
 
     /* ---- The board (Dani's 4 Nov mock-up, built 5 Nov 2026) ---- */
     .smm-panel[data-panel="pipeline"] .bd-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 18px; font-family: var(--sans); font-size: 14px; }
@@ -1747,6 +1798,131 @@ const mgmtPackages = (management && management.packages) || [];
       host.innerHTML = `<button type="button" data-bdf="all" aria-pressed="${bdFilter === "all"}">All</button>` + BD_STAGE_LABELS().filter(([k]) => counts[k]).map(([k, l]) => `<button type="button" data-bdf="${k}" aria-pressed="${bdFilter === k}">${esc(l)} <i>${counts[k]}</i></button>`).join("");
     }
     document.addEventListener("click", (e) => { const b = e.target.closest && e.target.closest("[data-bdf]"); if (!b) return; bdFilter = b.getAttribute("data-bdf"); renderBoard(); });
+    /* ---------- To do (Dani, 5 Nov 2026; agreed on the mock-up) ----------
+       Worked out from the files, never typed in: each line goes when it's done.
+       Counts first (each filters), the next things coming up as cards, then
+       potential clients, active clients and anyone gone quiet. */
+    let tdData = null, tdKind = "", tdSoonAll = false;
+    async function loadTodoData() {
+      if (!WORKER) { tdData = {}; return; }
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/smm/todo-data`, { headers: { Authorization: "Bearer " + token } });
+        const j = await res.json().catch(() => ({}));
+        tdData = res.ok && j.byLead ? j.byLead : {};
+      } catch (_) { tdData = {}; }
+      if (bdView === "todo") renderBoard();
+    }
+    const TD_KINDS = [["inv", "Invoices overdue", true], ["sales", "Calls and proposals", true], ["mgr", "No manager", true], ["plan", "Content plans", false], ["report", "Reports", false], ["quiet", "No recent update", false]];
+    const tdDay = (d) => { const x = typeof d === "string" ? sfDate(d) : d; return x ? x.toISOString().slice(0, 10) : ""; };
+    const tdMon = (ym) => sfYmName(ym).split(" ")[0];
+    function tdPlanYms(T) { return (T.plans || []).map((p) => { const m = String(p.title || "").match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i); return m ? `${m[2]}-${String(RI_MONTHS.findIndex((x) => x.toLowerCase() === m[1].toLowerCase()) + 1).padStart(2, "0")}` : String(p.at || "").slice(0, 7); }); }
+    function tdFor(r) {
+      const T = (tdData && tdData[r.id]) || { plans: [], notes: {}, emails: [], reports: {}, reached: {}, shoots: [] };
+      const st = bdStageOf(r), now = new Date(), today = tdDay(now), ym = sfYm(now), in14 = tdDay(sfAddDays(today, 14));
+      const tasks = [], soon = [];
+      const add = (sev, kind, text) => tasks.push([sev, kind, text]);
+      const soonAdd = (at, what) => { const d = tdDay(at); if (d && d >= today && d <= in14) soon.push({ at: d, what, r }); };
+      if (st === "lost" || st === "waitlist") return { tasks, soon, section: null };
+      const pre = ["inquiry", "meeting_set", "proposal_sent", "pricing_call", "contract_signed"].includes(st);
+      if (!r.social_media_manager) add("bad", "mgr", "No manager");
+      const last = [T.last, r.created_at].filter(Boolean).sort().pop();
+      const days = last ? Math.floor((now - new Date(last)) / 864e5) : 0;
+      const callAhead = r.meeting_at && new Date(r.meeting_at) > now;
+      const held = r.meeting_at && new Date(r.meeting_at) <= now;
+      let gq = false;
+      if (st !== "paused" && !callAhead && days >= 5) { add("info", "quiet", `No update for ${days} days`); if (pre && days >= 30) gq = true; }
+      const chase = (sent, what) => {
+        if (!sent) return;
+        const after = (T.emails || []).filter((e) => new Date(e) > new Date(new Date(sent).getTime() + 12 * 36e5)).length;
+        const next = after === 0 ? sfAddDays(sent, 3) : after === 1 ? sfAddDays(sent, 5) : null;
+        if (!next) return;
+        const d = tdDay(next);
+        if (d < today) add("bad", "sales", `Chase the ${what}, was due ${sfDay(next)}`);
+        else if (d === today) add("due", "sales", `Chase the ${what} today`);
+        else soonAdd(next, after ? `Second chase for the ${what}` : `Chase the ${what}`);
+      };
+      if (st === "inquiry" && !r.meeting_at) add("due", "sales", "Book the discovery call");
+      if (st === "meeting_set") {
+        if (!r.meeting_at) add("due", "sales", "Book the discovery call");
+        else if (held) {
+          if (!T.notes.discovery) add("bad", "sales", "Discovery call notes not written");
+          if (!T.prep) { const due = sfAddWork(r.meeting_at, 3); if (tdDay(due) < today) add("bad", "sales", `Proposal overdue, was due ${sfDay(due)}`); else { add("due", "sales", `Proposal due by ${sfDay(due)}`); soonAdd(due, "Proposal due"); } }
+        }
+      }
+      if (st === "proposal_sent") {
+        const pr = (r.package_details || {}).proposed || {};
+        if (!pr.package) add("info", "sales", "What we proposed isn't filled in");
+        chase(T.reached.proposal_sent || T.prep, "proposal");
+      }
+      if (st === "pricing_call") {
+        if (!r.meeting_at) add("due", "sales", "Book the pricing call");
+        else if (held) {
+          if (!T.notes.pricing) add("bad", "sales", "Pricing call notes not written");
+          const due = sfAddWork(r.meeting_at, 1); if (tdDay(due) < today) add("bad", "sales", `Contract overdue, was due ${sfDay(due)}`); else add("due", "sales", "Send the contract");
+        }
+      }
+      if (st === "contract_signed" && !T.agreement) chase(T.reached.contract_signed, "contract");
+      if (st === "onboarding") {
+        const fp = sfFirstPlanYm(r, { ym });
+        if (!tdPlanYms(T).includes(fp)) { const due = `${fp}-02`; if (due < today) add("bad", "plan", `First plan, for ${tdMon(fp)}, not uploaded`); else soonAdd(due, `First content plan due, for ${tdMon(fp)}`); }
+      }
+      if (st === "active_client" || st === "onboarding") {
+        (bdInv[r.id] || []).forEach((v) => {
+          const mon = v.month ? tdMon(v.month) : (v.number || "An");
+          if (v.due_date && v.due_date < today) add("bad", "inv", `${mon} invoice overdue, due ${sfDay(v.due_date)}`);
+          else if (v.due_date) soonAdd(v.due_date, `${mon} invoice due`);
+        });
+      }
+      if (st === "active_client") {
+        const plans = tdPlanYms(T), next = sfYmAdd(ym, 1);
+        if (now.getDate() > 2 && !plans.includes(ym)) add("bad", "plan", `${tdMon(ym)} plan not uploaded`);
+        if (!plans.includes(next)) soonAdd(`${next}-02`, `${tdMon(next)} content plan due`);
+        const prev = sfYmAdd(ym, -1);
+        if (!(prev in (T.reports || {}))) add("info", "report", `${tdMon(prev)} report missing`);
+        else if (!T.reports[prev]) add("info", "report", `${tdMon(prev)} report not published`);
+      }
+      if (r.meeting_at) soonAdd(r.meeting_at, `${pre && st === "meeting_set" ? "Discovery call" : st === "pricing_call" || st === "proposal_sent" ? "Pricing call" : st === "onboarding" ? "Onboarding call" : "Call"}, ${new Date(r.meeting_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`);
+      (T.shoots || []).forEach((v) => soonAdd(v.at, `${v.service || "Shoot"}, ${new Date(v.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`));
+      if (r.follow_up_on) soonAdd(r.follow_up_on, `Follow-up ${String(r.follow_up_how || "call").toLowerCase()}`);
+      if (r.leaving_on) soonAdd(r.leaving_on, "Leaving");
+      return { tasks, soon, gq, section: gq ? "gone" : pre ? "pot" : "act" };
+    }
+    function renderTodo(base) {
+      const host = $("smm-todo"); if (!host) return;
+      if (!tdData) { host.innerHTML = `<p class="smm-loading">Loading…</p>`; return; }
+      const RANK = { bad: 0, due: 1, info: 2 };
+      const people = base.filter((r) => bdFilter === "all" || bdStageOf(r) === bdFilter).map((r) => ({ r, ...tdFor(r) })).filter((p) => p.section);
+      const kindOk = (x) => !tdKind || x[1] === tdKind;
+      const shown = people.map((p) => ({ ...p, t: p.tasks.filter(kindOk).sort((a, b) => RANK[a[0]] - RANK[b[0]]) })).filter((p) => p.t.length);
+      const score = (p) => (p.r.client_status === "internal" ? 1000 : 0) - p.t.filter((x) => x[0] === "bad").length * 10 - p.t.filter((x) => x[0] === "due").length;
+      shown.sort((a, b) => score(a) - score(b));
+      const tiles = TD_KINDS.map(([k, l, red]) => { const n = people.reduce((s, p) => s + p.tasks.filter((x) => x[1] === k).length, 0); return `<button type="button" class="td-tile${red && n ? " is-bad" : ""}${n ? "" : " is-zero"}" data-tdk="${k}" aria-pressed="${tdKind === k}"${n ? "" : " disabled"}><b>${n}</b><span>${esc(l)}</span></button>`; }).join("");
+      const soonAll = people.flatMap((p) => p.soon).sort((a, b) => a.at.localeCompare(b.at));
+      const soonShown = tdSoonAll ? soonAll : soonAll.slice(0, 4);
+      const soonHtml = soonAll.length ? soonShown.map((x) => { const d = new Date(x.at + "T12:00:00"); return `<div class="td-sc" data-tdopen="${esc(x.r.id)}" tabindex="0"><div class="td-sc-d"><b>${d.getDate()}</b><span>${d.toLocaleDateString("en-GB", { month: "short" })}</span></div><span class="td-sc-w">${d.toLocaleDateString("en-GB", { weekday: "long" })}</span><span class="td-sc-who">${esc(nameOf(x.r))}</span><span class="td-sc-t">${esc(x.what)}</span></div>`; }).join("") : `<div class="bd-empty">Nothing in the next two weeks.</div>`;
+      const stageName = (r) => r.client_status === "internal" ? "Internal" : bdStageOf(r) === "paused" ? "Paused" : ((STAGES.find((s) => s.key === stageOf(r)) || {}).label || "");
+      const card = (p) => `<article class="td-card${p.section === "gone" ? " is-quiet" : ""}" data-tdopen="${esc(p.r.id)}" tabindex="0"><div class="td-card-h"><div class="bd-card-t">${esc(nameOf(p.r))}</div><span class="bd-chip is-plain">${esc(stageName(p.r))}</span></div><div class="td-meta">${esc(p.r.business || " ")}</div><ul class="td-tasks">${p.t.map((x) => `<li class="is-${x[0]}">${esc(x[2])}</li>`).join("")}</ul>${p.section === "gone" ? `<div class="td-gq"><button type="button" class="vb-btn" data-tdfollow="${esc(p.r.id)}">Follow up</button><button type="button" class="vb-btn" data-tdlost="${esc(p.r.id)}">Mark lost</button></div>` : ""}<div class="td-card-f"><span>Managed by</span><span class="${p.r.social_media_manager ? "" : "is-none"}">${esc(p.r.social_media_manager ? p.r.social_media_manager.split(" ")[0] : "No one yet")}</span></div></article>`;
+      const sec = (key, title, aside) => { const list = shown.filter((p) => p.section === key); return list.length ? `<section class="td-sec"><div class="bd-strip"><h2 class="bd-h">${title}<span class="bd-n">${list.length}</span></h2><span class="td-aside">${aside}</span></div><div class="td-grid">${list.map(card).join("")}</div></section>` : ""; };
+      const body = sec("pot", "Potential clients", "Enquiry to contract") + sec("act", "Active clients", "Internal last") + sec("gone", "Gone quiet", "No update for 30 days or more: follow up or mark lost");
+      host.innerHTML = `<div class="td-tiles" role="group" aria-label="What there is to do">${tiles}</div>
+        <section class="td-sec"><div class="bd-strip"><h2 class="bd-h">Coming up<span class="bd-n">next two weeks</span></h2>${soonAll.length > 4 ? `<button type="button" class="bd-more" data-tdsoon>${tdSoonAll ? "Show fewer" : `See all ${soonAll.length}`}</button>` : ""}</div><div class="td-soon">${soonHtml}</div></section>
+        ${body || `<div class="bd-empty">Nothing to do${tdKind || bdFilter !== "all" || q || bdMgr ? " for this selection" : ""}.</div>`}`;
+      const tasks = shown.reduce((s, p) => s + p.t.length, 0);
+      const sum = $("bd-sum"); if (sum) sum.textContent = `${shown.length} ${shown.length === 1 ? "person" : "people"}, ${tasks} ${tasks === 1 ? "thing" : "things"} to do`;
+    }
+    (() => {
+      const host = document.getElementById("smm-todo"); if (!host) return;
+      const byId = (id) => all.find((x) => String(x.id) === String(id));
+      host.addEventListener("click", (e) => {
+        const k = e.target.closest("[data-tdk]"); if (k) { const kk = k.getAttribute("data-tdk"); tdKind = tdKind === kk ? "" : kk; renderBoard(); return; }
+        if (e.target.closest("[data-tdsoon]")) { tdSoonAll = !tdSoonAll; renderBoard(); return; }
+        const f = e.target.closest("[data-tdfollow]"); if (f) { const r = byId(f.getAttribute("data-tdfollow")); if (r) { openFile(r.id); setTimeout(() => sfOpen("followup"), 0); } return; }
+        const l = e.target.closest("[data-tdlost]"); if (l) { const r = byId(l.getAttribute("data-tdlost")); if (r) { openFile(r.id); setTimeout(() => openLost(r), 0); } return; }
+        const o = e.target.closest("[data-tdopen]"); if (o) openFile(o.getAttribute("data-tdopen"));
+      });
+      host.addEventListener("keydown", (e) => { const o = e.target.closest("[data-tdopen]"); if (o && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openFile(o.getAttribute("data-tdopen")); } });
+    })();
     // Every client's unpaid invoices, for the Invoice row on the cards.
     let bdInv = {};
     async function loadBdInvoices() {
@@ -1758,10 +1934,25 @@ const mgmtPackages = (management && management.packages) || [];
         if (res.ok && j.byLead) { bdInv = j.byLead; renderBoard(); }
       } catch (_) {}
     }
+    let bdView = "board", bdMgr = "";
+    const bdMgrPass = (r) => !bdMgr || (bdMgr === "-" ? !r.social_media_manager : r.social_media_manager === bdMgr);
+    document.addEventListener("click", (e) => {
+      const v = e.target.closest && e.target.closest("[data-bdv]"); if (!v) return;
+      bdView = v.getAttribute("data-bdv");
+      document.querySelectorAll("[data-bdv]").forEach((b) => b.setAttribute("aria-pressed", String(b === v)));
+      if (bdView === "todo" && !tdData) loadTodoData();
+      renderBoard();
+    });
+    document.addEventListener("change", (e) => { if (e.target && e.target.id === "bd-mgr") { bdMgr = e.target.value; renderBoard(); } });
     function renderBoard() {
       const board = $("smm-board");
-      const base = visible();
+      const base = visible().filter(bdMgrPass);
       drawBdChips(base);
+      const todoEl = $("smm-todo"), lostWrap = $("bd-lost-wrap");
+      if (lostWrap) lostWrap.hidden = bdView === "todo";
+      if (bdView === "todo") { if (all.length) board.hidden = true; if (todoEl) { todoEl.hidden = false; renderTodo(base); } return; }
+      if (todoEl) todoEl.hidden = true;
+      if (all.length) board.hidden = false;
       const rows = bdFilter === "all" ? base : base.filter((r) => bdStageOf(r) === bdFilter);
       // Paused clients have their own section under Active clients (Dani, 5 Nov 2026).
       const stages = [...STAGES.map((s) => ({ key: s.key, label: s.key === "active_client" ? "Active clients" : s.label })), { key: "paused", label: "Paused" }, ...(showLost ? [{ key: "lost", label: "Lost" }] : [])];
@@ -4996,6 +5187,7 @@ const mgmtPackages = (management && management.packages) || [];
       else if (sfPop === "invoice" && sfInvTab === "all") sfOpen("invoice");
       sfRefresh(r);
       loadBdInvoices();
+      if (tdData) loadTodoData();
     }
     async function loadSmmInvoices(r) {
       const wrap = $("siv-list"); if (!wrap) return;

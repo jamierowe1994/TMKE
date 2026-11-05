@@ -12818,6 +12818,40 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const r = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_quantities?on_conflict=recurring_id,month`, { method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ recurring_id: b.recurring_id, month: b.month, qty, entered_by: user.email || null, entered_at: new Date().toISOString() }) });
         return r.ok ? json({ ok: true }, 200, request, env) : json({ error: "Couldn't save it: " + (await r.text()).slice(0, 160) }, 502, request, env);
       }
+      // ---- Admin: what the social media To do view works from (Dani, 5 Nov 2026) ----
+      // One read for everyone instead of a thread per client: the last time
+      // anything happened, content plans, call notes, proposal/contract files,
+      // emails sent (for chases), reports, stage dates and shoots to come.
+      if (path.endsWith("/smm/todo-data") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const [msgs, docs, evs, reps, shoots] = await Promise.all([
+          sbGetAll(env, "booking_messages", "booking_source=eq.smm&select=booking_id,channel,direction,subject,is_automated,created_at&order=created_at.asc"),
+          sbGetAll(env, "booking_documents", "booking_source=eq.smm&select=booking_id,category,title,file_name,created_at&order=created_at.asc"),
+          sbGetAll(env, "smm_stage_events", "select=lead_id,stage,reached_at&order=reached_at.asc"),
+          sbGetAll(env, "smm_reports", "select=lead_id,month,year,published_at").then((x) => x || sbGetAll(env, "smm_reports", "select=lead_id,month,year")),
+          sbGetAll(env, "videography_bookings", `smm_lead_id=not.is.null&shoot_date=gte.${new Date().toISOString().slice(0, 10)}&stage=neq.cancelled&select=smm_lead_id,shoot_date,service`),
+        ]);
+        const out = {};
+        const L = (id) => (out[id] = out[id] || { last: null, plans: [], notes: {}, prep: null, agreement: null, emails: [], reports: {}, reached: {}, shoots: [] });
+        const bump = (o, at) => { if (at && (!o.last || at > o.last)) o.last = at; };
+        for (const m of msgs || []) {
+          const o = L(m.booking_id); bump(o, m.created_at);
+          const sub = String(m.subject || "").toLowerCase();
+          if (m.channel === "note" && /^(discovery|pricing|onboarding) call notes$/.test(sub)) o.notes[sub.split(" ")[0]] = m.created_at;
+          if (m.channel === "email" && m.direction !== "inbound" && !m.is_automated) o.emails.push(m.created_at);
+        }
+        for (const d of docs || []) {
+          const o = L(d.booking_id); bump(o, d.created_at);
+          if (d.category === "content_plan") o.plans.push({ title: d.title || d.file_name || "", at: d.created_at });
+          if (d.category === "prep") o.prep = d.created_at;
+          if (d.category === "agreement") o.agreement = d.created_at;
+        }
+        for (const e of evs || []) { const o = L(e.lead_id); bump(o, e.reached_at); o.reached[e.stage] = e.reached_at; }
+        for (const r of reps || []) { const o = L(r.lead_id); const ym = `${r.year}-${String(Number(r.month) + 1).padStart(2, "0")}`; o.reports[ym] = o.reports[ym] || !!r.published_at; }
+        for (const v of shoots || []) L(v.smm_lead_id).shoots.push({ at: v.shoot_date, service: v.service });
+        return json({ ok: true, byLead: out }, 200, request, env);
+      }
       // ---- Admin: every social media client's unpaid invoices, for the board ----
       // (Dani, 5 Nov 2026): which month, when it's due, overdue or not. No
       // amounts, so it's the client file's view, not the ledger.
