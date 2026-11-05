@@ -1882,8 +1882,8 @@ const mgmtPackages = (management && management.packages) || [];
         if (!(prev in (T.reports || {}))) add("info", "report", `${tdMon(prev)} report missing`);
         else if (!T.reports[prev]) add("info", "report", `${tdMon(prev)} report not published`);
       }
-      if (r.meeting_at) soonAdd(r.meeting_at, `${pre && st === "meeting_set" ? "Discovery call" : st === "pricing_call" || st === "proposal_sent" ? "Pricing call" : st === "onboarding" ? "Onboarding call" : "Call"}, ${new Date(r.meeting_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`);
-      (T.shoots || []).forEach((v) => soonAdd(v.at, `${v.service || "Shoot"}, ${new Date(v.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`));
+      if (callAhead) soonAdd(r.meeting_at, `${pre && st === "meeting_set" ? "Discovery call" : st === "pricing_call" || st === "proposal_sent" ? "Pricing call" : st === "onboarding" ? "Onboarding call" : "Call"}, ${new Date(r.meeting_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`);
+      (T.shoots || []).filter((v) => new Date(v.at) > now).forEach((v) => soonAdd(v.at, `${v.service || "Shoot"}, ${new Date(v.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`));
       if (r.follow_up_on) soonAdd(r.follow_up_on, `Follow-up ${String(r.follow_up_how || "call").toLowerCase()}`);
       if (r.leaving_on) soonAdd(r.leaving_on, "Leaving");
       return { tasks, soon, gq, section: gq ? "gone" : pre ? "pot" : "act" };
