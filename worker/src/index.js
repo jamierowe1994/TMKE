@@ -3396,6 +3396,15 @@ async function logBookingMessage(env, m) {
   } catch (_) {}
 }
 
+// An enquiry summed up as a note on the card (Danielle, 5 Nov 2026): how it
+// came in, when, who from and what they said, so the file holds the whole
+// story and not just the banner.
+function smmEnquiryNote({ route, name, email, phone, business, message, extra }) {
+  const when = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" });
+  const who = [name, email, phone, business].filter(Boolean).join(", ");
+  return `Enquiry received ${when}, through ${route}.\nFrom: ${who || "no details given"}.${extra ? "\n" + extra : ""}${message ? `\nThey said: "${String(message).trim()}"` : ""}`;
+}
+
 // Create or merge an SMM lead by email — so repeat actions from the same person
 // (brochure, enquiry, discovery call…) land on ONE card showing the most recent
 // action, instead of spawning a duplicate each time. Returns { id, existed }.
@@ -9160,7 +9169,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           return json({ error: "We couldn't save your message just then - please try again, or email hello@tmke.co.uk." }, 502, request, env);
         }
         const smmEnquiryId = up.id;
-        await logBookingMessage(env, { booking_id: smmEnquiryId, booking_source: "smm", account_user_id: accountUserId, client_email: email, channel: "note", kind: "note", body: `Submitted a general enquiry${message ? `: ${message}` : "."}` });
+        await logBookingMessage(env, { booking_id: smmEnquiryId, booking_source: "smm", account_user_id: accountUserId, client_email: email, channel: "note", kind: "note", subject: "Enquiry received", body: smmEnquiryNote({ route: "the website enquiry form", name: fullName, email, phone, business, message }) });
 
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -9301,8 +9310,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await logBookingMessage(env, {
           booking_id: up.id, booking_source: "smm", account_user_id: accountUserId, client_email: email,
-          channel: "note", kind: "note",
-          body: `Joined the Social Media Management waitlist via ${SOURCE_LABEL[source]}.${message ? ` They said: ${message}` : ""}`,
+          channel: "note", kind: "note", subject: "Enquiry received",
+          body: smmEnquiryNote({ route: `the waitlist, via ${SOURCE_LABEL[source]}`, name: fullName, email, phone, business, message }),
         });
 
         // To them.
@@ -9422,7 +9431,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           return json({ error: "We couldn't process that just then - please try again, or email hello@tmke.co.uk." }, 502, request, env);
         }
         const smmBrochureId = up.id;
-        await logBookingMessage(env, { booking_id: smmBrochureId, booking_source: "smm", account_user_id: accountUserId, client_email: email, channel: "note", kind: "note", body: "Downloaded the social media brochure." });
+        await logBookingMessage(env, { booking_id: smmBrochureId, booking_source: "smm", account_user_id: accountUserId, client_email: email, channel: "note", kind: "note", subject: "Enquiry received", body: smmEnquiryNote({ route: "a brochure download", name: full_name, email }) });
 
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         // The Worker's own download route (see GET /smm/brochure.pdf above), so
@@ -9591,6 +9600,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           kind: "confirmation", subject: `Your call is booked - ${dateNice}`,
           body: `Your social media discovery call is booked for ${dateNice} at ${start}. It's an online/phone call - no prep needed, just bring your questions.`,
         });
+        await logBookingMessage(env, { booking_id: smmDiscoveryId, booking_source: "smm", account_user_id: accountUserId, client_email: email, channel: "note", kind: "note", subject: "Enquiry received", body: smmEnquiryNote({ route: "a discovery call booking on the website", name: fullName, email, phone, business, extra: `Discovery call booked for ${dateNice} at ${start}.` }) });
         await sendEmail(env, {
           to: smmNewBusiness(env) || env.JACK_NOTIFY, subject: `New discovery call - Social Media - ${fullName} - ${dateNice} ${start}`,
           html: `<div style="${EM_WRAP}">
@@ -13516,15 +13526,24 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const last = String((b && b.last_name) || "").trim();
         const full = (String((b && b.full_name) || "").trim()) || `${first} ${last}`.trim();
         if (!full && !email) return json({ error: "Add a name or email." }, 400, request, env);
-        const stage = ["inquiry", "meeting_set", "proposal_sent", "contract_signed", "active_client"].includes(b && b.pipeline_stage) ? b.pipeline_stage : "inquiry";
+        const stage = ["waitlist", "inquiry", "meeting_set", "proposal_sent", "pricing_call", "contract_signed", "onboarding", "active_client"].includes(b && b.pipeline_stage) ? b.pipeline_stage : "inquiry";
         const ins = await sbPost(env, "smm_leads", {
           kind: "manual", tag: "Manual", stage: "manual", pipeline_stage: stage,
           first_name: first || null, last_name: last || null, full_name: full || email,
           email: email || null, phone: (b && b.phone) || null, business: (b && b.business) || null,
           client_status: stage === "active_client" ? "active" : null,
+          // How they came in and what they said (supabase/smm_stages_and_follow_ups.sql).
+          source: String((b && b.source) || "").trim() || null, source_detail: String((b && b.source_detail) || "").trim() || null,
+          message: String((b && b.message) || "").trim() || null,
         }, "return=representation");
         if (!ins.ok) { const detail = await ins.text().catch(() => ""); console.error("smm manual lead insert failed", ins.status, detail); return json({ error: "Couldn't save the lead." }, 502, request, env); }
         let row = null; try { const arr = await ins.json(); row = Array.isArray(arr) && arr[0] ? arr[0] : null; } catch (_) {}
+        if (row && row.id) {
+          const by = String(user.email || "").split("@")[0].split(/[._]/)[0].replace(/^./, (m) => m.toUpperCase());
+          const how = [b.source, b.source_detail].filter((x) => String(x || "").trim()).join(": ");
+          await logBookingMessage(env, { booking_id: row.id, booking_source: "smm", client_email: email || null, channel: "note", kind: "note", subject: "Enquiry received", created_by: user.email || "system",
+            body: smmEnquiryNote({ route: how ? `${how.charAt(0).toLowerCase()}${how.slice(1)}, added by hand by ${by}` : `a card added by hand by ${by}`, name: full, email, phone: b.phone, business: b.business, message: b.message }) });
+        }
         return json({ ok: true, lead: row }, 200, request, env);
       }
 

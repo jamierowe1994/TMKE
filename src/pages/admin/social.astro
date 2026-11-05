@@ -1708,7 +1708,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     const sfMon = (ym) => { const [y, m] = String(ym).split("-").map(Number); return RI_MONTHS[m - 1].slice(0, 3); };
     // How they came in: the website routes from the card's kind, or what was
     // recorded for someone added by hand (supabase/smm_follow_ups.sql).
-    const SF_SOURCES = ["Website enquiry", "Brochure download", "Discovery call booking", "Waitlist", "Referral", "Phone call", "Event", "Existing client", "Other"];
+    const SF_SOURCES = ["Website enquiry", "Email enquiry", "Brochure download", "Discovery call booking", "Waitlist", "Referral", "Phone call", "Event", "Existing client", "Internal", "Other"];
     const sfSource = (r) => { const k = r.source || ({ enquiry: "Website enquiry", brochure: "Brochure download", discovery: "Discovery call booking" }[r.kind] || (r.pipeline_stage === "waitlist" ? "Waitlist" : "")); return [k, r.source_detail].filter(Boolean).join(": "); };
     // Call notes are pinned notes headed "Discovery call notes" or "Pricing call
     // notes", one "Label: value" a line, so the file can read them back.
@@ -2061,7 +2061,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         rows = two("Outstanding", dueCards, "On file", doneCards);
       } else if (sfTab === "comm") {
         acts = r.email ? sfAct("write", "Write") : "";
-        const list = F.msgs.filter((m) => m.channel === "email" || m.channel === "hub" || m.channel === "system").sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const list = F.msgs.filter((m) => (m.channel === "email" || m.channel === "hub" || m.channel === "system") && m.kind !== "meeting").sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         const inbound = (m) => m.channel === "hub" || m.direction === "inbound";
         const cc = (m) => card(`data-sf-card="msg" data-id="${esc(m.id)}"`, `<span class="sf-c-chips">${sfChip(m.channel === "hub" ? "info" : "plain", m.channel === "hub" ? "Member Hub" : m.channel === "system" ? "Notice" : "Email")}${isUnread(m) ? sfChip("wait", "New") : ""}</span><span class="sf-c-who">${esc(sfShort(m.created_at))}</span>`,
           `<p class="sf-c-sub">${esc(m.subject || String(m.body || "").split("\n")[0] || "Message")}</p><p class="sf-c-p sf-c-2">${esc(m.body || "")}</p>`,
@@ -2070,8 +2070,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         rows = two(`Received from ${first}`, loading ? none("Loading…") : ins.map(cc).join("") || none("Nothing from them yet."), `Sent to ${first}`, loading ? none("Loading…") : outs.map(cc).join("") || none("Nothing sent yet."));
       } else if (sfTab === "notes") {
         acts = sfAct("activity", "Client activity");
-        const notes = F.msgs.filter((m) => m.channel === "note").sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        const nc = (m) => card(`data-sf-card="note" data-id="${esc(m.id)}"`, `<h4>${esc(sfShort(m.created_at))}</h4><span class="sf-c-who">${m.is_pinned ? "Pinned · " : ""}${esc(m.created_by && m.created_by !== "system" ? sfStaff(m.created_by) : "")}</span>`, `<p class="sf-c-p sf-c-note">${esc(m.body || "")}</p>`, "", m.is_pinned ? " is-pin" : "");
+        const notes = F.msgs.filter((m) => m.channel === "note" || m.kind === "meeting").sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const nc = (m) => card(`data-sf-card="note" data-id="${esc(m.id)}"`, `<h4>${esc(sfShort(m.created_at))}</h4><span class="sf-c-who">${m.is_pinned ? "Pinned · " : ""}${esc(m.created_by && m.created_by !== "system" ? sfStaff(m.created_by) : "")}</span>`, `${m.subject ? `<p class="sf-c-sub">${esc(m.subject)}</p>` : ""}<p class="sf-c-p sf-c-note">${esc(m.body || "")}</p>`, "", m.is_pinned ? " is-pin" : "");
         const add = card('data-sf="note-add"', `<h4>Add a note</h4>`, `<p class="sf-c-p">What happened, what was agreed. Pin it and it stays up here for everyone working on ${first}.</p>`, `<span></span>${sfHb(true, 'data-sf="note-add"', "Add a note")}`, " is-todo");
         rows = two("Add and pinned", add + (loading ? "" : notes.filter((m) => m.is_pinned).map(nc).join("")), "All notes", loading ? none("Loading…") : notes.filter((m) => !m.is_pinned).map(nc).join("") || none("No other notes."));
       } else {
@@ -2143,9 +2143,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         const plats = Array.isArray(r.platforms) ? r.platforms : [];
         sfShell(eye("Client"), "Edit this client", "", "",
           sfSec("Contact", sfPF("Contact name", sfIn("sfe-name", name === "—" ? "" : name)) + sfPF("Business", sfIn("sfe-business", r.business)) + sfPF("Email", sfIn("sfe-email", r.email, "email")) + sfPF("Phone", sfIn("sfe-phone", r.phone, "tel")))
+          + sfSec("How they came in", sfPF("How", `<select class="sf-in" id="sfe-src"><option value="">Choose…</option>${SF_SOURCES.map((o) => `<option${(r.source || sfSource(r).split(":")[0]) === o ? " selected" : ""}>${o}</option>`).join("")}</select>`) + sfPF("Who or where", sfIn("sfe-srcwho", r.source_detail, "text", "e.g. Sarah Lyle at Lyle & Co"), "For a referral, who sent them; for an event, which one.") + sfPF("What they said", `<textarea class="sf-in" id="sfe-msg" rows="3" placeholder="What they asked for, in their words">${esc(r.message || "")}</textarea>`, "Filled in by itself for website enquiries."))
           + sfSec("Package", sfPF("Package", `<select class="sf-in" id="sfe-pkg">${packageOptions(r.package_name)}</select>`, "The tier and what's included are under View › Package.") + sfPF("Monthly fee", sfIn("sfe-price", r.price, "text", "e.g. £650 a month"), "What we agreed. The invoice amount itself is in Invoicing › Monthly invoice.") + sfPF("Onboarding fee", sfIn("sfe-obfee", (r.package_details || {}).onboarding_fee, "number", "0.00"), "Before VAT. Invoiced when the signed contract is back.") + sfPF("Hours a month", sfIn("sfe-hours", r.contracted_hours_per_month, "number", "e.g. 6"))
             + sfPF("Platforms we manage", `<span class="sf-plat">${SF_PLATS.map((p) => `<label><input type="checkbox" data-sfe-plat="${p}"${plats.includes(p) ? " checked" : ""}> ${sfIcon(p)} ${p}</label>`).join("")}</span>`))
-          + sfSec("How they came in", sfPF("How", `<select class="sf-in" id="sfe-src"><option value="">Choose…</option>${SF_SOURCES.map((o) => `<option${(r.source || sfSource(r).split(":")[0]) === o ? " selected" : ""}>${o}</option>`).join("")}</select>`) + sfPF("Who or where", sfIn("sfe-srcwho", r.source_detail, "text", "e.g. Sarah Lyle at Lyle & Co"), "For a referral, who sent them; for an event, which one."))
           + sfSec("Working with us", sfPF("Managed by", sfIn("sfe-mgr", r.social_media_manager, "text", "Who runs this account")) + sfPF("Started", sfIn("sfe-start", r.start_date, "date")) + sfPF("Inter-brand", sfTog("sfe-ibi", !!r.inter_brand_invoice), "Yes when another of our brands pays for this client.")
             + sfPF("Brand that pays", `<select class="sf-in" id="sfe-brand"><option value="">Choose…</option>${SF_BRANDS.map((b) => `<option value="${b.key}"${r.billed_brand === b.key ? " selected" : ""}>${esc(b.label)}</option>`).join("")}</select>`, `Inter-brand only. The invoice goes to Paula at TEG accounts, copied to accounts payable, Rosie-Anne and ${sfFirst(r)}.`)),
           `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-client"', "Save")}`, { edit: true });
@@ -2330,6 +2330,31 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       if (!error) Object.assign(r, patch);
       return error;
     }
+    /* A note at each key step (Danielle, 5 Nov 2026): when the stage moves,
+       a call is booked, they're paused or a follow-up is set, it's written
+       into Notes, so the file is a full record and not only the banner. */
+    async function sfAutoNote(r, subject, body) {
+      if (!r || !body) return;
+      if (isDemo(r)) { if (r._thread) r._thread.messages.push({ id: "n" + Date.now(), channel: "note", subject, body, created_by: ME, created_at: new Date().toISOString() }); return; }
+      if (!WORKER) return;
+      try { const token = await authToken(); await fetch(`${WORKER}/booking/message`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, source: "smm", subject, body }) }); } catch (_) {}
+    }
+    function sfStageNote(r, stage) {
+      const day = (iso) => sfDay(iso);
+      const now = new Date().toISOString();
+      const call = r.meeting_at && new Date(r.meeting_at) > new Date() ? ` Call booked for ${sfWhen(r.meeting_at)}.` : "";
+      switch (stage) {
+        case "inquiry": return "Back at Enquiry.";
+        case "meeting_set": return `Moved to Discovery call.${call}`;
+        case "proposal_sent": return `Proposal sent. Chase on ${day(sfAddDays(now, 3))}, then ${day(sfAddDays(now, 5))} if there's no reply.`;
+        case "pricing_call": return `Moved to Pricing call.${call}`;
+        case "contract_signed": return `Contract sent. Chase on ${day(sfAddDays(now, 3))}, then ${day(sfAddDays(now, 5))} if it isn't signed.`;
+        case "onboarding": return "Signed contract back. Onboarding started: invoice the onboarding fee and set up the monthly invoice.";
+        case "active_client": return `Made a client active.${r.price ? ` Monthly fee ${r.price}.` : ""}${r.start_date ? ` Started ${sfDayYear(r.start_date)}.` : ""}`;
+        case "lost": return `Marked lost${r.lost_reason ? `: ${r.lost_reason}` : ""}.`;
+        default: return "";
+      }
+    }
     async function sfSaveClient(r, btn) {
       const v = (id) => ($(id)?.value || "").trim();
       const full = v("sfe-name"), parts = full.split(/\s+/);
@@ -2344,6 +2369,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       };
       // These three come with supabase/smm_stages_and_follow_ups.sql.
       const extra = { source: v("sfe-src") || null, source_detail: v("sfe-srcwho") || null, billed_brand: v("sfe-brand") || null };
+      patch.message = ($("sfe-msg")?.value || "").trim() || null;
       if (patch.inter_brand_invoice && !extra.billed_brand) { sfMsg("Choose the brand that pays: the invoice can't go out without it.", true); $("sfe-brand")?.focus(); return; }
       btn.disabled = true; sfMsg("Saving…");
       let error = await sfUpdate(r, Object.assign({}, patch, extra));
@@ -2462,7 +2488,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       btn.disabled = true; sfMsg("Saving…");
       const error = await sfUpdate(r, patch);
       if (error) { btn.disabled = false; sfMsg(/follow_up/i.test(error.message || "") ? "Run supabase/smm_stages_and_follow_ups.sql first." : "Couldn't save: " + error.message, true); return; }
-      renderBoard(); sfClosePop(); sfDraw(r);
+      const paused = r.client_status === "paused" && stageOf(r) === "active_client";
+      await sfAutoNote(r, clear ? (paused ? "Check-in cleared" : "Follow-up cleared") : (paused ? "Check-in booked" : "Follow-up booked"),
+        clear ? `The ${paused ? "check-in" : "follow-up"} date was cleared.` : `${paused ? "Check-in" : "Follow-up"} on ${sfDayYear(patch.follow_up_on)}: ${(patch.follow_up_how || "call").toLowerCase()}${patch.follow_up_by ? ", by " + patch.follow_up_by : ""}.${patch.follow_up_note ? " " + patch.follow_up_note : ""}${toLost ? " Moved to Lost until then, as Not the right time." : ""}`);
+      renderBoard(); sfClosePop(); loadThread(r);
     }
     async function sfSaveCallNotes(r, kind, btn) {
       const v = (id) => ($(id)?.value || "").replace(/\s*\n\s*/g, " ").trim();
@@ -3266,6 +3295,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     }
     async function setStage(r, stage) {
       const wasActive = r.pipeline_stage === "active_client";
+      if (stage !== r.pipeline_stage) sfAutoNote(r, `Stage: ${stage === "lost" ? "Lost" : sfStageLabel(stage)}`, sfStageNote(r, stage)).then(() => { if (current === r) loadThread(r); });
       r.pipeline_stage = stage;
       if (stage === "lost" && wasActive) { r.client_status = "ended"; r.lost_from_stage = "active_client"; }
       if (!isDemo(r)) { try { await supabase.from("smm_leads").update({ pipeline_stage: stage }).eq("id", r.id); } catch (_) {} }
@@ -3282,6 +3312,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       // An active client ending is a client lost: ask why first.
       if (status === "ended" && r.client_status !== "ended" && !openLost.confirmed) { openLost(r, "ended"); return; }
       openLost.confirmed = false;
+      if (status !== (r.client_status || "active")) sfAutoNote(r, "Client status", { active: "Made active again: invoicing, reports and chasing back on.", paused: "Paused: no monthly invoice, no chasing and no missing-report flags until they're active again.", internal: "Set as internal: run as a client, never invoiced." }[status] || `Status: ${status}`);
       r.client_status = status;
       await pushClientStatus(r, status);
       renderBoard(); openFile(r.id);
@@ -3335,6 +3366,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             if (error) { const st = $("smm-lost-status"); st.hidden = false; st.textContent = "Couldn't save the date. The leaving-date SQL may not have been run yet."; return; }
           }
           r.leaving_on = on; r.leaving_as = ended ? "ended" : "lost";
+          sfAutoNote(r, ended ? "Leaving" : "Lost", `${ended ? "Leaving" : "Lost"} on ${sfDayYear(on)}. Why: ${reason}.`);
           closeModal(); renderBoard(); openFile(r.id);
           return;
         }
@@ -4955,7 +4987,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               <div class="smm-modal-field"><label>Email</label><input type="text" id="smm-nl-email"></div>
               <div class="smm-modal-field"><label>Phone</label><input type="text" id="smm-nl-phone"></div>
             </div>
-            <div class="smm-modal-field"><label>Stage</label><select id="smm-nl-stage">${STAGES.map((s) => `<option value="${s.key}">${s.label}</option>`).join("")}</select></div>
+            <div class="smm-modal-two">
+              <div class="smm-modal-field"><label>How they came in</label><select id="smm-nl-src"><option value="">Choose…</option>${SF_SOURCES.map((o) => `<option>${o}</option>`).join("")}</select></div>
+              <div class="smm-modal-field"><label>Who or where</label><input type="text" id="smm-nl-srcwho" placeholder="e.g. Sarah Lyle at Lyle & Co"></div>
+            </div>
+            <div class="smm-modal-field"><label>What they said</label><textarea id="smm-nl-msg" rows="3" placeholder="What they asked for, in their words"></textarea></div>
+            <div class="smm-modal-field"><label>Stage</label><select id="smm-nl-stage">${STAGES.map((s) => `<option value="${s.key}"${s.key === "inquiry" ? " selected" : ""}>${s.label}</option>`).join("")}</select></div>
             <p class="smm-modal-status" id="smm-nl-status" hidden></p>
             <div class="smm-modal-actions">
               <button type="button" class="smm-btn" data-mcancel>Cancel</button>
@@ -4978,6 +5015,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         first_name: first || null, last_name: last || null, full_name: full || email,
         business: $("smm-nl-biz").value.trim() || null, email: email || null, phone: $("smm-nl-phone").value.trim() || null,
         pipeline_stage: $("smm-nl-stage").value, kind: "manual", created_at: new Date().toISOString(),
+        source: $("smm-nl-src").value || null, source_detail: $("smm-nl-srcwho").value.trim() || null, message: $("smm-nl-msg").value.trim() || null,
         client_status: $("smm-nl-stage").value === "active_client" ? "active" : null,
       };
       const btn = $("smm-nl-add"); btn.disabled = true; btn.textContent = "Adding…";
