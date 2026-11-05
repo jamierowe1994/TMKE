@@ -1985,8 +1985,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         .select('*')
         .eq('status', 'active')
         .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: false })
-        .limit(9);
+        .order('created_at', { ascending: false });
+      /* No limit here: the packs not for sale are taken out below, and a
+         member sees their free and brand packs as well as the shop's. With
+         .limit(9) the nine a member got first were all print and brand
+         packs, so nothing was left for sale and The Edit was blank for every
+         signed-in member (5 Nov). The eight for sale are taken after. */
       // Not for sale: the demo (free with every account), and anything given
       // rather than bought — a print pack drawn for a TEG brand is visible to
       // that brand's agents, and a shop tile at £0 is not what it is.
@@ -2001,11 +2005,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if (packs.length === 0 && import.meta.env.DEV) packs = SAMPLE_PACKS;
 
       if (error && !import.meta.env.DEV) {
+        document.body.classList.remove('stk-on');
         empty.hidden = false;
         empty.innerHTML = `<p>Could not load the catalogue right now — please try again shortly.</p>`;
         return;
       }
-      if (packs.length === 0) { empty.hidden = false; return; }
+      if (packs.length === 0) {
+        // The stacked layout hides the catalogue, and this message with it.
+        document.body.classList.remove('stk-on');
+        empty.hidden = false;
+        return;
+      }
 
       packsById = new Map(packs.map((p) => [p.id, p]));
 
