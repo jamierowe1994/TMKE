@@ -1926,7 +1926,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const canBack = !F.lost && F.st !== "active_client" && STAGE_INDEX[F.st] > STAGE_INDEX.inquiry;
       const canCancel = !F.lost && r.meeting_at && new Date(r.meeting_at) > new Date() && ["inquiry", "meeting_set", "pricing_call"].includes(F.st);
       const links = lead || canBack ? `<span class="sf-call-links">${canCancel ? sfAct("cancel-call", "Cancel the call") : ""}${canBack ? sfAct("back-stage", "Go back a stage") : ""}${lead ? sfAct("followup", r.follow_up_on ? "Move the follow-up" : "Schedule a follow-up") : ""}</span>` : "";
-      const box = (h, items, acts, cls) => `<div class="sf-call${cls ? " " + cls : ""}"><div><h4>${h}</h4>${items.length ? `<ul>${items.join("")}</ul>` : ""}</div>${acts || links ? `<div class="sf-call-side">${links}${acts ? `<div class="sf-call-acts">${acts}</div>` : ""}</div>` : ""}</div>`;
+      // A Teams call booked without its link yet (Danielle, 5 Nov 2026).
+      const teamsTodo = !F.lost && r.meeting_how === "teams" && !r.meeting_link && r.meeting_at && new Date(r.meeting_at) > new Date();
+      const box = (h, items, acts, cls) => { if (teamsTodo) { items = items.concat(li(0, "Teams link: not added yet")); acts = sfHb(true, 'data-sf="teams-link"', "Add the Teams link") + String(acts || "").replace(/sf-hb sf-hb--primary/g, "sf-hb"); } return box0(h, items, acts, cls); };
+      const box0 = (h, items, acts, cls) => `<div class="sf-call${cls ? " " + cls : ""}"><div><h4>${h}</h4>${items.length ? `<ul>${items.join("")}</ul>` : ""}</div>${acts || links ? `<div class="sf-call-side">${links}${acts ? `<div class="sf-call-acts">${acts}</div>` : ""}</div>` : ""}</div>`;
       const reason = r.lost_reason ? esc(r.lost_reason) : "";
       const fu = r.follow_up_on ? li(sfDate(r.follow_up_on) < new Date() ? 0 : 1, `Follow-up: ${esc((r.follow_up_how || "call").toLowerCase())}, ${esc(sfDayYear(r.follow_up_on))}${r.follow_up_by ? ", " + esc(r.follow_up_by) : ""}`) : "";
       const lateH = (h) => F.late ? `Update needed: ${F.quiet} days since anything` : h;
@@ -2237,6 +2240,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             sfEditing ? `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, `data-sf="note" data-id="${esc(m.id)}"`, "Cancel")}${sfFootBtn(true, `data-sf="save-note-edit" data-id="${esc(m.id)}"`, "Save")}`
               : `${sfFootBtn(false, `data-sf="pin" data-id="${esc(m.id)}" data-on="${m.is_pinned ? 0 : 1}"`, m.is_pinned ? "Unpin" : "Pin to the top")}${mine ? sfFootBtn(false, `data-sf="del-note" data-id="${esc(m.id)}"`, "Delete") : ""}<span class="sf-say"></span>${sfFootBtn(false, "data-sf-close", "Close")}${mine ? sfFootBtn(true, `data-sf="edit-note" data-id="${esc(m.id)}"`, "Edit") : ""}`, { narrow: true, edit: sfEditing });
         }
+      } else if (key === "teams-link") {
+        sfShell(eye("Meeting"), "Add the Teams link", "", "",
+          sfSec("The link", sfPF("Teams link", sfIn("sft-link", "", "url", "https://teams.microsoft.com/…"), "In Teams: Calendar, then Meet now, then Get a link to share. Or make a new meeting there and copy its joining link."))
+          + `<p class="sf-say sf-note">The invite is updated for everyone on it, so the client and their manager get the link in an Outlook update.</p>`,
+          `<span class="sf-say" id="sf-save-msg"></span>${sfFootBtn(false, "data-sf-close", "Cancel")}${sfFootBtn(true, 'data-sf="save-teams-link"', "Add it to the invite")}`, { narrow: true, edit: true });
+        setTimeout(() => $("sft-link")?.focus(), 0);
       } else if (key === "followup") {
         // "Interested, just not yet", a lost lead coming back in the spring, or a
         // paused client's check-in (Dani, 5 Nov).
@@ -2636,6 +2645,21 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         case "save-callnotes": sfSaveCallNotes(r, id, a); return;
         case "save-proposal": sfSaveProposal(r, a); return;
         case "book-call": sfClosePop(); openMeeting(r); return;
+        case "save-teams-link": {
+          const url = ($("sft-link")?.value || "").trim();
+          if (!url) { sfMsg("Paste the Teams link first.", true); return; }
+          a.disabled = true; sfMsg("Updating the invite…");
+          (async () => {
+            try {
+              const token = await authToken();
+              const res = await fetch(`${WORKER}/smm/meeting/link`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, url }) });
+              const j = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(j.error || "Couldn't update the invite.");
+              r.meeting_link = url; sfClosePop(); loadThread(r); sfDraw(r);
+            } catch (e) { a.disabled = false; sfMsg(e.message, true); }
+          })();
+          return;
+        }
         case "edit-note": sfEditing = true; sfOpen("note", id); return;
         case "pin": sfClosePop(); pinNote(r, id, a.getAttribute("data-on") === "1"); return;
         case "del-note": sfClosePop(); delNote(r, id); return;
@@ -3628,7 +3652,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               <div class="smm-modal-field"><label>How</label><select id="smm-mt-mode"><option value="teams" selected>Teams call</option><option value="phone">Phone call</option><option value="in_person">In person</option></select></div>
               <div class="smm-modal-field"><label>Where (in person)</label><input type="text" id="smm-mt-where" placeholder="e.g. Their office, Harrogate"></div>
             </div>
-            <label class="smm-check"><input type="checkbox" id="smm-mt-invite" checked> Send an Outlook invite to the client (from danielle@tmke.co.uk, with hello@ copied in)</label>
+            <p class="smm-modal-sub" id="smm-mt-teamsnote" style="margin:0 0 10px;padding:10px 12px;background:#eae5e1;border-radius:4px;color:#2b2226">The Teams link needs sending separately: hello@ can't make one. The invite says the link will follow. Once it's booked, make a link in your own Teams and add it with <b>Add the Teams link</b> on the client's file, and the invite is updated for everyone.</p>
+            <label class="smm-check"><input type="checkbox" id="smm-mt-invite" checked> Send an Outlook invite to the client, from hello@tmke.co.uk</label>
             <p class="smm-modal-status" id="smm-mt-status" hidden></p>
             <div class="smm-modal-actions">
               <button type="button" class="smm-btn" data-mcancel>Cancel</button>
@@ -3640,6 +3665,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
       $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
       $("smm-mt-save").addEventListener("click", () => saveMeeting(r));
+      const tn = () => { const n = $("smm-mt-teamsnote"); if (n) n.hidden = ($("smm-mt-mode")?.value || "teams") !== "teams"; };
+      $("smm-mt-mode")?.addEventListener("change", tn); tn();
     }
     async function saveMeeting(r) {
       const date = $("smm-mt-date").value, start = $("smm-mt-time").value;
@@ -3667,6 +3694,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         if (toPricing) { try { await supabase.from("smm_leads").update({ pipeline_stage: "pricing_call" }).eq("id", r.id); } catch (_) {} }
       }
       if (toPricing) r.pipeline_stage = "pricing_call";
+      r.meeting_how = mode; r.meeting_link = null;
       closeModal(); renderBoard(); openFile(r.id);
     }
 

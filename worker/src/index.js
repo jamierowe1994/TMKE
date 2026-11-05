@@ -13501,7 +13501,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             pricing: `Thanks for taking the time to read through our proposal. Over ${mins} minutes, we'll talk you through the package, the price and the onboarding fee, and answer any questions you have. We'll also talk about when you'd like to start.`,
             meeting: `We're looking forward to speaking with you. We've set aside ${mins} minutes, and if there's anything you'd like us to cover, reply to this invite and let us know.`,
           }[callKind];
-          const meet = how === "teams" ? "We'll meet on Microsoft Teams. You'll find the joining details in this invite, but if you have any trouble accessing them, just let us know."
+          const meet = how === "teams" ? (autoTeams ? "We'll meet on Microsoft Teams. You'll find the joining details in this invite, but if you have any trouble accessing them, just let us know." : `<span data-teams-line>We'll meet on Microsoft Teams. We'll update this invite with your joining link before the call.</span>`)
             : how === "phone" ? (lead.phone ? `We'll call you on ${e(lead.phone)}.` : "We'll give you a call at the time booked.")
             : `We'll see you at ${e(where || "the place we agreed")}.`;
           return [`Hi ${e(lead.first_name || "there")},`, what, meet, "If you need to rearrange, simply reply to this invite or email us at hello@tmke.co.uk.", "Speak soon,", "The Team at The Marketing Experts"].map((x) => `<p>${x}</p>`).join("");
@@ -13520,6 +13520,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         // guest so its calendar still has every call.
         const cal = env.SMM_MEETING_UPN || env.SMM_MANAGER_UPN;
         const hello = env.SMM_MANAGER_UPN;
+        // hello@ can't make Teams links (no licence), so the link is added later
+        // from the file and the invite updated (Danielle, 5 Nov 2026).
+        const autoTeams = !!env.SMM_MEETING_UPN;
         const dur = parseInt(b.duration || "30", 10);
         const endHm = minToHm(hmToMin(start) + dur);
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
@@ -13548,7 +13551,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
                   return [{ emailAddress: { address: addr, name }, type: "required" }];
                 })(),
               ],
-              ...(how === "teams" ? { isOnlineMeeting: true, onlineMeetingProvider: "teamsForBusiness" }
+              ...(how === "teams" ? (autoTeams ? { isOnlineMeeting: true, onlineMeetingProvider: "teamsForBusiness" } : { isOnlineMeeting: false, location: { displayName: "Microsoft Teams (link to follow)" } })
                 : { isOnlineMeeting: false, location: { displayName: how === "phone" ? `Phone call${lead.phone ? ": we'll call " + lead.phone : ""}` : (where || "In person") } }),
             };
             let made;
@@ -13572,12 +13575,20 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
                 made = await graph(env, "POST", `/users/${encodeURIComponent(cal)}/events`, plain);
               }
             }
-            // Kept, so the next move or cancel finds this meeting.
-            if (made && made.id) { try { await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`, { method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({ ms_event_id: made.id }) }); } catch (_) {} }
+            // Kept, so the next move or cancel finds this meeting, and the file
+            // knows a Teams link still needs adding (supabase/smm_meeting_link.sql).
+            if (made && made.id) {
+              const hdrs = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" };
+              const url = `${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(leadId)}`;
+              try {
+                const r1 = await fetch(url, { method: "PATCH", headers: hdrs, body: JSON.stringify({ ms_event_id: made.id, meeting_how: how, meeting_link: (made.onlineMeeting && made.onlineMeeting.joinUrl) || null }) });
+                if (!r1.ok) await fetch(url, { method: "PATCH", headers: hdrs, body: JSON.stringify({ ms_event_id: made.id }) });
+              } catch (_) {}
+            }
             joinUrl = (made && made.onlineMeeting && made.onlineMeeting.joinUrl) || "";
             // No link and no error: Microsoft quietly made a plain meeting. Ask the
             // calendar what it can host, so the note can say why.
-            if (how === "teams" && !joinUrl && !teamsFailed) {
+            if (how === "teams" && autoTeams && !joinUrl && !teamsFailed) {
               teamsFailed = true;
               try { const c = await graph(env, "GET", `/users/${encodeURIComponent(cal)}/calendar?$select=allowedOnlineMeetingProviders,defaultOnlineMeetingProvider`); teamsWhy = (c && Array.isArray(c.allowedOnlineMeetingProviders) && !c.allowedOnlineMeetingProviders.includes("teamsForBusiness")) ? ` ${cal} isn't set up for Teams meetings (it allows: ${c.allowedOnlineMeetingProviders.join(", ") || "none"}).` : ` Microsoft didn't say why; ${cal} may not have a Teams licence.`; } catch (_) { teamsWhy = ` Microsoft didn't say why; ${cal} may not have a Teams licence.`; }
             }
@@ -13589,9 +13600,42 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         await logBookingMessage(env, {
           booking_id: leadId, booking_source: "smm", account_user_id: lead.account_user_id, client_email: lead.email,
           kind: "meeting", subject: moving ? "Meeting moved" : "Meeting booked", is_automated: false, created_by: user.email || "admin",
-          body: `${moving ? "Moved: " : ""}${howLabel} ${moving ? "now" : "booked"} for ${dateNice} at ${start}${how === "in_person" && where ? `, at ${where}` : ""}.${invited ? ` Outlook invite sent to the client from ${cal}.` : ""}${joinUrl ? ` Teams link: ${joinUrl}` : ""}${teamsFailed ? ` The Teams link couldn't be made, so the invite went without one.${teamsWhy}` : ""}${lead.email && cal && lead.email.toLowerCase() === cal.toLowerCase() ? ` No invite: the client's email is ${cal}, the calendar the meeting is in.` : ""}`,
+          body: `${moving ? "Moved: " : ""}${howLabel} ${moving ? "now" : "booked"} for ${dateNice} at ${start}${how === "in_person" && where ? `, at ${where}` : ""}.${invited ? ` Outlook invite sent to the client from ${cal}.` : ""}${joinUrl ? ` Teams link: ${joinUrl}` : ""}${teamsFailed ? ` The Teams link couldn't be made, so the invite went without one.${teamsWhy}` : ""}${how === "teams" && !autoTeams && invited ? " Teams link to add: use Add the Teams link on the file, and everyone gets the updated invite." : ""}${lead.email && cal && lead.email.toLowerCase() === cal.toLowerCase() ? ` No invite: the client's email is ${cal}, the calendar the meeting is in.` : ""}`,
         });
         return json({ ok: true, invited, join_url: joinUrl || null, teams_failed: teamsFailed }, 200, request, env);
+      }
+
+      // ---- Admin: add the Teams link to a booked call -------------------------
+      // The manager makes the link in their own Teams and pastes it on the file;
+      // the Outlook meeting is updated, so everyone invited gets it (Danielle,
+      // 5 Nov 2026).
+      if (path.endsWith("/smm/meeting/link") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const link = String(b.url || "").trim();
+        if (!/^https:\/\/[^\s]*teams\.(microsoft|live)\.com\/\S+$/i.test(link)) return json({ error: "That doesn't look like a Teams link. It starts https://teams.microsoft.com/ or https://teams.live.com/." }, 400, request, env);
+        const lead = (await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(String(b.lead_id || ""))}&select=id,email,account_user_id,ms_event_id,meeting_at`))?.[0];
+        if (!lead || !lead.ms_event_id) return json({ error: "There's no booked meeting on this file to update. Book the call first." }, 400, request, env);
+        const boxes = [env.SMM_MEETING_UPN, env.SMM_MANAGER_UPN].filter((x, i, a) => x && a.indexOf(x) === i);
+        const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const joinHtml = `<p>We'll meet on Microsoft Teams. <a href="${esc(link)}">Join the meeting</a>, or use this link: ${esc(link)}</p>`;
+        let done = false, lastErr = "";
+        for (const box of boxes) {
+          try {
+            const ev = await graph(env, "GET", `/users/${encodeURIComponent(box)}/events/${encodeURIComponent(lead.ms_event_id)}?$select=body`);
+            let html = (ev && ev.body && ev.body.content) || "";
+            // Swap the "link to follow" line for the link; otherwise add it at the top.
+            const swapped = html.replace(/We'll meet on Microsoft Teams\. We'll update this invite with your joining link before the call\./, `We'll meet on Microsoft Teams. <a href="${esc(link)}">Join the meeting</a>, or use this link: ${esc(link)}`);
+            html = swapped !== html ? swapped : (/<body[^>]*>/i.test(html) ? html.replace(/<body([^>]*)>/i, `<body$1>${joinHtml}`) : joinHtml + html);
+            await graph(env, "PATCH", `/users/${encodeURIComponent(box)}/events/${encodeURIComponent(lead.ms_event_id)}`, { body: { contentType: "HTML", content: html }, location: { displayName: "Microsoft Teams", locationUri: link } });
+            done = true; break;
+          } catch (e) { lastErr = String((e && e.message) || e).slice(0, 160); }
+        }
+        if (!done) return json({ error: `Couldn't update the invite: ${lastErr || "the meeting wasn't found"}.` }, 502, request, env);
+        try { await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(lead.id)}`, { method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({ meeting_link: link }) }); } catch (_) {}
+        await logBookingMessage(env, { booking_id: lead.id, booking_source: "smm", client_email: lead.email, channel: "note", kind: "note", subject: "Teams link added", created_by: user.email || "admin", body: `Teams link added and the invite updated for everyone: ${link}` });
+        return json({ ok: true }, 200, request, env);
       }
 
       // ---- Admin: cancel a social media client's booked call -------------------
@@ -13613,6 +13657,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           }
         }
         await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(lead.id)}`, { method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({ meeting_at: null, ms_event_id: null }) });
+        try { await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(lead.id)}`, { method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify({ meeting_how: null, meeting_link: null }) }); } catch (_) {}
         return json({ ok: true, cancelled }, 200, request, env);
       }
 

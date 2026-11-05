@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/smm_meeting_link.sql — a booked social media call remembers if it's a Teams call and its link, so the file can ask for the link and add it to everyone's invite (5 Nov)
 
 ## Done
 
