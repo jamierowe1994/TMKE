@@ -1795,6 +1795,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <div class="sf-bacts">
               ${F.signedUp || F.lost ? `<button type="button" class="sf-btn" data-sf="status">Client status</button>` : `<button type="button" class="sf-btn" data-sf="lost">Mark lost</button>`}
               ${r.email ? `<button type="button" class="sf-btn" data-sf="write">Send a message</button>` : ""}
+              ${!F.lost && STAGE_INDEX[F.st] > STAGE_INDEX.inquiry ? `<button type="button" class="sf-btn" data-sf="back-stage">Move back a stage</button>` : ""}
             </div>
           </div>
         </div>`;
@@ -2587,6 +2588,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       if (["write", "book-call", "proposal", "book"].includes(k) && sfNeedsManager(r, () => { const el = document.querySelector(`#smm-file [data-sf="${k}"]`); if (el) el.click(); })) return;
       switch (k) {
         case "back": closeFile(); return;
+        // One step back (Danielle, 5 Nov 2026), for a card moved on too soon.
+        case "back-stage": { const i = STAGE_INDEX[stageOf(r)]; const prev = STAGES[i - 1] && STAGES[i - 1].key !== "waitlist" ? STAGES[i - 1].key : "inquiry"; if (prev && prev !== r.pipeline_stage) setStage(r, prev); return; }
         case "lost": sfClosePop(); openLost(r, r.pipeline_stage === "active_client" ? "ended" : "lost"); return;
         case "cancel-leaving": sfClosePop(); cancelLeaving(r); return;
         case "make-active": sfClosePop(); setClientStatus(r, "active"); return;
