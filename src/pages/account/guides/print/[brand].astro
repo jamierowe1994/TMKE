@@ -80,7 +80,7 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
         const items = templates.filter((t) => t.pack_id === p.id).map((t) => {
           const w = words.get(t.id) || {};
           return { title: (w.title || "").trim() || plainTitle(t.name), summary: w.summary || "", when: w.when_to_use || "",
-                   kind: String(w.kind || "").trim(), sides: sidesOf(t), front: t.thumb_url, back: t.back_thumb_url, size: sizeOf(t.canvas), missing: !words.has(t.id) || !(w.summary || w.when_to_use) };
+                   kind: String(w.kind || "").trim(), sides: sidesOf(t), front: t.thumb_url, back: t.back_thumb_url, size: sizeOf(t.canvas), tall: Number(t.canvas && t.canvas.height) > Number(t.canvas && t.canvas.width) * 1.05, missing: !words.has(t.id) || !(w.summary || w.when_to_use) };
         });
         const sizes = [...new Set(items.map((it) => it.size))];
         const allSides = [...new Set(items.map((it) => it.sides))];
@@ -133,7 +133,7 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
         const items = list.map((it: any) => {
           // Canvassing cards carry no pills of their own: the chapter's say it (Dani, 1 Nov).
           const own = c.key === "canvassing-cards" ? [] : [it.kind, c.size ? "" : it.size, c.sides ? "" : it.sides].filter(Boolean);
-          return `<article class="pm-item">
+          return `<article class="pm-item${it.tall ? " pm-item--tall" : ""}">
             <div class="pm-stage">
               <div class="pm-pics">
                 ${it.back ? `<img class="pm-pic pm-pic--back" src="${esc(it.back)}" alt="" loading="eager" />` : ""}
@@ -313,6 +313,15 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
     .pm-pic--only { margin: 0 auto; }
     .pm-pack--brochures .pm-pic { width: 66%; }
     .pm-pack--brochures .pm-pic--front { margin-top: 7mm; }
+    /* A portrait design (the Client Charter, A4) in a panel made for landscape
+       cards: sized by the panel's height, not its width, and centred, so it
+       stays inside the panel (Dani, 5 Nov). */
+    .pm-pack:not(.pm-pack--brochures) .pm-item--tall .pm-stage { justify-content: center; }
+    .pm-pack:not(.pm-pack--brochures) .pm-item--tall .pm-pics { width: auto; height: 100%; }
+    .pm-pack:not(.pm-pack--brochures) .pm-item--tall .pm-pic { width: auto; height: calc(100% - 4mm); }
+    .pm-pack:not(.pm-pack--brochures) .pm-item--tall .pm-pic--back { right: auto; left: 9mm; }
+    .pm-pack:not(.pm-pack--brochures) .pm-item--tall .pm-pics:has(.pm-pic--back) { margin-right: 9mm; }
+    .pm-pack:not(.pm-pack--brochures) .pm-item--tall .pm-pic--only { height: 100%; margin: 0; }
 
     .pm-label, .pm-item-title { display: block; margin: 0 0 2px; font-family: var(--sans); font-size: 12px; font-weight: 700; line-height: 1.4; letter-spacing: 0.16em; text-transform: uppercase; color: var(--wine); }
     .pm-item-sum { margin: 0; font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink); }
