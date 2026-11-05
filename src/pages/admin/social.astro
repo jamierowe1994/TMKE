@@ -2764,7 +2764,7 @@ const mgmtPackages = (management && management.packages) || [];
         renderInvoicing(r, $("smm-panel-invoices"), r._lastDocs || F.docs, false, r._lastWarn || null)
           .then(() => { if (!$("siv-name")) ["siv-pdf", "siv-create", "siv-send"].forEach((id) => $(id)?.remove()); });
       } else {
-        const rows = sfData.invoices === null ? `<p class="sf-say sf-note">Loading…</p>` : F.invs.length ? `<div class="sf-tbl"><div class="sf-tbl-h"><span>Invoice</span><span>Issued</span><span class="num">Amount</span><span>Status</span><span></span></div>${F.invs.map((v) => `<div class="sf-tbl-r"><span>${esc(v.number || "Draft")}</span><span>${esc(sfDayYear(v.issued_date || v.created_at))}</span><span class="num">${sfGbp(v.total_pence)}</span><span>${sfInvChip(v)}</span><span class="sf-tbl-a"><button type="button" class="sf-act" data-sf="inv-view" data-id="${esc(v.id)}">View</button>${v.status !== "draft" ? `<button type="button" class="sf-act" data-sf="inv-resend" data-id="${esc(v.id)}">Resend</button>` : ""}</span></div>`).join("")}</div><p class="sf-say sf-note">Amounts include VAT. Marking paid, voiding and deleting are on the Invoicing page.</p>` : `<p class="sf-say sf-note">No invoices yet.</p>`;
+        const rows = sfData.invoices === null ? `<p class="sf-say sf-note">Loading…</p>` : F.invs.length ? `<div class="sf-tbl"><div class="sf-tbl-h"><span>Invoice</span><span>Issued</span><span class="num">Amount</span><span>Status</span><span></span></div>${F.invs.map((v) => `<div class="sf-tbl-r"><span>${esc(v.number || "Draft")}</span><span>${esc(sfDayYear(v.issued_date || v.created_at))}</span><span class="num">${sfGbp(v.total_pence)}</span><span>${sfInvChip(v)}</span><span class="sf-tbl-a"><button type="button" class="sf-act" data-sf="inv-view" data-id="${esc(v.id)}">View</button>${v.status !== "draft" ? `<button type="button" class="sf-act" data-sf="inv-resend" data-id="${esc(v.id)}">Resend</button>` : sfData.canMoney ? `<button type="button" class="sf-act" data-sf="inv-del" data-id="${esc(v.id)}">Delete</button>` : ""}</span></div>`).join("")}</div><p class="sf-say sf-note">Amounts include VAT. A draft can be deleted here; marking paid and voiding are on the Invoicing page.</p>` : `<p class="sf-say sf-note">No invoices yet.</p>`;
         sfShell(eye, "All invoices", chip, tabs, rows, sfFootBtn(true, "data-sf-close", "Close"));
       }
     }
@@ -3093,6 +3093,22 @@ const mgmtPackages = (management && management.packages) || [];
         case "inv-edit": sfEditing = true; sfOpen("invoice"); return;
         case "inv-cancel": sfEditing = false; sfOpen("invoice"); return;
         case "inv-view": sfViewInvoice(id, a); return;
+        case "inv-del": {
+          // A draft that never went (Dani, 5 Nov 2026). Sent invoices are voided on the Invoicing page instead.
+          const inv = (sfData.invoices || []).find((v) => String(v.id) === String(id));
+          if (!inv || inv.status !== "draft") return;
+          if (!confirm(`Delete draft ${inv.number || ""}? It was never sent, and it goes for good.`)) return;
+          a.disabled = true;
+          (async () => {
+            try {
+              const token = await authToken();
+              const res = await fetch(`${WORKER}/invoicing/invoices?id=${encodeURIComponent(id)}`, { method: "DELETE", headers: { Authorization: "Bearer " + token } });
+              if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `the server said ${res.status}`); }
+              await loadSmmInvoices(r);
+            } catch (e) { a.disabled = false; alert("Couldn't delete it: " + e.message); }
+          })();
+          return;
+        }
         case "inv-resend": { const inv = (sfData.invoices || []).find((v) => String(v.id) === String(id)); if (inv) openSmmEmailModal(inv, r); return; }
         case "save-client": sfSaveClient(r, a); return;
         case "save-channels": sfSaveChannels(r, a); return;
