@@ -1071,7 +1071,7 @@ function wrapOuter(html, block) {
   return `<div${clsAttr} style="${style}">${html}</div>`;
 }
 
-function shell(brand, bodyHtml, preheader, responsiveCss, subject) {
+function shell(brand, bodyHtml, preheader, responsiveCss, subject, regions) {
   const pageBg = brand.bgColor || '#f4f2f1';
   const cardBg = brand.cardColor || '#ffffff';
   const outerPad = outerPadOf(brand);    // grey margin around the card
@@ -1084,8 +1084,9 @@ function shell(brand, bodyHtml, preheader, responsiveCss, subject) {
   // spam filter. The subject is the right answer; it is the title of the thing.
   const title = subject ? `<title>${escapeHtml(subject)}</title>` : '';
   return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />${title}
+<html lang="en"${regions ? ' style="height:100%;"' : ''}><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />${title}
 <style>
+  ${regions ? 'html, body { height:100%; }' : ''}
   @media only screen and (max-width:600px) {
     .eb-hide-mobile { display:none !important; max-height:0 !important; overflow:hidden !important; mso-hide:all; }
     .eb-mobile-only { display:block !important; max-height:none !important; overflow:visible !important; }
@@ -1095,7 +1096,7 @@ function shell(brand, bodyHtml, preheader, responsiveCss, subject) {
 </style></head>
 <body style="margin:0;padding:0;background:${escapeHtml(pageBg)};">
   ${pre}
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${escapeHtml(pageBg)};">
+  ${regions ? fullHeight() : `<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:${escapeHtml(pageBg)};">
     <tr><td align="center" style="padding:${outerPad}px;">
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;width:100%;background:${escapeHtml(cardBg)};border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;">
         <tr><td>
@@ -1107,8 +1108,24 @@ function shell(brand, bodyHtml, preheader, responsiveCss, subject) {
         </td></tr>
       </table>
     </td></tr>
-  </table>
+  </table>`}
 </body></html>`;
+  /* The card fills the reader's window (Danielle, 5 Nov 2026): header at the
+     top, footer at the bottom, the message in the middle. Apple Mail, iOS and
+     Outlook on the web honour the heights; desktop Outlook and Gmail ignore
+     them and show it as before. */
+  function fullHeight() {
+    const p = contentPad, o = outerPad;
+    return `<table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" height="100%" style="height:100%;min-height:100vh;background:${escapeHtml(pageBg)};">
+    <tr><td align="center" valign="top" style="padding:${o}px;height:100%;vertical-align:top;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" height="100%" style="max-width:600px;width:100%;height:100%;min-height:calc(100vh - ${o * 2}px);background:${escapeHtml(cardBg)};border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;">
+        <tr><td valign="top" style="vertical-align:top;">${brandHeader(brand)}<div style="padding:${p}px ${p}px 0;">${regions.head}</div></td></tr>
+        <tr><td valign="middle" height="100%" style="height:100%;vertical-align:middle;"><div style="padding:0 ${p}px;">${regions.main}</div></td></tr>
+        <tr><td valign="bottom" style="vertical-align:bottom;"><div style="padding:0 ${p}px ${p}px;">${regions.foot}</div>${brandFooter(brand)}</td></tr>
+      </table>
+    </td></tr>
+  </table>`;
+  }
 }
 
 /* ───────────────────────── public entry point ───────────────────────── */
@@ -1142,7 +1159,14 @@ export function renderTemplate(template = {}, opts = {}) {
   // it (no orphaned gaps).
   const parts = [];
   const responsive = [];
+  // Regions (Danielle, 5 Nov 2026): the branded base marks where the message
+  // starts and ends, so the shell can keep the header at the top and the
+  // footer at the bottom of the reader's screen with the message between.
+  const region = { head: [], main: [], foot: [] };
+  let into = null;
   blocks.forEach((b) => {
+    if (b && b.type === '__main_start') { into = 'main'; region.head.push(...parts.splice(0)); return; }
+    if (b && b.type === '__main_end') { region.main.push(...parts.splice(0)); into = 'foot'; return; }
     const inner = renderBlock(b, brand, ctx);
     if (!inner) return;
     // Collect the mobile media-query rule for any block with device overrides.
@@ -1153,6 +1177,13 @@ export function renderTemplate(template = {}, opts = {}) {
     const wrapped = wrapOuter(inner, b);
     if (wrapped) parts.push(wrapped);
   });
+  if (into === 'foot') {
+    region.foot.push(...parts.splice(0));
+    const regions = { head: region.head.join('\n'), main: region.main.join('\n'), foot: region.foot.join('\n') };
+    return { subject, html: shell(brand, '', template.preheader, responsive.join('\n    '), subject, regions) };
+  }
+  // A start with no end: put everything back in one piece, as before.
+  if (into === 'main') parts.unshift(...region.head);
   const bodyHtml = parts.join('\n');
 
   return { subject, html: shell(brand, bodyHtml, template.preheader, responsive.join('\n    '), subject) };

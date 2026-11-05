@@ -4925,14 +4925,14 @@ async function wrapInBrandedBase(env, contentHtml, stylesOverride) {
     for (const blk of base.blocks) {
       if (marked) {
         if (isBaseSlot(blk)) {
-          if (!injected) { out.push(baseContentSlot(blk, contentHtml)); injected = true; }
+          if (!injected) { out.push({ type: "__main_start" }, baseContentSlot(blk, contentHtml), { type: "__main_end" }); injected = true; }
           continue;  // a second marker is ignored rather than duplicating the email
         }
         out.push(blk);
         continue;
       }
       if (blk.type === "text" || blk.type === "button") {
-        if (!injected) { out.push(baseContentSlot(blk, contentHtml)); injected = true; }
+        if (!injected) { out.push({ type: "__main_start" }, baseContentSlot(blk, contentHtml), { type: "__main_end" }); injected = true; }
         continue;
       }
       out.push(blk);
