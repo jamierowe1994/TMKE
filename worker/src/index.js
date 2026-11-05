@@ -13621,14 +13621,15 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         if (!lead || !lead.ms_event_id) return json({ error: "There's no booked meeting on this file to update. Book the call first." }, 400, request, env);
         const boxes = [env.SMM_MEETING_UPN, env.SMM_MANAGER_UPN].filter((x, i, a) => x && a.indexOf(x) === i);
         const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-        const joinHtml = `<p>We'll meet on Microsoft Teams. <a href="${esc(link)}">Join the meeting</a>, or use this link: ${esc(link)}</p>`;
+        // The link on a line of its own, with a gap above (Danielle, 5 Nov 2026).
+        const joinHtml = `<p>We'll meet on Microsoft Teams.<br><br><a href="${esc(link)}">Join the meeting</a>, or use this link:<br>${esc(link)}</p>`;
         let done = false, lastErr = "";
         for (const box of boxes) {
           try {
             const ev = await graph(env, "GET", `/users/${encodeURIComponent(box)}/events/${encodeURIComponent(lead.ms_event_id)}?$select=body`);
             let html = (ev && ev.body && ev.body.content) || "";
             // Swap the "link to follow" line for the link; otherwise add it at the top.
-            const swapped = html.replace(/We'll meet on Microsoft Teams\. We'll update this invite with your joining link before the call\./, `We'll meet on Microsoft Teams. <a href="${esc(link)}">Join the meeting</a>, or use this link: ${esc(link)}`);
+            const swapped = html.replace(/We'll meet on Microsoft Teams\. We'll update this invite with your joining link before the call\./, `We'll meet on Microsoft Teams.<br><br><a href="${esc(link)}">Join the meeting</a>, or use this link:<br>${esc(link)}`);
             html = swapped !== html ? swapped : (/<body[^>]*>/i.test(html) ? html.replace(/<body([^>]*)>/i, `<body$1>${joinHtml}`) : joinHtml + html);
             await graph(env, "PATCH", `/users/${encodeURIComponent(box)}/events/${encodeURIComponent(lead.ms_event_id)}`, { body: { contentType: "HTML", content: html }, location: { displayName: "Microsoft Teams", locationUri: link } });
             done = true; break;
