@@ -2206,12 +2206,14 @@ const mgmtPackages = (management && management.packages) || [];
         // Onboarding: the first invoices, not the last (Dani, 5 Nov).
         let money3;
         if (F.st === "onboarding") {
-          const oneOff = F.invs.filter((v) => !v.recurring_id && !v.billing_month).slice(-1)[0];
-          const firstMonthly = F.invs.filter((v) => v.recurring_id || v.billing_month).slice(-1)[0];
-          const dueDay = rec && (rec.due_day || rec.day_of_month);
-          money3 = sfR("Onboarding fee", loadingMoney ? "…" : `${obFee ? esc(obFee.replace(" + VAT", "")) + " &nbsp;" : ""}${oneOff ? sfInvChip(oneOff) : sfChip("wait", "Awaiting invoice")}`)
-            + sfR("First invoice", loadingMoney ? "…" : firstMonthly ? `${esc(firstMonthly.number || "")} &nbsp;${sfInvChip(firstMonthly)}` : sfChip("wait", "Awaiting invoice"))
-            + sfR("First due", rec && rec.start_month ? esc(`${dueDay ? dueDay + ordinal(dueDay) + " " : ""}${sfYmName(rec.start_month)}`) : sfMiss("Agree it on the file"));
+          // One first invoice now: the onboarding fee and the first month together
+          // (Dani, 5 Nov 2026). A sent one wins over a draft left behind; newest first.
+          const oneOffs = F.invs.filter((v) => !v.recurring_id && !v.billing_month && v.status !== "void").sort((a, b) => new Date(b.created_at || b.issued_date) - new Date(a.created_at || a.issued_date));
+          const firstInv = oneOffs.find((v) => v.status !== "draft") || oneOffs[0];
+          const startYm = rec && rec.start_month;
+          money3 = sfR("Onboarding fee", esc(obFee || ""))
+            + sfR("First invoice", loadingMoney ? "…" : firstInv ? `${esc(firstInv.number || "")} &nbsp;${sfInvChip(firstInv)}` : sfChip("wait", "Awaiting invoice"))
+            + sfR("Monthly from", loadingMoney ? "…" : startYm ? esc(rec.pays_ahead ? `Raised ${sfYmName(startYm)}, for ${sfYmName(sfYmAdd(startYm, 1))}` : sfYmName(startYm)) : sfMiss("Not set up"));
         } else {
           money3 = sfR("Last invoiced", loadingMoney ? "…" : last ? esc(sfDayYear(last.issued_date || last.created_at)) : sfMiss("Never invoiced")) + sfR("Invoice", last ? esc(last.number || "") : "") + sfR("Status", sfInvChip(last));
         }
