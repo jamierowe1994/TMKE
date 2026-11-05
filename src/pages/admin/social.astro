@@ -1877,7 +1877,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         const inv = sfBox("sf-third", "Invoicing", sfAct("invoice", "Open"), `<dl class="sf-dl">
             ${sfR("Bill to", ib && !rec ? (ib.billTo ? esc(ib.billTo) : sfMiss("Choose the brand that pays")) : esc(billTo), billTo)}
             ${sfR("Invoice email", esc(ib && !rec ? ib.to : billEmail), billEmail)}
-            ${ib ? sfR("Named on invoice", esc(ib.client)) : sfR("Card payment", card)}
+            ${ib ? sfR("Client name", esc(ib.client)) : sfR("Card payment", card)}
             ${sfR("Monthly invoice", mInv)}
             ${money3}</dl>`);
         const done = onbState(r).done || {};
@@ -2300,7 +2300,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             + sfSec("Who pays", sfPF("Bill to", ro(sfIn("sfm-bill", bill, "text", ib ? "Choose the brand in Client › Edit" : ""))) + sfPF("Invoice email", ro(sfIn("sfm-email", mail, "email")), ib ? "TEG accounts." : "")
               + sfPF("Copy to", sfIn("sfm-cc", cc, "text", "Comma-separated"), ib ? "Accounts payable, Rosie-Anne and the client's MD." : "")
               + sfPF("Billing address", `<textarea class="sf-in" id="sfm-addr" rows="3"${ib ? " readonly" : ""}>${esc(addr)}</textarea>`)
-              + (ib ? sfPF("Named on the invoice", esc(ib.client)) : sfPF("Card payment", sfTog("sfm-card", !!(rec && rec.pay_by_card)), "Yes puts a Pay by card button on the invoice email. Bank details are on the invoice either way."))),
+              + (ib ? sfPF("Client name", esc(ib.client)) : sfPF("Card payment", sfTog("sfm-card", !!(rec && rec.pay_by_card)), "Yes puts a Pay by card button on the invoice email. Bank details are on the invoice either way."))),
             `<span class="sf-say" id="sf-save-msg"></span>${rec ? sfFootBtn(false, 'data-sf="inv-cancel"', "Cancel") : sfFootBtn(false, "data-sf-close", "Not now")}${sfFootBtn(true, 'data-sf="save-monthly"', rec ? "Save" : "Set up invoicing")}`, { edit: true });
         } else if (!rec) {
           sfShell(eye, "Monthly invoice", chip, tabs, `<div class="sf-lock"><b>No monthly invoice yet.</b> Ask Danielle to set it up: changing what a client is invoiced is for management.</div>`, sfFootBtn(true, "data-sf-close", "Close"));
@@ -2309,7 +2309,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           const lock = r.client_status === "paused" ? `<div class="sf-lock"><b>Paused.</b> No monthly invoice is raised, and nothing is chased, until they're Active again.</div>` : r.leaving_on ? `<div class="sf-lock"><b>Leaving ${esc(sfDayYear(r.leaving_on))}.</b> Nothing is raised after they've gone.</div>` : "";
           sfShell(eye, "Monthly invoice", chip, tabs, lock
             + sfSec("What we charge", `<dl class="sf-pdl">${sfPR("Monthly fee", rec.amount_pence ? `${sfGbp(rec.amount_pence)} + VAT` : sfMiss("No amount"))}${sfPR("Line on the invoice", esc(String(line || "").replace(/\{month year\}|\{month\}|Month YYYY/g, sfYmName(F.ym))))}${sfPR("First month", rec.start_month ? esc(sfYmName(rec.start_month)) : "")}${sfPR("Raised on", rec.day_of_month ? `The ${rec.day_of_month}${ordinal(rec.day_of_month)} of each month` : "")}${sfPR("Due on", rec.due_day ? `The ${rec.due_day}${ordinal(rec.due_day)}` : "")}</dl>`)
-            + sfSec("Who pays", `<dl class="sf-pdl">${sfPR("Bill to", esc(rec.bill_to_name || rec.name || ""))}${sfPR("Invoice email", esc(rec.bill_to_email || rec.match_email || ""))}${sfPR("Copy to", esc(rec.cc_email || ""))}${sfPR("Billing address", esc(rec.bill_to_address || ""))}${r.inter_brand_invoice ? sfPR("Named on the invoice", esc(rec.contact_name || nameOf(r))) : sfPR("Card payment", rec.pay_by_card ? "Yes: the email has a Pay by card button" : "No")}</dl>`),
+            + sfSec("Who pays", `<dl class="sf-pdl">${sfPR("Bill to", esc(rec.bill_to_name || rec.name || ""))}${sfPR("Invoice email", esc(rec.bill_to_email || rec.match_email || ""))}${sfPR("Copy to", esc(rec.cc_email || ""))}${sfPR("Billing address", esc(rec.bill_to_address || ""))}${r.inter_brand_invoice ? sfPR("Client name", esc(rec.contact_name || nameOf(r))) : sfPR("Card payment", rec.pay_by_card ? "Yes: the email has a Pay by card button" : "No")}</dl>`),
             `${sfFootBtn(false, "data-sf-close", "Close")}${sfData.canMoney ? sfFootBtn(true, 'data-sf="inv-edit"', "Edit") : ""}`);
         }
       } else if (sfInvTab === "oneoff") {
