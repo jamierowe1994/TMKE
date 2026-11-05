@@ -7,26 +7,18 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
 ---
 
 <AdminShell active="videography" title="Videography" skin="hub">
-  <div class="page-header">
-    <div class="page-header-top">
-      <div class="page-header-left">
-        <div>
-          <div class="page-header-title">Videography</div>
-          <div class="page-header-sub">Bookings, the diary, and delivery — start to finish.</div>
-        </div>
-      </div>
-    </div>
-  </div>
   <div class="ash-panel ash-page">
-  <section class="admin-bar">
-    <div class="admin-bar-actions">
-      <button type="button" class="admin-btn admin-btn-primary" id="vid-new-booking">+ New booking</button>
-          <button type="button" class="admin-btn admin-btn-ghost" id="vid-viewtoggle">Calendar view</button>
+  <!-- The page head (Dani, 4 Nov, agreed on the TMKE OS mock-up): linen, the
+       title and what the page is for, with New booking and Settings. -->
+  <section class="vb-head">
+    <div>
+      <p class="vb-eye">Clients</p>
+      <h1 class="vb-title">Videography</h1>
+      <p class="vb-sub">Every shoot from booking to delivery. Drag a card to move it on; click it to open the client's file.</p>
+    </div>
+    <div class="vb-acts">
       <div class="vid-cog-wrap">
-        <button type="button" class="vid-cog" id="vid-cog" aria-label="Studio settings" aria-expanded="false">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span>Settings</span>
-        </button>
+        <button type="button" class="vb-btn" id="vid-cog" aria-label="Settings" aria-expanded="false">Settings</button>
         <div class="vid-cog-menu" id="vid-cog-menu" hidden>
           <button type="button" data-go="clients">Clients</button>
           <button type="button" data-go="diary">Diary &amp; availability</button>
@@ -38,46 +30,38 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           <a href="/admin/videography-promos" class="vid-cog-link">Promo codes</a>
         </div>
       </div>
+      <button type="button" class="vb-btn vb-btn--primary" id="vid-new-booking">New booking</button>
     </div>
   </section>
 
-  <!-- ===================== CLIENTS (prioritised list) ===================== -->
-  <section class="vid-panel wrap is-active" data-panel="clients">
-    <div class="vid-panel-head">
-      <div>
-        <h2 class="vid-panel-title">Clients</h2>
-        <p class="vid-panel-sub">Everyone Jack's working with, by production stage. Drag a card to move it along; click to open the client's file.</p>
-      </div>
-      <input type="search" id="vid-client-search" class="admin-search" placeholder="Search client, company…" />
+  <!-- ===================== CLIENTS: the board and the calendar ===================== -->
+  <section class="vid-panel wrap is-active vb" data-panel="clients">
+    <div class="vb-bar">
+      <div class="vb-seg" role="group" aria-label="View"><button type="button" data-vview="board" aria-pressed="true">Board</button><button type="button" data-vview="cal" aria-pressed="false">Calendar</button></div>
+      <label class="vb-find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="vid-client-search" placeholder="Find a client or a shoot" /></label>
+      <div class="vb-chips" id="vid-chips" role="group" aria-label="Show"></div>
+      <span class="vb-sum" id="vb-sum"></span>
     </div>
-    <div class="vid-chips" id="vid-chips" role="tablist">
-      <button type="button" class="vid-chip is-active" data-stagefilter="all">All</button>
-      <button type="button" class="vid-chip" data-stagefilter="booked">Booked</button>
-      <button type="button" class="vid-chip" data-stagefilter="invoiced">Invoiced</button>
-      <button type="button" class="vid-chip" data-stagefilter="shoot_day">Shoot day</button>
-      <button type="button" class="vid-chip" data-stagefilter="editing">Editing</button>
-      <button type="button" class="vid-chip" data-stagefilter="gallery_ready">Gallery ready</button>
-      <button type="button" class="vid-chip" data-stagefilter="sent">Sent</button>
-      <button type="button" class="vid-chip" data-stagefilter="delivered">Delivered</button>
-    </div>
-    <div class="vid-scrolltop" id="vid-scrolltop" hidden><div id="vid-scrolltop-inner"></div></div>
     <p class="vid-loading" id="vid-clients-loading">Loading clients…</p>
     <div class="vid-clients" id="vid-clients" hidden></div>
     <div class="vid-cal" id="vid-cal" hidden>
-      <div class="vid-cal-head">
-        <button type="button" class="admin-btn admin-btn-ghost" id="vid-cal-prev">&larr;</button>
-        <span class="vid-cal-month" id="vid-cal-month"></span>
-        <button type="button" class="admin-btn admin-btn-ghost" id="vid-cal-next">&rarr;</button>
+      <div class="vb-cal">
+        <div class="vb-cal-h">
+          <button type="button" class="vb-cal-nav" id="vid-cal-prev" aria-label="Previous month">&lsaquo;</button>
+          <h2 class="vid-cal-month" id="vid-cal-month"></h2>
+          <button type="button" class="vb-cal-nav" id="vid-cal-next" aria-label="Next month">&rsaquo;</button>
+          <div class="vid-cal-key" aria-label="Key">
+            <span><i class="k-starter"></i>New-starter Studio Day</span>
+            <span><i class="k-closed"></i>Closed to new bookings</span>
+            <span><i class="k-partial"></i>Partly open</span>
+            <span><i class="k-shoot"></i>Shoot</span>
+            <span class="vid-cal-key-note" id="vid-cal-note"></span>
+          </div>
+        </div>
+        <div class="vid-cal-grid" id="vid-cal-grid"></div>
       </div>
-      <div class="vid-cal-key" aria-label="Key">
-        <span><i class="k-starter"></i>TEG new-starter Studio Day</span>
-        <span><i class="k-closed"></i>Closed to new bookings</span>
-        <span><i class="k-partial"></i>Partly open (studio only, or Jack busy for part of the day)</span>
-        <span class="vid-cal-key-note" id="vid-cal-note"></span>
-      </div>
-      <div class="vid-cal-grid" id="vid-cal-grid"></div>
     </div>
-    <p class="vid-loading" id="vid-clients-empty" hidden>No clients yet — add a booking to get started.</p>
+    <p class="vid-loading" id="vid-clients-empty" hidden>No clients yet. Add a booking to get started.</p>
   </section>
 
   <!-- ===================== CANDIDATE FILE (CRM one-pager) ===================== -->
@@ -960,6 +944,109 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     #vid-cand .vc .vc-panel-b :is(.vid-compose-file, .vid-compose-notify) { display: flex; align-items: center; gap: 10px; color: var(--vc-tx); }
     #vid-cand .vc .vc-panel-b :is(.vid-compose-file, .vid-compose-notify) > span { color: var(--vc-tx); }
 
+    /* ===== The Videography page in the TMKE OS style (Dani, 4 Nov 2026) =====
+       Linen page head; a bar with the view, the search and the quick
+       filters; the board as house strips over even grids of fixed-row
+       cards; the calendar as a month of fixed squares. One size, one
+       weight: 14px at 400, titles in the heading face, buttons the house
+       strip. Colours from the palette only. */
+    .vb-head { --vb-edge: #e2d9d4; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; margin: 0 0 22px; padding: 24px 22px; background: #eae5e1; border-radius: 4px; font-family: var(--sans); }
+    .vb-head .vb-eye { margin: 0 0 8px; font-size: 11px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: #7e6765; }
+    .vb-head .vb-title { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 30px; line-height: 1.05; letter-spacing: -0.05em; color: #2b2226; }
+    .vb-head .vb-sub { margin: 10px 0 0; font-size: 14px; font-weight: 400; color: #7e6765; }
+    .vb-acts { display: flex; gap: 8px; align-items: center; }
+    .vb-btn { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 14px; border-radius: 4px; border: 1px solid #e2d9d4; background: #fff; color: #2b2226; cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+    .vb-btn:hover { border-color: #371e28; color: #371e28; }
+    .vb-btn--primary { background: #371e28; border-color: #371e28; color: #fff; }
+    .vb-btn--primary:hover { background: #2a1620; color: #fff; }
+    .vb { --vb-edge: #e2d9d4; --vb-line: #eae5e1; --vb-tx: #7e6765; --vb-ink: #2b2226; --vb-wine: #371e28; font-family: var(--sans); color: var(--vb-ink); }
+    .vb :is(p, span, dt, dd, li, a, label, input, small, div, button, i) { font-size: 14px; font-weight: 400; letter-spacing: normal; font-style: normal; }
+    .vb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 0 0 22px; }
+    .vb-seg { display: inline-flex; border: 1px solid var(--vb-edge); border-radius: 4px; overflow: hidden; }
+    .vb-seg button { height: 32px; padding: 0 18px; border: 0; background: #fff; color: var(--vb-tx); cursor: pointer; font-family: var(--sans); }
+    .vb-seg button + button { border-left: 1px solid var(--vb-edge); }
+    .vb-seg button[aria-pressed="true"] { background: var(--vb-wine); color: #fff; }
+    .vb-find { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid var(--vb-edge); border-radius: 4px; background: #fff; flex: 0 1 280px; min-width: 0; margin: 0; }
+    .vb-find svg { width: 15px; height: 15px; color: var(--vb-tx); flex: none; }
+    .vb-find input { border: 0; outline: 0; background: none; width: 100%; min-width: 0; height: 30px; padding: 0; margin: 0; color: var(--vb-ink); font-family: var(--sans); box-shadow: none; }
+    .vb-find:focus-within { border-color: var(--vb-wine); }
+    .vb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .vb-chips button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--vb-edge); border-radius: 4px; background: #fff; color: var(--vb-ink); cursor: pointer; font-family: var(--sans); }
+    .vb-chips button:hover { border-color: var(--vb-wine); }
+    .vb-chips button[aria-pressed="true"] { background: var(--vb-wine); border-color: var(--vb-wine); color: #fff; }
+    .vb-chips button i { color: var(--vb-tx); }
+    .vb-chips button[aria-pressed="true"] i { color: rgba(255,255,255,.7); }
+    .vb-sum { margin-left: auto; color: var(--vb-tx); }
+    .vb-board { display: block; }
+    .vb-stage { display: flex; flex-direction: column; gap: 10px; }
+    .vb-stage + .vb-stage, .vb-stage + .vb-quiet, .vb-quiet + .vb-stage { margin-top: 26px; }
+    .vb-strip { display: flex; align-items: center; justify-content: space-between; gap: 14px; height: 30px; padding: 0 14px; background: var(--vb-wine); border-radius: 4px; transition: background .15s; }
+    .vb .vb-strip h2 { margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: #fff; }
+    .vb .vb-strip .vb-n { margin-left: 8px; font-size: 11px; font-weight: 600; letter-spacing: .18em; color: rgba(255,255,255,.6); }
+    .vb .vb-more { border: 0; background: none; padding: 0; cursor: pointer; color: rgba(255,255,255,.82); }
+    .vb .vb-more:hover { color: #fff; }
+    .vb-strip.is-drop, .vb-quiet-s.is-drop { background: #7e6765; color: #fff; border-color: #7e6765; }
+    .vb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 10px; }
+    .vb-quiet { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--vb-tx); }
+    .vb-quiet-s { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px dashed #c9bcb7; border-radius: 4px; background: #fff; color: var(--vb-tx); }
+    .vb-card { background: #fff; border: 1px solid var(--vb-edge); border-radius: 4px; padding: 12px 14px 10px; cursor: pointer; display: flex; flex-direction: column; min-width: 0; transition: border-color .2s, transform .2s, box-shadow .2s; }
+    .vb-card:hover, .vb-card:focus-visible { border-color: #c9bcb7; transform: translateY(-2px); box-shadow: 0 10px 24px -18px rgba(55,30,40,.5); outline: 0; }
+    .vb-card.is-dragging { opacity: .45; }
+    .vb-card-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-height: 28px; margin-bottom: 4px; }
+    .vb .vb-card-h h3 { margin: 0; min-width: 0; font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.15; letter-spacing: -0.04em; color: var(--vb-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .vb .vb-card-h .vc-chip { flex: none; height: 22px; padding: 0 8px; border-radius: 4px; display: inline-flex; align-items: center; }
+    .vb .vc-chip.is-good { background: #edf4ef; color: #3f7a56; }
+    .vb .vc-chip.is-bad { background: #f9f0f0; color: #8a3f3f; }
+    .vb .vc-chip.is-info { background: #eef0f5; color: #3e4a6a; }
+    .vb .vc-chip.is-plain { background: #eae5e1; color: #371e28; }
+    .vb-rows { margin: 0; }
+    .vb-r { display: grid; grid-template-columns: 6.2em minmax(0, 1fr); column-gap: 10px; align-items: center; height: 32px; border-top: 1px solid var(--vb-line); }
+    .vb .vb-r dt { color: var(--vb-tx); }
+    .vb .vb-r dd { margin: 0; color: var(--vb-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vb .vb-none { color: var(--vb-tx); }
+    .vb .vb-next { margin-top: 6px; min-height: 30px; box-sizing: border-box; padding: 5px 10px; border-radius: 4px; background: #eae5e1; color: var(--vb-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vb .vb-next.is-done { background: #edf4ef; color: #3f7a56; }
+    .vb .vb-next.is-none { background: #f7f4f2; color: var(--vb-tx); }
+    .vb .vb-empty { padding: 28px; border: 1px dashed #c9bcb7; border-radius: 4px; color: var(--vb-tx); text-align: center; }
+    /* The calendar: a month of fixed squares. */
+    .vb-cal { border: 1px solid var(--vb-edge); border-radius: 4px; background: #fff; overflow: hidden; }
+    .vb-cal-h { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--vb-line); }
+    .vb .vb-cal-h .vid-cal-month { margin: 0 6px; min-width: 9em; font-family: var(--serif); font-weight: 300; font-size: 22px; letter-spacing: -0.04em; color: var(--vb-ink); }
+    .vb .vb-cal-nav { width: 30px; height: 30px; padding: 0; border: 1px solid var(--vb-edge); border-radius: 4px; background: #fff; color: var(--vb-wine); cursor: pointer; display: grid; place-items: center; font-size: 18px; }
+    .vb .vb-cal-nav:hover { border-color: var(--vb-wine); }
+    .vb .vid-cal-key { margin: 0 0 0 auto; gap: 6px 14px; font-family: var(--sans); color: var(--vb-tx); }
+    .vb .vid-cal-key span { color: var(--vb-tx); }
+    .vb .vid-cal-key i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--vb-edge); }
+    .vb .vid-cal-key .k-starter { background: #fff; box-shadow: inset 0 3px 0 #7e6765; }
+    .vb .vid-cal-key .k-closed { background: #eae5e1; }
+    .vb .vid-cal-key .k-partial { background: repeating-linear-gradient(135deg, #fff 0 3px, #eadfda 3px 6px); }
+    .vb .vid-cal-key .k-shoot { background: var(--vb-wine); border-color: var(--vb-wine); }
+    .vb .vid-cal-key-note { color: #8a3f3f; }
+    .vb .vid-cal-grid { gap: 0; grid-auto-rows: minmax(118px, auto); }
+    .vb .vid-cal-dow { display: flex; align-items: center; height: 30px; padding: 0 10px; background: var(--vb-wine); color: #fff; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+    .vb .vid-cal-day { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 118px; padding: 8px 8px 6px; border: 0; border-radius: 0; border-right: 1px solid var(--vb-line); border-bottom: 1px solid var(--vb-line); background: #fff; box-shadow: none; opacity: 1; }
+    .vb .vid-cal-day:nth-child(7n) { border-right: 0; }
+    .vb .vid-cal-day.is-out { background: #f7f4f2; border-style: solid; opacity: 1; }
+    .vb .vid-cal-day.is-out > * { opacity: .45; }
+    .vb .vid-cal-day.is-starter { background: #fff; box-shadow: inset 0 3px 0 #7e6765; border-color: var(--vb-line); }
+    .vb .vid-cal-day.is-closed { background: #eae5e1; }
+    .vb .vid-cal-day.is-partial { background: repeating-linear-gradient(135deg, #fff 0 7px, #f3eeeb 7px 14px); }
+    .vb .vid-cal-day.is-today { box-shadow: inset 0 0 0 2px var(--vb-wine); }
+    .vb .vid-cal-num { font-family: var(--sans); font-size: 14px; font-weight: 400; color: var(--vb-ink); }
+    .vb .vid-cal-day.is-today .vid-cal-num { align-self: flex-start; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 4px; border-radius: 11px; background: var(--vb-wine); color: #fff; }
+    .vb .vid-cal-why { position: absolute; top: 8px; right: 8px; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--vb-tx); font-family: var(--sans); font-size: 14px; font-weight: 400; letter-spacing: normal; cursor: pointer; max-width: calc(100% - 40px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vb .vid-cal-why:hover { color: var(--vb-wine); }
+    .vb .vid-cal-why.n-starter { color: #7e6765; }
+    .vb .vid-cal-why span { margin-left: 3px; }
+    .vb .vid-cal-day.is-open .vid-cal-why { position: absolute; }
+    .vb .vid-cal-note { font-family: var(--sans); font-size: 14px; line-height: 1.35; color: var(--vb-tx); }
+    .vb .vid-cal-note.n-starter { color: #7e6765; font-weight: 400; }
+    .vb .vid-cal-ev { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; align-items: center; width: 100%; height: 26px; margin: 0; padding: 0 8px; border: 0; border-radius: 3px; background: var(--vb-wine); color: #fff; text-align: left; cursor: pointer; font-family: var(--sans); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vb .vid-cal-ev strong { display: inline; font-weight: 400; color: rgba(255,255,255,.75); }
+    .vb .vid-cal-ev:hover { background: #2a1620; }
+    @media (max-width: 900px) { .vb .vid-cal-day { min-height: 84px; } .vb .vid-cal-key { margin-left: 0; width: 100%; } .vb .vid-cal-why { display: none; } }
+    @media (max-width: 640px) { .vb-sum { margin-left: 0; width: 100%; } .vb-head { padding: 18px 16px; } }
+
     .vid-cand-card {
       background: var(--paper); border: 1px solid rgba(var(--violet-rgb), 0.16); border-radius: 14px;
       /* Side padding caps at 28px - the banner's own - so everything inside the
@@ -1836,15 +1923,6 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         renderClients(document.getElementById("vid-client-search")?.value || "");
       });
       document.getElementById("vid-client-search")?.addEventListener("input", (e) => renderClients(e.target.value || ""));
-      // Keep the top scrollbar and the board panning in step.
-      const vst = document.getElementById("vid-scrolltop");
-      const vbd = document.getElementById("vid-clients");
-      if (vst && vbd) {
-        let lock = false;
-        vst.addEventListener("scroll", () => { if (lock) return; lock = true; vbd.scrollLeft = vst.scrollLeft; lock = false; });
-        vbd.addEventListener("scroll", () => { if (lock) return; lock = true; vst.scrollLeft = vbd.scrollLeft; lock = false; });
-      }
-      window.addEventListener("resize", syncVidTopScroll);
     }
 
     /* ---------- Pipeline (kanban) ---------- */
@@ -1925,12 +2003,11 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     let dragId = null;
     function onDragStart(e) { dragId = e.currentTarget.getAttribute("data-id"); e.currentTarget.classList.add("is-dragging"); e.dataTransfer.effectAllowed = "move"; }
     function onDragEnd(e) { e.currentTarget.classList.remove("is-dragging"); }
-    function onDragOver(e) { e.preventDefault(); e.currentTarget.closest(".vid-col")?.classList.add("is-drop"); }
-    function onDragLeave(e) { e.currentTarget.closest(".vid-col")?.classList.remove("is-drop"); }
+    function onDragOver(e) { e.preventDefault(); e.currentTarget.classList.add("is-drop"); }
+    function onDragLeave(e) { e.currentTarget.classList.remove("is-drop"); }
     async function onDrop(e) {
       e.preventDefault();
-      const col = e.currentTarget.closest(".vid-col");
-      col?.classList.remove("is-drop");
+      e.currentTarget.classList.remove("is-drop");
       const newStage = e.currentTarget.getAttribute("data-stage");
       if (!dragId || !newStage) return;
       const b = bookings.find((x) => x.id === dragId);
@@ -1985,30 +2062,30 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
 
     function wireBoardViews() {
       document.getElementById("vid-chips")?.addEventListener("click", (e) => {
-        const btn = e.target.closest("[data-stagefilter]");
+        const btn = e.target.closest("[data-vbf]");
         if (!btn) return;
-        goToStage(btn.getAttribute("data-stagefilter"));
+        vbFilter = btn.getAttribute("data-vbf");
+        renderClients(document.getElementById("vid-client-search")?.value || "");
       });
-
-      document.getElementById("vid-viewtoggle")?.addEventListener("click", () => {
-        const cal = document.getElementById("vid-cal");
-        const board = document.getElementById("vid-clients");
-        const chips = document.getElementById("vid-chips");
-        const showCal = cal.hidden;
-        cal.hidden = !showCal;
-        board.hidden = showCal;
-        if (chips) chips.hidden = showCal;   // stage pills mean nothing on a calendar
-        document.getElementById("vid-viewtoggle").textContent = showCal ? "Board view" : "Calendar view";
-        if (showCal) { calMonth = calMonth || startOfMonth(new Date()); renderCalendar(); }
-      });
-
+      // Board or Calendar (Dani, 4 Nov): a two-way switch in the bar.
+      document.querySelectorAll("[data-vview]").forEach((btn) => btn.addEventListener("click", () => vbSetView(btn.getAttribute("data-vview"))));
       document.getElementById("vid-cal-prev")?.addEventListener("click", () => { calMonth.setMonth(calMonth.getMonth() - 1); renderCalendar(); });
       document.getElementById("vid-cal-next")?.addEventListener("click", () => { calMonth.setMonth(calMonth.getMonth() + 1); renderCalendar(); });
 
       // Deep link from the Dashboard's "Videography calendar" link (?view=calendar).
-      if (new URLSearchParams(location.search).get("view") === "calendar") {
-        document.getElementById("vid-viewtoggle")?.click();
-      }
+      if (new URLSearchParams(location.search).get("view") === "calendar") vbSetView("cal");
+    }
+    function vbSetView(v) {
+      const cal = v === "cal";
+      document.querySelectorAll("[data-vview]").forEach((x) => x.setAttribute("aria-pressed", String(x.getAttribute("data-vview") === v)));
+      document.getElementById("vid-cal").hidden = !cal;
+      document.getElementById("vid-clients").hidden = cal;
+      const chips = document.getElementById("vid-chips");
+      if (chips) chips.hidden = cal;   // the filters are for the board
+      const sum = document.getElementById("vb-sum");
+      if (sum && cal) sum.textContent = "";
+      if (cal) { calMonth = calMonth || startOfMonth(new Date()); renderCalendar(); }
+      else renderClients(document.getElementById("vid-client-search")?.value || "");
     }
 
     const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
@@ -2176,6 +2253,80 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     // The Clients home is a stage-column board (mirrors the SMM pipeline): each
     // booking sits in its production stage, drag between columns to move it, and
     // clicking a card opens that client's file. Search filters across columns.
+    /* ---------- The board (Dani, 4 Nov 2026, agreed on the TMKE OS mock-up) ----------
+       Each stage is the house strip with its count, then its cards in an
+       even grid. Stages with nothing in them fold into one quiet line (you
+       can still drop a card on them). Delivered shows the latest four. A
+       card is fixed rows, like the client file, with the one thing holding
+       the shoot up underneath. Quick filters for the bottlenecks: the week
+       ahead for Jack, payment for Danielle. */
+    let VBMONEY = new Map();          // booking_id -> its newest invoice { status, due_date }
+    let vbFilter = "all";
+    const vbOpen = new Set();         // stages showing all their cards
+    const VB_CAP = { delivered: 4 };
+    function vbOverdue(iv) { return iv && iv.status === "sent" && iv.due_date && new Date(iv.due_date + "T23:59:59") < new Date(); }
+    function vbPaid(b) { return !!b.paid_at || (VBMONEY.get(b.id) || {}).status === "paid"; }
+    function vbPay(b) {
+      if (isSmmCovered(b)) return ["is-good", "Package"];
+      if (vbPaid(b)) return ["is-good", "Paid"];
+      const iv = VBMONEY.get(b.id);
+      if (!iv) return ["is-plain", "Awaiting invoice"];
+      if (vbOverdue(iv)) return ["is-bad", "Overdue"];
+      if (iv.status === "sent") return ["is-info", "Invoice sent"];
+      if (iv.status === "draft") return ["is-plain", "Draft invoice"];
+      return ["is-plain", iv.status];
+    }
+    // The one thing holding the shoot up, as the client file's callout says it.
+    function vbNext(b) {
+      const smm = isSmmCovered(b), st = b.stage, iv = VBMONEY.get(b.id);
+      const dateOf = (iso) => new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+      if (st === "delivered") return ["is-done", "Delivered"];
+      if (st === "booked" || st === "awaiting_invoice") {
+        if (smm) return ["is-none", "Nothing to invoice: their package"];
+        if (isBrandInvoiced(b) && !b.brand_fee_confirmed) return ["", "Fee check: " + ((FC_OFFICES.find((o) => o.key === b.fc_office) || {}).label || "the F&C office")];
+        if (!iv) return ["", "Raise the invoice"];
+        if (iv.status === "draft") return ["", "Invoice waiting to go"];
+        return ["is-none", b.shoot_date ? "Shoot " + dateOf(b.shoot_date) : "Invoice sent"];
+      }
+      if (st === "invoiced") return ["is-none", b.shoot_date ? "Shoot " + dateOf(b.shoot_date) : "Waiting for the shoot"];
+      if (st === "shoot_day") return ["", "Shot? Move it to editing"];
+      if (st === "editing") {
+        if (!b.archived_at) return ["", "Upload to our storage"];
+        if (smm) return ["", "Hand it to the team"];
+        if (!b.gallery_url) return ["", "Add the Pixieset gallery"];
+        return ["", "Move it to Gallery ready"];
+      }
+      if (st === "gallery_ready") return smm ? ["is-none", "With the team"] : vbPaid(b) ? ["", "Send the gallery"] : ["", vbOverdue(iv) ? "Payment overdue" : "Waiting on payment"];
+      if (st === "sent") {
+        if (smm) return ["is-none", "With the team"];
+        if (!vbPaid(b)) return ["", vbOverdue(iv) ? "Payment overdue" : "Waiting on payment"];
+        if (!b.edits_settled_at) return ["", b.gallery_sent_at ? "Edits open until " + new Date(Date.parse(b.gallery_sent_at) + 10 * 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "Waiting on edits"];
+        return ["", "Close the job"];
+      }
+      return ["is-none", ""];
+    }
+    const VB_FILTERS = [
+      ["all", "All", () => true],
+      ["week", "Shooting in the next 7 days", (b) => { if (!b.shoot_date || b.stage === "delivered") return false; const t = Date.parse(b.shoot_date), now = Date.now(); return t >= now - 12 * 3600e3 && t <= now + 7 * 864e5; }],
+      ["ready", "Ready, not paid", (b) => ["editing", "gallery_ready", "sent"].includes(b.stage) && !isSmmCovered(b) && !vbPaid(b)],
+      ["overdue", "Overdue", (b) => b.stage !== "delivered" && !vbPaid(b) && vbOverdue(VBMONEY.get(b.id))],
+      ["toinvoice", "To invoice", (b) => ["booked", "awaiting_invoice"].includes(b.stage) && !isSmmCovered(b) && !VBMONEY.get(b.id)],
+    ];
+    function vbChips(rows) {
+      const host = document.getElementById("vid-chips");
+      if (!host) return;
+      host.innerHTML = VB_FILTERS.map(([k, label, f]) => `<button type="button" data-vbf="${k}" aria-pressed="${vbFilter === k}">${escapeHtml(label)}${k === "all" ? "" : ` <i>${rows.filter((b) => b.stage !== "delivered" && f(b)).length}</i>`}</button>`).join("");
+    }
+    function vbCard(b) {
+      const pay = vbPay(b), next = vbNext(b);
+      const when = b.shoot_date ? new Date(b.shoot_date).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+      const row = (k, v) => `<div class="vb-r"><dt>${k}</dt><dd title="${escapeHtml(v)}">${v ? escapeHtml(v) : '<span class="vb-none">—</span>'}</dd></div>`;
+      return `<article class="vb-card" draggable="true" data-id="${escapeHtml(b.id)}" tabindex="0">
+        <header class="vb-card-h"><h3 title="${escapeHtml(b.client_name || "")}">${escapeHtml(b.client_name || "Client")}</h3><span class="vc-chip ${pay[0]}">${escapeHtml(pay[1])}</span></header>
+        <dl class="vb-rows">${row("Service", (b.service || "") + (isPhotographyOnly(b) ? " (photography only)" : ""))}${row("Shoot", when)}${row("Brand", BRAND_LABEL[b.brand] || b.brand || "")}</dl>
+        ${next[1] ? `<div class="vb-next ${next[0]}" title="What's holding it up">${escapeHtml(next[1])}</div>` : `<div class="vb-next is-none"></div>`}
+      </article>`;
+    }
     function renderClients(filter = "") {
       const wrap = document.getElementById("vid-clients");
       const loading = document.getElementById("vid-clients-loading");
@@ -2184,47 +2335,53 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       if (loading) loading.hidden = true;
       if (!bookings.length) { wrap.hidden = true; if (empty) empty.hidden = false; return; }
       if (empty) empty.hidden = true;
-      wrap.hidden = false;
-      wrap.className = "vid-board";
+      const onCal = !document.getElementById("vid-cal")?.hidden;
+      wrap.hidden = onCal;
+      wrap.className = "vb-board";
       const q = filter.trim().toLowerCase();
-      const rows = bookings.filter((b) => !q || [b.client_name, b.client_company, b.service, b.client_email].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)));
+      const live = bookings.filter((b) => b.stage !== "cancelled");
+      vbChips(live);
+      const pass = (VB_FILTERS.find((f) => f[0] === vbFilter) || VB_FILTERS[0])[2];
+      const rows = live.filter((b) => pass(b) && (!q || [b.client_name, b.client_company, b.service, b.client_email].filter(Boolean).some((v) => String(v).toLowerCase().includes(q))));
       const stageKey = (b) => (STAGES.some((s) => s.key === b.stage) ? b.stage : STAGES[0].key);
-      // A pill narrows the board to one stage — same "all rows" vs "one row" split.
-      const shown = stageFilter === "all" ? STAGES : STAGES.filter((s) => s.key === stageFilter);
-      // One row per stage; cards run left-to-right and that row scrolls on
-      // its own past ~3 cards (.vid-row-cards, flex + overflow-x). No board-
-      // wide horizontal scroll, and no cap/"see all" — the row just scrolls.
-      wrap.innerHTML = shown.map((s) => {
+      const filtering = !!q || vbFilter !== "all";
+      let html = "", quiet = [];
+      const flush = () => { if (!filtering && quiet.length) html += `<div class="vb-quiet"><span>Nothing in</span>${quiet.map((s) => `<span class="vb-quiet-s" data-stage="${s.key}">${escapeHtml(s.label)}</span>`).join("")}</div>`; quiet = []; };
+      STAGES.forEach((s) => {
         const cards = rows.filter((b) => stageKey(b) === s.key).sort(clientSort);
-        return `
-          <div class="vid-col vid-row" data-stage="${s.key}">
-            <div class="vid-col-head"><span>${s.label}</span><span class="vid-col-count">${cards.length}</span></div>
-            <div class="vid-row-cards" data-stage="${s.key}">${cards.map(cardHtml).join("")}</div>
-          </div>`;
-      }).join("");
-      wrap.querySelectorAll(".vid-card").forEach((el) => {
+        if (s.key === "delivered") cards.sort((a, c) => String(c.shoot_date || "").localeCompare(String(a.shoot_date || "")));
+        if (!cards.length) { quiet.push(s); return; }
+        flush();
+        const cap = VB_CAP[s.key] && !vbOpen.has(s.key) && !filtering ? VB_CAP[s.key] : Infinity;
+        const shown = cards.slice(0, cap);
+        const more = cards.length > shown.length ? `<button type="button" class="vb-more" data-vbmore="${s.key}">See all ${cards.length}</button>`
+          : (VB_CAP[s.key] && vbOpen.has(s.key) && !filtering ? `<button type="button" class="vb-more" data-vbmore="${s.key}">Show fewer</button>` : "");
+        html += `<section class="vb-stage"><div class="vb-strip" data-stage="${s.key}"><h2>${escapeHtml(s.label)}<span class="vb-n">${cards.length}</span></h2>${more}</div><div class="vb-grid">${shown.map(vbCard).join("")}</div></section>`;
+      });
+      flush();
+      wrap.innerHTML = html || `<div class="vb-empty">Nothing matches. Try All, or clear the search.</div>`;
+      const inProgress = live.filter((b) => b.stage !== "delivered").length;
+      const sum = document.getElementById("vb-sum");
+      if (sum) sum.textContent = onCal ? "" : `${inProgress} shoot${inProgress === 1 ? "" : "s"} in progress`;
+      wrap.querySelectorAll(".vb-card").forEach((el) => {
         el.addEventListener("click", () => openCandidate(el.getAttribute("data-id")));
+        el.addEventListener("keydown", (e) => { if (e.key === "Enter") openCandidate(el.getAttribute("data-id")); });
         el.addEventListener("dragstart", onDragStart);
         el.addEventListener("dragend", onDragEnd);
       });
-      wrap.querySelectorAll(".vid-row-cards").forEach((col) => {
-        col.addEventListener("dragover", onDragOver);
-        col.addEventListener("dragleave", onDragLeave);
-        col.addEventListener("drop", onDrop);
+      wrap.querySelectorAll(".vb-strip, .vb-quiet-s").forEach((t) => {
+        t.addEventListener("dragover", onDragOver);
+        t.addEventListener("dragleave", onDragLeave);
+        t.addEventListener("drop", onDrop);
       });
-      syncVidTopScroll();
+      wrap.querySelectorAll("[data-vbmore]").forEach((x) => x.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const k = x.getAttribute("data-vbmore");
+        if (vbOpen.has(k)) vbOpen.delete(k); else vbOpen.add(k);
+        renderClients(document.getElementById("vid-client-search")?.value || "");
+      }));
     }
-
-    // Size + show the synced scrollbar above the board (mirrors SMM's syncTopScroll).
-    function syncVidTopScroll() {
-      const board = document.getElementById("vid-clients");
-      const top = document.getElementById("vid-scrolltop");
-      const inner = document.getElementById("vid-scrolltop-inner");
-      if (!board || !top || !inner) return;
-      const over = board.scrollWidth > board.clientWidth + 1;
-      top.hidden = !over;
-      if (over) inner.style.width = board.scrollWidth + "px";
-    }
+    function syncVidTopScroll() { /* the board no longer scrolls sideways */ }
 
     let candId = null;
     function openCandidate(id) { candId = id; showPanel("candidate"); renderCandidate(); }
@@ -6256,13 +6413,16 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       const [bRes, aRes, iRes] = await Promise.all([
         supabase.from("videography_bookings").select("*").order("created_at", { ascending: false }),
         supabase.from("videography_availability").select("*"),
-        supabase.from("invoices").select("booking_id, status"),
+        supabase.from("invoices").select("booking_id, status, due_date, created_at").not("booking_id", "is", null).neq("status", "void").order("created_at", { ascending: false }).range(0, 999),
       ]);
 
       bookings = bRes.error ? [] : (bRes.data || []);
       INVOICED = new Map();
+      VBMONEY = new Map();
       (iRes.error ? [] : (iRes.data || [])).forEach((iv) => {
         if (iv.booking_id && (iv.status === "sent" || iv.status === "paid")) INVOICED.set(iv.booking_id, true);
+        // Newest first, so the first one seen is the one that counts.
+        if (iv.booking_id && !VBMONEY.has(iv.booking_id)) VBMONEY.set(iv.booking_id, iv);
       });
       availability = aRes.error ? [] : (aRes.data || []);
 
