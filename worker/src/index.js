@@ -6366,6 +6366,135 @@ async function pollSmmInbox(env) {
 // wrangler.toml; this is only what GET /smm/brochure.pdf streams when it's unset.
 const SMM_BROCHURE_FALLBACK = "https://assets.tmke.co.uk/TMKE%20SMM/TMKE%20-%20Services%20Brochure%202026.pdf";
 
+/* Top level on purpose: Revenue's route, the portal's and the morning run all
+   call these, and a function declared further down this file sits inside
+   fetch()'s second try block, where nothing else can see it (6 Nov 2026). */
+/* ---- The invoice book (Dani, 5-6 Nov 2026) --------------------------------
+   Every invoice with what the Invoicing page and the accounts portal need to
+   know about it: what kind of work it was, who the work was for, whether it's
+   inter-brand and which sector its money goes under. None of that's on the
+   invoice row, so it's worked out here, once, for both pages. */
+const BOOK_COLS = "id,number,booking_id,booking_source,recurring_id,billing_month,bill_to_name,bill_to_email,client_name,line_items,subtotal_pence,vat_pence,total_pence,status,issued_date,due_date,paid_date,payment_method,pay_by_card,sent_at,sent_to,release_on_payment,accounts_note,accounts_not_paid,accounts_marked_at,accounts_reminders,sector,created_at";
+function chunks(a, n) { const out = []; for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n)); return out; }
+async function revenueOverrides(env) {
+  const rows = await sbGet(env, "revenue_rules", "select=source,sector");
+  return Object.fromEntries((rows || []).map((r) => [r.source, r.sector]));
+}
+async function invoiceContext(env, invoices) {
+  const ids = (f) => [...new Set(invoices.map(f).filter(Boolean))];
+  const read = async (table, list, select) => {
+    const out = {};
+    for (const part of chunks(list, 80)) {
+      const rows = await sbGet(env, table, `id=in.(${part.join(",")})&select=${select}`);
+      for (const r of rows || []) out[r.id] = r;
+    }
+    return out;
+  };
+  const rec = await read("recurring_invoices", ids((v) => v.recurring_id), "id,name,kind,lead_id,quantity_label");
+  const bookings = await read("videography_bookings", ids((v) => ((v.booking_source || "videography") === "videography" ? v.booking_id : null)), "id,payment_route,client_name,company,client_company,service,stage,paid_at,pin_released_at,shoot_date,smm_lead_id");
+  const leadIds = ids((v) => (v.booking_source === "smm" ? v.booking_id : null)).concat(Object.values(rec).map((r) => r.lead_id).filter(Boolean));
+  const leads = await read("smm_leads", [...new Set(leadIds)], "id,business,full_name,first_name,last_name,inter_brand_invoice");
+  return { rec, bookings, leads, overrides: await revenueOverrides(env) };
+}
+function invoiceBookRow(v, ctx) {
+  const r = v.recurring_id ? ctx.rec[v.recurring_id] : null;
+  const bk = (v.booking_source || "videography") === "videography" && v.booking_id ? ctx.bookings[v.booking_id] : null;
+  const lead = (v.booking_source === "smm" && v.booking_id ? ctx.leads[v.booking_id] : null) || (r && r.lead_id ? ctx.leads[r.lead_id] : null);
+  const leadName = lead ? (lead.business || lead.full_name || `${lead.first_name || ""} ${lead.last_name || ""}`.trim()) : "";
+  // Social media monthly, a shoot, a brand's regular invoice, or a one-off.
+  const kind = bk ? "video" : (r && r.kind === "social") ? "social" : r ? "agent" : (lead && v.billing_month) ? "social" : "oneoff";
+  const interBrand = !!(bk && (bk.payment_route === "brand_invoice" || bk.payment_route === "brand_invoice_teg"))
+    || !!(lead && lead.inter_brand_invoice)
+    || kind === "agent"
+    || /@newman\.uk\.com\b/i.test(String(v.bill_to_email || ""));
+  const rule = bk ? ruleForService(bk.service) : r && r.kind === "social" ? "social-monthly" : r && r.quantity_label ? "agent-hub" : r ? "agent-assets" : lead ? "social-other" : "other";
+  const sector = v.sector || sectorForRule(rule, ctx.overrides);
+  const items = Array.isArray(v.line_items) ? v.line_items : [];
+  const contentReady = !!(bk && v.status !== "paid" && ["gallery_ready", "sent"].includes(bk.stage) && !bk.paid_at);
+  return {
+    id: v.id, number: v.number || "", status: v.status,
+    kind, route: interBrand ? "internal" : "client", rule, sector, sector_chosen: !!v.sector,
+    client: v.client_name || (bk && (bk.company || bk.client_company || bk.client_name)) || leadName || v.bill_to_name || "",
+    what: String((items[0] && items[0].description) || "").trim(),
+    lines: items.map((it) => ({ description: it.description || "", net_pence: (Number(it.unit_pence) || 0) * (Number(it.qty) || 1) })),
+    payer: v.bill_to_name || "", email: v.bill_to_email || "",
+    net_pence: Number(v.subtotal_pence) || 0, vat_pence: Number(v.vat_pence) || 0, total_pence: Number(v.total_pence) || 0,
+    month: String(v.sent_at || v.issued_date || v.created_at || "").slice(0, 7),
+    sent: v.status === "draft" ? "" : String(v.sent_at || v.issued_date || "").slice(0, 10),
+    due: String(v.due_date || "").slice(0, 10),
+    paid_on: String(v.paid_date || "").slice(0, 10), paid_how: v.accounts_marked_at ? "Accounts confirmed" : v.payment_method === "card" ? "Card" : v.payment_method === "direct_debit" ? "Direct debit" : v.status === "paid" ? "Marked paid" : "",
+    method: v.payment_method || "", pay_by_card: !!v.pay_by_card,
+    note: v.accounts_note || "", not_paid: v.accounts_not_paid || "", marked_at: v.accounts_marked_at || null,
+    reminders: Array.isArray(v.accounts_reminders) ? v.accounts_reminders : [],
+    release: bk && !bk.pin_released_at && !bk.paid_at ? "Gallery PIN" : "", content_ready: contentReady,
+    booking_id: v.booking_id || null, booking_source: v.booking_source || null,
+    sent_to: v.sent_to || "",
+  };
+}
+// Null if the SQL hasn't run: the new columns are in the select.
+async function invoiceBook(env, filter) {
+  const rows = await sbGetAll(env, "invoices", `${filter}&select=${BOOK_COLS}&order=created_at.desc,id.asc`);
+  if (!rows) return null;
+  const ctx = await invoiceContext(env, rows);
+  return rows.map((v) => invoiceBookRow(v, ctx));
+}
+// What accounts are asked about: sent and unpaid. Paid by card or direct debit
+// never lands here, because we already know.
+const PORTAL_FILTER = "status=eq.sent&or=(payment_method.is.null,payment_method.neq.direct_debit)";
+async function accountsPortalRow(env) {
+  return (await sbGet(env, "accounts_portal", "id=eq.1&select=*"))?.[0] || null;
+}
+async function accountsFromSession(env, request) {
+  const auth = request.headers.get("Authorization") || "";
+  const [token, exp, sig] = (auth.startsWith("Bearer ") ? auth.slice(7) : "").split(".");
+  if (!token || !/^\d+$/.test(exp || "") || Number(exp) < Date.now() || !sig) return null;
+  const p = await accountsPortalRow(env);
+  if (!p || !p.enabled || p.token !== token) return null;
+  const want = await portalSig(env, `accounts:${token}`, p.passcode, exp);
+  return want && want === sig ? p : null;
+}
+function accountsLink(env, p) { return `${invSite(env)}/accounts?c=${encodeURIComponent(p.token)}`; }
+
+/* The month-end email: to Paula, short, and what to do. Plain table cells, so
+   the split shows in Outlook with pictures off. */
+async function accountsMonthEndMail(env, p) {
+  const open = await invoiceBook(env, PORTAL_FILTER);
+  if (!open) return null;
+  const byM = {};
+  for (const v of open) (byM[v.month] = byM[v.month] || []).push(v);
+  const sum = (a) => a.reduce((t, v) => t + v.net_pence, 0);
+  const ib = open.filter((v) => v.route === "internal"), cl = open.filter((v) => v.route !== "internal");
+  const label = (ym) => invMonthLabel(ym);
+  const cell = "padding:9px 10px;border-bottom:1px solid #eae5e1;font-size:14px;color:#2b2226;";
+  const head = "padding:9px 10px;border-top:1px solid #c9bcb7;border-bottom:1px solid #c9bcb7;font-size:14px;font-weight:400;color:#7e6765;text-align:left;";
+  const table = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 18px"><tr><th style="${head}">Month</th><th style="${head}text-align:right">Invoices</th><th style="${head}text-align:right">Net</th></tr>${Object.keys(byM).sort().map((k) => `<tr><td style="${cell}">${invEsc(label(k))}</td><td style="${cell}text-align:right">${byM[k].length}</td><td style="${cell}text-align:right">${gbpW(sum(byM[k]))}</td></tr>`).join("")}</table>`;
+  const ibW = open.length ? Math.max(ib.length ? 8 : 0, Math.round(ib.length / open.length * 100)) : 50;
+  const bar = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:0;margin:0 0 10px"><tr>${ib.length ? `<td width="${ibW}%" height="14" bgcolor="#371e28" style="background:#371e28;font-size:0;line-height:0">&nbsp;</td>` : ""}${cl.length ? `<td width="${100 - (ib.length ? ibW : 0)}%" height="14" bgcolor="#c9bcb7" style="background:#c9bcb7;font-size:0;line-height:0">&nbsp;</td>` : ""}</tr></table>`;
+  const key = (colour, n, words) => `<td width="50%" valign="top" style="padding:0 10px 0 0;font-size:14px;color:#7e6765"><span style="display:inline-block;width:10px;height:10px;background:${colour};margin-right:8px"></span><span style="font-size:22px;color:#2b2226">${n}</span> ${words}</td>`;
+  const split = `${bar}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px"><tr>${key("#371e28", ib.length, `Inter-brand, ${gbpW(sum(ib))}`)}${key("#c9bcb7", cl.length, `Waiting on client payment, ${gbpW(sum(cl))}`)}</tr></table>`;
+  const link = accountsLink(env, p);
+  const html = `<div style="${EM_WRAP}">
+    <h1 style="${EM_H1}">Coming Up to Month End.</h1>
+    <p style="${EM_P}">Hi Paula,</p>
+    <p style="${EM_P}">It's coming up to month end, and these invoices are still outstanding.</p>
+    ${table}${split}
+    <p style="${EM_P}"><a href="${link}" style="color:#371e28;text-decoration:underline">Click here</a> to review all of our outstanding invoices, and please update them accordingly. Any problems, please let me know.</p>
+    <p style="${EM_P}">Thank you,<br>Danielle</p>
+  </div>`;
+  return { html, subject: "Coming up to month end.", count: open.length, to: p.email_to };
+}
+// Goes by itself on the 20th, and again on the 28th if anything's still open.
+async function runAccountsMonthEnd(env) {
+  const t = invToday();
+  if (t.day !== 20 && t.day !== 28) return;
+  const p = await accountsPortalRow(env);
+  if (!p || !p.enabled || !p.emails_on) return;
+  const mail = await accountsMonthEndMail(env, p);
+  if (!mail || !mail.count) return;
+  if (!(await invLogOnce(env, `accounts-month-end:${t.ymd}`, `${mail.count} open`))) return;
+  await sendEmail(env, { to: p.email_to, cc: invDanielle(env), subject: mail.subject, html: await wrapInBrandedBase(env, mail.html) });
+}
+
 export default {
   // Cron (see wrangler.toml [triggers]). The 07:00 & 08:00 daily runs send post
   // reminders (runReminders self-gates to 8am UK); every other (frequent) run
@@ -6378,10 +6507,10 @@ export default {
       // Only on the 08:00 run, so the day-after reminder and the expiry warning
       // go out once a day rather than twice.
       if (event.cron === "0 8 * * *") {
+        ctx.waitUntil(runAccountsMonthEnd(env).catch(() => {}));
         ctx.waitUntil(runVideographyChasers(env));
         ctx.waitUntil(runInvoiceChasers(env));
         ctx.waitUntil(runInvoiceAutomation(env));
-        ctx.waitUntil(runAccountsMonthEnd(env).catch(() => {}));
         ctx.waitUntil(runStallCheck(env));
         ctx.waitUntil(runEmptyFunnelCheck(env));
         ctx.waitUntil(runInvoicePrompt(env));
@@ -8227,104 +8356,6 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const ok = await sendPostEmail(env, { email: user.email, item, subject: `Your ${item.platform_hint} post - ready to go` });
         if (!ok) return json({ error: "Couldn't send the email - try again." }, 502, request, env);
         return json({ ok: true, to: user.email }, 200, request, env);
-      }
-
-      // ---- The accounts portal (public: the link and passcode are the proof) ----
-      if (path.endsWith("/accounts-portal/open") && request.method === "POST") {
-        const b = await request.json().catch(() => ({}));
-        const p = await accountsPortalRow(env);
-        if (!p) return json({ code: "not_ready" }, 503, request, env);
-        if (String((b && b.token) || "") !== p.token) return json({ code: "unknown" }, 404, request, env);
-        if (!p.enabled) return json({ code: "closed" }, 403, request, env);
-        const lockedFor = p.locked_until ? Date.parse(p.locked_until) - Date.now() : 0;
-        if (lockedFor > 0) return json({ code: "locked", minutes: Math.ceil(lockedFor / 60000) }, 429, request, env);
-        if (portalCode(b && b.passcode) !== p.passcode) {
-          const tries = (p.failed_tries || 0) + 1;
-          if (tries >= PORTAL_TRIES) {
-            await sbPatch(env, "accounts_portal", "id=eq.1", { failed_tries: 0, locked_until: new Date(Date.now() + PORTAL_LOCK_MIN * 60000).toISOString() });
-            return json({ code: "locked", minutes: PORTAL_LOCK_MIN }, 429, request, env);
-          }
-          await sbPatch(env, "accounts_portal", "id=eq.1", { failed_tries: tries });
-          return json({ code: "wrong", left: PORTAL_TRIES - tries }, 401, request, env);
-        }
-        const exp = Date.now() + PORTAL_DAYS * 24 * 60 * 60 * 1000;
-        const sig = await portalSig(env, `accounts:${p.token}`, p.passcode, exp);
-        if (!sig) return json({ error: "The portal isn't configured on the Worker." }, 503, request, env);
-        await sbPatch(env, "accounts_portal", "id=eq.1", { failed_tries: 0, locked_until: null, last_opened_at: new Date().toISOString() });
-        return json({ session: `${p.token}.${exp}.${sig}`, expires: exp }, 200, request, env);
-      }
-      if (path.includes("/accounts-portal/")) {
-        const p = await accountsFromSession(env, request);
-        if (!p) return json({ code: "signed_out" }, 401, request, env);
-        // Only what accounts need to see, nothing about how it's filed with us.
-        const shown = (v) => ({ id: v.id, number: v.number, route: v.route, kind: v.kind, client: v.client, payer: v.payer, sent: v.sent, due: v.due, month: v.month, net_pence: v.net_pence, note: v.note, not_paid: v.not_paid, status: v.status, marked_at: v.marked_at });
-        if (path.endsWith("/accounts-portal/invoices") && request.method === "GET") {
-          const rows = await invoiceBook(env, PORTAL_FILTER);
-          if (!rows) return json({ error: "Couldn't load the invoices." }, 502, request, env);
-          return json({ ok: true, today: invToday().ymd, invoices: rows.map(shown) }, 200, request, env);
-        }
-        const b = request.method === "POST" ? await request.json().catch(() => ({})) : {};
-        const id = String((b && b.id) || url.searchParams.get("id") || "");
-        if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Which invoice?" }, 400, request, env);
-        const inv = (await sbGet(env, "invoices", `id=eq.${id}&select=id,number,status,payment_method,accounts_marked_at,template,booking_id,booking_source`))?.[0];
-        // Open on the portal, or one they've confirmed and might want to undo.
-        if (!inv || inv.payment_method === "direct_debit" || !(inv.status === "sent" || (inv.status === "paid" && inv.accounts_marked_at))) return json({ error: "That invoice isn't on this page any more." }, 404, request, env);
-        const at = `id=eq.${id}`;
-        if (path.endsWith("/accounts-portal/invoice-pdf") && request.method === "GET") {
-          const key = `invoices/${inv.number || inv.id}.pdf`;
-          let head = null;
-          try { head = await env.BUCKET.head(key); } catch (_) {}
-          if (!head) {
-            const full = (await sbGet(env, "invoices", `${at}&select=*`))?.[0];
-            const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
-            try { await env.BUCKET.put(key, await renderInvoicePdf(env, { ...st, template: inv.template || st.template }, full), { httpMetadata: { contentType: "application/pdf" } }); }
-            catch (_) { return json({ error: "Couldn't open that invoice. Please try again." }, 502, request, env); }
-          }
-          const exp = Date.now() + 60 * 60 * 1000;
-          const sig = await mediaSig(env, key, exp);
-          if (!sig) return json({ error: "Couldn't open that invoice." }, 503, request, env);
-          const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
-          return json({ url: `${base}/download?key=${encodeURIComponent(key)}&exp=${exp}&sig=${encodeURIComponent(sig)}` }, 200, request, env);
-        }
-        if (path.endsWith("/accounts-portal/note") && request.method === "POST") {
-          const note = String(b.note || "").trim().slice(0, 2000);
-          const r = await sbPatch(env, "invoices", at, { accounts_note: note || null });
-          return r.ok ? json({ ok: true, note }, 200, request, env) : json({ error: "Couldn't save that note." }, 502, request, env);
-        }
-        if (path.endsWith("/accounts-portal/mark") && request.method === "POST") {
-          const action = String(b.action || "");
-          if (action === "not_paid") {
-            const why = String(b.reason || "").trim().slice(0, 2000);
-            if (!why) return json({ error: "Say why it isn't paid." }, 400, request, env);
-            const cur = (await sbGet(env, "invoices", `${at}&select=accounts_note`))?.[0];
-            const r = await sbPatch(env, "invoices", at, { accounts_not_paid: why, accounts_note: (cur && cur.accounts_note) || why });
-            if (!r.ok) return json({ error: "Couldn't save that." }, 502, request, env);
-            const row = (await invoiceBook(env, at))?.[0];
-            return json({ ok: true, invoice: row ? shown(row) : null }, 200, request, env);
-          }
-          if (action === "paid") {
-            if (inv.status !== "sent") return json({ error: "That one's already marked." }, 409, request, env);
-            const r = await sbPatch(env, "invoices", `${at}&status=eq.sent`, { status: "paid", paid_date: invToday().ymd, accounts_marked_at: new Date().toISOString(), accounts_not_paid: null });
-            if (!r.ok) return json({ error: "Couldn't save that. Please try again." }, 502, request, env);
-            const fx = await invoicePaidEffects(env, id, "Accounts portal");
-            return json({ ok: true, ...fx }, 200, request, env);
-          }
-          if (action === "undo") {
-            if (inv.status !== "paid" || !inv.accounts_marked_at) return json({ error: "That one can't be undone from here." }, 409, request, env);
-            const r = await sbPatch(env, "invoices", at, { status: "sent", paid_date: null, accounts_marked_at: null });
-            if (!r.ok) return json({ error: "Couldn't undo that. Please try again." }, 502, request, env);
-            // The shoot goes back to unpaid unless its PIN has already gone. A
-            // PIN can't be un-sent, so Dani's told rather than left to find out.
-            if (inv.booking_id && (inv.booking_source || "videography") === "videography") {
-              const bk = (await sbGet(env, "videography_bookings", `id=eq.${inv.booking_id}&select=id,client_name,pin_released_at`))?.[0];
-              if (bk && !bk.pin_released_at) await sbPatch(env, "videography_bookings", `id=eq.${bk.id}`, { paid_at: null });
-              else if (bk) await sendEmail(env, { to: invDanielle(env), subject: `Accounts undid ${inv.number}, but the PIN has already gone.`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">Hi Danielle,</p><p style="${EM_P}">Accounts marked ${invEsc(inv.number || "an invoice")} paid, then undid it. ${invEsc(bk.client_name || "The client")}'s gallery PIN went out when it was marked paid, so they already have it.</p></div>`) });
-            }
-            return json({ ok: true }, 200, request, env);
-          }
-          return json({ error: "Which action?" }, 400, request, env);
-        }
-        return json({ error: "Not found" }, 404, request, env);
       }
 
       // ---- Client portal: open it with the passcode (public) ----
@@ -11094,6 +11125,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       // proof, and Jack and Abbie shouldn't have to sign in (Danielle, 21 Oct).
       || path.endsWith("/invoicing/approval")
       || path.endsWith("/videography/fc-fee")
+      || path.includes("/accounts-portal/")   // its own link and passcode, checked in the route
       || (path.endsWith("/download") && url.searchParams.get("sig"));   // proof is in the link
     if (!publicNoAuth) {
       const hot = path.endsWith("/part") || path.endsWith("/complete") || path.endsWith("/abort");
@@ -11106,6 +11138,104 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
     }
 
     try {
+      // ---- The accounts portal (public: the link and passcode are the proof) ----
+      if (path.endsWith("/accounts-portal/open") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const p = await accountsPortalRow(env);
+        if (!p) return json({ code: "not_ready" }, 503, request, env);
+        if (String((b && b.token) || "") !== p.token) return json({ code: "unknown" }, 404, request, env);
+        if (!p.enabled) return json({ code: "closed" }, 403, request, env);
+        const lockedFor = p.locked_until ? Date.parse(p.locked_until) - Date.now() : 0;
+        if (lockedFor > 0) return json({ code: "locked", minutes: Math.ceil(lockedFor / 60000) }, 429, request, env);
+        if (portalCode(b && b.passcode) !== p.passcode) {
+          const tries = (p.failed_tries || 0) + 1;
+          if (tries >= PORTAL_TRIES) {
+            await sbPatch(env, "accounts_portal", "id=eq.1", { failed_tries: 0, locked_until: new Date(Date.now() + PORTAL_LOCK_MIN * 60000).toISOString() });
+            return json({ code: "locked", minutes: PORTAL_LOCK_MIN }, 429, request, env);
+          }
+          await sbPatch(env, "accounts_portal", "id=eq.1", { failed_tries: tries });
+          return json({ code: "wrong", left: PORTAL_TRIES - tries }, 401, request, env);
+        }
+        const exp = Date.now() + PORTAL_DAYS * 24 * 60 * 60 * 1000;
+        const sig = await portalSig(env, `accounts:${p.token}`, p.passcode, exp);
+        if (!sig) return json({ error: "The portal isn't configured on the Worker." }, 503, request, env);
+        await sbPatch(env, "accounts_portal", "id=eq.1", { failed_tries: 0, locked_until: null, last_opened_at: new Date().toISOString() });
+        return json({ session: `${p.token}.${exp}.${sig}`, expires: exp }, 200, request, env);
+      }
+      if (path.includes("/accounts-portal/")) {
+        const p = await accountsFromSession(env, request);
+        if (!p) return json({ code: "signed_out" }, 401, request, env);
+        // Only what accounts need to see, nothing about how it's filed with us.
+        const shown = (v) => ({ id: v.id, number: v.number, route: v.route, kind: v.kind, client: v.client, payer: v.payer, sent: v.sent, due: v.due, month: v.month, net_pence: v.net_pence, note: v.note, not_paid: v.not_paid, status: v.status, marked_at: v.marked_at });
+        if (path.endsWith("/accounts-portal/invoices") && request.method === "GET") {
+          const rows = await invoiceBook(env, PORTAL_FILTER);
+          if (!rows) return json({ error: "Couldn't load the invoices." }, 502, request, env);
+          return json({ ok: true, today: invToday().ymd, invoices: rows.map(shown) }, 200, request, env);
+        }
+        const b = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+        const id = String((b && b.id) || url.searchParams.get("id") || "");
+        if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Which invoice?" }, 400, request, env);
+        const inv = (await sbGet(env, "invoices", `id=eq.${id}&select=id,number,status,payment_method,accounts_marked_at,template,booking_id,booking_source`))?.[0];
+        // Open on the portal, or one they've confirmed and might want to undo.
+        if (!inv || inv.payment_method === "direct_debit" || !(inv.status === "sent" || (inv.status === "paid" && inv.accounts_marked_at))) return json({ error: "That invoice isn't on this page any more." }, 404, request, env);
+        const at = `id=eq.${id}`;
+        if (path.endsWith("/accounts-portal/invoice-pdf") && request.method === "GET") {
+          const key = `invoices/${inv.number || inv.id}.pdf`;
+          let head = null;
+          try { head = await env.BUCKET.head(key); } catch (_) {}
+          if (!head) {
+            const full = (await sbGet(env, "invoices", `${at}&select=*`))?.[0];
+            const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+            try { await env.BUCKET.put(key, await renderInvoicePdf(env, { ...st, template: inv.template || st.template }, full), { httpMetadata: { contentType: "application/pdf" } }); }
+            catch (_) { return json({ error: "Couldn't open that invoice. Please try again." }, 502, request, env); }
+          }
+          const exp = Date.now() + 60 * 60 * 1000;
+          const sig = await mediaSig(env, key, exp);
+          if (!sig) return json({ error: "Couldn't open that invoice." }, 503, request, env);
+          const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
+          return json({ url: `${base}/download?key=${encodeURIComponent(key)}&exp=${exp}&sig=${encodeURIComponent(sig)}` }, 200, request, env);
+        }
+        if (path.endsWith("/accounts-portal/note") && request.method === "POST") {
+          const note = String(b.note || "").trim().slice(0, 2000);
+          const r = await sbPatch(env, "invoices", at, { accounts_note: note || null });
+          return r.ok ? json({ ok: true, note }, 200, request, env) : json({ error: "Couldn't save that note." }, 502, request, env);
+        }
+        if (path.endsWith("/accounts-portal/mark") && request.method === "POST") {
+          const action = String(b.action || "");
+          if (action === "not_paid") {
+            const why = String(b.reason || "").trim().slice(0, 2000);
+            if (!why) return json({ error: "Say why it isn't paid." }, 400, request, env);
+            const cur = (await sbGet(env, "invoices", `${at}&select=accounts_note`))?.[0];
+            const r = await sbPatch(env, "invoices", at, { accounts_not_paid: why, accounts_note: (cur && cur.accounts_note) || why });
+            if (!r.ok) return json({ error: "Couldn't save that." }, 502, request, env);
+            const row = (await invoiceBook(env, at))?.[0];
+            return json({ ok: true, invoice: row ? shown(row) : null }, 200, request, env);
+          }
+          if (action === "paid") {
+            if (inv.status !== "sent") return json({ error: "That one's already marked." }, 409, request, env);
+            const r = await sbPatch(env, "invoices", `${at}&status=eq.sent`, { status: "paid", paid_date: invToday().ymd, accounts_marked_at: new Date().toISOString(), accounts_not_paid: null });
+            if (!r.ok) return json({ error: "Couldn't save that. Please try again." }, 502, request, env);
+            const fx = await invoicePaidEffects(env, id, "Accounts portal");
+            return json({ ok: true, ...fx }, 200, request, env);
+          }
+          if (action === "undo") {
+            if (inv.status !== "paid" || !inv.accounts_marked_at) return json({ error: "That one can't be undone from here." }, 409, request, env);
+            const r = await sbPatch(env, "invoices", at, { status: "sent", paid_date: null, accounts_marked_at: null });
+            if (!r.ok) return json({ error: "Couldn't undo that. Please try again." }, 502, request, env);
+            // The shoot goes back to unpaid unless its PIN has already gone. A
+            // PIN can't be un-sent, so Dani's told rather than left to find out.
+            if (inv.booking_id && (inv.booking_source || "videography") === "videography") {
+              const bk = (await sbGet(env, "videography_bookings", `id=eq.${inv.booking_id}&select=id,client_name,pin_released_at`))?.[0];
+              if (bk && !bk.pin_released_at) await sbPatch(env, "videography_bookings", `id=eq.${bk.id}`, { paid_at: null });
+              else if (bk) await sendEmail(env, { to: invDanielle(env), subject: `Accounts undid ${inv.number}, but the PIN has already gone.`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">Hi Danielle,</p><p style="${EM_P}">Accounts marked ${invEsc(inv.number || "an invoice")} paid, then undid it. ${invEsc(bk.client_name || "The client")}'s gallery PIN went out when it was marked paid, so they already have it.</p></div>`) });
+            }
+            return json({ ok: true }, 200, request, env);
+          }
+          return json({ error: "Which action?" }, 400, request, env);
+        }
+        return json({ error: "Not found" }, 404, request, env);
+      }
+
       // ---- Send an email via Resend (admin only) ----
       // Powers the admin email-template builder's "Send test", and is the relay
       // ---- Admin: preview an automated email (renders the REAL builder with
@@ -15088,132 +15218,6 @@ async function invoicePaidEffects(env, id, by) {
     }
   } catch (_) { /* the invoice is paid either way */ }
   return out;
-}
-
-/* ---- The invoice book (Dani, 5-6 Nov 2026) --------------------------------
-   Every invoice with what the Invoicing page and the accounts portal need to
-   know about it: what kind of work it was, who the work was for, whether it's
-   inter-brand and which sector its money goes under. None of that's on the
-   invoice row, so it's worked out here, once, for both pages. */
-const BOOK_COLS = "id,number,booking_id,booking_source,recurring_id,billing_month,bill_to_name,bill_to_email,client_name,line_items,subtotal_pence,vat_pence,total_pence,status,issued_date,due_date,paid_date,payment_method,pay_by_card,sent_at,sent_to,release_on_payment,accounts_note,accounts_not_paid,accounts_marked_at,accounts_reminders,sector,created_at";
-function chunks(a, n) { const out = []; for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n)); return out; }
-async function revenueOverrides(env) {
-  const rows = await sbGet(env, "revenue_rules", "select=source,sector");
-  return Object.fromEntries((rows || []).map((r) => [r.source, r.sector]));
-}
-async function invoiceContext(env, invoices) {
-  const ids = (f) => [...new Set(invoices.map(f).filter(Boolean))];
-  const read = async (table, list, select) => {
-    const out = {};
-    for (const part of chunks(list, 80)) {
-      const rows = await sbGet(env, table, `id=in.(${part.join(",")})&select=${select}`);
-      for (const r of rows || []) out[r.id] = r;
-    }
-    return out;
-  };
-  const rec = await read("recurring_invoices", ids((v) => v.recurring_id), "id,name,kind,lead_id,quantity_label");
-  const bookings = await read("videography_bookings", ids((v) => ((v.booking_source || "videography") === "videography" ? v.booking_id : null)), "id,payment_route,client_name,company,client_company,service,stage,paid_at,pin_released_at,shoot_date,smm_lead_id");
-  const leadIds = ids((v) => (v.booking_source === "smm" ? v.booking_id : null)).concat(Object.values(rec).map((r) => r.lead_id).filter(Boolean));
-  const leads = await read("smm_leads", [...new Set(leadIds)], "id,business,full_name,first_name,last_name,inter_brand_invoice");
-  return { rec, bookings, leads, overrides: await revenueOverrides(env) };
-}
-function invoiceBookRow(v, ctx) {
-  const r = v.recurring_id ? ctx.rec[v.recurring_id] : null;
-  const bk = (v.booking_source || "videography") === "videography" && v.booking_id ? ctx.bookings[v.booking_id] : null;
-  const lead = (v.booking_source === "smm" && v.booking_id ? ctx.leads[v.booking_id] : null) || (r && r.lead_id ? ctx.leads[r.lead_id] : null);
-  const leadName = lead ? (lead.business || lead.full_name || `${lead.first_name || ""} ${lead.last_name || ""}`.trim()) : "";
-  // Social media monthly, a shoot, a brand's regular invoice, or a one-off.
-  const kind = bk ? "video" : (r && r.kind === "social") ? "social" : r ? "agent" : (lead && v.billing_month) ? "social" : "oneoff";
-  const interBrand = !!(bk && (bk.payment_route === "brand_invoice" || bk.payment_route === "brand_invoice_teg"))
-    || !!(lead && lead.inter_brand_invoice)
-    || kind === "agent"
-    || /@newman\.uk\.com\b/i.test(String(v.bill_to_email || ""));
-  const rule = bk ? ruleForService(bk.service) : r && r.kind === "social" ? "social-monthly" : r && r.quantity_label ? "agent-hub" : r ? "agent-assets" : lead ? "social-other" : "other";
-  const sector = v.sector || sectorForRule(rule, ctx.overrides);
-  const items = Array.isArray(v.line_items) ? v.line_items : [];
-  const contentReady = !!(bk && v.status !== "paid" && ["gallery_ready", "sent"].includes(bk.stage) && !bk.paid_at);
-  return {
-    id: v.id, number: v.number || "", status: v.status,
-    kind, route: interBrand ? "internal" : "client", rule, sector, sector_chosen: !!v.sector,
-    client: v.client_name || (bk && (bk.company || bk.client_company || bk.client_name)) || leadName || v.bill_to_name || "",
-    what: String((items[0] && items[0].description) || "").trim(),
-    lines: items.map((it) => ({ description: it.description || "", net_pence: (Number(it.unit_pence) || 0) * (Number(it.qty) || 1) })),
-    payer: v.bill_to_name || "", email: v.bill_to_email || "",
-    net_pence: Number(v.subtotal_pence) || 0, vat_pence: Number(v.vat_pence) || 0, total_pence: Number(v.total_pence) || 0,
-    month: String(v.sent_at || v.issued_date || v.created_at || "").slice(0, 7),
-    sent: v.status === "draft" ? "" : String(v.sent_at || v.issued_date || "").slice(0, 10),
-    due: String(v.due_date || "").slice(0, 10),
-    paid_on: String(v.paid_date || "").slice(0, 10), paid_how: v.accounts_marked_at ? "Accounts confirmed" : v.payment_method === "card" ? "Card" : v.payment_method === "direct_debit" ? "Direct debit" : v.status === "paid" ? "Marked paid" : "",
-    method: v.payment_method || "", pay_by_card: !!v.pay_by_card,
-    note: v.accounts_note || "", not_paid: v.accounts_not_paid || "", marked_at: v.accounts_marked_at || null,
-    reminders: Array.isArray(v.accounts_reminders) ? v.accounts_reminders : [],
-    release: bk && !bk.pin_released_at && !bk.paid_at ? "Gallery PIN" : "", content_ready: contentReady,
-    booking_id: v.booking_id || null, booking_source: v.booking_source || null,
-    sent_to: v.sent_to || "",
-  };
-}
-// Null if the SQL hasn't run: the new columns are in the select.
-async function invoiceBook(env, filter) {
-  const rows = await sbGetAll(env, "invoices", `${filter}&select=${BOOK_COLS}&order=created_at.desc,id.asc`);
-  if (!rows) return null;
-  const ctx = await invoiceContext(env, rows);
-  return rows.map((v) => invoiceBookRow(v, ctx));
-}
-// What accounts are asked about: sent and unpaid. Paid by card or direct debit
-// never lands here, because we already know.
-const PORTAL_FILTER = "status=eq.sent&or=(payment_method.is.null,payment_method.neq.direct_debit)";
-async function accountsPortalRow(env) {
-  return (await sbGet(env, "accounts_portal", "id=eq.1&select=*"))?.[0] || null;
-}
-async function accountsFromSession(env, request) {
-  const auth = request.headers.get("Authorization") || "";
-  const [token, exp, sig] = (auth.startsWith("Bearer ") ? auth.slice(7) : "").split(".");
-  if (!token || !/^\d+$/.test(exp || "") || Number(exp) < Date.now() || !sig) return null;
-  const p = await accountsPortalRow(env);
-  if (!p || !p.enabled || p.token !== token) return null;
-  const want = await portalSig(env, `accounts:${token}`, p.passcode, exp);
-  return want && want === sig ? p : null;
-}
-function accountsLink(env, p) { return `${invSite(env)}/accounts?c=${encodeURIComponent(p.token)}`; }
-
-/* The month-end email: to Paula, short, and what to do. Plain table cells, so
-   the split shows in Outlook with pictures off. */
-async function accountsMonthEndMail(env, p) {
-  const open = await invoiceBook(env, PORTAL_FILTER);
-  if (!open) return null;
-  const byM = {};
-  for (const v of open) (byM[v.month] = byM[v.month] || []).push(v);
-  const sum = (a) => a.reduce((t, v) => t + v.net_pence, 0);
-  const ib = open.filter((v) => v.route === "internal"), cl = open.filter((v) => v.route !== "internal");
-  const label = (ym) => invMonthLabel(ym);
-  const cell = "padding:9px 10px;border-bottom:1px solid #eae5e1;font-size:14px;color:#2b2226;";
-  const head = "padding:9px 10px;border-top:1px solid #c9bcb7;border-bottom:1px solid #c9bcb7;font-size:14px;font-weight:400;color:#7e6765;text-align:left;";
-  const table = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 18px"><tr><th style="${head}">Month</th><th style="${head}text-align:right">Invoices</th><th style="${head}text-align:right">Net</th></tr>${Object.keys(byM).sort().map((k) => `<tr><td style="${cell}">${invEsc(label(k))}</td><td style="${cell}text-align:right">${byM[k].length}</td><td style="${cell}text-align:right">${gbpW(sum(byM[k]))}</td></tr>`).join("")}</table>`;
-  const ibW = open.length ? Math.max(ib.length ? 8 : 0, Math.round(ib.length / open.length * 100)) : 50;
-  const bar = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:0;margin:0 0 10px"><tr>${ib.length ? `<td width="${ibW}%" height="14" bgcolor="#371e28" style="background:#371e28;font-size:0;line-height:0">&nbsp;</td>` : ""}${cl.length ? `<td width="${100 - (ib.length ? ibW : 0)}%" height="14" bgcolor="#c9bcb7" style="background:#c9bcb7;font-size:0;line-height:0">&nbsp;</td>` : ""}</tr></table>`;
-  const key = (colour, n, words) => `<td width="50%" valign="top" style="padding:0 10px 0 0;font-size:14px;color:#7e6765"><span style="display:inline-block;width:10px;height:10px;background:${colour};margin-right:8px"></span><span style="font-size:22px;color:#2b2226">${n}</span> ${words}</td>`;
-  const split = `${bar}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px"><tr>${key("#371e28", ib.length, `Inter-brand, ${gbpW(sum(ib))}`)}${key("#c9bcb7", cl.length, `Waiting on client payment, ${gbpW(sum(cl))}`)}</tr></table>`;
-  const link = accountsLink(env, p);
-  const html = `<div style="${EM_WRAP}">
-    <h1 style="${EM_H1}">Coming Up to Month End.</h1>
-    <p style="${EM_P}">Hi Paula,</p>
-    <p style="${EM_P}">It's coming up to month end, and these invoices are still outstanding.</p>
-    ${table}${split}
-    <p style="${EM_P}"><a href="${link}" style="color:#371e28;text-decoration:underline">Click here</a> to review all of our outstanding invoices, and please update them accordingly. Any problems, please let me know.</p>
-    <p style="${EM_P}">Thank you,<br>Danielle</p>
-  </div>`;
-  return { html, subject: "Coming up to month end.", count: open.length, to: p.email_to };
-}
-// Goes by itself on the 20th, and again on the 28th if anything's still open.
-async function runAccountsMonthEnd(env) {
-  const t = invToday();
-  if (t.day !== 20 && t.day !== 28) return;
-  const p = await accountsPortalRow(env);
-  if (!p || !p.enabled || !p.emails_on) return;
-  const mail = await accountsMonthEndMail(env, p);
-  if (!mail || !mail.count) return;
-  if (!(await invLogOnce(env, `accounts-month-end:${t.ymd}`, `${mail.count} open`))) return;
-  await sendEmail(env, { to: p.email_to, cc: invDanielle(env), subject: mail.subject, html: await wrapInBrandedBase(env, mail.html) });
 }
 
 async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
