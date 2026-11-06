@@ -2277,18 +2277,20 @@ async function runPortalFolderNotices(env) {
    it's actually in a portal that's on, so it can't say sent when nobody can see
    it. Runs before the folder emails, on the 5-minute tick. */
 async function runPortalDeliveries(env) {
-  const bks = (await sbGet(env, "videography_bookings",
-    "delivery_method=eq.portal&stage=eq.gallery_ready&archive_folder=not.is.null&select=id,client_name,client_email,archive_folder,stage,paid_at,amount_pence,payment_route,smm_lead_id,delivery_method,released_unpaid_at")) || [];
+  const found = (await sbGet(env, "videography_bookings",
+    "delivery_method=eq.portal&stage=in.(editing,gallery_ready)&archive_folder=not.is.null&select=*")) || [];
+  const bks = await withInvoicesDue(env, found);
+  if (!bks) return;
   const ready = bks.filter((b) => shootDoneForPortal(b));
   if (!ready.length) return;
   const portals = (await sbGet(env, "client_portals", "enabled=eq.true&select=folders")) || [];
   for (const b of ready) {
     const prefix = archivePrefix(b.archive_folder);
     if (!portals.some((p) => portalFolders(p).includes(prefix))) continue;
-    const r = await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(b.id)}&stage=eq.gallery_ready`, { stage: "sent", gallery_sent_at: new Date().toISOString() });
+    const r = await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(b.id)}&stage=in.(editing,gallery_ready)`, { stage: "sent", gallery_sent_at: new Date().toISOString() });
     if (!r || !r.ok) continue;
     await logBookingMessage(env, { booking_id: b.id, booking_source: "videography", client_email: b.client_email || null, channel: "note", kind: "audit",
-      body: b.paid_at || b.amount_pence === 0 ? "Now showing in their client portal." : "Now showing in their client portal, released before payment.", is_automated: true, created_by: "automatic" });
+      body: b.paid_at || nothingToPay(b) ? "Now showing in their client portal." : "Now showing in their client portal, released before payment.", is_automated: true, created_by: "automatic" });
   }
 }
 
@@ -5465,9 +5467,20 @@ function shootDoneForPortal(b) {
   if (b.smm_lead_id || b.payment_route === "smm_package") return ["gallery_ready", "sent", "delivered"].includes(b.stage);
   // Delivered by portal (Dani, 6 Nov): no gallery to send, so Content ready is
   // the step. Still paid or £0, unless management released it before payment.
-  if (b.delivery_method === "portal") return ["gallery_ready", "sent", "delivered"].includes(b.stage) && (!!b.paid_at || b.amount_pence === 0 || !!b.released_unpaid_at);
+  // Content ready is its own Yes, saved by a person: never read from the stage.
+  if (b.delivery_method === "portal") return !!b.portal_ready_at && (!!b.paid_at || nothingToPay(b) || !!b.released_unpaid_at);
   if (!["sent", "delivered"].includes(b.stage)) return false;
-  return !!b.paid_at || b.amount_pence === 0;
+  return !!b.paid_at || nothingToPay(b);
+}
+// £0 on the shoot isn't enough: a bespoke shoot sits at £0 until it's priced, with
+// an invoice out (Dani, 6 Nov). withInvoicesDue marks those first.
+function nothingToPay(b) { return b.amount_pence === 0 && b._invoice_due !== true; }
+// Null if the invoices can't be read, so the caller shows nothing rather than guess.
+async function withInvoicesDue(env, bks) {
+  if (!bks.length) return bks;
+  const invs = await sbGet(env, "invoices", `booking_id=in.(${bks.map((b) => `"${b.id}"`).join(",")})&status=neq.void&select=booking_id,status`);
+  if (!invs) return null;
+  return bks.map((b) => ({ ...b, _invoice_due: invs.some((iv) => iv.booking_id === b.id && iv.status !== "paid") }));
 }
 async function portalShownFolders(env, p) {
   const all = portalFolders(p);
@@ -5475,8 +5488,10 @@ async function portalShownFolders(env, p) {
   const names = all.map((f) => f.slice(PART_PREFIX.length + 1, -1));
   // A failed lookup shows nothing: with no shoots to check, every folder would
   // count as nobody's and show, paid or not.
-  const bks = await sbGet(env, "videography_bookings",
+  const found = await sbGet(env, "videography_bookings",
     `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=*`);
+  if (!found) return [];
+  const bks = await withInvoicesDue(env, found);
   if (!bks) return [];
   const waiting = new Set();
   for (const f of all) {

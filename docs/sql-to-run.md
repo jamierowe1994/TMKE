@@ -4,11 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/videography_delivery_method.sql — Deliver by on each shoot, Pixieset or Client portal, and Release before payment. Every existing shoot stays on Pixieset and nothing is sent (6 Nov)
 
 
 ## Done
 
+- [x] supabase/videography_delivery_method.sql — Deliver by on each shoot, Pixieset or Client portal, and Release before payment. Every existing shoot stays on Pixieset and nothing is sent (6 Nov; ran 6 Nov)
 - [x] supabase/accounts_portal_recipients.sql — the accounts emails go to Paula and accounts payable, with Rosie-Anne copied in; adds the Copied in field (6 Nov; ran 6 Nov)
 - [x] supabase/network_teg_and_fc.sql — Fine & Country contacts lose Network: TEG and keep their own tag; anyone at a TEG brand gains Network: TEG. Opt-in isn't touched and nothing is sent. It lists what changed and any live funnel using the TEG tag (6 Nov; ran 6 Nov)
 - [x] supabase/teg_exceptions_titles_support.sql — one-off: Elliott Wakefield, Nicholas Charles and Vivienne Sharman-Lewis lose The Property Experts, Property Expert and Prestige Property Expert titles follow the brand, Ian Panter, Jim Harris and Sean Newman are ticked as management or support, and an agent's company follows their first brand from now on (6 Nov; ran 6 Nov)
