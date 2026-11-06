@@ -1,0 +1,271 @@
+---
+// Revenue (was Payments; Dani, 5-6 Nov 2026, agreed on the mock-up): what's come
+// in and what we kept, by month and by sector. Money in comes from Worker
+// /admin/payments, the same list Payments always read. Costs are typed in here:
+// a base for each sector, and any month can differ. A sector with no costs in
+// stays out of the profit rather than showing as all profit.
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/money-os.css";
+---
+
+<AdminShell active="payments" title="Revenue" skin="hub">
+  <div class="ash-panel ash-page">
+    <div class="mo" id="rv">
+      <section class="mo-head">
+        <div>
+          <p class="mo-eye">Money</p>
+          <div class="mo-title">Revenue</div>
+          <p class="mo-sub">What's come in and what we kept, by month and by sector. All figures are without VAT.</p>
+        </div>
+        <div class="mo-acts"><a class="btn" href="/admin/invoicing">Invoices</a></div>
+      </section>
+      <p class="state" id="rv-state">Reading the payments. This can take a few seconds.</p>
+      <div id="rv-main" hidden></div>
+      <div id="rv-pop"></div>
+      <div class="tip" id="rv-tip" hidden></div>
+      <div class="toast" id="rv-toast" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <style is:global>
+    #rv .section { margin-bottom: 26px; }
+    #rv .section + .section { margin-top: 0; }
+    #rv-main > .figs { margin-bottom: 26px; }
+    .rv-rc { display: grid; gap: 0; }
+    .rv-rc > div { display: flex; justify-content: space-between; gap: 18px; min-height: 42px; align-items: center; border-top: 1px solid var(--linen); }
+    .rv-rc span:first-child { color: var(--tx); flex: none; }
+    .rv-rc span:last-child { text-align: right; overflow-wrap: anywhere; }
+  </style>
+
+  <script>
+    import { SECTORS, SECTOR_NAME, REV_RULES, gbp, pct, ymLabel, monShort, ymAddMonths, baseFor, costFor, hasCost, monthPL, monthTotal, revenueByMonth, plTable, plNotes, barsSvg, profitSvg } from "../../lib/revenue.js";
+    import { supabase } from "../../lib/supabase.js";
+
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    async function token() { const { data } = await supabase.auth.getSession(); return (data && data.session && data.session.access_token) || ""; }
+    async function api(path, opts = {}) {
+      const res = await fetch(WORKER + path, { ...opts, headers: { ...(opts.headers || {}), Authorization: "Bearer " + (await token()) } });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Something went wrong.");
+      return d;
+    }
+    let toastT;
+    function toast(m) { const t = $("rv-toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
+
+    let PAYMENTS = [], REV = {}, COSTS = [], RULES = {}, THIS = "", MONTHS = [], SEL = "", TRUNC = false;
+    const blank = { social: 0, video: 0, studio: 0, agent: 0, pick: 0 };
+    const revOf = (m) => REV[m] || blank;
+    const totalOf = (m) => monthTotal(revOf(m));
+    const FULL = () => MONTHS.filter((k) => k < THIS);
+
+    function draw() {
+      const m = SEL, i = MONTHS.indexOf(m), prev = MONTHS[i - 1], p = revOf(m), total = totalOf(m), pl = monthPL(COSTS, m, p), mon = ymLabel(m).split(" ")[0];
+      const change = (now, was) => { if (was == null) return ""; const d = now - was; return (d >= 0 ? "Up " : "Down ") + gbp(Math.abs(d)) + " on " + monShort(prev); };
+      const labels = MONTHS.map(monShort);
+      let html = `<div class="bar"><div class="nav"><button type="button" id="p-prev" aria-label="Earlier month"${i ? "" : " disabled"}>‹</button><span>${ymLabel(m)}</span><button type="button" id="p-next" aria-label="Later month"${i < MONTHS.length - 1 ? "" : " disabled"}>›</button></div><div class="mo-acts" style="margin-left:auto"><button type="button" class="btn" data-costs="base">Costs and sectors</button><button type="button" class="btn" id="all-pay">All payments</button></div></div>`;
+      if (TRUNC) html += '<div class="closed" style="margin-bottom:16px"><span>There are more payments than one request can return, so the earliest months may be short.</span></div>';
+      html += `<div class="figs"><div class="fig dark static"><b>${gbp(total)}</b><span>Revenue in ${mon}${prev ? ". " + change(total, totalOf(prev)) : ""}</span></div>${SECTORS.map(([a, n]) => `<div class="fig lin static"><b>${gbp(p[a])}</b><span>${n}</span></div>`).join("")}</div>`;
+      html += `<div class="section"><div class="strip"><div class="strip-t">Revenue<span>last six months</span></div></div><div class="chart">${barsSvg(MONTHS.map(totalOf), labels, i, 1000, 240, true)}</div></div>`;
+      html += `<div class="section"><div class="strip"><div class="strip-t">By sector</div><span class="aside">Each on its own scale</span></div><div class="multi">${SECTORS.map(([a, n]) => `<div class="mini"><div class="mini-t">${n}</div><b>${gbp(p[a])}</b><span>${prev ? change(p[a], revOf(prev)[a]) : "&nbsp;"}</span>${barsSvg(MONTHS.map((k) => revOf(k)[a]), labels, i, 260, 110, false)}</div>`).join("")}</div></div>`;
+      const lastCol = (a) => (prev ? gbp(revOf(prev)[a]) : "—");
+      const shareRow = (name, val, a) => { const pc = total ? Math.round(val / total * 100) : 0; return `<tr><td>${name}</td><td class="num">${gbp(val)}</td><td><span class="share"><i style="width:${pc}%"></i></span>${pc}%</td><td class="num tx">${lastCol(a)}</td></tr>`; };
+      html += `<div class="section"><div class="strip"><div class="strip-t">${ymLabel(m)}, in full</div></div><div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Sector</th><th class="num">Revenue</th><th>Share</th><th class="num">Last month</th></tr></thead><tbody>${SECTORS.map(([a, n]) => shareRow(n, p[a], a)).join("")}${p.pick ? shareRow("Not under a sector yet", p.pick, "pick") : ""}</tbody></table></div></div>`;
+      html += `<div class="section"><div class="strip"><div class="strip-t">${ymLabel(m)}, profit</div></div><div class="figs" style="margin:0"><div class="fig lin static"><b>${gbp(pl.cost)}</b><span>Costs in ${mon}</span></div><div class="fig dark static"><b>${gbp(pl.profit)}</b><span>Profit in ${mon}</span></div><div class="fig lin static"><b>${pct(pl.margin)}</b><span>Margin</span></div></div>${plNotes(m, THIS, p, pl, true)}${plTable(pl, false)}</div>`;
+      const full = FULL();
+      if (full.length) {
+        const pls = full.map((k) => monthPL(COSTS, k, revOf(k)));
+        html += `<div class="section"><div class="strip"><div class="strip-t">Profit<span>full months</span></div></div><div class="chart">${profitSvg(pls.map((x) => x.profit), full.map(monShort), pls.map((x) => x.margin), full.indexOf(m), 1000, 240)}</div></div>`;
+      }
+      $("rv-main").innerHTML = html;
+    }
+
+    /* ---- Pop-outs ---- */
+    function pop(eye, title, body, foot) {
+      $("rv-pop").innerHTML = `<div class="scrim" id="rv-scrim"><div class="pop wide" role="dialog" aria-modal="true" aria-label="${esc(eye)}"><div class="pop-h"><div><p class="mo-eye" style="margin:0">${esc(eye)}</p><div class="pop-title">${title}</div></div><button type="button" class="x" data-close aria-label="Close">×</button></div><div class="pop-b" data-lenis-prevent>${body}</div><div class="pop-f">${foot}</div></div></div>`;
+    }
+    const closePop = () => { $("rv-pop").innerHTML = ""; CP = null; };
+
+    // All payments, with a month filter. A row opens its receipt.
+    let apKey = "", apRows = [];
+    const SOURCE_LABEL = { pack: "Pack", videography: "Videography", social: "Social media", invoice: "Invoice", external: "External" };
+    function openAll() {
+      apKey = SEL;
+      const months = [...new Set(PAYMENTS.map((r) => String(r.paid_at).slice(0, 7)))].sort().reverse();
+      const opts = '<option value="all">All months</option>' + months.map((k) => `<option value="${k}"${k === SEL ? " selected" : ""}>${ymLabel(k)}</option>`).join("");
+      pop("Revenue", "All payments", `<div class="cp-bar"><label class="pick"><span>Month</span><select id="ap-month">${opts}</select></label><span id="ap-sum" style="margin-left:auto;color:var(--tx)"></span></div><div id="ap-rows"></div>`, '<button type="button" class="btn" id="ap-csv">Export CSV</button><button type="button" class="btn primary" data-close>Close</button>');
+      drawAll();
+    }
+    function drawAll() {
+      apRows = PAYMENTS.filter((r) => apKey === "all" || String(r.paid_at).slice(0, 7) === apKey);
+      $("ap-sum").textContent = `${apRows.length} ${apRows.length === 1 ? "payment" : "payments"}, ${gbp(apRows.reduce((t, r) => t + (Number(r.net_pence) || 0), 0))}`;
+      const d = (x) => new Date(x).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+      $("ap-rows").innerHTML = apRows.length ? `<div class="tablewrap"><table><thead><tr><th>Date</th><th>From</th><th>What</th><th>Sector</th><th class="num">Net</th></tr></thead><tbody>${apRows.map((r, i) => `<tr class="click" data-pay="${i}" tabindex="0" title="Open the receipt"><td class="tx">${esc(d(r.paid_at))}</td><td>${esc(r.customer || "—")}</td><td class="tx">${esc(r.label)}</td><td class="tx">${esc(SECTOR_NAME[r.sector] || "Not chosen yet")}</td><td class="num">${gbp(r.net_pence)}${r.refunded_pence ? ` <span class="chip plain">${gbp(r.refunded_pence)} refunded</span>` : ""}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No payments in that month.</div>';
+    }
+    function exportCsv() {
+      if (!apRows.length) return;
+      const head = ["Date", "Source", "Sector", "Item", "Customer", "Net", "VAT", "VAT estimated", "Gross", "Stripe fee", "Received", "Refunded", "Stripe charge id"];
+      const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`, money = (p) => (p == null ? "" : (p / 100).toFixed(2));
+      const body = apRows.map((p) => [new Date(p.paid_at).toISOString().slice(0, 10), SOURCE_LABEL[p.source] || p.source, SECTOR_NAME[p.sector] || "", p.label, p.customer || "", money(p.net_pence), money(p.vat_pence), p.vat_derived ? "yes" : "no", money(p.gross_pence), money(p.fee_pence), money(p.received_pence), money(p.refunded_pence), p.id].map(cell).join(","));
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([[head.map(cell).join(","), ...body].join("\r\n")], { type: "text/csv;charset=utf-8" }));
+      a.download = `tmke-payments-${apKey}.csv`;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+    // A record of a payment received, for matching against the bank. The PDF's
+    // rendered by the Worker, which re-reads the money rather than trusting this.
+    let RECEIPT = null;
+    function openReceipt(p) {
+      RECEIPT = p;
+      const line = (k, v) => `<div><span>${esc(k)}</span><span>${v}</span></div>`, est = p.vat_derived ? ' <span class="chip plain">Estimated</span>' : "";
+      pop("Payment received", esc(p.label), `<div class="rv-rc">${line("Received from", esc(p.customer || "—"))}${line("Date", esc(new Date(p.paid_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })))}${line("Sector", esc(SECTOR_NAME[p.sector] || "Not chosen yet"))}${line("Net", gbp(p.net_pence) + est)}${line("VAT", gbp(p.vat_pence) + est)}${line("Gross paid", gbp(p.gross_pence))}${p.off_stripe ? "" : line("Stripe fee", p.fee_pence == null ? "—" : gbp(p.fee_pence))}${line("Received in bank", p.received_pence == null ? "—" : gbp(p.received_pence))}${p.refunded_pence ? line("Refunded", gbp(p.refunded_pence)) : ""}${line(p.off_stripe ? "Reference" : "Stripe reference", esc(p.off_stripe ? p.label : p.id))}</div><p style="margin:0;color:var(--tx)">${p.off_stripe ? "Settled outside Stripe, so the full amount reached the bank. " : ""}${p.vat_derived ? "The VAT was worked back from the total, because it was taken outside the Hub. Check it against the source before relying on it for a return." : ""} This is a record of a payment received, not a VAT invoice.</p>`, '<button type="button" class="btn" id="rc-back">Back</button><button type="button" class="btn" data-rc="email">Send to accounts</button><button type="button" class="btn primary" data-rc="download">Download PDF</button>');
+    }
+    async function receipt(action, btn) {
+      const p = RECEIPT, was = btn.textContent; btn.disabled = true; btn.textContent = action === "email" ? "Sending…" : "Building…";
+      try {
+        const res = await fetch(`${WORKER}/admin/payments/receipt`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await token()) }, body: JSON.stringify({ action, id: p.id, label: p.label, customer: p.customer, source: SOURCE_LABEL[p.source] || p.source, vat_pence: p.vat_pence, vat_derived: p.vat_derived }) });
+        if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || "That didn't work."); }
+        if (action === "email") { const b = await res.json().catch(() => ({})); toast(`Sent to ${b.sent_to || "accounts"}.`); }
+        else {
+          const a = document.createElement("a"); a.href = URL.createObjectURL(await res.blob()); a.download = `TMKE-receipt-${p.paid_at.slice(0, 10)}-${p.id}.pdf`;
+          document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        }
+      } catch (e) { toast(e.message); }
+      btn.disabled = false; btn.textContent = was;
+    }
+
+    // Costs and sectors: a base, any month can differ, and what revenue goes where.
+    let CP = null;
+    const toP = (v) => (v == null || v === "" ? null : Math.max(0, Math.round(Number(v))) * 100);
+    const fromP = (p) => (p == null ? "" : Math.round(p / 100));
+    function cpKey() { return CP.tab === "base" ? "base" : CP.month; }
+    function baseNow(a) { const d = CP.draft.base; return (d && d[a]) || (() => { const b = baseFor(COSTS, THIS, a); return { staff: b.staff, tech: b.tech }; })(); }
+    function cpVal(a) {
+      const k = cpKey(), d = CP.draft[k];
+      if (d && d[a]) return d[a];
+      if (k === "base") return baseNow(a);
+      const c = costFor(COSTS, k, a);
+      // Unsaved base figures show on a month that has nothing of its own yet.
+      if (!c.changed && k >= THIS && CP.draft.base && CP.draft.base[a]) return baseNow(a);
+      return { staff: c.staff, tech: c.tech };
+    }
+    function openCosts(tab) {
+      CP = { tab: tab === "month" || tab === "sectors" ? tab : "base", month: SEL, draft: {}, rules: {} };
+      pop("Revenue", "Costs and sectors", '<div class="cp" id="cp-body"></div>', '<button type="button" class="btn" data-close>Close</button><button type="button" class="btn primary" data-cpsave>Save</button>');
+      drawCosts();
+    }
+    const costTabs = (isBase, isMonth) => `<span class="tog"><button type="button" data-cptab="base" aria-pressed="${isBase}">Base costs</button><button type="button" data-cptab="month" aria-pressed="${isMonth}">A month</button><button type="button" data-cptab="sectors" aria-pressed="${!isBase && !isMonth}">Revenue by sector</button></span>`;
+    function drawSectors() {
+      const names = { ...SECTOR_NAME, pick: "Chosen on the invoice" };
+      $("cp-body").innerHTML = `<div class="cp-bar">${costTabs(false, false)}</div><p>Where each kind of money goes. Anything marked Check is still to be agreed.</p><div class="tablewrap"><table><thead><tr><th>Money from</th><th></th><th>Goes under</th></tr></thead><tbody>${REV_RULES.map((r) => {
+        const cur = CP.rules[r.key] || RULES[r.key] || r.sector;
+        return `<tr><td>${esc(r.src)}</td><td>${r.check && !RULES[r.key] ? '<span class="chip plain">Check</span>' : ""}</td><td><label class="pick"><select data-rule="${r.key}" aria-label="Sector for ${esc(r.src)}">${Object.keys(names).map((k) => `<option value="${k}"${k === cur ? " selected" : ""}>${names[k]}</option>`).join("")}</select></label></td></tr>`;
+      }).join("")}</tbody></table></div>`;
+    }
+    function drawCosts() {
+      if (CP.tab === "sectors") { drawSectors(); return; }
+      const isBase = CP.tab === "base", i = MONTHS.indexOf(CP.month);
+      let html = `<div class="cp-bar">${costTabs(isBase, !isBase)}${isBase ? "" : `<div class="nav"><button type="button" id="cp-prev" aria-label="Earlier month"${i ? "" : " disabled"}>‹</button><span>${ymLabel(CP.month)}</span><button type="button" id="cp-next" aria-label="Later month"${i < MONTHS.length - 1 ? "" : " disabled"}>›</button></div>`}</div>`;
+      html += `<p>${isBase ? `What each area costs us in a normal month, in people and platforms. A change here applies from ${ymLabel(THIS)} on; earlier months keep what they had.` : `${ymLabel(CP.month)} starts from the base. Change anything that was more or less that month.`}</p>`;
+      html += `<div class="tablewrap"><table><thead><tr><th>Sector</th><th class="num">Staffing</th><th class="num">Tools and tech</th><th class="num">Total</th>${isBase ? "" : '<th class="num">Against the base</th>'}</tr></thead><tbody>${SECTORS.map(([a, n]) => {
+        const c = cpVal(a), inp = (f, lab) => `<span class="money">£<input type="number" min="0" step="1" inputmode="numeric" data-cost="${a}" data-field="${f}" aria-label="${n} ${lab}" value="${fromP(c[f])}"></span>`;
+        return `<tr><td>${n}</td><td class="num">${inp("staff", "staffing")}</td><td class="num">${inp("tech", "tools and tech")}</td><td class="num" data-rowtotal="${a}"></td>${isBase ? "" : `<td class="num tx" data-against="${a}"></td>`}</tr>`;
+      }).join("")}</tbody><tfoot><tr><td>Total</td><td class="num" data-ftot="staff"></td><td class="num" data-ftot="tech"></td><td class="num" data-ftot="all"></td>${isBase ? "" : "<td></td>"}</tr></tfoot></table></div><p id="cp-live"></p>`;
+      if (!isBase) html += '<div><button type="button" class="btn" data-cpreset>Put this month back to the base</button></div>';
+      $("cp-body").innerHTML = html;
+      costTotals();
+    }
+    function costTotals() {
+      const isBase = CP.tab === "base", ft = { staff: 0, tech: 0 }; let rev = 0;
+      const q = (s) => document.querySelector(s);
+      SECTORS.forEach(([a]) => {
+        const c = cpVal(a), tot = (c.staff || 0) + (c.tech || 0);
+        ft.staff += c.staff || 0; ft.tech += c.tech || 0;
+        const cell = q(`[data-rowtotal="${a}"]`); if (cell) cell.textContent = hasCost(c) ? gbp(tot) : "—";
+        if (!isBase) {
+          rev += hasCost(c) ? revOf(CP.month)[a] : 0;
+          const ag = q(`[data-against="${a}"]`), then = baseFor(COSTS, CP.month, a), now = baseNow(a), touched = CP.draft[CP.month] && CP.draft[CP.month][a];
+          const b = CP.month >= THIS ? now : { staff: then.staff, tech: then.tech };
+          const nowT = (now.staff || 0) + (now.tech || 0), bT = (b.staff || 0) + (b.tech || 0), diff = tot - bT;
+          if (ag) ag.textContent = !hasCost(b) && !hasCost(now) ? "No base yet" : !touched && !costFor(COSTS, CP.month, a).changed && bT !== nowT ? "Base at the time" : !diff ? "Same" : (diff > 0 ? "+" : "−") + gbp(Math.abs(diff));
+        }
+      });
+      q('[data-ftot="staff"]').textContent = gbp(ft.staff); q('[data-ftot="tech"]').textContent = gbp(ft.tech); q('[data-ftot="all"]').textContent = gbp(ft.staff + ft.tech);
+      const missing = SECTORS.filter(([a]) => !hasCost(cpVal(a))).map(([, n]) => n);
+      $("cp-live").textContent = isBase ? (missing.length ? `${missing.join(" and ")} has no figures yet, so it stays out of the profit until it does.` : "") : `${ymLabel(CP.month)}: ${gbp(rev)} revenue, ${gbp(ft.staff + ft.tech)} costs, ${gbp(rev - ft.staff - ft.tech)} profit${missing.length ? `, not counting ${missing.join(" and ")}` : ""}.`;
+    }
+    async function saveCosts(btn) {
+      btn.disabled = true;
+      const body = { base: CP.draft.base || {}, months: {}, rules: CP.rules };
+      Object.keys(CP.draft).forEach((k) => { if (k !== "base") body.months[k] = CP.draft[k]; });
+      const toSend = (o) => Object.fromEntries(Object.entries(o).map(([a, c]) => [a, { staff: c.staff, tech: c.tech }]));
+      body.base = toSend(body.base); Object.keys(body.months).forEach((k) => { body.months[k] = toSend(body.months[k]); });
+      try {
+        // "Saved" only once the database has given every row back.
+        const d = await api("/revenue/costs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        COSTS = d.rows || []; RULES = d.rules || {};
+        const rulesChanged = Object.keys(CP.rules).length > 0;
+        closePop();
+        if (rulesChanged) { toast("Saved. Re-reading the payments under their new sectors…"); await loadPayments(); }
+        toast("Saved. The profit has updated."); draw();
+      } catch (e) { btn.disabled = false; toast(e.message); }
+    }
+
+    document.addEventListener("click", (e) => {
+      const t = e.target; if (!t.closest || !t.closest("#rv")) return;
+      let b;
+      if (t.closest("[data-close]") || t.id === "rv-scrim") { closePop(); return; }
+      if (t.closest("#p-prev")) { const i = MONTHS.indexOf(SEL); if (i > 0) { SEL = MONTHS[i - 1]; draw(); } return; }
+      if (t.closest("#p-next")) { const i = MONTHS.indexOf(SEL); if (i < MONTHS.length - 1) { SEL = MONTHS[i + 1]; draw(); } return; }
+      if (t.closest("#all-pay")) { openAll(); return; }
+      if (t.closest("#ap-csv")) { exportCsv(); return; }
+      if ((b = t.closest("[data-pay]"))) { openReceipt(apRows[Number(b.dataset.pay)]); return; }
+      if (t.closest("#rc-back")) { const k = apKey; openAll(); apKey = k; $("ap-month").value = k; drawAll(); return; }
+      if ((b = t.closest("[data-rc]"))) { receipt(b.dataset.rc, b); return; }
+      if ((b = t.closest("[data-costs]"))) { openCosts(b.dataset.costs); return; }
+      if ((b = t.closest("[data-cptab]"))) { CP.tab = b.dataset.cptab; drawCosts(); return; }
+      if (t.closest("#cp-prev")) { const i = MONTHS.indexOf(CP.month); if (i > 0) { CP.month = MONTHS[i - 1]; drawCosts(); } return; }
+      if (t.closest("#cp-next")) { const i = MONTHS.indexOf(CP.month); if (i < MONTHS.length - 1) { CP.month = MONTHS[i + 1]; drawCosts(); } return; }
+      if (t.closest("[data-cpreset]")) { CP.draft[CP.month] = {}; SECTORS.forEach(([a]) => { const x = CP.month >= THIS ? baseNow(a) : baseFor(COSTS, CP.month, a); CP.draft[CP.month][a] = { staff: x.staff, tech: x.tech }; }); drawCosts(); return; }
+      if ((b = t.closest("[data-cpsave]"))) { saveCosts(b); return; }
+    });
+    document.addEventListener("input", (e) => {
+      const inp = e.target; if (!inp.hasAttribute || !inp.hasAttribute("data-cost") || !CP) return;
+      const a = inp.dataset.cost, f = inp.dataset.field, k = cpKey(), cur = cpVal(a);
+      CP.draft[k] = CP.draft[k] || {};
+      CP.draft[k][a] = { staff: cur.staff, tech: cur.tech, [f]: toP(inp.value) };
+      costTotals();
+    });
+    document.addEventListener("change", (e) => {
+      if (e.target.id === "ap-month") { apKey = e.target.value; drawAll(); }
+      if (e.target.hasAttribute && e.target.hasAttribute("data-rule") && CP) CP.rules[e.target.dataset.rule] = e.target.value;
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closePop();
+      const r = e.target.closest && e.target.closest("tr[data-pay]"); if (r && e.key === "Enter") openReceipt(apRows[Number(r.dataset.pay)]);
+    });
+    document.addEventListener("mousemove", (e) => {
+      const tg = e.target.closest && e.target.closest("[data-tip]"), tip = $("rv-tip");
+      if (!tg) { tip.hidden = true; return; }
+      tip.textContent = tg.getAttribute("data-tip"); tip.hidden = false;
+      tip.style.left = Math.min(e.clientX + 12, innerWidth - 190) + "px"; tip.style.top = (e.clientY - 34) + "px";
+    });
+
+    async function loadPayments() {
+      const d = await api("/admin/payments?days=400");
+      PAYMENTS = Array.isArray(d.payments) ? d.payments : []; TRUNC = !!d.truncated;
+      REV = revenueByMonth(PAYMENTS);
+    }
+    document.addEventListener("ash:ready", async () => {
+      const st = $("rv-state");
+      try {
+        const [, costs] = await Promise.all([loadPayments(), api("/revenue/costs")]);
+        COSTS = costs.rows || []; RULES = costs.rules || {}; THIS = costs.this_month;
+        MONTHS = []; for (let i = 5; i >= 0; i--) MONTHS.push(ymAddMonths(THIS, -i));
+        SEL = ymAddMonths(THIS, -1);
+        st.hidden = true; $("rv-main").hidden = false; draw();
+      } catch (e) { st.className = "state bad"; st.textContent = e.message; }
+    });
+  </script>
+</AdminShell>

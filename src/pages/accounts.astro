@@ -1,0 +1,316 @@
+---
+// The accounts portal (Dani, 5-6 Nov 2026; agreed on the mock-up). One private
+// link (?c=…) plus a passcode, for Paula's team: every invoice still open, by
+// month. Mark it paid, not paid with a note, or settled if it's inter-brand. A
+// month stays until everything in it is closed. The Worker checks the passcode
+// on every request; this page holds nothing but the sign-in it's given.
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Accounts — TMKE" description="Invoices to confirm." hideNav hideFooter noindex>
+  <div class="ac" id="ac">
+    <p class="ac-load" id="ac-load">Loading…</p>
+
+    <!-- The sign-on, in the same wine and Fraunces as the rest of TMKE. -->
+    <section class="ac-gate" id="ac-gate" hidden>
+      <div class="ac-gate-brand">
+        <a href="/" class="ac-mark nav-logo">TMKE</a>
+        <div>
+          <p class="ac-gate-eye">Accounts</p>
+          <div class="ac-gate-big">Invoices to confirm.</div>
+        </div>
+      </div>
+      <form class="ac-gate-form" id="ac-form">
+        <div class="ac-gate-inner">
+          <div class="ac-gate-title">Enter Your Passcode.</div>
+          <p class="ac-gate-note">Use the passcode we gave you. Capitals don't matter.</p>
+          <label class="ac-gate-lab" for="ac-code">Passcode</label>
+          <input id="ac-code" class="ac-gate-input" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="12" required />
+          <button type="submit" class="ac-gate-go" id="ac-go">Open</button>
+          <p class="ac-gate-err" id="ac-err" role="alert" hidden></p>
+        </div>
+      </form>
+    </section>
+
+    <div id="ac-page" hidden>
+      <header class="ac-top"><a href="/" class="ac-mark nav-logo">TMKE</a><span>Accounts</span></header>
+      <main class="ac-wrap">
+        <section class="ac-head">
+          <div class="ac-title">Invoices to confirm.</div>
+          <p class="ac-sub">Mark each one paid, or not paid with a note saying why. A month stays here until everything in it is closed, then it drops off by itself.</p>
+        </section>
+        <div class="ac-figs" id="ac-figs"></div>
+        <div id="ac-months"></div>
+        <p class="ac-foot">Amounts are net, without VAT. We email you on the 20th of each month, and again on the 28th if anything's still open. Invoices paid by card aren't here, because we already know they're paid.</p>
+      </main>
+    </div>
+  </div>
+  <div id="ac-pop"></div>
+  <div class="ac-toast" id="ac-toast" role="status" aria-live="polite"></div>
+
+  <style is:global>
+    :root { color-scheme: light; }
+    .ac { --w: #371e28; --t: #7e6765; --s: #c9bcb7; --l: #eae5e1; --e: #e2d9d4; --i: #2b2226; --bad: #8a3f3f; --badl: #f9f0f0; --good: #3f7a56; --goodl: #edf4ef; min-height: 100vh; background: #fff; color: var(--i); font-family: var(--sans); font-size: 14px; font-weight: 400; line-height: 1.35; font-variant-numeric: lining-nums; }
+    .ac *, #ac-pop * { box-sizing: border-box; }
+    .ac [hidden], #ac-pop [hidden] { display: none !important; }
+    .ac-load { margin: 0; padding: 80px 24px; text-align: center; color: var(--t); }
+    .ac-mark { font-size: 24px; font-weight: 600; letter-spacing: 0.04em; color: #fff; text-decoration: none; font-family: var(--serif); }
+
+    /* Sign-on: wine on the left with the title, the passcode on white. */
+    .ac-gate { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); min-height: 100vh; }
+    .ac-gate-brand { display: flex; flex-direction: column; gap: 48px; padding: 36px 48px 48px; background: var(--w); color: #fff; }
+    /* In the middle, so the cookie notice along the bottom never covers it. */
+    .ac-gate-brand > div { margin: auto 0; }
+    /* The site's grain belongs on the sign-on; the invoices sit on plain white. */
+    body:has(#ac-page:not([hidden])) .site-grain { display: none; }
+    .ac-gate-eye { margin: 0 0 14px; font-size: 11px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+    .ac-gate-big { font-family: var(--serif); font-weight: 300; font-size: clamp(44px, 6.4vw, 92px); line-height: 1; letter-spacing: -0.05em; text-wrap: balance; max-width: 11ch; }
+    .ac-gate-form { display: grid; place-items: center; padding: 48px 36px; background: #fff; }
+    .ac-gate-inner { width: min(360px, 100%); display: grid; }
+    .ac-gate-title { font-family: var(--serif); font-weight: 300; font-size: 34px; line-height: 1.05; letter-spacing: -0.05em; color: var(--i); margin: 0 0 10px; }
+    .ac-gate-note { margin: 0 0 26px; color: var(--t); }
+    .ac-gate-lab { margin: 0 0 6px; color: var(--t); }
+    .ac-gate-input { height: 44px; padding: 0 12px; border: 1px solid var(--s); border-radius: 4px; background: #fff; color: var(--i); font-family: var(--sans); font-size: 16px; letter-spacing: .12em; text-transform: uppercase; }
+    .ac-gate-input:focus { outline: 0; border-color: var(--w); box-shadow: 0 0 0 1px var(--w); }
+    .ac-gate-go { margin-top: 12px; height: 44px; border: 0; border-radius: 4px; background: var(--w); color: #fff; cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; transition: background .15s; }
+    .ac-gate-go:hover { background: #2a1620; }
+    .ac-gate-go:disabled { opacity: .6; cursor: default; }
+    .ac-gate-err { margin: 14px 0 0; padding: 10px 12px; border-radius: 4px; background: var(--badl); color: var(--bad); }
+    @media (max-width: 760px) {
+      .ac-gate { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .ac-gate-brand { padding: 22px 20px 30px; gap: 34px; }
+      .ac-gate-form { padding: 32px 20px; place-items: start center; }
+    }
+
+    /* The page. Margins brought out (Dani, 6 Nov) so it fits a laptop. */
+    .ac-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: var(--w); color: #fff; }
+    .ac-wrap { max-width: 1520px; margin: 0 auto; padding: 20px 24px 48px; }
+    .ac-head { margin: 0 0 18px; padding: 24px 22px; background: var(--l); border-radius: 4px; }
+    .ac-title { font-family: var(--serif); font-weight: 300; font-size: 30px; line-height: 1.05; letter-spacing: -0.05em; color: var(--i); }
+    .ac-sub { margin: 10px 0 0; max-width: 75%; color: var(--t); }
+    .ac-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; margin: 0 0 6px; }
+    .ac-fig { display: grid; gap: 4px; padding: 16px 18px 14px; border-radius: 4px; background: var(--l); color: var(--w); }
+    .ac-fig b { font-weight: 400; font-size: 28px; line-height: 1.1; letter-spacing: -0.01em; font-variant-numeric: lining-nums tabular-nums; }
+    .ac-fig span { color: var(--t); }
+    .ac-fig.dark { background: var(--w); color: #fff; }
+    .ac-fig.dark span { color: rgba(255,255,255,.8); }
+    .ac-sec { display: grid; gap: 10px; margin-top: 22px; }
+    .ac-strip { display: flex; align-items: center; min-height: 30px; padding: 0 14px; background: var(--w); border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: #fff; }
+    .ac-strip span { margin-left: 8px; color: rgba(255,255,255,.6); }
+    .ac-tw { overflow-x: auto; padding-bottom: 10px; }
+    /* The scroll bar: a plain wine bar to drag, no track or outline. */
+    .ac-tw::-webkit-scrollbar { height: 8px; }
+    .ac-tw::-webkit-scrollbar-track { background: transparent; border: 0; }
+    .ac-tw::-webkit-scrollbar-thumb { background: var(--w); border-radius: 4px; border: 0; }
+    @supports not selector(::-webkit-scrollbar) { .ac-tw { scrollbar-color: var(--w) transparent; scrollbar-width: thin; } }
+    .ac-t { width: 100%; min-width: 1160px; table-layout: fixed; border-collapse: collapse; font-variant-numeric: lining-nums tabular-nums; }
+    .ac-t th, .ac-t td { height: 42px; padding: 0 8px; border-bottom: 1px solid var(--l); text-align: left; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ac-t thead th { color: var(--t); border-top: 1px solid var(--s); border-bottom: 1px solid var(--s); }
+    .ac-t tbody tr:last-child td { border-bottom: 1px solid var(--s); }
+    .ac-t .num { text-align: right; }
+    .ac-t .tx { color: var(--t); }
+    .ac-t th:nth-child(1) { width: 112px; } .ac-t th:nth-child(2) { width: 104px; } .ac-t th:nth-child(3) { width: 82px; }
+    .ac-t th:nth-child(6), .ac-t th:nth-child(7) { width: 58px; } .ac-t th:nth-child(8) { width: 70px; } .ac-t th:nth-child(9) { width: 76px; }
+    /* The actions' 246 plus its 8 on the left, so View is never clipped. The
+       same 6 between Paid and the note as between every other button. */
+    .ac-t th:nth-child(10) { width: 254px; } .ac-t th:nth-child(11) { width: 44px; }
+    .ac-t td:nth-child(10) { padding-right: 0; } .ac-t td:nth-child(11) { padding: 0 8px 0 6px; }
+    .ac-acts { display: grid; grid-template-columns: 58px 92px 84px; gap: 6px; align-items: center; justify-content: end; }
+    .ac-acts .ac-chip { width: 100%; height: 30px; justify-content: center; }
+    .ac-wide { grid-column: 2 / 4; }
+    .ac-btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 30px; padding: 0 4px; border-radius: 4px; border: 1px solid var(--e); background: #fff; color: var(--i); cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+    .ac-btn:hover { border-color: var(--w); color: var(--w); }
+    .ac-btn.pri { background: var(--w); border-color: var(--w); color: #fff; }
+    .ac-btn.pri:hover { background: #2a1620; color: #fff; }
+    .ac-btn:disabled { opacity: .6; cursor: default; }
+    .ac-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; white-space: nowrap; }
+    .ac-chip.good { background: var(--goodl); color: var(--good); }
+    .ac-chip.bad { background: var(--badl); color: var(--bad); }
+    .ac-chip.ib { background: var(--s); color: var(--w); }
+    .ac-chip.ext { background: var(--l); color: var(--w); }
+    .ac-chip.route { width: 96px; justify-content: center; }
+    .ac-ic { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--e); border-radius: 4px; background: #fff; color: var(--t); cursor: pointer; }
+    .ac-ic svg { width: 15px; height: 15px; }
+    .ac-ic:hover { border-color: var(--w); color: var(--w); }
+    .ac-ic.has { background: var(--w); border-color: var(--w); color: #fff; }
+    .ac-why { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; }
+    .ac-why input { flex: 1; min-width: 0; height: 30px; border: 1px solid var(--s); border-radius: 4px; padding: 0 8px; background: #fff; color: var(--i); font: inherit; }
+    .ac-why .ac-btn { width: 58px; flex: none; }
+    .ac-closed { padding: 12px 14px; border: 1px dashed var(--s); border-radius: 4px; color: var(--t); }
+    .ac-empty { margin-top: 22px; padding: 26px; border: 1px dashed var(--s); border-radius: 4px; color: var(--t); text-align: center; }
+    /* Running the whole width, not stopping halfway (Dani, 6 Nov). */
+    .ac-foot { margin: 22px 0 0; color: var(--t); }
+    .ac-btn:focus-visible, .ac-ic:focus-visible, .ac-gate-go:focus-visible { outline: 2px solid var(--w); outline-offset: 2px; }
+
+    .ac-scrim { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: rgba(55,30,40,.45); font-family: var(--sans); font-size: 14px; color: #2b2226; }
+    .ac-popb { width: min(560px, 100%); height: min(440px, 100%); display: flex; flex-direction: column; background: #fff; border-radius: 4px; overflow: hidden; box-shadow: 0 24px 60px -20px rgba(55,30,40,.6); }
+    .ac-poph { padding: 18px 20px; background: #eae5e1; }
+    .ac-poph p { margin: 0 0 4px; font-size: 11px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: #7e6765; }
+    .ac-poph div { font-family: var(--serif); font-weight: 300; font-size: 24px; letter-spacing: -0.04em; }
+    .ac-popm { flex: 1; display: grid; grid-template-rows: auto 1fr; gap: 6px; padding: 16px 20px; color: #7e6765; }
+    .ac-popm textarea { width: 100%; border: 1px solid #c9bcb7; border-radius: 4px; padding: 8px 10px; resize: none; background: #fff; color: #2b2226; font: inherit; }
+    .ac-popm textarea:focus { outline: 0; border-color: #371e28; }
+    .ac-popf { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid #eae5e1; }
+    .ac-popf .ac-btn { width: auto; padding: 0 14px; --w: #371e28; --e: #e2d9d4; --i: #2b2226; }
+    .ac-toast { position: fixed; left: 50%; bottom: 24px; z-index: 60; transform: translateX(-50%); max-width: 90vw; background: #371e28; color: #fff; padding: 8px 14px; border-radius: 4px; opacity: 0; transition: opacity .2s; pointer-events: none; font-family: var(--sans); font-size: 14px; }
+    .ac-toast.on { opacity: 1; }
+    @media (max-width: 640px) { .ac-wrap { padding: 16px 16px 40px; } .ac-top { padding: 12px 16px; } .ac-head { padding: 18px 16px; } .ac-sub { max-width: none; } }
+    @media (prefers-reduced-motion: reduce) { .ac-toast, .ac-gate-go { transition: none; } }
+  </style>
+
+  <script>
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const KEY = "tmke-accounts-session";
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const gbp = (p) => { const v = (p || 0) / 100; return "£" + v.toLocaleString("en-GB", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 }); };
+    const day = (d) => (d ? new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—");
+    const ymLabel = (ym) => { const [y, m] = ym.split("-").map(Number); return new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }); };
+    const KIND = { video: "Videography", agent: "Agent services", social: "Social media", oneoff: "Other" };
+    const ICON_NOTE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v12l-5 5H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 21v-5h5M9 8h6M9 12h6"/></svg>';
+
+    const link = new URLSearchParams(location.search).get("c") || "";
+    const session = {
+      get() { try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); return s && s.expires > Date.now() ? s.session : ""; } catch (_) { return ""; } },
+      set(v, expires) { try { localStorage.setItem(KEY, JSON.stringify({ session: v, expires })); } catch (_) {} mem = v; },
+      clear() { try { localStorage.removeItem(KEY); } catch (_) {} mem = ""; },
+    };
+    let mem = "";   // A browser that refuses storage still works until it's closed.
+    const tok = () => session.get() || mem;
+
+    let INV = [], TODAY = "";
+
+    function show(which) { ["ac-load", "ac-gate", "ac-page"].forEach((id) => { $(id).hidden = id !== which; }); }
+    let toastT;
+    function toast(m) { const t = $("ac-toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
+
+    async function call(path, opts = {}) {
+      const res = await fetch(WORKER + path, { ...opts, headers: { ...(opts.headers || {}), ...(tok() ? { Authorization: "Bearer " + tok() } : {}) } });
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 401 && body.code === "signed_out") { session.clear(); openGate(); throw new Error("signed_out"); }
+      if (!res.ok) { const e = new Error(body.error || body.code || String(res.status)); e.body = body; throw e; }
+      return body;
+    }
+    const post = (path, data) => call(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+
+    function openGate(message) {
+      show("ac-gate");
+      $("ac-err").hidden = !message; $("ac-err").textContent = message || "";
+      setTimeout(() => $("ac-code").focus(), 30);
+    }
+    function gateMessage(body) {
+      const n = Number(body && (body.left ?? body.minutes)) || 0;
+      switch (body && body.code) {
+        case "wrong": return `That passcode didn't match. You have ${n} ${n === 1 ? "try" : "tries"} left before this page locks for 15 minutes.`;
+        case "locked": return `There have been too many wrong passcodes, so this page is locked for now. Try again in ${n} ${n === 1 ? "minute" : "minutes"}.`;
+        case "closed": return "This link is no longer active. Please get in touch with us.";
+        case "unknown": return "We don't recognise this link. Check you've copied the whole link from your email.";
+        case "not_ready": return "This page isn't switched on yet. Please get in touch with us.";
+        default: return "Something went wrong there. Please try again.";
+      }
+    }
+    $("ac-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const go = $("ac-go"); go.disabled = true;
+      $("ac-err").hidden = true;
+      try {
+        const res = await fetch(`${WORKER}/accounts-portal/open`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: link, passcode: $("ac-code").value }) });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.session) { openGate(gateMessage(body)); return; }
+        session.set(body.session, body.expires);
+        $("ac-code").value = "";
+        await load();
+      } catch (_) { openGate("We couldn't reach the page just now. Please try again."); }
+      finally { go.disabled = false; }
+    });
+
+    async function load() {
+      show("ac-load");
+      try {
+        const d = await call("/accounts-portal/invoices");
+        INV = d.invoices || []; TODAY = d.today;
+        draw(); show("ac-page");
+      } catch (err) {
+        if (err.message === "signed_out") return;
+        $("ac-load").textContent = "We couldn't load the invoices just now. Please refresh the page.";
+        show("ac-load");
+      }
+    }
+
+    const isOver = (v) => v.status === "sent" && v.due && v.due < TODAY;
+    function draw() {
+      const months = [...new Set(INV.map((v) => v.month))].sort();
+      let html = "";
+      months.forEach((m) => {
+        const list = INV.filter((v) => v.month === m), openN = list.filter((v) => v.status !== "paid").length;
+        html += `<div class="ac-sec"><div class="ac-strip">${esc(ymLabel(m))}<span>${openN} open</span></div><div class="ac-tw" data-lenis-prevent><table class="ac-t"><thead><tr><th></th><th>Type</th><th>Invoice</th><th>Client</th><th>Billed to</th><th>Sent</th><th>Due</th><th class="num">Net</th><th></th><th></th><th></th></tr></thead><tbody>${list.map(row).join("")}</tbody></table></div>${openN ? "" : `<div class="ac-closed">Everything in ${esc(ymLabel(m))} is closed. It drops off this page next time you open it.</div>`}</div>`;
+      });
+      $("ac-months").innerHTML = html || `<div class="ac-empty">Everything's closed. Thank you.</div>`;
+      const live = INV.filter((v) => v.status !== "paid");
+      const tot = (a) => gbp(a.reduce((t, v) => t + v.net_pence, 0));
+      const ib = live.filter((v) => v.route === "internal"), ext = live.filter((v) => v.route !== "internal"), ov = live.filter(isOver);
+      const fc = (cls, val, lab) => `<div class="ac-fig ${cls}"><b>${val}</b><span>${lab}</span></div>`;
+      $("ac-figs").innerHTML = fc("", tot(live), `Still open, ${live.length} ${live.length === 1 ? "invoice" : "invoices"}`) + fc("dark", tot(ov), `Overdue, ${ov.length}`) + fc("", tot(ib), `Inter-brand, ${ib.length}`) + fc("", tot(ext), `External clients, ${ext.length}`);
+    }
+    function row(v) {
+      const view = `<button type="button" class="ac-btn" data-view="${v.id}">View</button>`;
+      const ib = v.route === "internal";
+      let acts;
+      if (v.status === "paid") acts = `${view}<span class="ac-chip good">${ib ? "Settled" : "Paid"}</span><button type="button" class="ac-btn" data-undo="${v.id}">Undo</button>`;
+      else if (v._noting) acts = `<div class="ac-why"><input id="why-${v.id}" placeholder="Why not?" aria-label="Why it isn't paid"><button type="button" class="ac-btn pri" data-savewhy="${v.id}">Save</button></div>`;
+      else if (v.not_paid) acts = `${view}<span class="ac-chip bad">Not paid</span><button type="button" class="ac-btn pri" data-paid="${v.id}">Paid</button>`;
+      else if (ib) acts = `${view}<button type="button" class="ac-btn pri ac-wide" data-paid="${v.id}">This has been settled</button>`;
+      else acts = `${view}<button type="button" class="ac-btn" data-not="${v.id}">Not paid</button><button type="button" class="ac-btn pri" data-paid="${v.id}">Paid</button>`;
+      return `<tr><td><span class="ac-chip route ${ib ? "ib" : "ext"}">${ib ? "Inter-brand" : "External client"}</span></td><td class="tx">${esc(KIND[v.kind] || "Other")}</td><td>${esc(v.number)}</td><td title="${esc(v.client)}">${esc(v.client)}</td><td class="tx" title="${esc(v.payer)}">${esc(v.payer)}</td><td class="tx">${esc(day(v.sent))}</td><td class="tx">${esc(day(v.due))}</td><td class="num">${gbp(v.net_pence)}</td><td>${isOver(v) ? '<span class="ac-chip bad">Overdue</span>' : ""}</td><td><div class="ac-acts">${acts}</div></td><td><button type="button" class="ac-ic${v.note ? " has" : ""}" data-note="${v.id}" aria-label="${v.note ? "Read the note" : "Add a note"}" title="${v.note ? "There's a note" : "Add a note"}">${ICON_NOTE}</button></td></tr>`;
+    }
+
+    function openNote(v) {
+      $("ac-pop").innerHTML = `<div class="ac-scrim" id="ac-scrim"><div class="ac-popb" role="dialog" aria-modal="true" aria-label="A note"><div class="ac-poph"><p>${esc(v.number)}, ${esc(v.client)}</p><div>A note</div></div><label class="ac-popm"><span>Anything worth remembering on this one. Both sides can see it.</span><textarea id="ac-note-t" data-lenis-prevent placeholder="e.g. Paying with the next batch on Friday">${esc(v.note || "")}</textarea></label><div class="ac-popf"><button type="button" class="ac-btn" data-close>Cancel</button><button type="button" class="ac-btn pri" data-savenote="${v.id}">Save</button></div></div></div>`;
+      $("ac-note-t").focus();
+    }
+    const closePop = () => { $("ac-pop").innerHTML = ""; };
+
+    document.addEventListener("click", async (e) => {
+      const t = e.target, q = (s) => t.closest && t.closest(s), byId = (id) => INV.find((x) => x.id === id);
+      let b;
+      if (q("[data-close]") || t.id === "ac-scrim") { closePop(); return; }
+      if ((b = q("[data-view]"))) {
+        const tab = window.open("", "_blank"); b.disabled = true;
+        try { const d = await call(`/accounts-portal/invoice-pdf?id=${encodeURIComponent(b.dataset.view)}`); if (tab) tab.location = d.url; else location.href = d.url; }
+        catch (err) { if (tab) tab.close(); if (err.message !== "signed_out") toast(err.message); }
+        finally { b.disabled = false; }
+        return;
+      }
+      if ((b = q("[data-note]"))) { const v = byId(b.dataset.note); if (v) openNote(v); return; }
+      if ((b = q("[data-savenote]"))) {
+        const v = byId(b.dataset.savenote), note = $("ac-note-t").value.trim(); b.disabled = true;
+        try { const d = await post("/accounts-portal/note", { id: v.id, note }); v.note = d.note; closePop(); draw(); toast(note ? "Saved." : "Note removed."); }
+        catch (err) { b.disabled = false; if (err.message !== "signed_out") toast(err.message); }
+        return;
+      }
+      if ((b = q("[data-not]"))) { const v = byId(b.dataset.not); v._noting = true; draw(); const i = $(`why-${v.id}`); if (i) i.focus(); return; }
+      if ((b = q("[data-savewhy]"))) {
+        const v = byId(b.dataset.savewhy), why = $(`why-${v.id}`).value.trim();
+        if (!why) { toast("Say why it isn't paid."); return; }
+        b.disabled = true;
+        try { await post("/accounts-portal/mark", { id: v.id, action: "not_paid", reason: why }); v.not_paid = why; if (!v.note) v.note = why; delete v._noting; draw(); toast("Saved. We can see it on our side."); }
+        catch (err) { b.disabled = false; if (err.message !== "signed_out") toast(err.message); }
+        return;
+      }
+      if ((b = q("[data-paid]"))) {
+        const v = byId(b.dataset.paid); b.disabled = true;
+        try { await post("/accounts-portal/mark", { id: v.id, action: "paid" }); v.status = "paid"; delete v.not_paid; draw(); toast(`${v.number} is marked ${v.route === "internal" ? "settled" : "paid"}.`); }
+        catch (err) { b.disabled = false; if (err.message !== "signed_out") toast(err.message); }
+        return;
+      }
+      if ((b = q("[data-undo]"))) {
+        const v = byId(b.dataset.undo); b.disabled = true;
+        try { await post("/accounts-portal/mark", { id: v.id, action: "undo" }); v.status = "sent"; draw(); }
+        catch (err) { b.disabled = false; if (err.message !== "signed_out") toast(err.message); }
+      }
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePop(); });
+
+    if (tok()) load(); else openGate(link ? "" : gateMessage({ code: "unknown" }));
+  </script>
+</BaseLayout>

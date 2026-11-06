@@ -1,33 +1,69 @@
 ---
 import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/money-os.css";
 ---
 
 <AdminShell active="invoicing" title="Invoicing" skin="hub">
-  <div class="page-header">
-    <div class="page-header-top">
-      <div class="page-header-left">
-        <div>
-          <div class="page-header-title">Invoicing</div>
-          <div class="page-header-sub">Build, send, and track every invoice from one place.</div>
+  <div class="ash-panel ash-page">
+  <div class="inv-wrap mo">
+    <!-- Invoicing, stripped back (Dani, 5-6 Nov 2026; agreed on the mock-up):
+         the month, what needs you and what's open. Everything else is under
+         Settings, and each opens in the same place with a way back. -->
+    <section class="mo-head">
+      <div>
+        <p class="mo-eye">Money</p>
+        <div class="mo-title" id="io-title">Invoicing</div>
+        <p class="mo-sub" id="io-sub">What's been raised this month, what's been paid and what needs you. Accounts confirm payments on their own page, so nobody has to chase by email.</p>
+      </div>
+      <div class="mo-acts">
+        <button type="button" class="btn" id="io-back" hidden>Back to invoicing</button>
+        <button type="button" class="btn" id="io-set" aria-expanded="false">Settings</button>
+        <a class="btn" href="/admin/revenue">Revenue</a>
+        <button type="button" class="btn primary" id="io-new">New invoice</button>
+        <div class="mo-menu" id="io-menu" hidden>
+          <button type="button" data-open="monthly">Regular invoices</button>
+          <button type="button" data-open="approvals">Automatic invoicing</button>
+          <button type="button" data-open="portal">Accounts portal</button>
+          <button type="button" data-open="settings">Company and bank</button>
+          <button type="button" data-open="template">Invoice template</button>
+          <button type="button" data-open="book">Address book</button>
         </div>
       </div>
-    </div>
-  </div>
-  <div class="ash-panel ash-page">
-  <div class="inv-wrap">
-    <nav class="inv-tabs" id="inv-tabs">
-      <button type="button" class="inv-tab is-active" data-tab="create">Create invoice</button>
-      <button type="button" class="inv-tab" data-tab="invoices">Invoices</button>
-      <button type="button" class="inv-tab" data-tab="monthly">Monthly checklist</button>
-      <button type="button" class="inv-tab" data-tab="report">Month end</button>
-      <button type="button" class="inv-tab" data-tab="approvals">Approvals</button>
-      <button type="button" class="inv-tab" data-tab="settings">Settings</button>
-      <button type="button" class="inv-tab" data-tab="template">Template</button>
-      <button type="button" class="inv-tab" data-tab="book">Address book</button>
-    </nav>
+    </section>
+
+    <!-- The month -->
+    <section class="inv-panel" data-panel="overview">
+      <p class="state" id="io-state">Loading…</p>
+      <div id="io-main" hidden>
+        <div class="bar">
+          <div class="nav"><button type="button" id="io-prev" aria-label="Earlier month">‹</button><span id="io-month"></span><button type="button" id="io-next" aria-label="Later month">›</button></div>
+          <label class="find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="io-q" placeholder="Client or invoice number" aria-label="Client or invoice number"></label>
+          <div class="chips" id="io-chips" role="group" aria-label="Type of work"></div>
+          <div class="mo-acts" style="margin-left:auto"><button type="button" class="btn" id="io-mend">Month-end email</button><button type="button" class="btn" id="io-mrev">Month-end review</button></div>
+        </div>
+        <div class="figs" id="io-figs" role="group" aria-label="This month"></div>
+        <div class="section" id="io-needs-sec"><div class="strip"><div class="strip-t">Needs you<span id="io-needs-n"></span></div></div><div class="needs" id="io-needs"></div></div>
+        <div id="io-open"></div>
+        <div id="io-streams"></div>
+      </div>
+    </section>
+
+    <!-- The accounts portal: its link, passcode and emails -->
+    <section class="inv-panel" data-panel="portal" hidden>
+      <p class="state" id="pt-state">Loading…</p>
+      <div class="cp" id="pt-main" hidden style="max-width:720px">
+        <label class="field"><span>The link. This is what goes in their email.</span><span class="io-copy"><input id="pt-link" readonly><button type="button" class="btn" id="pt-copy">Copy</button></span></label>
+        <label class="field"><span>The passcode. Tell them this yourself; it's never in an email. Changing it signs everyone out.</span><span class="io-copy"><input id="pt-code" maxlength="12" autocomplete="off" spellcheck="false"><button type="button" class="btn" id="pt-gen">New one</button></span></label>
+        <label class="field"><span>Who gets the month-end email</span><input id="pt-to" type="email"></label>
+        <div class="field"><span>The page</span><span class="tog" id="pt-on"><button type="button" data-v="1">On</button><button type="button" data-v="0">Off</button></span></div>
+        <div class="field"><span>Send the month-end email by itself, on the 20th and again on the 28th if anything's still open</span><span class="tog" id="pt-auto"><button type="button" data-v="1">On</button><button type="button" data-v="0">Off</button></span></div>
+        <p id="pt-last"></p>
+        <div><button type="button" class="btn primary" id="pt-save">Save</button></div>
+      </div>
+    </section>
 
     <!-- Create invoice -->
-    <section class="inv-panel" data-panel="create">
+    <section class="inv-panel" data-panel="create" hidden>
       <div class="inv-tpl-grid">
         <div class="ash-card">
           <div class="ash-card-head"><div class="ash-card-title">Create an invoice</div></div>
@@ -89,47 +125,6 @@ import AdminShell from "../../components/admin/AdminShell.astro";
             <div class="inv-preview-head"><span class="inv-preview-lbl">Preview — A4</span><button type="button" class="inv-pdf-btn" id="ci-open-pdf">Open / save as PDF ↗</button></div>
           </div>
           <div class="inv-preview-box" id="ci-preview-box"><iframe id="ci-preview" title="Invoice preview" scrolling="no"></iframe></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Invoices list -->
-    <section class="inv-panel" data-panel="invoices" hidden>
-      <div class="ash-card">
-        <div class="ash-card-head"><div class="ash-card-title">Invoices</div></div>
-        <div class="ash-card-body">
-          <!-- Filters: what state it's in, which month it went out, and which
-               date to put first. Applied to the list already loaded, so
-               changing one is instant. -->
-          <div class="inv-filters" id="inv-filters">
-            <label class="inv-filter">
-              <span>Status</span>
-              <select id="inv-f-status">
-                <option value="all">All</option>
-                <option value="unpaid">Unpaid (sent &amp; overdue)</option>
-                <option value="sent">Sent</option>
-                <option value="overdue">Overdue</option>
-                <option value="paid">Paid</option>
-                <option value="draft">Draft</option>
-                <option value="void">Void</option>
-              </select>
-            </label>
-            <label class="inv-filter">
-              <span>Sent in</span>
-              <select id="inv-f-month"><option value="all">Any month</option></select>
-            </label>
-            <label class="inv-filter">
-              <span>Order by</span>
-              <select id="inv-f-sort">
-                <option value="due-asc">Due date, soonest first</option>
-                <option value="due-desc">Due date, latest first</option>
-                <option value="sent-desc">Sent date, newest first</option>
-                <option value="sent-asc">Sent date, oldest first</option>
-              </select>
-            </label>
-            <span class="inv-f-count" id="inv-f-count"></span>
-          </div>
-          <div class="inv-list" id="inv-list"><p class="inv-empty">Loading…</p></div>
         </div>
       </div>
     </section>
@@ -218,27 +213,6 @@ import AdminShell from "../../components/admin/AdminShell.astro";
            agents, typed in until the Team Hub can be counted on for it. -->
       <div class="ap-numbers" id="ap-numbers" hidden></div>
       <div class="mc-wrap"><table class="mc-tbl ap-tbl" id="ap-tbl"></table></div>
-    </section>
-
-    <!-- Month end: what accounts has to confirm -->
-    <section class="inv-panel" data-panel="report" hidden>
-      <div class="ash-card">
-        <div class="ash-card-head">
-          <div class="ash-card-title">Month end</div>
-          <div class="rep-controls">
-            <input type="month" id="rep-month" class="rep-month" />
-            <button type="button" class="inv-pdf-btn" id="rep-copy">Copy for email</button>
-          </div>
-        </div>
-        <div class="ash-card-body">
-          <p class="inv-empty" id="rep-state">Loading…</p>
-          <div id="rep-out" hidden>
-            <div class="rep-totals" id="rep-totals"></div>
-            <div id="rep-tables"></div>
-          </div>
-          <p class="inv-msg" id="rep-msg" hidden></p>
-        </div>
-      </div>
     </section>
 
     <!-- Settings -->
@@ -358,6 +332,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         </div>
       </div>
     </section>
+
+    <div id="io-pop"></div>
+    <div class="tip" id="io-tip" hidden></div>
+    <div class="toast" id="io-toast" role="status" aria-live="polite"></div>
 
     <!-- Email review (QuickBooks-style edit-before-send) -->
     <div class="cim-scrim" id="ci-email-modal" hidden>
@@ -691,12 +669,97 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-logo-row input { flex: 1; }
     .inv-upload { display: inline-flex; align-items: center; padding: 0 16px; border-radius: 9px; border: 1px solid rgba(28,29,34,0.14); background: #fff; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--ink); cursor: pointer; white-space: nowrap; transition: background 0.15s; }
     .inv-upload:hover { background: var(--paper); }
+
+    /* The panels under Settings, in the TMKE OS look (Dani, 5 Nov): one body
+       size, one weight, wine strips, palette only. Everything's left as it
+       worked; only how it looks has changed. */
+    .inv-wrap .io-copy { display: flex; gap: 6px; align-items: center; }
+    .inv-wrap .io-copy input { flex: 1; min-width: 0; }
+    .inv-panel:not([data-panel="overview"]) { color: #2b2226; }
+    .inv-wrap .ash-card { border: 1px solid #e2d9d4; border-radius: 4px; box-shadow: none; }
+    .inv-wrap .ash-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; background: #eae5e1; border-radius: 4px 4px 0 0; }
+    .inv-wrap .ash-card-title { font-family: var(--serif); font-weight: 300; font-size: 22px; letter-spacing: -0.04em; color: #2b2226; text-transform: none; }
+    .inv-wrap .ash-card-body { padding: 18px; }
+    .inv-wrap .inv-intro, .inv-wrap .inv-empty, .inv-wrap .mc-key, .inv-wrap .ci-pay-hint, .inv-wrap .mc-shoots-sum { font-size: 14px; font-weight: 400; color: #7e6765; line-height: 1.35; max-width: 75%; }
+    .inv-wrap .inv-h, .inv-wrap .mc-h { display: flex; align-items: center; min-height: 30px; margin: 22px 0 12px; padding: 0 14px; background: #371e28; border: 0; border-radius: 4px; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: #fff; }
+    .inv-wrap .inv-h:first-child { margin-top: 0; }
+    .inv-wrap .inv-h-note { color: rgba(255,255,255,.6); font-size: 11px; }
+    .inv-wrap .inv-field > span, .inv-wrap .ci-tpl-lbl, .inv-wrap .cim-f > span { font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; color: #7e6765; }
+    .inv-wrap .inv-field input, .inv-wrap .inv-field textarea, .inv-wrap .inv-field select, .inv-wrap .ci-item input, .inv-wrap .ap-num-row input, .inv-wrap .mc-alloc-q, .inv-wrap .cim-f input, .inv-wrap .cim-f textarea { padding: 8px 10px; border: 1px solid #c9bcb7; border-radius: 4px; background: #fff; color: #2b2226; font-family: var(--sans); font-size: 14px; font-weight: 400; }
+    .inv-wrap .inv-field input, .inv-wrap .inv-field select, .inv-wrap .ci-item input { height: 36px; }
+    .inv-wrap .inv-field input:focus, .inv-wrap .inv-field textarea:focus, .inv-wrap .ci-item input:focus { border-color: #371e28; box-shadow: none; }
+    .inv-wrap .inv-save, .inv-wrap .inv-ghost, .inv-wrap .inv-pdf-btn, .inv-wrap .inv-upload, .inv-wrap .rec-remove, .inv-wrap .mc-raise { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 14px; margin: 0; border-radius: 4px; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+    .inv-wrap .inv-ghost, .inv-wrap .inv-pdf-btn, .inv-wrap .inv-upload, .inv-wrap .rec-remove, .inv-wrap .mc-raise { background: #fff; color: #2b2226; border: 1px solid #e2d9d4; }
+    .inv-wrap .inv-ghost:hover, .inv-wrap .inv-pdf-btn:hover, .inv-wrap .inv-upload:hover, .inv-wrap .rec-remove:hover, .inv-wrap .mc-raise:hover { background: #fff; border-color: #371e28; color: #371e28; }
+    .inv-wrap .inv-save { background: #371e28; color: #fff; border: 1px solid #371e28; opacity: 1; }
+    .inv-wrap .inv-save:hover { background: #2a1620; opacity: 1; }
+    .inv-wrap .inv-save:disabled, .inv-wrap .inv-ghost:disabled { opacity: .55; }
+    .inv-wrap .mc-raise { height: 22px; padding: 0 8px; margin-left: 6px; }
+    .inv-wrap .ci-tpl-opts { padding: 0; gap: 0; background: #fff; border: 1px solid #e2d9d4; border-radius: 4px; overflow: hidden; }
+    .inv-wrap .ci-tpl-opt { height: 30px; padding: 0 16px; border-radius: 0; font-size: 14px; font-weight: 400; color: #7e6765; }
+    .inv-wrap .ci-tpl-opt.is-active { background: #371e28; color: #fff; }
+    .inv-wrap .inv-style { border: 1px solid #e2d9d4; border-radius: 4px; }
+    .inv-wrap .inv-style.is-active { border-color: #371e28; box-shadow: 0 0 0 1px #371e28; }
+    .inv-wrap .inv-style-name { font-size: 14px; font-weight: 400; }
+    .inv-wrap .inv-style-sub { font-size: 14px; color: #7e6765; }
+    .inv-wrap .ci-del { border: 1px solid #e2d9d4; border-radius: 4px; height: 36px; color: #7e6765; }
+    .inv-wrap .ci-del:hover { background: #f9f0f0; border-color: #8a3f3f; color: #8a3f3f; }
+    .inv-wrap .ci-totals { border-top: 1px solid #c9bcb7; }
+    .inv-wrap .ci-totals .r, .inv-wrap .ci-totals .r.grand { font-size: 14px; font-weight: 400; color: #2b2226; }
+    .inv-wrap .inv-preview-box { border: 1px solid #e2d9d4; border-radius: 4px; background: #eae5e1; }
+    .inv-wrap .inv-preview-lbl { font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; color: #7e6765; }
+    .inv-wrap .inv-msg { border-radius: 4px; font-size: 14px; }
+    .inv-wrap .inv-msg.is-ok { background: #edf4ef; color: #3f7a56; }
+    .inv-wrap .inv-msg.is-err { background: #f9f0f0; color: #8a3f3f; }
+    .inv-wrap .rec-row { background: #fff; border: 1px solid #e2d9d4; border-radius: 4px; }
+    .inv-wrap .rec-name, .inv-wrap .rec-sub { font-size: 14px; font-weight: 400; }
+    .inv-wrap .rec-sub { color: #7e6765; }
+    .inv-wrap .mc-tbl { font-size: 14px; }
+    .inv-wrap .mc-tbl th, .inv-wrap .mc-tbl thead tr:last-child th { font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; color: #7e6765; }
+    .inv-wrap .mc-tbl thead tr:first-child th { border-top: 1px solid #c9bcb7; }
+    .inv-wrap .mc-tbl thead tr:last-child th { border-bottom: 1px solid #c9bcb7; }
+    .inv-wrap .mc-tbl td { border-bottom: 1px solid #eae5e1; height: 42px; padding: 0 8px; }
+    .inv-wrap .mc-tbl tbody tr:last-child td { border-bottom: 1px solid #c9bcb7; }
+    .inv-wrap .mc-tbl th, .inv-wrap .mc-tbl td { text-align: center; }
+    .inv-wrap .mc-tbl th.l, .inv-wrap .mc-tbl td.l, .inv-wrap .mc-tbl tr.mc-sec td { text-align: left; }
+    .inv-wrap .mc-tbl td.amt { text-align: right; }
+    .inv-wrap .mc-tbl td.l { white-space: normal; padding-top: 6px; padding-bottom: 6px; }
+    .inv-wrap .mc-tbl td.l b { font-weight: 400; }
+    .inv-wrap .mc-tbl td.l small { font-size: 14px; color: #7e6765; }
+    .inv-wrap .mc-tbl tr.mc-sec td { background: #eae5e1; font-size: 11px; font-weight: 600; letter-spacing: .18em; color: #371e28; }
+    .inv-wrap .mc-tbl .is-now { background: #f7f4f2; }
+    .inv-wrap .mc-y, .inv-wrap .ap-num-done { color: #3f7a56; font-weight: 400; font-size: 14px; }
+    .inv-wrap .mc-n { color: #8a3f3f; font-weight: 400; }
+    .inv-wrap .mc-d { color: #7e6765; font-weight: 400; font-size: 14px; }
+    .inv-wrap .mc-chip { border-radius: 4px; padding: 0 8px; height: 22px; display: inline-flex; align-items: center; font-size: 14px; font-weight: 400; }
+    .inv-wrap .mc-chip.is-late { background: #f9f0f0; color: #8a3f3f; }
+    .inv-wrap .mc-chip.is-wait { background: #eae5e1; color: #371e28; }
+    .inv-wrap .mc-chip.is-sent { background: #c9bcb7; color: #371e28; }
+    .inv-wrap .mc-chip.is-paid { background: #edf4ef; color: #3f7a56; }
+    .inv-wrap .mc-shoots tr.is-late td { background: #f9f0f0; }
+    .inv-wrap .ap-pill { border-radius: 4px; font-size: 14px; font-weight: 400; background: #eae5e1; color: #371e28; padding: 0 8px; }
+    .inv-wrap .ap-pill.is-pending { background: #c9bcb7; color: #371e28; }
+    .inv-wrap .ap-pill.is-approved { background: #edf4ef; color: #3f7a56; }
+    .inv-wrap .ap-pill.is-rejected { background: #f9f0f0; color: #8a3f3f; }
+    .inv-wrap .ap-notes, .inv-wrap .ap-num-name em, .inv-wrap .ap-open { font-size: 14px; font-weight: 400; color: #7e6765; }
+    .inv-wrap .ap-num-row { font-size: 14px; border-top: 1px solid #eae5e1; }
+    .inv-wrap .mc-auto, .inv-wrap .ap-numbers { border: 1px solid #e2d9d4; border-radius: 4px; }
+    .inv-wrap .mc-auto-on { font-size: 14px; font-weight: 400; }
+    .inv-wrap .mc-modal-box { border-radius: 4px; }
+    .inv-wrap .mc-modal-box h3 { font-weight: 300; font-size: 22px; }
+    .inv-wrap .mc-alloc-row, .inv-wrap .mc-alloc-row small { font-size: 14px; }
+    .inv-wrap .cim { border-radius: 4px; }
+    .inv-wrap .cim h3 { font-weight: 300; font-size: 24px; letter-spacing: -0.04em; }
+    .inv-wrap .cim-sub, .inv-wrap .cim-pay { font-size: 14px; color: #7e6765; border-radius: 4px; }
+    .inv-wrap .cim-pay { background: #eae5e1; }
+    .inv-wrap .cim-pay.is-on { background: #eae5e1; color: #371e28; font-weight: 400; }
   </style>
 
   <script>
     import { supabase } from "../../lib/supabase.js";
     import { renderInvoiceHtml, sampleInvoice } from "../../lib/invoice-render.js";
     import { defaultEmailSubject, defaultEmailBody, payLine } from "../../lib/invoice-email.js";
+    import { SECTOR_NAME, gbp as gb, revenueByMonth, reviewBody, ymLabel as ymLong, ymAddMonths } from "../../lib/revenue.js";
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let currentSettings = {};
     const $ = (id) => document.getElementById(id);
@@ -717,19 +780,37 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       return d;
     }
 
-    // Tabs
-    $("inv-tabs").addEventListener("click", (e) => {
-      const b = e.target.closest("[data-tab]"); if (!b) return;
-      document.querySelectorAll(".inv-tab").forEach((t) => t.classList.toggle("is-active", t === b));
-      document.querySelectorAll(".inv-panel").forEach((p) => { p.hidden = p.getAttribute("data-panel") !== b.getAttribute("data-tab"); });
-      const tab = b.getAttribute("data-tab");
+    // Everything under Settings opens in the page, with a way back.
+    const PANEL_HEAD = {
+      overview: ["Invoicing", "What's been raised this month, what's been paid and what needs you. Accounts confirm payments on their own page, so nobody has to chase by email."],
+      create: ["New invoice", "Build it, preview it, then save or send. It's numbered automatically."],
+      monthly: ["Regular invoices", "Every invoice that repeats, and this month's shoots, month by month."],
+      approvals: ["Automatic invoicing", "What the morning run does, and what it's waiting on."],
+      portal: ["Accounts portal", "The page where accounts confirm invoices: its link, its passcode and who gets the emails."],
+      settings: ["Company and bank", "The details on every invoice, and how they're numbered."],
+      template: ["Invoice template", "How the invoice looks."],
+      book: ["Address book", "The people and companies you bill."],
+    };
+    function showPanel(tab) {
+      document.querySelectorAll(".inv-panel").forEach((p) => { p.hidden = p.getAttribute("data-panel") !== tab; });
+      const h = PANEL_HEAD[tab] || PANEL_HEAD.overview;
+      $("io-title").textContent = h[0]; $("io-sub").textContent = h[1];
+      $("io-back").hidden = tab === "overview";
+      $("io-new").hidden = tab !== "overview";
+      $("io-menu").hidden = true; $("io-set").setAttribute("aria-expanded", "false");
       if (tab === "template") scaleFit();
       if (tab === "create") ciScaleFit();
-      if (tab === "invoices") loadInvoices();
-      if (tab === "report") loadReport();
+      if (tab === "overview") loadBook();
       if (tab === "monthly") loadMonthly();
       if (tab === "approvals") loadApprovals();
-    });
+      if (tab === "portal") loadPortal();
+      window.scrollTo(0, 0);
+    }
+    $("io-back").addEventListener("click", () => showPanel("overview"));
+    $("io-new").addEventListener("click", () => { ciReset(); showPanel("create"); });
+    $("io-set").addEventListener("click", (e) => { e.stopPropagation(); const m = $("io-menu"); m.hidden = !m.hidden; $("io-set").setAttribute("aria-expanded", String(!m.hidden)); });
+    $("io-menu").addEventListener("click", (e) => { const b = e.target.closest("[data-open]"); if (b) showPanel(b.dataset.open); });
+    document.addEventListener("click", (e) => { if (!e.target.closest("#io-menu")) $("io-menu").hidden = true; });
 
     function msg(id, text, ok) { const m = $(id); m.textContent = text; m.className = "inv-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
 
@@ -1048,8 +1129,8 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           const was = ciEditing;
           msg("ci-msg", was && was.status === "draft"
             ? `${invoice.number} updated.`
-            : `Draft ${invoice.number} saved — see the Invoices tab.${was ? ` ${was.number} voided.` : ""}`, true);
-          ciReset(); loadInvoices();
+            : `Draft ${invoice.number} saved.${was ? ` ${was.number} voided.` : ""}`, true);
+          ciReset(); BOOK = null;
         }
       }
       catch (err) { msg("ci-msg", err.message, false); }
@@ -1103,13 +1184,12 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         await api("/invoicing/invoices/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: cimInvoiceId, email_subject: $("cim-subject").value.trim(), email_body: $("cim-body").value, cc: $("cim-cc").value.trim() }) });
         const reset = cimResetOnSend; closeEmailModal();
         if (reset) { msg("ci-msg", "Invoice sent.", true); ciReset(); }
-        loadInvoices();
+        BOOK = null; if (!$("io-main").closest(".inv-panel").hidden) loadBook();
       } catch (err) { msg("cim-msg", err.message, false); }
       finally { btn.disabled = false; btn.textContent = "Send invoice"; }
     });
 
     // ---- Invoices list ----
-    let invList = [];
     /* Editing an invoice.
 
        A draft is edited in place - nothing has left the building, so there is
@@ -1126,7 +1206,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
 
     async function editInvoice(id) {
       if (!id) return;
-      document.querySelector('[data-tab="create"]')?.click();
+      showPanel("create");
       msg("ci-msg", "Loading…", true);
       let full;
       try { full = (await api(`/invoicing/invoice?id=${encodeURIComponent(id)}`)).invoice; }
@@ -1158,261 +1238,6 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         ? `Editing draft ${full.number} — saving updates it.`
         : `Editing ${full.number}, which has been sent. Saving raises a NEW invoice and voids ${full.number}.`, true);
       ciRefresh();
-    }
-
-    // ---- The list: fetched once, then filtered and sorted in place --------
-    const ICONS = {
-      view: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
-      edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
-      del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>',
-    };
-    const todayIso = () => new Date().toISOString().slice(0, 10);
-    // Overdue isn't stored: it's a sent invoice whose due date has gone by.
-    const stateOf = (v) => (v.status === "sent" && v.due_date && String(v.due_date).slice(0, 10) < todayIso()) ? "overdue" : v.status;
-    // When it went out. Invoices sent before sent_at was recorded fall back to
-    // their issue date, so they still land in a month.
-    const sentIso = (v) => v.sent_at ? String(v.sent_at).slice(0, 10) : (v.status !== "draft" && v.issued_date ? String(v.issued_date).slice(0, 10) : "");
-    const monthLabel = (ym) => { const [y, m] = ym.split("-").map(Number); return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }); };
-
-    function fillMonths() {
-      const sel = $("inv-f-month");
-      const keep = sel.value;
-      const months = [...new Set(invList.map((v) => sentIso(v).slice(0, 7)).filter(Boolean))].sort().reverse();
-      sel.innerHTML = '<option value="all">Any month</option>' + months.map((m) => `<option value="${m}">${monthLabel(m)}</option>`).join("");
-      sel.value = months.includes(keep) ? keep : "all";
-    }
-
-    function renderInvoices() {
-      const wrap = $("inv-list");
-      const fStatus = $("inv-f-status").value, fMonth = $("inv-f-month").value, fSort = $("inv-f-sort").value;
-      let rows = invList.filter((v) => {
-        const st = stateOf(v);
-        if (fStatus === "unpaid" && !(st === "sent" || st === "overdue")) return false;
-        if (fStatus !== "all" && fStatus !== "unpaid" && st !== fStatus) return false;
-        if (fMonth !== "all" && sentIso(v).slice(0, 7) !== fMonth) return false;
-        return true;
-      });
-      // Anything without the date being sorted on goes to the bottom either way.
-      const key = fSort.startsWith("due") ? (v) => String(v.due_date || "").slice(0, 10) : (v) => sentIso(v);
-      const dir = fSort.endsWith("asc") ? 1 : -1;
-      rows = rows.slice().sort((a, b) => {
-        const ka = key(a), kb = key(b);
-        if (!ka && !kb) return 0; if (!ka) return 1; if (!kb) return -1;
-        return ka < kb ? -dir : ka > kb ? dir : 0;
-      });
-      $("inv-f-count").textContent = rows.length === invList.length ? `${rows.length} invoice${rows.length === 1 ? "" : "s"}` : `Showing ${rows.length} of ${invList.length}`;
-      if (!rows.length) { wrap.innerHTML = '<p class="inv-empty">Nothing matches those filters.</p>'; return; }
-
-      const d = (x) => x ? new Date(String(x).slice(0, 10) + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
-      // When it went and to whom, on the row: "was this ever sent?" should not
-      // need anyone's inbox to answer.
-      const sentLine = (v) => {
-        if (!v.sent_to && !v.sent_at) return "";
-        const when = v.sent_at
-          ? new Date(v.sent_at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-          : "";
-        return `<div class="invsent">Sent${when ? " " + esc(when) : ""}${v.sent_to ? " to " + esc(v.sent_to) : ""}</div>`;
-      };
-      wrap.innerHTML = rows.map((v) => {
-        const st = stateOf(v);
-        const live = v.status !== "void";
-        return `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div>${sentLine(v)}</span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(st)}">${esc(st)}</span><span class="invrow-tools">
-          ${v.paid_date
-            ? `<span class="paidon">Paid ${d(v.paid_date)}</span>`
-            : `${live && v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : "<span></span>"}
-               ${live ? `<button type="button" class="markpaid" data-id="${esc(v.id)}">Paid</button>` : "<span></span>"}`}
-          <button type="button" class="invvoid" data-voidid="${esc(v.id)}"${v.paid_date ? ' style="grid-column:3"' : ""}>Void</button>
-          <button type="button" class="invview inv-ico" data-viewid="${esc(v.id)}" title="View" aria-label="View invoice ${esc(v.number)}">${ICONS.view}</button>
-          ${live ? `<button type="button" class="invedit inv-ico" data-editid="${esc(v.id)}" title="Edit" aria-label="Edit invoice ${esc(v.number)}">${ICONS.edit}</button>` : "<span></span>"}
-          <button type="button" class="invdel inv-ico" data-delid="${esc(v.id)}" title="Delete" aria-label="Delete invoice ${esc(v.number)}">${ICONS.del}</button>
-        </span></div>`;
-      }).join("");
-    }
-
-    async function loadInvoices() {
-      const wrap = $("inv-list");
-      if (!WORKER) { wrap.innerHTML = '<p class="inv-empty">Connect the Worker to view invoices.</p>'; return; }
-      try {
-        const { invoices } = await api("/invoicing/invoices");
-        invList = invoices || [];
-        if (!invList.length) { $("inv-f-count").textContent = ""; wrap.innerHTML = '<p class="inv-empty">No invoices yet — create one.</p>'; return; }
-        fillMonths();
-        renderInvoices();
-      } catch (err) { wrap.innerHTML = `<p class="inv-empty">${esc(err.message)}</p>`; }
-    }
-    ["inv-f-status", "inv-f-month", "inv-f-sort"].forEach((id) => $(id).addEventListener("change", renderInvoices));
-    $("inv-list").addEventListener("click", async (e) => {
-      const paid = e.target.closest(".markpaid");
-      if (paid) { paid.disabled = true; try { await api("/invoicing/invoices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: paid.getAttribute("data-id"), status: "paid" }) }); loadInvoices(); } catch (err) { alert(err.message); paid.disabled = false; } return; }
-      const view = e.target.closest(".invview");
-      if (view) {
-        view.disabled = true; view.classList.add("is-busy");
-        // Opened from a click so the browser doesn't treat it as a popup.
-        const tab = window.open("", "_blank");
-        try {
-          const out = await api(`/invoicing/invoice-pdf?id=${encodeURIComponent(view.getAttribute("data-viewid"))}`);
-          if (tab) tab.location = out.url; else window.location = out.url;
-        } catch (err) {
-          if (tab) tab.close();
-          alert("Couldn't open the invoice: " + err.message);
-        } finally { view.disabled = false; view.classList.remove("is-busy"); }
-        return;
-      }
-      const ed = e.target.closest(".invedit");
-      if (ed) { editInvoice(ed.getAttribute("data-editid")); return; }
-      const send = e.target.closest(".invsend");
-      if (send) { const inv = invList.find((x) => x.id === send.getAttribute("data-sendid")); if (inv) openEmailModal(inv, false); return; }
-      const del = e.target.closest(".invdel");
-      if (del) { if (!confirm("Delete this invoice? This permanently removes it and its PDF — it can't be undone.")) return; del.disabled = true; try { await api(`/invoicing/invoices?id=${encodeURIComponent(del.getAttribute("data-delid"))}`, { method: "DELETE" }); loadInvoices(); } catch (err) { alert(err.message); del.disabled = false; } return; }
-      const vd = e.target.closest(".invvoid");
-      if (vd) { const reason = prompt("Void this invoice? It'll be removed and accounts + you will be emailed.\n\nReason for voiding:"); if (reason === null) return; vd.disabled = true; try { await api("/invoicing/invoices/void", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: vd.getAttribute("data-voidid"), reason }) }); loadInvoices(); } catch (err) { alert(err.message); vd.disabled = false; } return; }
-    });
-
-    // ---- Month end -------------------------------------------------------
-    // Two questions, so two tables: has the inter-brand transfer actually been
-    // done, and has the ordinary invoice landed in the bank. Accounts answers
-    // them per row, which is why this exists as a table to paste into an email
-    // rather than a figure on a screen.
-    let repRows = [];
-    let repMonth = "";
-
-    function repMonthLabel(m) {
-      const [y, mo] = String(m || "").split("-").map(Number);
-      if (!y || !mo) return m || "";
-      return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
-    }
-    const repDate = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
-
-    function repTable(rows) {
-      if (!rows.length) return '<p class="inv-empty">Nothing here.</p>';
-      return `<div class="rep-wrap"><table class="rep-table">
-        <thead><tr><th>Invoice</th><th>Billed to</th><th>Client</th><th>Issued</th><th>Due</th><th class="num">Amount</th><th>Status</th></tr></thead>
-        <tbody>${rows.map((r) => `<tr>
-          <td>${esc(r.number)}</td>
-          <td>${esc(r.bill_to)}${r.brand ? `<br><span style="font-size:11.5px;color:rgba(28,29,34,0.5)">${esc(r.brand)}</span>` : ""}</td>
-          <td>${esc(r.client || "—")}${r.strand ? `<br><span style="font-size:11.5px;color:rgba(28,29,34,0.5)">${esc(r.strand)}</span>` : ""}</td>
-          <td>${esc(repDate(r.issued_date))}</td>
-          <td>${esc(repDate(r.due_date))}</td>
-          <td class="num">${gbp(r.total_pence)}</td>
-          <td>${r.status === "paid"
-                ? `Paid ${esc(repDate(r.paid_date))}`
-                : r.days_overdue
-                  ? `<span class="rep-late">${r.days_overdue} day${r.days_overdue === 1 ? "" : "s"} overdue</span>`
-                  : esc(r.status)}</td>
-        </tr>`).join("")}</tbody></table></div>`;
-    }
-
-    async function loadReport() {
-      const state = $("rep-state"), out = $("rep-out");
-      state.hidden = false; state.textContent = "Loading…"; out.hidden = true;
-      $("rep-msg").hidden = true;
-      if (!WORKER) { state.textContent = "Connect the Worker to pull a report."; return; }
-      try {
-        const q = repMonth ? `?month=${encodeURIComponent(repMonth)}` : "";
-        const d = await api("/invoicing/report" + q);
-        repRows = d.payments || [];
-        repMonth = d.month;
-        $("rep-month").value = d.month;
-
-        const t = d.totals || {};
-        $("rep-totals").innerHTML = [
-          ["Raised this month", t.raised],
-          ["Outstanding &mdash; inter-brand", t.outstanding_inter_brand],
-          ["Outstanding &mdash; everything else", t.outstanding_other],
-        ].map(([k, v]) => `<div><span class="rep-tot-k">${k}</span><span class="rep-tot-v">${gbp(v || 0)}</span></div>`).join("");
-
-        const brandRows = repRows.filter((r) => r.outstanding && r.inter_brand);
-        const otherRows = repRows.filter((r) => r.outstanding && !r.inter_brand);
-        const paidRows  = repRows.filter((r) => !r.outstanding && r.raised_this_month);
-
-        $("rep-tables").innerHTML = `
-          <div class="rep-group">
-            <h4>Inter-brand &mdash; outstanding</h4>
-            <p class="rep-why">Please confirm each of these transfers has actually been made.</p>
-            ${repTable(brandRows)}
-          </div>
-          <div class="rep-group">
-            <h4>Outstanding &mdash; everything else</h4>
-            <p class="rep-why">Please confirm whether payment has landed in the bank account.</p>
-            ${repTable(otherRows)}
-          </div>
-          <div class="rep-group">
-            <h4>Settled this month</h4>
-            <p class="rep-why">For the record &mdash; no action needed.</p>
-            ${repTable(paidRows)}
-          </div>`;
-        state.hidden = true; out.hidden = false;
-      } catch (err) { state.textContent = err.message; }
-    }
-
-    // Copied as HTML *and* plain text: Outlook takes the table, anything that
-    // can't renders a readable list instead of one long unbroken line.
-    async function copyReport() {
-      if (!repRows.length) return;
-      const msg = $("rep-msg");
-      const brandRows = repRows.filter((r) => r.outstanding && r.inter_brand);
-      const otherRows = repRows.filter((r) => r.outstanding && !r.inter_brand);
-      const money = (p) => "£" + ((p || 0) / 100).toFixed(2);
-
-      const htmlTable = (rows) => rows.length
-        ? `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Verdana,sans-serif;font-size:12px;">
-             <tr style="background:#f4f2f1;"><th align="left">Invoice</th><th align="left">Billed to</th><th align="left">Client</th><th align="left">Issued</th><th align="left">Due</th><th align="right">Amount</th><th align="left">Status</th></tr>
-             ${rows.map((r) => `<tr><td>${esc(r.number)}</td><td>${esc(r.bill_to)}${r.brand ? " (" + esc(r.brand) + ")" : ""}</td><td>${esc(r.client || "—")}${r.strand ? " (" + esc(r.strand) + ")" : ""}</td><td>${esc(repDate(r.issued_date))}</td><td>${esc(repDate(r.due_date))}</td><td align="right">${money(r.total_pence)}</td><td>${r.days_overdue ? esc(r.days_overdue + " days overdue") : esc(r.status)}</td></tr>`).join("")}
-           </table>`
-        : "<p>Nothing outstanding.</p>";
-
-      const html = `<div style="font-family:Verdana,sans-serif;font-size:12px;">
-        <p><strong>Invoice position &mdash; ${esc(repMonthLabel(repMonth))}</strong></p>
-        <p><strong>Inter-brand &mdash; please confirm each transfer has been made:</strong></p>
-        ${htmlTable(brandRows)}
-        <p><strong>Everything else &mdash; please confirm whether payment has landed:</strong></p>
-        ${htmlTable(otherRows)}
-      </div>`;
-
-      const textTable = (rows) => rows.length
-        ? rows.map((r) => `  ${r.number}  billed to ${r.bill_to}${r.brand ? " (" + r.brand + ")" : ""}  for ${r.client || "—"}${r.strand ? " (" + r.strand + ")" : ""}  issued ${repDate(r.issued_date)}  due ${repDate(r.due_date)}  ${money(r.total_pence)}  ${r.days_overdue ? r.days_overdue + " days overdue" : r.status}`).join("\n")
-        : "  Nothing outstanding.";
-      const text = `Invoice position - ${repMonthLabel(repMonth)}\n\n`
-        + `Inter-brand - please confirm each transfer has been made:\n${textTable(brandRows)}\n\n`
-        + `Everything else - please confirm whether payment has landed:\n${textTable(otherRows)}\n`;
-
-      try {
-        if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
-          await navigator.clipboard.write([new ClipboardItem({
-            "text/html": new Blob([html], { type: "text/html" }),
-            "text/plain": new Blob([text], { type: "text/plain" }),
-          })]);
-        } else {
-          await navigator.clipboard.writeText(text);
-        }
-        msg.hidden = false; msg.textContent = "Copied — paste it straight into an email.";
-      } catch (_) {
-        msg.hidden = false; msg.textContent = "Couldn't reach the clipboard. Select the tables above and copy manually.";
-      }
-    }
-
-    $("rep-month").addEventListener("change", (e) => { repMonth = e.target.value; loadReport(); });
-    $("rep-copy").addEventListener("click", copyReport);
-
-    /* Invoices and Month end are management only — the ledger and the
-       month-end figures, as against raising an invoice, which any admin does.
-       Taken out of the DOM rather than hidden, so there is no tab to un-hide
-       in devtools and no panel quietly fetching behind it.
-
-       This only decides what gets drawn. The endpoints behind both tabs check
-       admins.is_management themselves (worker: isManagement), which is what
-       actually keeps the numbers in. */
-    const MGMT_TABS = ["invoices", "report", "monthly"];
-    function applyMgmt(isManagement) {
-      if (isManagement) return;
-      MGMT_TABS.forEach((t) => {
-        document.querySelector(`.inv-tab[data-tab="${t}"]`)?.remove();
-        document.querySelector(`.inv-panel[data-panel="${t}"]`)?.remove();
-      });
-      // If one of them was showing, fall back to the first tab that is left.
-      if (!document.querySelector(".inv-tab.is-active")) {
-        document.querySelector(".inv-tab")?.click();
-      }
     }
 
     // ---- Monthly checklist ----
@@ -1472,7 +1297,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           const row = d.rows.find((x) => x.id === id);
           if (row && !ciRecurring.some((x) => x.id === id)) ciRecurring.push({ id, name: row.client, match_email: row.match_email, amount_pence: row.amount_pence });
           if (row && !$("ci-recurring").querySelector(`option[value="${id}"]`)) $("ci-recurring").insertAdjacentHTML("beforeend", `<option value="${esc(id)}">${esc(row.client)}</option>`);
-          ciReset(); document.querySelector('.inv-tab[data-tab="create"]')?.click();
+          ciReset(); showPanel("create");
           $("ci-recurring").value = id; ciApplyRecurring(id, ym);
           window.scrollTo({ top: 0, behavior: "smooth" });
         }));
@@ -1668,12 +1493,339 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       finally { b.disabled = false; b.textContent = "Run it now"; }
     });
 
-    document.addEventListener("ash:ready", (e) => {
-      applyMgmt(!!(e.detail && e.detail.isManagement));
+    /* ---- The month (Dani, 5-6 Nov 2026) ----------------------------------
+       Worked out from the invoices by Worker /invoicing/book, never typed in. */
+    let BOOK = null, TODAY = "", PENDING = [], NUMBERS = [], TICKS = null;
+    const S = { month: "", kind: "all", status: "", q: "" };
+    const KINDS = [["social", "Social media"], ["video", "Videography"], ["agent", "Agent services"], ["oneoff", "One-offs"]];
+    const svc = (v) => (v.kind === "video" ? "Videography" : v.kind === "agent" ? "Agent services" : v.kind === "social" ? "Social media" : "One-off");
+    const ICON_NOTE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v12l-5 5H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 21v-5h5M9 8h6M9 12h6"/></svg>';
+    const ICON_MAIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
+    const day = (d) => (d ? new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "");
+    const sum = (a) => a.reduce((t, v) => t + v.net_pence, 0);
+    const isOver = (v) => v.status === "sent" && v.due && v.due < TODAY;
+    const state = (v) => (v.status === "paid" ? "paid" : v.status === "draft" ? "draft" : v.not_paid ? "notpaid" : isOver(v) ? "over" : "wait");
+    const byId = (id) => (BOOK || []).find((x) => x.id === id);
+    const held = (v) => v.content_ready && v.status !== "paid";
+    function chip(v) {
+      const s = state(v);
+      if (s === "paid") return `<span class="chip good">Paid ${esc(day(v.paid_on))}</span>`;
+      if (s === "draft") return '<span class="chip plain">Draft, not sent</span>';
+      if (s === "notpaid") return '<span class="chip bad">Accounts: not paid</span>';
+      if (s === "over") return '<span class="chip bad">Overdue</span>';
+      return '<span class="chip wait">Waiting</span>';
+    }
+    const flags = (v) => `<div class="flags">${chip(v)}${held(v) ? '<span class="chip wait">Content ready</span>' : ""}</div>`;
+    function pass(v) {
+      if (S.kind !== "all" && v.kind !== S.kind) return false;
+      if (S.q && `${v.client} ${v.payer} ${v.number}`.toLowerCase().indexOf(S.q) < 0) return false;
+      if (S.status === "paid" && v.status !== "paid") return false;
+      if (S.status === "wait" && state(v) !== "wait") return false;
+      if (S.status === "over" && !(state(v) === "over" || state(v) === "notpaid")) return false;
+      return true;
+    }
+    function row(v) {
+      const open = v.status === "sent";
+      return `<tr class="click" data-inv="${esc(v.id)}" tabindex="0"><td>${esc(v.client)}</td><td class="tx">${esc(v.what)}</td><td class="tx">${esc(v.number)}</td><td class="tx">${esc(v.payer)}</td><td class="tx">${v.sent ? esc(day(v.sent)) : "—"}</td><td class="tx">${esc(day(v.due))}</td><td class="num">${gb(v.net_pence)}</td><td>${flags(v)}</td><td><div class="row-acts"><button type="button" class="ic${v.note ? " has" : ""}" data-note="${esc(v.id)}" aria-label="${v.note ? "Read the note" : "Add a note"}" title="${v.note ? "There's a note" : "Add a note"}">${ICON_NOTE}</button>${open ? `<button type="button" class="ic" data-email="${esc(v.id)}" aria-label="Email accounts about this one" title="Email accounts about this one">${ICON_MAIL}</button>` : ""}</div></td></tr>`;
+    }
+    const THEAD = '<thead><tr><th>Client</th><th>For</th><th>Invoice</th><th>Who pays</th><th>Sent</th><th>Due</th><th class="num">Net</th><th>Status</th><th></th></tr></thead>';
+    const table = (list) => `<div class="tablewrap" data-lenis-prevent><table class="grid-us">${THEAD}<tbody>${list.map(row).join("")}</tbody></table></div>`;
+
+    async function loadBook() {
+      const st = $("io-state"), main = $("io-main");
+      if (!BOOK) { st.hidden = false; st.className = "state"; st.textContent = "Loading…"; main.hidden = true; }
+      try {
+        const d = await api("/invoicing/book");
+        BOOK = d.invoices || []; TODAY = d.today; PENDING = d.pending || []; NUMBERS = d.numbers || []; TICKS = d.ticks || null;
+        if (!S.month) S.month = TODAY.slice(0, 7);
+        st.hidden = true; main.hidden = false;
+        drawBook();
+      } catch (err) { st.hidden = false; st.className = "state bad"; st.textContent = err.message; main.hidden = true; }
+    }
+    function months() {
+      const now = TODAY.slice(0, 7), first = (BOOK.map((v) => v.month).filter(Boolean).sort()[0]) || now, out = [];
+      for (let m = first; m <= now; m = ymAddMonths(m, 1)) out.push(m);
+      return out;
+    }
+    function drawBook() {
+      const ms = months();
+      $("io-month").textContent = ymLong(S.month);
+      $("io-prev").disabled = S.month === ms[0]; $("io-next").disabled = S.month === ms[ms.length - 1];
+      const inMonth = BOOK.filter((v) => v.month === S.month);
+      const c = {}; inMonth.forEach((v) => { c[v.kind] = (c[v.kind] || 0) + 1; });
+      const overAll = BOOK.filter((v) => state(v) === "over" || state(v) === "notpaid");
+      $("io-chips").innerHTML = `<button type="button" data-kind="all" aria-pressed="${S.kind === "all"}">All</button>` + KINDS.filter((k) => c[k[0]]).map((k) => `<button type="button" data-kind="${k[0]}" aria-pressed="${S.kind === k[0]}">${k[1]} <i>${c[k[0]]}</i></button>`).join("") + `<button type="button" data-status="over" aria-pressed="${S.status === "over"}">Overdue <i>${overAll.length}</i></button>`;
+      const live = inMonth.filter((v) => v.status !== "draft"), paid = live.filter((v) => v.status === "paid"), wait = live.filter((v) => state(v) === "wait");
+      const n = (a) => `${a.length} ${a.length === 1 ? "invoice" : "invoices"}`;
+      const fig = (cls, key, val, label) => `<button type="button" class="fig ${cls}" data-status="${key}" aria-pressed="${!!key && S.status === key}"><b>${val}</b><span>${label}</span></button>`;
+      $("io-figs").innerHTML = fig("lin", "", gb(sum(live)), `Raised in ${ymLong(S.month).split(" ")[0]}, ${n(live)}`) + fig("lin", "paid", gb(sum(paid)), `Paid, ${n(paid)}`) + fig("lin", "wait", gb(sum(wait)), `Waiting, ${wait.length} not yet due`) + fig("dark", "over", gb(sum(overAll)), `Overdue, ${overAll.length} from any month`);
+
+      // Needs you: only things someone has to do, worked out from the invoices.
+      const needs = [];
+      const need = (title, words, foot) => `<div class="need"><div class="need-t">${esc(title)}</div><p>${words}</p><div class="need-f">${foot}</div></div>`;
+      BOOK.filter((v) => v.not_paid).forEach((v) => needs.push(need(v.client, `Accounts say ${esc(v.number)} isn't paid: "${esc(v.not_paid)}"`, `<button type="button" class="btn" data-inv="${esc(v.id)}">Open</button>`)));
+      BOOK.filter(held).forEach((v) => {
+        const last = v.reminders[v.reminders.length - 1];
+        needs.push(need(v.client, `Jack's finished, but ${esc(v.number)} isn't marked paid, so their content is held.${last ? ` Reminder sent ${esc(day(last))}.` : ""}`, `<button type="button" class="btn" data-inv="${esc(v.id)}">Open</button><button type="button" class="btn primary" data-email="${esc(v.id)}">Urgent reminder</button>`));
+      });
+      BOOK.filter((v) => v.status === "draft").forEach((v) => {
+        const ap = PENDING.find((x) => x.invoice_id === v.id);
+        const who = ap ? String(ap.approver_email || "").split("@")[0].split(/[._-]/)[0].replace(/^./, (m) => m.toUpperCase()) : "";
+        needs.push(need(v.client, ap ? `Invoice ${esc(v.number)} is drafted, waiting for ${esc(who)} to approve.${v.kind === "video" ? " It goes two days before the shoot." : ""}` : `Invoice ${esc(v.number)} is a draft. It hasn't been sent.`, `<button type="button" class="btn" data-inv="${esc(v.id)}">Open</button>${ap ? `<button type="button" class="btn primary" data-approve="${esc(ap.id)}">Approve and send</button>` : `<button type="button" class="btn primary" data-send="${esc(v.id)}">Send</button>`}`));
+      });
+      NUMBERS.forEach((x) => needs.push(need(x.name, `${esc(x.label)} in ${esc(x.month_label.split(" ")[0])}?${x.unit_pence ? ` ${gb(x.unit_pence)} each,` : ""} goes out on the ${x.day}${[11, 12, 13].includes(x.day % 100) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[x.day % 10] || "th")}.`, `<input type="number" min="0" step="1" data-numfor="${esc(x.recurring_id)}|${esc(x.month)}" aria-label="${esc(x.label)}" placeholder="0"><button type="button" class="btn primary" data-numsave="${esc(x.recurring_id)}|${esc(x.month)}">Save</button>`)));
+      if (TICKS) needs.push(need("Social media ticks", `Abigail has ticked ${TICKS.ticked} of ${TICKS.total} clients for ${esc(TICKS.month_label.split(" ")[0])}. Anyone not ticked isn't invoiced.`, `<a class="btn" href="/admin/social?go=invoices">Open the list</a>`));
+      $("io-needs-n").textContent = needs.length; $("io-needs").innerHTML = needs.join(""); $("io-needs-sec").hidden = !needs.length;
+
+      const earlier = BOOK.filter((v) => v.month < S.month && ["over", "wait", "notpaid"].includes(state(v)) && pass(v));
+      $("io-open").innerHTML = earlier.length ? `<div class="section" style="margin-top:26px"><div class="strip"><div class="strip-t">Still open from earlier months<span>${earlier.length}</span></div></div>${table(earlier)}</div>` : "";
+      let html = "";
+      KINDS.forEach((k) => {
+        const list = inMonth.filter((v) => v.kind === k[0] && pass(v));
+        if (list.length) html += `<div class="section" style="margin-top:26px"><div class="strip"><div class="strip-t">${k[1]}<span>${list.length}</span></div><span class="aside">${gb(sum(list))}</span></div>${table(list)}</div>`;
+      });
+      $("io-streams").innerHTML = html || (earlier.length ? "" : '<div class="empty" style="margin-top:26px">Nothing matches that.</div>');
+    }
+    $("io-prev").addEventListener("click", () => { const m = months(), i = m.indexOf(S.month); if (i > 0) { S.month = m[i - 1]; drawBook(); } });
+    $("io-next").addEventListener("click", () => { const m = months(), i = m.indexOf(S.month); if (i < m.length - 1) { S.month = m[i + 1]; drawBook(); } });
+    $("io-q").addEventListener("input", (e) => { S.q = e.target.value.trim().toLowerCase(); drawBook(); });
+
+    /* ---- Pop-outs ---- */
+    function popShell(eye, title, chips, body, foot, wide) {
+      $("io-pop").innerHTML = `<div class="scrim" id="io-scrim"><div class="pop${wide ? " wide" : ""}" role="dialog" aria-modal="true" aria-label="${esc(eye)}"><div class="pop-h"><div><p class="mo-eye" style="margin:0">${esc(eye)}</p><div class="pop-title">${title}</div>${chips || ""}</div><button type="button" class="x" data-close aria-label="Close">×</button></div><div class="pop-b" data-lenis-prevent>${body}</div><div class="pop-f">${foot}</div></div></div>`;
+    }
+    const closePop = () => { $("io-pop").innerHTML = ""; };
+    let toastT;
+    function toast(m) { const t = $("io-toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
+    const postJson = (path, data) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+
+    function openInv(id) {
+      const v = byId(id); if (!v) return;
+      const who = v.route === "internal" ? "Inter-brand. Accounts settle it on the portal." : v.method === "direct_debit" ? "Direct debit, so it isn't on the portal." : v.status === "paid" && v.paid_how === "Card" ? "Paid by card, so it confirmed itself." : "External client. Accounts confirm it on the portal.";
+      const tl = [];
+      if (v.sent) tl.push(`<li>Sent to ${esc(v.payer)}, ${esc(day(v.sent))}</li>`);
+      v.reminders.forEach((d) => tl.push(`<li>Reminder sent to accounts, ${esc(day(d))}</li>`));
+      if (v.status === "paid") tl.push(`<li>Paid ${esc(day(v.paid_on))} (${esc(v.paid_how)})</li>`);
+      else if (v.not_paid) tl.push(`<li>Accounts: not paid. "${esc(v.not_paid)}"</li>`);
+      else if (v.status === "draft") tl.push(`<li class="next">${PENDING.some((x) => x.invoice_id === v.id) ? "Waiting to be approved, then it sends" : "Not sent yet"}</li>`);
+      else tl.push('<li class="next">On the accounts portal, waiting to be confirmed</li>');
+      if (v.release) tl.push(`<li class="next">${esc(v.release)} held until this is paid</li>`);
+      const sectorName = v.sector === "pick" ? "not chosen yet" : SECTOR_NAME[v.sector];
+      const sectors = `<option value="">As the rule says (${esc(sectorName)})</option>` + Object.keys(SECTOR_NAME).map((k) => `<option value="${k}"${v.sector_chosen && v.sector === k ? " selected" : ""}>${esc(SECTOR_NAME[k])}</option>`).join("");
+      const foot = ['<button type="button" class="btn" data-close>Close</button>', `<button type="button" class="btn" data-pdf="${esc(v.id)}">View PDF</button>`];
+      if (v.status === "draft") foot.push(`<button type="button" class="btn" data-edit="${esc(v.id)}">Edit</button>`, `<button type="button" class="btn danger" data-del="${esc(v.id)}">Delete</button>`, `<button type="button" class="btn primary" data-send="${esc(v.id)}">Send</button>`);
+      else {
+        foot.push(`<button type="button" class="btn" data-edit="${esc(v.id)}">Reissue</button>`, `<button type="button" class="btn danger" data-void="${esc(v.id)}">Void</button>`, `<button type="button" class="btn" data-send="${esc(v.id)}">Resend</button>`);
+        if (v.status === "sent") foot.push(`<button type="button" class="btn" data-email="${esc(v.id)}">Email accounts</button>`, `<button type="button" class="btn primary" data-mark="${esc(v.id)}">Mark paid</button>`);
+      }
+      popShell(`Invoice ${v.number}`, esc(v.client), flags(v),
+        `<dl class="rows"><div><dt>For</dt><dd>${esc(v.what)}</dd></div><div><dt>Type</dt><dd>${esc(svc(v))}</dd></div><div><dt>Who pays</dt><dd>${esc(v.payer)}</dd></div><div><dt>How</dt><dd>${esc(who)}</dd></div><div><dt>Sent</dt><dd>${v.sent ? esc(day(v.sent)) : "Not yet"}</dd></div><div><dt>Due</dt><dd>${esc(day(v.due))}</dd></div><div><dt>Net</dt><dd>${gb(v.net_pence)} (${gb(v.total_pence)} with VAT)</dd></div>` +
+        v.lines.map((l) => `<div><dt>${esc(gb(l.net_pence))} + VAT</dt><dd>${esc(l.description)}</dd></div>`).join("") +
+        `<div><dt>Revenue goes under</dt><dd><select data-sector="${esc(v.id)}" aria-label="Which sector its revenue goes under">${sectors}</select></dd></div>` +
+        `<div><dt>Was a card link sent?</dt><dd><span class="tog"><button type="button" data-card="${esc(v.id)}" data-v="1" aria-pressed="${!!v.pay_by_card}">Yes</button><button type="button" data-card="${esc(v.id)}" data-v="0" aria-pressed="${!v.pay_by_card}">No</button></span></dd></div>` +
+        (v.note ? `<div><dt>Note</dt><dd style="white-space:normal">${esc(v.note)}</dd></div>` : "") +
+        `</dl><div><p class="mo-eye">What's happened</p><ul class="tl">${tl.join("")}</ul></div>`,
+        foot.join(""), true);
+    }
+    function openNote(id) {
+      const v = byId(id); if (!v) return;
+      popShell(`${v.number}, ${v.client}`, "A note", "", `<label class="field"><span>Anything worth remembering on this one. Both sides can see it.</span><textarea id="io-note" rows="10" placeholder="e.g. Paying with the next batch on Friday">${esc(v.note || "")}</textarea></label>`, `<button type="button" class="btn" data-close>Cancel</button><button type="button" class="btn primary" data-savenote="${esc(v.id)}">Save</button>`);
+      $("io-note").focus();
+    }
+    function openEmail(id) {
+      const v = byId(id); if (!v) return;
+      const urgent = held(v), amt = `${gb(v.net_pence)} + VAT`;
+      const words = urgent
+        ? `${v.client}'s content is finished, but we can't release it until invoice ${v.number} for ${amt} is marked as paid. Could you take a look today?`
+        : `Invoice ${v.number} for ${amt} (${v.client}) is still open. Could you let us know where it's up to?`;
+      popShell("Email accounts", urgent ? "Urgent reminder" : "A reminder", "",
+        `<label class="field"><span>To</span><input value="Paula and the accounts team" readonly></label><label class="field"><span>Subject</span><input id="io-em-sub" value="${esc((urgent ? "Urgent: " : "") + v.number + (urgent ? ", content waiting on payment." : ", still open."))}"></label><label class="field"><span>Message</span><textarea id="io-em-body" rows="9">${esc(`Hi Paula,\n\n${words}\n\nYou can mark it on your page: [link to the portal]\n\nThank you.`)}</textarea></label>`,
+        `<button type="button" class="btn" data-close>Cancel</button><button type="button" class="btn primary" data-sendemail="${esc(v.id)}">Send</button>`);
+    }
+
+    // The month-end email: to Paula, short, and what to do.
+    async function openMonthEnd() {
+      popShell("Month-end email", "Coming up to month end", "", '<p class="state">Loading…</p>', '<button type="button" class="btn" data-close>Close</button>', true);
+      try {
+        const d = await api("/invoicing/month-end");
+        popShell("Month-end email", "Coming up to month end", "",
+          `<p style="margin:0;color:var(--tx)">${d.emails_on ? "Goes by itself on the 20th, and again on the 28th if anything's still open. This is what it says." : "This is what it says. It isn't going by itself yet: switch that on in Settings, under Accounts portal, once you've tested it."}</p><div class="mail">${d.html}</div>`,
+          `<button type="button" class="btn" data-close>Close</button><button type="button" class="btn" data-mesend="test">Send me a test</button><button type="button" class="btn primary" data-mesend="live">Send to ${esc(d.to)}</button>`, true);
+      } catch (err) { popShell("Month-end email", "Coming up to month end", "", `<p class="state bad">${esc(err.message)}</p>`, '<button type="button" class="btn" data-close>Close</button>', true); }
+    }
+
+    // The Month-end review, for whichever month you're on.
+    let REVIEW = null, reviewDraft = null;
+    async function openReview() {
+      const m = S.month, thisMonth = TODAY.slice(0, 7), title = esc(ymLong(m)) + (m === thisMonth ? " so far" : "");
+      const shell = (body, foot) => popShell("Month-end review", title, "", body, foot, true);
+      shell('<p class="state">Reading the payments. This can take a few seconds.</p>', '<button type="button" class="btn" data-close>Close</button>');
+      try {
+        if (!REVIEW) {
+          const [pay, costs] = await Promise.all([api("/admin/payments?days=400"), api("/revenue/costs")]);
+          REVIEW = { rev: revenueByMonth(pay.payments), costs: costs.rows || [] };
+        }
+        const last = m < thisMonth && m < ymAddMonths(thisMonth, -5) ? m : thisMonth;
+        const list = []; for (let i = 5; i >= 0; i--) list.push(ymAddMonths(last, -i));
+        const revenueByMonthShown = {}; list.forEach((k) => { revenueByMonthShown[k] = REVIEW.rev[k] || { social: 0, video: 0, studio: 0, agent: 0, pick: 0 }; });
+        const open = BOOK.filter((v) => v.month === m && v.status === "sent" && v.method !== "direct_debit");
+        const box = (a) => ({ n: a.length, p: sum(a) });
+        reviewDraft = { month: m, thisMonth, months: list, revenueByMonth: revenueByMonthShown, costs: REVIEW.costs, open: { interBrand: box(open.filter((v) => v.route === "internal")), client: box(open.filter((v) => v.route !== "internal")), overdue: box(open.filter(isOver)) } };
+        shell(reviewBody(reviewDraft, 780), '<button type="button" class="btn" data-close>Close</button><button type="button" class="btn" id="io-rv-dl">Download</button><button type="button" class="btn primary" id="io-rv-send">Send to Sam</button>');
+      } catch (err) { shell(`<p class="state bad">${esc(err.message)}</p>`, '<button type="button" class="btn" data-close>Close</button>'); }
+    }
+    async function reviewPdf(btn) {
+      const was = btn.textContent; btn.disabled = true; btn.textContent = "Building…";
+      try {
+        const res = await fetch(`${WORKER}/invoicing/month-review`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (await authToken()) }, body: JSON.stringify({ action: "download", data: reviewDraft }) });
+        if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || "Couldn't build the PDF."); }
+        const blob = await res.blob(), a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = `TMKE-month-end-review-${reviewDraft.month}.pdf`;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      } catch (err) { toast(err.message); }
+      finally { btn.disabled = false; btn.textContent = was; }
+    }
+
+    // Who's doing what: every click on the month and its pop-outs.
+    async function fullInvoice(id) { return (await api(`/invoicing/invoice?id=${encodeURIComponent(id)}`)).invoice; }
+    document.addEventListener("click", async (e) => {
+      const t = e.target; if (!t.closest) return;
+      let b;
+      if (!t.closest(".mo")) return;
+      if (t.closest("[data-close]") || t.id === "io-scrim") { closePop(); return; }
+      if ((b = t.closest("[data-kind]"))) { S.kind = b.dataset.kind; drawBook(); return; }
+      if ((b = t.closest("[data-status]"))) { const st = b.dataset.status; S.status = S.status === st ? "" : st; drawBook(); return; }
+      if (t.closest("#io-mend")) { openMonthEnd(); return; }
+      if (t.closest("#io-mrev")) { openReview(); return; }
+      if ((b = t.closest("#io-rv-dl"))) { reviewPdf(b); return; }
+      if ((b = t.closest("#io-rv-send"))) {
+        b.disabled = true;
+        try { const r = await postJson("/invoicing/month-review", { action: "email", data: reviewDraft }); toast(`Sent to ${r.to}.`); } catch (err) { toast(err.message); }
+        b.disabled = false; return;
+      }
+      if ((b = t.closest("[data-mesend]"))) {
+        const test = b.dataset.mesend === "test"; b.disabled = true;
+        try { const r = await postJson("/invoicing/month-end", { test }); toast(`Sent to ${r.to}.`); } catch (err) { toast(err.message); }
+        b.disabled = false; return;
+      }
+      if ((b = t.closest("[data-note]"))) { e.stopPropagation(); openNote(b.dataset.note); return; }
+      if ((b = t.closest("[data-savenote]"))) {
+        const v = byId(b.dataset.savenote), note = $("io-note").value.trim(); b.disabled = true;
+        try { await postJson("/invoicing/book/update", { id: v.id, note }); v.note = note; closePop(); toast(note ? "Saved. Accounts can see it too." : "Note removed."); drawBook(); }
+        catch (err) { b.disabled = false; toast(err.message); }
+        return;
+      }
+      if ((b = t.closest("[data-email]"))) { openEmail(b.dataset.email); return; }
+      if ((b = t.closest("[data-sendemail]"))) {
+        const v = byId(b.dataset.sendemail); b.disabled = true;
+        try { const r = await postJson("/invoicing/accounts-email", { id: v.id, subject: $("io-em-sub").value, body: $("io-em-body").value }); v.reminders = r.reminders; closePop(); toast(`Sent to ${r.to}. It's on the invoice's history.`); drawBook(); }
+        catch (err) { b.disabled = false; toast(err.message); }
+        return;
+      }
+      if ((b = t.closest("[data-approve]"))) {
+        b.disabled = true;
+        try { const r = await postJson("/invoicing/approval/decide", { approval_id: b.dataset.approve }); toast(r.title || "Done."); closePop(); await loadBook(); }
+        catch (err) { b.disabled = false; toast(err.message); }
+        return;
+      }
+      if ((b = t.closest("[data-send]"))) {
+        b.disabled = true;
+        try { const inv = await fullInvoice(b.dataset.send); closePop(); openEmailModal(inv, false); }
+        catch (err) { b.disabled = false; toast(err.message); }
+        return;
+      }
+      if ((b = t.closest("[data-mark]"))) {
+        b.disabled = true;
+        try { await api("/invoicing/invoices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: b.dataset.mark, status: "paid" }) }); closePop(); toast("Marked paid."); await loadBook(); }
+        catch (err) { b.disabled = false; toast(err.message); }
+        return;
+      }
+      if ((b = t.closest("[data-pdf]"))) {
+        const tab = window.open("", "_blank"); b.disabled = true;
+        try { const out = await api(`/invoicing/invoice-pdf?id=${encodeURIComponent(b.dataset.pdf)}`); if (tab) tab.location = out.url; else location = out.url; }
+        catch (err) { if (tab) tab.close(); toast(err.message); }
+        b.disabled = false; return;
+      }
+      if ((b = t.closest("[data-edit]"))) { const id = b.dataset.edit; closePop(); editInvoice(id); return; }
+      if ((b = t.closest("[data-void]"))) {
+        const reason = prompt("Void this invoice? It'll be removed and accounts + you will be emailed.\n\nReason for voiding:"); if (reason === null) return;
+        b.disabled = true;
+        try { await postJson("/invoicing/invoices/void", { id: b.dataset.void, reason }); closePop(); toast("Voided."); await loadBook(); } catch (err) { b.disabled = false; toast(err.message); }
+        return;
+      }
+      if ((b = t.closest("[data-del]"))) {
+        if (!confirm("Delete this invoice? This permanently removes it and its PDF. It can't be undone.")) return;
+        b.disabled = true;
+        try { await api(`/invoicing/invoices?id=${encodeURIComponent(b.dataset.del)}`, { method: "DELETE" }); closePop(); toast("Deleted."); await loadBook(); } catch (err) { b.disabled = false; toast(err.message); }
+        return;
+      }
+      if ((b = t.closest("[data-card]"))) {
+        const v = byId(b.dataset.card), val = b.dataset.v === "1";
+        try { await postJson("/invoicing/book/update", { id: v.id, pay_by_card: val }); v.pay_by_card = val; openInv(v.id); } catch (err) { toast(err.message); }
+        return;
+      }
+      if ((b = t.closest("[data-numsave]"))) {
+        const [rid, month] = b.dataset.numsave.split("|"), inp = document.querySelector(`[data-numfor="${rid}|${month}"]`);
+        if (!inp || inp.value === "") { toast("Type the number first."); return; }
+        b.disabled = true;
+        try { await postJson("/invoicing/recurring/quantity", { recurring_id: rid, month, qty: Number(inp.value) }); toast("Saved. It goes out on its day with that number."); await loadBook(); }
+        catch (err) { b.disabled = false; toast(err.message); }
+        return;
+      }
+      if ((b = t.closest("[data-inv]")) && !t.closest("a")) { openInv(b.dataset.inv); return; }
+    });
+    document.addEventListener("change", async (e) => {
+      const sel = e.target.closest && e.target.closest("[data-sector]"); if (!sel) return;
+      const v = byId(sel.dataset.sector), val = sel.value;
+      try { await postJson("/invoicing/book/update", { id: v.id, sector: val }); toast("Saved."); REVIEW = null; await loadBook(); openInv(v.id); } catch (err) { toast(err.message); }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closePop();
+      const r = e.target.closest && e.target.closest("tr[data-inv]"); if (r && e.key === "Enter" && e.target === r) openInv(r.dataset.inv);
+    });
+    document.addEventListener("mousemove", (e) => {
+      const tg = e.target.closest && e.target.closest("[data-tip]"), tip = $("io-tip");
+      if (!tg) { tip.hidden = true; return; }
+      tip.textContent = tg.getAttribute("data-tip"); tip.hidden = false;
+      tip.style.left = Math.min(e.clientX + 12, innerWidth - 170) + "px"; tip.style.top = (e.clientY - 34) + "px";
+    });
+
+    /* ---- The accounts portal's settings ---- */
+    let PT = {};
+    const ptTog = (id, on) => $(id).querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String((x.dataset.v === "1") === !!on)));
+    function ptDraw(d) {
+      PT = { enabled: d.enabled, emails_on: d.emails_on };
+      $("pt-link").value = d.link; $("pt-code").value = d.passcode; $("pt-to").value = d.email_to;
+      ptTog("pt-on", d.enabled); ptTog("pt-auto", d.emails_on);
+      $("pt-last").textContent = d.last_opened_at ? `Last opened ${new Date(d.last_opened_at).toLocaleString("en-GB", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}.` : "Nobody has opened it yet.";
+    }
+    async function loadPortal() {
+      const st = $("pt-state"), main = $("pt-main");
+      st.hidden = false; st.className = "state"; st.textContent = "Loading…"; main.hidden = true;
+      try { ptDraw(await api("/invoicing/portal-settings")); st.hidden = true; main.hidden = false; }
+      catch (err) { st.className = "state bad"; st.textContent = err.message; }
+    }
+    $("pt-on").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) { PT.enabled = b.dataset.v === "1"; ptTog("pt-on", PT.enabled); } });
+    $("pt-auto").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) { PT.emails_on = b.dataset.v === "1"; ptTog("pt-auto", PT.emails_on); } });
+    $("pt-copy").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("pt-link").value); toast("Link copied."); } catch (_) { $("pt-link").select(); toast("Press Cmd+C to copy it."); } });
+    $("pt-gen").addEventListener("click", () => {
+      const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789", r = crypto.getRandomValues(new Uint8Array(6));
+      $("pt-code").value = [...r].map((x) => A[x % A.length]).join("");
+      toast("That's the new one. Press Save to use it.");
+    });
+    $("pt-save").addEventListener("click", async (e) => {
+      const b = e.currentTarget; b.disabled = true;
+      try { ptDraw(await postJson("/invoicing/portal-settings", { enabled: PT.enabled, emails_on: PT.emails_on, email_to: $("pt-to").value, passcode: $("pt-code").value })); toast("Saved."); }
+      catch (err) { toast(err.message); }
+      b.disabled = false;
+    });
+
+
+    document.addEventListener("ash:ready", () => {
       initTemplate(); loadSettings(); loadRecipients(); loadRecurringOptions();
       // Deep link from the reminder: /admin/invoicing?tab=monthly
       const want = new URLSearchParams(location.search).get("tab");
-      if (want) document.querySelector(`.inv-tab[data-tab="${want}"]`)?.click();
+      showPanel(PANEL_HEAD[want] ? want : "overview");
     });
   </script>
 </AdminShell>

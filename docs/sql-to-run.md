@@ -4,6 +4,8 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/accounts_portal.sql — the accounts portal (private link and passcode), notes and not-paid reasons on invoices, and Revenue's costs and sectors. Until it's run, Invoicing and the portal say so instead of opening (6 Nov)
+
 
 ## Done
 
