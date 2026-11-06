@@ -8,11 +8,43 @@
 --      titles (Partner Agent, Letting Expert and so on) are left alone.
 --   3. Ian Panter, Jim Harris and Sean Newman are ticked as management or support.
 --      Their brands are left as they are.
+--   4. Company matches their first brand. An agent's company becomes the brand their
+--      Studio opens in, and stays in step from now on when that brand changes.
+--      The Letting Experts Scotland shows as The Letting Experts, because that's
+--      the company. Left alone: anyone ticked as management or support, and
+--      anyone with a themarketingexperts.co.uk or tmke.co.uk address.
 --
 -- All one block: it all happens or none of it does. It stops and changes nothing
 -- if it can't find any of these six people, or one of the three has no live
 -- Prestige record. Sends no emails. Safe to run twice. The list at the end shows
 -- the result.
+create or replace function public.sync_contact_company(p_contact uuid)
+returns void language sql security definer set search_path = public as $fn$
+  update public.contacts c
+     set company = case b.brand when 'The Letting Experts Scotland' then 'The Letting Experts' else b.brand end
+    from (select ap.contact_id, btrim(ap.brand) as brand
+            from public.agent_profiles ap
+           where ap.contact_id = p_contact and ap.is_primary and ap.left_at is null
+             and ap.brand is not null and btrim(ap.brand) <> '') b
+   where c.id = b.contact_id
+     and not ('TEG-Role: Management-or-Support' = any (coalesce(c.tags, '{}')))
+     and lower(coalesce(c.email, '')) not like '%@themarketingexperts.co.uk'
+     and lower(coalesce(c.email, '')) not like '%@tmke.co.uk'
+     and c.company is distinct from (case b.brand when 'The Letting Experts Scotland' then 'The Letting Experts' else b.brand end);
+$fn$;
+
+create or replace function public.agent_profiles_sync_company()
+returns trigger language plpgsql security definer set search_path = public as $fn$
+begin
+  perform public.sync_contact_company(new.contact_id);
+  return null;
+end $fn$;
+
+drop trigger if exists trg_agent_profiles_company on public.agent_profiles;
+create trigger trg_agent_profiles_company
+  after insert or update of brand, is_primary, left_at on public.agent_profiles
+  for each row execute function public.agent_profiles_sync_company();
+
 do $$
 declare
   ppe_only uuid[];
@@ -66,6 +98,10 @@ begin
   update public.contacts
      set tags = array_append(coalesce(tags, '{}'), 'TEG-Role: Management-or-Support')
    where id = any (support) and not ('TEG-Role: Management-or-Support' = any (coalesce(tags, '{}')));
+
+  -- 4. Company matches their first brand, for everyone.
+  perform public.sync_contact_company(x.contact_id)
+     from (select distinct contact_id from public.agent_profiles) x;
 end $$;
 
 select 'PPE only' as what, btrim(concat_ws(' ', c.first_name, c.last_name)) as who,
@@ -78,6 +114,13 @@ union all
 select 'Ticked as management or support', btrim(concat_ws(' ', c.first_name, c.last_name)), 'Yes'
   from public.contacts c
  where 'TEG-Role: Management-or-Support' = any (coalesce(c.tags, '{}'))
+union all
+select 'Company still different from first brand', btrim(concat_ws(' ', c.first_name, c.last_name)),
+       coalesce(c.company, 'no company') || ' / ' || btrim(ap.brand)
+  from public.contacts c
+  join public.agent_profiles ap on ap.contact_id = c.id and ap.is_primary and ap.left_at is null
+ where c.company is distinct from btrim(ap.brand)
+   and btrim(ap.brand) <> 'The Letting Experts Scotland'
 union all
 select 'Job titles', btrim(ap.brand), btrim(ap.job_title) || ': ' || count(*)
   from public.agent_profiles ap
