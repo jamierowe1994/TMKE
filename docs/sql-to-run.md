@@ -4,12 +4,12 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/accounts_portal_recipients.sql — the accounts emails go to Paula and accounts payable, with Rosie-Anne copied in; adds the Copied in field (6 Nov)
-- [ ] supabase/network_teg_and_fc.sql — Fine & Country contacts lose Network: TEG and keep their own tag; anyone at a TEG brand gains Network: TEG. Opt-in isn't touched and nothing is sent. It lists what changed and any live funnel using the TEG tag (6 Nov)
 
 
 ## Done
 
+- [x] supabase/accounts_portal_recipients.sql — the accounts emails go to Paula and accounts payable, with Rosie-Anne copied in; adds the Copied in field (6 Nov; ran 6 Nov)
+- [x] supabase/network_teg_and_fc.sql — Fine & Country contacts lose Network: TEG and keep their own tag; anyone at a TEG brand gains Network: TEG. Opt-in isn't touched and nothing is sent. It lists what changed and any live funnel using the TEG tag (6 Nov; ran 6 Nov)
 - [x] supabase/teg_exceptions_titles_support.sql — one-off: Elliott Wakefield, Nicholas Charles and Vivienne Sharman-Lewis lose The Property Experts, Property Expert and Prestige Property Expert titles follow the brand, Ian Panter, Jim Harris and Sean Newman are ticked as management or support, and an agent's company follows their first brand from now on (6 Nov; ran 6 Nov)
 - [x] supabase/report_agents_by_brand.sql — report only, changes nothing: every live agent by brand, then anyone tagged TEG with no TPE, PPE or TLE brand (6 Nov; ran 6 Nov)
 - [x] supabase/contact_brand_tags.sql — Brand tags on contacts (Brand: The-Property-Experts and so on), worked out from each agent's live brands and kept up to date by themselves. It lists the counts at the end (6 Nov; ran 6 Nov)
