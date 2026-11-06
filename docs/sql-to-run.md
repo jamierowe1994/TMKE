@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/teg_exceptions_titles_support.sql — one-off: Elliott Wakefield, Nicholas Charles and Vivienne Sharman-Lewis lose The Property Experts, Property Expert and Prestige Property Expert titles follow the brand, and Ian Panter, Jim Harris and Sean Newman are ticked as management or support (6 Nov)
 
 
 ## Done

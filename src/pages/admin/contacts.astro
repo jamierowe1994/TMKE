@@ -679,6 +679,7 @@ import "../../styles/admin.css";
       const picked = [
         t.find((x) => x.startsWith("Network:")),
         ...t.filter((x) => x.startsWith("Brand:")),
+        t.includes(TEG_SUPPORT_TAG) ? TEG_SUPPORT_TAG : null,
         t.includes("Unsubscribed") ? "Unsubscribed"
           : t.includes("Marketing-Opt-In") ? "Marketing-Opt-In"
           : t.includes("Marketing-Not-Opted-In") ? "Marketing-Not-Opted-In" : null,
@@ -985,6 +986,8 @@ import "../../styles/admin.css";
       return `
         <div class="ct-sec">
           <label class="ct-toggle"><input type="checkbox" id="teg-is-agent" ${isAgent ? "checked" : ""}/> Internal agent — TEG (The Experts Group)</label>
+          <label class="ct-toggle" style="display:flex;margin-top:8px"><input type="checkbox" id="teg-support" ${(c && (c.tags || []).includes(TEG_SUPPORT_TAG)) ? "checked" : ""}/> Management or support, not an agent</label>
+          <p class="ct-teg-msg" id="teg-support-msg" hidden></p>
           ${!p && isTegDetected ? `<p class="ct-teg-detect">Auto-detected as TEG from their email${detectedBrand ? ` (${esc(detectedBrand)})` : ""} — add any details and Save to confirm.</p>` : ""}
           <p class="ct-meta" id="teg-empty" ${isAgent ? "hidden" : ""} style="margin-top:8px">Turn this on to record their agent details and (for new starters) generate their free videography code.</p>
         </div>
@@ -1043,8 +1046,28 @@ import "../../styles/admin.css";
       navigator.clipboard.writeText(inp.value).then(() => { b.textContent = "Copied"; setTimeout(() => { b.textContent = "Copy"; }, 1400); });
     });
     function tegMsg(t, ok) { const m = document.getElementById("teg-msg"); if (!m) return; m.textContent = t; m.className = "ct-teg-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
+    // A person at TEG who isn't an agent (Dani, 6 Nov 2026). It's a tag, so it can
+    // be filtered on and used in a funnel. Saves as soon as it's ticked, and says so
+    // only once the database has it.
+    const TEG_SUPPORT_TAG = "TEG-Role: Management-or-Support";
+    function wireTegSupport(c) {
+      const box = document.getElementById("teg-support"), m = document.getElementById("teg-support-msg");
+      if (!box) return;
+      const say = (t, ok) => { m.textContent = t; m.className = "ct-teg-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; };
+      box.addEventListener("change", async () => {
+        const on = box.checked, before = c.tags || [];
+        const next = normalizeTags(on ? [...before, TEG_SUPPORT_TAG] : before.filter((t) => t !== TEG_SUPPORT_TAG));
+        box.disabled = true;
+        const { data, error } = await supabase.from("contacts").update({ tags: next }).eq("id", c.id).select("tags").maybeSingle();
+        box.disabled = false;
+        if (error || !data) { box.checked = !on; say("That didn't save. Please try again.", false); return; }
+        c.tags = data.tags; render();
+        say(on ? "Saved: management or support." : "Saved: no longer marked as management or support.", true);
+      });
+    }
     function wireTeg() {
       const c = current;
+      wireTegSupport(c);
       const isAgentCb = document.getElementById("teg-is-agent");
       if (!isAgentCb) return;
       isAgentCb.addEventListener("change", () => {
