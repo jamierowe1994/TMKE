@@ -7134,7 +7134,7 @@ function accountsFirstEmail(env, p) {
     ${H("What the page is")}
     ${P("It's a private web page just for accounts, which you open with a link and a passcode. It lists every invoice still open, grouped by month, with the invoice number, client, who it's billed to, sent date, due date and net amount without VAT, and it shows whether an invoice is <strong>Overdue</strong>.")}
     ${P("Each invoice is labelled <strong>Inter-brand</strong> or <strong>External client</strong> and has a <strong>View</strong> button that opens it, so you won't need any attachments. The invoices themselves still come through as they do now.")}
-    ${P("An unpaid invoice with the option to pay by card is still on the page. Once the client pays by card, we already know it's been paid, so it comes off and there's nothing for you to do. A month stays there until everything in it is closed, then drops off by itself.")}
+    ${P("An unpaid invoice with the option to pay by card is still on the page. Once the client pays by card, we already know it's been paid, so it comes off and there's nothing for you to do. An invoice you've marked stays on the page with a green Paid or Settled box until everything in that month is closed, then the whole month drops off by itself.")}
     ${H("What you need to do")}
     ${P("You can open the page using the button below. I'll give you the passcode separately, as it's never sent by email, and it doesn't matter whether you use capitals.")}
     <p style="${EM_P}"><a href="${accountsLink(env, p)}" style="${EM_BTN}">Open the accounts portal</a></p>
@@ -7143,7 +7143,7 @@ function accountsFirstEmail(env, p) {
       ${LI("<strong>External client invoices:</strong> Press <strong>Paid</strong> once the money has landed. Until then the invoice simply stays on the page, so there's nothing else to press.")}
       ${LI("<strong>Inter-brand invoices:</strong> Press <strong>Settled</strong> once it's been settled.")}
       ${LI("<strong>Notes:</strong> If there's a problem with an invoice, add a note with the note icon or message us. Both sides can see notes.")}
-      ${LI("<strong>Mistakes:</strong> If you make a mistake, press <strong>Undo</strong> while you're still on the page.")}
+      ${LI("<strong>Mistakes:</strong> If you make a mistake, press <strong>Undo</strong>. It's there for as long as the invoice is on the page.")}
     </ul>
     ${P("<strong>Important:</strong> Please only mark an invoice once the money has arrived. Marking a videography invoice paid releases the client's content straight away, because their download PIN goes out automatically. That can't be taken back, even with <strong>Undo</strong>.")}
     ${H("Your month-end emails")}
@@ -11840,9 +11840,21 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         // Only what accounts need to see, nothing about how it's filed with us.
         const shown = (v) => ({ id: v.id, number: v.number, route: v.route, kind: v.kind, client: v.client, payer: v.payer, sent: v.sent, due: v.due, month: v.month, net_pence: v.net_pence, note: v.note, status: v.status, marked_at: v.marked_at });
         if (path.endsWith("/accounts-portal/invoices") && request.method === "GET") {
-          const rows = await invoiceBook(env, PORTAL_FILTER);
-          if (!rows) return json({ error: "Couldn't load the invoices." }, 502, request, env);
-          return json({ ok: true, today: invToday().ymd, invoices: rows.map(shown) }, 200, request, env);
+          const open = await invoiceBook(env, PORTAL_FILTER);
+          if (!open) return json({ error: "Couldn't load the invoices." }, 502, request, env);
+          // What accounts have marked stays, with its box and Undo, until its
+          // month has nothing open (Dani, 6 Nov). Card payments still come off.
+          const months = [...new Set(open.map((v) => v.month))].filter(Boolean).sort();
+          let marked = [];
+          if (months.length) {
+            const from = `${months[0]}-01`;
+            const rows = await invoiceBook(env, `status=eq.paid&accounts_marked_at=not.is.null&or=(sent_at.gte.${from},issued_date.gte.${from})`);
+            if (!rows) return json({ error: "Couldn't load the invoices." }, 502, request, env);
+            marked = rows.filter((v) => months.includes(v.month) && v.method !== "direct_debit");
+          }
+          // By number, so a row keeps its place when it's marked and reloaded.
+          const all = [...open, ...marked].sort((a, c) => String(c.number).localeCompare(String(a.number), "en", { numeric: true }));
+          return json({ ok: true, today: invToday().ymd, invoices: all.map(shown) }, 200, request, env);
         }
         const b = request.method === "POST" ? await request.json().catch(() => ({})) : {};
         const id = String((b && b.id) || url.searchParams.get("id") || "");
