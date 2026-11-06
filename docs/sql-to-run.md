@@ -4,11 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/accounts_portal.sql — the accounts portal (private link and passcode), notes and not-paid reasons on invoices, and Revenue's costs and sectors. Until it's run, Invoicing and the portal say so instead of opening (6 Nov)
 
 
 ## Done
 
+- [x] supabase/accounts_portal.sql — the accounts portal (private link and passcode), notes and not-paid reasons on invoices, and Revenue's costs and sectors. Until it's run, Invoicing and the portal say so instead of opening (6 Nov; ran 6 Nov)
 - [x] supabase/tpe_ppe_dual_brand.sql — one-off from Sam: every live TPE and PPE agent gets both brands and their photo copied across, except Elliott Wakefield, Gavin Pretorious, Nicholas Charles and Vivienne Sharman-Lewis. It lists everyone at the end (6 Nov; ran 6 Nov)
 - [x] supabase/morning_jobs_switch.sql — the on/off switch for the 8am jobs, in Invoicing › Settings › Automatic invoicing. They stay off until you turn them on (6 Nov; ran 6 Nov)
 - [x] supabase/reset_sarah_test.sql — one-off: Sarah Test back to a fresh enquiry for the team walkthrough. Deletes her notes, emails, files, invoices (TMKE1098, TMKE1099) and monthly invoice; keeps her contact details and the original Enquiry received note (5 Nov; ran 5 Nov)
