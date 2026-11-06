@@ -60,6 +60,12 @@ import "../../styles/money-os.css";
         <div class="field"><span>Send the month-end email by itself, on the 20th and again on the 28th if anything's still open</span><span class="tog" id="pt-auto"><button type="button" data-v="1">On</button><button type="button" data-v="0">Off</button></span></div>
         <p id="pt-last"></p>
         <div><button type="button" class="mbtn primary" id="pt-save">Save</button></div>
+        <div class="section" style="margin-top:14px">
+          <div class="strip"><div class="strip-t">Send first email</div></div>
+          <p>Explains the page to whoever gets the month-end email: why it's changing, what it is, what to do and the emails to expect. It includes the link but not the passcode, so tell them that yourself. It doesn't switch the automatic emails on.</p>
+          <p id="pt-first-last"></p>
+          <div><button type="button" class="mbtn" id="pt-first">Read and send</button></div>
+        </div>
       </div>
     </section>
 
@@ -1833,9 +1839,29 @@ import "../../styles/money-os.css";
     async function loadPortal() {
       const st = $("pt-state"), main = $("pt-main");
       st.hidden = false; st.className = "state"; st.textContent = "Loading…"; main.hidden = true;
-      try { ptDraw(await api("/invoicing/portal-settings")); st.hidden = true; main.hidden = false; }
+      try { ptDraw(await api("/invoicing/portal-settings")); st.hidden = true; main.hidden = false; drawFirstLast(); }
       catch (err) { st.className = "state bad"; st.textContent = err.message; }
     }
+    // The first email: read it, test it, send it.
+    async function drawFirstLast() {
+      try { const d = await api("/invoicing/first-email"); $("pt-first-last").textContent = d.last_sent_at ? `Last sent to ${d.last_sent_to} on ${new Date(d.last_sent_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.` : "Not sent yet."; return d; }
+      catch (err) { $("pt-first-last").textContent = err.message; return null; }
+    }
+    $("pt-first").addEventListener("click", async () => {
+      popShell("Accounts portal", "First email", "", '<p class="state">Loading…</p>', '<button type="button" class="mbtn" data-close>Close</button>', true);
+      const d = await drawFirstLast();
+      if (!d) { popShell("Accounts portal", "First email", "", '<p class="state bad">Couldn\'t load the email. Please try again.</p>', '<button type="button" class="mbtn" data-close>Close</button>', true); return; }
+      popShell("Accounts portal", "First email", "", `<p style="margin:0"><b style="font-weight:400;color:var(--tx)">Subject:</b> ${esc(d.subject)}</p><div class="mail">${d.html}</div>`, `<button type="button" class="mbtn" data-close>Close</button><button type="button" class="mbtn" data-firstsend="test">Send me a test</button><button type="button" class="mbtn primary" data-firstsend="live" data-again="${d.last_sent_at ? "1" : ""}">Send to ${esc(d.to)}</button>`, true);
+    });
+    document.addEventListener("click", async (e) => {
+      const b = e.target.closest && e.target.closest("[data-firstsend]"); if (!b) return;
+      const test = b.dataset.firstsend === "test";
+      if (!test && b.dataset.again && !confirm("This has been sent before. Send it again?")) return;
+      b.disabled = true;
+      try { const r = await postJson("/invoicing/first-email", { test }); toast(`Sent to ${r.to}.`); if (!test) { closePop(); drawFirstLast(); } }
+      catch (err) { toast(err.message); }
+      b.disabled = false;
+    });
     $("pt-on").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) { PT.enabled = b.dataset.v === "1"; ptTog("pt-on", PT.enabled); } });
     $("pt-auto").addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) { PT.emails_on = b.dataset.v === "1"; ptTog("pt-auto", PT.emails_on); } });
     $("pt-copy").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("pt-link").value); toast("Link copied."); } catch (_) { $("pt-link").select(); toast("Press Cmd+C to copy it."); } });

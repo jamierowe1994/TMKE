@@ -563,7 +563,7 @@ import "../../styles/admin.css";
     // title-cased from the value) because it's an acronym.
     const LIFECYCLES = [["lead", "Lead"], ["teg", "TEG"], ["member", "Member"], ["customer", "Customer"], ["past", "Past"]];
     const lifecycleLabel = (v) => (LIFECYCLES.find(([x]) => x === v) || [v, v])[1];
-    const isTeg = (c) => (c.tags || []).some((t) => /^Videography-New-Starter:/i.test(t) || t === "Network: TEG")
+    const isTeg = (c) => (c.tags || []).some((t) => /^Videography-New-Starter:/i.test(t) || t === "Network: TEG" || t === "Network: Fine-and-Country")
       || c.source === "agent_sheet_sync" || c.lifecycle === "teg";
     function deriveLifecycle(c) {
       if (c.lifecycle === "past") return "past";
@@ -1243,8 +1243,10 @@ import "../../styles/admin.css";
           // Flag them TEG on the main list too. The list derives lifecycle from
           // the contact's OWN tags (agent_profiles isn't loaded there), so mark
           // "internal agent" with the Network: TEG tag the derivation recognises.
-          if (document.getElementById("teg-is-agent")?.checked && !(c.tags || []).includes("Network: TEG")) {
-            c.tags = normalizeTags([...(c.tags || []), "Network: TEG"]);
+          // Fine & Country has its own network (Dani, 6 Nov 2026).
+          const netForAgent = /fine\s*(&|and)\s*country|^f&c\b/i.test(`${document.getElementById("teg-brand")?.value || ""}`.trim()) || /@fineandcountry\./i.test(c.email || "") ? "Network: Fine-and-Country" : "Network: TEG";
+          if (document.getElementById("teg-is-agent")?.checked && !(c.tags || []).includes(netForAgent)) {
+            c.tags = normalizeTags([...(c.tags || []), netForAgent]);
             try { await supabase.from("contacts").update({ tags: c.tags }).eq("id", c.id); } catch (_) {}
             render();
           }

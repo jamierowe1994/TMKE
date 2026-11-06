@@ -3491,8 +3491,9 @@ async function memberBookingIds(env, user) {
 function networkTag(email) {
   const dom = (String(email || "").toLowerCase().match(/@([^@\s]+)$/) || [])[1] || "";
   if (!dom) return null;
-  if (dom.endsWith("experts.co.uk")) return "Network: TEG";
-  if (dom === "fineandcountry.com") return "Network: Fine-and-Country";
+  // The Experts Group's brands, plus The Marketing Experts (Dani, 6 Nov 2026).
+  if (dom.endsWith("experts.co.uk") || dom === "theauctioncompany.co.uk" || dom === "tmke.co.uk") return "Network: TEG";
+  if (dom === "fineandcountry.com" || dom === "fineandcountry.co.uk") return "Network: Fine-and-Country";
   return "Network: External";
 }
 // Is this company one of The Experts Group brands? Used to auto-flag imported
@@ -3500,9 +3501,13 @@ function networkTag(email) {
 function isTegBrand(company) {
   const c = String(company || "").toLowerCase();
   if (!c) return false;
-  return /\b(property|lettings|recruitment|marketing|mortgage)\s+experts\b/.test(c)
+  // Fine & Country has its own network: isFcBrand below.
+  return /\b(property|lettings?|recruitment|marketing|mortgage)\s+experts\b/.test(c)
     || /prestige\s+property\s+experts/.test(c)
-    || /fine\s*(?:&|and)\s*country/.test(c);
+    || /\bauction\s+company\b/.test(c);
+}
+function isFcBrand(company) {
+  return /fine\s*(?:&|and)\s*country|^f&c\b/i.test(String(company || "").trim());
 }
 // The videography trainer only applies to The Property Experts family — other TEG
 // brands (Lettings/Recruitment/etc.) don't get the same training, so their
@@ -7109,6 +7114,45 @@ async function accountsMonthEndMail(env, p) {
   </div>`;
   return { html, subject: "Coming up to month end.", count: open.length, to: p.email_to };
 }
+
+/* The first email to accounts (Dani, 6 Nov 2026): why the page exists, what it
+   is, what to do, and the emails to expect, so the 20th doesn't come out of the
+   blue. Pressed by hand; it doesn't switch the automatic emails on. */
+function accountsFirstEmail(env, p) {
+  const t = invToday(), ym = t.day <= 20 ? t.ym : ymAddMonth(t.ym), first = `20 ${invMonthLabel(ym).split(" ")[0]}`;
+  const P = (x) => `<p style="${EM_P}">${x}</p>`, H = (x) => `<p style="${EM_P}margin-bottom:4px;"><strong>${x}</strong></p>`;
+  const LI = (x) => `<li style="${EM_P}margin-bottom:6px;">${x}</li>`;
+  const html = `<div style="${EM_WRAP}text-align:left;">
+    <h1 style="${EM_H1}">One Place for Every Open Invoice.</h1>
+    ${P("Hi Paula,")}
+    ${P("I wanted to tell you about a change to how we confirm invoices have been paid, so that the first automatic email doesn't come out of the blue.")}
+    ${H("Why we're changing it")}
+    ${P("At the moment, I email you at the end of each month to ask whether invoices have been paid. That means back and forth between people, which slows down confirming payment. Because we don't release a client's finished content until their invoice is confirmed paid, it can hold up their content too. So we've set up one place for accounts to see and answer everything.")}
+    ${H("What the page is")}
+    ${P("It's a private web page just for accounts, which you open with a link and a passcode. It lists every invoice still open, grouped by month, with the invoice number, client, who it's billed to, sent date, due date and net amount without VAT, and it shows whether an invoice is <strong>Overdue</strong>.")}
+    ${P("Each invoice is labelled <strong>Inter-brand</strong> or <strong>External client</strong> and has a <strong>View</strong> button that opens it, so you won't need any attachments. The invoices themselves still come through as they do now.")}
+    ${P("Invoices paid by card aren't on the page, because we already know they're paid. A month stays there until everything in it is closed, then drops off by itself.")}
+    ${H("What you need to do")}
+    ${P("You can open the page using the button below. I'll give you the passcode separately, as it's never sent by email, and it doesn't matter whether you use capitals.")}
+    <p style="${EM_P}"><a href="${accountsLink(env, p)}" style="${EM_BTN}">Open the accounts portal</a></p>
+    ${P("Once you're in, here's what to do with each invoice. We see it on our side straight away:")}
+    <ul style="margin:0 0 14px;padding:0 0 0 18px;">
+      ${LI("<strong>External client invoices:</strong> Press <strong>Paid</strong> once the money has landed, or <strong>Not paid</strong> and say why in the note box.")}
+      ${LI("<strong>Inter-brand invoices:</strong> Press <strong>This has been settled</strong> once it's been settled.")}
+      ${LI("<strong>Notes:</strong> You can add a note to any invoice with the note icon, and both sides will see it.")}
+      ${LI("<strong>Mistakes:</strong> If you make a mistake, press <strong>Undo</strong> while you're still on the page.")}
+    </ul>
+    ${P("<strong>Important:</strong> Please only mark an invoice once the money has arrived. Marking a videography invoice paid releases the client's content straight away, because their download PIN goes out automatically. That can't be taken back, even with <strong>Undo</strong>.")}
+    ${H("Your month-end emails")}
+    ${P("These replace my month-end chase. From now on, you'll get a short email on the 20th of each month, and a second on the 28th if anything's still open. It tells you how many invoices are outstanding and their net value by month, splits them into inter-brand and waiting on client payment, and links to the page. If everything's closed, you won't get one.")}
+    ${P(`The first one will arrive on ${first}.`)}
+    ${P("If you have any problems or questions, just let me know.")}
+    ${P("Thank you,<br>Danielle")}
+  </div>`;
+  return { html, subject: `A new page for open invoices, and an email to expect on ${first}.`, to: p.email_to };
+}
+function ymAddMonth(ym) { const [y, m] = ym.split("-").map(Number); return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7); }
+
 // Goes by itself on the 20th, and again on the 28th if anything's still open.
 async function runAccountsMonthEnd(env) {
   const t = invToday();
@@ -14045,6 +14089,26 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         } else if (request.method !== "GET") return json({ error: "Not found" }, 404, request, env);
         return json({ ok: true, link: accountsLink(env, p), passcode: p.passcode, enabled: p.enabled, email_to: p.email_to, emails_on: p.emails_on, last_opened_at: p.last_opened_at }, 200, request, env);
       }
+      // The first email to accounts: what it says, sending it, and when it last went.
+      if (path.endsWith("/invoicing/first-email")) {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
+        const p = await accountsPortalRow(env);
+        if (!p) return json({ error: "Couldn't load the portal's settings." }, 502, request, env);
+        const mail = accountsFirstEmail(env, p);
+        const last = ((await sbGet(env, "invoice_automation_log", "key=like.accounts-first-email:*&select=created_at,detail&order=created_at.desc&limit=1")) || [])[0] || null;
+        if (request.method === "GET") return json({ ok: true, ...mail, last_sent_at: last ? last.created_at : null, last_sent_to: last ? last.detail : null }, 200, request, env);
+        if (request.method !== "POST") return json({ error: "Not found" }, 404, request, env);
+        const b = await request.json().catch(() => ({}));
+        const me = user.email || invDanielle(env);
+        const sent = await sendEmail(env, b.test
+          ? { to: me, subject: `Test: ${mail.subject}`, html: await wrapInBrandedBase(env, mail.html) }
+          : { to: p.email_to, cc: me, subject: mail.subject, html: await wrapInBrandedBase(env, mail.html) });
+        if (!sent.ok) return json({ error: "Couldn't send it. Please try again." }, 502, request, env);
+        if (!b.test) await invLogOnce(env, `accounts-first-email:${Date.now()}`, p.email_to);
+        return json({ ok: true, to: b.test ? me : p.email_to }, 200, request, env);
+      }
       // The month-end email: what it says, and sending it now.
       if (path.endsWith("/invoicing/month-end")) {
         const user = await getUser(request, env);
@@ -16772,10 +16836,13 @@ async function sendGalleryPinEmail(env, bookingId) {
           if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { skipped++; continue; }
           const company = r.company || null;
           // A row is TEG if flagged internal, or its email/brand says so.
-          const isTeg = internal || networkTag(email) === "Network: TEG" || isTegBrand(company);
-          const rowOptIn = optIn || isTeg;   // TEG is always marketing YES
+          const isFc = isFcBrand(company) || networkTag(email) === "Network: Fine-and-Country";
+          const isTeg = !isFc && (internal || networkTag(email) === "Network: TEG" || isTegBrand(company));
+          // TEG is always marketing YES, and so is Fine & Country: its own
+          // network, but the same group (Dani, 6 Nov 2026).
+          const rowOptIn = optIn || isTeg || isFc;
           const rowTags = Array.isArray(r.tags) ? r.tags : (r.tags ? String(r.tags).split(/[;,]/).map((s) => s.trim()) : []);
-          const netTag = isTeg ? "Network: TEG" : networkTag(email);
+          const netTag = isFc ? "Network: Fine-and-Country" : isTeg ? "Network: TEG" : networkTag(email);
           const tags = Array.from(new Set([...rowTags, ...batchTags, rowOptIn ? "Marketing-Opt-In" : null, netTag].filter(Boolean)));
           // Checked before the upsert, so a re-import doesn't log everyone a
           // second time. One indexed lookup per opted-in row: imports are an
