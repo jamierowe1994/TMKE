@@ -1851,14 +1851,14 @@ import "../../styles/money-os.css";
       popShell("Accounts portal", "First email", "", '<p class="state">Loading…</p>', '<button type="button" class="mbtn" data-close>Close</button>', true);
       const d = await drawFirstLast();
       if (!d) { popShell("Accounts portal", "First email", "", '<p class="state bad">Couldn\'t load the email. Please try again.</p>', '<button type="button" class="mbtn" data-close>Close</button>', true); return; }
-      popShell("Accounts portal", "First email", "", `${whoLine(d)}<p style="margin:0"><b style="font-weight:400;color:var(--tx)">Subject:</b> ${esc(d.subject)}</p><div class="mail">${d.html}</div>`, `<button type="button" class="mbtn" data-close>Close</button><button type="button" class="mbtn" data-firstsend="test">Send me a test</button><button type="button" class="mbtn primary" data-firstsend="live" data-again="${d.last_sent_at ? "1" : ""}">Send to accounts</button>`, true);
+      popShell("Accounts portal", "First email", "", `${whoLine(d)}<p style="margin:0"><b style="font-weight:400;color:var(--tx)">Subject:</b> ${esc(d.subject)}</p><div class="mail">${d.html}</div><p style="margin:0">Then this goes straight after it, to the same people.</p><p style="margin:0"><b style="font-weight:400;color:var(--tx)">Subject:</b> ${esc(d.passcode_subject)}</p><div class="mail">${d.passcode_html}</div>`, `<button type="button" class="mbtn" data-close>Close</button><button type="button" class="mbtn" data-firstsend="test">Send me a test</button><button type="button" class="mbtn primary" data-firstsend="live" data-again="${d.last_sent_at ? "1" : ""}">Send to accounts</button>`, true);
     });
     document.addEventListener("click", async (e) => {
       const b = e.target.closest && e.target.closest("[data-firstsend]"); if (!b) return;
       const test = b.dataset.firstsend === "test";
       if (!test && b.dataset.again && !confirm("This has been sent before. Send it again?")) return;
       b.disabled = true;
-      try { const r = await postJson("/invoicing/first-email", { test }); toast(`Sent to ${r.to}.`); if (!test) { closePop(); drawFirstLast(); } }
+      try { const r = await postJson("/invoicing/first-email", { test }); toast(`Both emails sent to ${r.to}.`); if (!test) { closePop(); drawFirstLast(); } }
       catch (err) { toast(err.message); }
       b.disabled = false;
     });

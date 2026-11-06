@@ -7109,7 +7109,7 @@ async function accountsMonthEndMail(env, p) {
   const link = accountsLink(env, p);
   const html = `<div style="${EM_WRAP}">
     <h1 style="${EM_H1}">Coming Up to Month End.</h1>
-    <p style="${EM_P}">Hi Paula,</p>
+    <p style="${EM_P}">Hi all,</p>
     <p style="${EM_P}">It's coming up to month end, and these invoices are still outstanding.</p>
     ${table}${split}
     <p style="${EM_P}"><a href="${link}" style="color:#371e28;text-decoration:underline">Click here</a> to review all of our outstanding invoices, and please update them accordingly. Any problems, please let me know.</p>
@@ -7127,17 +7127,17 @@ function accountsFirstEmail(env, p) {
   const LI = (x) => `<li style="${EM_P}margin-bottom:6px;">${x}</li>`;
   const html = `<div style="${EM_WRAP}text-align:left;">
     <h1 style="${EM_H1}">One Place for Every Open Invoice.</h1>
-    ${P("Hi Paula,")}
-    ${P("I wanted to tell you about a change to how we confirm invoices have been paid, so that the first automatic email doesn't come out of the blue.")}
+    ${P("Hi all,")}
+    ${P("I wanted to tell you about a change to how we confirm invoices have been paid, which will improve efficiency and reduce the number of chasers and chaser emails spamming your inbox.")}
     ${H("Why we're changing it")}
-    ${P("At the moment, I email you at the end of each month to ask whether invoices have been paid. That means back and forth between people, which slows down confirming payment. Because we don't release a client's finished content until their invoice is confirmed paid, it can hold up their content too. So we've set up one place for accounts to see and answer everything.")}
+    ${P("At the moment, I email you at the end of each month to ask whether invoices have been paid. That means back and forth between people, which slows down confirming payment. Because, in some instances, we won't release a client's finished content until the invoice is confirmed paid, it can delay our delivery of work. So we've set up one place for accounts to see and answer everything.")}
     ${H("What the page is")}
     ${P("It's a private web page just for accounts, which you open with a link and a passcode. It lists every invoice still open, grouped by month, with the invoice number, client, who it's billed to, sent date, due date and net amount without VAT, and it shows whether an invoice is <strong>Overdue</strong>.")}
     ${P("Each invoice is labelled <strong>Inter-brand</strong> or <strong>External client</strong> and has a <strong>View</strong> button that opens it, so you won't need any attachments. The invoices themselves still come through as they do now.")}
-    ${P("An unpaid invoice with the option to pay by card is still on the page. Once the client pays by card, we already know it's been paid, so it comes off and there's nothing for you to do. An invoice you've marked stays on the page with a green Paid or Settled box until everything in that month is closed, then the whole month drops off by itself.")}
+    ${P("An unpaid invoice with the option to pay by card is still on the page. If the client pays by card, Stripe will update our system, so there's nothing for you to do. An invoice you've marked stays on the page with a green Paid or Settled box until everything in that month is closed, then the whole month drops off by itself.")}
     ${H("What you need to do")}
-    ${P("You can open the page using the button below. I'll give you the passcode separately, as it's never sent by email, and it doesn't matter whether you use capitals.")}
-    <p style="${EM_P}"><a href="${accountsLink(env, p)}" style="${EM_BTN}">Open the accounts portal</a></p>
+    ${P("You can open the page using the button below. Your passcode is in a separate email, sent straight after this one, and it doesn't matter whether you use capitals.")}
+    <p style="${EM_P}margin-bottom:28px;"><a href="${accountsLink(env, p)}" style="${EM_BTN}">Open the accounts portal</a></p>
     ${P("Once you're in, here's what to do with each invoice. We see it on our side straight away:")}
     <ul style="margin:0 0 14px;padding:0 0 0 18px;">
       ${LI("<strong>External client invoices:</strong> Press <strong>Paid</strong> once the money has landed. Until then the invoice simply stays on the page, so there's nothing else to press.")}
@@ -7153,6 +7153,19 @@ function accountsFirstEmail(env, p) {
     ${P("Thank you,<br>Danielle")}
   </div>`;
   return { html, subject: `A new page for open invoices, and an email to expect on ${first}.`, to: p.email_to, cc: p.email_cc || "" };
+}
+// Goes straight after the first email, with no link in it (Dani, 6 Nov). This is
+// the only email the passcode ever goes in.
+function accountsPasscodeEmail(p) {
+  const html = `<div style="${EM_WRAP}text-align:left;">
+    <h1 style="${EM_H1}">Your Passcode for the Accounts Portal.</h1>
+    <p style="${EM_P}">Hi all,</p>
+    <p style="${EM_P}">Here's the passcode for the accounts portal, to use with the button in my last email:</p>
+    <p style="${EM_P}font-size:22px;letter-spacing:.12em;"><strong>${invEsc(p.passcode)}</strong></p>
+    <p style="${EM_P}">It doesn't matter whether you use capitals. Please keep it within the accounts team.</p>
+    <p style="${EM_P}">Thank you,<br>Danielle</p>
+  </div>`;
+  return { html, subject: "Your passcode for the accounts portal." };
 }
 function ymAddMonth(ym) { const [y, m] = ym.split("-").map(Number); return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7); }
 
@@ -14105,9 +14118,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         const p = await accountsPortalRow(env);
         if (!p) return json({ error: "Couldn't load the portal's settings." }, 502, request, env);
-        const mail = accountsFirstEmail(env, p);
+        const mail = accountsFirstEmail(env, p), code = accountsPasscodeEmail(p);
         const last = ((await sbGet(env, "invoice_automation_log", "key=like.accounts-first-email:*&select=created_at,detail&order=created_at.desc&limit=1")) || [])[0] || null;
-        if (request.method === "GET") return json({ ok: true, ...mail, last_sent_at: last ? last.created_at : null, last_sent_to: last ? last.detail : null }, 200, request, env);
+        if (request.method === "GET") return json({ ok: true, ...mail, passcode_subject: code.subject, passcode_html: code.html, last_sent_at: last ? last.created_at : null, last_sent_to: last ? last.detail : null }, 200, request, env);
         if (request.method !== "POST") return json({ error: "Not found" }, 404, request, env);
         const b = await request.json().catch(() => ({}));
         const me = user.email || invDanielle(env);
@@ -14116,6 +14129,11 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           : { to: p.email_to, cc: accountsCc(env, p, me), subject: mail.subject, html: await wrapInBrandedBase(env, mail.html) });
         if (!sent.ok) return json({ error: "Couldn't send it. Please try again." }, 502, request, env);
         if (!b.test) await invLogOnce(env, `accounts-first-email:${Date.now()}`, p.email_to);
+        const sentCode = await sendEmail(env, b.test
+          ? { to: me, subject: `Test: ${code.subject}`, html: await wrapInBrandedBase(env, code.html) }
+          : { to: p.email_to, cc: accountsCc(env, p, me), subject: code.subject, html: await wrapInBrandedBase(env, code.html) });
+        // The first has gone by now, so say exactly what's missing.
+        if (!sentCode.ok) return json({ error: "The first email went, but the passcode email didn't. Please send the passcode by hand." }, 502, request, env);
         return json({ ok: true, to: b.test ? me : p.email_to }, 200, request, env);
       }
       // The month-end email: what it says, and sending it now.
