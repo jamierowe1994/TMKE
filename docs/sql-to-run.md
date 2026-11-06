@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/morning_jobs_switch.sql — the on/off switch for the 8am jobs, in Invoicing › Settings › Automatic invoicing. They stay off until you turn them on (6 Nov)
 - [ ] supabase/accounts_portal.sql — the accounts portal (private link and passcode), notes and not-paid reasons on invoices, and Revenue's costs and sectors. Until it's run, Invoicing and the portal say so instead of opening (6 Nov)
 
 

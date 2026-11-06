@@ -208,6 +208,11 @@ import "../../styles/money-os.css";
           <button type="button" class="inv-ghost" id="ap-run">Run it now</button>
         </div>
       </div>
+      <div class="ap-numbers" id="ap-jobs">
+        <h3 class="mc-h">The 8am jobs</h3>
+        <p class="inv-intro" id="ap-jobs-note"></p>
+        <span class="tog" id="ap-jobs-tog"><button type="button" data-v="1">On</button><button type="button" data-v="0">Off</button></span>
+      </div>
       <p class="inv-msg" id="ap-msg" hidden></p>
       <!-- Numbers an invoice needs each month before it can go: the TPE hub's
            agents, typed in until the Team Hub can be counted on for it. -->
@@ -802,7 +807,7 @@ import "../../styles/money-os.css";
       if (tab === "create") ciScaleFit();
       if (tab === "overview") loadBook();
       if (tab === "monthly") loadMonthly();
-      if (tab === "approvals") loadApprovals();
+      if (tab === "approvals") { loadApprovals(); drawJobs(); }
       if (tab === "portal") loadPortal();
       window.scrollTo(0, 0);
     }
@@ -1480,6 +1485,22 @@ import "../../styles/money-os.css";
         catch (err) { msg("ap-msg", /recurring_quantities/.test(err.message) ? "Run supabase/invoicing_automation_2.sql first." : err.message, false); b.disabled = false; }
       }));
     }
+    // The switch for everything the morning run sends (Dani, 6 Nov 2026).
+    function drawJobs() {
+      const on = currentSettings.morning_jobs_on, ready = on !== undefined;
+      $("ap-jobs-note").textContent = !ready ? "Run supabase/morning_jobs_switch.sql first. Until then, they stay off." : on
+        ? "On. Each morning: the note to clients the day after a shoot, invoice due-date reminders, the gallery expiry warning, alerts to the team, the TEG sheet sync and the automatic invoicing above, in whichever mode it's set to."
+        : "Off, so nothing goes by itself at 8am. Turning it on starts the note to clients the day after a shoot, invoice due-date reminders, the gallery expiry warning, alerts to the team, the TEG sheet sync and the automatic invoicing above, in whichever mode it's set to.";
+      $("ap-jobs-tog").querySelectorAll("button").forEach((b) => { b.disabled = !ready; b.setAttribute("aria-pressed", String((b.dataset.v === "1") === !!on)); });
+    }
+    $("ap-jobs-tog").addEventListener("click", async (e) => {
+      const b = e.target.closest("[data-v]"); if (!b) return;
+      const v = b.dataset.v === "1";
+      if (v === !!currentSettings.morning_jobs_on) return;
+      if (v && !confirm("Turn the 8am jobs on? From tomorrow morning, reminders and alerts go by themselves.")) return;
+      try { await api("/invoicing/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ morning_jobs_on: v }) }); currentSettings.morning_jobs_on = v; drawJobs(); msg("ap-msg", v ? "The 8am jobs are on." : "The 8am jobs are off.", true); }
+      catch (err) { msg("ap-msg", err.message, false); }
+    });
     $("ap-mode").addEventListener("change", async (e) => {
       const v = e.target.value;
       if (v === "live" && !confirm("Live: recurring invoices will go to clients on their day, and approved shoot invoices will go to clients straight away. Carry on?")) { loadApprovals(); return; }

@@ -4865,6 +4865,11 @@ async function loadEmailStyles(env) {
 // the test email can never drift apart. Returns { subject, html } or null.
 function emailPreviewSample(id) {
   const SAMPLES = {
+    button_test: () => {
+      const a = (t) => `<a href="https://tmke.co.uk" style="${EM_BTN}">${t}</a>`;
+      const cell = (t) => `<td bgcolor="#371e28" style="background:#371e28;border-radius:${EMS.buttonRadius}px;padding:${EMS.buttonPadY}px ${EMS.buttonPadX}px;"><a href="https://tmke.co.uk" style="color:#f4f2f1;text-decoration:none;font-family:Verdana,Geneva,sans-serif;font-size:12px;font-weight:${EMS.buttonWeight};">${t}</a></td>`;
+      return { subject: "Gallery email buttons: forward this one.", html: `<div style="${EM_WRAP}"><p style="${EM_P}">Hi Danielle,</p><p style="${EM_P}">Two versions of the same buttons. Forward this from Outlook on Windows and see which one survives.</p><p style="${EM_P}"><strong>A. As they are now</strong></p><p style="${EM_P}">${a("View Gallery")} ${a("View 360 Tour")}</p><p style="${EM_P}"><strong>B. Built as a table</strong></p><table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 20px;"><tr>${cell("View Gallery")}<td width="6" style="font-size:0;line-height:0;">&nbsp;</td>${cell("View 360 Tour")}</tr></table></div>` };
+    },
     post_reminder: () => ({ subject: "Your Instagram post is planned for today", html: reminderHtml({ title: "Spring launch teaser", asset_url: "https://assets.tmke.co.uk/white-1.webp" }, "Instagram", "New season, new listings ✨\n\nSwipe to see what's just come to market - book a viewing before they're gone.") }),
     setup_reminder: () => ({ subject: "Set your password to unlock your TMKE pack", html: setupReminderHtml({ name: "Alex Morgan", pack: "The Spring Collection", link: "https://tmke.co.uk/set-password?token=sample" }) }),
     waitlist_register: () => ({ subject: "You're on the cancellation list - The Studio", html: waitlistHtml({ name: "Alex Morgan", service: "The Studio", pkg: "Half day", date: "2026-08-25", time: "10:00" }) }),
@@ -6366,6 +6371,627 @@ async function pollSmmInbox(env) {
 // wrangler.toml; this is only what GET /smm/brochure.pdf streams when it's unset.
 const SMM_BROCHURE_FALLBACK = "https://assets.tmke.co.uk/TMKE%20SMM/TMKE%20-%20Services%20Brochure%202026.pdf";
 
+/* The morning run's jobs. They sat inside fetch()'s second try block, where
+   scheduled() can't see them, so the 8am run stopped at runVideographyChasers
+   with a ReferenceError, and every job after it never started. Lifted out on 6
+   Nov 2026, and held behind invoice_settings.morning_jobs_on: see scheduled(). */
+/* ---- "Raise this invoice" ------------------------------------------------
+   Two days before a shoot, if nothing has been invoiced yet, tell Jack and
+   Danielle. This is the one step in the process that starts the money, and
+   until now it was the only one that depended on somebody remembering.
+
+   Deliberately looks for an actual invoice rather than trusting the stage: a
+   booking can be nudged along by hand, and the question here is "has anyone
+   billed for this?", which only the invoices table can answer.
+--------------------------------------------------------------------------- */
+// ---- The monthly invoicing checklist ------------------------------------------
+// Every active social media client, and every recurring invoice added by hand,
+// against six months: sent (sent or paid) and paid. Admin > Invoicing > Monthly
+// checklist, and the 14th/21st reminder. Danielle does the month's invoicing in
+// its first week, so by the 14th anything missing wants a look (30 Sep 2026).
+// A function declaration, not a const: this sits in the same scope as the
+// route that calls it, earlier in the file, and a const isn't ready until its
+// line has run ("Cannot access 'ymAdd' before initialization").
+function ymAdd(ym, k) { const [y, m] = ym.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + k, 1)); return d.toISOString().slice(0, 7); }
+
+function londonToday() {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  return { ym: `${p.year}-${p.month}`, day: Number(p.day) };
+}
+
+async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
+  const months = Array.from({ length: n }, (_, i) => ymAdd(fromYm, i));
+  const last = months[months.length - 1];
+  const pounds = (v) => { const x = Number(String(v ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(x) && x > 0 ? Math.round(x * 100) : null; };
+  // Read directly, so a database error is reported rather than read as "no
+  // clients" (30 Sep 2026: the first live load showed no social clients).
+  const warnings = [];
+  const readAll = async (table, qs) => {
+    const out = [];
+    for (let off = 0; off < 50000; off += 1000) {
+      const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${qs}&limit=1000&offset=${off}`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
+      if (!r.ok) { warnings.push(`${table}: ${r.status} ${(await r.text().catch(() => "")).slice(0, 160)}`); break; }
+      const page = await r.json(); out.push(...page);
+      if (page.length < 1000) break;
+    }
+    return out;
+  };
+  const leads = await readAll("smm_leads", "pipeline_stage=eq.active_client&or=(client_status.is.null,client_status.not.in.(internal,paused,ended))&select=id,full_name,business,price,start_date,social_media_manager,inter_brand_invoice&order=business.asc,id.asc");
+  let recurring = [], recurringReady = true;
+  const rr = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices?active=eq.true&select=*&order=name.asc`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
+  if (rr.ok) recurring = await rr.json(); else recurringReady = false;
+  // Invoices that could belong to the window: raised or billed from a month
+  // before it (late invoices for the first month) to its end.
+  const from = ymAdd(fromYm, -1);
+  // recurring_id arrives with supabase/invoice_month_notes.sql; ask for it
+  // only once it's there.
+  const hasLink = (await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?select=recurring_id&limit=1`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } })).ok;
+  const invs = await readAll("invoices",
+    `status=in.(draft,sent,paid)&or=(billing_month.gte.${from},issued_date.gte.${from}-01)&select=id,number,booking_id,booking_source,bill_to_email,billing_month,issued_date,created_at,status,line_items,notes${hasLink ? ",recurring_id" : ""}&order=created_at.asc,id.asc`);
+  const monthOf = (iv) => iv.billing_month || String(iv.issued_date || iv.created_at || "").slice(0, 7);
+  // Notes on a month, and months marked as no invoice due.
+  const notes = new Map();
+  const nr = await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_month_notes?month=gte.${months[0]}&month=lte.${last}&select=row_kind,row_id,month,note,skip`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
+  const notesReady = nr.ok;
+  if (nr.ok) (await nr.json()).forEach((x) => notes.set(`${x.row_kind}|${x.row_id}|${x.month}`, x));
+  const cellsFor = (list, start, kind, id) => Object.fromEntries(months.map((ym) => {
+    const n = notes.get(`${kind}|${id}|${ym}`);
+    const extra = n ? { note: n.note || "", skip: !!n.skip } : {};
+    if (start && ym < start) return [ym, { due: false, ...extra }];
+    const here = list.filter((iv) => monthOf(iv) === ym);
+    return [ym, {
+      ...extra,
+      due: !(n && n.skip),
+      sent: here.some((iv) => iv.status === "sent" || iv.status === "paid"),
+      paid: here.some((iv) => iv.status === "paid"),
+      draft: here.some((iv) => iv.status === "draft"),
+      numbers: here.map((iv) => `${iv.number || "draft"} (${iv.status})`),
+    }];
+  }));
+  const rows = [];
+  const stoppedRec = await smmStoppedLeads(env, recurring.map((r) => r.lead_id));
+  recurring = recurring.filter((r) => !(r.lead_id && stoppedRec.has(r.lead_id)));
+  for (const l of leads) {
+    const mine = invs.filter((iv) => iv.booking_source === "smm" && iv.booking_id === l.id);
+    rows.push({ kind: "social", id: l.id, client: l.business || l.full_name || "Client", contact: l.full_name || "", manager: l.social_media_manager || "",
+      amount_pence: pounds(l.price), note: l.inter_brand_invoice ? "Billed to another brand" : "",
+      cells: cellsFor(mine, l.start_date ? String(l.start_date).slice(0, 7) : null, "social", l.id) });
+  }
+  for (const r of recurring) {
+    const want = String(r.match_email || "").toLowerCase().trim(), text = String(r.match_text || "").toLowerCase().trim();
+    const mine = invs.filter((iv) => iv.recurring_id === r.id || (!iv.recurring_id && !iv.booking_id && String(iv.bill_to_email || "").toLowerCase().trim() === want
+      && (!text || JSON.stringify([iv.line_items || [], iv.notes || ""]).toLowerCase().includes(text))));
+    rows.push({ kind: "recurring", id: r.id, client: r.name, contact: r.contact_name || "", amount_pence: r.amount_pence ?? null,
+      match_email: r.match_email, match_text: r.match_text || "", start_month: r.start_month || "",
+      // What the automatic invoicing needs (supabase/invoicing_automation.sql).
+      auto: { auto_send: !!r.auto_send, day_of_month: r.day_of_month ?? null, frequency: r.frequency || "monthly", end_month: r.end_month || "", bill_to_name: r.bill_to_name || "", bill_to_email: r.bill_to_email || "", cc_email: r.cc_email || "", bill_to_address: r.bill_to_address || "", line: (Array.isArray(r.line_items) && r.line_items[0] && r.line_items[0].description) || "", terms_days: r.terms_days ?? null },
+      cells: cellsFor(mine, r.start_month || null, "recurring", r.id) });
+  }
+  // Videography: where each shoot's invoice is. The rule: invoiced two days
+  // before the shoot; past that and not sent, we're late (Danielle, 30 Sep
+  // 2026). Shown: this month's shoots (and the first two days of next month,
+  // whose invoice is due this month), plus any earlier shoot still unsettled.
+  // Settled past shoots stay off, or the page fills with done work.
+  const nowYm = londonToday().ym;
+  const nextStart = `${ymAdd(nowYm, 1)}-01`;
+  const lookEnd = new Date(Date.parse(nextStart + "T00:00:00Z") + 2 * 864e5).toISOString().slice(0, 10);
+  const bookings = await readAll("videography_bookings",
+    `shoot_date=gte.${ymAdd(nowYm, -12)}-01T00:00:00&shoot_date=lt.${lookEnd}T00:00:00&kind=eq.booking&stage=neq.cancelled&select=*&order=shoot_date.asc,id.asc`);
+  const vInv = [];
+  const bIds = bookings.map((b) => b.id);
+  for (let i = 0; i < bIds.length; i += 80) {
+    vInv.push(...(await readAll("invoices", `booking_source=eq.videography&booking_id=in.(${bIds.slice(i, i + 80).join(",")})&status=neq.void&select=booking_id,number,status,total_pence,due_date,paid_date&order=created_at.asc,id.asc`)));
+  }
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const shoots = bookings.map((b) => {
+    const mine = vInv.filter((iv) => iv.booking_id === b.id);
+    const sent = mine.filter((iv) => iv.status === "sent" || iv.status === "paid");
+    const shootDay = String(b.shoot_date || "").slice(0, 10);
+    const dueBy = shootDay ? new Date(Date.parse(shootDay + "T12:00:00Z") - 2 * 864e5).toISOString().slice(0, 10) : null;
+    let status;
+    if (b.payment_route === "smm_package") status = "package";
+    else if (b.paid_at || mine.some((iv) => iv.status === "paid")) status = "paid";
+    else if (sent.length) status = sent.some((iv) => iv.due_date && iv.due_date < todayIso) ? "payment_overdue" : "sent";
+    else status = dueBy && todayIso >= dueBy ? "late" : "not_due";
+    const brand = b.payment_route === "brand_invoice" || b.payment_route === "brand_invoice_teg";
+    return {
+      id: b.id, client: b.client_name || "Client", company: b.client_company || b.company || "", service: b.service || "",
+      shoot_date: b.shoot_date, due_by: dueBy, status, draft: mine.some((iv) => iv.status === "draft"),
+      amount_pence: sent[0]?.total_pence ?? mine[0]?.total_pence ?? b.total_pence ?? null,
+      numbers: mine.map((iv) => `${iv.number || "draft"} (${iv.status})`), billed_to: brand ? "Brand" : "",
+      earlier: shootDay.slice(0, 7) < nowYm,
+    };
+  // Shoots covered by a social package never need an invoice, so they're left
+  // off altogether (Danielle, 30 Sep 2026).
+  }).filter((x) => x.status !== "package" && (!x.earlier || x.status !== "paid"));
+  return { months, rows, shoots, recurringReady, notesReady, today: londonToday().ym, warnings, found: { social: leads.length, invoices: invs.length, shoots: shoots.length } };
+}
+
+// Every morning: a shoot whose invoice should have gone two days before it and
+// hasn't. One bell per shoot, the first morning it's late (Danielle, 30 Sep
+// 2026). Looks back a month so a miss isn't lost, and ahead only as far as
+// two days, which is when an invoice becomes due.
+async function runLateVideoInvoiceCheck(env) {
+  const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+  const now = Date.now();
+  const bookings = (await sbGetAll(env, "videography_bookings",
+    `shoot_date=gte.${day(now - 30 * 864e5)}T00:00:00&shoot_date=lt.${day(now + 3 * 864e5)}T00:00:00&kind=eq.booking&stage=neq.cancelled&select=*&order=shoot_date.asc,id.asc`)) || [];
+  const today = day(now);
+  for (const b of bookings) {
+    if (b.payment_route === "smm_package" || b.paid_at) continue;
+    const shootDay = String(b.shoot_date || "").slice(0, 10);
+    if (!shootDay) continue;
+    const dueBy = day(Date.parse(shootDay + "T12:00:00Z") - 2 * 864e5);
+    if (today < dueBy) continue;
+    const invs = (await sbGet(env, "invoices", `booking_source=eq.videography&booking_id=eq.${encodeURIComponent(b.id)}&status=in.(sent,paid)&select=id&limit=1`)) || [];
+    if (invs.length) continue;
+    const when = new Date(shootDay + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+    await notifyAdmins(env, {
+      area: "money", event: "video_invoice_late",
+      title: `Invoice late: ${b.client_name || "a shoot"}`,
+      body: `Shoot ${when}${b.service ? ` (${b.service})` : ""}. It should have been invoiced by two days before, and nothing has gone out yet.`,
+      href: `/admin/videography?booking=${encodeURIComponent(b.id)}`,
+      key: `video-invoice-late:${b.id}`,
+    });
+  }
+}
+
+// On the 14th and 21st, 08:00: anything due this month and not sent yet.
+async function runMonthlyInvoiceCheck(env) {
+  const { ym, day } = londonToday();
+  if (day !== 14 && day !== 21) return;
+  const { rows } = await monthlyInvoiceChecklist(env, ym, 1);
+  const missing = rows.filter((r) => r.cells[ym] && r.cells[ym].due && !r.cells[ym].sent);
+  if (!missing.length) return;
+  const monthName = new Date(`${ym}-15T12:00:00Z`).toLocaleDateString("en-GB", { month: "long" });
+  const names = missing.map((r) => r.client + (r.cells[ym].draft ? " (draft not sent)" : ""));
+  await notifyAdmins(env, {
+    area: "money", event: "invoices_not_sent",
+    title: `${missing.length} ${missing.length === 1 ? "invoice hasn't" : "invoices haven't"} gone out for ${monthName}`,
+    body: names.slice(0, 8).join(", ") + (names.length > 8 ? `, and ${names.length - 8} more` : ""),
+    href: "/admin/invoicing?tab=monthly",
+    key: `invoices-not-sent:${ym}:${day}`,
+  });
+}
+
+async function runInvoicePrompt(env) {
+  // Automatic invoicing in live mode drafts these and asks Jack itself, so
+  // the "invoices to raise" list would only repeat it.
+  try { const st0 = (await sbGet(env, "invoice_settings", "id=eq.1&select=automation_mode"))?.[0]; if (st0 && st0.automation_mode === "live") return; } catch (_) {}
+  const inTwoDays = new Date();
+  inTwoDays.setDate(inTwoDays.getDate() + 2);
+  const day = inTwoDays.toISOString().slice(0, 10);
+
+  const shoots = (await sbGet(env, "videography_bookings",
+    `shoot_date=gte.${day}T00:00:00&shoot_date=lte.${day}T23:59:59`
+    + `&stage=neq.cancelled&invoice_prompt_sent_at=is.null&kind=eq.booking&select=*`)) || [];
+  if (!shoots.length) return;
+
+  const needing = [];
+  for (const bk of shoots) {
+    const invs = (await sbGet(env, "invoices",
+      `booking_id=eq.${encodeURIComponent(bk.id)}&select=id,status`)) || [];
+    // A voided invoice is not an invoice. If the only one was cancelled, this
+    // shoot still needs billing.
+    if (invs.some((iv) => iv.status !== "void")) continue;
+    needing.push(bk);
+  }
+  if (!needing.length) return;
+
+  const team = [...new Set([env.ACCOUNTS_NOTIFY, env.JACK_NOTIFY || env.JACK_UPN]
+    .flatMap((v) => String(v || "").split(","))
+    .map((v) => v.trim()).filter(Boolean))];
+  if (!team.length) return;
+
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const rowsHtml = needing.map((bk) => {
+    const brand = bk.payment_route === "brand_invoice" || bk.payment_route === "brand_invoice_teg";
+    // Only an F&C invoice needs the office to confirm the fee first - TEG has
+    // no such step, so this must never fire for it.
+    const blocked = bk.payment_route === "brand_invoice" && !bk.brand_fee_confirmed;
+    const where = (bk.property_address || bk.location || "").replace(/\s*\n\s*/g, ", ").trim();
+    return `<tr>
+      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.client_name || "-")}</td>
+      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.service || "-")}${where ? `<br><span style="color:#8a8796">${esc(where)}</span>` : ""}</td>
+      <td style="padding:7px 12px 7px 0;font-size:12px">${brand ? "Brand" : "Client"}</td>
+      <td style="padding:7px 0;font-size:12px">${bk.total_pence != null ? esc(gbpW(bk.total_pence)) : "-"}${
+        blocked ? `<br><span style="color:#8a5a2b">Fee not confirmed yet</span>` : ""}</td>
+    </tr>`;
+  }).join("");
+
+  const niceDay = inTwoDays.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  const sent = await sendEmail(env, {
+    to: team,
+    subject: `Invoices to raise — ${needing.length} shoot${needing.length === 1 ? "" : "s"} on ${niceDay}`,
+    html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+      <p style="${EM_P}">These shoots are on <strong>${esc(niceDay)}</strong> and haven't been invoiced yet.</p>
+      <table style="border-collapse:collapse;margin:0 0 14px">
+        <tr>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Client</th>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Shoot</th>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Billed to</th>
+          <th style="text-align:left;padding:0 0 6px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Amount</th>
+        </tr>
+        ${rowsHtml}
+      </table>
+      <p style="${EM_P}">Raise each from its booking in the admin centre - that links the invoice to the shoot, which is what lets payment release the client's PIN on its own.</p>
+      <p style="${EM_SMALL}">Anything marked "fee not confirmed yet" is a Fine &amp; Country shoot where the office hasn't confirmed they hold the marketing fee. That has to be settled before the invoice can go.</p>
+    </div>`),
+  });
+  if (!sent.ok) return;
+
+  const stamp = new Date().toISOString();
+  for (const bk of needing) {
+    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`, { invoice_prompt_sent_at: stamp });
+  }
+}
+
+/* ---- Stalled shoots -------------------------------------------------------
+   A shoot left in one stage too long looks exactly like one that moved
+   yesterday, so nothing surfaces it. This does.
+
+   Thresholds are per stage because "too long" means different things: a day in
+   Shoot day is normal, a fortnight in Editing is not. They are deliberately
+   generous - an alert that fires early is one people learn to ignore.
+
+   Reported once when it stalls, then weekly while it stays stuck. Recording
+   which STAGE was alerted means a shoot that moves on and stalls somewhere
+   else is reported afresh rather than staying quiet.
+--------------------------------------------------------------------------- */
+const STALL_DAYS = {
+  // Only the stages where a shoot genuinely sits waiting on us. Booked,
+  // Invoiced and Shoot day all move themselves - on the shoot date, and again
+  // the morning after - so a shoot cannot quietly rot in any of them.
+  editing: 10,       // 1.5 days editing + the amendments buffer, generously
+  gallery_ready: 5,  // gallery built but never sent
+  sent: 10,          // with the client, still unpaid or edits unsettled
+};
+
+// A live funnel that's run out of people but still has dated emails to
+// send: nobody will get them. That's how the Autumn Edit's email 3 was
+// missed (Sep 2026: a broken check ended every journey after email 2, and
+// the only sign was "0 in the funnel"). Checked every morning; one bell
+// notification per email, so it isn't repeated daily.
+async function runEmptyFunnelCheck(env) {
+  try {
+    const autos = (await sbGet(env, "automations", "status=eq.active&select=id,name,graph")) || [];
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
+    for (const a of autos) {
+      const nodes = ((a.graph || {}).nodes) || [];
+      const sends = nodes.filter((n) => n.type === "send_email" && n.config && /^\d{4}-\d{2}-\d{2}$/.test(String(n.config.send_on || "")))
+        .sort((x, y) => String(x.config.send_on).localeCompare(String(y.config.send_on)));
+      const upcoming = sends.filter((n) => n.config.send_on >= today);
+      if (!upcoming.length) continue;
+      const live = (await sbGet(env, "automation_enrollments", `automation_id=eq.${encodeURIComponent(a.id)}&status=in.(active,waiting)&select=id&limit=1`)) || [];
+      if (live.length) continue;
+      const next = upcoming[0];
+      const which = sends.indexOf(next) + 1;
+      const when = new Date(`${next.config.send_on}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+      await notifyAdmins(env, {
+        area: "problem", event: "funnel_empty",
+        title: `${a.name}: nobody left for email ${which}`,
+        body: `The funnel is live but has nobody in it, so email ${which} on ${when}${next.config.send_at ? ` at ${next.config.send_at}` : ""} won't go to anyone. Check what ended everyone's journey.`,
+        href: `/admin/automations/edit?id=${a.id}`,
+        key: `funnel_empty:${a.id}:${next.id}`,
+        meta: { automation_id: a.id, node_id: next.id },
+      });
+    }
+  } catch (e) { console.error("runEmptyFunnelCheck", String((e && e.message) || e).slice(0, 200)); }
+}
+
+async function runStallCheck(env) {
+  const now = Date.now();
+  const days = (ms) => Math.floor((now - ms) / 86400000);
+  const rows = (await sbGet(env, "videography_bookings",
+    `stage=in.(editing,gallery_ready,sent)&select=*`)) || [];
+
+  const stalled = [];
+  for (const bk of rows) {
+    const limit = STALL_DAYS[bk.stage];
+    if (!limit) continue;
+    // updated_at is when the row last changed, which for a stage move is the
+    // move itself - so this measures time sitting in the current stage.
+    const since = Date.parse(bk.updated_at || bk.created_at || "");
+    if (!since) continue;
+    const stuckFor = days(since);
+    if (stuckFor < limit) continue;
+
+    // Once per stall, then weekly.
+    const alerted = bk.stalled_alerted_at ? Date.parse(bk.stalled_alerted_at) : 0;
+    const sameStage = bk.stalled_alerted_stage === bk.stage;
+    if (sameStage && alerted && days(alerted) < 7) continue;
+
+    stalled.push({ bk, stuckFor });
+  }
+  if (!stalled.length) return;
+
+  const team = [...new Set([env.ACCOUNTS_NOTIFY, env.JACK_NOTIFY || env.JACK_UPN]
+    .flatMap((v) => String(v || "").split(","))
+    .map((v) => v.trim()).filter(Boolean))];
+  if (!team.length) return;
+
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const STAGE_NAME = { editing: "Editing", gallery_ready: "Gallery ready", sent: "Sent" };
+
+  const rowsHtml = stalled.map(({ bk, stuckFor }) => `
+    <tr>
+      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.client_name || "-")}</td>
+      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.service || "-")}</td>
+      <td style="padding:7px 12px 7px 0;font-size:12px"><strong>${esc(STAGE_NAME[bk.stage] || bk.stage)}</strong></td>
+      <td style="padding:7px 0;font-size:12px">${stuckFor} days</td>
+    </tr>`).join("");
+
+  const sent = await sendEmail(env, {
+    to: team,
+    subject: `${stalled.length} videography shoot${stalled.length === 1 ? "" : "s"} sitting still`,
+    html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+      <p style="${EM_P}">These shoots haven't moved in a while. Most likely the work has happened and the system hasn't been told - worth a quick check, and a note on anything that is genuinely held up.</p>
+      <table style="border-collapse:collapse;margin:0 0 14px">
+        <tr>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Client</th>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Service</th>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Stuck at</th>
+          <th style="text-align:left;padding:0 0 6px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">For</th>
+        </tr>
+        ${rowsHtml}
+      </table>
+      <p style="${EM_SMALL}">You'll get this once when a shoot stalls, then weekly while it stays put. Moving it on stops it.</p>
+    </div>`),
+  });
+  if (!sent.ok) return;
+
+  const stamp = new Date().toISOString();
+  for (const { bk } of stalled) {
+    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`,
+      { stalled_alerted_at: stamp, stalled_alerted_stage: bk.stage });
+  }
+}
+
+/* ---- Invoice chasing ------------------------------------------------------
+   Two emails on the same daily run:
+
+     on the due date        -> a reminder to the client
+     the day after          -> an alert to Danielle and Jack, who chase it
+                               however the situation deserves
+
+   Deliberately keyed on the INVOICE rather than the booking, so social media
+   management invoices are covered by the same code rather than a second copy
+   of it that drifts.
+
+   Direct Debit invoices are skipped entirely. Those are reminders to our own
+   accounts team about money that collects itself; chasing the client for it
+   would be worse than not chasing at all.
+--------------------------------------------------------------------------- */
+/* Every chaser leaves a trace in two places: the contact's email history, and -
+   when the invoice belongs to a shoot - the booking's own record, so the
+   invoice panel can show what was sent and when without anyone going hunting
+   through a mailbox. An automatic email nobody can see having been sent is
+   indistinguishable from one that never went. */
+async function logInvoiceChase(env, inv, subject, to, internal) {
+  try {
+    await logEmailEvent(env, {
+      email: to, event: "sent", provider: "microsoft", subject,
+      detail: internal ? `Overdue alert for invoice ${inv.number}` : `Due-date reminder for invoice ${inv.number}`,
+    });
+  } catch (_) {}
+  if (!inv.booking_id) return;
+  try {
+    await logBookingMessage(env, {
+      booking_id: inv.booking_id,
+      booking_source: inv.booking_source || "videography",
+      client_email: internal ? null : inv.bill_to_email,
+      // Internal alerts are notes, not correspondence - a client must never see
+      // us discussing chasing them.
+      channel: internal ? "note" : "email",
+      kind: internal ? "invoice_overdue_alert" : "invoice_chase",
+      subject,
+      body: internal
+        ? `Overdue alert sent to ${to}.`
+        : `Due-date reminder sent to ${to}.`,
+      is_automated: true, created_by: "system",
+    });
+  } catch (_) {}
+}
+
+async function runInvoiceChasers(env) {
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+  const niceDate = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+
+  // ---- 1. Due today: remind the client -----------------------------------
+  const dueToday = (await sbGet(env, "invoices",
+    `status=eq.sent&due_date=eq.${iso(today)}&due_reminder_sent_at=is.null&select=*`)) || [];
+
+  for (const inv of dueToday) {
+    if (inv.payment_method === "direct_debit") continue;
+    if (!inv.bill_to_email) continue;
+
+    let payUrl = null;
+    if (inv.pay_by_card && env.STRIPE_SECRET_KEY) payUrl = await invoicePayUrl(env, inv.id);
+    let attachments;
+    try {
+      const obj = await env.BUCKET.get(`invoices/${inv.number}.pdf`);
+      if (obj) attachments = [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(await obj.arrayBuffer()), contentType: "application/pdf" }];
+    } catch (_) {}
+
+    // Wording: src/lib/invoice-email.js (email 8 in Danielle's doc).
+    const rem = invoiceReminderEmail(inv, await invoiceEmailCtx(env, inv));
+    const mail = invoiceMailTo(inv.bill_to_email, null);
+    const sent = await sendEmail(env, {
+      to: mail.to,
+      subject: rem.subject,
+      attachments,
+      html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, rem.body, payUrl, null, { noStripeLine: true })),
+    });
+    if (!sent.ok) continue;
+    await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { due_reminder_sent_at: new Date().toISOString() });
+    await logInvoiceChase(env, inv, `Invoice ${inv.number} is due today.`, inv.bill_to_email, false);
+  }
+
+  // ---- 2. A day past due: tell Danielle and Jack --------------------------
+  const overdue = (await sbGet(env, "invoices",
+    `status=eq.sent&due_date=eq.${iso(yesterday)}&overdue_alerted_at=is.null&select=*`)) || [];
+
+  const team = [...new Set([env.ACCOUNTS_NOTIFY || st.accounts_cc_email, env.JACK_NOTIFY || env.JACK_UPN]
+    .flatMap((v) => String(v || "").split(","))
+    .map((v) => v.trim())
+    .filter(Boolean))];
+
+  for (const inv of overdue) {
+    if (inv.payment_method === "direct_debit") continue;
+    if (!team.length) break;
+
+    const sent = await sendEmail(env, {
+      to: team,
+      subject: `Overdue: invoice ${inv.number} - ${inv.bill_to_name || "client"}`,
+      html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+        <p style="${EM_P}">Invoice <strong>${esc(inv.number)}</strong> passed its due date yesterday and is still unpaid.</p>
+        <p style="${EM_QUOTE}">Billed to: ${esc(inv.bill_to_name || "-")}<br>Amount: ${esc(gbpW(inv.total_pence))}<br>Due: ${esc(niceDate(inv.due_date))}<br>Sent to: ${esc(noAutoLink(inv.bill_to_email || "-"))}</p>
+        <p style="${EM_P}">The client had a reminder on the due date. Worth deciding how to chase this one.</p>
+        <p style="${EM_SMALL}">If it has been paid and we simply haven't recorded it, mark it paid in the admin centre - that releases the client's PIN and stops any further chasers.</p>
+      </div>`),
+    });
+    if (!sent.ok) continue;
+    await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { overdue_alerted_at: new Date().toISOString() });
+    await logInvoiceChase(env, inv, `Overdue: invoice ${inv.number}`, team.join(", "), true);
+  }
+}
+
+/* ---- Daily videography chasers ------------------------------------------
+   Two jobs that ride the existing 08:00 cron, because both are "look for rows
+   matching a date, send once, stamp a column so it never repeats".
+
+   Everything else in this process happens because a person pressed something.
+   These two cannot: a reminder that arrives when someone remembers is not a
+   reminder, and a gallery that expires without warning is just a gallery that
+   disappeared.
+--------------------------------------------------------------------------- */
+// "Hi ," is worse than no greeting, and a client whose name we only hold as a
+// company should not be addressed as that company.
+function firstName(full) {
+  const first = String(full || "").trim().split(/\s+/)[0];
+  return first || "there";
+}
+
+// Most email clients auto-detect anything shaped like an email address and
+// turn it into their own mailto: link, styled however that client styles
+// links - regardless of the HTML we actually sent. That's wrong wherever
+// we're just telling someone what to type (into Pixieset, say), not asking
+// them to click. A zero-width space right after the @ breaks the pattern
+// match without changing how the address looks, copies, or reads to a
+// screen reader. Never use this on an address that's meant to be a real,
+// clickable mailto: link.
+function noAutoLink(v) {
+  const s = String(v ?? "");
+  const at = s.indexOf("@");
+  return at === -1 ? s : s.slice(0, at + 1) + "​" + s.slice(at + 1);
+}
+
+async function runVideographyChasers(env) {
+  const today = new Date();
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // ---- 1. Payment reminder, the day after the shoot ----------------------
+  // Deliberately a nudge: it lands on day three of a ten-day term, so they are
+  // not late and should not be told they are.
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const due = (await sbGet(env, "videography_bookings",
+    `shoot_date=gte.${iso(yesterday)}T00:00:00&shoot_date=lte.${iso(yesterday)}T23:59:59`
+    // A package shoot has no invoice to chase — reminding those clients to pay
+    // for something their package already covers is worse than staying quiet.
+    + `&paid_at=is.null&payment_route=neq.smm_package`
+    + `&reminder_sent_at=is.null&stage=neq.cancelled&select=*`)) || [];
+
+  for (const bk of due) {
+    const to = bk.client_email;
+    if (!to) continue;
+    const invs = (await sbGet(env, "invoices",
+      `booking_id=eq.${encodeURIComponent(bk.id)}&select=id,number,status,pay_by_card,total_pence&order=created_at.desc`)) || [];
+    const live = invs.find((iv) => iv.status !== "void" && iv.status !== "paid");
+    if (!live) continue;   // nothing outstanding to chase
+
+    let attachments, payUrl = null;
+    if (live.pay_by_card && env.STRIPE_SECRET_KEY) payUrl = await invoicePayUrl(env, live.id);
+    try {
+      const obj = await env.BUCKET.get(`invoices/${live.number}.pdf`);
+      if (obj) attachments = [{ filename: `Invoice-${live.number}.pdf`, content: bufToBase64(await obj.arrayBuffer()), contentType: "application/pdf" }];
+    } catch (_) {}
+
+    const sent = await sendEmail(env, {
+      to,
+      subject: "Great to see you yesterday - here's what happens next",
+      attachments,
+      html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+        <p style="${EM_P}">Hi ${esc(firstName(bk.client_name))},</p>
+        <p style="${EM_P}">It was great shooting with you yesterday. We hope you enjoyed the session!</p>
+        <p style="${EM_P}">Now that your shoot is wrapped, Jack will get to work on your edits. This usually takes a few days, and as soon as everything is ready, we'll send you a link to your gallery where you can view your finished content.</p>
+        <p style="${EM_P}">In the meantime, a quick reminder that invoice ${esc(live.number)} for ${esc(gbpW(live.total_pence))} is awaiting payment. We've attached another copy here so you've got it to hand.</p>
+        <p style="${EM_P}">You can pay by card using the link below, or by bank transfer using the details on your invoice.</p>
+        ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay invoice</a></p>` : ""}
+        <p style="${EM_P}">You'll still be able to view your gallery when your edits are ready, but downloads will unlock once payment has been received.</p>
+        <p style="${EM_P}">We'll be back in touch as soon as your content is ready. We can't wait for you to see it!</p>
+        <p style="${EM_P}">The TMKE Team</p>
+      </div>`),
+    });
+    if (!sent.ok) continue;
+
+    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`, { reminder_sent_at: new Date().toISOString() });
+    await logBookingMessage(env, {
+      booking_id: bk.id, booking_source: "videography",
+      account_user_id: bk.account_user_id, client_email: to,
+      channel: "email", kind: "payment_reminder", subject: "Great to see you yesterday - here's what happens next",
+      body: "Day-after-shoot reminder sent with the invoice.", is_automated: true, created_by: "system",
+    });
+  }
+
+  // ---- 2. Gallery expiry warning, a week out -----------------------------
+  const weekOut = new Date(today); weekOut.setDate(weekOut.getDate() + 7);
+  const expiring = (await sbGet(env, "videography_bookings",
+    `gallery_expires_on=eq.${iso(weekOut)}&expiry_warned_at=is.null&select=*`)) || [];
+
+  for (const bk of expiring) {
+    const to = bk.gallery_email || bk.client_email;
+    if (!to || !bk.gallery_url) continue;
+    const when = new Date(bk.gallery_expires_on + "T12:00:00")
+      .toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+
+    const shotOn = bk.shoot_date
+      ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+      : "";
+    const sent = await sendEmail(env, {
+      to,
+      subject: "Your gallery expires in one week",
+      html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+        <p style="${EM_P}">Hi ${esc(firstName(bk.client_name))},</p>
+        <p style="${EM_P}">Just a quick heads up that the gallery from your ${esc((bk.service || "shoot").toLowerCase())}${shotOn ? ` on ${esc(shotOn)}` : ""} is due to expire on ${esc(when)}.</p>
+        <p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open your gallery</a></p>
+        <p style="${EM_P}">You can also find the gallery by heading to Previous Bookings in TMKE Studio.</p>
+        <p style="${EM_P}">Once the gallery expires, your content will no longer be available to view or download, so we recommend having a quick check that you've got everything you need.</p>
+        <p style="${EM_P}">The TMKE Team</p>
+      </div>`),
+    });
+    if (!sent.ok) continue;
+
+    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`, { expiry_warned_at: new Date().toISOString() });
+    await logBookingMessage(env, {
+      booking_id: bk.id, booking_source: "videography",
+      account_user_id: bk.account_user_id, client_email: to,
+      channel: "email", kind: "gallery_expiring", subject: "Your gallery expires in one week",
+      body: `Expiry warning sent - gallery closes ${bk.gallery_expires_on}.`, is_automated: true, created_by: "system",
+    });
+  }
+}
+
+// Off unless it's been turned on, including before its SQL has run.
+async function morningJobsOn(env) {
+  const row = (await sbGet(env, "invoice_settings", "id=eq.1&select=morning_jobs_on"))?.[0];
+  return !!(row && row.morning_jobs_on === true);
+}
+
 /* Top level on purpose: Revenue's route, the portal's and the morning run all
    call these, and a function declared further down this file sits inside
    fetch()'s second try block, where nothing else can see it (6 Nov 2026). */
@@ -6506,19 +7132,18 @@ export default {
       ctx.waitUntil(runDdMonthly(env));
       // Only on the 08:00 run, so the day-after reminder and the expiry warning
       // go out once a day rather than twice.
+      // The switch (Dani, 6 Nov 2026): these didn't run for weeks because of a
+      // scope mistake, so they stay off until she turns them on in Invoicing >
+      // Settings > Automatic invoicing. Each catches its own failure, so one
+      // going wrong can't stop the rest again.
+      const jobsOn = await morningJobsOn(env);
       if (event.cron === "0 8 * * *") {
         ctx.waitUntil(runAccountsMonthEnd(env).catch(() => {}));
-        ctx.waitUntil(runVideographyChasers(env));
-        ctx.waitUntil(runInvoiceChasers(env));
-        ctx.waitUntil(runInvoiceAutomation(env));
-        ctx.waitUntil(runStallCheck(env));
-        ctx.waitUntil(runEmptyFunnelCheck(env));
-        ctx.waitUntil(runInvoicePrompt(env));
-        ctx.waitUntil(runMonthlyInvoiceCheck(env));
-        ctx.waitUntil(runLateVideoInvoiceCheck(env));
-        ctx.waitUntil(runMonthlyRosterCheck(env));
-        ctx.waitUntil(runCommunityTopicDue(env));
-        ctx.waitUntil(runZernioIdleCheck(env));
+        if (jobsOn) {
+          for (const job of [runVideographyChasers, runInvoiceChasers, runInvoiceAutomation, runStallCheck, runEmptyFunnelCheck, runInvoicePrompt, runMonthlyInvoiceCheck, runLateVideoInvoiceCheck, runMonthlyRosterCheck, runCommunityTopicDue, runZernioIdleCheck]) {
+            ctx.waitUntil(Promise.resolve().then(() => job(env)).catch((e) => console.error("morning job", job.name, String((e && e.message) || e).slice(0, 200))));
+          }
+        }
       }
       // The TEG new-starter sheet, once a day at 8am UK (Dani, 4 Nov): new
       // rows into the funnel, booked dates and gallery links back to the
@@ -6527,7 +7152,7 @@ export default {
       // summer time, 08:00 UTC in winter). Bookings and reschedules write
       // their date to the sheet straight away; Automations' Sync button runs
       // it on demand.
-      if (ukHourNow() === 8) ctx.waitUntil(runEditAutoClose(env).catch(() => {}).then(() => syncAgentSheet(env)).catch(() => {}).then(() => newStarterEnsureBlocks(env)).then(() => runPortalFolderNotices(env)));
+      if (jobsOn && ukHourNow() === 8) ctx.waitUntil(runEditAutoClose(env).catch(() => {}).then(() => syncAgentSheet(env)).catch(() => {}).then(() => newStarterEnsureBlocks(env)).then(() => runPortalFolderNotices(env)));
     }
     else {
       ctx.waitUntil(runAutomationsTick(env));
@@ -12918,7 +13543,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
-        const allowed = ["company_name", "company_address", "company_reg_no", "vat_number", "vat_rate", "bank_name", "account_name", "sort_code", "account_number", "payment_terms_days", "invoice_prefix", "next_number", "accounts_cc_email", "footer_note", "template", "accent_color", "logo_url", "show_bank", "font_family", "font_size", "email_footer_image_url", "automation_mode"];
+        const allowed = ["company_name", "company_address", "company_reg_no", "vat_number", "vat_rate", "bank_name", "account_name", "sort_code", "account_number", "payment_terms_days", "invoice_prefix", "next_number", "accounts_cc_email", "footer_note", "template", "accent_color", "logo_url", "show_bank", "font_family", "font_size", "email_footer_image_url", "automation_mode", "morning_jobs_on"];
         const row = { id: 1 };
         for (const k of allowed) if (b && k in b) row[k] = b[k];
         await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_settings?on_conflict=id`, {
@@ -15161,28 +15786,8 @@ VOICE (insights and priorities): the account manager talking to the client, "we"
         return json({ ok: true, synced: true, email: bk.client_email, tags }, 200, request, env);
       }
 
-/* ---- "Raise this invoice" ------------------------------------------------
-   Two days before a shoot, if nothing has been invoiced yet, tell Jack and
-   Danielle. This is the one step in the process that starts the money, and
-   until now it was the only one that depended on somebody remembering.
 
-   Deliberately looks for an actual invoice rather than trusting the stage: a
-   booking can be nudged along by hand, and the question here is "has anyone
-   billed for this?", which only the invoices table can answer.
---------------------------------------------------------------------------- */
-// ---- The monthly invoicing checklist ------------------------------------------
-// Every active social media client, and every recurring invoice added by hand,
-// against six months: sent (sent or paid) and paid. Admin > Invoicing > Monthly
-// checklist, and the 14th/21st reminder. Danielle does the month's invoicing in
-// its first week, so by the 14th anything missing wants a look (30 Sep 2026).
-// A function declaration, not a const: this sits in the same scope as the
-// route that calls it, earlier in the file, and a const isn't ready until its
-// line has run ("Cannot access 'ymAdd' before initialization").
-function ymAdd(ym, k) { const [y, m] = ym.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + k, 1)); return d.toISOString().slice(0, 7); }
-function londonToday() {
-  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((x) => [x.type, x.value]));
-  return { ym: `${p.year}-${p.month}`, day: Number(p.day) };
-}
+
 /* ---- What follows an invoice being paid ----------------------------------
    The stored PDF gets its Paid stamp, and a videography invoice paid is the
    shoot paid, whichever page the button was pressed on: the PIN keys off the
@@ -15220,496 +15825,27 @@ async function invoicePaidEffects(env, id, by) {
   return out;
 }
 
-async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
-  const months = Array.from({ length: n }, (_, i) => ymAdd(fromYm, i));
-  const last = months[months.length - 1];
-  const pounds = (v) => { const x = Number(String(v ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(x) && x > 0 ? Math.round(x * 100) : null; };
-  // Read directly, so a database error is reported rather than read as "no
-  // clients" (30 Sep 2026: the first live load showed no social clients).
-  const warnings = [];
-  const readAll = async (table, qs) => {
-    const out = [];
-    for (let off = 0; off < 50000; off += 1000) {
-      const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${qs}&limit=1000&offset=${off}`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
-      if (!r.ok) { warnings.push(`${table}: ${r.status} ${(await r.text().catch(() => "")).slice(0, 160)}`); break; }
-      const page = await r.json(); out.push(...page);
-      if (page.length < 1000) break;
-    }
-    return out;
-  };
-  const leads = await readAll("smm_leads", "pipeline_stage=eq.active_client&or=(client_status.is.null,client_status.not.in.(internal,paused,ended))&select=id,full_name,business,price,start_date,social_media_manager,inter_brand_invoice&order=business.asc,id.asc");
-  let recurring = [], recurringReady = true;
-  const rr = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices?active=eq.true&select=*&order=name.asc`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
-  if (rr.ok) recurring = await rr.json(); else recurringReady = false;
-  // Invoices that could belong to the window: raised or billed from a month
-  // before it (late invoices for the first month) to its end.
-  const from = ymAdd(fromYm, -1);
-  // recurring_id arrives with supabase/invoice_month_notes.sql; ask for it
-  // only once it's there.
-  const hasLink = (await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?select=recurring_id&limit=1`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } })).ok;
-  const invs = await readAll("invoices",
-    `status=in.(draft,sent,paid)&or=(billing_month.gte.${from},issued_date.gte.${from}-01)&select=id,number,booking_id,booking_source,bill_to_email,billing_month,issued_date,created_at,status,line_items,notes${hasLink ? ",recurring_id" : ""}&order=created_at.asc,id.asc`);
-  const monthOf = (iv) => iv.billing_month || String(iv.issued_date || iv.created_at || "").slice(0, 7);
-  // Notes on a month, and months marked as no invoice due.
-  const notes = new Map();
-  const nr = await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_month_notes?month=gte.${months[0]}&month=lte.${last}&select=row_kind,row_id,month,note,skip`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
-  const notesReady = nr.ok;
-  if (nr.ok) (await nr.json()).forEach((x) => notes.set(`${x.row_kind}|${x.row_id}|${x.month}`, x));
-  const cellsFor = (list, start, kind, id) => Object.fromEntries(months.map((ym) => {
-    const n = notes.get(`${kind}|${id}|${ym}`);
-    const extra = n ? { note: n.note || "", skip: !!n.skip } : {};
-    if (start && ym < start) return [ym, { due: false, ...extra }];
-    const here = list.filter((iv) => monthOf(iv) === ym);
-    return [ym, {
-      ...extra,
-      due: !(n && n.skip),
-      sent: here.some((iv) => iv.status === "sent" || iv.status === "paid"),
-      paid: here.some((iv) => iv.status === "paid"),
-      draft: here.some((iv) => iv.status === "draft"),
-      numbers: here.map((iv) => `${iv.number || "draft"} (${iv.status})`),
-    }];
-  }));
-  const rows = [];
-  const stoppedRec = await smmStoppedLeads(env, recurring.map((r) => r.lead_id));
-  recurring = recurring.filter((r) => !(r.lead_id && stoppedRec.has(r.lead_id)));
-  for (const l of leads) {
-    const mine = invs.filter((iv) => iv.booking_source === "smm" && iv.booking_id === l.id);
-    rows.push({ kind: "social", id: l.id, client: l.business || l.full_name || "Client", contact: l.full_name || "", manager: l.social_media_manager || "",
-      amount_pence: pounds(l.price), note: l.inter_brand_invoice ? "Billed to another brand" : "",
-      cells: cellsFor(mine, l.start_date ? String(l.start_date).slice(0, 7) : null, "social", l.id) });
-  }
-  for (const r of recurring) {
-    const want = String(r.match_email || "").toLowerCase().trim(), text = String(r.match_text || "").toLowerCase().trim();
-    const mine = invs.filter((iv) => iv.recurring_id === r.id || (!iv.recurring_id && !iv.booking_id && String(iv.bill_to_email || "").toLowerCase().trim() === want
-      && (!text || JSON.stringify([iv.line_items || [], iv.notes || ""]).toLowerCase().includes(text))));
-    rows.push({ kind: "recurring", id: r.id, client: r.name, contact: r.contact_name || "", amount_pence: r.amount_pence ?? null,
-      match_email: r.match_email, match_text: r.match_text || "", start_month: r.start_month || "",
-      // What the automatic invoicing needs (supabase/invoicing_automation.sql).
-      auto: { auto_send: !!r.auto_send, day_of_month: r.day_of_month ?? null, frequency: r.frequency || "monthly", end_month: r.end_month || "", bill_to_name: r.bill_to_name || "", bill_to_email: r.bill_to_email || "", cc_email: r.cc_email || "", bill_to_address: r.bill_to_address || "", line: (Array.isArray(r.line_items) && r.line_items[0] && r.line_items[0].description) || "", terms_days: r.terms_days ?? null },
-      cells: cellsFor(mine, r.start_month || null, "recurring", r.id) });
-  }
-  // Videography: where each shoot's invoice is. The rule: invoiced two days
-  // before the shoot; past that and not sent, we're late (Danielle, 30 Sep
-  // 2026). Shown: this month's shoots (and the first two days of next month,
-  // whose invoice is due this month), plus any earlier shoot still unsettled.
-  // Settled past shoots stay off, or the page fills with done work.
-  const nowYm = londonToday().ym;
-  const nextStart = `${ymAdd(nowYm, 1)}-01`;
-  const lookEnd = new Date(Date.parse(nextStart + "T00:00:00Z") + 2 * 864e5).toISOString().slice(0, 10);
-  const bookings = await readAll("videography_bookings",
-    `shoot_date=gte.${ymAdd(nowYm, -12)}-01T00:00:00&shoot_date=lt.${lookEnd}T00:00:00&kind=eq.booking&stage=neq.cancelled&select=*&order=shoot_date.asc,id.asc`);
-  const vInv = [];
-  const bIds = bookings.map((b) => b.id);
-  for (let i = 0; i < bIds.length; i += 80) {
-    vInv.push(...(await readAll("invoices", `booking_source=eq.videography&booking_id=in.(${bIds.slice(i, i + 80).join(",")})&status=neq.void&select=booking_id,number,status,total_pence,due_date,paid_date&order=created_at.asc,id.asc`)));
-  }
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const shoots = bookings.map((b) => {
-    const mine = vInv.filter((iv) => iv.booking_id === b.id);
-    const sent = mine.filter((iv) => iv.status === "sent" || iv.status === "paid");
-    const shootDay = String(b.shoot_date || "").slice(0, 10);
-    const dueBy = shootDay ? new Date(Date.parse(shootDay + "T12:00:00Z") - 2 * 864e5).toISOString().slice(0, 10) : null;
-    let status;
-    if (b.payment_route === "smm_package") status = "package";
-    else if (b.paid_at || mine.some((iv) => iv.status === "paid")) status = "paid";
-    else if (sent.length) status = sent.some((iv) => iv.due_date && iv.due_date < todayIso) ? "payment_overdue" : "sent";
-    else status = dueBy && todayIso >= dueBy ? "late" : "not_due";
-    const brand = b.payment_route === "brand_invoice" || b.payment_route === "brand_invoice_teg";
-    return {
-      id: b.id, client: b.client_name || "Client", company: b.client_company || b.company || "", service: b.service || "",
-      shoot_date: b.shoot_date, due_by: dueBy, status, draft: mine.some((iv) => iv.status === "draft"),
-      amount_pence: sent[0]?.total_pence ?? mine[0]?.total_pence ?? b.total_pence ?? null,
-      numbers: mine.map((iv) => `${iv.number || "draft"} (${iv.status})`), billed_to: brand ? "Brand" : "",
-      earlier: shootDay.slice(0, 7) < nowYm,
-    };
-  // Shoots covered by a social package never need an invoice, so they're left
-  // off altogether (Danielle, 30 Sep 2026).
-  }).filter((x) => x.status !== "package" && (!x.earlier || x.status !== "paid"));
-  return { months, rows, shoots, recurringReady, notesReady, today: londonToday().ym, warnings, found: { social: leads.length, invoices: invs.length, shoots: shoots.length } };
-}
 
-// Every morning: a shoot whose invoice should have gone two days before it and
-// hasn't. One bell per shoot, the first morning it's late (Danielle, 30 Sep
-// 2026). Looks back a month so a miss isn't lost, and ahead only as far as
-// two days, which is when an invoice becomes due.
-async function runLateVideoInvoiceCheck(env) {
-  const day = (ms) => new Date(ms).toISOString().slice(0, 10);
-  const now = Date.now();
-  const bookings = (await sbGetAll(env, "videography_bookings",
-    `shoot_date=gte.${day(now - 30 * 864e5)}T00:00:00&shoot_date=lt.${day(now + 3 * 864e5)}T00:00:00&kind=eq.booking&stage=neq.cancelled&select=*&order=shoot_date.asc,id.asc`)) || [];
-  const today = day(now);
-  for (const b of bookings) {
-    if (b.payment_route === "smm_package" || b.paid_at) continue;
-    const shootDay = String(b.shoot_date || "").slice(0, 10);
-    if (!shootDay) continue;
-    const dueBy = day(Date.parse(shootDay + "T12:00:00Z") - 2 * 864e5);
-    if (today < dueBy) continue;
-    const invs = (await sbGet(env, "invoices", `booking_source=eq.videography&booking_id=eq.${encodeURIComponent(b.id)}&status=in.(sent,paid)&select=id&limit=1`)) || [];
-    if (invs.length) continue;
-    const when = new Date(shootDay + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-    await notifyAdmins(env, {
-      area: "money", event: "video_invoice_late",
-      title: `Invoice late: ${b.client_name || "a shoot"}`,
-      body: `Shoot ${when}${b.service ? ` (${b.service})` : ""}. It should have been invoiced by two days before, and nothing has gone out yet.`,
-      href: `/admin/videography?booking=${encodeURIComponent(b.id)}`,
-      key: `video-invoice-late:${b.id}`,
-    });
-  }
-}
 
-// On the 14th and 21st, 08:00: anything due this month and not sent yet.
-async function runMonthlyInvoiceCheck(env) {
-  const { ym, day } = londonToday();
-  if (day !== 14 && day !== 21) return;
-  const { rows } = await monthlyInvoiceChecklist(env, ym, 1);
-  const missing = rows.filter((r) => r.cells[ym] && r.cells[ym].due && !r.cells[ym].sent);
-  if (!missing.length) return;
-  const monthName = new Date(`${ym}-15T12:00:00Z`).toLocaleDateString("en-GB", { month: "long" });
-  const names = missing.map((r) => r.client + (r.cells[ym].draft ? " (draft not sent)" : ""));
-  await notifyAdmins(env, {
-    area: "money", event: "invoices_not_sent",
-    title: `${missing.length} ${missing.length === 1 ? "invoice hasn't" : "invoices haven't"} gone out for ${monthName}`,
-    body: names.slice(0, 8).join(", ") + (names.length > 8 ? `, and ${names.length - 8} more` : ""),
-    href: "/admin/invoicing?tab=monthly",
-    key: `invoices-not-sent:${ym}:${day}`,
-  });
-}
 
-async function runInvoicePrompt(env) {
-  // Automatic invoicing in live mode drafts these and asks Jack itself, so
-  // the "invoices to raise" list would only repeat it.
-  try { const st0 = (await sbGet(env, "invoice_settings", "id=eq.1&select=automation_mode"))?.[0]; if (st0 && st0.automation_mode === "live") return; } catch (_) {}
-  const inTwoDays = new Date();
-  inTwoDays.setDate(inTwoDays.getDate() + 2);
-  const day = inTwoDays.toISOString().slice(0, 10);
 
-  const shoots = (await sbGet(env, "videography_bookings",
-    `shoot_date=gte.${day}T00:00:00&shoot_date=lte.${day}T23:59:59`
-    + `&stage=neq.cancelled&invoice_prompt_sent_at=is.null&kind=eq.booking&select=*`)) || [];
-  if (!shoots.length) return;
 
-  const needing = [];
-  for (const bk of shoots) {
-    const invs = (await sbGet(env, "invoices",
-      `booking_id=eq.${encodeURIComponent(bk.id)}&select=id,status`)) || [];
-    // A voided invoice is not an invoice. If the only one was cancelled, this
-    // shoot still needs billing.
-    if (invs.some((iv) => iv.status !== "void")) continue;
-    needing.push(bk);
-  }
-  if (!needing.length) return;
 
-  const team = [...new Set([env.ACCOUNTS_NOTIFY, env.JACK_NOTIFY || env.JACK_UPN]
-    .flatMap((v) => String(v || "").split(","))
-    .map((v) => v.trim()).filter(Boolean))];
-  if (!team.length) return;
 
-  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const rowsHtml = needing.map((bk) => {
-    const brand = bk.payment_route === "brand_invoice" || bk.payment_route === "brand_invoice_teg";
-    // Only an F&C invoice needs the office to confirm the fee first - TEG has
-    // no such step, so this must never fire for it.
-    const blocked = bk.payment_route === "brand_invoice" && !bk.brand_fee_confirmed;
-    const where = (bk.property_address || bk.location || "").replace(/\s*\n\s*/g, ", ").trim();
-    return `<tr>
-      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.client_name || "-")}</td>
-      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.service || "-")}${where ? `<br><span style="color:#8a8796">${esc(where)}</span>` : ""}</td>
-      <td style="padding:7px 12px 7px 0;font-size:12px">${brand ? "Brand" : "Client"}</td>
-      <td style="padding:7px 0;font-size:12px">${bk.total_pence != null ? esc(gbpW(bk.total_pence)) : "-"}${
-        blocked ? `<br><span style="color:#8a5a2b">Fee not confirmed yet</span>` : ""}</td>
-    </tr>`;
-  }).join("");
 
-  const niceDay = inTwoDays.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
-  const sent = await sendEmail(env, {
-    to: team,
-    subject: `Invoices to raise — ${needing.length} shoot${needing.length === 1 ? "" : "s"} on ${niceDay}`,
-    html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
-      <p style="${EM_P}">These shoots are on <strong>${esc(niceDay)}</strong> and haven't been invoiced yet.</p>
-      <table style="border-collapse:collapse;margin:0 0 14px">
-        <tr>
-          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Client</th>
-          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Shoot</th>
-          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Billed to</th>
-          <th style="text-align:left;padding:0 0 6px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Amount</th>
-        </tr>
-        ${rowsHtml}
-      </table>
-      <p style="${EM_P}">Raise each from its booking in the admin centre - that links the invoice to the shoot, which is what lets payment release the client's PIN on its own.</p>
-      <p style="${EM_SMALL}">Anything marked "fee not confirmed yet" is a Fine &amp; Country shoot where the office hasn't confirmed they hold the marketing fee. That has to be settled before the invoice can go.</p>
-    </div>`),
-  });
-  if (!sent.ok) return;
 
-  const stamp = new Date().toISOString();
-  for (const bk of needing) {
-    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`, { invoice_prompt_sent_at: stamp });
-  }
-}
 
-/* ---- Stalled shoots -------------------------------------------------------
-   A shoot left in one stage too long looks exactly like one that moved
-   yesterday, so nothing surfaces it. This does.
 
-   Thresholds are per stage because "too long" means different things: a day in
-   Shoot day is normal, a fortnight in Editing is not. They are deliberately
-   generous - an alert that fires early is one people learn to ignore.
 
-   Reported once when it stalls, then weekly while it stays stuck. Recording
-   which STAGE was alerted means a shoot that moves on and stalls somewhere
-   else is reported afresh rather than staying quiet.
---------------------------------------------------------------------------- */
-const STALL_DAYS = {
-  // Only the stages where a shoot genuinely sits waiting on us. Booked,
-  // Invoiced and Shoot day all move themselves - on the shoot date, and again
-  // the morning after - so a shoot cannot quietly rot in any of them.
-  editing: 10,       // 1.5 days editing + the amendments buffer, generously
-  gallery_ready: 5,  // gallery built but never sent
-  sent: 10,          // with the client, still unpaid or edits unsettled
-};
 
-// A live funnel that's run out of people but still has dated emails to
-// send: nobody will get them. That's how the Autumn Edit's email 3 was
-// missed (Sep 2026: a broken check ended every journey after email 2, and
-// the only sign was "0 in the funnel"). Checked every morning; one bell
-// notification per email, so it isn't repeated daily.
-async function runEmptyFunnelCheck(env) {
-  try {
-    const autos = (await sbGet(env, "automations", "status=eq.active&select=id,name,graph")) || [];
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
-    for (const a of autos) {
-      const nodes = ((a.graph || {}).nodes) || [];
-      const sends = nodes.filter((n) => n.type === "send_email" && n.config && /^\d{4}-\d{2}-\d{2}$/.test(String(n.config.send_on || "")))
-        .sort((x, y) => String(x.config.send_on).localeCompare(String(y.config.send_on)));
-      const upcoming = sends.filter((n) => n.config.send_on >= today);
-      if (!upcoming.length) continue;
-      const live = (await sbGet(env, "automation_enrollments", `automation_id=eq.${encodeURIComponent(a.id)}&status=in.(active,waiting)&select=id&limit=1`)) || [];
-      if (live.length) continue;
-      const next = upcoming[0];
-      const which = sends.indexOf(next) + 1;
-      const when = new Date(`${next.config.send_on}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-      await notifyAdmins(env, {
-        area: "problem", event: "funnel_empty",
-        title: `${a.name}: nobody left for email ${which}`,
-        body: `The funnel is live but has nobody in it, so email ${which} on ${when}${next.config.send_at ? ` at ${next.config.send_at}` : ""} won't go to anyone. Check what ended everyone's journey.`,
-        href: `/admin/automations/edit?id=${a.id}`,
-        key: `funnel_empty:${a.id}:${next.id}`,
-        meta: { automation_id: a.id, node_id: next.id },
-      });
-    }
-  } catch (e) { console.error("runEmptyFunnelCheck", String((e && e.message) || e).slice(0, 200)); }
-}
 
-async function runStallCheck(env) {
-  const now = Date.now();
-  const days = (ms) => Math.floor((now - ms) / 86400000);
-  const rows = (await sbGet(env, "videography_bookings",
-    `stage=in.(editing,gallery_ready,sent)&select=*`)) || [];
 
-  const stalled = [];
-  for (const bk of rows) {
-    const limit = STALL_DAYS[bk.stage];
-    if (!limit) continue;
-    // updated_at is when the row last changed, which for a stage move is the
-    // move itself - so this measures time sitting in the current stage.
-    const since = Date.parse(bk.updated_at || bk.created_at || "");
-    if (!since) continue;
-    const stuckFor = days(since);
-    if (stuckFor < limit) continue;
 
-    // Once per stall, then weekly.
-    const alerted = bk.stalled_alerted_at ? Date.parse(bk.stalled_alerted_at) : 0;
-    const sameStage = bk.stalled_alerted_stage === bk.stage;
-    if (sameStage && alerted && days(alerted) < 7) continue;
 
-    stalled.push({ bk, stuckFor });
-  }
-  if (!stalled.length) return;
 
-  const team = [...new Set([env.ACCOUNTS_NOTIFY, env.JACK_NOTIFY || env.JACK_UPN]
-    .flatMap((v) => String(v || "").split(","))
-    .map((v) => v.trim()).filter(Boolean))];
-  if (!team.length) return;
 
-  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const STAGE_NAME = { editing: "Editing", gallery_ready: "Gallery ready", sent: "Sent" };
 
-  const rowsHtml = stalled.map(({ bk, stuckFor }) => `
-    <tr>
-      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.client_name || "-")}</td>
-      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.service || "-")}</td>
-      <td style="padding:7px 12px 7px 0;font-size:12px"><strong>${esc(STAGE_NAME[bk.stage] || bk.stage)}</strong></td>
-      <td style="padding:7px 0;font-size:12px">${stuckFor} days</td>
-    </tr>`).join("");
 
-  const sent = await sendEmail(env, {
-    to: team,
-    subject: `${stalled.length} videography shoot${stalled.length === 1 ? "" : "s"} sitting still`,
-    html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
-      <p style="${EM_P}">These shoots haven't moved in a while. Most likely the work has happened and the system hasn't been told - worth a quick check, and a note on anything that is genuinely held up.</p>
-      <table style="border-collapse:collapse;margin:0 0 14px">
-        <tr>
-          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Client</th>
-          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Service</th>
-          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Stuck at</th>
-          <th style="text-align:left;padding:0 0 6px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">For</th>
-        </tr>
-        ${rowsHtml}
-      </table>
-      <p style="${EM_SMALL}">You'll get this once when a shoot stalls, then weekly while it stays put. Moving it on stops it.</p>
-    </div>`),
-  });
-  if (!sent.ok) return;
-
-  const stamp = new Date().toISOString();
-  for (const { bk } of stalled) {
-    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`,
-      { stalled_alerted_at: stamp, stalled_alerted_stage: bk.stage });
-  }
-}
-
-/* ---- Invoice chasing ------------------------------------------------------
-   Two emails on the same daily run:
-
-     on the due date        -> a reminder to the client
-     the day after          -> an alert to Danielle and Jack, who chase it
-                               however the situation deserves
-
-   Deliberately keyed on the INVOICE rather than the booking, so social media
-   management invoices are covered by the same code rather than a second copy
-   of it that drifts.
-
-   Direct Debit invoices are skipped entirely. Those are reminders to our own
-   accounts team about money that collects itself; chasing the client for it
-   would be worse than not chasing at all.
---------------------------------------------------------------------------- */
-/* Every chaser leaves a trace in two places: the contact's email history, and -
-   when the invoice belongs to a shoot - the booking's own record, so the
-   invoice panel can show what was sent and when without anyone going hunting
-   through a mailbox. An automatic email nobody can see having been sent is
-   indistinguishable from one that never went. */
-async function logInvoiceChase(env, inv, subject, to, internal) {
-  try {
-    await logEmailEvent(env, {
-      email: to, event: "sent", provider: "microsoft", subject,
-      detail: internal ? `Overdue alert for invoice ${inv.number}` : `Due-date reminder for invoice ${inv.number}`,
-    });
-  } catch (_) {}
-  if (!inv.booking_id) return;
-  try {
-    await logBookingMessage(env, {
-      booking_id: inv.booking_id,
-      booking_source: inv.booking_source || "videography",
-      client_email: internal ? null : inv.bill_to_email,
-      // Internal alerts are notes, not correspondence - a client must never see
-      // us discussing chasing them.
-      channel: internal ? "note" : "email",
-      kind: internal ? "invoice_overdue_alert" : "invoice_chase",
-      subject,
-      body: internal
-        ? `Overdue alert sent to ${to}.`
-        : `Due-date reminder sent to ${to}.`,
-      is_automated: true, created_by: "system",
-    });
-  } catch (_) {}
-}
-
-async function runInvoiceChasers(env) {
-  const iso = (d) => d.toISOString().slice(0, 10);
-  const today = new Date();
-  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
-  const niceDate = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-
-  // ---- 1. Due today: remind the client -----------------------------------
-  const dueToday = (await sbGet(env, "invoices",
-    `status=eq.sent&due_date=eq.${iso(today)}&due_reminder_sent_at=is.null&select=*`)) || [];
-
-  for (const inv of dueToday) {
-    if (inv.payment_method === "direct_debit") continue;
-    if (!inv.bill_to_email) continue;
-
-    let payUrl = null;
-    if (inv.pay_by_card && env.STRIPE_SECRET_KEY) payUrl = await invoicePayUrl(env, inv.id);
-    let attachments;
-    try {
-      const obj = await env.BUCKET.get(`invoices/${inv.number}.pdf`);
-      if (obj) attachments = [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(await obj.arrayBuffer()), contentType: "application/pdf" }];
-    } catch (_) {}
-
-    // Wording: src/lib/invoice-email.js (email 8 in Danielle's doc).
-    const rem = invoiceReminderEmail(inv, await invoiceEmailCtx(env, inv));
-    const mail = invoiceMailTo(inv.bill_to_email, null);
-    const sent = await sendEmail(env, {
-      to: mail.to,
-      subject: rem.subject,
-      attachments,
-      html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, rem.body, payUrl, null, { noStripeLine: true })),
-    });
-    if (!sent.ok) continue;
-    await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { due_reminder_sent_at: new Date().toISOString() });
-    await logInvoiceChase(env, inv, `Invoice ${inv.number} is due today.`, inv.bill_to_email, false);
-  }
-
-  // ---- 2. A day past due: tell Danielle and Jack --------------------------
-  const overdue = (await sbGet(env, "invoices",
-    `status=eq.sent&due_date=eq.${iso(yesterday)}&overdue_alerted_at=is.null&select=*`)) || [];
-
-  const team = [...new Set([env.ACCOUNTS_NOTIFY || st.accounts_cc_email, env.JACK_NOTIFY || env.JACK_UPN]
-    .flatMap((v) => String(v || "").split(","))
-    .map((v) => v.trim())
-    .filter(Boolean))];
-
-  for (const inv of overdue) {
-    if (inv.payment_method === "direct_debit") continue;
-    if (!team.length) break;
-
-    const sent = await sendEmail(env, {
-      to: team,
-      subject: `Overdue: invoice ${inv.number} - ${inv.bill_to_name || "client"}`,
-      html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
-        <p style="${EM_P}">Invoice <strong>${esc(inv.number)}</strong> passed its due date yesterday and is still unpaid.</p>
-        <p style="${EM_QUOTE}">Billed to: ${esc(inv.bill_to_name || "-")}<br>Amount: ${esc(gbpW(inv.total_pence))}<br>Due: ${esc(niceDate(inv.due_date))}<br>Sent to: ${esc(noAutoLink(inv.bill_to_email || "-"))}</p>
-        <p style="${EM_P}">The client had a reminder on the due date. Worth deciding how to chase this one.</p>
-        <p style="${EM_SMALL}">If it has been paid and we simply haven't recorded it, mark it paid in the admin centre - that releases the client's PIN and stops any further chasers.</p>
-      </div>`),
-    });
-    if (!sent.ok) continue;
-    await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { overdue_alerted_at: new Date().toISOString() });
-    await logInvoiceChase(env, inv, `Overdue: invoice ${inv.number}`, team.join(", "), true);
-  }
-}
-
-/* ---- Daily videography chasers ------------------------------------------
-   Two jobs that ride the existing 08:00 cron, because both are "look for rows
-   matching a date, send once, stamp a column so it never repeats".
-
-   Everything else in this process happens because a person pressed something.
-   These two cannot: a reminder that arrives when someone remembers is not a
-   reminder, and a gallery that expires without warning is just a gallery that
-   disappeared.
---------------------------------------------------------------------------- */
-// "Hi ," is worse than no greeting, and a client whose name we only hold as a
-// company should not be addressed as that company.
-function firstName(full) {
-  const first = String(full || "").trim().split(/\s+/)[0];
-  return first || "there";
-}
-
-// Most email clients auto-detect anything shaped like an email address and
-// turn it into their own mailto: link, styled however that client styles
-// links - regardless of the HTML we actually sent. That's wrong wherever
-// we're just telling someone what to type (into Pixieset, say), not asking
-// them to click. A zero-width space right after the @ breaks the pattern
-// match without changing how the address looks, copies, or reads to a
-// screen reader. Never use this on an address that's meant to be a real,
-// clickable mailto: link.
-function noAutoLink(v) {
-  const s = String(v ?? "");
-  const at = s.indexOf("@");
-  return at === -1 ? s : s.slice(0, at + 1) + "​" + s.slice(at + 1);
-}
 
 // A field like the 360 tour link is typed by hand, and "google.co.uk" is a
 // far more natural thing to type than "https://google.co.uk". Used as an
@@ -15723,101 +15859,7 @@ function normalizeUrl(v) {
   return /^https?:\/\//i.test(s) ? s : `https://${s}`;
 }
 
-async function runVideographyChasers(env) {
-  const today = new Date();
-  const iso = (d) => d.toISOString().slice(0, 10);
-  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  // ---- 1. Payment reminder, the day after the shoot ----------------------
-  // Deliberately a nudge: it lands on day three of a ten-day term, so they are
-  // not late and should not be told they are.
-  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-  const due = (await sbGet(env, "videography_bookings",
-    `shoot_date=gte.${iso(yesterday)}T00:00:00&shoot_date=lte.${iso(yesterday)}T23:59:59`
-    // A package shoot has no invoice to chase — reminding those clients to pay
-    // for something their package already covers is worse than staying quiet.
-    + `&paid_at=is.null&payment_route=neq.smm_package`
-    + `&reminder_sent_at=is.null&stage=neq.cancelled&select=*`)) || [];
-
-  for (const bk of due) {
-    const to = bk.client_email;
-    if (!to) continue;
-    const invs = (await sbGet(env, "invoices",
-      `booking_id=eq.${encodeURIComponent(bk.id)}&select=id,number,status,pay_by_card,total_pence&order=created_at.desc`)) || [];
-    const live = invs.find((iv) => iv.status !== "void" && iv.status !== "paid");
-    if (!live) continue;   // nothing outstanding to chase
-
-    let attachments, payUrl = null;
-    if (live.pay_by_card && env.STRIPE_SECRET_KEY) payUrl = await invoicePayUrl(env, live.id);
-    try {
-      const obj = await env.BUCKET.get(`invoices/${live.number}.pdf`);
-      if (obj) attachments = [{ filename: `Invoice-${live.number}.pdf`, content: bufToBase64(await obj.arrayBuffer()), contentType: "application/pdf" }];
-    } catch (_) {}
-
-    const sent = await sendEmail(env, {
-      to,
-      subject: "Great to see you yesterday - here's what happens next",
-      attachments,
-      html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
-        <p style="${EM_P}">Hi ${esc(firstName(bk.client_name))},</p>
-        <p style="${EM_P}">It was great shooting with you yesterday. We hope you enjoyed the session!</p>
-        <p style="${EM_P}">Now that your shoot is wrapped, Jack will get to work on your edits. This usually takes a few days, and as soon as everything is ready, we'll send you a link to your gallery where you can view your finished content.</p>
-        <p style="${EM_P}">In the meantime, a quick reminder that invoice ${esc(live.number)} for ${esc(gbpW(live.total_pence))} is awaiting payment. We've attached another copy here so you've got it to hand.</p>
-        <p style="${EM_P}">You can pay by card using the link below, or by bank transfer using the details on your invoice.</p>
-        ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay invoice</a></p>` : ""}
-        <p style="${EM_P}">You'll still be able to view your gallery when your edits are ready, but downloads will unlock once payment has been received.</p>
-        <p style="${EM_P}">We'll be back in touch as soon as your content is ready. We can't wait for you to see it!</p>
-        <p style="${EM_P}">The TMKE Team</p>
-      </div>`),
-    });
-    if (!sent.ok) continue;
-
-    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`, { reminder_sent_at: new Date().toISOString() });
-    await logBookingMessage(env, {
-      booking_id: bk.id, booking_source: "videography",
-      account_user_id: bk.account_user_id, client_email: to,
-      channel: "email", kind: "payment_reminder", subject: "Great to see you yesterday - here's what happens next",
-      body: "Day-after-shoot reminder sent with the invoice.", is_automated: true, created_by: "system",
-    });
-  }
-
-  // ---- 2. Gallery expiry warning, a week out -----------------------------
-  const weekOut = new Date(today); weekOut.setDate(weekOut.getDate() + 7);
-  const expiring = (await sbGet(env, "videography_bookings",
-    `gallery_expires_on=eq.${iso(weekOut)}&expiry_warned_at=is.null&select=*`)) || [];
-
-  for (const bk of expiring) {
-    const to = bk.gallery_email || bk.client_email;
-    if (!to || !bk.gallery_url) continue;
-    const when = new Date(bk.gallery_expires_on + "T12:00:00")
-      .toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-
-    const shotOn = bk.shoot_date
-      ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
-      : "";
-    const sent = await sendEmail(env, {
-      to,
-      subject: "Your gallery expires in one week",
-      html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
-        <p style="${EM_P}">Hi ${esc(firstName(bk.client_name))},</p>
-        <p style="${EM_P}">Just a quick heads up that the gallery from your ${esc((bk.service || "shoot").toLowerCase())}${shotOn ? ` on ${esc(shotOn)}` : ""} is due to expire on ${esc(when)}.</p>
-        <p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open your gallery</a></p>
-        <p style="${EM_P}">You can also find the gallery by heading to Previous Bookings in TMKE Studio.</p>
-        <p style="${EM_P}">Once the gallery expires, your content will no longer be available to view or download, so we recommend having a quick check that you've got everything you need.</p>
-        <p style="${EM_P}">The TMKE Team</p>
-      </div>`),
-    });
-    if (!sent.ok) continue;
-
-    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`, { expiry_warned_at: new Date().toISOString() });
-    await logBookingMessage(env, {
-      booking_id: bk.id, booking_source: "videography",
-      account_user_id: bk.account_user_id, client_email: to,
-      channel: "email", kind: "gallery_expiring", subject: "Your gallery expires in one week",
-      body: `Expiry warning sent - gallery closes ${bk.gallery_expires_on}.`, is_automated: true, created_by: "system",
-    });
-  }
-}
 
 // Mints the edit-request page's capability token the first time it's needed
 // (i.e. the first time a paid-path gallery email goes out), so the link
