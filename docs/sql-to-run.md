@@ -4,11 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/teg_exceptions_titles_support.sql — one-off: Elliott Wakefield, Nicholas Charles and Vivienne Sharman-Lewis lose The Property Experts, Property Expert and Prestige Property Expert titles follow the brand, Ian Panter, Jim Harris and Sean Newman are ticked as management or support, and an agent's company follows their first brand from now on (6 Nov)
 
 
 ## Done
 
+- [x] supabase/teg_exceptions_titles_support.sql — one-off: Elliott Wakefield, Nicholas Charles and Vivienne Sharman-Lewis lose The Property Experts, Property Expert and Prestige Property Expert titles follow the brand, Ian Panter, Jim Harris and Sean Newman are ticked as management or support, and an agent's company follows their first brand from now on (6 Nov; ran 6 Nov)
 - [x] supabase/report_agents_by_brand.sql — report only, changes nothing: every live agent by brand, then anyone tagged TEG with no TPE, PPE or TLE brand (6 Nov; ran 6 Nov)
 - [x] supabase/contact_brand_tags.sql — Brand tags on contacts (Brand: The-Property-Experts and so on), worked out from each agent's live brands and kept up to date by themselves. It lists the counts at the end (6 Nov; ran 6 Nov)
 - [x] supabase/accounts_portal.sql — the accounts portal (private link and passcode), notes and not-paid reasons on invoices, and Revenue's costs and sectors. Until it's run, Invoicing and the portal say so instead of opening (6 Nov; ran 6 Nov)
