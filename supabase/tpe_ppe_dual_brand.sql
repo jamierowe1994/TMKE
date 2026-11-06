@@ -12,28 +12,23 @@
 -- brand. Stops without changing anything if one of the four can't be found.
 -- Safe to run twice. It sends no emails. The list at the end is what it did.
 
-begin;
-
-create temp table dual_excluded on commit drop as
-  select c.id, btrim(concat_ws(' ', c.first_name, c.last_name)) as name
+-- All one block, so it either all happens or none of it does. (The first version
+-- used a temporary table, which the Supabase SQL editor didn't keep between steps.)
+do $$
+declare
+  left_out uuid[];
+  found_names integer;
+begin
+  select array_agg(c.id), count(distinct lower(btrim(concat_ws(' ', c.first_name, c.last_name))))
+    into left_out, found_names
     from public.contacts c
    where lower(btrim(concat_ws(' ', c.first_name, c.last_name))) in
          ('elliott wakefield', 'gavin pretorious', 'nicholas charles', 'vivienne sharman-lewis');
 
-do $$
-begin
-  if (select count(distinct lower(name)) from dual_excluded) <> 4 then
-    raise exception 'Expected to find all four people to leave out, found %. Nothing has changed.',
-      (select count(distinct lower(name)) from dual_excluded);
+  if found_names <> 4 then
+    raise exception 'Expected to find all four people to leave out, found %. Nothing has changed.', found_names;
   end if;
-end $$;
 
-create temp table dual_added on commit drop as
-with pairs(have, want) as (
-  values ('The Property Experts', 'Prestige Property Experts'),
-         ('Prestige Property Experts', 'The Property Experts')
-),
-ins as (
   insert into public.agent_profiles
     (contact_id, brand, is_primary, is_new_starter, date_joined, postcode, area, job_title, email, phone,
      induction_month, package, promo_code, promo_code_id, trainer_name, trainer_email, status,
@@ -42,31 +37,31 @@ ins as (
          ap.induction_month, ap.package, ap.promo_code, ap.promo_code_id, ap.trainer_name, ap.trainer_email, ap.status,
          ap.brand_photo_url, ap.brand_photo_source, ap.brand_photo_updated_at
     from public.agent_profiles ap
-    join pairs p on btrim(ap.brand) = p.have
+    join (values ('The Property Experts', 'Prestige Property Experts'),
+                 ('Prestige Property Experts', 'The Property Experts')) as p(have, want)
+      on btrim(ap.brand) = p.have
+    join public.contacts c on c.id = ap.contact_id
    where ap.left_at is null
-     and ap.contact_id not in (select id from dual_excluded)
+     and ap.contact_id <> all (left_out)
+     and not ('Merged: dual-brand agent' = any (coalesce(c.tags, '{}')))
      and not exists (select 1 from public.agent_profiles o
-                      where o.contact_id = ap.contact_id and btrim(o.brand) = p.want)
-  returning contact_id, brand
-)
-select * from ins;
+                      where o.contact_id = ap.contact_id and btrim(o.brand) = p.want);
 
--- Someone who already had both: a photo on one, none on the other.
-update public.agent_profiles t
-   set brand_photo_url = s.brand_photo_url,
-       brand_photo_source = s.brand_photo_source,
-       brand_photo_updated_at = s.brand_photo_updated_at
-  from public.agent_profiles s
- where s.contact_id = t.contact_id
-   and btrim(s.brand) in ('The Property Experts', 'Prestige Property Experts')
-   and btrim(t.brand) in ('The Property Experts', 'Prestige Property Experts')
-   and btrim(s.brand) <> btrim(t.brand)
-   and s.left_at is null and t.left_at is null
-   and s.brand_photo_url is not null
-   and t.brand_photo_url is null
-   and t.contact_id not in (select id from dual_excluded);
-
-commit;
+  -- Someone who already had both: a photo on one, none on the other.
+  update public.agent_profiles t
+     set brand_photo_url = s.brand_photo_url,
+         brand_photo_source = s.brand_photo_source,
+         brand_photo_updated_at = s.brand_photo_updated_at
+    from public.agent_profiles s
+   where s.contact_id = t.contact_id
+     and btrim(s.brand) in ('The Property Experts', 'Prestige Property Experts')
+     and btrim(t.brand) in ('The Property Experts', 'Prestige Property Experts')
+     and btrim(s.brand) <> btrim(t.brand)
+     and s.left_at is null and t.left_at is null
+     and s.brand_photo_url is not null
+     and t.brand_photo_url is null
+     and t.contact_id <> all (left_out);
+end $$;
 
 -- Everyone at these two brands now. Check for anyone who shouldn't be dual, such
 -- as an associate, and anyone with no photo on either brand.
