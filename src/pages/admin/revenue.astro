@@ -38,7 +38,7 @@ import "../../styles/money-os.css";
   </style>
 
   <script>
-    import { SECTORS, SECTOR_NAME, REV_RULES, gbp, pct, ymLabel, monShort, ymAddMonths, baseFor, costFor, hasCost, monthPL, monthTotal, revenueByMonth, plTable, plNotes, barsSvg, profitSvg } from "../../lib/revenue.js";
+    import { andList, SECTORS, SECTOR_NAME, REV_RULES, gbp, pct, ymLabel, monShort, ymAddMonths, baseFor, costFor, hasCost, monthPL, monthTotal, revenueByMonth, plTable, plNotes, barsSvg, profitSvg } from "../../lib/revenue.js";
     import { supabase } from "../../lib/supabase.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -193,7 +193,7 @@ import "../../styles/money-os.css";
       });
       q('[data-ftot="staff"]').textContent = gbp(ft.staff); q('[data-ftot="tech"]').textContent = gbp(ft.tech); q('[data-ftot="all"]').textContent = gbp(ft.staff + ft.tech);
       const missing = SECTORS.filter(([a]) => !hasCost(cpVal(a))).map(([, n]) => n);
-      $("cp-live").textContent = isBase ? (missing.length ? `${missing.join(" and ")} has no figures yet, so it stays out of the profit until it does.` : "") : `${ymLabel(CP.month)}: ${gbp(rev)} revenue, ${gbp(ft.staff + ft.tech)} costs, ${gbp(rev - ft.staff - ft.tech)} profit${missing.length ? `, not counting ${missing.join(" and ")}` : ""}.`;
+      $("cp-live").textContent = isBase ? (missing.length ? `${andList(missing)} ${missing.length > 1 ? "have" : "has"} no figures yet, so ${missing.length > 1 ? "they stay" : "it stays"} out of the profit until ${missing.length > 1 ? "they do" : "it does"}.` : "") : `${ymLabel(CP.month)}: ${gbp(rev)} revenue, ${gbp(ft.staff + ft.tech)} costs, ${gbp(rev - ft.staff - ft.tech)} profit${missing.length ? `, not counting ${andList(missing)}` : ""}.`;
     }
     async function saveCosts(btn) {
       btn.disabled = true;

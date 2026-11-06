@@ -107,12 +107,14 @@ export function revenueByMonth(payments) {
   return out;
 }
 
+export const andList = (a) => (a.length > 1 ? `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}` : a[0] || "");
+
 /* The lines under a month's profit. No figure is left unexplained. */
 export function plNotes(ym, thisMonth, rev, pl, withBtn) {
   const box = (words, btn) => `<div class="closed"><span>${words}</span>${btn || ""}</div>`;
   let out = "";
   const uncosted = pl.rows.filter((r) => !r.has).reduce((t, r) => t + r.rev, 0);
-  if (pl.missing.length) out += box(`${pl.missing.join(" and ")} isn't counted in the profit yet, because its costs aren't in. That leaves ${gbp(uncosted)} of revenue out of the profit.`, withBtn ? '<button type="button" class="mbtn" data-costs="base">Add the costs</button>' : "");
+  if (pl.missing.length) out += box(`${andList(pl.missing)} ${pl.missing.length > 1 ? "aren't" : "isn't"} counted in the profit yet, because ${pl.missing.length > 1 ? "their" : "its"} costs aren't in. That leaves ${gbp(uncosted)} of revenue out of the profit.`, withBtn ? '<button type="button" class="mbtn" data-costs="base">Add the costs</button>' : "");
   if (rev && rev.pick) out += box(`${gbp(rev.pick)} of revenue isn't under a sector yet, so it isn't counted in the profit. Choose its sector on the invoice.`);
   if (ym === thisMonth) out += box(`${ymLabel(ym).split(" ")[0]} isn't finished, so this is the whole month's costs against the revenue so far.`);
   return out;
