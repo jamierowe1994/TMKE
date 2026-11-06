@@ -7005,7 +7005,7 @@ async function morningJobsOn(env) {
    know about it: what kind of work it was, who the work was for, whether it's
    inter-brand and which sector its money goes under. None of that's on the
    invoice row, so it's worked out here, once, for both pages. */
-const BOOK_COLS = "id,number,booking_id,booking_source,recurring_id,billing_month,bill_to_name,bill_to_email,client_name,line_items,subtotal_pence,vat_pence,total_pence,status,issued_date,due_date,paid_date,payment_method,pay_by_card,sent_at,sent_to,release_on_payment,accounts_note,accounts_not_paid,accounts_marked_at,accounts_reminders,sector,created_at";
+const BOOK_COLS = "id,number,booking_id,booking_source,recurring_id,billing_month,bill_to_name,bill_to_email,client_name,line_items,subtotal_pence,vat_pence,total_pence,status,issued_date,due_date,paid_date,payment_method,pay_by_card,sent_at,sent_to,release_on_payment,accounts_note,accounts_marked_at,accounts_reminders,sector,created_at";
 function chunks(a, n) { const out = []; for (let i = 0; i < a.length; i += n) out.push(a.slice(i, i + n)); return out; }
 async function revenueOverrides(env) {
   const rows = await sbGet(env, "revenue_rules", "select=source,sector");
@@ -7055,7 +7055,7 @@ function invoiceBookRow(v, ctx) {
     due: String(v.due_date || "").slice(0, 10),
     paid_on: String(v.paid_date || "").slice(0, 10), paid_how: v.accounts_marked_at ? "Accounts confirmed" : v.payment_method === "card" ? "Card" : v.payment_method === "direct_debit" ? "Direct debit" : v.status === "paid" ? "Marked paid" : "",
     method: v.payment_method || "", pay_by_card: !!v.pay_by_card,
-    note: v.accounts_note || "", not_paid: v.accounts_not_paid || "", marked_at: v.accounts_marked_at || null,
+    note: v.accounts_note || "", marked_at: v.accounts_marked_at || null,
     reminders: Array.isArray(v.accounts_reminders) ? v.accounts_reminders : [],
     release: bk && !bk.pin_released_at && !bk.paid_at ? "Gallery PIN" : "", content_ready: contentReady,
     booking_id: v.booking_id || null, booking_source: v.booking_source || null,
@@ -7134,15 +7134,15 @@ function accountsFirstEmail(env, p) {
     ${H("What the page is")}
     ${P("It's a private web page just for accounts, which you open with a link and a passcode. It lists every invoice still open, grouped by month, with the invoice number, client, who it's billed to, sent date, due date and net amount without VAT, and it shows whether an invoice is <strong>Overdue</strong>.")}
     ${P("Each invoice is labelled <strong>Inter-brand</strong> or <strong>External client</strong> and has a <strong>View</strong> button that opens it, so you won't need any attachments. The invoices themselves still come through as they do now.")}
-    ${P("Invoices paid by card aren't on the page, because we already know they're paid. A month stays there until everything in it is closed, then drops off by itself.")}
+    ${P("An unpaid invoice with the option to pay by card is still on the page. Once the client pays by card, we already know it's been paid, so it comes off and there's nothing for you to do. A month stays there until everything in it is closed, then drops off by itself.")}
     ${H("What you need to do")}
     ${P("You can open the page using the button below. I'll give you the passcode separately, as it's never sent by email, and it doesn't matter whether you use capitals.")}
     <p style="${EM_P}"><a href="${accountsLink(env, p)}" style="${EM_BTN}">Open the accounts portal</a></p>
     ${P("Once you're in, here's what to do with each invoice. We see it on our side straight away:")}
     <ul style="margin:0 0 14px;padding:0 0 0 18px;">
-      ${LI("<strong>External client invoices:</strong> Press <strong>Paid</strong> once the money has landed, or <strong>Not paid</strong> and say why in the note box.")}
+      ${LI("<strong>External client invoices:</strong> Press <strong>Paid</strong> once the money has landed. Until then the invoice simply stays on the page, so there's nothing else to press.")}
       ${LI("<strong>Inter-brand invoices:</strong> Press <strong>This has been settled</strong> once it's been settled.")}
-      ${LI("<strong>Notes:</strong> You can add a note to any invoice with the note icon, and both sides will see it.")}
+      ${LI("<strong>Notes:</strong> If there's a problem with an invoice, add a note with the note icon or message us. Both sides can see notes.")}
       ${LI("<strong>Mistakes:</strong> If you make a mistake, press <strong>Undo</strong> while you're still on the page.")}
     </ul>
     ${P("<strong>Important:</strong> Please only mark an invoice once the money has arrived. Marking a videography invoice paid releases the client's content straight away, because their download PIN goes out automatically. That can't be taken back, even with <strong>Undo</strong>.")}
@@ -11838,7 +11838,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const p = await accountsFromSession(env, request);
         if (!p) return json({ code: "signed_out" }, 401, request, env);
         // Only what accounts need to see, nothing about how it's filed with us.
-        const shown = (v) => ({ id: v.id, number: v.number, route: v.route, kind: v.kind, client: v.client, payer: v.payer, sent: v.sent, due: v.due, month: v.month, net_pence: v.net_pence, note: v.note, not_paid: v.not_paid, status: v.status, marked_at: v.marked_at });
+        const shown = (v) => ({ id: v.id, number: v.number, route: v.route, kind: v.kind, client: v.client, payer: v.payer, sent: v.sent, due: v.due, month: v.month, net_pence: v.net_pence, note: v.note, status: v.status, marked_at: v.marked_at });
         if (path.endsWith("/accounts-portal/invoices") && request.method === "GET") {
           const rows = await invoiceBook(env, PORTAL_FILTER);
           if (!rows) return json({ error: "Couldn't load the invoices." }, 502, request, env);
@@ -11874,18 +11874,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         }
         if (path.endsWith("/accounts-portal/mark") && request.method === "POST") {
           const action = String(b.action || "");
-          if (action === "not_paid") {
-            const why = String(b.reason || "").trim().slice(0, 2000);
-            if (!why) return json({ error: "Say why it isn't paid." }, 400, request, env);
-            const cur = (await sbGet(env, "invoices", `${at}&select=accounts_note`))?.[0];
-            const r = await sbPatch(env, "invoices", at, { accounts_not_paid: why, accounts_note: (cur && cur.accounts_note) || why });
-            if (!r.ok) return json({ error: "Couldn't save that." }, 502, request, env);
-            const row = (await invoiceBook(env, at))?.[0];
-            return json({ ok: true, invoice: row ? shown(row) : null }, 200, request, env);
-          }
           if (action === "paid") {
             if (inv.status !== "sent") return json({ error: "That one's already marked." }, 409, request, env);
-            const r = await sbPatch(env, "invoices", `${at}&status=eq.sent`, { status: "paid", paid_date: invToday().ymd, accounts_marked_at: new Date().toISOString(), accounts_not_paid: null });
+            const r = await sbPatch(env, "invoices", `${at}&status=eq.sent`, { status: "paid", paid_date: invToday().ymd, accounts_marked_at: new Date().toISOString() });
             if (!r.ok) return json({ error: "Couldn't save that. Please try again." }, 502, request, env);
             const fx = await invoicePaidEffects(env, id, "Accounts portal");
             return json({ ok: true, ...fx }, 200, request, env);

@@ -1,8 +1,9 @@
 ---
 // The accounts portal (Dani, 5-6 Nov 2026; agreed on the mock-up). One private
 // link (?c=…) plus a passcode, for Paula's team: every invoice still open, by
-// month. Mark it paid, not paid with a note, or settled if it's inter-brand. A
-// month stays until everything in it is closed. The Worker checks the passcode
+// month. Mark it paid, or settled if it's inter-brand; until then it stays, and
+// any problem goes in a note (no Not paid button, Dani, 6 Nov). A month stays
+// until everything in it is closed. The Worker checks the passcode
 // on every request; this page holds nothing but the sign-in it's given.
 import BaseLayout from "../layouts/BaseLayout.astro";
 ---
@@ -37,11 +38,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <main class="ac-wrap">
         <section class="ac-head">
           <div class="ac-title">Invoices to confirm.</div>
-          <p class="ac-sub">Mark each one paid, or not paid with a note saying why. A month stays here until everything in it is closed, then it drops off by itself.</p>
+          <p class="ac-sub">Mark each one once it's paid or settled. Until then there's nothing to press. If there's a problem, add a note or message us. A month stays here until everything in it is closed, then it drops off by itself.</p>
         </section>
         <div class="ac-figs" id="ac-figs"></div>
         <div id="ac-months"></div>
-        <p class="ac-foot">Amounts are net, without VAT. We email you on the 20th of each month, and again on the 28th if anything's still open. Invoices paid by card aren't here, because we already know they're paid.</p>
+        <p class="ac-foot">Amounts are net, without VAT. We email you on the 20th of each month, and again on the 28th if anything's still open. An unpaid invoice with the option to pay by card is still here. Once the client pays by card, we already know it's been paid, so it comes off by itself.</p>
       </main>
     </div>
   </div>
@@ -133,9 +134,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ac-ic svg { width: 15px; height: 15px; }
     .ac-ic:hover { border-color: var(--w); color: var(--w); }
     .ac-ic.has { background: var(--w); border-color: var(--w); color: #fff; }
-    .ac-why { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; }
-    .ac-why input { flex: 1; min-width: 0; height: 30px; border: 1px solid var(--s); border-radius: 4px; padding: 0 8px; background: #fff; color: var(--i); font: inherit; }
-    .ac-why .ac-btn { width: 58px; flex: none; }
     .ac-closed { padding: 12px 14px; border: 1px dashed var(--s); border-radius: 4px; color: var(--t); }
     .ac-empty { margin-top: 22px; padding: 26px; border: 1px dashed var(--s); border-radius: 4px; color: var(--t); text-align: center; }
     /* Running the whole width, not stopping halfway (Dani, 6 Nov). */
@@ -257,10 +255,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const ib = v.route === "internal";
       let acts;
       if (v.status === "paid") acts = `${view}<span class="ac-chip good">${ib ? "Settled" : "Paid"}</span><button type="button" class="ac-btn" data-undo="${v.id}">Undo</button>`;
-      else if (v._noting) acts = `<div class="ac-why"><input id="why-${v.id}" placeholder="Why not?" aria-label="Why it isn't paid"><button type="button" class="ac-btn pri" data-savewhy="${v.id}">Save</button></div>`;
-      else if (v.not_paid) acts = `${view}<span class="ac-chip bad">Not paid</span><button type="button" class="ac-btn pri" data-paid="${v.id}">Paid</button>`;
-      else if (ib) acts = `${view}<button type="button" class="ac-btn pri ac-wide" data-paid="${v.id}">This has been settled</button>`;
-      else acts = `${view}<button type="button" class="ac-btn" data-not="${v.id}">Not paid</button><button type="button" class="ac-btn pri" data-paid="${v.id}">Paid</button>`;
+      else acts = `${view}<button type="button" class="ac-btn pri ac-wide" data-paid="${v.id}">${ib ? "This has been settled" : "Paid"}</button>`;
       return `<tr><td><span class="ac-chip route ${ib ? "ib" : "ext"}">${ib ? "Inter-brand" : "External client"}</span></td><td class="tx">${esc(KIND[v.kind] || "Other")}</td><td>${esc(v.number)}</td><td title="${esc(v.client)}">${esc(v.client)}</td><td class="tx" title="${esc(v.payer)}">${esc(v.payer)}</td><td class="tx">${esc(day(v.sent))}</td><td class="tx">${esc(day(v.due))}</td><td class="num">${gbp(v.net_pence)}</td><td>${isOver(v) ? '<span class="ac-chip bad">Overdue</span>' : ""}</td><td><div class="ac-acts">${acts}</div></td><td><button type="button" class="ac-ic${v.note ? " has" : ""}" data-note="${v.id}" aria-label="${v.note ? "Read the note" : "Add a note"}" title="${v.note ? "There's a note" : "Add a note"}">${ICON_NOTE}</button></td></tr>`;
     }
 
@@ -288,18 +283,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         catch (err) { b.disabled = false; if (err.message !== "signed_out") toast(err.message); }
         return;
       }
-      if ((b = q("[data-not]"))) { const v = byId(b.dataset.not); v._noting = true; draw(); const i = $(`why-${v.id}`); if (i) i.focus(); return; }
-      if ((b = q("[data-savewhy]"))) {
-        const v = byId(b.dataset.savewhy), why = $(`why-${v.id}`).value.trim();
-        if (!why) { toast("Say why it isn't paid."); return; }
-        b.disabled = true;
-        try { await post("/accounts-portal/mark", { id: v.id, action: "not_paid", reason: why }); v.not_paid = why; if (!v.note) v.note = why; delete v._noting; draw(); toast("Saved. We can see it on our side."); }
-        catch (err) { b.disabled = false; if (err.message !== "signed_out") toast(err.message); }
-        return;
-      }
       if ((b = q("[data-paid]"))) {
         const v = byId(b.dataset.paid); b.disabled = true;
-        try { await post("/accounts-portal/mark", { id: v.id, action: "paid" }); v.status = "paid"; delete v.not_paid; draw(); toast(`${v.number} is marked ${v.route === "internal" ? "settled" : "paid"}.`); }
+        try { await post("/accounts-portal/mark", { id: v.id, action: "paid" }); v.status = "paid"; draw(); toast(`${v.number} is marked ${v.route === "internal" ? "settled" : "paid"}.`); }
         catch (err) { b.disabled = false; if (err.message !== "signed_out") toast(err.message); }
         return;
       }

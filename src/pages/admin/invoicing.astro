@@ -1540,14 +1540,13 @@ import "../../styles/money-os.css";
     const day = (d) => (d ? new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "");
     const sum = (a) => a.reduce((t, v) => t + v.net_pence, 0);
     const isOver = (v) => v.status === "sent" && v.due && v.due < TODAY;
-    const state = (v) => (v.status === "paid" ? "paid" : v.status === "draft" ? "draft" : v.not_paid ? "notpaid" : isOver(v) ? "over" : "wait");
+    const state = (v) => (v.status === "paid" ? "paid" : v.status === "draft" ? "draft" : isOver(v) ? "over" : "wait");
     const byId = (id) => (BOOK || []).find((x) => x.id === id);
     const held = (v) => v.content_ready && v.status !== "paid";
     function chip(v) {
       const s = state(v);
       if (s === "paid") return `<span class="chip good">Paid ${esc(day(v.paid_on))}</span>`;
       if (s === "draft") return '<span class="chip plain">Draft, not sent</span>';
-      if (s === "notpaid") return '<span class="chip bad">Accounts: not paid</span>';
       if (s === "over") return '<span class="chip bad">Overdue</span>';
       return '<span class="chip wait">Waiting</span>';
     }
@@ -1557,7 +1556,7 @@ import "../../styles/money-os.css";
       if (S.q && `${v.client} ${v.payer} ${v.number}`.toLowerCase().indexOf(S.q) < 0) return false;
       if (S.status === "paid" && v.status !== "paid") return false;
       if (S.status === "wait" && state(v) !== "wait") return false;
-      if (S.status === "over" && !(state(v) === "over" || state(v) === "notpaid")) return false;
+      if (S.status === "over" && state(v) !== "over") return false;
       return true;
     }
     function row(v) {
@@ -1589,7 +1588,7 @@ import "../../styles/money-os.css";
       $("io-prev").disabled = S.month === ms[0]; $("io-next").disabled = S.month === ms[ms.length - 1];
       const inMonth = BOOK.filter((v) => v.month === S.month);
       const c = {}; inMonth.forEach((v) => { c[v.kind] = (c[v.kind] || 0) + 1; });
-      const overAll = BOOK.filter((v) => state(v) === "over" || state(v) === "notpaid");
+      const overAll = BOOK.filter((v) => state(v) === "over");
       $("io-chips").innerHTML = `<button type="button" data-kind="all" aria-pressed="${S.kind === "all"}">All</button>` + KINDS.filter((k) => c[k[0]]).map((k) => `<button type="button" data-kind="${k[0]}" aria-pressed="${S.kind === k[0]}">${k[1]} <i>${c[k[0]]}</i></button>`).join("") + `<button type="button" data-status="over" aria-pressed="${S.status === "over"}">Overdue <i>${overAll.length}</i></button>`;
       const live = inMonth.filter((v) => v.status !== "draft"), paid = live.filter((v) => v.status === "paid"), wait = live.filter((v) => state(v) === "wait");
       const n = (a) => `${a.length} ${a.length === 1 ? "invoice" : "invoices"}`;
@@ -1599,7 +1598,6 @@ import "../../styles/money-os.css";
       // Needs you: only things someone has to do, worked out from the invoices.
       const needs = [];
       const need = (title, words, foot) => `<div class="need"><div class="need-t">${esc(title)}</div><p>${words}</p><div class="need-f">${foot}</div></div>`;
-      BOOK.filter((v) => v.not_paid).forEach((v) => needs.push(need(v.client, `Accounts say ${esc(v.number)} isn't paid: "${esc(v.not_paid)}"`, `<button type="button" class="mbtn" data-inv="${esc(v.id)}">Open</button>`)));
       BOOK.filter(held).forEach((v) => {
         const last = v.reminders[v.reminders.length - 1];
         needs.push(need(v.client, `Jack's finished, but ${esc(v.number)} isn't marked paid, so their content is held.${last ? ` Reminder sent ${esc(day(last))}.` : ""}`, `<button type="button" class="mbtn" data-inv="${esc(v.id)}">Open</button><button type="button" class="mbtn primary" data-email="${esc(v.id)}">Urgent reminder</button>`));
@@ -1613,7 +1611,7 @@ import "../../styles/money-os.css";
       if (TICKS) needs.push(need("Social media ticks", `Abigail has ticked ${TICKS.ticked} of ${TICKS.total} clients for ${esc(TICKS.month_label.split(" ")[0])}. Anyone not ticked isn't invoiced.`, `<a class="mbtn" href="/admin/social?go=invoices">Open the list</a>`));
       $("io-needs-n").textContent = needs.length; $("io-needs").innerHTML = needs.join(""); $("io-needs-sec").hidden = !needs.length;
 
-      const earlier = BOOK.filter((v) => v.month < S.month && ["over", "wait", "notpaid"].includes(state(v)) && pass(v));
+      const earlier = BOOK.filter((v) => v.month < S.month && ["over", "wait"].includes(state(v)) && pass(v));
       $("io-open").innerHTML = earlier.length ? `<div class="section" style="margin-top:26px"><div class="strip"><div class="strip-t">Still open from earlier months<span>${earlier.length}</span></div></div>${table(earlier)}</div>` : "";
       let html = "";
       KINDS.forEach((k) => {
@@ -1644,7 +1642,6 @@ import "../../styles/money-os.css";
       if (v.sent) tl.push(`<li>Sent to ${esc(v.payer)}, ${esc(day(v.sent))}</li>`);
       v.reminders.forEach((d) => tl.push(`<li>Reminder sent to accounts, ${esc(day(d))}</li>`));
       if (v.status === "paid") tl.push(`<li>Paid ${esc(day(v.paid_on))} (${esc(v.paid_how)})</li>`);
-      else if (v.not_paid) tl.push(`<li>Accounts: not paid. "${esc(v.not_paid)}"</li>`);
       else if (v.status === "draft") tl.push(`<li class="next">${PENDING.some((x) => x.invoice_id === v.id) ? "Waiting to be approved, then it sends" : "Not sent yet"}</li>`);
       else tl.push('<li class="next">On the accounts portal, waiting to be confirmed</li>');
       if (v.release) tl.push(`<li class="next">${esc(v.release)} held until this is paid</li>`);
