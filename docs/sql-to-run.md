@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/report_agents_by_brand.sql — report only, changes nothing: every live agent by brand, then anyone tagged TEG with no TPE, PPE or TLE brand (6 Nov)
 
 
 ## Done
