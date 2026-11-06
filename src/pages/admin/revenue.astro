@@ -17,7 +17,7 @@ import "../../styles/money-os.css";
           <div class="mo-title">Revenue</div>
           <p class="mo-sub">What's come in and what we kept, by month and by sector. All figures are without VAT.</p>
         </div>
-        <div class="mo-acts"><a class="btn" href="/admin/invoicing">Invoices</a></div>
+        <div class="mo-acts"><a class="mbtn" href="/admin/invoicing">Invoices</a></div>
       </section>
       <p class="state" id="rv-state">Reading the payments. This can take a few seconds.</p>
       <div id="rv-main" hidden></div>
@@ -64,7 +64,7 @@ import "../../styles/money-os.css";
       const m = SEL, i = MONTHS.indexOf(m), prev = MONTHS[i - 1], p = revOf(m), total = totalOf(m), pl = monthPL(COSTS, m, p), mon = ymLabel(m).split(" ")[0];
       const change = (now, was) => { if (was == null) return ""; const d = now - was; return (d >= 0 ? "Up " : "Down ") + gbp(Math.abs(d)) + " on " + monShort(prev); };
       const labels = MONTHS.map(monShort);
-      let html = `<div class="bar"><div class="nav"><button type="button" id="p-prev" aria-label="Earlier month"${i ? "" : " disabled"}>‹</button><span>${ymLabel(m)}</span><button type="button" id="p-next" aria-label="Later month"${i < MONTHS.length - 1 ? "" : " disabled"}>›</button></div><div class="mo-acts" style="margin-left:auto"><button type="button" class="btn" data-costs="base">Costs and sectors</button><button type="button" class="btn" id="all-pay">All payments</button></div></div>`;
+      let html = `<div class="bar"><div class="mnav"><button type="button" id="p-prev" aria-label="Earlier month"${i ? "" : " disabled"}>‹</button><span>${ymLabel(m)}</span><button type="button" id="p-next" aria-label="Later month"${i < MONTHS.length - 1 ? "" : " disabled"}>›</button></div><div class="mo-acts" style="margin-left:auto"><button type="button" class="mbtn" data-costs="base">Costs and sectors</button><button type="button" class="mbtn" id="all-pay">All payments</button></div></div>`;
       if (TRUNC) html += '<div class="closed" style="margin-bottom:16px"><span>There are more payments than one request can return, so the earliest months may be short.</span></div>';
       html += `<div class="figs"><div class="fig dark static"><b>${gbp(total)}</b><span>Revenue in ${mon}${prev ? ". " + change(total, totalOf(prev)) : ""}</span></div>${SECTORS.map(([a, n]) => `<div class="fig lin static"><b>${gbp(p[a])}</b><span>${n}</span></div>`).join("")}</div>`;
       html += `<div class="section"><div class="strip"><div class="strip-t">Revenue<span>last six months</span></div></div><div class="chart">${barsSvg(MONTHS.map(totalOf), labels, i, 1000, 240, true)}</div></div>`;
@@ -94,7 +94,7 @@ import "../../styles/money-os.css";
       apKey = SEL;
       const months = [...new Set(PAYMENTS.map((r) => String(r.paid_at).slice(0, 7)))].sort().reverse();
       const opts = '<option value="all">All months</option>' + months.map((k) => `<option value="${k}"${k === SEL ? " selected" : ""}>${ymLabel(k)}</option>`).join("");
-      pop("Revenue", "All payments", `<div class="cp-bar"><label class="pick"><span>Month</span><select id="ap-month">${opts}</select></label><span id="ap-sum" style="margin-left:auto;color:var(--tx)"></span></div><div id="ap-rows"></div>`, '<button type="button" class="btn" id="ap-csv">Export CSV</button><button type="button" class="btn primary" data-close>Close</button>');
+      pop("Revenue", "All payments", `<div class="cp-bar"><label class="pick"><span>Month</span><select id="ap-month">${opts}</select></label><span id="ap-sum" style="margin-left:auto;color:var(--tx)"></span></div><div id="ap-rows"></div>`, '<button type="button" class="mbtn" id="ap-csv">Export CSV</button><button type="button" class="mbtn primary" data-close>Close</button>');
       drawAll();
     }
     function drawAll() {
@@ -119,7 +119,7 @@ import "../../styles/money-os.css";
     function openReceipt(p) {
       RECEIPT = p;
       const line = (k, v) => `<div><span>${esc(k)}</span><span>${v}</span></div>`, est = p.vat_derived ? ' <span class="chip plain">Estimated</span>' : "";
-      pop("Payment received", esc(p.label), `<div class="rv-rc">${line("Received from", esc(p.customer || "—"))}${line("Date", esc(new Date(p.paid_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })))}${line("Sector", esc(SECTOR_NAME[p.sector] || "Not chosen yet"))}${line("Net", gbp(p.net_pence) + est)}${line("VAT", gbp(p.vat_pence) + est)}${line("Gross paid", gbp(p.gross_pence))}${p.off_stripe ? "" : line("Stripe fee", p.fee_pence == null ? "—" : gbp(p.fee_pence))}${line("Received in bank", p.received_pence == null ? "—" : gbp(p.received_pence))}${p.refunded_pence ? line("Refunded", gbp(p.refunded_pence)) : ""}${line(p.off_stripe ? "Reference" : "Stripe reference", esc(p.off_stripe ? p.label : p.id))}</div><p style="margin:0;color:var(--tx)">${p.off_stripe ? "Settled outside Stripe, so the full amount reached the bank. " : ""}${p.vat_derived ? "The VAT was worked back from the total, because it was taken outside the Hub. Check it against the source before relying on it for a return." : ""} This is a record of a payment received, not a VAT invoice.</p>`, '<button type="button" class="btn" id="rc-back">Back</button><button type="button" class="btn" data-rc="email">Send to accounts</button><button type="button" class="btn primary" data-rc="download">Download PDF</button>');
+      pop("Payment received", esc(p.label), `<div class="rv-rc">${line("Received from", esc(p.customer || "—"))}${line("Date", esc(new Date(p.paid_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })))}${line("Sector", esc(SECTOR_NAME[p.sector] || "Not chosen yet"))}${line("Net", gbp(p.net_pence) + est)}${line("VAT", gbp(p.vat_pence) + est)}${line("Gross paid", gbp(p.gross_pence))}${p.off_stripe ? "" : line("Stripe fee", p.fee_pence == null ? "—" : gbp(p.fee_pence))}${line("Received in bank", p.received_pence == null ? "—" : gbp(p.received_pence))}${p.refunded_pence ? line("Refunded", gbp(p.refunded_pence)) : ""}${line(p.off_stripe ? "Reference" : "Stripe reference", esc(p.off_stripe ? p.label : p.id))}</div><p style="margin:0;color:var(--tx)">${p.off_stripe ? "Settled outside Stripe, so the full amount reached the bank. " : ""}${p.vat_derived ? "The VAT was worked back from the total, because it was taken outside the Hub. Check it against the source before relying on it for a return." : ""} This is a record of a payment received, not a VAT invoice.</p>`, '<button type="button" class="mbtn" id="rc-back">Back</button><button type="button" class="mbtn" data-rc="email">Send to accounts</button><button type="button" class="mbtn primary" data-rc="download">Download PDF</button>');
     }
     async function receipt(action, btn) {
       const p = RECEIPT, was = btn.textContent; btn.disabled = true; btn.textContent = action === "email" ? "Sending…" : "Building…";
@@ -152,7 +152,7 @@ import "../../styles/money-os.css";
     }
     function openCosts(tab) {
       CP = { tab: tab === "month" || tab === "sectors" ? tab : "base", month: SEL, draft: {}, rules: {} };
-      pop("Revenue", "Costs and sectors", '<div class="cp" id="cp-body"></div>', '<button type="button" class="btn" data-close>Close</button><button type="button" class="btn primary" data-cpsave>Save</button>');
+      pop("Revenue", "Costs and sectors", '<div class="cp" id="cp-body"></div>', '<button type="button" class="mbtn" data-close>Close</button><button type="button" class="mbtn primary" data-cpsave>Save</button>');
       drawCosts();
     }
     const costTabs = (isBase, isMonth) => `<span class="tog"><button type="button" data-cptab="base" aria-pressed="${isBase}">Base costs</button><button type="button" data-cptab="month" aria-pressed="${isMonth}">A month</button><button type="button" data-cptab="sectors" aria-pressed="${!isBase && !isMonth}">Revenue by sector</button></span>`;
@@ -166,13 +166,13 @@ import "../../styles/money-os.css";
     function drawCosts() {
       if (CP.tab === "sectors") { drawSectors(); return; }
       const isBase = CP.tab === "base", i = MONTHS.indexOf(CP.month);
-      let html = `<div class="cp-bar">${costTabs(isBase, !isBase)}${isBase ? "" : `<div class="nav"><button type="button" id="cp-prev" aria-label="Earlier month"${i ? "" : " disabled"}>‹</button><span>${ymLabel(CP.month)}</span><button type="button" id="cp-next" aria-label="Later month"${i < MONTHS.length - 1 ? "" : " disabled"}>›</button></div>`}</div>`;
+      let html = `<div class="cp-bar">${costTabs(isBase, !isBase)}${isBase ? "" : `<div class="mnav"><button type="button" id="cp-prev" aria-label="Earlier month"${i ? "" : " disabled"}>‹</button><span>${ymLabel(CP.month)}</span><button type="button" id="cp-next" aria-label="Later month"${i < MONTHS.length - 1 ? "" : " disabled"}>›</button></div>`}</div>`;
       html += `<p>${isBase ? `What each area costs us in a normal month, in people and platforms. A change here applies from ${ymLabel(THIS)} on; earlier months keep what they had.` : `${ymLabel(CP.month)} starts from the base. Change anything that was more or less that month.`}</p>`;
       html += `<div class="tablewrap"><table><thead><tr><th>Sector</th><th class="num">Staffing</th><th class="num">Tools and tech</th><th class="num">Total</th>${isBase ? "" : '<th class="num">Against the base</th>'}</tr></thead><tbody>${SECTORS.map(([a, n]) => {
         const c = cpVal(a), inp = (f, lab) => `<span class="money">£<input type="number" min="0" step="1" inputmode="numeric" data-cost="${a}" data-field="${f}" aria-label="${n} ${lab}" value="${fromP(c[f])}"></span>`;
         return `<tr><td>${n}</td><td class="num">${inp("staff", "staffing")}</td><td class="num">${inp("tech", "tools and tech")}</td><td class="num" data-rowtotal="${a}"></td>${isBase ? "" : `<td class="num tx" data-against="${a}"></td>`}</tr>`;
       }).join("")}</tbody><tfoot><tr><td>Total</td><td class="num" data-ftot="staff"></td><td class="num" data-ftot="tech"></td><td class="num" data-ftot="all"></td>${isBase ? "" : "<td></td>"}</tr></tfoot></table></div><p id="cp-live"></p>`;
-      if (!isBase) html += '<div><button type="button" class="btn" data-cpreset>Put this month back to the base</button></div>';
+      if (!isBase) html += '<div><button type="button" class="mbtn" data-cpreset>Put this month back to the base</button></div>';
       $("cp-body").innerHTML = html;
       costTotals();
     }

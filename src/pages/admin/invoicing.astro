@@ -16,10 +16,10 @@ import "../../styles/money-os.css";
         <p class="mo-sub" id="io-sub">What's been raised this month, what's been paid and what needs you. Accounts confirm payments on their own page, so nobody has to chase by email.</p>
       </div>
       <div class="mo-acts">
-        <button type="button" class="btn" id="io-back" hidden>Back to invoicing</button>
-        <button type="button" class="btn" id="io-set" aria-expanded="false">Settings</button>
-        <a class="btn" href="/admin/revenue">Revenue</a>
-        <button type="button" class="btn primary" id="io-new">New invoice</button>
+        <button type="button" class="mbtn" id="io-back" hidden>Back to invoicing</button>
+        <button type="button" class="mbtn" id="io-set" aria-expanded="false">Settings</button>
+        <a class="mbtn" href="/admin/revenue">Revenue</a>
+        <button type="button" class="mbtn primary" id="io-new">New invoice</button>
         <div class="mo-menu" id="io-menu" hidden>
           <button type="button" data-open="monthly">Regular invoices</button>
           <button type="button" data-open="approvals">Automatic invoicing</button>
@@ -36,10 +36,10 @@ import "../../styles/money-os.css";
       <p class="state" id="io-state">Loading…</p>
       <div id="io-main" hidden>
         <div class="bar">
-          <div class="nav"><button type="button" id="io-prev" aria-label="Earlier month">‹</button><span id="io-month"></span><button type="button" id="io-next" aria-label="Later month">›</button></div>
+          <div class="mnav"><button type="button" id="io-prev" aria-label="Earlier month">‹</button><span id="io-month"></span><button type="button" id="io-next" aria-label="Later month">›</button></div>
           <label class="find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="io-q" placeholder="Client or invoice number" aria-label="Client or invoice number"></label>
           <div class="chips" id="io-chips" role="group" aria-label="Type of work"></div>
-          <div class="mo-acts" style="margin-left:auto"><button type="button" class="btn" id="io-mend">Month-end email</button><button type="button" class="btn" id="io-mrev">Month-end review</button></div>
+          <div class="mo-acts" style="margin-left:auto"><button type="button" class="mbtn" id="io-mend">Month-end email</button><button type="button" class="mbtn" id="io-mrev">Month-end review</button></div>
         </div>
         <div class="figs" id="io-figs" role="group" aria-label="This month"></div>
         <div class="section" id="io-needs-sec"><div class="strip"><div class="strip-t">Needs you<span id="io-needs-n"></span></div></div><div class="needs" id="io-needs"></div></div>
@@ -52,13 +52,13 @@ import "../../styles/money-os.css";
     <section class="inv-panel" data-panel="portal" hidden>
       <p class="state" id="pt-state">Loading…</p>
       <div class="cp" id="pt-main" hidden style="max-width:720px">
-        <label class="field"><span>The link. This is what goes in their email.</span><span class="io-copy"><input id="pt-link" readonly><button type="button" class="btn" id="pt-copy">Copy</button></span></label>
-        <label class="field"><span>The passcode. Tell them this yourself; it's never in an email. Changing it signs everyone out.</span><span class="io-copy"><input id="pt-code" maxlength="12" autocomplete="off" spellcheck="false"><button type="button" class="btn" id="pt-gen">New one</button></span></label>
+        <label class="field"><span>The link. This is what goes in their email.</span><span class="io-copy"><input id="pt-link" readonly><button type="button" class="mbtn" id="pt-copy">Copy</button></span></label>
+        <label class="field"><span>The passcode. Tell them this yourself; it's never in an email. Changing it signs everyone out.</span><span class="io-copy"><input id="pt-code" maxlength="12" autocomplete="off" spellcheck="false"><button type="button" class="mbtn" id="pt-gen">New one</button></span></label>
         <label class="field"><span>Who gets the month-end email</span><input id="pt-to" type="email"></label>
         <div class="field"><span>The page</span><span class="tog" id="pt-on"><button type="button" data-v="1">On</button><button type="button" data-v="0">Off</button></span></div>
         <div class="field"><span>Send the month-end email by itself, on the 20th and again on the 28th if anything's still open</span><span class="tog" id="pt-auto"><button type="button" data-v="1">On</button><button type="button" data-v="0">Off</button></span></div>
         <p id="pt-last"></p>
-        <div><button type="button" class="btn primary" id="pt-save">Save</button></div>
+        <div><button type="button" class="mbtn primary" id="pt-save">Save</button></div>
       </div>
     </section>
 
@@ -1584,18 +1584,18 @@ import "../../styles/money-os.css";
       // Needs you: only things someone has to do, worked out from the invoices.
       const needs = [];
       const need = (title, words, foot) => `<div class="need"><div class="need-t">${esc(title)}</div><p>${words}</p><div class="need-f">${foot}</div></div>`;
-      BOOK.filter((v) => v.not_paid).forEach((v) => needs.push(need(v.client, `Accounts say ${esc(v.number)} isn't paid: "${esc(v.not_paid)}"`, `<button type="button" class="btn" data-inv="${esc(v.id)}">Open</button>`)));
+      BOOK.filter((v) => v.not_paid).forEach((v) => needs.push(need(v.client, `Accounts say ${esc(v.number)} isn't paid: "${esc(v.not_paid)}"`, `<button type="button" class="mbtn" data-inv="${esc(v.id)}">Open</button>`)));
       BOOK.filter(held).forEach((v) => {
         const last = v.reminders[v.reminders.length - 1];
-        needs.push(need(v.client, `Jack's finished, but ${esc(v.number)} isn't marked paid, so their content is held.${last ? ` Reminder sent ${esc(day(last))}.` : ""}`, `<button type="button" class="btn" data-inv="${esc(v.id)}">Open</button><button type="button" class="btn primary" data-email="${esc(v.id)}">Urgent reminder</button>`));
+        needs.push(need(v.client, `Jack's finished, but ${esc(v.number)} isn't marked paid, so their content is held.${last ? ` Reminder sent ${esc(day(last))}.` : ""}`, `<button type="button" class="mbtn" data-inv="${esc(v.id)}">Open</button><button type="button" class="mbtn primary" data-email="${esc(v.id)}">Urgent reminder</button>`));
       });
       BOOK.filter((v) => v.status === "draft").forEach((v) => {
         const ap = PENDING.find((x) => x.invoice_id === v.id);
         const who = ap ? String(ap.approver_email || "").split("@")[0].split(/[._-]/)[0].replace(/^./, (m) => m.toUpperCase()) : "";
-        needs.push(need(v.client, ap ? `Invoice ${esc(v.number)} is drafted, waiting for ${esc(who)} to approve.${v.kind === "video" ? " It goes two days before the shoot." : ""}` : `Invoice ${esc(v.number)} is a draft. It hasn't been sent.`, `<button type="button" class="btn" data-inv="${esc(v.id)}">Open</button>${ap ? `<button type="button" class="btn primary" data-approve="${esc(ap.id)}">Approve and send</button>` : `<button type="button" class="btn primary" data-send="${esc(v.id)}">Send</button>`}`));
+        needs.push(need(v.client, ap ? `Invoice ${esc(v.number)} is drafted, waiting for ${esc(who)} to approve.${v.kind === "video" ? " It goes two days before the shoot." : ""}` : `Invoice ${esc(v.number)} is a draft. It hasn't been sent.`, `<button type="button" class="mbtn" data-inv="${esc(v.id)}">Open</button>${ap ? `<button type="button" class="mbtn primary" data-approve="${esc(ap.id)}">Approve and send</button>` : `<button type="button" class="mbtn primary" data-send="${esc(v.id)}">Send</button>`}`));
       });
-      NUMBERS.forEach((x) => needs.push(need(x.name, `${esc(x.label)} in ${esc(x.month_label.split(" ")[0])}?${x.unit_pence ? ` ${gb(x.unit_pence)} each,` : ""} goes out on the ${x.day}${[11, 12, 13].includes(x.day % 100) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[x.day % 10] || "th")}.`, `<input type="number" min="0" step="1" data-numfor="${esc(x.recurring_id)}|${esc(x.month)}" aria-label="${esc(x.label)}" placeholder="0"><button type="button" class="btn primary" data-numsave="${esc(x.recurring_id)}|${esc(x.month)}">Save</button>`)));
-      if (TICKS) needs.push(need("Social media ticks", `Abigail has ticked ${TICKS.ticked} of ${TICKS.total} clients for ${esc(TICKS.month_label.split(" ")[0])}. Anyone not ticked isn't invoiced.`, `<a class="btn" href="/admin/social?go=invoices">Open the list</a>`));
+      NUMBERS.forEach((x) => needs.push(need(x.name, `${esc(x.label)} in ${esc(x.month_label.split(" ")[0])}?${x.unit_pence ? ` ${gb(x.unit_pence)} each,` : ""} goes out on the ${x.day}${[11, 12, 13].includes(x.day % 100) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[x.day % 10] || "th")}.`, `<input type="number" min="0" step="1" data-numfor="${esc(x.recurring_id)}|${esc(x.month)}" aria-label="${esc(x.label)}" placeholder="0"><button type="button" class="mbtn primary" data-numsave="${esc(x.recurring_id)}|${esc(x.month)}">Save</button>`)));
+      if (TICKS) needs.push(need("Social media ticks", `Abigail has ticked ${TICKS.ticked} of ${TICKS.total} clients for ${esc(TICKS.month_label.split(" ")[0])}. Anyone not ticked isn't invoiced.`, `<a class="mbtn" href="/admin/social?go=invoices">Open the list</a>`));
       $("io-needs-n").textContent = needs.length; $("io-needs").innerHTML = needs.join(""); $("io-needs-sec").hidden = !needs.length;
 
       const earlier = BOOK.filter((v) => v.month < S.month && ["over", "wait", "notpaid"].includes(state(v)) && pass(v));
@@ -1633,11 +1633,11 @@ import "../../styles/money-os.css";
       if (v.release) tl.push(`<li class="next">${esc(v.release)} held until this is paid</li>`);
       const sectorName = v.sector === "pick" ? "not chosen yet" : SECTOR_NAME[v.sector];
       const sectors = `<option value="">As the rule says (${esc(sectorName)})</option>` + Object.keys(SECTOR_NAME).map((k) => `<option value="${k}"${v.sector_chosen && v.sector === k ? " selected" : ""}>${esc(SECTOR_NAME[k])}</option>`).join("");
-      const foot = ['<button type="button" class="btn" data-close>Close</button>', `<button type="button" class="btn" data-pdf="${esc(v.id)}">View PDF</button>`];
-      if (v.status === "draft") foot.push(`<button type="button" class="btn" data-edit="${esc(v.id)}">Edit</button>`, `<button type="button" class="btn danger" data-del="${esc(v.id)}">Delete</button>`, `<button type="button" class="btn primary" data-send="${esc(v.id)}">Send</button>`);
+      const foot = ['<button type="button" class="mbtn" data-close>Close</button>', `<button type="button" class="mbtn" data-pdf="${esc(v.id)}">View PDF</button>`];
+      if (v.status === "draft") foot.push(`<button type="button" class="mbtn" data-edit="${esc(v.id)}">Edit</button>`, `<button type="button" class="mbtn danger" data-del="${esc(v.id)}">Delete</button>`, `<button type="button" class="mbtn primary" data-send="${esc(v.id)}">Send</button>`);
       else {
-        foot.push(`<button type="button" class="btn" data-edit="${esc(v.id)}">Reissue</button>`, `<button type="button" class="btn danger" data-void="${esc(v.id)}">Void</button>`, `<button type="button" class="btn" data-send="${esc(v.id)}">Resend</button>`);
-        if (v.status === "sent") foot.push(`<button type="button" class="btn" data-email="${esc(v.id)}">Email accounts</button>`, `<button type="button" class="btn primary" data-mark="${esc(v.id)}">Mark paid</button>`);
+        foot.push(`<button type="button" class="mbtn" data-edit="${esc(v.id)}">Reissue</button>`, `<button type="button" class="mbtn danger" data-void="${esc(v.id)}">Void</button>`, `<button type="button" class="mbtn" data-send="${esc(v.id)}">Resend</button>`);
+        if (v.status === "sent") foot.push(`<button type="button" class="mbtn" data-email="${esc(v.id)}">Email accounts</button>`, `<button type="button" class="mbtn primary" data-mark="${esc(v.id)}">Mark paid</button>`);
       }
       popShell(`Invoice ${v.number}`, esc(v.client), flags(v),
         `<dl class="rows"><div><dt>For</dt><dd>${esc(v.what)}</dd></div><div><dt>Type</dt><dd>${esc(svc(v))}</dd></div><div><dt>Who pays</dt><dd>${esc(v.payer)}</dd></div><div><dt>How</dt><dd>${esc(who)}</dd></div><div><dt>Sent</dt><dd>${v.sent ? esc(day(v.sent)) : "Not yet"}</dd></div><div><dt>Due</dt><dd>${esc(day(v.due))}</dd></div><div><dt>Net</dt><dd>${gb(v.net_pence)} (${gb(v.total_pence)} with VAT)</dd></div>` +
@@ -1650,7 +1650,7 @@ import "../../styles/money-os.css";
     }
     function openNote(id) {
       const v = byId(id); if (!v) return;
-      popShell(`${v.number}, ${v.client}`, "A note", "", `<label class="field"><span>Anything worth remembering on this one. Both sides can see it.</span><textarea id="io-note" rows="10" placeholder="e.g. Paying with the next batch on Friday">${esc(v.note || "")}</textarea></label>`, `<button type="button" class="btn" data-close>Cancel</button><button type="button" class="btn primary" data-savenote="${esc(v.id)}">Save</button>`);
+      popShell(`${v.number}, ${v.client}`, "A note", "", `<label class="field"><span>Anything worth remembering on this one. Both sides can see it.</span><textarea id="io-note" rows="10" placeholder="e.g. Paying with the next batch on Friday">${esc(v.note || "")}</textarea></label>`, `<button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" data-savenote="${esc(v.id)}">Save</button>`);
       $("io-note").focus();
     }
     function openEmail(id) {
@@ -1661,18 +1661,18 @@ import "../../styles/money-os.css";
         : `Invoice ${v.number} for ${amt} (${v.client}) is still open. Could you let us know where it's up to?`;
       popShell("Email accounts", urgent ? "Urgent reminder" : "A reminder", "",
         `<label class="field"><span>To</span><input value="Paula and the accounts team" readonly></label><label class="field"><span>Subject</span><input id="io-em-sub" value="${esc((urgent ? "Urgent: " : "") + v.number + (urgent ? ", content waiting on payment." : ", still open."))}"></label><label class="field"><span>Message</span><textarea id="io-em-body" rows="9">${esc(`Hi Paula,\n\n${words}\n\nYou can mark it on your page: [link to the portal]\n\nThank you.`)}</textarea></label>`,
-        `<button type="button" class="btn" data-close>Cancel</button><button type="button" class="btn primary" data-sendemail="${esc(v.id)}">Send</button>`);
+        `<button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" data-sendemail="${esc(v.id)}">Send</button>`);
     }
 
     // The month-end email: to Paula, short, and what to do.
     async function openMonthEnd() {
-      popShell("Month-end email", "Coming up to month end", "", '<p class="state">Loading…</p>', '<button type="button" class="btn" data-close>Close</button>', true);
+      popShell("Month-end email", "Coming up to month end", "", '<p class="state">Loading…</p>', '<button type="button" class="mbtn" data-close>Close</button>', true);
       try {
         const d = await api("/invoicing/month-end");
         popShell("Month-end email", "Coming up to month end", "",
           `<p style="margin:0;color:var(--tx)">${d.emails_on ? "Goes by itself on the 20th, and again on the 28th if anything's still open. This is what it says." : "This is what it says. It isn't going by itself yet: switch that on in Settings, under Accounts portal, once you've tested it."}</p><div class="mail">${d.html}</div>`,
-          `<button type="button" class="btn" data-close>Close</button><button type="button" class="btn" data-mesend="test">Send me a test</button><button type="button" class="btn primary" data-mesend="live">Send to ${esc(d.to)}</button>`, true);
-      } catch (err) { popShell("Month-end email", "Coming up to month end", "", `<p class="state bad">${esc(err.message)}</p>`, '<button type="button" class="btn" data-close>Close</button>', true); }
+          `<button type="button" class="mbtn" data-close>Close</button><button type="button" class="mbtn" data-mesend="test">Send me a test</button><button type="button" class="mbtn primary" data-mesend="live">Send to ${esc(d.to)}</button>`, true);
+      } catch (err) { popShell("Month-end email", "Coming up to month end", "", `<p class="state bad">${esc(err.message)}</p>`, '<button type="button" class="mbtn" data-close>Close</button>', true); }
     }
 
     // The Month-end review, for whichever month you're on.
@@ -1680,7 +1680,7 @@ import "../../styles/money-os.css";
     async function openReview() {
       const m = S.month, thisMonth = TODAY.slice(0, 7), title = esc(ymLong(m)) + (m === thisMonth ? " so far" : "");
       const shell = (body, foot) => popShell("Month-end review", title, "", body, foot, true);
-      shell('<p class="state">Reading the payments. This can take a few seconds.</p>', '<button type="button" class="btn" data-close>Close</button>');
+      shell('<p class="state">Reading the payments. This can take a few seconds.</p>', '<button type="button" class="mbtn" data-close>Close</button>');
       try {
         if (!REVIEW) {
           const [pay, costs] = await Promise.all([api("/admin/payments?days=400"), api("/revenue/costs")]);
@@ -1692,8 +1692,8 @@ import "../../styles/money-os.css";
         const open = BOOK.filter((v) => v.month === m && v.status === "sent" && v.method !== "direct_debit");
         const box = (a) => ({ n: a.length, p: sum(a) });
         reviewDraft = { month: m, thisMonth, months: list, revenueByMonth: revenueByMonthShown, costs: REVIEW.costs, open: { interBrand: box(open.filter((v) => v.route === "internal")), client: box(open.filter((v) => v.route !== "internal")), overdue: box(open.filter(isOver)) } };
-        shell(reviewBody(reviewDraft, 780), '<button type="button" class="btn" data-close>Close</button><button type="button" class="btn" id="io-rv-dl">Download</button><button type="button" class="btn primary" id="io-rv-send">Send to Sam</button>');
-      } catch (err) { shell(`<p class="state bad">${esc(err.message)}</p>`, '<button type="button" class="btn" data-close>Close</button>'); }
+        shell(reviewBody(reviewDraft, 780), '<button type="button" class="mbtn" data-close>Close</button><button type="button" class="mbtn" id="io-rv-dl">Download</button><button type="button" class="mbtn primary" id="io-rv-send">Send to Sam</button>');
+      } catch (err) { shell(`<p class="state bad">${esc(err.message)}</p>`, '<button type="button" class="mbtn" data-close>Close</button>'); }
     }
     async function reviewPdf(btn) {
       const was = btn.textContent; btn.disabled = true; btn.textContent = "Building…";
