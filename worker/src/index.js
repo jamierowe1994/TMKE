@@ -7141,7 +7141,7 @@ function accountsFirstEmail(env, p) {
     ${P("Once you're in, here's what to do with each invoice. We see it on our side straight away:")}
     <ul style="margin:0 0 14px;padding:0 0 0 18px;">
       ${LI("<strong>External client invoices:</strong> Press <strong>Paid</strong> once the money has landed. Until then the invoice simply stays on the page, so there's nothing else to press.")}
-      ${LI("<strong>Inter-brand invoices:</strong> Press <strong>This has been settled</strong> once it's been settled.")}
+      ${LI("<strong>Inter-brand invoices:</strong> Press <strong>Settled</strong> once it's been settled.")}
       ${LI("<strong>Notes:</strong> If there's a problem with an invoice, add a note with the note icon or message us. Both sides can see notes.")}
       ${LI("<strong>Mistakes:</strong> If you make a mistake, press <strong>Undo</strong> while you're still on the page.")}
     </ul>

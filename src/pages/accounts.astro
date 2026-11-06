@@ -117,7 +117,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ac-t th:nth-child(10) { width: 254px; } .ac-t th:nth-child(11) { width: 44px; }
     .ac-t td:nth-child(10) { padding-right: 0; } .ac-t td:nth-child(11) { padding: 0 8px 0 6px; }
     .ac-acts { display: grid; grid-template-columns: 58px 92px 84px; gap: 6px; align-items: center; justify-content: end; }
-    .ac-acts .ac-chip { width: 100%; height: 30px; justify-content: center; }
     .ac-wide { grid-column: 2 / 4; }
     .ac-btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 30px; padding: 0 4px; border-radius: 4px; border: 1px solid var(--e); background: #fff; color: var(--i); cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
     .ac-btn:hover { border-color: var(--w); color: var(--w); }
@@ -254,9 +253,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const view = `<button type="button" class="ac-btn" data-view="${v.id}">View</button>`;
       const ib = v.route === "internal";
       let acts;
-      if (v.status === "paid") acts = `${view}<span class="ac-chip good">${ib ? "Settled" : "Paid"}</span><button type="button" class="ac-btn" data-undo="${v.id}">Undo</button>`;
-      else acts = `${view}<button type="button" class="ac-btn pri ac-wide" data-paid="${v.id}">${ib ? "This has been settled" : "Paid"}</button>`;
-      return `<tr><td><span class="ac-chip route ${ib ? "ib" : "ext"}">${ib ? "Inter-brand" : "External client"}</span></td><td class="tx">${esc(KIND[v.kind] || "Other")}</td><td>${esc(v.number)}</td><td title="${esc(v.client)}">${esc(v.client)}</td><td class="tx" title="${esc(v.payer)}">${esc(v.payer)}</td><td class="tx">${esc(day(v.sent))}</td><td class="tx">${esc(day(v.due))}</td><td class="num">${gbp(v.net_pence)}</td><td>${isOver(v) ? '<span class="ac-chip bad">Overdue</span>' : ""}</td><td><div class="ac-acts">${acts}</div></td><td><button type="button" class="ac-ic${v.note ? " has" : ""}" data-note="${v.id}" aria-label="${v.note ? "Read the note" : "Add a note"}" title="${v.note ? "There's a note" : "Add a note"}">${ICON_NOTE}</button></td></tr>`;
+      if (v.status === "paid") acts = `${view}<button type="button" class="ac-btn ac-wide" data-undo="${v.id}">Undo</button>`;
+      else acts = `${view}<button type="button" class="ac-btn pri ac-wide" data-paid="${v.id}">${ib ? "Settled" : "Paid"}</button>`;
+      // The status box: Paid or Settled replaces Overdue, in the same place.
+      const box = v.status === "paid" ? `<span class="ac-chip good">${ib ? "Settled" : "Paid"}</span>` : isOver(v) ? '<span class="ac-chip bad">Overdue</span>' : "";
+      return `<tr><td><span class="ac-chip route ${ib ? "ib" : "ext"}">${ib ? "Inter-brand" : "External client"}</span></td><td class="tx">${esc(KIND[v.kind] || "Other")}</td><td>${esc(v.number)}</td><td title="${esc(v.client)}">${esc(v.client)}</td><td class="tx" title="${esc(v.payer)}">${esc(v.payer)}</td><td class="tx">${esc(day(v.sent))}</td><td class="tx">${esc(day(v.due))}</td><td class="num">${gbp(v.net_pence)}</td><td>${box}</td><td><div class="ac-acts">${acts}</div></td><td><button type="button" class="ac-ic${v.note ? " has" : ""}" data-note="${v.id}" aria-label="${v.note ? "Read the note" : "Add a note"}" title="${v.note ? "There's a note" : "Add a note"}">${ICON_NOTE}</button></td></tr>`;
     }
 
     function openNote(v) {
