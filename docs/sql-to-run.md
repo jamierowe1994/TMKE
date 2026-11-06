@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/contact_brand_tags.sql — Brand tags on contacts (Brand: The-Property-Experts and so on), worked out from each agent's live brands and kept up to date by themselves. It lists the counts at the end (6 Nov)
 
 
 ## Done

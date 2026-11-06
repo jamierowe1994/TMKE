@@ -11,6 +11,9 @@
 export const TAG_GROUPS = [
   ["Consent and membership", ["Marketing-Opt-In", "Marketing-Not-Opted-In", "Unsubscribed", "Newsletter-Subscriber", "TMKE-Account-Member"]],
   ["Network", ["Network: TEG", "Network: Fine-and-Country", "Network: External"]],
+  // Worked out from a TEG agent's live brands (supabase/contact_brand_tags.sql),
+  // so a dual-brand agent has both (Dani, 6 Nov 2026).
+  ["Brand", ["Brand: The-Property-Experts", "Brand: Prestige-Property-Experts", "Brand: The-Letting-Experts", "Brand: The-Letting-Experts-Scotland"]],
   ["Business type", ["Type: Estate-Agent", "Type: Lettings", "Type: Financial-Services"]],
   ["Packs", ["Pack-Purchased"]],
   ["Videography", ["Interest: Videography", "Discovery-Call-Booked: Videography", "Videography-Client", "Videography-Booked", "Videography-New-Starter: Pro", "Videography-New-Starter: Academy", "Videography-Product: Content-Studio", "Videography-Product: Property-Videography", "Videography-Product: Agent-Videography"]],
