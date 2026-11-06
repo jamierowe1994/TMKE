@@ -18,6 +18,7 @@ import "../../styles/money-os.css";
       <div class="mo-acts">
         <button type="button" class="mbtn" id="io-back" hidden>Back to invoicing</button>
         <button type="button" class="mbtn" id="io-set" aria-expanded="false">Settings</button>
+        <button type="button" class="mbtn" id="io-view-portal" title="Opens the page accounts see, in a new tab">Accounts portal</button>
         <a class="mbtn" href="/admin/revenue">Revenue</a>
         <button type="button" class="mbtn primary" id="io-new">New invoice</button>
         <div class="mo-menu" id="io-menu" hidden>
@@ -764,7 +765,7 @@ import "../../styles/money-os.css";
     import { supabase } from "../../lib/supabase.js";
     import { renderInvoiceHtml, sampleInvoice } from "../../lib/invoice-render.js";
     import { defaultEmailSubject, defaultEmailBody, payLine } from "../../lib/invoice-email.js";
-    import { SECTOR_NAME, gbp as gb, revenueByMonth, reviewBody, ymLabel as ymLong, ymAddMonths } from "../../lib/revenue.js";
+    import { fitScrim, SECTOR_NAME, gbp as gb, revenueByMonth, reviewBody, ymLabel as ymLong, ymAddMonths } from "../../lib/revenue.js";
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let currentSettings = {};
     const $ = (id) => document.getElementById(id);
@@ -812,6 +813,13 @@ import "../../styles/money-os.css";
       window.scrollTo(0, 0);
     }
     $("io-back").addEventListener("click", () => showPanel("overview"));
+    // See what accounts see. It asks for the passcode like it does for them.
+    $("io-view-portal").addEventListener("click", async (e) => {
+      const b = e.currentTarget, tab = window.open("", "_blank"); b.disabled = true;
+      try { const d = await api("/invoicing/portal-settings"); if (tab) tab.location = d.link; else location.href = d.link; }
+      catch (err) { if (tab) tab.close(); toast(err.message); }
+      b.disabled = false;
+    });
     $("io-new").addEventListener("click", () => { ciReset(); showPanel("create"); });
     $("io-set").addEventListener("click", (e) => { e.stopPropagation(); const m = $("io-menu"); m.hidden = !m.hidden; $("io-set").setAttribute("aria-expanded", String(!m.hidden)); });
     $("io-menu").addEventListener("click", (e) => { const b = e.target.closest("[data-open]"); if (b) showPanel(b.dataset.open); });
@@ -1614,7 +1622,9 @@ import "../../styles/money-os.css";
     /* ---- Pop-outs ---- */
     function popShell(eye, title, chips, body, foot, wide) {
       $("io-pop").innerHTML = `<div class="scrim" id="io-scrim"><div class="pop${wide ? " wide" : ""}" role="dialog" aria-modal="true" aria-label="${esc(eye)}"><div class="pop-h"><div><p class="mo-eye" style="margin:0">${esc(eye)}</p><div class="pop-title">${title}</div>${chips || ""}</div><button type="button" class="x" data-close aria-label="Close">×</button></div><div class="pop-b" data-lenis-prevent>${body}</div><div class="pop-f">${foot}</div></div></div>`;
+      fitScrim();
     }
+    window.addEventListener("resize", fitScrim);
     const closePop = () => { $("io-pop").innerHTML = ""; };
     let toastT;
     function toast(m) { const t = $("io-toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }

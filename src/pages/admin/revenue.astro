@@ -38,7 +38,7 @@ import "../../styles/money-os.css";
   </style>
 
   <script>
-    import { andList, SECTORS, SECTOR_NAME, REV_RULES, gbp, pct, ymLabel, monShort, ymAddMonths, baseFor, costFor, hasCost, monthPL, monthTotal, revenueByMonth, plTable, plNotes, barsSvg, profitSvg } from "../../lib/revenue.js";
+    import { fitScrim, andList, SECTORS, SECTOR_NAME, REV_RULES, gbp, pct, ymLabel, monShort, ymAddMonths, baseFor, costFor, hasCost, monthPL, monthTotal, revenueByMonth, plTable, plNotes, barsSvg, profitSvg } from "../../lib/revenue.js";
     import { supabase } from "../../lib/supabase.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -66,7 +66,7 @@ import "../../styles/money-os.css";
       const labels = MONTHS.map(monShort);
       let html = `<div class="bar"><div class="mnav"><button type="button" id="p-prev" aria-label="Earlier month"${i ? "" : " disabled"}>‹</button><span>${ymLabel(m)}</span><button type="button" id="p-next" aria-label="Later month"${i < MONTHS.length - 1 ? "" : " disabled"}>›</button></div><div class="mo-acts" style="margin-left:auto"><button type="button" class="mbtn" data-costs="base">Costs and sectors</button><button type="button" class="mbtn" id="all-pay">All payments</button></div></div>`;
       if (TRUNC) html += '<div class="closed" style="margin-bottom:16px"><span>There are more payments than one request can return, so the earliest months may be short.</span></div>';
-      html += `<div class="figs"><div class="fig dark static"><b>${gbp(total)}</b><span>Revenue in ${mon}${prev ? ". " + change(total, totalOf(prev)) : ""}</span></div>${SECTORS.map(([a, n]) => `<div class="fig lin static"><b>${gbp(p[a])}</b><span>${n}</span></div>`).join("")}</div>`;
+      html += `<div class="figs"><div class="fig dark static"><b>${gbp(total)}</b><span>Revenue in ${mon}</span>${prev ? `<small>${change(total, totalOf(prev))}</small>` : ""}</div>${SECTORS.map(([a, n]) => `<div class="fig lin static"><b>${gbp(p[a])}</b><span>${n}</span></div>`).join("")}</div>`;
       html += `<div class="section"><div class="strip"><div class="strip-t">Revenue<span>last six months</span></div></div><div class="chart">${barsSvg(MONTHS.map(totalOf), labels, i, 1000, 240, true)}</div></div>`;
       html += `<div class="section"><div class="strip"><div class="strip-t">By sector</div><span class="aside">Each on its own scale</span></div><div class="multi">${SECTORS.map(([a, n]) => `<div class="mini"><div class="mini-t">${n}</div><b>${gbp(p[a])}</b><span>${prev ? change(p[a], revOf(prev)[a]) : "&nbsp;"}</span>${barsSvg(MONTHS.map((k) => revOf(k)[a]), labels, i, 260, 110, false)}</div>`).join("")}</div></div>`;
       const lastCol = (a) => (prev ? gbp(revOf(prev)[a]) : "—");
@@ -84,7 +84,9 @@ import "../../styles/money-os.css";
     /* ---- Pop-outs ---- */
     function pop(eye, title, body, foot) {
       $("rv-pop").innerHTML = `<div class="scrim" id="rv-scrim"><div class="pop wide" role="dialog" aria-modal="true" aria-label="${esc(eye)}"><div class="pop-h"><div><p class="mo-eye" style="margin:0">${esc(eye)}</p><div class="pop-title">${title}</div></div><button type="button" class="x" data-close aria-label="Close">×</button></div><div class="pop-b" data-lenis-prevent>${body}</div><div class="pop-f">${foot}</div></div></div>`;
+      fitScrim();
     }
+    window.addEventListener("resize", fitScrim);
     const closePop = () => { $("rv-pop").innerHTML = ""; CP = null; };
 
     // All payments, with a month filter. A row opens its receipt.

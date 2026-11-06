@@ -120,6 +120,15 @@ export function plNotes(ym, thisMonth, rev, pl, withBtn) {
   return out;
 }
 
+/* A pop-out's scrim covers the right-hand panel, below the top bar. */
+export function fitScrim() {
+  const sc = document.querySelector(".mo .scrim"), panel = document.querySelector(".ash-content");
+  if (!sc || !panel) return;
+  const r = panel.getBoundingClientRect();
+  sc.style.left = `${Math.round(r.left)}px`;
+  sc.style.top = `${Math.round(r.top)}px`;
+}
+
 /* ---- Words and figures ---- */
 export function gbp(p) {
   const n = Math.round(Number(p) || 0) / 100;
