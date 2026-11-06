@@ -304,10 +304,14 @@ export function renderClientPortals(host, deps) {
    "Not in a portal" takes it out. Saves straight away, separately from the
    booking's own Save. The portal's link, passcode and other folders are
    managed in Videography › Client portals. */
+// How a shoot's folder is held on a portal.
+export function shootPortalKey(folderName) {
+  return folderName ? ROOT + folderName.replace(/^\/+|\/+$/g, "") + "/" : "";
+}
 export async function renderShootPortal(host, booking, folderName, deps) {
-  const { supabase, me } = deps;
+  const { supabase, me, onChange } = deps;
   if (!host) return;
-  const folder = folderName ? ROOT + folderName.replace(/^\/+|\/+$/g, "") + "/" : "";
+  const folder = shootPortalKey(folderName);
   const head = `<div class="cpt-shoot-head"><span class="cpt-shoot-k">Client portal</span><span class="cpt-shoot-note">the client watches and downloads it from their own link</span></div>`;
   if (!booking || !folder) { host.innerHTML = ""; return; }
   host.innerHTML = head + '<p class="cpt-note">Loading…</p>';
@@ -337,11 +341,11 @@ export async function renderShootPortal(host, booking, folderName, deps) {
   // rather than "Not in a portal".
   // The Worker's rule (shootDoneForPortal): a ticked folder shows once the
   // shoot is sent and paid, or has nothing to pay.
-  // Delivered by portal: Content ready is the step, and management can release
+  // Delivered by portal: Content ready is a saved Yes, and management can release
   // it before payment.
   const byPortal = booking.delivery_method === "portal";
   const doneForPortal = byPortal
-    ? ["gallery_ready", "sent", "delivered"].includes(booking.stage) && (!!booking.paid_at || booking.amount_pence === 0 || !!booking.released_unpaid_at)
+    ? !!booking.portal_ready_at && (!!booking.paid_at || !!booking.released_unpaid_at)
     : ["sent", "delivered"].includes(booking.stage) && (!!booking.paid_at || booking.payment_route === "smm_package" || booking.amount_pence === 0);
   const isStarter = /new.?starter/i.test(String(booking.service || ""));
   const tegPortal = portals.find((p) => p.enabled && /\bteg\b.*new.?starter|new.?starter.*\bteg\b/i.test(p.name || ""));
@@ -362,7 +366,7 @@ export async function renderShootPortal(host, booking, folderName, deps) {
       ${auto ? `<p class="cpt-note">A new starter: this folder goes into ${esc(tegPortal.name)} by itself once the shoot has been sent and paid for, and whoever that portal emails hears about it then.</p>` : ""}
       ${inIt.length > 1 ? `<p class="cpt-note">Also in ${inIt.slice(1).map((p) => esc(p.name)).join(", ")}.</p>` : ""}
       ${cur && !cur.enabled ? `<p class="cpt-note">${esc(cur.name)}'s portal is turned off, so they can't see it yet.</p>` : ""}
-      ${cur && cur.enabled && !doneForPortal ? `<p class="cpt-note">Waiting: it only shows in ${esc(cur.name)}'s portal once ${byPortal ? "Content ready has been pressed and it's paid or released before payment" : "this shoot has been sent and paid for"}, and anyone the portal emails hears about it then.</p>` : ""}
+      ${cur && cur.enabled && !doneForPortal ? `<p class="cpt-note">Waiting: it only shows in ${esc(cur.name)}'s portal once ${byPortal ? "Content ready is Yes and it's paid or released before payment" : "this shoot has been sent and paid for"}, and anyone the portal emails hears about it then.</p>` : ""}
       <p class="cpt-msg cpt-status"></p>`;
     if (text) status(kind, text);
     const sel = host.querySelector(".cpt-shoot-sel");
@@ -384,6 +388,7 @@ export async function renderShootPortal(host, booking, folderName, deps) {
         const target = portals.find((p) => p.id === to);
         if (target && !(target.folders || []).includes(folder)) await setFolders(target, [...(target.folders || []), folder]);
         draw("ok", target ? `In ${target.name}'s portal.` : "Taken out of the portal.");
+        if (onChange) onChange();
       } catch (e) {
         draw("err", "Not saved: " + e.message + ". Try again.");
       }

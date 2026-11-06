@@ -2290,7 +2290,7 @@ async function runPortalDeliveries(env) {
     const r = await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(b.id)}&stage=in.(editing,gallery_ready)`, { stage: "sent", gallery_sent_at: new Date().toISOString() });
     if (!r || !r.ok) continue;
     await logBookingMessage(env, { booking_id: b.id, booking_source: "videography", client_email: b.client_email || null, channel: "note", kind: "audit",
-      body: b.paid_at || nothingToPay(b) ? "Now showing in their client portal." : "Now showing in their client portal, released before payment.", is_automated: true, created_by: "automatic" });
+      body: b.paid_at ? "Now showing in their client portal." : "Now showing in their client portal, released before payment.", is_automated: true, created_by: "automatic" });
   }
 }
 
@@ -5468,7 +5468,9 @@ function shootDoneForPortal(b) {
   // Delivered by portal (Dani, 6 Nov): no gallery to send, so Content ready is
   // the step. Still paid or £0, unless management released it before payment.
   // Content ready is its own Yes, saved by a person: never read from the stage.
-  if (b.delivery_method === "portal") return !!b.portal_ready_at && (!!b.paid_at || nothingToPay(b) || !!b.released_unpaid_at);
+  // And £0 doesn't count here: a bespoke shoot sits at £0 until Jack's finished
+  // and it's priced, so with no invoice it needs paying or releasing like any other.
+  if (b.delivery_method === "portal") return !!b.portal_ready_at && (!!b.paid_at || !!b.released_unpaid_at);
   if (!["sent", "delivered"].includes(b.stage)) return false;
   return !!b.paid_at || nothingToPay(b);
 }

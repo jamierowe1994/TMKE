@@ -4,6 +4,8 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/videography_portal_ready.sql — Content ready as its own No or Yes on a shoot delivered by client portal, No on every shoot until someone saves Yes. It lists every shoot set to Client portal. Nothing is sent (6 Nov)
+
 
 
 ## Done
