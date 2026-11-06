@@ -337,8 +337,12 @@ export async function renderShootPortal(host, booking, folderName, deps) {
   // rather than "Not in a portal".
   // The Worker's rule (shootDoneForPortal): a ticked folder shows once the
   // shoot is sent and paid, or has nothing to pay.
-  const doneForPortal = ["sent", "delivered"].includes(booking.stage)
-    && (!!booking.paid_at || booking.payment_route === "smm_package" || booking.amount_pence === 0);
+  // Delivered by portal: Content ready is the step, and management can release
+  // it before payment.
+  const byPortal = booking.delivery_method === "portal";
+  const doneForPortal = byPortal
+    ? ["gallery_ready", "sent", "delivered"].includes(booking.stage) && (!!booking.paid_at || booking.amount_pence === 0 || !!booking.released_unpaid_at)
+    : ["sent", "delivered"].includes(booking.stage) && (!!booking.paid_at || booking.payment_route === "smm_package" || booking.amount_pence === 0);
   const isStarter = /new.?starter/i.test(String(booking.service || ""));
   const tegPortal = portals.find((p) => p.enabled && /\bteg\b.*new.?starter|new.?starter.*\bteg\b/i.test(p.name || ""));
   function draw(kind, text) {
@@ -358,7 +362,7 @@ export async function renderShootPortal(host, booking, folderName, deps) {
       ${auto ? `<p class="cpt-note">A new starter: this folder goes into ${esc(tegPortal.name)} by itself once the shoot has been sent and paid for, and whoever that portal emails hears about it then.</p>` : ""}
       ${inIt.length > 1 ? `<p class="cpt-note">Also in ${inIt.slice(1).map((p) => esc(p.name)).join(", ")}.</p>` : ""}
       ${cur && !cur.enabled ? `<p class="cpt-note">${esc(cur.name)}'s portal is turned off, so they can't see it yet.</p>` : ""}
-      ${cur && cur.enabled && !doneForPortal ? `<p class="cpt-note">Waiting: it only shows in ${esc(cur.name)}'s portal once this shoot has been sent and paid for, and anyone the portal emails hears about it then.</p>` : ""}
+      ${cur && cur.enabled && !doneForPortal ? `<p class="cpt-note">Waiting: it only shows in ${esc(cur.name)}'s portal once ${byPortal ? "Content ready has been pressed and it's paid or released before payment" : "this shoot has been sent and paid for"}, and anyone the portal emails hears about it then.</p>` : ""}
       <p class="cpt-msg cpt-status"></p>`;
     if (text) status(kind, text);
     const sel = host.querySelector(".cpt-shoot-sel");

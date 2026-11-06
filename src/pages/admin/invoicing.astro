@@ -1531,7 +1531,7 @@ import "../../styles/money-os.css";
 
     /* ---- The month (Dani, 5-6 Nov 2026) ----------------------------------
        Worked out from the invoices by Worker /invoicing/book, never typed in. */
-    let BOOK = null, TODAY = "", PENDING = [], NUMBERS = [], TICKS = null;
+    let BOOK = null, TODAY = "", PENDING = [], NUMBERS = [], TICKS = null, RELEASED = [];
     const S = { month: "", kind: "all", status: "", q: "" };
     const KINDS = [["social", "Social media"], ["video", "Videography"], ["agent", "Agent services"], ["oneoff", "One-offs"]];
     const svc = (v) => (v.kind === "video" ? "Videography" : v.kind === "agent" ? "Agent services" : v.kind === "social" ? "Social media" : "One-off");
@@ -1571,7 +1571,7 @@ import "../../styles/money-os.css";
       if (!BOOK) { st.hidden = false; st.className = "state"; st.textContent = "Loading…"; main.hidden = true; }
       try {
         const d = await api("/invoicing/book");
-        BOOK = d.invoices || []; TODAY = d.today; PENDING = d.pending || []; NUMBERS = d.numbers || []; TICKS = d.ticks || null;
+        BOOK = d.invoices || []; TODAY = d.today; PENDING = d.pending || []; NUMBERS = d.numbers || []; TICKS = d.ticks || null; RELEASED = d.released || [];
         if (!S.month) S.month = TODAY.slice(0, 7);
         st.hidden = true; main.hidden = false;
         drawBook();
@@ -1598,6 +1598,7 @@ import "../../styles/money-os.css";
       // Needs you: only things someone has to do, worked out from the invoices.
       const needs = [];
       const need = (title, words, foot) => `<div class="need"><div class="need-t">${esc(title)}</div><p>${words}</p><div class="need-f">${foot}</div></div>`;
+      RELEASED.forEach((x) => needs.push(need(x.client, `Released before payment${x.service ? `: ${esc(x.service)}` : ""}. ${x.number ? `${esc(x.number)} ${x.status === "draft" ? "is still a draft" : "isn't paid yet"}.` : "No invoice raised yet."}`, `<a class="mbtn" href="/admin/videography?booking=${encodeURIComponent(x.id)}">Open the shoot</a>`)));
       BOOK.filter(held).forEach((v) => {
         const last = v.reminders[v.reminders.length - 1];
         needs.push(need(v.client, `Jack's finished, but ${esc(v.number)} isn't marked paid, so their content is held.${last ? ` Reminder sent ${esc(day(last))}.` : ""}`, `<button type="button" class="mbtn" data-inv="${esc(v.id)}">Open</button><button type="button" class="mbtn primary" data-email="${esc(v.id)}">Urgent reminder</button>`));

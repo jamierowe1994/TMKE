@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/videography_delivery_method.sql — Deliver by on each shoot, Pixieset or Client portal, and Release before payment. Every existing shoot stays on Pixieset and nothing is sent (6 Nov)
 
 
 ## Done

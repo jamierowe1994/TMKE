@@ -2238,11 +2238,13 @@ async function runPortalFolderNotices(env) {
     const now = [...keep, ...fresh];
     const names = fresh.map((f) => f.slice(0, -1).split("/").pop());
     const bks = (await sbGet(env, "videography_bookings",
-      `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=client_name,client_company,client_email,service,shoot_date,archive_folder,gallery_sent_at,edits_settled_at,edits_settled_by`)) || [];
+      `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=*`)) || [];
     const items = fresh.map((f, i) => {
       const bk = bks.find((b) => archivePrefix(b.archive_folder) === f);
       const when = bk && bk.shoot_date ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
-      const status = bk ? starterEditStatus({ settledAt: bk.edits_settled_at, settledBy: bk.edits_settled_by, sentAt: bk.gallery_sent_at, name: bk.client_name }) : "";
+      // A shoot delivered by portal goes to the client themselves, so "sent to
+      // them, who can ask for changes" isn't said to them about themselves.
+      const status = bk && bk.delivery_method !== "portal" ? starterEditStatus({ settledAt: bk.edits_settled_at, settledBy: bk.edits_settled_by, sentAt: bk.gallery_sent_at, name: bk.client_name }) : "";
       return { prefix: f, name: (bk && (bk.client_name || bk.client_company)) || names[i], bk, status, line: [bk && bk.service, when].filter(Boolean).join(", "), link: `${site}/portal?c=${encodeURIComponent(p.token)}&f=${encodeURIComponent(f)}` };
     });
     const esc = (v) => String(v || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -2266,6 +2268,27 @@ async function runPortalFolderNotices(env) {
         if (it.bk && it.bk.client_email) { try { await agentSheetWrite(env, it.bk.client_email, { link: it.link, editStatus: it.status || null }); } catch (_) {} }
       }
     }
+  }
+}
+
+/* Delivered through the portal instead of Pixieset (Dani, 6 Nov). There's no
+   gallery email to move these on, so the moment the folder can show counts as
+   sending it: the shoot goes to Sent and its 10 days for edits start. Only once
+   it's actually in a portal that's on, so it can't say sent when nobody can see
+   it. Runs before the folder emails, on the 5-minute tick. */
+async function runPortalDeliveries(env) {
+  const bks = (await sbGet(env, "videography_bookings",
+    "delivery_method=eq.portal&stage=eq.gallery_ready&archive_folder=not.is.null&select=id,client_name,client_email,archive_folder,stage,paid_at,amount_pence,payment_route,smm_lead_id,delivery_method,released_unpaid_at")) || [];
+  const ready = bks.filter((b) => shootDoneForPortal(b));
+  if (!ready.length) return;
+  const portals = (await sbGet(env, "client_portals", "enabled=eq.true&select=folders")) || [];
+  for (const b of ready) {
+    const prefix = archivePrefix(b.archive_folder);
+    if (!portals.some((p) => portalFolders(p).includes(prefix))) continue;
+    const r = await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(b.id)}&stage=eq.gallery_ready`, { stage: "sent", gallery_sent_at: new Date().toISOString() });
+    if (!r || !r.ok) continue;
+    await logBookingMessage(env, { booking_id: b.id, booking_source: "videography", client_email: b.client_email || null, channel: "note", kind: "audit",
+      body: b.paid_at || b.amount_pence === 0 ? "Now showing in their client portal." : "Now showing in their client portal, released before payment.", is_automated: true, created_by: "automatic" });
   }
 }
 
@@ -5440,6 +5463,9 @@ function shootDoneForPortal(b) {
   // ready" is the hand-over to their manager (Dani, 4 Nov), and the package
   // has paid for it.
   if (b.smm_lead_id || b.payment_route === "smm_package") return ["gallery_ready", "sent", "delivered"].includes(b.stage);
+  // Delivered by portal (Dani, 6 Nov): no gallery to send, so Content ready is
+  // the step. Still paid or £0, unless management released it before payment.
+  if (b.delivery_method === "portal") return ["gallery_ready", "sent", "delivered"].includes(b.stage) && (!!b.paid_at || b.amount_pence === 0 || !!b.released_unpaid_at);
   if (!["sent", "delivered"].includes(b.stage)) return false;
   return !!b.paid_at || b.amount_pence === 0;
 }
@@ -5447,8 +5473,11 @@ async function portalShownFolders(env, p) {
   const all = portalFolders(p);
   if (!all.length) return all;
   const names = all.map((f) => f.slice(PART_PREFIX.length + 1, -1));
-  const bks = (await sbGet(env, "videography_bookings",
-    `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=archive_folder,stage,paid_at,payment_route,amount_pence,smm_lead_id`)) || [];
+  // A failed lookup shows nothing: with no shoots to check, every folder would
+  // count as nobody's and show, paid or not.
+  const bks = await sbGet(env, "videography_bookings",
+    `archive_folder=in.(${names.map((n) => `"${n.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=*`);
+  if (!bks) return [];
   const waiting = new Set();
   for (const f of all) {
     const mine = bks.filter((b) => archivePrefix(b.archive_folder) === f);
@@ -7022,7 +7051,7 @@ async function invoiceContext(env, invoices) {
     return out;
   };
   const rec = await read("recurring_invoices", ids((v) => v.recurring_id), "id,name,kind,lead_id,quantity_label");
-  const bookings = await read("videography_bookings", ids((v) => ((v.booking_source || "videography") === "videography" ? v.booking_id : null)), "id,payment_route,client_name,company,client_company,service,stage,paid_at,pin_released_at,shoot_date,smm_lead_id");
+  const bookings = await read("videography_bookings", ids((v) => ((v.booking_source || "videography") === "videography" ? v.booking_id : null)), "*");
   const leadIds = ids((v) => (v.booking_source === "smm" ? v.booking_id : null)).concat(Object.values(rec).map((r) => r.lead_id).filter(Boolean));
   const leads = await read("smm_leads", [...new Set(leadIds)], "id,business,full_name,first_name,last_name,inter_brand_invoice");
   return { rec, bookings, leads, overrides: await revenueOverrides(env) };
@@ -7041,7 +7070,7 @@ function invoiceBookRow(v, ctx) {
   const rule = bk ? ruleForService(bk.service) : r && r.kind === "social" ? "social-monthly" : r && r.quantity_label ? "agent-hub" : r ? "agent-assets" : lead ? "social-other" : "other";
   const sector = v.sector || sectorForRule(rule, ctx.overrides);
   const items = Array.isArray(v.line_items) ? v.line_items : [];
-  const contentReady = !!(bk && v.status !== "paid" && ["gallery_ready", "sent"].includes(bk.stage) && !bk.paid_at);
+  const contentReady = !!(bk && v.status !== "paid" && ["gallery_ready", "sent"].includes(bk.stage) && !bk.paid_at && !bk.released_unpaid_at);
   return {
     id: v.id, number: v.number || "", status: v.status,
     kind, route: interBrand ? "internal" : "client", rule, sector, sector_chosen: !!v.sector,
@@ -7057,7 +7086,7 @@ function invoiceBookRow(v, ctx) {
     method: v.payment_method || "", pay_by_card: !!v.pay_by_card,
     note: v.accounts_note || "", marked_at: v.accounts_marked_at || null,
     reminders: Array.isArray(v.accounts_reminders) ? v.accounts_reminders : [],
-    release: bk && !bk.pin_released_at && !bk.paid_at ? "Gallery PIN" : "", content_ready: contentReady,
+    release: !bk || bk.pin_released_at || bk.paid_at || bk.released_unpaid_at ? "" : bk.delivery_method === "portal" ? "Portal folder" : "Gallery PIN", content_ready: contentReady,
     booking_id: v.booking_id || null, booking_source: v.booking_source || null,
     sent_to: v.sent_to || "",
   };
@@ -7223,7 +7252,7 @@ export default {
       let mins = 0; try { mins = new Date(event.scheduledTime).getUTCMinutes(); } catch (_) {}
       if (mins === 0) ctx.waitUntil(runAiCreditCheck(env));
       // A folder added to a portal that emails someone (the TEG new-starter portal).
-      ctx.waitUntil(pinArchiveFolders(env).catch(() => {}).then(() => runStarterPortalAdds(env)).catch(() => {}).then(() => runSmmPortalFlags(env)).catch(() => {}).then(() => runPortalFolderNotices(env)).catch(() => {}));
+      ctx.waitUntil(pinArchiveFolders(env).catch(() => {}).then(() => runStarterPortalAdds(env)).catch(() => {}).then(() => runSmmPortalFlags(env)).catch(() => {}).then(() => runPortalDeliveries(env)).catch(() => {}).then(() => runPortalFolderNotices(env)).catch(() => {}));
     }
   },
 
@@ -12156,6 +12185,27 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         return json({ ok: true, to, link }, 200, request, env);
       }
 
+      // Release a portal shoot before it's paid, or take that back (Dani, 6 Nov).
+      // One shoot at a time, by management, with who and when kept on it.
+      if (path.endsWith("/videography/release-before-payment") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.booking_id) || "");
+        if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Which shoot?" }, 400, request, env);
+        const bk = (await sbGet(env, "videography_bookings", `id=eq.${id}&select=*`))?.[0];
+        if (!bk) return json({ error: "Shoot not found." }, 404, request, env);
+        if (bk.delivery_method !== "portal") return json({ error: "Set this shoot to Client portal first." }, 400, request, env);
+        const on = !!b.on;
+        const patch = on ? { released_unpaid_at: new Date().toISOString(), released_unpaid_by: user.email || "management" } : { released_unpaid_at: null, released_unpaid_by: null };
+        const r = await sbPatch(env, "videography_bookings", `id=eq.${id}`, patch);
+        if (!r || !r.ok) return json({ error: "Couldn't save that. Please try again." }, 502, request, env);
+        await logBookingMessage(env, { booking_id: id, booking_source: "videography", client_email: bk.client_email || null, channel: "note", kind: "audit",
+          body: on ? `Released before payment by ${user.email || "management"}.` : `Release before payment taken back by ${user.email || "management"}.`, created_by: user.email || "management" });
+        return json({ ok: true, ...patch }, 200, request, env);
+      }
+
       // ---- A link to one file that a <video> or a download can use (admins) ----
       if (path.endsWith("/media-link") && request.method === "GET") {
         const user = await getUser(request, env);
@@ -14041,8 +14091,19 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             ticks = { month: m, month_label: invMonthLabel(m), ticked: ticked.length, total: recs.length };
           }
         } catch (_) {}
+        // Shoots released before payment stay in Needs you until they're paid,
+        // or nothing would push anyone to raise the invoice (Dani, 6 Nov).
+        let released = [];
+        try {
+          const rows = (await sbGet(env, "videography_bookings", "released_unpaid_at=not.is.null&paid_at=is.null&select=id,client_name,client_company,company,service")) || [];
+          const invs = rows.length ? (await sbGet(env, "invoices", `booking_id=in.(${rows.map((r) => `"${r.id}"`).join(",")})&status=neq.void&select=booking_id,number,status&order=created_at.desc`)) || [] : [];
+          released = rows.map((r) => {
+            const iv = invs.find((x) => x.booking_id === r.id);
+            return { id: r.id, client: r.company || r.client_company || r.client_name || "A shoot", service: r.service || "", number: iv ? iv.number || "" : "", status: iv ? iv.status : "" };
+          });
+        } catch (_) {}
         const portal = await accountsPortalRow(env);
-        return json({ ok: true, today: t0.ymd, invoices, pending, numbers, ticks, portal_ready: !!portal }, 200, request, env);
+        return json({ ok: true, today: t0.ymd, invoices, pending, numbers, ticks, released, portal_ready: !!portal }, 200, request, env);
       }
       if (path.endsWith("/invoicing/book/update") && request.method === "POST") {
         const user = await getUser(request, env);
@@ -16156,6 +16217,8 @@ async function sendGalleryPinEmail(env, bookingId) {
   const rows = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(bookingId)}&select=*`);
   const bk = rows && rows[0];
   if (!bk) return { ok: false, reason: "no booking" };
+  // Delivered by portal: no gallery and no PIN. The folder shows by itself.
+  if (bk.delivery_method === "portal") return { ok: false, reason: "delivered by portal" };
   // Only if they have already had the gallery: otherwise the normal
   // gallery-ready email will carry the PIN itself, and two emails would be
   // confusing rather than helpful.

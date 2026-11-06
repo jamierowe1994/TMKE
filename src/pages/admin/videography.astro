@@ -2214,8 +2214,16 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       sent:          { sub: "Sent",          next: "With the team. Any edits come straight to Jack - no forms, no email chain.", advance: { to: "delivered",     label: "Close this job" } },
       delivered:     { sub: "Delivered",     next: "Covered by the package. Nothing to pay, nothing outstanding.",               advance: null },
     };
+    // Delivered by client portal instead of Pixieset (Dani, 6 Nov): no gallery
+    // and no PIN. Only the later stages read differently.
+    const PORTAL_FLOW = {
+      editing:       { sub: "In editing",    next: "Edit the footage, upload it to our storage, then press Content ready.",     advance: { to: "gallery_ready", label: "Content ready" } },
+      gallery_ready: { sub: "Content ready", next: "It shows in their portal once it's paid, or released before payment.",      advance: null },
+      sent:          { sub: "In their portal", next: "They have their content. Waiting on payment and any edits.",               advance: { to: "delivered",     label: "Close this job" } },
+    };
     function stageFlow(b) {
       const base = STAGE_FLOW[b.stage] || STAGE_FLOW.booked;
+      if (isPortalDelivery(b) && PORTAL_FLOW[b.stage]) return PORTAL_FLOW[b.stage];
       return isSmmCovered(b) && SMM_FLOW[b.stage] ? SMM_FLOW[b.stage] : base;
     }
 
@@ -2303,6 +2311,12 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       }
       if (st === "invoiced") return ["is-none", b.shoot_date ? "Shoot " + dateOf(b.shoot_date) : "Waiting for the shoot"];
       if (st === "shoot_day") return ["", "Shot? Move it to editing"];
+      if (isPortalDelivery(b)) {
+        const clear = vbPaid(b) || b.amount_pence === 0 || !!b.released_unpaid_at;
+        if (st === "editing") return ["", b.archived_at ? "Press Content ready" : "Upload to our storage"];
+        if (st === "gallery_ready") return clear ? ["is-none", "Going into their portal"] : !iv ? ["", "Raise the invoice"] : ["", vbOverdue(iv) ? "Payment overdue" : "Waiting on payment"];
+        if (st === "sent" && !vbPaid(b) && b.released_unpaid_at) return ["", !iv ? "Released: raise the invoice" : "Released: waiting on payment"];
+      }
       if (st === "editing") {
         if (!b.archived_at) return ["", "Upload to our storage"];
         if (smm) return ["", "Hand it to the team"];
@@ -2467,7 +2481,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
                 <div class="vc-pane" data-pane="travel"></div>
                 <div class="vc-pane" data-pane="invoice">${renderBrandGate(b) ? vcSec("Before invoicing", `<div class="vc-gate-slot">${renderBrandGate(b)}</div>`) : ""}<div id="vid-cand-invoice"></div></div>
                 <div class="vc-pane" data-pane="delivery">
-                  ${vcSec("1 · Pixieset gallery", `${started ? "" : `<p class="vc-hint" style="margin:10px 0 6px">What the client sees and downloads. It opens up once the shoot is filmed and in editing.</p>`}<div id="vid-cand-delivery" hidden></div>`)}
+                  ${vcSec(isSmmCovered(b) ? "1 · Pixieset gallery" : "1 · How it's delivered", `<div id="vd-method"></div>${started ? "" : `<p class="vc-hint" style="margin:10px 0 6px">What the client sees and downloads. It opens up once the shoot is filmed and in editing.</p>`}<div id="vid-cand-delivery" hidden></div>`)}
                   ${isSmmCovered(b) ? "" : vcSec("2 · Client portal", `<p class="vc-hint" style="margin:10px 0 6px">For clients who have a portal: their own link and passcode to watch and download from our storage. Not another upload; it shares this shoot's folder.</p><div class="cpt-shoot" id="vc-portal-host"></div>`)}
                   ${vcSec(isSmmCovered(b) ? "2 · Edits" : "3 · Edits", `<p class="vc-hint" style="margin:10px 0 6px">The client gets one round of changes, for 10 days after the gallery is sent. Settled means that round is done, so the shoot can close.</p>${vcEditsRows(b)}`)}
                 </div>
@@ -2492,7 +2506,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", async () => {
         // Editing -> Gallery ready assumes both uploads are done. Neither is
         // recoverable later without redoing work, so it asks.
-        if (f.advance.to === "gallery_ready") {
+        if (f.advance.to === "gallery_ready" && isPortalDelivery(b)) {
+          const problem = await portalReadyProblem(b);
+          if (problem) { alert(problem); return; }
+        } else if (f.advance.to === "gallery_ready") {
           const missing = [];
           if (!b.archived_at) missing.push("• the archive copy in our own storage");
           if (!b.pixieset_uploaded_at) missing.push("• the Pixieset gallery");
@@ -2676,6 +2693,16 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       const started = ["editing", "gallery_ready", "sent", "delivered"].includes(b.stage);
       const editsUntil = b.gallery_sent_at ? vcDay(new Date(Date.parse(b.gallery_sent_at) + 10 * 864e5).toISOString()) : "";
       const exp = vcExpires(b);
+      if (isPortalDelivery(b)) {
+        const pay = b.paid_at ? vcChip("is-good", "Paid") : b.amount_pence === 0 ? "Nothing to pay" : b.released_unpaid_at ? vcChip("is-wait", "Released before payment") : vcChip("is-wait", "Held until paid");
+        return vcBox("delivery", "vc-third", "Delivery", vcAct("delivery", "Open"), `<dl class="vc-dl">${[
+          vcR("Deliver by", "Client portal"),
+          vcR("Client portal", vcCache.portal || "", false, "vc-portal"),
+          vcR("Payment", pay),
+          vcR("Sent", b.gallery_sent_at ? escapeHtml(vcDay(b.gallery_sent_at)) : "Not yet"),
+          vcR("Edits", b.edits_settled_at ? vcChip("is-good", "Settled " + vcDay(b.edits_settled_at)) : (editsUntil ? "Open until " + escapeHtml(editsUntil) : vcChip("is-plain", "Not sent yet"))),
+        ].join("")}</dl>`);
+      }
       const pin = smm ? "Not needed"
         : b.pin_released_at ? vcChip("is-good", "Released " + vcDay(b.pin_released_at))
         : vcCache.pin ? (b.paid_at ? "Goes with the gallery" : vcChip("is-wait", "Held until paid"))
@@ -2739,6 +2766,20 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         items.push(item(!!vcCache.invRow, "Invoice raised"));
         const acts = (fc && !b.brand_fee_confirmed ? btn("invoice", "Fee check") : "") + btn("invoice", vcCache.invRow ? "Open invoice" : "Raise invoice", true);
         return box("Before invoicing", items, acts);
+      }
+      if (["editing", "gallery_ready", "sent"].includes(st) && isPortalDelivery(b)) {
+        const files = !!(vcCache.files || b.archived_at);
+        const free = b.amount_pence === 0, early = !!b.released_unpaid_at;
+        const items = [item(files, "Files in our storage"), item(st !== "editing", "Content ready")];
+        if (!free) items.push(item(!!b.paid_at || early, b.paid_at ? "Invoice paid" : early ? "Released before payment" : `Invoice paid${vcCache.invNo ? ": " + vcCache.invNo : ""}`));
+        if (early && !b.paid_at) items.push(item(false, vcCache.invRow ? "Invoice still to be paid" : "Invoice still to be raised"));
+        if (st === "sent") items.push(item(!!b.edits_settled_at, "Edits settled"));
+        let acts = "";
+        if (!files) acts = btn("content", "Upload files", true);
+        else if (st === "editing") acts = btn("delivery", "Content ready", true);
+        else if (!b.paid_at && !free) acts = btn("invoice", vcCache.invRow ? "Open invoice" : "Raise invoice", true);
+        else if (st === "sent" && !b.edits_settled_at) acts = btn("delivery", "Edits", true);
+        return box("Before delivery", items, acts);
       }
       if (["editing", "gallery_ready", "sent"].includes(st)) {
         const files = !!(vcCache.files || b.archived_at);
@@ -3237,6 +3278,21 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     function isTegInvoiced(b) { return b && b.payment_route === "brand_invoice_teg"; }
     /* Covered by their SMM package: no invoice, and nothing to chase. */
     function isSmmCovered(b) { return b && b.payment_route === "smm_package"; }
+    function isPortalDelivery(b) { return !!b && b.delivery_method === "portal" && !isSmmCovered(b); }
+    // The portal this shoot's folder is in, if any.
+    async function portalForShoot(b) {
+      const folder = folderFor(b);
+      const { data } = await supabase.from("client_portals").select("id, name, enabled, folders, notify_email");
+      return (data || []).find((p) => (p.folders || []).includes(folder)) || null;
+    }
+    // Why Content ready can't be pressed yet, or nothing if it can.
+    async function portalReadyProblem(b) {
+      if (!(vcCache.files || b.archived_at)) return "Upload the files to our storage first, so the client doesn't open an empty folder.";
+      const p = await portalForShoot(b);
+      if (!p) return "Choose their portal first, in the Client portal section of Delivery.";
+      if (!p.enabled) return `${p.name}'s portal is turned off. Turn it on first, in Manage portals.`;
+      return "";
+    }
 
     function renderBrandGate(b) {
       if (!isBrandInvoiced(b) || b.stage !== "booked") return "";
@@ -3591,11 +3647,80 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
        our storage is the other half of the job. The gallery email and the PIN
        go from the foot of the pop-out. */
     var vdEdit = false;   // the gallery's fields are open
+    /* Deliver by (Dani, 6 Nov): choosable from booking onwards. Picking a portal
+       further down while on Pixieset gives both, as new starters have. */
+    function renderDeliveryMethod(b) {
+      const host = document.getElementById("vd-method");
+      if (!host) return;
+      if (isSmmCovered(b)) { host.innerHTML = ""; return; }
+      const ready = "delivery_method" in b;
+      const by = isPortalDelivery(b) ? "portal" : "pixieset";
+      host.innerHTML = `<dl class="vc-pdl is-form">${vcPF("Deliver by", `<select class="vc-in" id="vd-method-sel"${ready ? "" : " disabled"}><option value="pixieset"${by === "pixieset" ? " selected" : ""}>Pixieset</option><option value="portal"${by === "portal" ? " selected" : ""}>Client portal</option></select>`, !ready ? "Run supabase/videography_delivery_method.sql first." : by === "portal" ? "No gallery and no PIN. It shows in their portal once Content ready is pressed and it's paid, or released before payment." : "A gallery and PIN. If you pick a portal below too, it also shows there once sent and paid.")}</dl>`;
+      document.getElementById("vd-method-sel")?.addEventListener("change", (e) => {
+        const to = e.target.value;
+        if (to === "pixieset" && b.released_unpaid_at && !confirm("This also takes back the release before payment. Carry on?")) { e.target.value = "portal"; return; }
+        saveBookingPatch(b, to === "pixieset" && b.released_unpaid_at ? { delivery_method: to, released_unpaid_at: null, released_unpaid_by: null } : { delivery_method: to });
+      });
+    }
     async function renderDeliveryCard(b) {
+      renderDeliveryMethod(b);
       const host = document.getElementById("vid-cand-delivery");
       if (!host) return;
       if (!["editing", "gallery_ready", "sent", "delivered"].includes(b.stage)) { host.hidden = true; return; }
       host.hidden = false;
+
+      if (isPortalDelivery(b)) {
+        const [port, mgmt] = await Promise.all([portalForShoot(b), canMoney()]);
+        if (b.id !== candId) return;
+        const files = vcCache.files || 0, stored = !!(files || b.archived_at);
+        const paid = !!b.paid_at, free = b.amount_pence === 0, early = !!b.released_unpaid_at;
+        const ready = ["gallery_ready", "sent", "delivered"].includes(b.stage), clear = paid || free || early;
+        const showing = ["sent", "delivered"].includes(b.stage) && clear && port && port.enabled;
+        const whenDay = (iso) => escapeHtml(vcDay(iso));
+        const missing = (t) => `<span class="vc-missing">${escapeHtml(t)}</span>`;
+        host.innerHTML = `<dl class="vc-pdl">
+            ${vcPR("Files", stored ? (files ? `All ${files} in our storage` : "In our storage") : missing("Not uploaded"))}
+            ${vcPR("Their portal", port ? escapeHtml(port.name) + (port.enabled ? "" : " (turned off)") : missing("Not chosen yet, see below"))}
+            ${vcPR("Content ready", ready ? "Yes" : "Not yet")}
+            ${vcPR("Payment", paid ? "Paid" : free ? "Nothing to pay" : early ? `Released before payment by ${escapeHtml(b.released_unpaid_by || "management")}, ${whenDay(b.released_unpaid_at)}` : vcChip("is-wait", "Held until paid"))}
+            ${vcPR("Showing", showing ? (b.gallery_sent_at ? `Since ${whenDay(b.gallery_sent_at)}` : "Yes") : ready && clear && port && port.enabled ? "Within about 5 minutes" : "Not yet")}
+            ${vcPR("Who's told", !port ? "" : port.notify_email ? escapeHtml(port.notify_email) : missing("Nobody. Set who it emails in Manage portals, or copy the link below"))}
+          </dl>
+          <p class="vid-warn" id="vd-msg" hidden></p>
+          <div class="vc-inline-acts">
+            ${stored ? "" : '<button type="button" class="vc-hb vc-hb--primary" data-vd-store>Upload to our storage</button>'}
+            ${stored && b.stage === "editing" ? '<button type="button" class="vc-hb vc-hb--primary" id="vd-ready">Content ready</button>' : ""}
+            ${mgmt && !paid && !free && b.stage !== "delivered" ? `<button type="button" class="vc-hb" id="vd-early">${early ? "Take back the release" : "Release before payment"}</button>` : ""}
+          </div>`;
+        host.querySelector("[data-vd-store]")?.addEventListener("click", () => vcOpen("content"));
+        document.getElementById("vd-ready")?.addEventListener("click", async (e) => {
+          e.currentTarget.disabled = true;
+          const problem = await portalReadyProblem(b);
+          if (problem) { vdMsg(problem, true); renderDeliveryCard(b).then(() => vdMsg(problem, true)); return; }
+          await advanceStage("gallery_ready");
+        });
+        document.getElementById("vd-early")?.addEventListener("click", async (e) => {
+          const btn = e.currentTarget, on = !early;
+          if (!confirm(on
+            ? "Release this shoot before it's paid?\n\nOnce Content ready has been pressed, it shows in their portal with no paid invoice. It stays in Needs you on Invoicing until it's paid."
+            : "Take back the release?\n\nThe folder comes out of their portal until it's paid. Anything they've already downloaded stays with them.")) return;
+          btn.disabled = true;
+          try {
+            const token = await authToken();
+            const res = await fetch(`${WORKER_URL}/videography/release-before-payment`, {
+              method: "POST",
+              headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+              body: JSON.stringify({ booking_id: b.id, on }),
+            });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) { btn.disabled = false; vdMsg(d.error || "Couldn't save that.", true); return; }
+            b.released_unpaid_at = d.released_unpaid_at; b.released_unpaid_by = d.released_unpaid_by;
+            renderCandidate();
+          } catch (err) { btn.disabled = false; vdMsg("Couldn't save that: " + err.message, true); }
+        });
+        vdFoot(b);
+        return;
+      }
 
       // A package shoot: no gallery, no PIN, nothing to pay. The handover is
       // telling whoever runs that account it's in the Library.
@@ -3673,6 +3798,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       const foot = document.getElementById("vc-panel-f");
       if (!foot) return;
       if (isSmmCovered(b)) { foot.innerHTML = vcFootBtn("data-vc-close", "Close", true); foot.querySelector("[data-vc-close]").addEventListener("click", vcClose); return; }
+      if (isPortalDelivery(b)) { foot.innerHTML = `<span class="vc-say">Nothing goes to Pixieset, and no gallery email goes out.</span>` + vcFootBtn("data-vc-close", "Close", true); foot.querySelector("[data-vc-close]").addEventListener("click", vcClose); return; }
       const canSend = ["gallery_ready", "sent", "delivered"].includes(b.stage) && !!b.gallery_url;
       const say = !["editing", "gallery_ready", "sent", "delivered"].includes(b.stage) ? "Nothing to send until the shoot is in editing."
         : b.stage === "editing" ? "Saving the gallery with its link and PIN moves this shoot to Gallery ready."
