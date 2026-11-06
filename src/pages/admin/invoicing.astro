@@ -55,7 +55,8 @@ import "../../styles/money-os.css";
       <div class="cp" id="pt-main" hidden style="max-width:720px">
         <label class="field"><span>The link. This is what goes in their email.</span><span class="io-copy"><input id="pt-link" readonly><button type="button" class="mbtn" id="pt-copy">Copy</button></span></label>
         <label class="field"><span>The passcode. Tell them this yourself; it's never in an email. Changing it signs everyone out.</span><span class="io-copy"><input id="pt-code" maxlength="12" autocomplete="off" spellcheck="false"><button type="button" class="mbtn" id="pt-gen">New one</button></span></label>
-        <label class="field"><span>Who gets the month-end email</span><input id="pt-to" type="email"></label>
+        <label class="field"><span>Who the accounts emails go to. Separate several with commas.</span><input id="pt-to" type="text" autocomplete="off" spellcheck="false"></label>
+        <label class="field"><span>Who's copied in. Separate several with commas. Whoever presses send is always copied in too.</span><input id="pt-cc" type="text" autocomplete="off" spellcheck="false"></label>
         <div class="field"><span>The page</span><span class="tog" id="pt-on"><button type="button" data-v="1">On</button><button type="button" data-v="0">Off</button></span></div>
         <div class="field"><span>Send the month-end email by itself, on the 20th and again on the 28th if anything's still open</span><span class="tog" id="pt-auto"><button type="button" data-v="1">On</button><button type="button" data-v="0">Off</button></span></div>
         <p id="pt-last"></p>
@@ -1676,7 +1677,7 @@ import "../../styles/money-os.css";
         ? `${v.client}'s content is finished, but we can't release it until invoice ${v.number} for ${amt} is marked as paid. Could you take a look today?`
         : `Invoice ${v.number} for ${amt} (${v.client}) is still open. Could you let us know where it's up to?`;
       popShell("Email accounts", urgent ? "Urgent reminder" : "A reminder", "",
-        `<label class="field"><span>To</span><input value="Paula and the accounts team" readonly></label><label class="field"><span>Subject</span><input id="io-em-sub" value="${esc((urgent ? "Urgent: " : "") + v.number + (urgent ? ", content waiting on payment." : ", still open."))}"></label><label class="field"><span>Message</span><textarea id="io-em-body" rows="9">${esc(`Hi Paula,\n\n${words}\n\nYou can mark it on your page: [link to the portal]\n\nThank you.`)}</textarea></label>`,
+        `<label class="field"><span>To</span><input value="The accounts team, as set in Settings" readonly></label><label class="field"><span>Subject</span><input id="io-em-sub" value="${esc((urgent ? "Urgent: " : "") + v.number + (urgent ? ", content waiting on payment." : ", still open."))}"></label><label class="field"><span>Message</span><textarea id="io-em-body" rows="9">${esc(`Hi Paula,\n\n${words}\n\nYou can mark it on your page: [link to the portal]\n\nThank you.`)}</textarea></label>`,
         `<button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" data-sendemail="${esc(v.id)}">Send</button>`);
     }
 
@@ -1686,8 +1687,8 @@ import "../../styles/money-os.css";
       try {
         const d = await api("/invoicing/month-end");
         popShell("Month-end email", "Coming up to month end", "",
-          `<p style="margin:0;color:var(--tx)">${d.emails_on ? "Goes by itself on the 20th, and again on the 28th if anything's still open. This is what it says." : "This is what it says. It isn't going by itself yet: switch that on in Settings, under Accounts portal, once you've tested it."}</p><div class="mail">${d.html}</div>`,
-          `<button type="button" class="mbtn" data-close>Close</button><button type="button" class="mbtn" data-mesend="test">Send me a test</button><button type="button" class="mbtn primary" data-mesend="live">Send to ${esc(d.to)}</button>`, true);
+          `${whoLine(d)}<p style="margin:0;color:var(--tx)">${d.emails_on ? "Goes by itself on the 20th, and again on the 28th if anything's still open. This is what it says." : "This is what it says. It isn't going by itself yet: switch that on in Settings, under Accounts portal, once you've tested it."}</p><div class="mail">${d.html}</div>`,
+          `<button type="button" class="mbtn" data-close>Close</button><button type="button" class="mbtn" data-mesend="test">Send me a test</button><button type="button" class="mbtn primary" data-mesend="live">Send to accounts</button>`, true);
       } catch (err) { popShell("Month-end email", "Coming up to month end", "", `<p class="state bad">${esc(err.message)}</p>`, '<button type="button" class="mbtn" data-close>Close</button>', true); }
     }
 
@@ -1829,10 +1830,12 @@ import "../../styles/money-os.css";
 
     /* ---- The accounts portal's settings ---- */
     let PT = {};
+    const PT_CC_READY = () => !$("pt-cc").disabled;
+    const whoLine = (d) => `<p style="margin:0"><b style="font-weight:400;color:var(--tx)">To:</b> ${esc(d.to)}${d.cc ? `<br><b style="font-weight:400;color:var(--tx)">Copied in:</b> ${esc(d.cc)}` : ""}</p>`;
     const ptTog = (id, on) => $(id).querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String((x.dataset.v === "1") === !!on)));
     function ptDraw(d) {
       PT = { enabled: d.enabled, emails_on: d.emails_on };
-      $("pt-link").value = d.link; $("pt-code").value = d.passcode; $("pt-to").value = d.email_to;
+      $("pt-link").value = d.link; $("pt-code").value = d.passcode; $("pt-to").value = d.email_to; $("pt-cc").value = d.email_cc || ""; $("pt-cc").disabled = !d.cc_ready; $("pt-cc").placeholder = d.cc_ready ? "" : "Run supabase/accounts_portal_recipients.sql first";
       ptTog("pt-on", d.enabled); ptTog("pt-auto", d.emails_on);
       $("pt-last").textContent = d.last_opened_at ? `Last opened ${new Date(d.last_opened_at).toLocaleString("en-GB", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}.` : "Nobody has opened it yet.";
     }
@@ -1851,7 +1854,7 @@ import "../../styles/money-os.css";
       popShell("Accounts portal", "First email", "", '<p class="state">Loading…</p>', '<button type="button" class="mbtn" data-close>Close</button>', true);
       const d = await drawFirstLast();
       if (!d) { popShell("Accounts portal", "First email", "", '<p class="state bad">Couldn\'t load the email. Please try again.</p>', '<button type="button" class="mbtn" data-close>Close</button>', true); return; }
-      popShell("Accounts portal", "First email", "", `<p style="margin:0"><b style="font-weight:400;color:var(--tx)">Subject:</b> ${esc(d.subject)}</p><div class="mail">${d.html}</div>`, `<button type="button" class="mbtn" data-close>Close</button><button type="button" class="mbtn" data-firstsend="test">Send me a test</button><button type="button" class="mbtn primary" data-firstsend="live" data-again="${d.last_sent_at ? "1" : ""}">Send to ${esc(d.to)}</button>`, true);
+      popShell("Accounts portal", "First email", "", `${whoLine(d)}<p style="margin:0"><b style="font-weight:400;color:var(--tx)">Subject:</b> ${esc(d.subject)}</p><div class="mail">${d.html}</div>`, `<button type="button" class="mbtn" data-close>Close</button><button type="button" class="mbtn" data-firstsend="test">Send me a test</button><button type="button" class="mbtn primary" data-firstsend="live" data-again="${d.last_sent_at ? "1" : ""}">Send to accounts</button>`, true);
     });
     document.addEventListener("click", async (e) => {
       const b = e.target.closest && e.target.closest("[data-firstsend]"); if (!b) return;
@@ -1872,7 +1875,7 @@ import "../../styles/money-os.css";
     });
     $("pt-save").addEventListener("click", async (e) => {
       const b = e.currentTarget; b.disabled = true;
-      try { ptDraw(await postJson("/invoicing/portal-settings", { enabled: PT.enabled, emails_on: PT.emails_on, email_to: $("pt-to").value, passcode: $("pt-code").value })); toast("Saved."); }
+      try { ptDraw(await postJson("/invoicing/portal-settings", { enabled: PT.enabled, emails_on: PT.emails_on, email_to: $("pt-to").value, ...(PT_CC_READY() ? { email_cc: $("pt-cc").value } : {}), passcode: $("pt-code").value })); toast("Saved."); }
       catch (err) { toast(err.message); }
       b.disabled = false;
     });

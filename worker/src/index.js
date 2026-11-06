@@ -7084,6 +7084,9 @@ async function accountsFromSession(env, request) {
   const want = await portalSig(env, `accounts:${token}`, p.passcode, exp);
   return want && want === sig ? p : null;
 }
+// Who's copied in on an accounts email: the settings' list, plus whoever pressed
+// send (or Danielle, for the automatic ones).
+function accountsCc(env, p, me) { return [p.email_cc, me || invDanielle(env)].filter(Boolean).join(","); }
 function accountsLink(env, p) { return `${invSite(env)}/accounts?c=${encodeURIComponent(p.token)}`; }
 
 /* The month-end email: to Paula, short, and what to do. Plain table cells, so
@@ -7112,7 +7115,7 @@ async function accountsMonthEndMail(env, p) {
     <p style="${EM_P}"><a href="${link}" style="color:#371e28;text-decoration:underline">Click here</a> to review all of our outstanding invoices, and please update them accordingly. Any problems, please let me know.</p>
     <p style="${EM_P}">Thank you,<br>Danielle</p>
   </div>`;
-  return { html, subject: "Coming up to month end.", count: open.length, to: p.email_to };
+  return { html, subject: "Coming up to month end.", count: open.length, to: p.email_to, cc: p.email_cc || "" };
 }
 
 /* The first email to accounts (Dani, 6 Nov 2026): why the page exists, what it
@@ -7149,7 +7152,7 @@ function accountsFirstEmail(env, p) {
     ${P("If you have any problems or questions, just let me know.")}
     ${P("Thank you,<br>Danielle")}
   </div>`;
-  return { html, subject: `A new page for open invoices, and an email to expect on ${first}.`, to: p.email_to };
+  return { html, subject: `A new page for open invoices, and an email to expect on ${first}.`, to: p.email_to, cc: p.email_cc || "" };
 }
 function ymAddMonth(ym) { const [y, m] = ym.split("-").map(Number); return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7); }
 
@@ -7162,7 +7165,7 @@ async function runAccountsMonthEnd(env) {
   const mail = await accountsMonthEndMail(env, p);
   if (!mail || !mail.count) return;
   if (!(await invLogOnce(env, `accounts-month-end:${t.ymd}`, `${mail.count} open`))) return;
-  await sendEmail(env, { to: p.email_to, cc: invDanielle(env), subject: mail.subject, html: await wrapInBrandedBase(env, mail.html) });
+  await sendEmail(env, { to: p.email_to, cc: accountsCc(env, p), subject: mail.subject, html: await wrapInBrandedBase(env, mail.html) });
 }
 
 export default {
@@ -14063,7 +14066,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const subject = String(b.subject || "").trim().slice(0, 200), text = String(b.body || "").trim().slice(0, 6000);
         if (!subject || !text) return json({ error: "Add a subject and a message." }, 400, request, env);
         const paras = invEsc(text).split(/\n{2,}/).map((x) => `<p style="${EM_P}">${x.replace(/\n/g, "<br>").replace(/\[link to the portal\]/g, `<a href="${accountsLink(env, p)}" style="color:#371e28;text-decoration:underline">${accountsLink(env, p)}</a>`)}</p>`).join("");
-        const sent = await sendEmail(env, { to: p.email_to, cc: user.email || invDanielle(env), subject, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">${paras}</div>`) });
+        const sent = await sendEmail(env, { to: p.email_to, cc: accountsCc(env, p, user.email), subject, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">${paras}</div>`) });
         if (!sent.ok) return json({ error: "Couldn't send it. Please try again." }, 502, request, env);
         const list = (Array.isArray(inv.accounts_reminders) ? inv.accounts_reminders : []).concat(invToday().ymd);
         await sbPatch(env, "invoices", `id=eq.${id}`, { accounts_reminders: list });
@@ -14081,13 +14084,16 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           const patch = { updated_at: new Date().toISOString(), updated_by: user.email || null };
           if (b.enabled !== undefined) patch.enabled = !!b.enabled;
           if (b.emails_on !== undefined) patch.emails_on = !!b.emails_on;
-          if (b.email_to !== undefined) { const t = String(b.email_to || "").trim(); if (!/^[^@\s,]+@[^@\s,]+\.[^@\s,]+$/.test(t)) return json({ error: "That email address doesn't look right." }, 400, request, env); patch.email_to = t; }
+          const emailList = (v) => String(v || "").split(/[;,]/).map((x) => x.trim()).filter(Boolean);
+          const okList = (a) => a.every((x) => /^[^@\s,]+@[^@\s,]+\.[^@\s,]+$/.test(x));
+          if (b.email_to !== undefined) { const t = emailList(b.email_to); if (!t.length || !okList(t)) return json({ error: "One of the To addresses doesn't look right." }, 400, request, env); patch.email_to = t.join(", "); }
+          if (b.email_cc !== undefined) { const t = emailList(b.email_cc); if (!okList(t)) return json({ error: "One of the Copied in addresses doesn't look right." }, 400, request, env); patch.email_cc = t.join(", ") || null; }
           if (b.passcode !== undefined) { const c = portalCode(b.passcode); if (c.length < 6 || c.length > 12) return json({ error: "A passcode needs 6 to 12 letters or numbers." }, 400, request, env); patch.passcode = c; patch.failed_tries = 0; patch.locked_until = null; }
           const r = await sbPatch(env, "accounts_portal", "id=eq.1", patch);
           if (!r.ok) return json({ error: "Couldn't save that." }, 502, request, env);
           p = await accountsPortalRow(env);
         } else if (request.method !== "GET") return json({ error: "Not found" }, 404, request, env);
-        return json({ ok: true, link: accountsLink(env, p), passcode: p.passcode, enabled: p.enabled, email_to: p.email_to, emails_on: p.emails_on, last_opened_at: p.last_opened_at }, 200, request, env);
+        return json({ ok: true, link: accountsLink(env, p), passcode: p.passcode, enabled: p.enabled, email_to: p.email_to, email_cc: p.email_cc === undefined ? null : p.email_cc, cc_ready: p.email_cc !== undefined, emails_on: p.emails_on, last_opened_at: p.last_opened_at }, 200, request, env);
       }
       // The first email to accounts: what it says, sending it, and when it last went.
       if (path.endsWith("/invoicing/first-email")) {
@@ -14104,7 +14110,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const me = user.email || invDanielle(env);
         const sent = await sendEmail(env, b.test
           ? { to: me, subject: `Test: ${mail.subject}`, html: await wrapInBrandedBase(env, mail.html) }
-          : { to: p.email_to, cc: me, subject: mail.subject, html: await wrapInBrandedBase(env, mail.html) });
+          : { to: p.email_to, cc: accountsCc(env, p, me), subject: mail.subject, html: await wrapInBrandedBase(env, mail.html) });
         if (!sent.ok) return json({ error: "Couldn't send it. Please try again." }, 502, request, env);
         if (!b.test) await invLogOnce(env, `accounts-first-email:${Date.now()}`, p.email_to);
         return json({ ok: true, to: b.test ? me : p.email_to }, 200, request, env);
@@ -14124,7 +14130,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const me = user.email || invDanielle(env);
         const sent = await sendEmail(env, b.test
           ? { to: me, subject: `Test: ${mail.subject}`, html: await wrapInBrandedBase(env, mail.html) }
-          : { to: p.email_to, cc: me, subject: mail.subject, html: await wrapInBrandedBase(env, mail.html) });
+          : { to: p.email_to, cc: accountsCc(env, p, me), subject: mail.subject, html: await wrapInBrandedBase(env, mail.html) });
         if (!sent.ok) return json({ error: "Couldn't send it. Please try again." }, 502, request, env);
         return json({ ok: true, to: b.test ? me : p.email_to }, 200, request, env);
       }

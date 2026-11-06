@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/accounts_portal_recipients.sql — the accounts emails go to Paula and accounts payable, with Rosie-Anne copied in; adds the Copied in field (6 Nov)
 - [ ] supabase/network_teg_and_fc.sql — Fine & Country contacts lose Network: TEG and keep their own tag; anyone at a TEG brand gains Network: TEG. Opt-in isn't touched and nothing is sent. It lists what changed and any live funnel using the TEG tag (6 Nov)
 
 
