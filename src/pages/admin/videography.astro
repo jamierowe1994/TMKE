@@ -870,6 +870,9 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
        halfway down box and hint (Dani, 6 Nov). */
     #vd-method .vc-pr.is-field, #vid-cand-delivery .vc-pr.is-field { align-items: start; padding-top: 9px; }
     #vd-method .vc-pr.is-field dt, #vid-cand-delivery .vc-pr.is-field dt { line-height: 32px; }
+    #vd-portal.cpt-shoot { margin-top: 0; }
+    #vd-portal .cpt-shoot-sel { height: 32px; padding: 0 26px 0 9px; margin-right: 2px; }
+    #vd-portal .cpt-note { margin-top: 0; }
     .vc-panel.is-edit .vc-pr { border-top: 0; }
     #vid-cand .vc .vc-hint { display: block; margin-top: 4px; color: var(--vc-tx); }
     #vid-cand .vc .vc-in { width: 100%; min-width: 0; height: 32px; line-height: 30px; margin: 0; box-sizing: border-box; border: 1px solid var(--vc-edge); border-radius: 4px; padding: 0 9px; font-family: var(--sans); color: var(--vc-ink); background: #fff; }
@@ -3287,7 +3290,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     // The portal this shoot's folder is in, if any.
     async function portalForShoot(b) {
       const folder = shootPortalKey(folderFor(b));
-      const { data } = await supabase.from("client_portals").select("id, name, enabled, folders, notify_email");
+      const { data } = await supabase.from("client_portals").select("id, name, enabled, folders, notified_folders, notify_email");
       return (data || []).find((p) => (p.folders || []).includes(folder)) || null;
     }
     // Why Content ready can't be pressed yet, or nothing if it can.
@@ -3692,18 +3695,32 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           : !clear ? (inv ? "No: waiting on payment" : "No: no invoice yet")
           : b.stage === "sent" || b.stage === "delivered" ? (b.gallery_sent_at ? `Yes, since ${whenDay(b.gallery_sent_at)}` : "Yes")
           : "Within about 5 minutes";
+        const told = !!port && (port.notified_folders || []).includes(shootPortalKey(folderFor(b)));
+        const shareHint = told ? "Emailed: they've been told this folder is in their portal, with the link to it."
+          : !port || !port.notify_email ? "Nobody's told until there's an address here. Separate several with commas."
+          : "We email this once, when the folder first shows in their portal, with the link and passcode. It's the same address for every shoot in this portal.";
         const rowBtn = (attr, label) => `<button type="button" class="vc-hb" ${attr} style="margin-left:10px">${escapeHtml(label)}</button>`;
         const form = vcPF("Content ready", `<div style="display:flex;gap:8px;align-items:center"><select class="vc-in" id="vd-ready-sel"${canSave ? "" : " disabled"}><option value="no"${yes ? "" : " selected"}>No</option><option value="yes"${yes ? " selected" : ""}>Yes</option></select><button type="button" class="vc-hb vc-hb--primary" id="vd-ready-save" disabled>Save</button></div>`, canSave ? (yes ? `Set to Yes${b.portal_ready_by ? ` by ${escapeHtml(b.portal_ready_by)}` : ""}, ${whenDay(b.portal_ready_at)}.` : "Change to Yes and save once editing's finished and the files are uploaded.") : "Run supabase/videography_portal_ready.sql first.");
         host.innerHTML = `<dl class="vc-pdl">${[
-          vcPR("Their portal", '<div class="cpt-shoot" id="vd-portal"></div>'),
+          vcPF("Their portal", '<div class="cpt-shoot" id="vd-portal"></div>'),
           vcPR("Files", (stored ? (files ? `All ${files} in our storage` : "In our storage") : missing("Not uploaded")) + rowBtn("data-vd-store", stored ? "Open files" : "Upload")),
           form,
           vcPR("Invoice", invLine + rowBtn("data-vd-inv", inv ? "Open invoice" : "Raise invoice")),
           paid ? "" : vcPR("Released early", (early ? `Yes, by ${escapeHtml(b.released_unpaid_by || "management")}, ${whenDay(b.released_unpaid_at)}` : "No") + (mgmt ? rowBtn('id="vd-early"', early ? "Take it back" : "Release before payment") : "")),
           vcPR("Showing", showing),
-          port ? vcPR("Who's told", (port.notify_email ? escapeHtml(port.notify_email) : missing("Nobody yet")) + ' <a href="/admin/videography?panel=portals" style="margin-left:10px">Change in Manage portals</a>') : "",
+          port ? vcPF("Share", `<div style="display:flex;gap:8px;align-items:center"><input class="vc-in" type="text" id="vd-share-to" value="${escapeHtml(port.notify_email || "")}" placeholder="Who gets the email" autocomplete="off" spellcheck="false"><button type="button" class="vc-hb vc-hb--primary" id="vd-share-save" disabled>Save</button></div>`, shareHint) : "",
         ].join("")}</dl><p class="vid-warn" id="vd-msg" hidden></p>`;
-        renderShootPortal(document.getElementById("vd-portal"), b, folderFor(b), { ...portalDeps(), onChange: () => renderDeliveryCard(b) });
+        renderShootPortal(document.getElementById("vd-portal"), b, folderFor(b), { ...portalDeps(), compact: true, onChange: () => renderDeliveryCard(b) });
+        const shareTo = document.getElementById("vd-share-to"), shareSave = document.getElementById("vd-share-save");
+        shareTo?.addEventListener("input", () => { shareSave.disabled = shareTo.value.trim() === (port.notify_email || ""); });
+        shareSave?.addEventListener("click", async () => {
+          const list = shareTo.value.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
+          if (list.some((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x))) { vdMsg("One of those email addresses doesn't look right.", true); return; }
+          shareSave.disabled = true;
+          const { data: saved, error } = await supabase.from("client_portals").update({ notify_email: list.join(", ") || null }).eq("id", port.id).select();
+          if (error || !saved || saved.length !== 1) { shareSave.disabled = false; vdMsg("Couldn't save that: " + (error ? error.message : "the database didn't confirm it"), true); return; }
+          renderDeliveryCard(b);
+        });
         host.querySelector("[data-vd-store]")?.addEventListener("click", () => vcOpen("content"));
         host.querySelector("[data-vd-inv]")?.addEventListener("click", () => vcOpen("invoice"));
         const readySel = document.getElementById("vd-ready-sel"), readySave = document.getElementById("vd-ready-save");

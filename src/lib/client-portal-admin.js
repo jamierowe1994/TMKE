@@ -312,7 +312,7 @@ export async function renderShootPortal(host, booking, folderName, deps) {
   const { supabase, me, onChange } = deps;
   if (!host) return;
   const folder = shootPortalKey(folderName);
-  const head = `<div class="cpt-shoot-head"><span class="cpt-shoot-k">Client portal</span><span class="cpt-shoot-note">the client watches and downloads it from their own link</span></div>`;
+  const head = deps.compact ? "" : `<div class="cpt-shoot-head"><span class="cpt-shoot-k">Client portal</span><span class="cpt-shoot-note">the client watches and downloads it from their own link</span></div>`;
   if (!booking || !folder) { host.innerHTML = ""; return; }
   host.innerHTML = head + '<p class="cpt-note">Loading…</p>';
 
