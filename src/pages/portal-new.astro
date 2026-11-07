@@ -135,7 +135,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     #pn .vbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding-top: 12px; flex-wrap: wrap; }
     #pn .vbar div { display: flex; gap: 14px; }
     #pn .vbar a { text-decoration: none; }
-    #pn .fly { position: fixed; z-index: 20; object-fit: cover; pointer-events: none; margin: 0; }
     #pn .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--wine); color: #fff; padding: 8px 14px; border-radius: 4px; font-size: 14px; z-index: 40; opacity: 0; transition: opacity .2s; pointer-events: none; box-shadow: 0 0 0 1px var(--taupe); max-width: 90vw; }
     #pn .toast.on { opacity: 1; }
     #pn .infobtn, #pn .lx, #pn .smark { display: none; }
@@ -352,7 +351,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const wall = $(".wall"), big = $("#big"), info = $("#info");
       const on = (i) => { if (TOUCH()) return; wall.classList.add("hov"); $$(".tile").forEach((t) => t.classList.toggle("on", +t.dataset.t === i)); $$(".list [data-t]").forEach((t) => t.classList.toggle("on", +t.dataset.t === i)); big.textContent = items[i].t; big.classList.add("on"); info.innerHTML = items[i].h; };
       const off = () => { wall.classList.remove("hov"); $$(".on", wall).forEach((t) => { if (t !== big) t.classList.remove("on"); }); if (restTitle) big.textContent = restTitle; else big.classList.remove("on"); info.innerHTML = rest; };
-      $$("[data-t]").forEach((el) => { const i = +el.dataset.t; el.addEventListener("mouseenter", () => on(i)); el.addEventListener("mouseleave", off); el.addEventListener("focus", () => on(i)); el.addEventListener("blur", off); el.addEventListener("click", () => open(i, $(`.tile[data-t="${i}"]`))); });
+      $$("[data-t]").forEach((el) => { const i = +el.dataset.t; el.addEventListener("mouseenter", () => on(i)); el.addEventListener("mouseleave", off); el.addEventListener("focus", () => on(i)); el.addEventListener("blur", off); el.addEventListener("click", () => open(i)); });
     }
     function openInfo(title, html) {
       $(".ipanel")?.remove();
@@ -371,7 +370,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <div class="c2"><div class="list"><div class="cap lab">All work</div>${rows.map((r, i) => `<button class="cap" data-t="${i}">${esc(r.d.title)}</button>`).join("")}</div><div class="cap bottom">Shoots (${list.length})</div></div>
         <div class="tiles" data-lenis-prevent>${wallOf(rows.map((r, i) => tileHtml(i, r.d.title, String(i + 1).padStart(2, "0"), r.f.cover)), ["var(--wine)", "var(--stone)", "var(--taupe)"])}</div>
         <div class="c4"><div class="note">Client portal</div><button class="cap back" id="out">Sign out</button></div></div>`;
-      wireWall(rows.map((r) => ({ t: r.d.title, h: lines(r.d) })), rest, (i, el) => openShoot(rows[i].f.prefix, el));
+      wireWall(rows.map((r) => ({ t: r.d.title, h: lines(r.d) })), rest, (i) => openShoot(rows[i].f.prefix));
       $("#out").onclick = () => { session.clear(); HOME = null; SHOOTS.clear(); FILES.clear(); history.replaceState(null, "", "?c=" + encodeURIComponent(TOKEN)); drawGate(); };
       // No cover chosen: the newest picture in the shoot's folders. Fetched as it's needed, not all at once.
       const missing = rows.map((r, i) => ({ r, i })).filter((x) => !x.r.f.cover);
@@ -390,13 +389,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       SHOOTS.set(prefix, d.parts || []);
       return d.parts || [];
     }
-    async function openShoot(prefix, el) {
+    async function openShoot(prefix) {
       let parts;
       try { parts = await whileLoading(loadShoot(prefix)); } catch (e) { if (e.message !== "signed out") toast("We couldn't open that just now. Please try again."); return; }
       if (!parts.length) { toast("There's nothing in this folder yet."); return; }
       S.shoot = prefix; S.part = 0; S.editing = false; S.mode = "thumbs";
-      if (parts.length <= 1) { await openPart(0, el); return; }   // nothing to choose between: straight to the photos
-      push(prefix); go("shoot", el);
+      if (parts.length <= 1) { await openPart(0); return; }   // nothing to choose between: straight to the photos
+      push(prefix); go("shoot");
     }
     function drawShoot() {
       held(true); root.classList.add("dark");
@@ -406,7 +405,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <div class="c2"><div class="list"><div class="cap lab">${esc(d.title)}<button class="lx" id="bx" aria-label="Back to all work">&times;</button></div>${parts.map((p, i) => `<button class="cap" data-t="${i}">${esc(p.name)}</button>`).join("")}</div><div class="cap bottom"><span>Folders (${parts.length})</span><button class="cap infobtn" id="sinfo">Info</button></div></div>
         <div class="tiles" data-lenis-prevent>${wallOf(parts.map((p, i) => tileHtml(i, p.name, countText(p), p.coverUrl)), ["var(--taupe)", "var(--linen)", "var(--stone)"])}</div>
         <div class="c4"><div class="note">Client portal</div><button class="cap back" id="b">Back</button></div></div>`;
-      wireWall(parts.map((p) => ({ t: d.title, h: `<div class="meta"><div><b>Folder</b>${esc(p.name)}</div><div><b>Content</b>${esc(countText(p))}</div></div>` })), rest, (i, el) => openPart(i, el), d.title);
+      wireWall(parts.map((p) => ({ t: d.title, h: `<div class="meta"><div><b>Folder</b>${esc(p.name)}</div><div><b>Content</b>${esc(countText(p))}</div></div>` })), rest, (i) => openPart(i), d.title);
       const toHome = () => { push(""); go("home"); };
       $("#b").onclick = toHome; $("#bx").onclick = toHome;
       $("#sinfo").onclick = () => openInfo(d.title, lines(d));
@@ -435,13 +434,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       FILES.set(p.prefix, sorted);
       return sorted;
     }
-    async function openPart(i, el) {
+    async function openPart(i) {
       S.part = i; S.editing = false;
       const p = partOf();
       if (!p) { loading("There's nothing in this folder yet."); return; }
       try { await whileLoading(loadPart(p)); } catch (e) { if (e.message !== "signed out") toast("We couldn't open that folder just now. Please try again."); return; }
       push(S.shoot, p.prefix);
-      go("folder", el);
+      go("folder");
     }
     const media = (f, cls) => (f.thumbUrl || isImage(f)) ? `<img src="${esc(f.thumbUrl || f.url)}" alt="" loading="lazy"${cls ? ` class="${cls}"` : ""}>` : isVideo(f) ? `<video src="${esc(f.url)}#t=1" preload="metadata" muted playsinline></video>` : `<span class="ext">${esc((f.name.split(".").pop() || "File").slice(0, 5))}</span>`;
     const onlyVideo = (files) => files.length > 0 && files.every(isVideo);
@@ -634,21 +633,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const done = () => { if (ended) return; ended = true; snap.remove(); app.getAnimations().forEach((x) => x.cancel()); app.style.position = ""; app.style.zIndex = ""; };
       a.onfinish = done; setTimeout(done, 900);
     }
-    function go(to, fromEl) {
-      const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches, img = fromEl && $("img", fromEl);
-      if (TOUCH()) { slide(to, reduce); return; }
-      if (!img || reduce) { S.view = to; DRAW[to](); scrollTo(0, 0); return; }
-      const a = img.getBoundingClientRect(), c = document.createElement("img");
-      c.src = img.src; c.className = "fly"; Object.assign(c.style, { left: a.left + "px", top: a.top + "px", width: a.width + "px", height: a.height + "px" });
-      root.appendChild(c);
-      S.view = to; DRAW[to]();
-      const t = $(to === "folder" ? ".main img" : ".tile img");
-      if (!t) { c.remove(); return; }
-      t.style.visibility = "hidden";
-      const finish = () => { t.style.visibility = ""; c.remove(); };
-      const fin = () => { const b = t.getBoundingClientRect(); const an = c.animate([{ left: a.left + "px", top: a.top + "px", width: a.width + "px", height: a.height + "px" }, { left: b.left + "px", top: b.top + "px", width: b.width + "px", height: b.height + "px" }], { duration: 680, easing: "cubic-bezier(.22,.8,.2,1)", fill: "forwards" }); an.onfinish = finish; setTimeout(finish, 1000); };
-      if (t.complete) fin(); else { t.addEventListener("load", fin, { once: true }); setTimeout(finish, 2500); }
-      $$(to === "folder" ? ".side" : ".c1 .big,.c1 .info,.list,.bottom,.c4,.tile:not(:first-child)").forEach((o) => o.animate([{ opacity: 0 }, { opacity: 0, offset: .45 }, { opacity: 1 }], { duration: 720 }));
+    function go(to) {
+      if (TOUCH()) { slide(to, matchMedia("(prefers-reduced-motion: reduce)").matches); return; }
+      S.view = to; DRAW[to](); scrollTo(0, 0);
     }
 
     /* ---------- Where we are: ?c=…&f=…&p=… so the browser's Back works ---------- */
