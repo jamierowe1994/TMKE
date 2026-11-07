@@ -9362,7 +9362,11 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           const files = list.files || [];
           const pics = files.filter(isPic), vids = files.filter(isVid);
           const c = pics.find((f) => f.thumb) || vids.find((f) => f.thumb) || pics[0];
-          return { prefix: pre, name, images: pics.length, videos: vids.length, others: files.length - pics.length - vids.length, coverUrl: c ? await sign(c.thumb || c.key) : "" };
+          // The tiles are big, so a photo's tile gets the preview size, with the small
+          // picture to show until that arrives (Dani, 7 Nov). A film's picture is all it has.
+          const small = c && c.thumb ? await sign(c.thumb) : "";
+          const full = c && PREVIEWABLE.test(c.name) ? (await sign(c.key)).replace("/download?", "/preview?") : "";
+          return { prefix: pre, name, images: pics.length, videos: vids.length, others: files.length - pics.length - vids.length, coverUrl: full || small || (c ? await sign(c.key) : ""), coverThumb: small };
         };
         const top = await listArchive(env, prefix);
         const parts = [];
