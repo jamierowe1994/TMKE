@@ -165,7 +165,7 @@ import "../../styles/admin.css";
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase } from "../../lib/supabase.js";
     import { folderFor, isSmmShoot } from "../../lib/archive-folder.js";
-    import { makeThumb, putThumb, thumbKeyFor } from "../../lib/thumbs.js";
+    import { makeThumb, putThumb, thumbKeyFor, isBlackPicture } from "../../lib/thumbs.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
     const $ = (id) => document.getElementById(id);
@@ -310,10 +310,7 @@ import "../../styles/admin.css";
         </article>`).join("");
 
       shown = files;
-      const missing = files.filter((f) => !f.thumb && (isVideo(f) || isImage(f)));
-      const btn = $("cnt-thumbs");
-      btn.hidden = !missing.length;
-      btn.textContent = missing.length ? `Make ${missing.length} thumbnail${missing.length === 1 ? "" : "s"}` : "Make thumbnails";
+      sayThumbsToMake();
       // Where a thumbnail exists the tile loads that instead of the original,
       // which is the difference between a folder opening in a second and in a
       // minute. The rest arrive a few at a time behind one loading line.
@@ -349,6 +346,15 @@ import "../../styles/admin.css";
     $("cnt-viewer").addEventListener("click", (e) => { if (e.target === $("cnt-viewer")) closeViewer(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeViewer(); });
 
+    // Missing, or a video's that came out solid black.
+    const wantsThumb = (f) => (!f.thumb || f.blackThumb) && (isVideo(f) || isImage(f));
+    function sayThumbsToMake() {
+      const n = shown.filter(wantsThumb).length;
+      const btn = $("cnt-thumbs");
+      btn.hidden = !n;
+      btn.textContent = n ? `Make ${n} thumbnail${n === 1 ? "" : "s"}` : "Make thumbnails";
+    }
+
     // At most this many files fetched at once: a browser will happily start
     // thirty large downloads and finish none of them for a while.
     const AT_ONCE = 5;
@@ -379,6 +385,13 @@ import "../../styles/admin.css";
               img.alt = "";
               const stop = setTimeout(resolve, 15000);
               const finish = () => { clearTimeout(stop); resolve(); };
+              // Allowed to read a video's picture, so a black one can be spotted.
+              if (isVideo(file)) {
+                img.crossOrigin = "anonymous";
+                img.addEventListener("load", () => {
+                  if (isBlackPicture(img)) { file.blackThumb = true; sayThumbsToMake(); }
+                }, { once: true });
+              }
               img.addEventListener("load", finish, { once: true });
               img.addEventListener("error", finish, { once: true });
               img.src = small.url;
@@ -430,7 +443,7 @@ import "../../styles/admin.css";
     $("cnt-thumbs").addEventListener("click", async () => {
       const btn = $("cnt-thumbs");
       const label0 = btn.textContent;
-      const todo = shown.filter((f) => !f.thumb && (isVideo(f) || isImage(f)));
+      const todo = shown.filter(wantsThumb);
       if (!todo.length) { alert("Every file here already has one."); return; }
       const bar = $("cnt-loading"), label = $("cnt-loading-t");
       btn.disabled = true;
@@ -453,6 +466,7 @@ import "../../styles/admin.css";
             const ok = await putThumb(WORKER, await token(), thumbKeyFor(f.key), blob);
             ok ? (made += 1) : (failed += 1);
             if (!ok) console.warn("[thumbs] couldn't store", f.name);
+            else linkCache.delete(thumbKeyFor(f.key));   // or the tile shows the old picture
           } catch (err) { failed += 1; console.warn("[thumbs]", f.name, err); }
         }
       } catch (err) {

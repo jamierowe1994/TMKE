@@ -55,11 +55,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     #pn .tile img { display: block; width: 100%; height: 100%; object-fit: cover; transition: opacity .28s, filter .28s, transform .9s cubic-bezier(.2,.7,.2,1); }
     #pn .tile:hover img { transform: scale(1.025); }
     #pn .wall.hov .tile:not(.on) img { opacity: .14; filter: grayscale(1); }
-    #pn .tile i { position: absolute; right: 10px; top: 8px; font: 300 14px var(--serif); font-style: normal; color: #fff; opacity: 0; transition: opacity .2s; text-shadow: 0 1px 8px rgba(0,0,0,.4); }
+    #pn .tile i { position: absolute; right: 10px; top: 8px; font: 400 14px var(--sans); font-style: normal; color: #fff; opacity: 0; transition: opacity .2s; text-shadow: 0 1px 8px rgba(0,0,0,.4); }
     #pn .tile.on i { opacity: 1; }
     #pn .tile .tcap { display: none; }
-    #pn .fill { width: 100%; height: 100%; transition: opacity .28s; }
-    #pn .wall.hov .fill { opacity: .14; }
+    #pn .fill { width: 100%; height: 100%; }
     #pn .play { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%; background: rgba(55,30,40,.72); display: grid; place-items: center; }
     #pn .play::after { content: ""; margin-left: 4px; border-left: 15px solid #fff; border-top: 9px solid transparent; border-bottom: 9px solid transparent; }
     #pn .back { color: var(--soft); }
@@ -67,7 +66,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     #pn .note { font-size: 13px; color: var(--soft); max-width: 112px; }
     #pn .state { padding: 40px max(24px,env(safe-area-inset-left,0px)); color: var(--soft); }
     /* Inside a folder */
-    #pn .folder { height: 100%; height: 100dvh; display: grid; grid-template-columns: minmax(0,1fr) min(600px,47vw); grid-template-rows: minmax(0,1fr); }
+    #pn .folder { height: 100%; height: 100dvh; display: grid; grid-template-columns: minmax(0,1fr) min(540px,47vw); grid-template-rows: minmax(0,1fr); }
     #pn .side, #pn .main { min-height: 0; }
     #pn .main { --line: var(--linen); height: 100%; overflow: auto; min-width: 0; padding-right: 10px; background: var(--white); scrollbar-width: thin; scrollbar-color: var(--stone) transparent; }
     #pn .side { background: var(--wine); height: 100%; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; padding: 24px max(24px,env(safe-area-inset-right,0px)) 24px 18px; min-width: 0; }
@@ -82,7 +81,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     #pn .flist button:hover, #pn .flist button.on { color: var(--fg); }
     #pn .meta { display: grid; gap: 8px; }
     #pn .meta.two { grid-template-columns: 1fr 1fr; gap: 8px 16px; }
-    #pn .meta.crew { align-content: space-between; gap: 14px; }
+    #pn .meta.two > .meta { align-content: space-between; gap: 14px; }
     #pn .meta div b { display: block; font-weight: 700; font-size: 14px; letter-spacing: .05em; text-transform: uppercase; line-height: 1.1; }
     #pn .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     #pn .acts.one { grid-template-columns: 1fr; }
@@ -99,7 +98,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     #pn .shot:hover .dl, #pn .thumb:hover .dl { opacity: 1; }
     #pn .thumbs { display: grid; grid-template-columns: repeat(auto-fill,minmax(320px,1fr)); gap: 10px; padding-block: 0 10px; }
     #pn .thumb { position: relative; display: block; width: 100%; aspect-ratio: 3/2; overflow: hidden; background: var(--line); cursor: pointer; }
-    #pn .thumb.sel { outline: 3px solid var(--wine); outline-offset: -3px; }
+    #pn .thumb.sel, #pn .shot.sel { outline: 3px solid var(--wine); outline-offset: -3px; }
     #pn .thumb img, #pn .thumb video { display: block; width: 100%; height: 100%; object-fit: cover; }
     #pn .thumb .ext { display: grid; place-items: center; width: 100%; height: 100%; font-weight: 700; text-transform: uppercase; color: var(--taupe); }
     #pn .tick { position: absolute; left: 10px; top: 10px; width: 22px; height: 22px; border-radius: 4px; background: #fff; border: 1px solid var(--stone); display: grid; place-items: center; }
@@ -179,7 +178,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       #pn .tile:hover img { transform: none; }
       #pn .tile i { display: none; }
       #pn .wall.hov .tile:not(.on) img { opacity: 1; filter: none; }
-      #pn .wall.hov .fill { opacity: 1; }
       #pn .tile .tcap { display: block; padding-top: 3px; }
       #pn .tn { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
       #pn .tn b { font-weight: 700; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; line-height: 1.2; min-width: 0; }
@@ -422,7 +420,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         if (!src) { res("l"); return; }
         const i = new Image(); let settled = false;
         const end = (v) => { if (!settled) { settled = true; res(v); } };
-        i.onload = () => end(i.naturalHeight > i.naturalWidth ? "p" : "l");
+        i.onload = () => { f.ratio = i.naturalWidth && i.naturalHeight ? `${i.naturalWidth}/${i.naturalHeight}` : ""; end(i.naturalHeight > i.naturalWidth ? "p" : "l"); };
         i.onerror = () => end("l");
         setTimeout(() => end("l"), 6000);
         i.src = src;
@@ -446,19 +444,30 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       go("folder", el);
     }
     const media = (f, cls) => (f.thumbUrl || isImage(f)) ? `<img src="${esc(f.thumbUrl || f.url)}" alt="" loading="lazy"${cls ? ` class="${cls}"` : ""}>` : isVideo(f) ? `<video src="${esc(f.url)}#t=1" preload="metadata" muted playsinline></video>` : `<span class="ext">${esc((f.name.split(".").pop() || "File").slice(0, 5))}</span>`;
+    const onlyVideo = (files) => files.length > 0 && files.every(isVideo);
+    const modeOf = (files) => (onlyVideo(files) ? "portfolio" : S.mode);
+    const tickHtml = (f) => { const on = SEL.has(f.id); return `<button class="tick${on ? " on" : ""}" data-k="${esc(f.id)}" role="checkbox" aria-checked="${on}" aria-label="Select ${esc(cleanName(f.name))}"></button>`; };
     function rollHtml(files) {
-      const pic = (f) => isImage(f) ? `<img src="${esc(f.url)}" alt="" loading="lazy">` : f.thumbUrl ? `<img src="${esc(f.thumbUrl)}" alt="" loading="lazy">` : `<video src="${esc(f.url)}#t=1" preload="metadata" muted playsinline></video>`;
-      const shot = (f) => `<div class="shot" data-v="${esc(f.id)}" role="button" tabindex="0" aria-label="View ${esc(cleanName(f.name))}">${pic(f)}${isVideo(f) ? '<span class="play"></span>' : ""}<a class="dl" href="${esc(f.downloadUrl)}" data-one="${esc(f.id)}">${DL()}</a></div>`;
+      // A folder of films has nothing to switch between, so this is its only view
+      // and the tick boxes come here with it.
+      const ticks = onlyVideo(files);
+      const pic = (f, inRow) => {
+        const shape = f.ratio && (!inRow || isVideo(f)) ? `aspect-ratio:${esc(f.ratio)};` : "";
+        if (isVideo(f) && !f.thumbUrl) return `<video src="${esc(f.url)}#t=1" preload="metadata" muted playsinline style="${shape}"></video>`;
+        const back = f.thumbUrl ? `background:url(&quot;${esc(f.thumbUrl)}&quot;) center/cover no-repeat;` : "";
+        return `<img src="${esc(isVideo(f) ? f.thumbUrl : f.previewUrl || f.url)}" alt="" loading="lazy" style="${shape}${back}">`;
+      };
+      const shot = (f, inRow) => `<div class="shot${ticks && SEL.has(f.id) ? " sel" : ""}" data-v="${esc(f.id)}" role="button" tabindex="0" aria-label="View ${esc(cleanName(f.name))}">${pic(f, inRow)}${isVideo(f) ? '<span class="play"></span>' : ""}${ticks ? tickHtml(f) : ""}<a class="dl" href="${esc(f.downloadUrl)}" data-one="${esc(f.id)}">${DL()}</a></div>`;
       const land = files.filter((f) => (isImage(f) || isVideo(f)) && f.shape === "l"), port = files.filter((f) => (isImage(f) || isVideo(f)) && f.shape === "p");
-      let out = land.map(shot).join("");
-      for (let i = 0; i < port.length; i += 3) out += `<div class="prow">${port.slice(i, i + 3).map(shot).join("")}</div>`;
+      let out = land.map((f) => shot(f, false)).join("");
+      for (let i = 0; i < port.length; i += 3) out += `<div class="prow">${port.slice(i, i + 3).map((f) => shot(f, true)).join("")}</div>`;
       return `<div class="roll">${out}</div>`;
     }
     function thumbsHtml(files) {
-      return `<div class="thumbs">${files.map((f) => { const on = SEL.has(f.id); return `<div class="thumb${on ? " sel" : ""}" data-v="${esc(f.id)}" tabindex="0">${media(f)}${isVideo(f) ? '<span class="play"></span>' : ""}<button class="tick${on ? " on" : ""}" data-k="${esc(f.id)}" role="checkbox" aria-checked="${on}" aria-label="Select ${esc(f.name)}"></button><a class="dl" href="${esc(f.downloadUrl)}" data-one="${esc(f.id)}">${DL()}</a></div>`; }).join("")}</div>`;
+      return `<div class="thumbs">${files.map((f) => { const on = SEL.has(f.id); return `<div class="thumb${on ? " sel" : ""}" data-v="${esc(f.id)}" tabindex="0">${media(f)}${isVideo(f) ? '<span class="play"></span>' : ""}${tickHtml(f)}<a class="dl" href="${esc(f.downloadUrl)}" data-one="${esc(f.id)}">${DL()}</a></div>`; }).join("")}</div>`;
     }
     function acts(files) {
-      const n = SEL.size, gallery = S.mode === "thumbs", f = shootOf();
+      const n = SEL.size, gallery = S.mode === "thumbs" || onlyVideo(files), f = shootOf();
       const send = f.editsToken ? `<button class="btn" id="edits">${n ? `Request edits (${n})` : "Request edits"}</button>` : "";
       return `${gallery ? `<div class="selline"><span>${n ? `${n} selected` : "Tick the boxes to choose files"}</span><span>${n ? '<button id="clr">Clear</button>' : ""}<button id="selall">Select all</button></span></div>` : ""}<div class="acts${send ? "" : " one"}"><button class="btn pri" id="all">${n ? `${DL()} selected (${n})` : `${DL()} this folder`}</button>${send}</div>`;
     }
@@ -472,15 +481,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
     function drawFolder() {
       held(true); root.classList.add("dark");
-      const f = shootOf(), d = details(f), parts = partsOf(), p = partOf(), files = FILES.get(p.prefix) || [];
-      app.innerHTML = `<div class="folder"><div class="main${S.mode === "portfolio" ? " pf" : ""}" id="main" data-lenis-prevent>${S.mode === "portfolio" ? rollHtml(files) : thumbsHtml(files)}</div>
-        <aside class="side"><div class="stop"><img class="mark smark" src="${MARK}" alt="TMKE"><button class="cap back" id="b">Back</button><div class="toggle" role="group" aria-label="View"><button id="vt" aria-pressed="${S.mode === "thumbs"}">Gallery</button><button id="vp" aria-pressed="${S.mode === "portfolio"}">Portfolio</button></div></div>
+      const f = shootOf(), d = details(f), parts = partsOf(), p = partOf(), files = FILES.get(p.prefix) || [], mode = modeOf(files);
+      app.innerHTML = `<div class="folder"><div class="main${mode === "portfolio" ? " pf" : ""}" id="main" data-lenis-prevent>${mode === "portfolio" ? rollHtml(files) : thumbsHtml(files)}</div>
+        <aside class="side"><div class="stop"><img class="mark smark" src="${MARK}" alt="TMKE"><button class="cap back" id="b">Back</button>${onlyVideo(files) ? "" : `<div class="toggle" role="group" aria-label="View"><button id="vt" aria-pressed="${mode === "thumbs"}">Gallery</button><button id="vp" aria-pressed="${mode === "portfolio"}">Portfolio</button></div>`}</div>
         <div class="low"><div><h2>${esc(d.title)}</h2><button class="cap infobtn" id="finfo">Info</button>${parts.length > 1 ? `<div class="flist">${parts.map((x, i) => `<button class="cap${i === S.part ? " on" : ""}" data-f="${i}">${esc(x.name)}</button>`).join("")}</div>` : ""}</div>
         ${barLines(d, p, f)}
         <div id="actsbox"></div></div></aside></div>`;
       $("#b").onclick = () => { if (parts.length > 1) { push(S.shoot); go("shoot"); } else { push(""); go("home"); } };
-      $("#vp").onclick = () => { S.mode = "portfolio"; drawFolder(); };
-      $("#vt").onclick = () => { S.mode = "thumbs"; drawFolder(); };
+      const vp = $("#vp"), vt = $("#vt");
+      if (vp) vp.onclick = () => { S.mode = "portfolio"; drawFolder(); };
+      if (vt) vt.onclick = () => { S.mode = "thumbs"; drawFolder(); };
       $$("[data-f]").forEach((b) => (b.onclick = async () => { const i = +b.dataset.f; S.part = i; try { await whileLoading(loadPart(partOf())); } catch (_) { toast("We couldn't open that folder just now."); return; } push(S.shoot, partOf().prefix); drawFolder(); }));
       wireActs(files);
       $("#finfo").onclick = () => openInfo(d.title, barLines(d, p, f));
@@ -596,7 +606,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       $(".viewer")?.remove();
       const i = list.indexOf(f), v = document.createElement("div");
       v.className = "viewer"; v.setAttribute("role", "dialog"); v.setAttribute("aria-label", "Viewing a file");
-      v.innerHTML = `${isVideo(f) ? `<video controls autoplay playsinline src="${esc(f.url)}"></video>` : `<img src="${esc(f.url)}" alt="">`}<div class="vbar"><span>${i + 1} of ${list.length}</span><div>${list.length > 1 ? '<button id="vprev">Previous</button><button id="vnext">Next</button>' : ""}<a href="${esc(f.downloadUrl)}" id="vdl">${DL()}</a><button id="vx">Close</button></div></div>`;
+      v.innerHTML = `${isVideo(f) ? `<video controls autoplay playsinline src="${esc(f.url)}"${f.thumbUrl ? ` poster="${esc(f.thumbUrl)}"` : ""}></video>` : `<img src="${esc(f.previewUrl || f.url)}" alt="">`}<div class="vbar"><span>${i + 1} of ${list.length}</span><div>${list.length > 1 ? '<button id="vprev">Previous</button><button id="vnext">Next</button>' : ""}<a href="${esc(f.downloadUrl)}" id="vdl">${DL()}</a><button id="vx">Close</button></div></div>`;
       root.appendChild(v);
       const step = (d) => view(list, list[(i + d + list.length) % list.length]);
       const pv = $("#vprev"), nx = $("#vnext");

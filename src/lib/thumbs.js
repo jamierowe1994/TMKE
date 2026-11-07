@@ -11,6 +11,7 @@
 export const THUMB_DIR = ".thumbs";
 export const THUMB_MAX = 520;          // longest edge
 export const THUMB_QUALITY = 0.72;
+export const VIDEO_THUMB_MAX = 1200;   // a video's picture also fills a whole row in Portfolio
 
 export const isImageName = (n, type) => /^image\//.test(type || "") || /\.(jpe?g|png|webp|avif|gif|heic)$/i.test(n || "");
 export const isVideoName = (n, type) => /^video\//.test(type || "") || /\.(mp4|mov|m4v|webm)$/i.test(n || "");
@@ -22,8 +23,25 @@ export function thumbKeyFor(key) {
   return `${key.slice(0, at)}/${THUMB_DIR}/${key.slice(at + 1)}.jpg`;
 }
 
-function draw(source, w, h) {
-  const scale = Math.min(1, THUMB_MAX / Math.max(w, h));
+// Is this picture all but black? A 16px copy is enough to tell. If the browser
+// won't let us read it, we can't say it's black, so it isn't.
+export function isBlackPicture(source) {
+  try {
+    const c = document.createElement("canvas");
+    c.width = c.height = 16;
+    const x = c.getContext("2d", { willReadFrequently: true });
+    x.drawImage(source, 0, 0, 16, 16);
+    const d = x.getImageData(0, 0, 16, 16).data;
+    let total = 0;
+    for (let i = 0; i < d.length; i += 4) total += d[i] + d[i + 1] + d[i + 2];
+    return total / (3 * 256) < 8;
+  } catch (_) {
+    return false;
+  }
+}
+
+function draw(source, w, h, max = THUMB_MAX) {
+  const scale = Math.min(1, max / Math.max(w, h));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(w * scale));
   canvas.height = Math.max(1, Math.round(h * scale));
@@ -52,30 +70,41 @@ export async function thumbFromImage(src) {
 
 // From a video: a frame a little way in, because the first one is often black.
 // A URL streams only the part it needs, so this does not download the film.
+//
+// 48 clips came out as solid black JPEGs that had been saved as if they were
+// fine (Dani, 7 Nov), so a frame is looked at before it's kept: a black one tries
+// further in, and a film that's black all three times gets no picture at all,
+// which the Library then offers to make again. The player is also let go of
+// properly afterwards, as a browser only has so many video decoders to give out.
 export async function thumbFromVideo(src) {
   const url = src instanceof Blob ? URL.createObjectURL(src) : src;
+  const v = document.createElement("video");
+  const waitFor = (name) => new Promise((resolve, reject) => {
+    const fail = () => reject(new Error("no " + name));
+    v.addEventListener(name, resolve, { once: true });
+    v.addEventListener("error", fail, { once: true });
+    setTimeout(fail, 20000);
+  });
   try {
-    const v = document.createElement("video");
     v.muted = true; v.playsInline = true; v.preload = "metadata";
     if (!(src instanceof Blob)) v.crossOrigin = "anonymous";
     v.src = url;
-    await new Promise((resolve, reject) => {
-      const fail = () => reject(new Error("no metadata"));
-      v.addEventListener("loadedmetadata", resolve, { once: true });
-      v.addEventListener("error", fail, { once: true });
-      setTimeout(fail, 20000);
-    });
-    await new Promise((resolve, reject) => {
-      const fail = () => reject(new Error("no frame"));
-      v.addEventListener("seeked", resolve, { once: true });
-      v.addEventListener("error", fail, { once: true });
-      setTimeout(fail, 20000);
-      try { v.currentTime = Math.min(1.5, (v.duration || 3) / 4); } catch (_) { fail(); }
-    });
-    return await draw(v, v.videoWidth || THUMB_MAX, v.videoHeight || THUMB_MAX);
+    await waitFor("loadedmetadata");
+    const len = v.duration || 3;
+    for (const at of [Math.min(1.5, len / 4), len / 2, len * 0.75]) {
+      const seeked = waitFor("seeked");
+      v.currentTime = at;
+      await seeked;
+      if (v.readyState < 2) await waitFor("canplay").catch(() => {});
+      if (!v.videoWidth || isBlackPicture(v)) continue;
+      return await draw(v, v.videoWidth, v.videoHeight, VIDEO_THUMB_MAX);
+    }
+    return null;
   } catch (_) {
     return null;
   } finally {
+    v.removeAttribute("src");
+    v.load();
     if (src instanceof Blob) URL.revokeObjectURL(url);
   }
 }

@@ -3380,6 +3380,12 @@ function r2DashUrl(env, folder) {
 // never climbing out of it, always ending in a slash.
 // Where a folder's thumbnails live, beside the files they are of.
 const THUMB_DIR = ".thumbs";
+// Photos big enough to fill a screen without pulling the original (Dani, 7 Nov):
+// about 500KB against 10MB. Cloudflare's resizer takes up to 20MB.
+const PREVIEWABLE = /\.(jpe?g|png|webp)$/i;
+const PREVIEW_MAX = 1800;
+const PREVIEW_QUALITY = 80;
+const PREVIEW_SOURCE_LIMIT = 20 * 1024 * 1024;
 
 function archivePrefix(raw) {
   const cleaned = String(raw || "")
@@ -9331,6 +9337,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           f.url = await link(f.key, false);
           f.downloadUrl = await link(f.key, true);
           if (f.thumb) f.thumbUrl = await link(f.thumb, false);
+          if (PREVIEWABLE.test(f.name)) f.previewUrl = f.url.replace("/download?", "/preview?");
           delete f.key; delete f.thumb;
         }
         return json({ ...out, root }, 200, request, env);
@@ -12075,7 +12082,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       || path.endsWith("/invoicing/approval")
       || path.endsWith("/videography/fc-fee")
       || path.includes("/accounts-portal/")   // its own link and passcode, checked in the route
-      || (path.endsWith("/download") && url.searchParams.get("sig"));   // proof is in the link
+      || (path.endsWith("/download") && url.searchParams.get("sig"))    // proof is in the link
+      || (path.endsWith("/preview") && url.searchParams.get("sig"));
     if (!publicNoAuth) {
       const hot = path.endsWith("/part") || path.endsWith("/complete") || path.endsWith("/abort");
       if (hot) {
@@ -12513,6 +12521,38 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       }
 
       // ---- Download / preview an object ----
+      // ---- A photo at preview size (signed link, same proof as /download) ----
+      // Made the first time anyone looks and kept beside the thumbnails, so each
+      // photo is resized once. If it can't be made, this hands over the original:
+      // the same picture, only slower, and the log says why.
+      if (path.endsWith("/preview") && request.method === "GET") {
+        const key = url.searchParams.get("key") || "";
+        if (!PREVIEWABLE.test(key) || key.includes(`/${THUMB_DIR}/`)) return json({ error: "Not a photo." }, 400, request, env);
+        if (!(await mediaSigValid(env, key, url.searchParams.get("exp"), url.searchParams.get("sig")))) return json({ error: "Link expired." }, 403, request, env);
+        const at = key.lastIndexOf("/");
+        const previewKey = `${key.slice(0, at)}/${THUMB_DIR}/${key.slice(at + 1)}.preview.jpg`;
+        const headers = new Headers(corsHeaders(request, env));
+        headers.set("Content-Type", "image/jpeg");
+        headers.set("Cache-Control", "private, max-age=86400");
+        const kept = await env.BUCKET.get(previewKey);
+        if (kept) return new Response(kept.body, { headers });
+        const original = () => Response.redirect(url.href.replace("/preview?", "/download?"), 302);
+        const obj = await env.BUCKET.get(key);
+        if (!obj) return json({ error: "Not found" }, 404, request, env);
+        if (obj.size > PREVIEW_SOURCE_LIMIT) { console.error("[preview] too big to resize", key, obj.size); return original(); }
+        try {
+          const made = await env.IMAGES.input(obj.body)
+            .transform({ width: PREVIEW_MAX, height: PREVIEW_MAX, fit: "scale-down" })
+            .output({ format: "image/jpeg", quality: PREVIEW_QUALITY });
+          const bytes = await made.response().arrayBuffer();
+          await env.BUCKET.put(previewKey, bytes, { httpMetadata: { contentType: "image/jpeg" } });
+          return new Response(bytes, { headers });
+        } catch (err) {
+          console.error("[preview] couldn't resize", key, String(err));
+          return original();
+        }
+      }
+
       if (path.endsWith("/download") && request.method === "GET") {
         const key = url.searchParams.get("key");
         if (!key) return json({ error: "Missing key" }, 400, request, env);
