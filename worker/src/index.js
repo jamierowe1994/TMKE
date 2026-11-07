@@ -18,7 +18,7 @@
 // automation emails look identical to Email Studio previews. (No deps — safe to
 // bundle into the Worker.)
 import { renderTemplate, mergeContextFor, defaultBrand } from "../../src/lib/email-render.js";
-import { EMAIL_STYLE_DEFAULTS, emailStyleStrings, styleEmailContent } from "../../src/lib/email-styles.js";
+import { EMAIL_STYLE_DEFAULTS, emailStyleStrings, styleEmailContent, tableEmailButtons } from "../../src/lib/email-styles.js";
 import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES, STUDIO_DAY_BUFFER_DAYS, AUTO_EDITING_DAYS, packageBrief, STUDIO_LOCATION, bookingInvoiceDraft } from "../../src/lib/videography-config.js";
 // Invoice PDF: reuse the same pure renderer the admin preview uses, then print
 // it to a real A4 PDF with Browser Rendering (headless Chrome).
@@ -4961,6 +4961,10 @@ async function wrapInBrandedBase(env, contentHtml, stylesOverride) {
     // warned about rather than silently winning.
     const rows = await sbGet(env, "email_templates", "name=ilike.*base*&status=eq.active&select=name,branding,blocks&order=updated_at.desc&limit=5");
     const base = rows && rows[0];
+    // Buttons become table cells here, so every branded email gets them. They
+    // follow the slot's alignment, as the old ones inherited it.
+    const slotBlk = base && Array.isArray(base.blocks) ? (base.blocks.find(isBaseSlot) || base.blocks.find((b) => b.type === "text" || b.type === "button")) : null;
+    contentHtml = tableEmailButtons(contentHtml, stylesOverride || EMS, slotBlk && slotBlk.align);
     if (!base || !Array.isArray(base.blocks) || !base.blocks.length) {
       // Silence here meant automated email went out completely unbranded with
       // nothing to show for it. Say so.

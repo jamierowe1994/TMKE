@@ -86,6 +86,39 @@ export function emailStyleStrings(input) {
   return { h1, p, quote, quoteText, btn, btnBare, small, wrap, rule, font: s.font, dark: s.dark, light: s.light };
 }
 
+/** Buttons as table cells, so they hold together in Outlook and when forwarded
+ *  (Danielle, 7 Nov 2026, after testing both). Takes HTML that has already been
+ *  through styleEmailContent, and only touches a paragraph holding nothing but
+ *  buttons. A button in the middle of a sentence stays as it is. */
+export function tableEmailButtons(html, input, slotAlign) {
+  if (!html) return html;
+  const ss = emailStyleStrings(input);
+  const anchor = /<a\s+href="([^"]*)"\s+style="([^"]*)"\s*>([\s\S]*?)<\/a>/g;
+  const isBtn = (st) => st.startsWith(ss.btn) || st.startsWith(ss.btnBare);
+  const prop = (st, name) => {
+    const all = [...st.matchAll(new RegExp(`(?:^|;)\\s*${name}:([^;]+)`, 'g'))];
+    return all.length ? all[all.length - 1][1].trim() : '';
+  };
+  const own = /^\s*<div style="[^"]*text-align:(left|center|right)/.exec(String(html));
+  const dflt = own ? own[1] : (['left', 'center', 'right'].includes(slotAlign) ? slotAlign : 'left');
+  return String(html).replace(/<p style="([^"]*)">([\s\S]*?)<\/p>/g, (whole, pSt, inner) => {
+    const found = [...inner.matchAll(anchor)];
+    if (!found.length || !found.every((m) => isBtn(m[2]))) return whole;
+    if (inner.replace(anchor, '').replace(/&nbsp;|\s/g, '')) return whole;
+    const margin = (prop(pSt, 'margin') || '0 0 0').split(/\s+/);
+    const top = prop(pSt, 'margin-top') || margin[0] || '0';
+    const bottom = prop(pSt, 'margin-bottom') || margin[2] || margin[0] || '0';
+    const align = prop(pSt, 'text-align') || dflt;
+    const cells = found.map((m, i) => {
+      const st = m[2], bg = prop(st, 'background') || '#371e28', border = prop(st, 'border');
+      const link = ['color', 'font-family', 'font-size', 'line-height', 'font-weight'].map((n) => prop(st, n) && `${n}:${prop(st, n)}`).filter(Boolean).join(';');
+      const gap = i ? '<td width="8" style="width:8px;font-size:0;line-height:0;">&nbsp;</td>' : '';
+      return `${gap}<td bgcolor="${bg}" style="background:${bg};border-radius:${prop(st, 'border-radius') || '0'};padding:${prop(st, 'padding') || '0'};${border ? `border:${border};` : ''}"><a href="${m[1]}" style="${link};text-decoration:none;">${m[3]}</a></td>`;
+    }).join('');
+    return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr><td align="${align}" style="padding:${top} 0 ${bottom};"><table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;"><tr>${cells}</tr></table></td></tr></table>`;
+  });
+}
+
 /** Rewrite already-built email HTML from the canonical defaults to the chosen
  *  styles. Heading size is swapped before body size on purpose: if body were
  *  set to the default heading size, doing body first would create matches the
