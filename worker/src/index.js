@@ -4934,7 +4934,8 @@ function deliveryEmail(kind, d) {
   const main = (t, u) => `<a href="${esc(u)}" style="${EM_BTN}">${esc(t)}</a>`;
   const second = (t, u) => `<a href="${esc(u)}" style="${EM_BTN};background:#ffffff;color:#371e28;border:1px solid #371e28">${esc(t)}</a>`;
   const row = (...links) => `<p style="${EM_P}text-align:center;margin-top:4px;margin-bottom:20px;">${links.filter(Boolean).join("&nbsp;&nbsp;")}</p>`;
-  const box = (label, value) => `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td style="padding:0 0 14px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="#eae5e1" style="background:#eae5e1;padding:14px 16px;font-family:Verdana,Geneva,sans-serif;font-size:12px;line-height:1.5;color:#7e6765;">${esc(label)}<br><span style="font-size:16px;letter-spacing:1px;color:#371e28;">${esc(value)}</span></td></tr></table></td></tr></table>`;
+  // The same gap above the box and below it. The line above brings its own 14.
+  const box = (label, value, button) => `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td style="padding:4px 0 18px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="#eae5e1" style="background:#eae5e1;padding:14px 16px;font-family:Verdana,Geneva,sans-serif;font-size:12px;line-height:1.5;color:#7e6765;">${esc(label)}<br><span style="font-size:16px;letter-spacing:1px;color:#371e28;">${esc(value)}</span>${button ? `<p style="${EM_P}text-align:left;margin-top:12px;margin-bottom:0;">${button}</p>` : ""}</td></tr></table></td></tr></table>`;
   const hi = P(`Hi ${esc(d.first || "there")},`);
   const how = P(`When downloading, Pixieset will ask for your email address and PIN. Simply enter <strong style="font-weight:400;color:#371e28;">${esc(noAutoLink(d.email || ""))}</strong> and the PIN above.`);
   const stay = P("Your gallery will be available for three months, and we'll remind you before it expires.");
@@ -4961,8 +4962,8 @@ function deliveryEmail(kind, d) {
     + (d.inStudio ? P("You can also find the shoot, gallery and booking details under Previous Bookings in the TMKE Studio.") : "")
     + edits + P("We hope you love your content.") + team);
   return wrap("New content in your portal.", "New Content in Your Portal.",
-    hi + P("We've added a new folder to your TMKE portal, ready for you to view and download.") + row(main("Open the folder", d.portalUrl))
-    + box("Your passcode", d.passcode) + P("Once entered, you'll stay signed in on that browser for seven days.") + edits + team);
+    hi + P("We've added a new folder to your TMKE portal, ready for you to view and download.")
+    + box("Your passcode", d.passcode, main("Open the folder", d.portalUrl)) + P("Once entered, you'll stay signed in on that browser for seven days.") + edits + team);
 }
 
 // Sample renders of the automated emails, so the admin Automated-emails page can
