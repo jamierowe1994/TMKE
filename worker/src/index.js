@@ -3408,6 +3408,13 @@ const PREVIEWABLE = /\.(jpe?g|png|webp)$/i;
 const PREVIEW_MAX = 1800;
 const PREVIEW_QUALITY = 80;
 const PREVIEW_SOURCE_LIMIT = 20 * 1024 * 1024;
+// A photo with no small picture gets one made here, the same size and in the same
+// place as the Library's (src/lib/thumbs.js THUMB_MAX), so it's made once (7 Nov).
+const THUMB_MADE_MAX = 520;
+const THUMB_MADE_QUALITY = 78;
+// Signed links that stay the same for an hour, so a browser can reuse what it
+// already downloaded instead of fetching every picture again (7 Nov). Good for 6 to 7 hours.
+const portalLinkExpiry = () => (Math.floor(Date.now() / 3600000) + 7) * 3600000;
 
 function archivePrefix(raw) {
   const cleaned = String(raw || "")
@@ -9366,7 +9373,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const root = (await portalShownFolders(env, p)).find((f) => prefix.startsWith(f));
         if (!root) return json({ code: "not_shared" }, 403, request, env);
         const out = await listArchive(env, prefix);
-        const exp = Date.now() + 6 * 60 * 60 * 1000;
+        const exp = portalLinkExpiry();
         const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
         const link = async (key, dl) => {
           const sig = await mediaSig(env, key, exp);
@@ -9377,6 +9384,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           f.downloadUrl = await link(f.key, true);
           if (f.thumb) f.thumbUrl = await link(f.thumb, false);
           if (PREVIEWABLE.test(f.name)) f.previewUrl = f.url.replace("/download?", "/preview?");
+          // No small picture yet: one is made the first time it's asked for, rather
+          // than the Gallery loading every full-size original (Dani, 7 Nov).
+          if (!f.thumbUrl && f.previewUrl) f.thumbUrl = f.previewUrl + "&size=thumb";
           delete f.key; delete f.thumb;
         }
         return json({ ...out, root }, 200, request, env);
@@ -9389,7 +9399,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const prefix = archivePrefix(url.searchParams.get("prefix"));
         const root = (await portalShownFolders(env, p)).find((f) => prefix === f);
         if (!root) return json({ code: "not_shared" }, 403, request, env);
-        const exp = Date.now() + 6 * 60 * 60 * 1000;
+        const exp = portalLinkExpiry();
         const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
         const sign = async (key) => {
           const sig = await mediaSig(env, key, exp);
@@ -9403,8 +9413,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           const c = pics.find((f) => f.thumb) || vids.find((f) => f.thumb) || pics[0];
           // The tiles are big, so a photo's tile gets the preview size, with the small
           // picture to show until that arrives (Dani, 7 Nov). A film's picture is all it has.
-          const small = c && c.thumb ? await sign(c.thumb) : "";
           const full = c && PREVIEWABLE.test(c.name) ? (await sign(c.key)).replace("/download?", "/preview?") : "";
+          const small = c && c.thumb ? await sign(c.thumb) : full ? full + "&size=thumb" : "";
           return { prefix: pre, name, images: pics.length, videos: vids.length, others: files.length - pics.length - vids.length, coverUrl: full || small || (c ? await sign(c.key) : ""), coverThumb: small };
         };
         const top = await listArchive(env, prefix);
@@ -12600,21 +12610,26 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         if (!(await mediaSigValid(env, key, url.searchParams.get("exp"), url.searchParams.get("sig")))) return json({ error: "Link expired." }, 403, request, env);
         const at = key.lastIndexOf("/");
         const previewKey = `${key.slice(0, at)}/${THUMB_DIR}/${key.slice(at + 1)}.preview.jpg`;
+        // size=thumb: the small picture, kept where the Library keeps its own.
+        const small = url.searchParams.get("size") === "thumb";
+        const outKey = small ? `${key.slice(0, at)}/${THUMB_DIR}/${key.slice(at + 1)}.jpg` : previewKey;
         const headers = new Headers(corsHeaders(request, env));
         headers.set("Content-Type", "image/jpeg");
         headers.set("Cache-Control", "private, max-age=86400");
-        const kept = await env.BUCKET.get(previewKey);
+        const kept = await env.BUCKET.get(outKey);
         if (kept) return new Response(kept.body, { headers });
-        const original = () => Response.redirect(url.href.replace("/preview?", "/download?"), 302);
-        const obj = await env.BUCKET.get(key);
+        const original = () => Response.redirect(url.href.replace("/preview?", "/download?").replace("&size=thumb", ""), 302);
+        // A small picture is made from the preview when there is one: a fraction of the size to read.
+        const obj = (small && (await env.BUCKET.get(previewKey))) || (await env.BUCKET.get(key));
         if (!obj) return json({ error: "Not found" }, 404, request, env);
         if (obj.size > PREVIEW_SOURCE_LIMIT) { console.error("[preview] too big to resize", key, obj.size); return original(); }
         try {
+          const max = small ? THUMB_MADE_MAX : PREVIEW_MAX;
           const made = await env.IMAGES.input(obj.body)
-            .transform({ width: PREVIEW_MAX, height: PREVIEW_MAX, fit: "scale-down" })
-            .output({ format: "image/jpeg", quality: PREVIEW_QUALITY });
+            .transform({ width: max, height: max, fit: "scale-down" })
+            .output({ format: "image/jpeg", quality: small ? THUMB_MADE_QUALITY : PREVIEW_QUALITY });
           const bytes = await made.response().arrayBuffer();
-          await env.BUCKET.put(previewKey, bytes, { httpMetadata: { contentType: "image/jpeg" } });
+          await env.BUCKET.put(outKey, bytes, { httpMetadata: { contentType: "image/jpeg" } });
           return new Response(bytes, { headers });
         } catch (err) {
           console.error("[preview] couldn't resize", key, String(err));
@@ -12650,6 +12665,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const name = decodeURIComponent(key.split("/").pop() || "file");
         const asFile = url.searchParams.get("dl") === "1";
         headers.set("Content-Disposition", `${asFile ? "attachment" : "inline"}; filename="${name.replace(/"/g, "")}"`);
+        // A signed link always means the same file, so the browser can keep it (7 Nov).
+        if (signed && !asFile) headers.set("Cache-Control", "private, max-age=21600");
         if (obj.range && typeof obj.range.offset === "number" && obj.size) {
           const start = obj.range.offset;
           const end = start + (obj.range.length || obj.size - start) - 1;
