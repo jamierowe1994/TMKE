@@ -2239,6 +2239,28 @@ async function runSmmPortalFlags(env) {
    right after the 8am sheet check. One email per portal per run, listing
    what's new. A new starter's folder in the TEG portal also puts its link on
    the sheet there and then. */
+async function portalShootMail(env, p, prefix, bk) {
+  const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+  const when = bk && bk.shoot_date ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
+  const line = [bk && bk.service, when].filter(Boolean).join(", ");
+  const name = (bk && (bk.client_name || bk.client_company)) || prefix.slice(0, -1).split("/").pop();
+  const editsUrl = bk && bk.delivery_method === "portal" ? `${site}/edits?token=${encodeURIComponent(await ensureEditsToken(env, bk))}` : "";
+  return deliveryEmail("portal", { first: p.first_name || "", shoot: line || name, cover: (bk && bk.cover_url) || "", portalUrl: `${site}/portal?c=${encodeURIComponent(p.token)}&f=${encodeURIComponent(prefix)}`, passcode: p.passcode, editsUrl });
+}
+// A shoot delivered by portal counts as sent when its email goes, and its 10 days
+// for edits start then (Dani, 7 Nov). Sending it again doesn't restart them.
+async function markPortalEmailed(env, bk, to) {
+  if (!bk || bk.delivery_method !== "portal") return null;
+  const first = !bk.gallery_sent_at;
+  const patch = {};
+  if (first) patch.gallery_sent_at = new Date().toISOString();
+  if (bk.stage === "editing" || bk.stage === "gallery_ready") patch.stage = "sent";
+  if (Object.keys(patch).length) await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`, patch);
+  await logBookingMessage(env, { booking_id: bk.id, booking_source: "videography", client_email: bk.client_email || null, channel: "note", kind: "audit",
+    body: first ? `Portal email sent to ${to}. The 10 days for edits start today.` : `Portal email sent again to ${to}.`, is_automated: true, created_by: "automatic" });
+  return patch;
+}
+
 async function runPortalFolderNotices(env) {
   await loadEmailStyles(env);
   const portals = await sbGet(env, "client_portals",
@@ -2274,8 +2296,7 @@ async function runPortalFolderNotices(env) {
     if (!TEG_PORTAL_NAME.test(String(p.name || "")) && !p.smm_client_id) {
       const done = [...keep];
       for (const it of items) {
-        const editsUrl = it.bk && it.bk.delivery_method === "portal" ? `${site}/edits?token=${encodeURIComponent(await ensureEditsToken(env, it.bk))}` : "";
-        const mail = deliveryEmail("portal", { first: p.first_name || "", shoot: it.line || it.name, cover: (it.bk && it.bk.cover_url) || "", portalUrl: it.link, passcode: p.passcode, editsUrl });
+        const mail = await portalShootMail(env, p, it.prefix, it.bk);
         const sent = await sendEmail(env, { to: p.notify_email, subject: mail.subject, html: mail.html });
         if (!sent || !sent.ok) {
           await notifyAdmins(env, { area: "problem", event: "portal_notice_failed", title: `Couldn't email ${p.notify_email} about new portal folders`, body: String((sent && sent.error) || "Unknown error").slice(0, 200), key: `${p.id}:${it.prefix}` });
@@ -2283,6 +2304,7 @@ async function runPortalFolderNotices(env) {
         }
         done.push(it.prefix);
         await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(p.id)}`, { notified_folders: done });
+        await markPortalEmailed(env, it.bk, p.notify_email);
       }
       continue;
     }
@@ -2312,8 +2334,8 @@ async function runPortalFolderNotices(env) {
 
 /* Delivered through the portal instead of Pixieset (Dani, 6 Nov). There's no
    gallery email to move these on, so the moment the folder can show counts as
-   sending it: the shoot goes to Sent and its 10 days for edits start. Only once
-   it's actually in a portal that's on, so it can't say sent when nobody can see
+   sending it: the shoot goes to Sent. Its 10 days for edits start when the email
+   goes (markPortalEmailed). Only once it's actually in a portal that's on, so it can't say sent when nobody can see
    it. Runs before the folder emails, on the 5-minute tick. */
 async function runPortalDeliveries(env) {
   const found = (await sbGet(env, "videography_bookings",
@@ -2326,7 +2348,7 @@ async function runPortalDeliveries(env) {
   for (const b of ready) {
     const prefix = archivePrefix(b.archive_folder);
     if (!portals.some((p) => portalFolders(p).includes(prefix))) continue;
-    const r = await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(b.id)}&stage=in.(editing,gallery_ready)`, { stage: "sent", gallery_sent_at: new Date().toISOString() });
+    const r = await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(b.id)}&stage=in.(editing,gallery_ready)`, { stage: "sent" });
     if (!r || !r.ok) continue;
     await logBookingMessage(env, { booking_id: b.id, booking_source: "videography", client_email: b.client_email || null, channel: "note", kind: "audit",
       body: b.paid_at ? "Now showing in their client portal." : "Now showing in their client portal, released before payment.", is_automated: true, created_by: "automatic" });
@@ -12451,6 +12473,32 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
 
       // Release a portal shoot before it's paid, or take that back (Dani, 6 Nov).
       // One shoot at a time, by management, with who and when kept on it.
+      // ---- The portal email for one shoot, sent now, by a person (Dani, 7 Nov) ----
+      if (path.endsWith("/videography/portal-send") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const body = await request.json().catch(() => ({}));
+        const to = (Array.isArray(body.to) ? body.to : []).map((x) => String(x || "").trim()).filter(Boolean);
+        if (!to.length || to.some((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x))) return json({ error: "One of those email addresses doesn't look right." }, 400, request, env);
+        const rows = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(body.booking_id || "")}&select=*`);
+        const bk = rows && rows[0];
+        if (!bk || bk.delivery_method !== "portal" || !bk.archive_folder) return json({ error: "That shoot isn't delivered by client portal." }, 400, request, env);
+        const prefix = archivePrefix(bk.archive_folder);
+        const portals = (await sbGet(env, "client_portals", "enabled=eq.true&select=id,name,first_name,token,passcode,folders,notified_folders,notify_email,smm_client_id")) || [];
+        const p = portals.find((x) => portalFolders(x).includes(prefix));
+        if (!p) return json({ error: "Choose their portal first, and make sure it's turned on." }, 400, request, env);
+        if (TEG_PORTAL_NAME.test(String(p.name || "")) || p.smm_client_id) return json({ error: "That portal has its own emails." }, 400, request, env);
+        if (!(await portalShownFolders(env, p)).includes(prefix)) return json({ error: "It isn't showing in their portal yet, so there's nothing for them to open." }, 409, request, env);
+        await loadEmailStyles(env);
+        const mail = await portalShootMail(env, p, prefix, bk);
+        const sent = await sendEmail(env, { to, subject: mail.subject, html: mail.html });
+        if (!sent || !sent.ok) return json({ error: "The email didn't send: " + String((sent && sent.error) || "unknown error").slice(0, 200) }, 502, request, env);
+        const told = [...new Set([...(p.notified_folders || []), prefix])];
+        await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(p.id)}`, { notify_email: to.join(", "), notified_folders: told });
+        const patch = await markPortalEmailed(env, bk, to.join(", "));
+        return json({ ok: true, to: to.join(", "), ...(patch || {}) }, 200, request, env);
+      }
+
       if (path.endsWith("/videography/release-before-payment") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);

@@ -3350,7 +3350,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         : b.gallery_sent_at && !smm ? `If they haven't asked for any by ${escapeHtml(until)}, this ticks itself at 8am the next morning and the shoot closes, with a note saying so.` : "";
       return `<dl class="vc-pdl">
           ${vcPR("Sent", b.gallery_sent_at ? escapeHtml(vcDay(b.gallery_sent_at)) : "Not yet")}
-          ${smm ? "" : vcPR("Edits open until", until ? escapeHtml(until) : "10 days after the gallery is sent")}
+          ${smm ? "" : vcPR("Edits open until", until ? escapeHtml(until) : isPortalDelivery(b) ? "10 days after the portal email is sent" : "10 days after the gallery is sent")}
           <div id="vd-edit-link"></div>
           ${smm ? "" : `<div class="vc-pr"><dt>Edit requests</dt><dd id="vd-edit-reqs">Checking…</dd></div>`}
         </dl>
@@ -3818,10 +3818,17 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           : !clear ? (inv ? "No: waiting on payment" : "No: no invoice yet")
           : b.stage === "sent" || b.stage === "delivered" ? (b.gallery_sent_at ? `Yes, since ${whenDay(b.gallery_sent_at)}` : "Yes")
           : "Within about 5 minutes";
-        const told = !!port && (port.notified_folders || []).includes(shootPortalKey(folderFor(b)));
-        const shareHint = told ? "Emailed: they've been told this folder is in their portal, with the link to it."
-          : !port || !port.notify_email ? "Nobody's told until there's an address here. Separate several with commas."
-          : "We email this once, when the folder first shows in their portal, with the link and passcode. It's the same address for every shoot in this portal.";
+        // Who gets the email is kept on the portal, so it's the same for all its shoots.
+        // Sending it starts the 10 days for edits (Dani, 7 Nov).
+        const canSend = !!port && port.enabled && yes && clear;
+        const emailed = !!b.gallery_sent_at;
+        const shareLabel = !canSend ? "Save" : emailed ? "Send again" : "Send";
+        const othersWaiting = port ? (port.folders || []).filter((f) => f !== shootPortalKey(folderFor(b)) && !(port.notified_folders || []).includes(f)).length : 0;
+        const shareHint = (emailed ? `Sent ${whenDay(b.gallery_sent_at)}, and their 10 days for edits run from then. Sending it again doesn't restart them.`
+          : canSend ? "Sends them the link and passcode now. Their 10 days for edits start when it goes."
+          : "Saved for when it shows in their portal: the email then goes by itself and their 10 days for edits start. Nobody's emailed if there's no address.")
+          + " Separate several addresses with commas. They're kept for every shoot in this portal."
+          + (othersWaiting ? ` This portal has ${othersWaiting} other shoot${othersWaiting === 1 ? "" : "s"} not emailed yet, which will go to these addresses too once showing.` : "");
         const rowBtn = (attr, label) => `<button type="button" class="vc-hb" ${attr} style="margin-left:10px">${escapeHtml(label)}</button>`;
         const form = vcPF("Content ready", `<div style="display:flex;gap:8px;align-items:center"><select class="vc-in" id="vd-ready-sel"${canSave ? "" : " disabled"}><option value="no"${yes ? "" : " selected"}>No</option><option value="yes"${yes ? " selected" : ""}>Yes</option></select><button type="button" class="vc-hb vc-hb--primary" id="vd-ready-save" disabled>Save</button></div>`, canSave ? (yes ? `Set to Yes${b.portal_ready_by ? ` by ${escapeHtml(b.portal_ready_by)}` : ""}, ${whenDay(b.portal_ready_at)}.` : "Change to Yes and save once editing's finished and the files are uploaded.") : "Run supabase/videography_portal_ready.sql first.");
         host.innerHTML = `<dl class="vc-pdl">${[
@@ -3831,14 +3838,28 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           vcPR("Invoice", invLine + rowBtn("data-vd-inv", inv ? "Open invoice" : "Raise invoice")),
           paid ? "" : vcPR("Released early", (early ? `Yes, by ${escapeHtml(b.released_unpaid_by || "management")}, ${whenDay(b.released_unpaid_at)}` : "No") + (mgmt ? rowBtn('id="vd-early"', early ? "Take it back" : "Release before payment") : "")),
           vcPR("Showing", showing),
-          port ? vcPF("Share", `<div style="display:flex;gap:8px;align-items:center"><input class="vc-in" type="text" id="vd-share-to" value="${escapeHtml(port.notify_email || "")}" placeholder="Who gets the email" autocomplete="off" spellcheck="false"><button type="button" class="vc-hb vc-hb--primary" id="vd-share-save" disabled>Save</button></div>`, shareHint) : "",
+          port ? vcPF("Send to", `<div style="display:flex;gap:8px;align-items:center"><input class="vc-in" type="text" id="vd-share-to" value="${escapeHtml(port.notify_email || "")}" placeholder="Email addresses, separated by commas" autocomplete="off" spellcheck="false"><button type="button" class="vc-hb vc-hb--primary" id="vd-share-save"${canSend && port.notify_email ? "" : " disabled"}>${shareLabel}</button></div>`, shareHint) : "",
         ].join("")}</dl><p class="vid-warn" id="vd-msg" hidden></p>`;
         renderShootPortal(document.getElementById("vd-portal"), b, folderFor(b), { ...portalDeps(), compact: true, onChange: () => renderDeliveryCard(b) });
         const shareTo = document.getElementById("vd-share-to"), shareSave = document.getElementById("vd-share-save");
-        shareTo?.addEventListener("input", () => { shareSave.disabled = shareTo.value.trim() === (port.notify_email || ""); });
+        shareTo?.addEventListener("input", () => { shareSave.disabled = !shareTo.value.trim() || (!canSend && shareTo.value.trim() === (port.notify_email || "")); });
         shareSave?.addEventListener("click", async () => {
           const list = shareTo.value.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
           if (list.some((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x))) { vdMsg("One of those email addresses doesn't look right.", true); return; }
+          if (canSend) {
+            if (!list.length || !confirm(`${emailed ? "Send the portal email again" : "Send the portal email"} to ${list.join(", ")}?`)) return;
+            shareSave.disabled = true;
+            try {
+              const token = await authToken();
+              const res = await fetch(`${WORKER_URL}/videography/portal-send`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: b.id, to: list }) });
+              const d = await res.json().catch(() => ({}));
+              if (!res.ok) { shareSave.disabled = false; vdMsg(d.error || "That didn't send.", true); return; }
+              if (d.gallery_sent_at) b.gallery_sent_at = d.gallery_sent_at;
+              if (d.stage) b.stage = d.stage;
+              renderCandidate();
+            } catch (err) { shareSave.disabled = false; vdMsg("That didn't send: " + err.message, true); }
+            return;
+          }
           shareSave.disabled = true;
           const { data: saved, error } = await supabase.from("client_portals").update({ notify_email: list.join(", ") || null }).eq("id", port.id).select();
           if (error || !saved || saved.length !== 1) { shareSave.disabled = false; vdMsg("Couldn't save that: " + (error ? error.message : "the database didn't confirm it"), true); return; }
