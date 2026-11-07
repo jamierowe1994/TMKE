@@ -4967,6 +4967,34 @@ function deliveryEmail(kind, d) {
     + box("Your passcode", d.passcode, { text: "Open the folder", url: d.portalUrl }) + P("Once entered, you'll stay signed in on that browser for seven days.") + edits + team);
 }
 
+// A test of a delivery email with a real shoot's photo and details: the preview
+// id is delivery_<kind>@<booking id>. Reads only, and the buttons that would need
+// something the shoot hasn't got yet go to the website.
+async function deliveryPreview(env, id) {
+  const m = /^delivery_(paid|unpaid|pin|portal)@([0-9a-f-]{36})$/i.exec(String(id || ""));
+  if (!m) return null;
+  const bk = (await sbGet(env, "videography_bookings", `id=eq.${m[2]}&select=*`))?.[0];
+  if (!bk) return null;
+  const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+  const prefix = bk.archive_folder ? archivePrefix(bk.archive_folder) : "";
+  const portals = (await sbGet(env, "client_portals", "enabled=eq.true&select=id,token,passcode,folders,first_name")) || [];
+  const portal = portals.find((p) => prefix && portalFolders(p).includes(prefix));
+  const inv = (await sbGet(env, "invoices", `booking_id=eq.${m[2]}&status=neq.void&select=number&order=created_at.desc&limit=1`))?.[0];
+  const pin = (await sbGet(env, "videography_gallery_pins", `booking_id=eq.${m[2]}&select=pin`))?.[0]?.pin;
+  const when = bk.shoot_date ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
+  return deliveryEmail(m[1], {
+    first: (m[1] === "portal" && portal && portal.first_name) || String(bk.client_name || "").trim().split(/\s+/)[0] || "there",
+    shoot: [bk.service || "Your shoot", when].filter(Boolean).join(", "),
+    cover: bk.cover_url || "",
+    pin: pin || "0000",
+    email: bk.gallery_email || bk.client_email || "",
+    galleryUrl: bk.gallery_url || site, tourUrl: "", editsUrl: site,
+    invoiceNo: (inv && inv.number) || "", payUrl: site, attached: true, inStudio: true,
+    portalUrl: portal ? portalFolderLink(env, portal, prefix) : site,
+    passcode: (portal && portal.passcode) || "",
+  });
+}
+
 // Sample renders of the automated emails, so the admin Automated-emails page can
 // show what one actually looks like — and send that exact render as a test.
 // Shared by GET /email/preview and POST /email/preview/send so the preview and
@@ -12071,7 +12099,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const id = String((b && b.id) || "");
         const to = String((b && b.to) || "").trim();
         if (!to || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return json({ ok: false, error: "Enter a valid email address." }, 200, request, env);
-        const built = emailPreviewSample(id);
+        const built = (await deliveryPreview(env, id)) || emailPreviewSample(id);
         if (!built) return json({ ok: false, error: "There's no preview for that email yet." }, 200, request, env);
         let html = built.html;
         if (b && b.branded) html = await wrapInBrandedBase(env, html);
@@ -12090,7 +12118,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const id = body.id || url.searchParams.get("id") || "";
         const branded = body.branded === true || url.searchParams.get("branded") === "1";
         const override = body.styles && typeof body.styles === "object" ? body.styles : null;
-        const built = emailPreviewSample(id);
+        const built = (await deliveryPreview(env, id)) || emailPreviewSample(id);
         if (!built) return json({ ok: true, supported: false }, 200, request, env);
         try {
           let html = built.html;
