@@ -2320,6 +2320,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     // The one thing holding the shoot up, as the client file's callout says it.
     function vbNext(b) {
       const smm = isSmmCovered(b), st = b.stage, iv = VBMONEY.get(b.id);
+      if (editsRequested(b)) return ["", "Edits requested"];
       const dateOf = (iso) => new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
       if (st === "delivered") return ["is-done", "Delivered"];
       if (st === "booked" || st === "awaiting_invoice") {
@@ -2349,7 +2350,6 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       if (st === "gallery_ready") return smm ? ["is-none", "With the team"] : vbPaid(b) ? ["", "Send the gallery"] : ["", vbOverdue(iv) ? "Payment overdue" : "Waiting on payment"];
       if (st === "sent") {
         if (smm) return ["is-none", "With the team"];
-        if (editsRequested(b)) return ["", "Edits requested"];
         if (!vbPaid(b)) return ["", vbOverdue(iv) ? "Payment overdue" : "Waiting on payment"];
         if (!b.edits_settled_at) return ["", b.gallery_sent_at ? "Edits open until " + new Date(Date.parse(b.gallery_sent_at) + 10 * 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "Waiting on edits"];
         return ["", "Close the job"];
