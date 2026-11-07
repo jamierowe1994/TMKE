@@ -4907,10 +4907,65 @@ async function loadEmailStyles(env) {
   } catch (_) { /* keep whatever we have; never block a send */ }
 }
 
+/* The client delivery emails (Dani, 7 Nov 2026; agreed on the mock-up, her wording).
+   White, a small logo, a photo from their shoot, a short message and one box.
+   They have their own shell because the branded base brings the grey she doesn't
+   want. They still use the house styles, so 12px and the buttons stay in step. */
+const DELIVERY_LOGO = "https://tmke.co.uk/email/tmke-mark.png";
+function deliveryShell({ subject, heading, shoot, cover, inner }) {
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const body = tableEmailButtons(styleEmailContent(`<h1 style="${EM_H1}font-size:18px;line-height:1.3;margin:0 0 3px;text-align:left;">${esc(heading)}</h1>
+    ${shoot ? `<p style="${EM_P}color:#7e6765;margin-bottom:18px;text-align:left;">${esc(shoot)}</p>` : ""}
+    ${inner}`, EMS), EMS, "left");
+  const foot = "font-family:Verdana,Geneva,sans-serif;font-size:11px;line-height:1.6;color:#7e6765;";
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
+<body style="margin:0;padding:0;background:#ffffff;">
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="background:#ffffff;"><tr><td align="center">
+<table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;">
+<tr><td align="center" style="padding:20px 24px 12px;"><img src="${DELIVERY_LOGO}" alt="TMKE" width="62" height="24" style="display:block;border:0;width:62px;height:auto;"></td></tr>
+${cover ? `<tr><td><img src="${esc(cover)}" alt="A photo from your shoot" width="600" style="display:block;border:0;width:100%;max-width:600px;height:auto;"></td></tr>` : ""}
+<tr><td align="left" style="padding:28px 36px 12px;text-align:left;">${body}</td></tr>
+<tr><td align="center" style="padding:18px 24px 24px;border-top:1px solid #eae5e1;${foot}">TMKE<br><a href="https://tmke.co.uk" style="color:#7e6765;">tmke.co.uk</a><br>Questions? Reply to this email.</td></tr>
+</table></td></tr></table></body></html>`;
+}
+function deliveryEmail(kind, d) {
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const P = (x) => `<p style="${EM_P}text-align:left;">${x}</p>`;
+  const main = (t, u) => `<a href="${esc(u)}" style="${EM_BTN}">${esc(t)}</a>`;
+  const second = (t, u) => `<a href="${esc(u)}" style="${EM_BTN};background:#ffffff;color:#371e28;border:1px solid #371e28">${esc(t)}</a>`;
+  const row = (...links) => `<p style="${EM_P}text-align:center;margin-top:4px;margin-bottom:20px;">${links.filter(Boolean).join("&nbsp;&nbsp;")}</p>`;
+  const box = (label, value) => `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td style="padding:0 0 14px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="#eae5e1" style="background:#eae5e1;padding:14px 16px;font-family:Verdana,Geneva,sans-serif;font-size:12px;line-height:1.5;color:#7e6765;">${esc(label)}<br><span style="font-size:16px;letter-spacing:1px;color:#371e28;">${esc(value)}</span></td></tr></table></td></tr></table>`;
+  const hi = P(`Hi ${esc(d.first || "there")},`);
+  const how = P(`When downloading, Pixieset will ask for your email address and PIN. Simply enter <strong style="font-weight:400;color:#371e28;">${esc(noAutoLink(d.email || ""))}</strong> and the PIN above.`);
+  const stay = P("Your gallery will be available for three months, and we'll remind you before it expires.");
+  const edits = d.editsUrl ? P("Your package includes one round of edits. If there's anything you'd like to change, please submit all your requests together within 10 days using the button below.") + row(second("Request edits", d.editsUrl)) : "";
+  const team = P("The TMKE Team");
+  const extra = d.extra && d.extra.url ? second(d.extra.label || "Also for you", d.extra.url) : "";
+  const tour = d.tourUrl ? second("View 360 tour", d.tourUrl) : "";
+  const wrap = (subject, heading, inner) => ({ subject, html: deliveryShell({ subject, heading, shoot: d.shoot, cover: d.cover, inner }) });
+  if (kind === "paid") return wrap("Your gallery is ready.", "Your Gallery Is Ready.",
+    hi + P("It was great working with you on your recent shoot. Your gallery is now ready to view and download.") + box("Download PIN", d.pin) + how
+    + row(main("View gallery", d.galleryUrl), tour, extra) + edits + stay + P("We hope you love your content.") + team);
+  if (kind === "unpaid") return wrap("Your gallery is ready to view.", "Your Gallery Is Ready to View.",
+    hi + P("It was great working with you on your recent shoot. Your gallery is ready for you to take a look.") + row(main("View gallery", d.galleryUrl))
+    + P(`Your gallery is currently watermarked, with downloads locked until ${d.invoiceNo ? `invoice ${esc(d.invoiceNo)}` : "your invoice"} has been paid. Once payment is received, we'll unlock your gallery and send over your download PIN, along with any additional links included in your booking.`)
+    + (d.payUrl ? row(second("Pay by card", d.payUrl)) : "") + (d.attached ? P("Your invoice is attached, with bank transfer details included.") : "")
+    + P("You'll also receive a link to request your included round of edits once your gallery is unlocked.") + stay + P("We look forward to hearing what you think.") + team);
+  if (kind === "pin") return wrap("Your gallery is unlocked.", "Your Gallery Is Unlocked.",
+    hi + P("Thanks for your payment. Your gallery is now unlocked and ready to download.") + box("Download PIN", d.pin) + how
+    + row(main("View gallery", d.galleryUrl), tour)
+    + (d.inStudio ? P("You can also find the shoot, gallery and booking details under Previous Bookings in the TMKE Studio.") : "")
+    + edits + P("We hope you love your content.") + team);
+  return wrap("New content in your portal.", "New Content in Your Portal.",
+    hi + P("We've added a new folder to your TMKE portal, ready for you to view and download.") + row(main("Open the folder", d.portalUrl))
+    + box("Your passcode", d.passcode) + P("Once entered, you'll stay signed in on that browser for seven days.") + edits + team);
+}
+
 // Sample renders of the automated emails, so the admin Automated-emails page can
 // show what one actually looks like — and send that exact render as a test.
 // Shared by GET /email/preview and POST /email/preview/send so the preview and
 // the test email can never drift apart. Returns { subject, html } or null.
+const DELIVERY_SAMPLE = { first: "Sarah", shoot: "Property video, 20 October", cover: "https://tmke.co.uk/email/sample-cover.jpg", pin: "7320", email: "sarah@example.com", galleryUrl: "https://tmke.co.uk", tourUrl: "https://tmke.co.uk", editsUrl: "https://tmke.co.uk", invoiceNo: "TMKE1102", payUrl: "https://tmke.co.uk", attached: true, inStudio: true, portalUrl: "https://tmke.co.uk" };
 function emailPreviewSample(id) {
   const SAMPLES = {
     button_test: () => {
@@ -4918,6 +4973,10 @@ function emailPreviewSample(id) {
       const cell = (t) => `<td bgcolor="#371e28" style="background:#371e28;border-radius:${EMS.buttonRadius}px;padding:${EMS.buttonPadY}px ${EMS.buttonPadX}px;"><a href="https://tmke.co.uk" style="color:#f4f2f1;text-decoration:none;font-family:Verdana,Geneva,sans-serif;font-size:12px;font-weight:${EMS.buttonWeight};">${t}</a></td>`;
       return { subject: "Gallery email buttons: forward this one.", html: `<div style="${EM_WRAP}"><p style="${EM_P}">Hi Danielle,</p><p style="${EM_P}">Two versions of the same buttons. Forward this from Outlook on Windows and see which one survives.</p><p style="${EM_P}"><strong>A. As they are now</strong></p><p style="${EM_P}">${a("View Gallery")} ${a("View 360 Tour")}</p><p style="${EM_P}"><strong>B. Built as a table</strong></p><table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 20px;"><tr>${cell("View Gallery")}<td width="6" style="font-size:0;line-height:0;">&nbsp;</td>${cell("View 360 Tour")}</tr></table></div>` };
     },
+    delivery_paid: () => deliveryEmail("paid", DELIVERY_SAMPLE),
+    delivery_unpaid: () => deliveryEmail("unpaid", { ...DELIVERY_SAMPLE, tourUrl: "" }),
+    delivery_pin: () => deliveryEmail("pin", DELIVERY_SAMPLE),
+    delivery_portal: () => deliveryEmail("portal", { ...DELIVERY_SAMPLE, shoot: "Bootcamp coverage, 20 October", passcode: "BOOT26" }),
     post_reminder: () => ({ subject: "Your Instagram post is planned for today", html: reminderHtml({ title: "Spring launch teaser", asset_url: "https://assets.tmke.co.uk/white-1.webp" }, "Instagram", "New season, new listings ✨\n\nSwipe to see what's just come to market - book a viewing before they're gone.") }),
     setup_reminder: () => ({ subject: "Set your password to unlock your TMKE pack", html: setupReminderHtml({ name: "Alex Morgan", pack: "The Spring Collection", link: "https://tmke.co.uk/set-password?token=sample" }) }),
     waitlist_register: () => ({ subject: "You're on the cancellation list - The Studio", html: waitlistHtml({ name: "Alex Morgan", service: "The Studio", pkg: "Half day", date: "2026-08-25", time: "10:00" }) }),
