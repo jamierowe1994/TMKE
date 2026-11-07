@@ -4921,11 +4921,11 @@ function deliveryShell({ subject, heading, shoot, cover, inner }) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
 <body style="margin:0;padding:0;background:#ffffff;">
 <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="background:#ffffff;"><tr><td align="center">
-<table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;">
-<tr><td align="center" style="padding:20px 24px 12px;"><img src="${DELIVERY_LOGO}" alt="TMKE" width="62" height="24" style="display:block;border:0;width:62px;height:auto;"></td></tr>
-${cover ? `<tr><td><img src="${esc(cover)}" alt="A photo from your shoot" width="600" style="display:block;border:0;width:100%;max-width:600px;height:auto;"></td></tr>` : ""}
-<tr><td align="left" style="padding:28px 36px 12px;text-align:left;">${body}</td></tr>
-<tr><td align="center" style="padding:18px 24px 24px;border-top:1px solid #eae5e1;${foot}">TMKE<br><a href="https://tmke.co.uk" style="color:#7e6765;">tmke.co.uk</a><br>Questions? Reply to this email.</td></tr>
+<table role="presentation" width="632" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:632px;">
+<tr><td align="center" style="padding:20px 16px 12px;"><img src="${DELIVERY_LOGO}" alt="TMKE" width="62" height="24" style="display:block;border:0;width:62px;height:auto;"></td></tr>
+${cover ? `<tr><td style="padding:0 16px;"><img src="${esc(cover)}" alt="A photo from your shoot" width="600" style="display:block;border:0;width:100%;max-width:600px;height:auto;"></td></tr>` : ""}
+<tr><td align="left" style="padding:24px 16px 8px;text-align:left;">${body}</td></tr>
+<tr><td style="padding:0 16px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:18px 0 24px;border-top:1px solid #eae5e1;${foot}">TMKE<br><a href="https://tmke.co.uk" style="color:#7e6765;">tmke.co.uk</a><br>Questions? Reply to this email.</td></tr></table></td></tr>
 </table></td></tr></table></body></html>`;
 }
 function deliveryEmail(kind, d) {
@@ -4949,8 +4949,12 @@ function deliveryEmail(kind, d) {
   if (kind === "unpaid") return wrap("Your gallery is ready to view.", "Your Gallery Is Ready to View.",
     hi + P("It was great working with you on your recent shoot. Your gallery is ready for you to take a look.") + row(main("View gallery", d.galleryUrl))
     + P(`Your gallery is currently watermarked, with downloads locked until ${d.invoiceNo ? `invoice ${esc(d.invoiceNo)}` : "your invoice"} has been paid. Once payment is received, we'll unlock your gallery and send over your download PIN, along with any additional links included in your booking.`)
-    + (d.payUrl ? row(second("Pay by card", d.payUrl)) : "") + (d.attached ? P("Your invoice is attached, with bank transfer details included.") : "")
-    + P("You'll also receive a link to request your included round of edits once your gallery is unlocked.") + stay + P("We look forward to hearing what you think.") + team);
+    + (d.attached && d.payUrl ? P("Your invoice is attached, including our bank transfer details. Alternatively, you can pay by card using the button below.")
+      : d.attached ? P("Your invoice is attached, including our bank transfer details.")
+      : d.payUrl ? P("You can pay by card using the button below.") : "")
+    + (d.payUrl ? row(second("Pay by card", d.payUrl)) : "")
+    + P("Once payment has been received, we'll unlock your gallery and send you a link to request your included round of edits.")
+    + P("Your gallery will remain available for three months, and we'll send you a reminder before it expires.") + P("We look forward to hearing what you think.") + team);
   if (kind === "pin") return wrap("Your gallery is unlocked.", "Your Gallery Is Unlocked.",
     hi + P("Thanks for your payment. Your gallery is now unlocked and ready to download.") + box("Download PIN", d.pin) + how
     + row(main("View gallery", d.galleryUrl), tour)
@@ -4965,7 +4969,7 @@ function deliveryEmail(kind, d) {
 // show what one actually looks like — and send that exact render as a test.
 // Shared by GET /email/preview and POST /email/preview/send so the preview and
 // the test email can never drift apart. Returns { subject, html } or null.
-const DELIVERY_SAMPLE = { first: "Sarah", shoot: "Property video, 20 October", cover: "https://tmke.co.uk/email/sample-cover.jpg", pin: "7320", email: "sarah@example.com", galleryUrl: "https://tmke.co.uk", tourUrl: "https://tmke.co.uk", editsUrl: "https://tmke.co.uk", invoiceNo: "TMKE1102", payUrl: "https://tmke.co.uk", attached: true, inStudio: true, portalUrl: "https://tmke.co.uk" };
+const DELIVERY_SAMPLE = { first: "Sarah", shoot: "Property video, 20 October", cover: "https://tmke.co.uk/email/sample-cover-16x9.jpg", pin: "7320", email: "sarah@example.com", galleryUrl: "https://tmke.co.uk", tourUrl: "https://tmke.co.uk", editsUrl: "https://tmke.co.uk", invoiceNo: "TMKE1102", payUrl: "https://tmke.co.uk", attached: true, inStudio: true, portalUrl: "https://tmke.co.uk" };
 function emailPreviewSample(id) {
   const SAMPLES = {
     button_test: () => {
