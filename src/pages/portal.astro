@@ -103,6 +103,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     #pn .shot:hover .dl, #pn .thumb:hover .dl { opacity: 1; }
     #pn .thumbs { display: grid; grid-template-columns: repeat(auto-fill,minmax(320px,1fr)); gap: 5px; padding-block: 0 5px; }
     #pn .thumb { position: relative; display: block; width: 100%; aspect-ratio: 3/2; overflow: hidden; background: var(--line); cursor: pointer; }
+    #pn .thumbs.pt .thumb { aspect-ratio: 2/3; }
     #pn .thumb.sel, #pn .shot.sel { outline: 3px solid var(--wine); outline-offset: -3px; }
     #pn .thumb img, #pn .thumb video { display: block; width: 100%; height: 100%; object-fit: cover; }
     #pn .thumb .ext { display: grid; place-items: center; width: 100%; height: 100%; font-weight: 700; text-transform: uppercase; color: var(--taupe); }
@@ -214,6 +215,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       #pn .flist button { white-space: nowrap; }
       #pn .prow { grid-template-columns: repeat(3,minmax(0,1fr)); }
       #pn .thumbs { grid-template-columns: 1fr 1fr; gap: 8px; padding-block: 0; }
+      #pn .thumbs + .thumbs { margin-top: 8px; }
       #pn .thumb .dl { display: none; }
       #pn .shot .dl { opacity: 1; }
       #pn #actsbox { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--white); border-top: 1px solid var(--linen); padding: 10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px)); }
@@ -467,8 +469,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       for (let i = 0; i < port.length; i += 3) out += `<div class="prow">${port.slice(i, i + 3).map((f) => shot(f, true)).join("")}</div>`;
       return `<div class="roll">${out}</div>`;
     }
+    // Landscape first in landscape boxes, then portrait in tall ones, each starting
+    // a fresh row, so nothing is cropped to the wrong shape (Dani, 7 Nov).
     function thumbsHtml(files) {
-      return `<div class="thumbs">${files.map((f) => { const on = SEL.has(f.id); return `<div class="thumb${on ? " sel" : ""}" data-v="${esc(f.id)}" tabindex="0">${media(f)}${isVideo(f) ? '<span class="play"></span>' : ""}${tickHtml(f)}<a class="dl" href="${esc(f.downloadUrl)}" data-one="${esc(f.id)}">${DL()}</a></div>`; }).join("")}</div>`;
+      const one = (f) => { const on = SEL.has(f.id); return `<div class="thumb${on ? " sel" : ""}" data-v="${esc(f.id)}" tabindex="0">${media(f)}${isVideo(f) ? '<span class="play"></span>' : ""}${tickHtml(f)}<a class="dl" href="${esc(f.downloadUrl)}" data-one="${esc(f.id)}">${DL()}</a></div>`; };
+      const land = files.filter((f) => f.shape !== "p"), port = files.filter((f) => f.shape === "p");
+      return (land.length ? `<div class="thumbs">${land.map(one).join("")}</div>` : "") + (port.length ? `<div class="thumbs pt">${port.map(one).join("")}</div>` : "");
     }
     function acts(files) {
       const n = SEL.size, gallery = S.mode === "thumbs" || onlyVideo(files), f = shootOf();
