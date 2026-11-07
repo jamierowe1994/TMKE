@@ -5657,9 +5657,41 @@ async function portalShownFolders(env, p) {
   }
   return all.filter((f) => !waiting.has(f));
 }
+// What the new portal shows about a shoot (Dani, 7 Nov): the title is its shoot
+// name, else the first line of the address, else the client's name. Nothing about
+// money, notes or contact details leaves here.
+function portalShootDetails(bk) {
+  const address = String(bk.property_address || "").split(/\r?\n|,/).map((x) => x.trim()).filter(Boolean);
+  const when = bk.shoot_date ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
+  return {
+    title: String(bk.shoot_name || "").trim() || address[0] || String(bk.client_name || bk.client_company || "").trim(),
+    service: bk.service || "",
+    date: when,
+    location: address[1] || String(bk.location || bk.postcode || "").trim(),
+    cover: bk.cover_url || "",
+  };
+}
 async function portalHomeShown(env, p) {
   const shown = await portalShownFolders(env, p);
-  return { name: String(p.name || "").trim(), folders: shown.map((prefix) => ({ prefix, name: prefix.slice(0, -1).split("/").pop() })) };
+  const base = shown.map((prefix) => ({ prefix, name: prefix.slice(0, -1).split("/").pop() }));
+  let bks = [];
+  if (base.length) bks = (await sbGet(env, "videography_bookings", `archive_folder=in.(${base.map((f) => `"${f.name.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=*`)) || [];
+  const folders = [];
+  for (const f of base) {
+    const mine = bks.filter((b) => archivePrefix(b.archive_folder) === f.prefix);
+    const bk = mine.find((b) => shootDoneForPortal(b)) || mine[0];
+    if (!bk) { folders.push(f); continue; }
+    const out = { ...f, ...portalShootDetails(bk), shoot: true };
+    // Edits come through the portal only where the portal is the delivery. A new
+    // starter's folder is for TEG's records, and their edits go through Pixieset.
+    if (bk.delivery_method === "portal" && (isSettled(bk) || bk.released_unpaid_at)) {
+      out.editsToken = await ensureEditsToken(env, bk);
+      const from = bk.pin_released_at || bk.gallery_sent_at;
+      if (from && !bk.edits_settled_at) out.editsUntil = new Date(Date.parse(from) + EDIT_WINDOW_DAYS * 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" });
+    }
+    folders.push(out);
+  }
+  return { name: String(p.name || "").trim(), first_name: String(p.first_name || "").trim(), folders };
 }
 function portalHome(p) {
   return {
@@ -9302,6 +9334,36 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           delete f.key; delete f.thumb;
         }
         return json({ ...out, root }, 200, request, env);
+      }
+
+      // ---- Client portal: one shoot's folders, counted, each with a picture ----
+      if (path.endsWith("/portal/shoot") && request.method === "GET") {
+        const p = await portalFromSession(env, request);
+        if (!p) return json({ code: "signed_out" }, 401, request, env);
+        const prefix = archivePrefix(url.searchParams.get("prefix"));
+        const root = (await portalShownFolders(env, p)).find((f) => prefix === f);
+        if (!root) return json({ code: "not_shared" }, 403, request, env);
+        const exp = Date.now() + 6 * 60 * 60 * 1000;
+        const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
+        const sign = async (key) => {
+          const sig = await mediaSig(env, key, exp);
+          return sig ? `${base}/download?key=${encodeURIComponent(key)}&exp=${exp}&sig=${encodeURIComponent(sig)}` : "";
+        };
+        const isVid = (f) => /^video\//.test(f.contentType || "") || /\.(mp4|mov|m4v|webm)$/i.test(f.name || "");
+        const isPic = (f) => /^image\/(jpeg|png|webp|gif|avif)/.test(f.contentType || "") || /\.(jpe?g|png|webp|avif|gif)$/i.test(f.name || "");
+        const part = async (pre, name, list) => {
+          const files = list.files || [];
+          const pics = files.filter(isPic), vids = files.filter(isVid);
+          const c = pics.find((f) => f.thumb) || vids.find((f) => f.thumb) || pics[0];
+          return { prefix: pre, name, images: pics.length, videos: vids.length, others: files.length - pics.length - vids.length, coverUrl: c ? await sign(c.thumb || c.key) : "" };
+        };
+        const top = await listArchive(env, prefix);
+        const parts = [];
+        for (const sub of top.folders || []) {
+          parts.push(await part(sub, sub.slice(0, -1).split("/").pop(), await listArchive(env, sub)));
+        }
+        if ((top.files || []).length) parts.unshift(await part(prefix, parts.length ? "Main" : "All files", top));
+        return json({ parts: parts.filter((x) => x.images + x.videos + x.others > 0) }, 200, request, env);
       }
 
     // ---- PUBLIC client gallery (token-gated, NO login required) ----

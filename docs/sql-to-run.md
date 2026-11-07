@@ -4,6 +4,8 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/videography_shoot_name.sql — an optional Shoot name on each shoot's Delivery section, for its title in the new client portal. Sends nothing (7 Nov)
+
 
 
 

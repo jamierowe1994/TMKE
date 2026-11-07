@@ -870,6 +870,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
        halfway down box and hint (Dani, 6 Nov). */
     #vd-method .vc-pr.is-field, #vid-cand-delivery .vc-pr.is-field { align-items: start; padding-top: 9px; }
     #vd-method .vc-pr.is-field dt, #vid-cand-delivery .vc-pr.is-field dt { line-height: 32px; }
+    #vd-method .vc-pdl + .vc-pdl .vc-pr { border-top: 1px solid var(--vc-line); }
     #vd-cover .vc-pr.is-field { align-items: start; padding-top: 9px; border-top: 1px solid var(--vc-line); }
     #vd-cover .vc-pr.is-field dt { line-height: 32px; }
     #vd-cover [aria-pressed="true"] { background: var(--vc-wine); border-color: var(--vc-wine); color: #fff; }
@@ -3673,6 +3674,18 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       const ready = "delivery_method" in b;
       const by = isPortalDelivery(b) ? "portal" : "pixieset";
       host.innerHTML = `<dl class="vc-pdl is-form">${vcPF("Deliver by", `<select class="vc-in" id="vd-method-sel"${ready ? "" : " disabled"}><option value="pixieset"${by === "pixieset" ? " selected" : ""}>Pixieset</option><option value="portal"${by === "portal" ? " selected" : ""}>Client portal</option></select>`, !ready ? "Run supabase/videography_delivery_method.sql first." : by === "portal" ? "No gallery and no PIN. It shows in their portal once Content ready is Yes and it's paid, or released before payment." : "A gallery and PIN. If you pick a portal below too, it also shows there once sent and paid.")}</dl>`;
+      if ("shoot_name" in b) {
+        host.insertAdjacentHTML("beforeend", `<dl class="vc-pdl is-form">${vcPF("Shoot name", `<div style="display:flex;gap:8px;align-items:center"><input class="vc-in" type="text" id="vd-shoot-name" value="${escapeHtml(b.shoot_name || "")}" placeholder="Optional" autocomplete="off"><button type="button" class="vc-hb vc-hb--primary" id="vd-shoot-name-save" disabled>Save</button></div>`, "The title in their portal. Left blank, it uses the first line of the address, then the client's name.")}</dl>`);
+        const nameIn = document.getElementById("vd-shoot-name"), nameSave = document.getElementById("vd-shoot-name-save");
+        nameIn.addEventListener("input", () => { nameSave.disabled = nameIn.value.trim() === (b.shoot_name || ""); });
+        nameSave.addEventListener("click", async () => {
+          nameSave.disabled = true;
+          const value = nameIn.value.trim() || null;
+          const { error } = await supabase.from("videography_bookings").update({ shoot_name: value }).eq("id", b.id);
+          if (error) { nameSave.disabled = false; alert("Couldn't save that: " + error.message); return; }
+          b.shoot_name = value;
+        });
+      }
       document.getElementById("vd-method-sel")?.addEventListener("change", (e) => {
         const to = e.target.value;
         if (to === "pixieset" && b.released_unpaid_at && !confirm("This also takes back the release before payment. Carry on?")) { e.target.value = "portal"; return; }
