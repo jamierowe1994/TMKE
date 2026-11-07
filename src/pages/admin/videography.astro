@@ -3674,10 +3674,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       });
     }
     /* The cover photo on the client's emails (Dani, 7 Nov). Picked from the shoot's
-       own files and saved as a 16:9 JPEG at a permanent public address, because a
-       storage link expires and an email lasts. A video gives a frame from it. */
+       own photos and saved as a 16:9 JPEG at a permanent public address, because a
+       storage link expires and an email lasts. Photos only: a video's frame came
+       up black (Dani, 7 Nov). */
     let vdCover = { id: null, mode: "idle" };
-    const coverIsVideo = (f) => /^video\//.test(f.contentType || "") || /\.(mp4|mov|m4v|webm)$/i.test(f.name || "");
     const coverIsPhoto = (f) => /\.(jpe?g|png|webp)$/i.test(f.name || "") || /^image\/(jpeg|png|webp)/.test(f.contentType || "");
     async function coverApi(path) {
       const token = await authToken();
@@ -3688,23 +3688,14 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     async function coverFiles(b) {
       const top = await coverApi(`/list?prefix=${encodeURIComponent(folderFor(b))}`);
       const inner = await Promise.all((top.folders || []).slice(0, 8).map((f) => coverApi(`/list?prefix=${encodeURIComponent(top.prefix + (String(f).endsWith("/") ? String(f).split("/").filter(Boolean).pop() + "/" : f + "/"))}`).catch(() => ({ files: [] }))));
-      return [...(top.files || []), ...inner.flatMap((x) => x.files || [])].filter((f) => coverIsPhoto(f) || coverIsVideo(f));
+      return [...(top.files || []), ...inner.flatMap((x) => x.files || [])].filter(coverIsPhoto);
     }
     // Cropped from the middle across, and from where it's been placed down.
-    async function coverBlob(url, video, pos) {
-      let source, w, h;
-      if (video) {
-        const v = document.createElement("video");
-        v.muted = true; v.playsInline = true; v.preload = "auto"; v.crossOrigin = "anonymous"; v.src = url;
-        await new Promise((ok, no) => { v.addEventListener("loadeddata", ok, { once: true }); v.addEventListener("error", () => no(new Error("couldn't read that video")), { once: true }); });
-        await new Promise((ok) => { v.addEventListener("seeked", ok, { once: true }); v.currentTime = Math.min(2, (v.duration || 4) / 3); });
-        source = v; w = v.videoWidth; h = v.videoHeight;
-      } else {
-        const img = new Image();
-        img.crossOrigin = "anonymous"; img.src = url;
-        await img.decode();
-        source = img; w = img.naturalWidth; h = img.naturalHeight;
-      }
+    async function coverBlob(url, pos) {
+      const img = new Image();
+      img.crossOrigin = "anonymous"; img.src = url;
+      await img.decode();
+      const source = img, w = img.naturalWidth, h = img.naturalHeight;
       let sw = w, sh = w * 9 / 16;
       if (sh > h) { sh = h; sw = h * 16 / 9; }
       const sx = (w - sw) / 2, sy = pos === "top" ? 0 : pos === "bottom" ? h - sh : (h - sh) / 2;
@@ -3738,24 +3729,23 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         try { files = await coverFiles(b); } catch (e) { vdCover.mode = "idle"; renderCoverRow(b).then(() => say("Couldn't load the files: " + e.message)); return; }
         if (vdCover.mode !== "choose" || vdCover.id !== b.id) return;
         const shown = files.slice(0, 48);
-        host.innerHTML = row(`${shown.length ? `<div id="vd-cover-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px">${shown.map((f, i) => `<button type="button" data-cover="${i}" aria-label="Use ${escapeHtml(f.name)}" style="display:block;padding:0;border:1px solid var(--vc-edge);border-radius:4px;background:#eae5e1;aspect-ratio:16/9;overflow:hidden;cursor:pointer"></button>`).join("")}</div>` : '<span class="vc-none">No photos or videos in this shoot\'s folder yet.</span>'}<div style="margin-top:8px"><button type="button" class="vc-hb" id="vd-cover-back">Cancel</button></div>`, shown.length && files.length > shown.length ? `Showing the newest ${shown.length} of ${files.length}.` : "");
+        host.innerHTML = row(`${shown.length ? `<div id="vd-cover-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px">${shown.map((f, i) => `<button type="button" data-cover="${i}" aria-label="Use ${escapeHtml(f.name)}" style="display:block;padding:0;border:1px solid var(--vc-edge);border-radius:4px;background:#eae5e1;aspect-ratio:16/9;overflow:hidden;cursor:pointer"></button>`).join("")}</div>` : '<span class="vc-none">No photos in this shoot\'s folder yet.</span>'}<div style="margin-top:8px"><button type="button" class="vc-hb" id="vd-cover-back">Cancel</button></div>`, shown.length && files.length > shown.length ? `Showing the newest ${shown.length} of ${files.length}.` : "");
         document.getElementById("vd-cover-back").addEventListener("click", () => { vdCover.mode = "idle"; renderCoverRow(b); });
         host.querySelectorAll("[data-cover]").forEach(async (el) => {
           const f = shown[Number(el.dataset.cover)];
           el.addEventListener("click", () => { vdCover = { id: b.id, mode: "place", file: f, pos: "center" }; renderCoverRow(b); });
-          const small = f.thumb || (coverIsPhoto(f) ? f.key : "");
-          if (!small) { el.textContent = "Video"; return; }
+          const small = f.thumb || f.key;
           try { const l = await coverApi(`/media-link?key=${encodeURIComponent(small)}`); el.innerHTML = `<img src="${escapeHtml(l.url)}" alt="" loading="lazy" style="display:block;width:100%;height:100%;object-fit:cover">`; } catch (_) {}
         });
         return;
       }
       // Placing the chosen one in the 16:9 frame.
-      const f = vdCover.file, video = coverIsVideo(f);
+      const f = vdCover.file;
       let link;
       try { link = await coverApi(`/media-link?key=${encodeURIComponent(f.key)}`); }
       catch (e) { vdCover.mode = "idle"; renderCoverRow(b).then(() => say("Couldn't open that file: " + e.message)); return; }
       const posCss = { top: "center top", center: "center center", bottom: "center bottom" };
-      const media = video ? `<video id="vd-cover-see" src="${escapeHtml(link.url)}#t=2" muted playsinline preload="metadata" style="display:block;width:100%;height:100%;object-fit:cover;object-position:${posCss[vdCover.pos]}"></video>` : `<img id="vd-cover-see" src="${escapeHtml(link.url)}" alt="" style="display:block;width:100%;height:100%;object-fit:cover;object-position:${posCss[vdCover.pos]}">`;
+      const media = `<img id="vd-cover-see" src="${escapeHtml(link.url)}" alt="" style="display:block;width:100%;height:100%;object-fit:cover;object-position:${posCss[vdCover.pos]}">`;
       host.innerHTML = row(`<div style="width:100%;max-width:420px;aspect-ratio:16/9;overflow:hidden;border-radius:4px;background:#eae5e1">${media}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${["top", "center", "bottom"].map((p) => `<button type="button" class="vc-hb" data-coverpos="${p}" aria-pressed="${vdCover.pos === p}">${{ top: "Top", center: "Middle", bottom: "Bottom" }[p]}</button>`).join("")}<button type="button" class="vc-hb" id="vd-cover-back">Back</button><button type="button" class="vc-hb vc-hb--primary" id="vd-cover-use">Use this photo</button></div>`, "This is how it's cropped in the email. Choose which part of the photo stays in frame.");
       host.querySelectorAll("[data-coverpos]").forEach((x) => x.addEventListener("click", () => { vdCover.pos = x.dataset.coverpos; document.getElementById("vd-cover-see").style.objectPosition = posCss[vdCover.pos]; host.querySelectorAll("[data-coverpos]").forEach((y) => y.setAttribute("aria-pressed", String(y === x))); }));
       document.getElementById("vd-cover-back").addEventListener("click", () => { vdCover.mode = "choose"; renderCoverRow(b); });
@@ -3763,7 +3753,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         const btn = e.currentTarget, was = btn.textContent;
         btn.disabled = true; btn.textContent = "Saving…"; say("");
         try {
-          const blob = await coverBlob(link.url, video, vdCover.pos);
+          const blob = await coverBlob(link.url, vdCover.pos);
           const fd = new FormData();
           fd.append("file", new File([blob], "cover.jpg", { type: "image/jpeg" }));
           const token = await authToken();
