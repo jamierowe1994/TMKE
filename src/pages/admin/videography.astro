@@ -2298,6 +2298,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
        the shoot up underneath. Quick filters for the bottlenecks: the week
        ahead for Jack, payment for Danielle. */
     let VBMONEY = new Map();          // booking_id -> its newest invoice { status, due_date }
+    let VBEDITS = new Set();          // booking ids a client has asked for edits on
+    // Asked and waiting on Jack. A request with a card payment still to go through doesn't count.
+    const editsAsked = (r) => r.status !== "pending" || !r.stripe_session_id;
+    const editsRequested = (b) => VBEDITS.has(b.id) && !b.edits_settled_at;
     let vbFilter = "all";
     const vbOpen = new Set();         // stages showing all their cards
     const VB_CAP = { delivered: 4 };
@@ -2345,6 +2349,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       if (st === "gallery_ready") return smm ? ["is-none", "With the team"] : vbPaid(b) ? ["", "Send the gallery"] : ["", vbOverdue(iv) ? "Payment overdue" : "Waiting on payment"];
       if (st === "sent") {
         if (smm) return ["is-none", "With the team"];
+        if (editsRequested(b)) return ["", "Edits requested"];
         if (!vbPaid(b)) return ["", vbOverdue(iv) ? "Payment overdue" : "Waiting on payment"];
         if (!b.edits_settled_at) return ["", b.gallery_sent_at ? "Edits open until " + new Date(Date.parse(b.gallery_sent_at) + 10 * 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "Waiting on edits"];
         return ["", "Close the job"];
@@ -2461,6 +2466,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
               <span class="vc-tag">${escapeHtml(f.sub)}</span>
               ${brandName ? `<span class="vc-tag">${escapeHtml(brandName)}</span>` : ""}
               <span class="vc-tag vc-pay ${payCls}" id="vc-pay">${escapeHtml(payTxt)}</span>
+              ${editsRequested(b) ? `<span class="vc-tag">Edits requested</span>` : ""}
             </div>
             <div class="vc-row">
               <div class="vc-who">
@@ -2718,7 +2724,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           vcR("Content ready", b.portal_ready_at ? "Yes" : "No"),
           vcR("Payment", pay),
           vcR("Sent", b.gallery_sent_at ? escapeHtml(vcDay(b.gallery_sent_at)) : "Not yet"),
-          vcR("Edits", b.edits_settled_at ? vcChip("is-good", "Settled " + vcDay(b.edits_settled_at)) : (editsUntil ? "Open until " + escapeHtml(editsUntil) : vcChip("is-plain", "Not sent yet"))),
+          vcR("Edits", b.edits_settled_at ? vcChip("is-good", "Settled " + vcDay(b.edits_settled_at)) : editsRequested(b) ? vcChip("is-info", "Requested") : (editsUntil ? "Open until " + escapeHtml(editsUntil) : vcChip("is-plain", "Not sent yet"))),
         ].join("")}</dl>`);
       }
       const pin = smm ? "Not needed"
@@ -2732,7 +2738,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         vcR("PIN", pin, false, "vc-pin-line"),
         vcR("Client portal", vcCache.portal || "", false, "vc-portal"),
         vcR("Sent", b.gallery_sent_at ? escapeHtml(vcDay(b.gallery_sent_at)) : "Not yet"),
-        vcR("Edits", b.edits_settled_at ? vcChip("is-good", "Settled " + vcDay(b.edits_settled_at)) : (editsUntil ? "Open until " + escapeHtml(editsUntil) : vcChip("is-plain", "Not sent yet"))),
+        vcR("Edits", b.edits_settled_at ? vcChip("is-good", "Settled " + vcDay(b.edits_settled_at)) : editsRequested(b) ? vcChip("is-info", "Requested") : (editsUntil ? "Open until " + escapeHtml(editsUntil) : vcChip("is-plain", "Not sent yet"))),
         vcR("Gallery expires", exp ? escapeHtml(vcDayYear(exp)) : '<span class="vc-none">Set when the link goes in</span>'),
       ];
       return vcBox("delivery", "vc-third", "Delivery", vcAct("delivery", "Open"), `<dl class="vc-dl">${rows.join("")}</dl>`);
@@ -3346,7 +3352,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           ${vcPR("Sent", b.gallery_sent_at ? escapeHtml(vcDay(b.gallery_sent_at)) : "Not yet")}
           ${smm ? "" : vcPR("Edits open until", until ? escapeHtml(until) : "10 days after the gallery is sent")}
           <div id="vd-edit-link"></div>
-          ${smm ? "" : `<div class="vc-pr"><dt>Edit requests</dt><dd id="vd-edit-reqs">${b.gallery_sent_at ? "Checking…" : "None yet"}</dd></div>`}
+          ${smm ? "" : `<div class="vc-pr"><dt>Edit requests</dt><dd id="vd-edit-reqs">Checking…</dd></div>`}
         </dl>
         ${canTick ? `<label class="vid-check"><input type="checkbox" id="vid-edits-done" ${b.edits_settled_at ? "checked" : ""} /><span>The client's round of edits is settled</span></label>${settled ? `<small class="vc-hint">${settled}</small>` : ""}`
           : `<small class="vc-hint">The tick to settle them appears once the gallery has been sent.</small>`}`;
@@ -4152,9 +4158,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         linkHost.outerHTML = vcPF("Their edit link", `<div class="vc-pair"><input class="vc-in" type="text" readonly value="${escapeHtml(editsLink)}" id="vid-edits-link" /><button type="button" class="vc-hb" id="vid-edits-link-copy">Copy</button></div>`, `Sent ${escapeHtml(vcDayYear(editsSentAt))}.`);
         wireEditsLinkCopy();
       }
-      if (!reqHost || !b.gallery_sent_at) return;
+      if (!reqHost) return;
       const { data, error } = await supabase.from("videography_edit_requests").select("*").eq("booking_id", b.id).order("created_at", { ascending: false });
       const requests = error ? [] : (data || []);
+      if (!error) { if (requests.some(editsAsked)) VBEDITS.add(b.id); else VBEDITS.delete(b.id); }
       const host = document.getElementById("vd-edit-reqs");
       if (!host) return;
       if (!requests.length) { host.textContent = editsSentAt ? "None yet. Waiting to hear from them." : "None yet."; return; }
@@ -6703,13 +6710,15 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       // call is slow or fails, the tables would just stay blank with no error.
       renderRateCard();
 
-      const [bRes, aRes, iRes] = await Promise.all([
+      const [bRes, aRes, iRes, eRes] = await Promise.all([
         supabase.from("videography_bookings").select("*").order("created_at", { ascending: false }),
         supabase.from("videography_availability").select("*"),
         supabase.from("invoices").select("booking_id, status, due_date, created_at").not("booking_id", "is", null).neq("status", "void").order("created_at", { ascending: false }).range(0, 999),
+        supabase.from("videography_edit_requests").select("booking_id, status, stripe_session_id").order("created_at", { ascending: false }).range(0, 999),
       ]);
 
       bookings = bRes.error ? [] : (bRes.data || []);
+      VBEDITS = new Set((eRes.error ? [] : (eRes.data || [])).filter(editsAsked).map((r) => r.booking_id));
       INVOICED = new Map();
       VBMONEY = new Map();
       (iRes.error ? [] : (iRes.data || [])).forEach((iv) => {

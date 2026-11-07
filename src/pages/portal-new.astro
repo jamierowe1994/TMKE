@@ -286,7 +286,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     // A folder that isn't tied to a booking keeps the old reading of its name.
     function details(f) {
-      if (f.shoot) return { title: f.title || f.name, service: f.service, date: f.date, location: f.location };
+      if (f.shoot) return { title: f.title || f.name, service: f.service, date: f.date, location: f.location, edits: f.editStage };
       const bits = String(f.name).split(" - ").map((x) => x.trim()).filter(Boolean);
       const at = bits.findIndex((x) => /^\d{4}-\d{2}-\d{2}$/.test(x));
       if (at < 1) return { title: f.name, service: "", date: "", location: "" };
@@ -295,7 +295,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       return { title: bits[at - 1], service: bits.slice(0, at - 1).join(" - "), date, location: bits.slice(at + 1).join(" - ") };
     }
     const countText = (p) => [p.images ? `${p.images} ${p.images === 1 ? "Image" : "Images"}` : "", p.videos ? `${p.videos} ${p.videos === 1 ? "Video" : "Videos"}` : "", p.others ? `${p.others} ${p.others === 1 ? "File" : "Files"}` : ""].filter(Boolean).join(", ");
-    const metaRows = (d) => [d.service ? `<div><b>Service</b>${esc(d.service)}</div>` : "", d.date ? `<div><b>Shoot date</b>${esc(d.date)}</div>` : "", d.location ? `<div><b>Location</b>${esc(d.location)}</div>` : ""].join("");
+    const metaRows = (d) => [d.service ? `<div><b>Service</b>${esc(d.service)}</div>` : "", d.date ? `<div><b>Shoot date</b>${esc(d.date)}</div>` : "", d.location ? `<div><b>Location</b>${esc(d.location)}</div>` : "", d.edits ? `<div><b>Edits</b>${esc(d.edits)}</div>` : ""].join("");
     const lines = (d) => `<div class="meta">${metaRows(d)}</div>`;
     const ICON_MAIL = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg>';
     const ICON_WA = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.3-4.2A8 8 0 1 1 8.4 19L4 20z"/><path d="M9 8.6c-.5.5-.6 1.300-.2 2.300.7 1.700 2.500 3.400 4.200 4 1 .3 1.700.2 2.200-.3l.5-.7-1.900-1.200-.8.7c-1-.4-1.800-1.200-2.300-2.200l.7-.8-1.200-1.900-.2.100z"/></svg>';
@@ -376,7 +376,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <div class="c2"><div class="list"><div class="cap lab">All work</div>${rows.map((r, i) => `<button class="cap" data-t="${i}">${esc(r.d.title)}</button>`).join("")}</div><div class="cap bottom">Shoots (${list.length})</div></div>
         <div class="tiles" data-lenis-prevent>${wallOf(rows.map((r, i) => tileHtml(i, r.d.title, String(i + 1).padStart(2, "0"), r.f.cover)), ["var(--wine)", "var(--stone)", "var(--taupe)"])}</div>
         <div class="c4"><div class="note">Client portal</div><button class="cap back" id="out">Sign out</button></div></div>`;
-      wireWall(rows.map((r) => ({ t: r.d.title, h: lines(r.d) })), rest, (i) => openShoot(rows[i].f.prefix));
+      wireWall(rows.map((r) => ({ t: r.d.title, h: lines({ ...r.d, edits: "" }) })), rest, (i) => openShoot(rows[i].f.prefix));
       $("#out").onclick = () => { session.clear(); HOME = null; SHOOTS.clear(); FILES.clear(); history.replaceState(null, "", "?c=" + encodeURIComponent(TOKEN)); drawGate(); };
       // No cover chosen: the newest picture in the shoot's folders. Fetched as it's needed, not all at once.
       const missing = rows.map((r, i) => ({ r, i })).filter((x) => !x.r.f.cover);
@@ -596,11 +596,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         if ((NOTES.all || "").trim()) lines.push(`Anything else: ${NOTES.all.trim()}`);
         btn.disabled = true; err.hidden = true;
         try {
-          const res = await fetch(`${WORKER}/videography/edit-request`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: f.editsToken, notes: lines.join("\n"), twilight_filenames: picked.filter((x) => NOTES["tw" + x.id]).map((x) => `${x.part.name} / ${cleanName(x.name)}`), extra_images: !!NOTES.bundle }) });
+          const res = await fetch(`${WORKER}/videography/edit-request`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: f.editsToken, notes: lines.join("\n"), twilight_filenames: picked.filter((x) => NOTES["tw" + x.id]).map((x) => `${x.part.name} / ${cleanName(x.name)}`), extra_images: !!NOTES.bundle, return_path: location.pathname + location.search }) });
           const out = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(out.error || "");
           if (out.checkout_url) { location.href = out.checkout_url; return; }
-          Object.keys(NOTES).forEach((k) => delete NOTES[k]); SEL.clear(); S.editing = false;
+          Object.keys(NOTES).forEach((k) => delete NOTES[k]); SEL.clear(); S.editing = false; f.editStage = "Requested";
           drawFolder(); toast("Sent. Jack has your edit requests.", 5000);
         } catch (x) { btn.disabled = false; err.textContent = x.message || "We couldn't send that just now. Please try again."; err.hidden = false; }
       };
@@ -677,6 +677,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     });
     addEventListener("scroll", () => { const b = $("#finfo"), h = $(".side h2"); if (b && h) b.classList.toggle("float", h.getBoundingClientRect().bottom < 0); }, { passive: true });
 
+    if (params.get("paid")) {
+      params.delete("paid");
+      history.replaceState(null, "", "?" + params.toString());
+      setTimeout(() => toast("Paid, thank you. Jack has your edit requests.", 6000), 400);
+    }
     if (!TOKEN) loading("We don't recognise this link. Check you've copied the whole link from your email.");
     else if (!WORKER) loading("We couldn't connect just now. Please try again.");
     else route();

@@ -5682,6 +5682,12 @@ async function portalHomeShown(env, p) {
   const base = shown.map((prefix) => ({ prefix, name: prefix.slice(0, -1).split("/").pop() }));
   let bks = [];
   if (base.length) bks = (await sbGet(env, "videography_bookings", `archive_folder=in.(${base.map((f) => `"${f.name.replace(/"/g, "")}"`).map(encodeURIComponent).join(",")})&select=*`)) || [];
+  // A request with a card payment still waiting isn't a request yet.
+  let asked = new Set();
+  if (bks.length) {
+    const reqs = (await sbGet(env, "videography_edit_requests", `booking_id=in.(${bks.map((b) => b.id).join(",")})&select=booking_id,status,stripe_session_id`)) || [];
+    asked = new Set(reqs.filter((r) => r.status !== "pending" || !r.stripe_session_id).map((r) => r.booking_id));
+  }
   const folders = [];
   for (const f of base) {
     const mine = bks.filter((b) => archivePrefix(b.archive_folder) === f.prefix);
@@ -5691,9 +5697,20 @@ async function portalHomeShown(env, p) {
     // Edits come through the portal only where the portal is the delivery. A new
     // starter's folder is for TEG's records, and their edits go through Pixieset.
     if (bk.delivery_method === "portal" && (isSettled(bk) || bk.released_unpaid_at)) {
-      out.editsToken = await ensureEditsToken(env, bk);
       const from = bk.pin_released_at || bk.gallery_sent_at;
-      if (from && !bk.edits_settled_at) out.editsUntil = new Date(Date.parse(from) + EDIT_WINDOW_DAYS * 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" });
+      const closesAt = from ? Date.parse(from) + EDIT_WINDOW_DAYS * 864e5 : 0;
+      const expired = !!closesAt && Date.now() > closesAt;
+      const settled = !!bk.edits_settled_at;
+      // Dani, 7 Nov. Not yet: they can still ask. Not requested: the time ran out
+      // or it closed itself. Requested: Jack has it. Completed: someone has ticked
+      // the round settled on the client file.
+      out.editStage = asked.has(bk.id) ? (settled ? "Completed" : "Requested")
+        : settled ? (/^Automatic/.test(bk.edits_settled_by || "") ? "Not requested" : "Completed")
+        : expired ? "Not requested" : "Not yet";
+      if (!settled && !expired) {
+        out.editsToken = await ensureEditsToken(env, bk);
+        if (closesAt) out.editsUntil = new Date(closesAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" });
+      }
     }
     folders.push(out);
   }
@@ -16338,33 +16355,41 @@ async function notifyEditRequest(env, requestId) {
   const paidExtras = twilightRows.length > 0 || !!req.extra_images_qty;
 
   const parts = [];
-  parts.push(`<p style="${EM_P}"><strong>${esc(bk.client_name || "A client")}</strong> has asked for edits on their ${esc((bk.service || "shoot").toLowerCase())}.</p>`);
+  const shootTitle = String(bk.shoot_name || "").trim();
+  parts.push(`<p style="${EM_P}"><strong>${esc(bk.client_name || "A client")}</strong> has asked for edits on their ${esc((bk.service || "shoot").toLowerCase())}${shootTitle ? `, ${esc(shootTitle)}` : ""}.</p>`);
   if (req.notes) parts.push(`<p style="${EM_P}"><strong>What they asked for:</strong><br>${esc(req.notes).replace(/\n/g, "<br>")}</p>`);
   if (twilightRows.length) {
-    parts.push(`<p style="${EM_P}"><strong>Twilight requested</strong> — ${twilightRows.length} image${twilightRows.length === 1 ? "" : "s"}, paid (${esc(gbpW(twilightTotal))}):</p>
+    parts.push(`<p style="${EM_P}"><strong>Twilight requested:</strong> ${twilightRows.length} image${twilightRows.length === 1 ? "" : "s"}, paid (${esc(gbpW(twilightTotal))}):</p>
       <ul style="${EM_P}">${twilightRows.map((it) => `<li>${esc(it.filename || "unnamed")}</li>`).join("")}</ul>`);
   }
   if (req.extra_images_qty) {
-    parts.push(`<p style="${EM_P}"><strong>Extra images bought</strong> — ${req.extra_images_qty} more, paid (${esc(gbpW(req.extra_images_price_pence || 0))}). Increase their download cap on the booking.</p>`);
+    parts.push(`<p style="${EM_P}"><strong>Extra images bought:</strong> ${req.extra_images_qty} more, paid (${esc(gbpW(req.extra_images_price_pence || 0))}). Increase their download cap on the booking.</p>`);
   }
   parts.push(`<p style="${EM_P}"><a href="${esc(bookingLink)}" style="${EM_BTN}">Open their booking</a></p>`);
 
   const sent = await sendEmail(env, {
     to: team,
-    subject: `Edit request — ${bk.client_name || "a client"}`,
+    subject: `Edits requested: ${bk.client_name || "a client"}.`,
     html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">${parts.join("")}</div>`),
+  });
+  // What they asked for goes in the shoot's notes whatever happens to the email,
+  // and the note says so if Jack wasn't told (Dani, 7 Nov).
+  const noteLines = ["Edits requested."];
+  if (req.notes) noteLines.push(req.notes);
+  if (twilightRows.length) noteLines.push(`Twilight, paid: ${twilightRows.map((it) => it.filename || "unnamed").join(", ")}`);
+  if (req.extra_images_qty) noteLines.push(`Extra images bought, paid: ${req.extra_images_qty}`);
+  if (!sent.ok) noteLines.push("The email to Jack didn't send, so he needs telling.");
+  await logBookingMessage(env, {
+    booking_id: bk.id, booking_source: "videography",
+    channel: "note", kind: "edit_request",
+    subject: `Edit request${paidExtras ? " (paid add-on)" : ""}`,
+    body: noteLines.join("\n"),
+    is_automated: true, created_by: "system",
   });
   if (!sent.ok) return { ok: false, reason: sent.error || "send failed" };
 
   await sbPatch(env, "videography_edit_requests", `id=eq.${encodeURIComponent(requestId)}&notified_at=is.null`, {
     status: "notified", notified_at: new Date().toISOString(),
-  });
-  await logBookingMessage(env, {
-    booking_id: bk.id, booking_source: "videography",
-    channel: "note", kind: "edit_request",
-    subject: `Edit request${paidExtras ? " (paid add-on)" : ""}`,
-    body: req.notes || "(no notes - paid add-on only)",
-    is_automated: true, created_by: "system",
   });
   return { ok: true };
 }
@@ -16770,6 +16795,8 @@ async function sendGalleryPinEmail(env, bookingId) {
         const origin = request.headers.get("Origin") || "";
         const allowed = String(env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim());
         const base = allowed.includes(origin) ? origin : (env.SITE_URL || "https://tmke.co.uk");
+        // A request from the client portal goes back there, not to the old edits page.
+        const back = /^\/portal(-new)?\?c=[^/\s]+$/.test(String((b && b.return_path) || "")) ? b.return_path : "";
         const productName = twilightItems.length
           ? `Faux twilight - ${twilightItems.length} image${twilightItems.length === 1 ? "" : "s"}`
           : `${EXTRA_IMAGES_BUNDLE.qty} extra images`;
@@ -16778,8 +16805,8 @@ async function sendGalleryPinEmail(env, bookingId) {
           const session = await stripeApi(env, "checkout/sessions", {
             mode: "payment",
             "payment_method_types[0]": "card",
-            success_url: `${base}/edits?token=${encodeURIComponent(token)}&paid=1`,
-            cancel_url: `${base}/edits?token=${encodeURIComponent(token)}`,
+            success_url: back ? `${base}${back}&paid=1` : `${base}/edits?token=${encodeURIComponent(token)}&paid=1`,
+            cancel_url: back ? `${base}${back}` : `${base}/edits?token=${encodeURIComponent(token)}`,
             "metadata[edit_request_id]": reqRow.id,
             "metadata[upsell_type]": twilightItems.length ? "twilight" : "extra_images",
             "line_items[0][quantity]": 1,
