@@ -2017,13 +2017,16 @@ async function runEditAutoClose(env) {
   const bks = (await sbGet(env, "videography_bookings",
     `stage=eq.sent&edits_settled_at=is.null&gallery_sent_at=lte.${encodeURIComponent(cutoff)}`
     + `&and=(or(payment_route.is.null,payment_route.neq.smm_package),or(kind.is.null,kind.eq.booking))`
-    + `&select=id,client_name,client_email,paid_at,gallery_sent_at,payment_route`)) || [];
+    + `&select=id,client_name,client_email,paid_at,gallery_sent_at,pin_released_at,payment_route`)) || [];
   for (const b of bks) {
     try {
+      // The PIN email promises 10 days, so a late payer's run from that (Dani, 7 Nov).
+      const from = b.pin_released_at || b.gallery_sent_at;
+      if (Date.parse(from) > Date.parse(cutoff)) continue;
       const reqs = await sbGet(env, "videography_edit_requests", `booking_id=eq.${encodeURIComponent(b.id)}&select=id&limit=1`);
       if (reqs && reqs.length) continue;
       const heard = await sbGet(env, "booking_messages",
-        `booking_id=eq.${encodeURIComponent(b.id)}&direction=eq.inbound&created_at=gte.${encodeURIComponent(b.gallery_sent_at)}&select=id&limit=1`);
+        `booking_id=eq.${encodeURIComponent(b.id)}&direction=eq.inbound&created_at=gte.${encodeURIComponent(from)}&select=id&limit=1`);
       if (heard && heard.length) continue;
       const now = new Date().toISOString();
       const patch = { edits_settled_at: now, edits_settled_by: "Automatic: no edit request in 10 days" };
@@ -2237,8 +2240,9 @@ async function runSmmPortalFlags(env) {
    what's new. A new starter's folder in the TEG portal also puts its link on
    the sheet there and then. */
 async function runPortalFolderNotices(env) {
+  await loadEmailStyles(env);
   const portals = await sbGet(env, "client_portals",
-    "notify_email=not.is.null&enabled=eq.true&select=id,name,first_name,token,passcode,folders,notified_folders,notify_email");
+    "notify_email=not.is.null&enabled=eq.true&select=id,name,first_name,token,passcode,folders,notified_folders,notify_email,smm_client_id");
   if (!portals) return;   // notify columns not added yet (supabase/client_portal_notify.sql)
   const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
   for (const p of portals) {
@@ -2265,6 +2269,23 @@ async function runPortalFolderNotices(env) {
       const status = bk && bk.delivery_method !== "portal" ? starterEditStatus({ settledAt: bk.edits_settled_at, settledBy: bk.edits_settled_by, sentAt: bk.gallery_sent_at, name: bk.client_name }) : "";
       return { prefix: f, name: (bk && (bk.client_name || bk.client_company)) || names[i], bk, status, line: [bk && bk.service, when].filter(Boolean).join(", "), link: `${site}/portal?c=${encodeURIComponent(p.token)}&f=${encodeURIComponent(f)}` };
     });
+    // A client's own portal gets the new Share email, one per folder (Dani, 7 Nov).
+    // The TEG new-starter portal and social media managers keep theirs.
+    if (!TEG_PORTAL_NAME.test(String(p.name || "")) && !p.smm_client_id) {
+      const done = [...keep];
+      for (const it of items) {
+        const editsUrl = it.bk && it.bk.delivery_method === "portal" ? `${site}/edits?token=${encodeURIComponent(await ensureEditsToken(env, it.bk))}` : "";
+        const mail = deliveryEmail("portal", { first: p.first_name || "", shoot: it.line || it.name, cover: (it.bk && it.bk.cover_url) || "", portalUrl: it.link, passcode: p.passcode, editsUrl });
+        const sent = await sendEmail(env, { to: p.notify_email, subject: mail.subject, html: mail.html });
+        if (!sent || !sent.ok) {
+          await notifyAdmins(env, { area: "problem", event: "portal_notice_failed", title: `Couldn't email ${p.notify_email} about new portal folders`, body: String((sent && sent.error) || "Unknown error").slice(0, 200), key: `${p.id}:${it.prefix}` });
+          continue;
+        }
+        done.push(it.prefix);
+        await sbPatch(env, "client_portals", `id=eq.${encodeURIComponent(p.id)}`, { notified_folders: done });
+      }
+      continue;
+    }
     const esc = (v) => String(v || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     const hi = p.first_name ? `Hi ${esc(p.first_name)},` : "Hi,";
     const where = TEG_PORTAL_NAME.test(String(p.name || "")) || items.length !== 1 ? "your TMKE portal" : `the ${esc(p.name)} portal`;
@@ -4928,12 +4949,31 @@ ${cover ? `<tr><td style="padding:0 16px;"><img src="${esc(cover)}" alt="A photo
 <tr><td style="padding:0 16px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:18px 0 24px;border-top:1px solid #eae5e1;${foot}">TMKE<br><a href="https://tmke.co.uk" style="color:#7e6765;">tmke.co.uk</a><br>Questions? Reply to this email.</td></tr></table></td></tr>
 </table></td></tr></table></body></html>`;
 }
+async function ensureEditsToken(env, bk) {
+  if (bk.edits_token) return bk.edits_token;
+  const token = crypto.randomUUID().replace(/-/g, "");
+  await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}&edits_token=is.null`, { edits_token: token });
+  bk.edits_token = token;
+  return token;
+}
+// "Hi Sarah," only when the name looks like a person's: a shoot can be filed under
+// a brand or an event, and "Hi F&C," reads badly.
+function deliveryFirstName(name) {
+  const full = String(name || "").trim();
+  const first = full.split(/\s+/)[0] || "";
+  if (/[&"\u201c\u201d\d]|\b(experts?|country|ltd|limited|estates?|coverage|bootcamp|team|group)\b/i.test(full)) return "";
+  return /^[A-Za-z\u00c0-\u00ff][a-z\u00e0-\u00ff'\u2019]+(-[A-Za-z\u00c0-\u00ff][a-z\u00e0-\u00ff'\u2019]+)*$/.test(first) ? first : "";
+}
+function deliveryShootLine(bk) {
+  const when = bk.shoot_date ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
+  return [bk.service || "Your shoot", when].filter(Boolean).join(", ");
+}
 function deliveryEmail(kind, d) {
   const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const P = (x) => `<p style="${EM_P}text-align:left;">${x}</p>`;
   const main = (t, u) => `<a href="${esc(u)}" style="${EM_BTN}">${esc(t)}</a>`;
   const second = (t, u) => `<a href="${esc(u)}" style="${EM_BTN};background:#ffffff;color:#371e28;border:1px solid #371e28">${esc(t)}</a>`;
-  const row = (...links) => `<p style="${EM_P}text-align:center;margin-top:4px;margin-bottom:20px;">${links.filter(Boolean).join("&nbsp;&nbsp;")}</p>`;
+  const row = (...links) => (links.some(Boolean) ? `<p style="${EM_P}text-align:center;margin-top:4px;margin-bottom:20px;">${links.filter(Boolean).join("&nbsp;&nbsp;")}</p>` : "");
   // The same gap above the box and below it: the line above brings the house
   // paragraph gap, so the box adds that gap underneath and nothing on top.
   const box = (label, value, button) => `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td style="padding:0 0 ${EMS.bodyGap}px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="#eae5e1" style="background:#eae5e1;padding:14px 16px;font-family:Verdana,Geneva,sans-serif;font-size:12px;line-height:1.5;color:#7e6765;">${esc(label)}<br><span style="font-size:16px;letter-spacing:1px;color:#371e28;">${esc(value)}</span>${button ? `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;"><tr><td height="12" style="height:12px;font-size:0;line-height:0;">&nbsp;</td></tr><tr><td align="center" bgcolor="${EMS.buttonBg}" style="background:${EMS.buttonBg};border-radius:${EMS.buttonRadius}px;padding:${EMS.buttonPadY}px ${EMS.buttonPadX}px;text-align:center;"><a href="${esc(button.url)}" style="display:block;color:${EMS.buttonColor};font-family:${EMS.font};font-size:${EMS.buttonSize}px;line-height:${EMS.bodyLine};font-weight:${EMS.buttonWeight};text-decoration:none;text-align:center;">${esc(button.text)}</a></td></tr></table>` : ""}</td></tr></table></td></tr></table>`;
@@ -4959,7 +4999,7 @@ function deliveryEmail(kind, d) {
     + P("Your gallery will remain available for three months, and we'll send you a reminder before it expires.") + P("We look forward to hearing what you think.") + team);
   if (kind === "pin") return wrap("Your gallery is unlocked.", "Your Gallery Is Unlocked.",
     hi + P("Thanks for your payment. Your gallery is now unlocked and ready to download.") + box("Download PIN", d.pin) + how
-    + row(main("View gallery", d.galleryUrl), tour)
+    + row(d.galleryUrl && main("View gallery", d.galleryUrl), tour, extra)
     + (d.inStudio ? P("You can also find the shoot, gallery and booking details under Previous Bookings in the TMKE Studio.") : "")
     + edits + P("We hope you love your content.") + team);
   return wrap("New content in your portal.", "New Content in Your Portal.",
@@ -16150,13 +16190,6 @@ function normalizeUrl(v) {
 // (i.e. the first time a paid-path gallery email goes out), so the link
 // always has something to point at. A plain random id, not HMAC - same style
 // as videography_deliveries.token, and it never expires.
-async function ensureEditsToken(env, bk) {
-  if (bk.edits_token) return bk.edits_token;
-  const token = crypto.randomUUID().replace(/-/g, "");
-  await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}&edits_token=is.null`, { edits_token: token });
-  bk.edits_token = token;
-  return token;
-}
 
 // The edits invitation, added only into the two paid-path gallery emails -
 // never the not-yet-paid one, which keeps its wording as-is until that flow
@@ -16367,31 +16400,24 @@ async function sendGalleryPinEmail(env, bookingId) {
   const trow = await sbGet(env, "videography_tour_links", `booking_id=eq.${encodeURIComponent(bookingId)}&select=url`);
   const tourUrl = normalizeUrl((trow && trow[0] && trow[0].url) || "");
 
-  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
   const editsToken = await ensureEditsToken(env, bk);
-  const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
-    <p style="${EM_P}">Hi ${esc(firstName(bk.client_name))},</p>
-    <p style="${EM_P}">Thank you for your payment. Your gallery is now unlocked and your content is ready to download!</p>
-    <p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">Your download PIN is <strong>${esc(pin)}</strong>.</span></p>
-    <p style="${EM_P}">When you download your content, Pixieset will ask for your email address and PIN. Simply use <strong>${esc(noAutoLink(to))}</strong> and the PIN above.</p>
-    ${bk.gallery_url ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open your gallery</a></p>` : ""}
-    ${tourUrl ? `<p style="${EM_P}">Your 360 tour: <a href="${esc(tourUrl)}">${esc(tourUrl)}</a></p>` : ""}
-    <p style="${EM_P}">Your gallery will remain available for three months. Don't worry, we'll send you a reminder before it's due to expire, so you have plenty of time to make sure you've downloaded everything you need.</p>
-    <p style="${EM_P}">You can also find this shoot, your gallery and all of your booking details anytime under Previous Bookings in the <a href="${esc(siteUrl)}/account/bookings">TMKE Studio</a>.</p>
-    ${editRequestPromptHtml(env, editsToken)}
-    <p style="${EM_P}">We hope you love your content!</p>
-    <p style="${EM_P}">The TMKE Team</p>
-  </div>`);
-
-  const sent = await sendEmail(env, { to, subject: "Your gallery is unlocked", html });
+  // Previous Bookings only helps someone who can sign in to the Studio.
+  const account = bk.account_user_id || (bk.client_email && ((await sbGet(env, "contacts", `email=ilike.${encodeURIComponent(bk.client_email)}&user_id=not.is.null&select=id&limit=1`)) || []).length);
+  const mail = deliveryEmail("pin", {
+    first: deliveryFirstName(bk.client_name), shoot: deliveryShootLine(bk), cover: bk.cover_url || "",
+    pin, email: to, galleryUrl: bk.gallery_url, tourUrl,
+    extra: bk.extra_link_url ? { label: bk.extra_link_label, url: bk.extra_link_url } : null,
+    editsUrl: `${siteUrl}/edits?token=${encodeURIComponent(editsToken)}`, inStudio: !!account,
+  });
+  const sent = await sendEmail(env, { to, subject: mail.subject, html: mail.html });
   if (!sent.ok) return { ok: false, reason: sent.error || "send failed" };
 
   await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bookingId)}`, { pin_released_at: new Date().toISOString() });
   await logBookingMessage(env, {
     booking_id: bookingId, booking_source: "videography",
     account_user_id: bk.account_user_id, client_email: to,
-    channel: "email", kind: "pin_released", subject: "Your gallery is unlocked",
+    channel: "email", kind: "pin_released", subject: mail.subject,
     body: "Payment received - PIN sent.", is_automated: true, created_by: "system",
   });
   return { ok: true, sent_to: to };
@@ -16512,68 +16538,15 @@ async function sendGalleryPinEmail(env, bookingId) {
           }
         }
 
-        const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        // Paid: the tour rides alongside the gallery as a second button, not a
-        // bare pasted URL underneath everything else - same visual weight,
-        // since it's just as much "your delivered content" as the gallery is.
-        const links = [
-          paid
-            ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">View Gallery</a>${tourUrl ? ` <a href="${esc(tourUrl)}" style="${EM_BTN}">View 360 Tour</a>` : ""}</p>`
-            : `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">View your gallery</a></p>`,
-          bk.extra_link_url ? `<p style="${EM_P}">${esc(bk.extra_link_label || "Also for you")}: <a href="${esc(bk.extra_link_url)}">${esc(bk.extra_link_url)}</a></p>` : "",
-        ].filter(Boolean).join("");
-
-        const unlock = paid
-          ? `<p style="${EM_QUOTE}margin-bottom:0;">Your download PIN is <strong>${esc(pin)}</strong>.</p>
-             <p style="${EM_P}">When you download your content, Pixieset will ask for your email address and PIN. Simply use <strong>${esc(noAutoLink(to))}</strong> and the PIN above.</p>`
-          : `<p style="${EM_P}">Your gallery will remain watermarked and downloads will stay locked until payment has been received${invNumber ? ` for invoice ${esc(invNumber)}` : ""}.</p>
-             <p style="${EM_P}">As soon as payment comes through, we'll unlock your gallery and send over your download PIN, along with your 360 tour if one is included with your booking.</p>
-             ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay by card</a></p>` : ""}
-             ${attachments ? `<p style="${EM_P}">We've attached another copy of your invoice to this email. You can also pay by bank transfer using the details on it.</p>` : ""}`;
-
-        // Paid: dropped per Danielle's revised copy (12 Aug 2026) - the edits
-        // paragraph right below now covers the same ground in plainer language
-        // with a working link, so the two read as one redundant idea back to
-        // back rather than two separate ones. Flagging because the old wording
-        // was lifted verbatim from the signed agreement's amendments clause,
-        // not paraphrased - if that clause still needs to appear somewhere
-        // contractually, it isn't this email any more.
-        // Unpaid: softer, forward-looking wording - there's no live link yet,
-        // since edits only unlock once they've paid.
-        const amends = paid
-          ? ""
-          : `<p style="${EM_P}">Once everything is unlocked, have a look through your finished content. Your package includes one round of edits, so if there's anything you'd like us to change, you can send all of your requests through together using the link we'll provide.</p>`;
-
-        // Only on the already-paid send: the unpaid email describes what's
-        // coming (above) rather than linking anywhere, since the /edits page
-        // requires payment to have already landed.
-        const editsPrompt = paid ? editRequestPromptHtml(env, await ensureEditsToken(env, bk)) : "";
-
-        const openingLine = paid
-          ? `Great news, your ${esc((bk.service || "shoot").toLowerCase())} gallery is now ready to view.`
-          : `Your content is ready! You can now view everything from your ${esc((bk.service || "shoot").toLowerCase())} in your gallery using the link below.`;
-
-        const closingLine = paid
-          ? `<p style="${EM_SMALL}">Your gallery will stay available for three months, and we'll send you a reminder before it's due to expire so you have plenty of time to make sure everything is downloaded.</p>`
-          : `<p style="${EM_P}">Your gallery will stay available for three months. Don't worry, we'll send you a reminder before it's due to expire, so you have plenty of time to make sure you've downloaded everything you need.</p>
-             <p style="${EM_P}">We hope you love your content!</p>
-             <p style="${EM_P}">The TMKE Team</p>`;
-
-        const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
-          <p style="${EM_P}">Hi ${esc((bk.client_name || "").split(" ")[0] || "there")},</p>
-          <p style="${EM_P}">${openingLine}</p>
-          ${links}
-          ${unlock}
-          ${amends}
-          ${editsPrompt}
-          ${closingLine}
-        </div>`);
-
-        const sent = await sendEmail(env, {
-          to,
-          subject: paid ? `Your gallery is ready` : `Your gallery is ready to view`,
-          html, attachments,
+        // The new emails, agreed 7 Nov. The rule above still decides what's in them.
+        const mail = deliveryEmail(paid ? "paid" : "unpaid", {
+          first: deliveryFirstName(bk.client_name), shoot: deliveryShootLine(bk), cover: bk.cover_url || "",
+          pin, email: to, galleryUrl: bk.gallery_url, tourUrl,
+          extra: bk.extra_link_url ? { label: bk.extra_link_label, url: bk.extra_link_url } : null,
+          editsUrl: paid ? `${String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/edits?token=${encodeURIComponent(await ensureEditsToken(env, bk))}` : "",
+          invoiceNo: invNumber, payUrl, attached: !!attachments,
         });
+        const sent = await sendEmail(env, { to, subject: mail.subject, html: mail.html, attachments });
         if (!sent.ok) return json({ error: "The email didn't send: " + (sent.error || "unknown") }, 502, request, env);
 
         await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}`, { gallery_sent_at: new Date().toISOString() });
@@ -16581,7 +16554,7 @@ async function sendGalleryPinEmail(env, bookingId) {
           booking_id: id, booking_source: "videography",
           account_user_id: bk.account_user_id, client_email: to,
           channel: "email", kind: "gallery_ready",
-          subject: paid ? "Your gallery is ready" : "Your gallery is ready to view",
+          subject: mail.subject,
           body: paid ? "Gallery link sent with the PIN." : "Gallery link sent; PIN withheld pending payment.",
           is_automated: false, created_by: user.email || "admin",
         });
@@ -16612,12 +16585,13 @@ async function sendGalleryPinEmail(env, bookingId) {
         const token = (url.searchParams.get("token") || "").trim();
         if (!token) return json({ error: "Missing token" }, 400, request, env);
         const rows = await sbGet(env, "videography_bookings",
-          `edits_token=eq.${encodeURIComponent(token)}&select=id,client_name,service,service_type,paid_at,payment_route`);
+          `edits_token=eq.${encodeURIComponent(token)}&select=id,client_name,service,service_type,paid_at,payment_route,released_unpaid_at`);
         const bk = rows && rows[0];
         if (!bk) return json({ error: "That link isn't valid." }, 404, request, env);
         // The rule, same as the PIN: read from the database, not from anything
         // the page itself could claim.
-        if (!isSettled(bk)) return json({ error: "This booking hasn't been paid for yet." }, 403, request, env);
+        // A shoot released before payment has its content, so it gets its edits too.
+        if (!isSettled(bk) && !bk.released_unpaid_at) return json({ error: "This booking hasn't been paid for yet." }, 403, request, env);
         return json({
           ok: true,
           client_name: bk.client_name || "",
@@ -16634,7 +16608,8 @@ async function sendGalleryPinEmail(env, bookingId) {
         const rows = await sbGet(env, "videography_bookings", `edits_token=eq.${encodeURIComponent(token)}&select=*`);
         const bk = rows && rows[0];
         if (!bk) return json({ error: "That link isn't valid." }, 404, request, env);
-        if (!isSettled(bk)) return json({ error: "This booking hasn't been paid for yet." }, 403, request, env);
+        // A shoot released before payment has its content, so it gets its edits too.
+        if (!isSettled(bk) && !bk.released_unpaid_at) return json({ error: "This booking hasn't been paid for yet." }, 403, request, env);
 
         const notes = String((b && b.notes) || "").trim().slice(0, 4000);
         const upsell = editRequestUpsellKind(bk);
