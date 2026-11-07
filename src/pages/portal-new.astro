@@ -347,7 +347,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     /* ---------- The walls ---------- */
     const fills = (n, cols) => { const want = Math.max(4, n + n % 2) - n; return Array.from({ length: want }, (_, i) => `<div class="fill" style="background:${cols[i % cols.length]}" aria-hidden="true"></div>`); };
     const wallOf = (tiles, cols) => { const b = fills(tiles.length, cols); return (tiles.length === 2 ? [tiles[0], b[0], b[1], tiles[1]] : [...tiles, ...b]).join(""); };
-    const tileHtml = (i, title, sub, img, play) => `<button class="tile" data-t="${i}" aria-label="Open ${esc(title)}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : `<span class="noimg"></span>`}${play ? '<span class="play"></span>' : ""}<i>${String(i + 1).padStart(2, "0")}</i><span class="tcap"><span class="tn"><b>${esc(title)}</b><u>${esc(sub)}</u></span></span></button>`;
+    const tileHtml = (i, title, sub, img) => `<button class="tile" data-t="${i}" aria-label="Open ${esc(title)}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : `<span class="noimg"></span>`}<i>${String(i + 1).padStart(2, "0")}</i><span class="tcap"><span class="tn"><b>${esc(title)}</b><u>${esc(sub)}</u></span></span></button>`;
     function wireWall(items, rest, open, restTitle) {
       const wall = $(".wall"), big = $("#big"), info = $("#info");
       const on = (i) => { if (TOUCH()) return; wall.classList.add("hov"); $$(".tile").forEach((t) => t.classList.toggle("on", +t.dataset.t === i)); $$(".list [data-t]").forEach((t) => t.classList.toggle("on", +t.dataset.t === i)); big.textContent = items[i].t; big.classList.add("on"); info.innerHTML = items[i].h; };
@@ -369,7 +369,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const rest = `<b>${esc(HOME.name || "Your content")}</b>${list.length} ${list.length === 1 ? "shoot" : "shoots"} shared with you.`;
       app.innerHTML = `<div class="wall"><div class="c1"><img class="mark" src="${MARK}" alt="TMKE"><h1 class="big" id="big"></h1><div class="info" id="info">${rest}</div></div>
         <div class="c2"><div class="list"><div class="cap lab">All work</div>${rows.map((r, i) => `<button class="cap" data-t="${i}">${esc(r.d.title)}</button>`).join("")}</div><div class="cap bottom">Shoots (${list.length})</div></div>
-        <div class="tiles" data-lenis-prevent>${wallOf(rows.map((r, i) => tileHtml(i, r.d.title, String(i + 1).padStart(2, "0"), r.f.cover, false)), ["var(--wine)", "var(--stone)", "var(--taupe)"])}</div>
+        <div class="tiles" data-lenis-prevent>${wallOf(rows.map((r, i) => tileHtml(i, r.d.title, String(i + 1).padStart(2, "0"), r.f.cover)), ["var(--wine)", "var(--stone)", "var(--taupe)"])}</div>
         <div class="c4"><div class="note">Client portal</div><button class="cap back" id="out">Sign out</button></div></div>`;
       wireWall(rows.map((r) => ({ t: r.d.title, h: lines(r.d) })), rest, (i, el) => openShoot(rows[i].f.prefix, el));
       $("#out").onclick = () => { session.clear(); HOME = null; SHOOTS.clear(); FILES.clear(); history.replaceState(null, "", "?c=" + encodeURIComponent(TOKEN)); drawGate(); };
@@ -404,7 +404,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const rest = lines(d);
       app.innerHTML = `<div class="wall"><div class="c1"><img class="mark" src="${MARK}" alt="TMKE"><h1 class="big on" id="big">${esc(d.title)}</h1><div class="info" id="info">${rest}</div></div>
         <div class="c2"><div class="list"><div class="cap lab">${esc(d.title)}<button class="lx" id="bx" aria-label="Back to all work">&times;</button></div>${parts.map((p, i) => `<button class="cap" data-t="${i}">${esc(p.name)}</button>`).join("")}</div><div class="cap bottom"><span>Folders (${parts.length})</span><button class="cap infobtn" id="sinfo">Info</button></div></div>
-        <div class="tiles" data-lenis-prevent>${wallOf(parts.map((p, i) => tileHtml(i, p.name, countText(p), p.coverUrl, !p.images && p.videos)), ["var(--taupe)", "var(--linen)", "var(--stone)"])}</div>
+        <div class="tiles" data-lenis-prevent>${wallOf(parts.map((p, i) => tileHtml(i, p.name, countText(p), p.coverUrl)), ["var(--taupe)", "var(--linen)", "var(--stone)"])}</div>
         <div class="c4"><div class="note">Client portal</div><button class="cap back" id="b">Back</button></div></div>`;
       wireWall(parts.map((p) => ({ t: d.title, h: `<div class="meta"><div><b>Folder</b>${esc(p.name)}</div><div><b>Content</b>${esc(countText(p))}</div></div>` })), rest, (i, el) => openPart(i, el), d.title);
       const toHome = () => { push(""); go("home"); };
