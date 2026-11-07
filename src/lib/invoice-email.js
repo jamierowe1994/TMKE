@@ -16,8 +16,9 @@
  *
  * Greetings: a client gets "Hi <first name>,"; a brand email, which Paula
  * handles, gets "Hi Paula,". Brand emails don't ask for a bank transfer
- * (the brands move the money between them) and ask Paula to say when it's
- * applied.
+ * (the brands move the money between them) and send Paula to the accounts
+ * portal to press Settled when it's applied, not to reply (Dani, 7 Nov 2026).
+ * Only the link goes in: the passcode never does.
  *
  * ctx (all optional): booking (videography_bookings row), recurring
  * (recurring_invoices row), lead (smm_leads row).
@@ -43,6 +44,8 @@ const where = (b) => String((b && (b.property_address || b.location)) || "").rep
 // Where the card payment button goes in the email. The admin's send screen
 // shows this line as it is; the email swaps it for the button.
 export const PAY_TOKEN = "[Pay by card button]";
+// The same for a brand invoice's button to the accounts portal.
+export const PORTAL_TOKEN = "[Accounts portal button]";
 
 const FC_OFFICE_LABELS = { fc_midlands: "Fine & Country Midlands", fc_stratford: "Fine & Country Stratford" };
 const TEG_REASON_LABELS = { induction: "New Starter Induction Shoot - Pro / Academy", event: "Brand Event Coverage", marketing: "Brand Marketing Content" };
@@ -69,7 +72,7 @@ export function invoiceEmail(inv, settings, ctx = {}) {
   const bank = `Please pay by bank transfer${due ? ` by ${due}` : ""}, using the account details on the invoice and quoting ${n} as the reference.`;
   const card = [`You can pay by card using the button below, or by bank transfer using the account details on the invoice. If you pay by bank transfer, please quote ${n} as the reference.`, "", PAY_TOKEN];
   const howToPay = brand
-    ? ["When the payment has been applied, please reply to let us know, so we can record it on our system."]
+    ? [`When the payment has been applied, please press Settled next to ${n} on the accounts portal, so it's recorded on our system straight away. It'll ask for the passcode we emailed you separately.`, "", PORTAL_TOKEN]
     : inv.pay_by_card ? card : [bank];
   const end = ["", "If you have any questions, just reply to this email.", "", "Kind regards,", "The TMKE team"];
   const out = (subject, middle) => ({ subject, body: [hi, "", ...middle, "", ...howToPay, ...end].join("\n") });
@@ -139,8 +142,11 @@ export function invoiceEmail(inv, settings, ctx = {}) {
 /* The "due today" reminder (email 8): to the payer, on the due date. */
 export function invoiceReminderEmail(inv, ctx = {}) {
   const n = inv.number, bk = ctx.booking || null, rec = ctx.recurring || null, lead = ctx.lead || null;
-  const hi = isBrandInvoice(inv, ctx) ? "Hi Paula," : `Hi ${first((bk && bk.client_name) || (rec && rec.contact_name) || (lead && lead.full_name) || inv.bill_to_name) || "there"},`;
-  const pay = inv.pay_by_card
+  const brand = isBrandInvoice(inv, ctx);
+  const hi = brand ? "Hi Paula," : `Hi ${first((bk && bk.client_name) || (rec && rec.contact_name) || (lead && lead.full_name) || inv.bill_to_name) || "there"},`;
+  const pay = brand
+    ? [`When the payment has been applied, please press Settled next to ${n} on the accounts portal. It'll ask for the passcode we emailed you separately.`, "", PORTAL_TOKEN]
+    : inv.pay_by_card
     ? [`You can pay by card using the button below, or by bank transfer using the account details on the invoice, quoting ${n} as the reference.`, "", PAY_TOKEN, "", "If you've already paid, thank you, and please ignore this email."]
     : [`You can pay by bank transfer using the account details on the invoice, quoting ${n} as the reference. If you've already paid, thank you, and please ignore this email.`];
   return {
@@ -156,6 +162,7 @@ export function defaultEmailBody(inv, settings) { return invoiceEmail(inv, setti
 /* What is about to go out, in words, because you cannot tell from a subject
    line whether an email carries a payment button. */
 export function payLine(inv) {
+  if (inv && isBrandInvoice(inv)) return "This email includes a button to the accounts portal, where they press Settled.";
   return inv && inv.pay_by_card
     ? "This email includes a Pay by card button (Stripe)."
     : "No payment link: bank transfer only, using the details on the invoice.";

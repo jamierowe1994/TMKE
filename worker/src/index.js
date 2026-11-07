@@ -23,7 +23,7 @@ import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES, STU
 // Invoice PDF: reuse the same pure renderer the admin preview uses, then print
 // it to a real A4 PDF with Browser Rendering (headless Chrome).
 import { renderInvoiceHtml, money } from "../../src/lib/invoice-render.js";
-import { invoiceEmail, invoiceReminderEmail, PAY_TOKEN } from "../../src/lib/invoice-email.js";
+import { invoiceEmail, invoiceReminderEmail, isBrandInvoice, PAY_TOKEN, PORTAL_TOKEN } from "../../src/lib/invoice-email.js";
 import { ruleForService, sectorForRule, reviewHtml } from "../../src/lib/revenue.js";
 import { ACTIVITIES as CAL_ACTIVITIES } from "../../src/data/marketing-activities.js";
 import puppeteer from "@cloudflare/puppeteer";
@@ -64,15 +64,33 @@ function invoiceEmailHtml(settings, inv, customBodyText, payUrl, ctx, opts) {
     ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay ${gbpW(inv.total_pence || 0)} by card</a></p>${opts && opts.noStripeLine ? "" : `
        <p style="${EM_SMALL}">Card payments are handled by Stripe, so we never see your card details.</p>`}`
     : "";
-  // The button goes where the text says ([Pay by card button]); without the
-  // marker (an older edited email), after the text as before.
+  // A brand invoice's button to the accounts portal: the link only, never the
+  // passcode (Dani, 7 Nov 2026).
+  const portalUrl = opts && opts.portalUrl;
+  const portal = portalUrl ? `<p style="${EM_P}"><a href="${esc(portalUrl)}" style="${EM_BTN}">Open the accounts portal</a></p>` : "";
+  // Each button goes where the text says ([Pay by card button], [Accounts portal
+  // button]); a pay button with no marker (an older edited email) goes after the
+  // text as before.
   const lines = String(bodyText).split("\n");
-  const at = lines.findIndex((l) => l.trim() === PAY_TOKEN);
-  if (at >= 0) {
-    const before = lines.slice(0, at).join("\n").replace(/\n+$/, ""), after = lines.slice(at + 1).join("\n").replace(/^\n+/, "");
-    return `<div style="${EM_WRAP}"><p style="${EM_P}">${br(before)}</p>${pay}${after ? `<p style="${EM_P}">${br(after)}</p>` : ""}${footer}</div>`;
+  const payAt = lines.some((l) => l.trim() === PAY_TOKEN);
+  let html = "", para = [];
+  const flush = () => { const t = para.join("\n").replace(/^\n+|\n+$/g, ""); if (t) html += `<p style="${EM_P}">${br(t)}</p>`; para = []; };
+  for (const l of lines) {
+    const k = l.trim();
+    if (k === PAY_TOKEN) { flush(); html += pay; }
+    else if (k === PORTAL_TOKEN) { flush(); html += portal; }
+    else para.push(l);
   }
-  return `<div style="${EM_WRAP}"><p style="${EM_P}">${br(bodyText)}</p>${pay}${footer}</div>`;
+  flush();
+  return `<div style="${EM_WRAP}">${html}${payAt ? "" : pay}${footer}</div>`;
+}
+
+// The portal's link for a brand invoice's email. Null for anyone else, so a
+// client is never sent there.
+async function invoicePortalUrl(env, inv, ctx) {
+  if (!isBrandInvoice(inv, ctx || {})) return null;
+  const p = (await sbGet(env, "accounts_portal", "id=eq.1&select=token"))?.[0];
+  return p && p.token ? accountsLink(env, p) : null;
 }
 
 /* Create a draft invoice: number, VAT and totals worked out here, the
@@ -267,7 +285,7 @@ async function sendInvoiceNow(env, b, by) {
     cc: mail.cc,
     bcc,
     subject,
-    html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, b && b.email_body, payUrl, ctx)),
+    html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, b && b.email_body, payUrl, ctx, { portalUrl: await invoicePortalUrl(env, inv, ctx) })),
     attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
   });
   if (!emailed.ok) return { ok: false, error: "The invoice was saved but the email didn't send: " + (emailed.error || "unknown error") + " (recipient: " + inv.bill_to_email + (cc ? ", cc: " + cc : "") + ")", code: 502 };
@@ -6869,13 +6887,14 @@ async function runInvoiceChasers(env) {
     } catch (_) {}
 
     // Wording: src/lib/invoice-email.js (email 8 in Danielle's doc).
-    const rem = invoiceReminderEmail(inv, await invoiceEmailCtx(env, inv));
+    const remCtx = await invoiceEmailCtx(env, inv);
+    const rem = invoiceReminderEmail(inv, remCtx);
     const mail = invoiceMailTo(inv.bill_to_email, null);
     const sent = await sendEmail(env, {
       to: mail.to,
       subject: rem.subject,
       attachments,
-      html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, rem.body, payUrl, null, { noStripeLine: true })),
+      html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, rem.body, payUrl, null, { noStripeLine: true, portalUrl: await invoicePortalUrl(env, inv, remCtx) })),
     });
     if (!sent.ok) continue;
     await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { due_reminder_sent_at: new Date().toISOString() });
