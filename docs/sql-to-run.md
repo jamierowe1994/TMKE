@@ -4,13 +4,13 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/videography_cover.sql — the cover photo on a client's delivery emails, chosen on each shoot's Delivery section. Sends nothing (7 Nov)
 
 
 
 
 ## Done
 
+- [x] supabase/videography_cover.sql — the cover photo on a client's delivery emails, chosen on each shoot's Delivery section. Sends nothing (7 Nov; ran 7 Nov)
 - [x] supabase/videography_portal_ready.sql — Content ready as its own No or Yes on a shoot delivered by client portal, No on every shoot until someone saves Yes. It lists every shoot set to Client portal. Nothing is sent (6 Nov; found run 7 Nov)
 - [x] supabase/videography_delivery_method.sql — Deliver by on each shoot, Pixieset or Client portal, and Release before payment. Every existing shoot stays on Pixieset and nothing is sent (6 Nov; ran 6 Nov)
 - [x] supabase/accounts_portal_recipients.sql — the accounts emails go to Paula and accounts payable, with Rosie-Anne copied in; adds the Copied in field (6 Nov; ran 6 Nov)
