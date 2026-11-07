@@ -4936,7 +4936,7 @@ function deliveryEmail(kind, d) {
   const row = (...links) => `<p style="${EM_P}text-align:center;margin-top:4px;margin-bottom:20px;">${links.filter(Boolean).join("&nbsp;&nbsp;")}</p>`;
   // The same gap above the box and below it: the line above brings the house
   // paragraph gap, so the box adds that gap underneath and nothing on top.
-  const box = (label, value, button) => `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td style="padding:0 0 ${EMS.bodyGap}px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="#eae5e1" style="background:#eae5e1;padding:14px 16px;font-family:Verdana,Geneva,sans-serif;font-size:12px;line-height:1.5;color:#7e6765;">${esc(label)}<br><span style="font-size:16px;letter-spacing:1px;color:#371e28;">${esc(value)}</span>${button ? `<p style="${EM_P}text-align:left;margin-top:12px;margin-bottom:0;">${button}</p>` : ""}</td></tr></table></td></tr></table>`;
+  const box = (label, value, button) => `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td style="padding:0 0 ${EMS.bodyGap}px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="#eae5e1" style="background:#eae5e1;padding:14px 16px;font-family:Verdana,Geneva,sans-serif;font-size:12px;line-height:1.5;color:#7e6765;">${esc(label)}<br><span style="font-size:16px;letter-spacing:1px;color:#371e28;">${esc(value)}</span>${button ? `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;"><tr><td height="12" style="height:12px;font-size:0;line-height:0;">&nbsp;</td></tr><tr><td align="center" bgcolor="${EMS.buttonBg}" style="background:${EMS.buttonBg};border-radius:${EMS.buttonRadius}px;padding:${EMS.buttonPadY}px ${EMS.buttonPadX}px;text-align:center;"><a href="${esc(button.url)}" style="display:block;color:${EMS.buttonColor};font-family:${EMS.font};font-size:${EMS.buttonSize}px;line-height:${EMS.bodyLine};font-weight:${EMS.buttonWeight};text-decoration:none;text-align:center;">${esc(button.text)}</a></td></tr></table>` : ""}</td></tr></table></td></tr></table>`;
   const hi = P(`Hi ${esc(d.first || "there")},`);
   const how = P(`When downloading, Pixieset will ask for your email address and PIN. Simply enter <strong style="font-weight:400;color:#371e28;">${esc(noAutoLink(d.email || ""))}</strong> and the PIN above.`);
   const stay = P("Your gallery will be available for three months, and we'll remind you before it expires.");
@@ -4964,7 +4964,7 @@ function deliveryEmail(kind, d) {
     + edits + P("We hope you love your content.") + team);
   return wrap("New content in your portal.", "New Content in Your Portal.",
     hi + P("We've added a new folder to your TMKE portal, ready for you to view and download.")
-    + box("Your passcode", d.passcode, main("Open the folder", d.portalUrl)) + P("Once entered, you'll stay signed in on that browser for seven days.") + edits + team);
+    + box("Your passcode", d.passcode, { text: "Open the folder", url: d.portalUrl }) + P("Once entered, you'll stay signed in on that browser for seven days.") + edits + team);
 }
 
 // Sample renders of the automated emails, so the admin Automated-emails page can
