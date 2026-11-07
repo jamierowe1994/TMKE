@@ -1010,6 +1010,11 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     .vb-card { background: #fff; border: 1px solid var(--vb-edge); border-radius: 4px; padding: 12px 14px 10px; cursor: pointer; display: flex; flex-direction: column; min-width: 0; transition: border-color .2s, transform .2s, box-shadow .2s; }
     .vb-card:hover, .vb-card:focus-visible { border-color: #c9bcb7; transform: translateY(-2px); box-shadow: 0 10px 24px -18px rgba(55,30,40,.5); outline: 0; }
     .vb-card.is-dragging { opacity: .45; }
+    /* The shoot's cover photo shows on hover, once one has been chosen (Dani, 7 Nov). */
+    .vb-card.has-cover { position: relative; overflow: hidden; }
+    .vb-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; pointer-events: none; transition: opacity .22s ease; z-index: 1; }
+    @media (hover: hover) { .vb-card.has-cover:hover .vb-cover { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .vb-cover { transition: none; } }
     .vb-card-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-height: 28px; margin-bottom: 4px; }
     .vb .vb-card-h h3 { margin: 0; min-width: 0; font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.15; letter-spacing: -0.04em; color: var(--vb-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .vb .vb-card-h .vc-chip { flex: none; height: 22px; padding: 0 8px; border-radius: 4px; display: inline-flex; align-items: center; }
@@ -2361,7 +2366,8 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       const pay = vbPay(b), next = vbNext(b);
       const when = b.shoot_date ? new Date(b.shoot_date).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
       const row = (k, v) => `<div class="vb-r"><dt>${k}</dt><dd title="${escapeHtml(v)}">${v ? escapeHtml(v) : '<span class="vb-none">—</span>'}</dd></div>`;
-      return `<article class="vb-card" draggable="true" data-id="${escapeHtml(b.id)}" tabindex="0">
+      return `<article class="vb-card${b.cover_url ? " has-cover" : ""}" draggable="true" data-id="${escapeHtml(b.id)}" tabindex="0">
+        ${b.cover_url ? `<img class="vb-cover" src="${escapeHtml(b.cover_url)}" alt="" loading="lazy">` : ""}
         <header class="vb-card-h"><h3 title="${escapeHtml(b.client_name || "")}">${escapeHtml(b.client_name || "Client")}</h3><span class="vc-chip ${pay[0]}">${escapeHtml(pay[1])}</span></header>
         <dl class="vb-rows">${row("Service", (b.service || "") + (isPhotographyOnly(b) ? " (photography only)" : ""))}${row("Shoot", when)}${row("Brand", BRAND_LABEL[b.brand] || b.brand || "")}</dl>
         ${next[1] ? `<div class="vb-next ${next[0]}" title="What's holding it up">${escapeHtml(next[1])}</div>` : `<div class="vb-next is-none"></div>`}
@@ -3719,7 +3725,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         document.getElementById("vd-cover-clear")?.addEventListener("click", async () => {
           const { error } = await supabase.from("videography_bookings").update({ cover_url: null }).eq("id", b.id);
           if (error) { say("Couldn't remove it: " + error.message); return; }
-          b.cover_url = null; renderCoverRow(b);
+          b.cover_url = null; renderCoverRow(b); renderClients(document.getElementById("vid-client-search")?.value || "");
         });
         return;
       }
@@ -3763,7 +3769,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           const { error } = await supabase.from("videography_bookings").update({ cover_url: d.url }).eq("id", b.id);
           if (error) throw new Error(error.message);
           b.cover_url = d.url; vdCover = { id: b.id, mode: "idle" };
-          renderCoverRow(b);
+          renderCoverRow(b); renderClients(document.getElementById("vid-client-search")?.value || "");
         } catch (err) { btn.disabled = false; btn.textContent = was; say("Couldn't save the photo: " + err.message); }
       });
     }
