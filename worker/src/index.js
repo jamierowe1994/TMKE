@@ -4915,7 +4915,7 @@ const DELIVERY_LOGO = "https://tmke.co.uk/email/tmke-mark.png";
 function deliveryShell({ subject, heading, shoot, cover, inner }) {
   const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const body = tableEmailButtons(styleEmailContent(`<h1 style="${EM_H1}font-size:18px;line-height:1.3;margin:0 0 3px;text-align:left;">${esc(heading)}</h1>
-    ${shoot ? `<p style="${EM_P}color:#7e6765;margin-bottom:18px;text-align:left;">${esc(shoot)}</p>` : ""}
+    ${shoot ? `<p style="${EM_P}color:#7e6765;font-size:10.0px;margin-bottom:18px;text-align:left;">${esc(shoot)}</p>` : ""}
     ${inner}`, EMS), EMS, "left");
   const foot = "font-family:Verdana,Geneva,sans-serif;font-size:11px;line-height:1.6;color:#7e6765;";
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>

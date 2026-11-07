@@ -4,6 +4,8 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/videography_cover.sql — the cover photo on a client's delivery emails, chosen on each shoot's Delivery section. Sends nothing (7 Nov)
+
 
 
 
