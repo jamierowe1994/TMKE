@@ -476,6 +476,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const land = files.filter((f) => f.shape !== "p"), port = files.filter((f) => f.shape === "p");
       return (land.length ? `<div class="thumbs">${land.map(one).join("")}</div>` : "") + (port.length ? `<div class="thumbs pt">${port.map(one).join("")}</div>` : "");
     }
+    // A row that doesn't fill gets colour blocks in its empty spaces, like the walls
+    // (Dani, 8 Nov). How many columns there are depends on the screen, so it's measured.
+    function fillRows() {
+      $$(".thumbs").forEach((g) => {
+        $$(".gfill", g).forEach((x) => g.removeChild(x));
+        const cols = getComputedStyle(g).gridTemplateColumns.split(" ").length, want = (cols - (g.children.length % cols)) % cols;
+        for (let i = 0; i < want; i++) { const b = document.createElement("div"); b.className = "gfill"; b.setAttribute("aria-hidden", "true"); b.style.background = ["var(--taupe)", "var(--stone)"][i % 2]; g.appendChild(b); }
+      });
+    }
+    addEventListener("resize", fillRows);
     function acts(files) {
       const n = SEL.size, gallery = S.mode === "thumbs" || onlyVideo(files), f = shootOf();
       const send = f.editsToken ? `<button class="btn" id="edits">${n ? `Request edits (${n})` : "Request edits"}</button>` : "";
@@ -502,6 +512,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if (vp) vp.onclick = () => { S.mode = "portfolio"; drawFolder(); };
       if (vt) vt.onclick = () => { S.mode = "thumbs"; drawFolder(); };
       $$("[data-f]").forEach((b) => (b.onclick = async () => { const i = +b.dataset.f; S.part = i; try { await whileLoading(loadPart(partOf())); } catch (_) { toast("We couldn't open that folder just now."); return; } push(S.shoot, partOf().prefix); drawFolder(); }));
+      fillRows();
       wireActs(files);
       $("#finfo").onclick = () => openInfo(d.title, barLines(d, p, f));
       const byId = (id) => files.find((x) => x.id === id);
