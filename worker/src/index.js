@@ -12621,7 +12621,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             const bits = f.name.split(" - ").map((x) => x.trim()).filter(Boolean);
             const dateAt = bits.findIndex((x) => /^\d{4}-\d{2}-\d{2}$/.test(x));
             const service = (bk && (bk.service || bk.service_type)) || (dateAt > 1 ? bits.slice(0, dateAt - 1).join(" - ") : "");
-            const type = typeOf(service) || typeOf(f.name) || (bk ? "" : "Our own");
+            // The folder's own words win for a new starter: "New Starter Booking - On Location" was re-labelled an agent shoot by the 4 Nov service list.
+            const type = (/new.?starter|induction/i.test(f.name) ? "New starter" : typeOf(service)) || typeOf(f.name) || (bk ? "" : "Our own");
             const title = String((bk && (bk.shoot_name || bk.client_name || bk.client_company)) || (dateAt >= 1 ? bits[dateAt - 1] : f.name)).trim();
             const date = (bk && bk.shoot_date && String(bk.shoot_date).slice(0, 10)) || (dateAt >= 0 ? bits[dateAt] : "") || f.first.slice(0, 10);
             const prefix = `${root}${f.name}/`;
