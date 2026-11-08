@@ -5706,6 +5706,19 @@ function portalShootDetails(bk) {
     cover: bk.cover_url || "",
   };
 }
+// Dani, 7 Nov. Not yet: they can still ask. Not requested: the time ran out or it
+// closed itself. Requested: Jack has it. Completed: someone has ticked the round
+// settled on the client file.
+function portalEditWindow(bk, asked) {
+  const from = bk.pin_released_at || bk.gallery_sent_at;
+  const closesAt = from ? Date.parse(from) + EDIT_WINDOW_DAYS * 864e5 : 0;
+  const expired = !!closesAt && Date.now() > closesAt;
+  const settled = !!bk.edits_settled_at;
+  const stage = asked.has(bk.id) ? (settled ? "Completed" : "Requested")
+    : settled ? (/^Automatic/.test(bk.edits_settled_by || "") ? "Not requested" : "Completed")
+    : expired ? "Not requested" : "Not yet";
+  return { closesAt, expired, settled, stage };
+}
 async function portalHomeShown(env, p) {
   const shown = await portalShownFolders(env, p);
   const base = shown.map((prefix) => ({ prefix, name: prefix.slice(0, -1).split("/").pop() }));
@@ -5726,16 +5739,8 @@ async function portalHomeShown(env, p) {
     // Edits come through the portal only where the portal is the delivery. A new
     // starter's folder is for TEG's records, and their edits go through Pixieset.
     if (bk.delivery_method === "portal" && (isSettled(bk) || bk.released_unpaid_at)) {
-      const from = bk.pin_released_at || bk.gallery_sent_at;
-      const closesAt = from ? Date.parse(from) + EDIT_WINDOW_DAYS * 864e5 : 0;
-      const expired = !!closesAt && Date.now() > closesAt;
-      const settled = !!bk.edits_settled_at;
-      // Dani, 7 Nov. Not yet: they can still ask. Not requested: the time ran out
-      // or it closed itself. Requested: Jack has it. Completed: someone has ticked
-      // the round settled on the client file.
-      out.editStage = asked.has(bk.id) ? (settled ? "Completed" : "Requested")
-        : settled ? (/^Automatic/.test(bk.edits_settled_by || "") ? "Not requested" : "Completed")
-        : expired ? "Not requested" : "Not yet";
+      const { closesAt, expired, settled, stage } = portalEditWindow(bk, asked);
+      out.editStage = stage;
       if (!settled && !expired) {
         out.editsToken = await ensureEditsToken(env, bk);
         if (closesAt) out.editsUntil = new Date(closesAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" });
@@ -9387,6 +9392,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           // No small picture yet: one is made the first time it's asked for, rather
           // than the Gallery loading every full-size original (Dani, 7 Nov).
           if (!f.thumbUrl && f.previewUrl) f.thumbUrl = f.previewUrl + "&size=thumb";
+          // A photo saved over in Creative Studio gets new links, so nobody keeps the old one.
+          const fresh = `&v=${new Date(f.uploaded).getTime()}`;
+          f.url += fresh; if (f.thumbUrl) f.thumbUrl += fresh; if (f.previewUrl) f.previewUrl += fresh;
           delete f.key; delete f.thumb;
         }
         return json({ ...out, root }, 200, request, env);
@@ -12542,6 +12550,191 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         return json({ url: q(false), downloadUrl: q(true), expires: exp }, 200, request, env);
       }
 
+      // ---- Creative Studio (Dani, 8 Nov) -----------------------------------
+      // Every Library folder as a card: type, date, counts, a picture, its portals.
+      if (path.includes("/creative/")) {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const root = `${PART_PREFIX}/`;
+        const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
+        const exp = portalLinkExpiry();
+        const sign = async (key, dl) => {
+          const sig = await mediaSig(env, key, exp);
+          return sig ? `${base}/download?key=${encodeURIComponent(key)}&exp=${exp}&sig=${encodeURIComponent(sig)}${dl ? "&dl=1" : ""}` : "";
+        };
+        const thumbOf = (key) => { const at = key.lastIndexOf("/"); return `${key.slice(0, at)}/${THUMB_DIR}/${key.slice(at + 1)}.jpg`; };
+        const previewOf = (key) => { const at = key.lastIndexOf("/"); return `${key.slice(0, at)}/${THUMB_DIR}/${key.slice(at + 1)}.preview.jpg`; };
+        const isFilm = (n) => /\.(mp4|mov|m4v|webm)$/i.test(n);
+        const isPhoto = (n) => /\.(jpe?g|png|webp|avif|gif|heic)$/i.test(n);
+        const linksFor = async (f) => {
+          const fresh = `&v=${new Date(f.uploaded).getTime()}`;
+          const out = { url: (await sign(f.key, false)) + fresh, downloadUrl: await sign(f.key, true) };
+          if (PREVIEWABLE.test(f.key)) out.previewUrl = out.url.replace("/download?", "/preview?");
+          if (f.hasThumb) out.thumbUrl = (await sign(thumbOf(f.key), false)) + fresh;
+          else if (out.previewUrl) out.thumbUrl = out.previewUrl + "&size=thumb";
+          return out;
+        };
+
+        if (path.endsWith("/creative/library") && request.method === "GET") {
+          const by = new Map();
+          let cursor;
+          do {
+            const page = await env.BUCKET.list({ prefix: root, cursor });
+            for (const o of page.objects || []) {
+              const rest = o.key.slice(root.length), at = rest.indexOf("/");
+              if (at < 1) continue;
+              const name = rest.slice(0, at), inner = rest.slice(at + 1);
+              if (!by.has(name)) by.set(name, { name, photos: 0, films: 0, first: "", last: "", thumb: "", filmThumb: "", photo: "" });
+              const f = by.get(name);
+              if (inner.includes(`${THUMB_DIR}/`)) {
+                if (inner.endsWith(".preview.jpg")) continue;
+                if (!f.thumb && /\.(jpe?g|png|webp)\.jpg$/i.test(inner)) f.thumb = o.key;
+                if (!f.filmThumb && /\.(mp4|mov|m4v|webm)\.jpg$/i.test(inner)) f.filmThumb = o.key;
+                continue;
+              }
+              if (!inner || inner.endsWith("/") || /(^|\/)\.keep$|\.library\.json$/i.test(inner)) continue;
+              if (isFilm(inner)) f.films += 1;
+              else if (isPhoto(inner)) { f.photos += 1; if (!f.photo && PREVIEWABLE.test(inner)) f.photo = o.key; }
+              const when = new Date(o.uploaded).toISOString();
+              if (!f.first || when < f.first) f.first = when;
+              if (!f.last || when > f.last) f.last = when;
+            }
+            cursor = page.truncated ? page.cursor : null;
+          } while (cursor);
+          const [bks, portals] = await Promise.all([
+            sbGetAll(env, "videography_bookings", "or=(kind.is.null,kind.eq.booking)&select=*&order=id.asc"),
+            sbGet(env, "client_portals", "select=name,folders&order=name.asc"),
+          ]);
+          if (!bks || !portals) return json({ error: "Couldn't read the shoots." }, 502, request, env);
+          const typeOf = (text) => {
+            const t = String(text || "");
+            if (/new.?starter|induction/i.test(t)) return "New starter";
+            if (/event/i.test(t)) return "Event coverage";
+            if (/\bprop/i.test(t)) return "Property shoots";
+            if (/content/i.test(t)) return "Content Studio";
+            if (/agent/i.test(t)) return "Agent shoots";
+            return "";
+          };
+          const folders = [];
+          for (const f of by.values()) {
+            const bk = bks.find((b) => b.archive_folder === f.name) || bks.find((b) => b.id === f.name) || bks.find((b) => archiveNameFor(b) === f.name);
+            const bits = f.name.split(" - ").map((x) => x.trim()).filter(Boolean);
+            const dateAt = bits.findIndex((x) => /^\d{4}-\d{2}-\d{2}$/.test(x));
+            const service = (bk && (bk.service || bk.service_type)) || (dateAt > 1 ? bits.slice(0, dateAt - 1).join(" - ") : "");
+            const type = typeOf(service) || typeOf(f.name) || (bk ? "" : "Our own");
+            const title = String((bk && (bk.shoot_name || bk.client_name || bk.client_company)) || (dateAt >= 1 ? bits[dateAt - 1] : f.name)).trim();
+            const date = (bk && bk.shoot_date && String(bk.shoot_date).slice(0, 10)) || (dateAt >= 0 ? bits[dateAt] : "") || f.first.slice(0, 10);
+            const prefix = `${root}${f.name}/`;
+            const cover = (bk && bk.cover_url) || (f.thumb ? await sign(f.thumb) : f.filmThumb ? await sign(f.filmThumb) : f.photo ? (await sign(f.photo)).replace("/download?", "/preview?") + "&size=thumb" : "");
+            folders.push({ prefix, name: f.name, title, service, type, date, photos: f.photos, films: f.films, first: f.first, last: f.last, cover,
+              portals: portals.filter((p) => portalFolders(p).includes(prefix)).map((p) => p.name) });
+          }
+          return json({ folders }, 200, request, env);
+        }
+
+        // One folder, with everything inside it and the links to show it.
+        if (path.endsWith("/creative/folder") && request.method === "GET") {
+          const prefix = archivePrefix(url.searchParams.get("prefix"));
+          if (prefix === root) return json({ error: "Choose a folder." }, 400, request, env);
+          const objects = [];
+          let cursor;
+          do {
+            const page = await env.BUCKET.list({ prefix, cursor, include: ["httpMetadata"] });
+            objects.push(...(page.objects || []));
+            cursor = page.truncated ? page.cursor : null;
+          } while (cursor);
+          const keys = new Set(objects.map((o) => o.key));
+          const parts = new Set([""]);
+          const files = [];
+          for (const o of objects) {
+            const inner = o.key.slice(prefix.length);
+            if (inner.includes(`${THUMB_DIR}/`) || inner.endsWith("/") || /\.library\.json$/i.test(inner)) continue;
+            const at = inner.lastIndexOf("/"), part = at < 0 ? "" : inner.slice(0, at);
+            parts.add(part);
+            if (/(^|\/)\.keep$/.test(inner)) continue;
+            const f = { key: o.key, name: inner.slice(at + 1), part, size: o.size, uploaded: o.uploaded, contentType: (o.httpMetadata && o.httpMetadata.contentType) || "", hasThumb: keys.has(thumbOf(o.key)) };
+            files.push({ ...f, ...(await linksFor(f)) });
+          }
+          files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+          return json({ prefix, parts: [...parts].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })), files }, 200, request, env);
+        }
+
+        // A finished photo edit: over the original (key=), or as a copy (prefix= and name=).
+        if (path.endsWith("/creative/save") && request.method === "PUT") {
+          const type = (request.headers.get("content-type") || "").split(";")[0].trim();
+          if (!/^image\/(jpeg|png|webp)$/.test(type)) return json({ error: "Only a JPEG, PNG or WebP can be saved here." }, 400, request, env);
+          const size = Number(request.headers.get("content-length") || 0);
+          if (!size) return json({ error: "That photo came through empty." }, 400, request, env);
+          if (size > 95 * 1024 * 1024) return json({ error: "That photo is too big to save." }, 413, request, env);
+          let key = url.searchParams.get("key") || "";
+          if (key) {
+            if (!key.startsWith(root) || key.includes(`/${THUMB_DIR}/`) || !PREVIEWABLE.test(key)) return json({ error: "Not a photo in the Library." }, 400, request, env);
+            if (!(await env.BUCKET.head(key))) return json({ error: "That photo is no longer in the Library." }, 404, request, env);
+          } else {
+            const prefix = archivePrefix(url.searchParams.get("prefix"));
+            const name = String(url.searchParams.get("name") || "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 120);
+            if (prefix === root || !PREVIEWABLE.test(name)) return json({ error: "Choose a folder and a photo name." }, 400, request, env);
+            key = `${prefix}${Date.now()}-${name}`;
+          }
+          const put = await env.BUCKET.put(key, request.body, { httpMetadata: { contentType: type } });
+          if (!put) return json({ error: "Storage didn't take that photo. Please try again." }, 502, request, env);
+          // The old small pictures describe the old photo, so they go.
+          await env.BUCKET.delete([thumbOf(key), previewOf(key)]);
+          return json({ ok: true, key, size: put.size, uploaded: put.uploaded, ...(await linksFor({ key, uploaded: put.uploaded, hasThumb: false })) }, 200, request, env);
+        }
+
+        // Every portal with its shoots and where each one has got to.
+        if (path.endsWith("/creative/portals") && request.method === "GET") {
+          const portals = await sbGet(env, "client_portals", "select=*&order=name.asc");
+          const all = await sbGetAll(env, "videography_bookings", "or=(kind.is.null,kind.eq.booking)&archive_folder=not.is.null&select=*&order=id.asc");
+          if (!portals || !all) return json({ error: "Couldn't read the portals." }, 502, request, env);
+          const wanted = new Set(portals.flatMap((p) => portalFolders(p)));
+          const inPortals = all.filter((b) => wanted.has(archivePrefix(b.archive_folder)));
+          const bks = [], reqs = [];
+          for (let i = 0; i < inPortals.length; i += 100) {
+            const slice = inPortals.slice(i, i + 100);
+            const due = await withInvoicesDue(env, slice);
+            const rq = await sbGet(env, "videography_edit_requests", `booking_id=in.(${slice.map((b) => b.id).join(",")})&select=booking_id,status,stripe_session_id`);
+            if (!due || !rq) return json({ error: "Couldn't read the shoots." }, 502, request, env);
+            bks.push(...due); reqs.push(...rq);
+          }
+          const asked = new Set(reqs.filter((r) => r.status !== "pending" || !r.stripe_session_id).map((r) => r.booking_id));
+          const out = portals.map((p) => {
+            const told = new Set((p.notified_folders || []).map((f) => archivePrefix(f)));
+            const rows = portalFolders(p).map((prefix) => {
+              const mine = bks.filter((b) => archivePrefix(b.archive_folder) === prefix);
+              const bk = mine.find((b) => shootDoneForPortal(b)) || mine[0];
+              const showing = !mine.length || mine.some((b) => shootDoneForPortal(b));
+              const ready = bk && (bk.delivery_method === "portal" ? !!bk.portal_ready_at : ["sent", "delivered"].includes(bk.stage));
+              const name = prefix.slice(0, -1).split("/").pop();
+              return {
+                prefix, title: bk ? portalShootDetails(bk).title : name,
+                status: showing ? "Showing" : ready ? "Waiting for payment" : "Not ready yet",
+                emailedAt: (bk && bk.gallery_sent_at) || "", told: told.has(prefix),
+                edits: bk && bk.delivery_method === "portal" && (isSettled(bk) || bk.released_unpaid_at) ? portalEditWindow(bk, asked).stage : "",
+              };
+            });
+            return { id: p.id, name: p.name, first_name: p.first_name || "", enabled: !!p.enabled, notify_email: p.notify_email || "", token: p.token, locked_until: p.locked_until || null, shoots_added_at: p.shoots_added_at || null,
+              type: p.smm_client_id ? "Social media" : /new.?starter/i.test(p.name || "") ? "New starters" : "Client", folders: portalFolders(p), rows };
+          });
+          return json({ portals: out }, 200, request, env);
+        }
+
+        // View as client: two hours inside the portal, without the passcode and
+        // without counting as the client opening it.
+        if (path.endsWith("/creative/portal-view") && request.method === "POST") {
+          const b = await request.json().catch(() => ({}));
+          const rows = await sbGet(env, "client_portals", `id=eq.${encodeURIComponent(String((b && b.id) || ""))}&select=id,enabled,token,passcode&limit=1`);
+          const p = rows && rows[0];
+          if (!p) return json({ error: "That portal isn't there any more." }, 404, request, env);
+          if (!p.enabled) return json({ error: "This portal is turned off. Turn it on to view it." }, 403, request, env);
+          const expires = Date.now() + 2 * 60 * 60 * 1000;
+          const sig = await portalSig(env, p.token, p.passcode, expires);
+          if (!sig) return json({ error: "The portal isn't configured on the Worker." }, 503, request, env);
+          return json({ session: `${p.token}.${expires}.${sig}`, expires, token: p.token }, 200, request, env);
+        }
+      }
+
       // ---- Put one thumbnail (admins) ----
       // Deliberately narrow: only into a .thumbs folder, only small, so this is
       // not a general "write anything anywhere" door.
@@ -12593,6 +12786,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
 
       // ---- Delete an object ----
       if (path.endsWith("/object") && request.method === "DELETE") {
+        // Only the team: every caller is an admin page, and this removes the only copy.
+        const deleter = await getUser(request, env);
+        if (!deleter || !isAdminEmail(deleter)) return json({ error: "Admins only." }, 403, request, env);
         const key = url.searchParams.get("key");
         if (!key) return json({ error: "Missing key" }, 400, request, env);
         await env.BUCKET.delete(key);

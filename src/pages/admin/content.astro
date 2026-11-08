@@ -1,593 +1,71 @@
 ---
-// The internal content archive: what Jack has uploaded, where the team can see
-// and download it. One copy of every file - these are the same objects in the
-// same R2 bucket the videography deliveries use, browsed by folder. Nothing is
-// copied anywhere to make this page work.
+// Creative Studio (Dani, 8 Nov 2026): the Library, Client portals, Video editing
+// and Photo editing in one place. Kept at /admin/content because every "Open in
+// Library" link in the admin already points here. The files are the same objects
+// in the same R2 bucket the deliveries use; nothing is copied to make this work.
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
+import "../../styles/creative-studio.css";
 ---
 
-<AdminShell active="content" title="Library" skin="hub">
-  <div class="page-header">
-    <div class="page-header-top">
-      <div class="page-header-left">
-        <div>
-          <div class="page-header-title">Library</div>
-          <div class="page-header-sub">Everything uploaded to our own storage, by folder. Social media clients first. Files stay where they are: viewing and downloading here moves nothing and costs no extra storage.</div>
+<AdminShell active="content" title="Creative Studio" skin="hub">
+  <div class="cs">
+    <header class="cs-head">
+      <div class="cs-h1">Creative Studio</div>
+      <nav class="cs-tabs" id="cs-tabs" aria-label="Creative Studio">
+        <button type="button" data-v="library">Library</button>
+        <button type="button" data-v="portals">Client portals</button>
+        <button type="button" data-v="video">Video editing</button>
+        <button type="button" data-v="photo">Photo editing</button>
+      </nav>
+    </header>
+    <div class="cs-page" id="cs-v-library"></div>
+    <div class="cs-page" id="cs-v-portals" hidden></div>
+    <div class="cs-page" id="cs-v-video" hidden>
+      <div class="cs-soon">
+        <img src="/assets/hub/studio.jpg" alt="" />
+        <div class="cs-soon-t">
+          <div class="cs-soon-h">Video editing</div>
+          <p>Coming soon</p>
+          <p style="opacity:.75">Captions stay in Videography, Settings, Video captions until then.</p>
         </div>
       </div>
     </div>
+    <div class="cs-page" id="cs-v-photo" hidden></div>
+    <div id="cs-popup"></div>
+    <input type="file" id="cs-file" multiple hidden />
+    <div id="cs-toast" hidden role="status"></div>
   </div>
-
-  <div class="ash-panel ash-page">
-    <section class="admin-bar">
-      <div class="admin-bar-actions">
-        <nav class="cnt-crumbs" id="cnt-crumbs" aria-label="Folder"></nav>
-        <span class="cnt-count" id="cnt-count">…</span>
-        <button type="button" class="admin-btn admin-btn-ghost" id="cnt-thumbs" hidden>Make thumbnails</button>
-        <button type="button" class="admin-btn admin-btn-ghost" id="cnt-newfolder">New folder</button>
-        <button type="button" class="admin-btn" id="cnt-upload">Upload here</button>
-        <input type="file" id="cnt-file" multiple hidden />
-      </div>
-    </section>
-
-    <div class="cnt-layout">
-      <aside class="cnt-rail" id="cnt-rail">
-        <h3 class="cnt-rail-h">Social media clients</h3>
-        <div id="cnt-clients" class="cnt-rail-list"><p class="cnt-note">Loading…</p></div>
-        <h3 class="cnt-rail-h">Other shoots</h3>
-        <div id="cnt-other" class="cnt-rail-list"></div>
-        <h3 class="cnt-rail-h">Everything</h3>
-        <div class="cnt-rail-list">
-          <button type="button" class="cnt-rail-item" data-prefix="deliverables/">All folders</button>
-        </div>
-      </aside>
-
-      <section class="cnt-main">
-        <h3 class="cnt-rail-h" id="cnt-where">Folders</h3>
-        <div id="cnt-loading" class="cnt-loading" hidden><span class="cnt-spin"></span><span id="cnt-loading-t">Loading…</span></div>
-        <div id="cnt-drop" class="cnt-drop">
-          <div id="cnt-folders" class="cnt-folders"></div>
-          <div id="cnt-files" class="cnt-files"></div>
-          <p class="cnt-note" id="cnt-empty" hidden>This folder is empty. Drag files in, or use Upload here.</p>
-        </div>
-        <div id="cnt-uploads" class="cnt-uploads"></div>
-      </section>
-    </div>
-  </div>
-
-  <div class="cnt-viewer" id="cnt-viewer" hidden>
-    <button type="button" class="cnt-viewer-close" id="cnt-viewer-close" aria-label="Close">&times;</button>
-    <div><div class="cnt-viewer-stage" id="cnt-viewer-stage"></div><p class="cnt-viewer-name" id="cnt-viewer-name"></p></div>
-  </div>
-
-  <!-- Global, not scoped: everything below the toolbar is drawn by the script,
-       and Astro's scoped styles only reach markup that exists at build time -
-       which is why the tiles first rendered as bare boxes and full-size video. -->
-  <style is:global>
-    .cnt-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 26px; padding: 18px 0 40px; }
-    @media (max-width: 900px) { .cnt-layout { grid-template-columns: 1fr; } }
-
-    /* The rail */
-    .cnt-rail-h { font-family: var(--sans); font-size: 10px; font-weight: 800; letter-spacing: 0.12em;
-      text-transform: uppercase; color: var(--muted); margin: 0 0 9px; }
-    .cnt-rail-h + .cnt-rail-list { margin-bottom: 24px; }
-    .cnt-rail-list { display: flex; flex-direction: column; gap: 4px; }
-    .cnt-rail-item { display: block; width: 100%; text-align: left; cursor: pointer;
-      font-family: var(--sans); font-size: 12.5px; font-weight: 600; line-height: 1.35; color: var(--hub-text);
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 9px 11px; transition: border-color 0.15s, background 0.15s, color 0.15s; }
-    .cnt-rail-item:hover { border-color: var(--accent-light); background: var(--surface-2); }
-    .cnt-rail-item.is-on { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .cnt-rail-item.is-on .cnt-rail-sub { color: rgba(255,255,255,0.65); }
-    .cnt-rail-sub { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-top: 2px; }
-
-    /* Toolbar */
-    .cnt-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-family: var(--sans); min-width: 0; }
-    .cnt-crumb { border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--primary);
-      font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-    .cnt-crumb:hover { text-decoration: underline; }
-    .cnt-crumb:last-child { color: var(--hub-text); cursor: default; text-decoration: none; }
-    .cnt-crumb-sep { color: var(--accent-light); font-size: 11px; }
-    .cnt-count { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
-      text-transform: uppercase; color: var(--muted); white-space: nowrap; }
-
-    /* Folders */
-    .cnt-drop { min-height: 240px; border-radius: var(--radius); outline: 2px dashed transparent; outline-offset: 8px;
-      transition: background 0.2s, outline-color 0.2s; }
-    .cnt-drop.is-over { background: var(--primary-light); outline-color: var(--accent); }
-    .cnt-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 12px; margin: 0 0 24px; }
-    .cnt-folder { display: flex; align-items: flex-start; gap: 13px; text-align: left; cursor: pointer; width: 100%;
-      background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-xs);
-      padding: 17px 18px; font-family: var(--sans); color: var(--hub-text); min-height: 86px;
-      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s; }
-    .cnt-folder:hover { background: var(--surface); border-color: var(--accent); box-shadow: var(--shadow-sm); }
-    .cnt-folder-ic { flex: none; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px;
-      border-radius: var(--radius-sm); background: var(--primary-light); color: var(--primary); }
-    .cnt-folder-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-    .cnt-folder-name { font-size: 13.5px; font-weight: 800; line-height: 1.25; }
-    .cnt-folder-sub { font-size: 11.5px; font-weight: 600; color: var(--muted); line-height: 1.3; }
-    .cnt-folder-when { font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
-
-    /* Loading: one line, and the grid stays back until the pictures are in. */
-    .cnt-loading { display: flex; align-items: center; gap: 10px; font-family: var(--sans); font-size: 12px;
-      font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 6px 0 14px; }
-    .cnt-loading[hidden] { display: none; }
-    .cnt-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border);
-      border-top-color: var(--primary); animation: cntSpin 0.7s linear infinite; }
-    @keyframes cntSpin { to { transform: rotate(360deg); } }
-    .cnt-drop.is-waiting .cnt-files { opacity: 0; }
-    .cnt-files { opacity: 1; transition: opacity 0.35s ease; }
-
-    /* Files */
-    .cnt-files { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 14px; }
-    .cnt-file { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); box-shadow: var(--shadow-xs); overflow: hidden; }
-    .cnt-file:hover { box-shadow: var(--shadow-sm); }
-    .cnt-thumb { position: relative; display: block; width: 100%; aspect-ratio: 16 / 10; overflow: hidden;
-      background: var(--surface-2); cursor: pointer; }
-    .cnt-thumb video, .cnt-thumb img { position: absolute; inset: 0; width: 100%; height: 100%;
-      object-fit: cover; display: block; background: var(--surface-2); }
-    .cnt-kind { position: absolute; left: 8px; top: 8px; z-index: 2; font-family: var(--sans); font-size: 9.5px;
-      font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #fff;
-      background: rgba(43,34,38,0.62); border-radius: var(--radius-sm); padding: 3px 6px; }
-    .cnt-play { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-    .cnt-play span { width: 40px; height: 40px; border-radius: 50%; background: rgba(43,34,38,0.55);
-      color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; padding-left: 3px; }
-    .cnt-meta { padding: 10px 12px 8px; display: flex; flex-direction: column; gap: 3px; font-family: var(--sans); min-width: 0; }
-    .cnt-name { font-size: 12px; font-weight: 700; color: var(--hub-text); line-height: 1.3; word-break: break-word;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .cnt-sub { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
-    .cnt-acts { display: flex; gap: 6px; padding: 0 12px 12px; }
-    .cnt-acts .btn { flex: none; }
-    .cnt-note { font-family: var(--sans); font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 0; }
-
-    /* Uploads in progress */
-    .cnt-uploads { display: flex; flex-direction: column; gap: 6px; margin-top: 20px; }
-    .cnt-up { display: flex; justify-content: space-between; gap: 14px; font-family: var(--sans); font-size: 11.5px;
-      font-weight: 600; color: var(--hub-text); background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 9px 12px; }
-    .cnt-up span:last-child { color: var(--muted); white-space: nowrap; }
-
-    /* The viewer */
-    .cnt-viewer { position: fixed; inset: 0; z-index: 90; background: rgba(28,20,24,0.94);
-      display: flex; align-items: center; justify-content: center; padding: 48px; }
-    .cnt-viewer[hidden] { display: none; }
-    .cnt-viewer-stage { max-width: min(1200px, 92vw); max-height: 84vh; }
-    .cnt-viewer-stage video, .cnt-viewer-stage img { max-width: 100%; max-height: 84vh; display: block; border-radius: var(--radius); }
-    .cnt-viewer-name { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
-      text-transform: uppercase; color: rgba(255,255,255,0.7); margin: 14px 0 0; text-align: center; }
-    .cnt-viewer-close { position: absolute; top: 16px; right: 22px; background: transparent; border: 0;
-      color: #fff; font-size: 32px; line-height: 1; cursor: pointer; }
-  </style>
 
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
-    import { supabase } from "../../lib/supabase.js";
-    import { folderFor, isSmmShoot } from "../../lib/archive-folder.js";
-    import { makeThumb, putThumb, thumbKeyFor, isBlackPicture } from "../../lib/thumbs.js";
+    import { $, $$, hooks, WORKER } from "../../lib/creative-studio/common.js";
+    import { startLibrary, drawLibrary } from "../../lib/creative-studio/library.js";
+    import { startPortals } from "../../lib/creative-studio/portals.js";
+    import { photoOpen, editPhotos } from "../../lib/creative-studio/photo.js";
 
-    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
-    const $ = (id) => document.getElementById(id);
-    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-    const ROOT = "deliverables/";
-    let prefix = ROOT;
-
-    const fmtSize = (n) => {
-      if (!n) return "0 B";
-      const u = ["B", "KB", "MB", "GB", "TB"];
-      const i = Math.min(u.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
-      return (n / Math.pow(1024, i)).toFixed(i ? 1 : 0) + " " + u[i];
-    };
-    const fmtDate = (d) => { try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
-    const isVideo = (f) => /^video\//.test(f.contentType || "") || /\.(mp4|mov|m4v|webm)$/i.test(f.name);
-    const isImage = (f) => /^image\//.test(f.contentType || "") || /\.(jpe?g|png|webp|avif|gif)$/i.test(f.name);
-
-    async function token() {
-      const { data } = await supabase.auth.getSession();
-      return data.session ? data.session.access_token : "";
+    const VIEWS = ["library", "portals", "video", "photo"];
+    let portalsStarted = false;
+    function show(v) {
+      if (!VIEWS.includes(v)) v = "library";
+      VIEWS.forEach((x) => ($("#cs-v-" + x).hidden = x !== v));
+      $$("#cs-tabs button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+      if (location.hash.slice(1) !== v) history.replaceState(null, "", location.pathname + location.search + "#" + v);
+      if (v === "photo") photoOpen();
+      if (v === "portals" && !portalsStarted) { portalsStarted = true; startPortals(); }
     }
-    async function api(path, opts = {}) {
-      const t = await token();
-      const res = await fetch(WORKER + path, {
-        ...opts,
-        headers: { ...(opts.headers || {}), Authorization: "Bearer " + t },
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `${res.status}`);
-      return res.json();
-    }
-    // A link the browser can use on its own: a <video> and a download can't send
-    // an auth header. Signed, and good for a few hours.
-    const linkCache = new Map();
-    async function linksFor(key) {
-      if (linkCache.has(key)) return linkCache.get(key);
-      const p = api(`/media-link?key=${encodeURIComponent(key)}`).catch(() => null);
-      linkCache.set(key, p);
-      return p;
-    }
+    hooks.show = show;
+    hooks.editPhotos = editPhotos;
+    hooks.drawLibrary = drawLibrary;
+    $$("#cs-tabs button").forEach((b) => (b.onclick = () => show(b.dataset.v)));
+    addEventListener("hashchange", () => show(location.hash.slice(1)));
 
-    /* ---------- The clients rail ---------- */
-    async function loadClients() {
-      const box = $("cnt-clients");
-      try {
-        const [{ data: bookings }, { data: uploaded }] = await Promise.all([
-          supabase
-            .from("videography_bookings")
-            .select("id, client_name, client_company, brand, service, service_type, location, property_address, postcode, archive_folder, shoot_date, smm_lead_id, payment_route, archived_at")
-            .order("shoot_date", { ascending: false }),
-          supabase.from("videography_deliverables").select("booking_id"),
-        ]);
-        // A shoot with nothing in storage is noise: it appears once something
-        // has been uploaded, either ticked as archived or with files recorded.
-        const withFiles = new Set((uploaded || []).map((r) => r.booking_id));
-        const all = (bookings || []).filter((b) => b.archived_at || withFiles.has(b.id));
-        // A shoot's folder is what was saved on it, or what the name would be -
-        // the uploader used that name either way, so the files are there.
-        const entry = (b) => {
-          const folder = folderFor(b);
-          if (!folder) return "";
-          const who = (b.client_name || b.client_company || b.brand || "Shoot").trim();
-          return `<button type="button" class="cnt-rail-item" data-prefix="${esc(ROOT + folder + "/")}">
-            ${esc(who)}${b.client_company && b.client_company !== who ? ` <span class="cnt-rail-sub">${esc(b.client_company)}</span>` : ""}
-            <span class="cnt-rail-sub">${esc(b.service || b.service_type || "Shoot")}${b.shoot_date ? " · " + esc(fmtDate(b.shoot_date)) : ""}</span>
-          </button>`;
-        };
-        const smm = all.filter(isSmmShoot).map(entry).filter(Boolean);
-        const other = all.filter((b) => !isSmmShoot(b)).map(entry).filter(Boolean);
-        box.innerHTML = smm.length
-          ? smm.join("")
-          : '<p class="cnt-note">No shoots are marked as part of a social media package yet. On the shoot in Videography, set the payment route to the SMM package, or link its social media client.</p>';
-        const otherBox = document.getElementById("cnt-other");
-        if (otherBox) otherBox.innerHTML = other.length ? other.join("") : '<p class="cnt-note">No other shoots yet.</p>';
-      } catch (_) {
-        box.innerHTML = '<p class="cnt-note">Couldn\'t load the client list.</p>';
-      }
-    }
-
-    /* ---------- Browsing ---------- */
-    function paintCrumbs() {
-      const parts = prefix.replace(/\/+$/, "").split("/");
-      const crumbs = parts.map((seg, i) => {
-        const to = parts.slice(0, i + 1).join("/") + "/";
-        const label = i === 0 ? "Archive" : seg;
-        return `<button type="button" class="cnt-crumb" data-prefix="${esc(to)}">${esc(label)}</button>`;
-      });
-      $("cnt-crumbs").innerHTML = crumbs.join('<span class="cnt-crumb-sep">/</span>');
-      document.querySelectorAll(".cnt-rail-item").forEach((b) => b.classList.toggle("is-on", b.getAttribute("data-prefix") === prefix));
-    }
-
-    async function browse(to) {
-      prefix = to.endsWith("/") ? to : to + "/";
-      paintCrumbs();
-      $("cnt-count").textContent = "Loading…";
-      $("cnt-folders").innerHTML = "";
-      $("cnt-files").innerHTML = "";
-      let data;
-      try {
-        data = await api(`/list?prefix=${encodeURIComponent(prefix)}`);
-      } catch (err) {
-        $("cnt-count").textContent = "";
-        $("cnt-empty").hidden = false;
-        $("cnt-empty").textContent = "Couldn't open that folder: " + err.message;
-        return;
-      }
-      const folderIcon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
-      $("cnt-folders").innerHTML = (data.folders || []).map((p) => {
-        const name = p.slice(prefix.length).replace(/\/$/, "");
-        const parts = readFolderName(name);
-        return `<button type="button" class="cnt-folder" data-prefix="${esc(p)}">
-          <span class="cnt-folder-ic">${folderIcon}</span>
-          <span class="cnt-folder-tx">
-            <span class="cnt-folder-name">${esc(parts.title)}</span>
-            ${parts.line ? `<span class="cnt-folder-sub">${esc(parts.line)}</span>` : ""}
-            ${parts.when ? `<span class="cnt-folder-when">${esc(parts.when)}</span>` : ""}
-          </span>
-        </button>`;
-      }).join("");
-
-      const here = prefix.replace(/\/+$/, "").split("/").pop();
-      $("cnt-where").textContent = prefix === ROOT ? "Folders" : readFolderName(here).title || here;
-      const files = data.files || [];
-      const bytes = files.reduce((a, f) => a + (f.size || 0), 0);
-      $("cnt-count").textContent = `${files.length} file${files.length === 1 ? "" : "s"} · ${fmtSize(bytes)}${(data.folders || []).length ? ` · ${data.folders.length} folder${data.folders.length === 1 ? "" : "s"}` : ""}`;
-      $("cnt-empty").hidden = !!(files.length || (data.folders || []).length);
-      $("cnt-empty").textContent = "This folder is empty. Drag files in, or use Upload here.";
-
-      $("cnt-files").innerHTML = files.map((f) => `
-        <article class="cnt-file" data-key="${esc(f.key)}">
-          <div class="cnt-thumb" data-open>
-            <span class="cnt-kind">${isVideo(f) ? "Video" : isImage(f) ? "Image" : (f.name.split(".").pop() || "File").toUpperCase()}</span>
-            ${isVideo(f) ? '<div class="cnt-play"><span>&#9654;</span></div>' : ""}
-          </div>
-          <div class="cnt-meta">
-            <span class="cnt-name">${esc(f.name)}</span>
-            <span class="cnt-sub">${fmtSize(f.size)} · ${esc(fmtDate(f.uploaded))}</span>
-          </div>
-          <div class="cnt-acts">
-            <a class="btn btn-outline btn-sm" data-dl href="#">Download</a>
-            <button type="button" class="btn btn-danger btn-sm" data-del>Delete</button>
-          </div>
-        </article>`).join("");
-
-      shown = files;
-      sayThumbsToMake();
-      // Where a thumbnail exists the tile loads that instead of the original,
-      // which is the difference between a folder opening in a second and in a
-      // minute. The rest arrive a few at a time behind one loading line.
-      loadThumbs(files);
-    }
-
-    // A shoot folder is named "<shoot type> - <client> - <date> - <where>" by
-    // the uploader. Read it back so a card says who and when, not one long line.
-    function readFolderName(name) {
-      const bits = String(name).split(" - ").map((x) => x.trim()).filter(Boolean);
-      const dateAt = bits.findIndex((x) => /^\d{4}-\d{2}-\d{2}$/.test(x));
-      if (dateAt < 1) return { title: name, line: "", when: "" };
-      const type = bits.slice(0, dateAt - 1).join(" - ");
-      const who = bits[dateAt - 1];
-      const where = bits.slice(dateAt + 1).join(" - ");
-      return { title: who, line: [type, where].filter(Boolean).join(" · "), when: fmtDate(bits[dateAt]) };
-    }
-
-    /* ---------- The viewer ---------- */
-    async function openFile(key, name) {
-      const links = await linksFor(key);
-      if (!links) return;
-      const stage = $("cnt-viewer-stage");
-      const video = /\.(mp4|mov|m4v|webm)$/i.test(name);
-      stage.innerHTML = video
-        ? `<video controls autoplay playsinline src="${esc(links.url)}"></video>`
-        : `<img alt="${esc(name)}" src="${esc(links.url)}">`;
-      $("cnt-viewer-name").textContent = name;
-      $("cnt-viewer").hidden = false;
-    }
-    function closeViewer() { $("cnt-viewer").hidden = true; $("cnt-viewer-stage").innerHTML = ""; $("cnt-viewer-name").textContent = ""; }
-    $("cnt-viewer-close").addEventListener("click", closeViewer);
-    $("cnt-viewer").addEventListener("click", (e) => { if (e.target === $("cnt-viewer")) closeViewer(); });
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeViewer(); });
-
-    // Missing, or a video's that came out solid black.
-    const wantsThumb = (f) => (!f.thumb || f.blackThumb) && (isVideo(f) || isImage(f));
-    function sayThumbsToMake() {
-      const n = shown.filter(wantsThumb).length;
-      const btn = $("cnt-thumbs");
-      btn.hidden = !n;
-      btn.textContent = n ? `Make ${n} thumbnail${n === 1 ? "" : "s"}` : "Make thumbnails";
-    }
-
-    // At most this many files fetched at once: a browser will happily start
-    // thirty large downloads and finish none of them for a while.
-    const AT_ONCE = 5;
-    let loadRun = 0;
-    async function loadThumbs(files) {
-      const run = ++loadRun;
-      const drop = $("cnt-drop"), bar = $("cnt-loading"), label = $("cnt-loading-t");
-      if (!files.length) { bar.hidden = true; drop.classList.remove("is-waiting"); return; }
-      drop.classList.add("is-waiting");
-      bar.hidden = false;
-      let done = 0;
-      const say = () => { label.textContent = `Loading ${done} of ${files.length}…`; };
-      say();
-
-      const one = async (file) => {
-        const card = document.querySelector(`.cnt-file[data-key="${CSS.escape(file.key)}"]`);
-        const links = await linksFor(file.key);
-        if (!card || !links || run !== loadRun) return;
-        const dl = card.querySelector("[data-dl]");
-        if (dl) { dl.href = links.downloadUrl; dl.setAttribute("download", file.name); }
-        const thumb = card.querySelector(".cnt-thumb");
-        // A small picture beside the file: 40KB instead of the whole thing.
-        if (file.thumb) {
-          const small = await linksFor(file.thumb);
-          if (small && run === loadRun) {
-            await new Promise((resolve) => {
-              const img = new Image();
-              img.alt = "";
-              const stop = setTimeout(resolve, 15000);
-              const finish = () => { clearTimeout(stop); resolve(); };
-              // Allowed to read a video's picture, so a black one can be spotted.
-              if (isVideo(file)) {
-                img.crossOrigin = "anonymous";
-                img.addEventListener("load", () => {
-                  if (isBlackPicture(img)) { file.blackThumb = true; sayThumbsToMake(); }
-                }, { once: true });
-              }
-              img.addEventListener("load", finish, { once: true });
-              img.addEventListener("error", finish, { once: true });
-              img.src = small.url;
-              thumb.insertAdjacentElement("afterbegin", img);
-            });
-            done += 1; say();
-            return;
-          }
-        }
-        await new Promise((resolve) => {
-          const stop = setTimeout(resolve, 20000);        // never hold the page on one bad file
-          const finish = () => { clearTimeout(stop); resolve(); };
-          if (isVideo(file)) {
-            const v = document.createElement("video");
-            v.preload = "metadata"; v.muted = true; v.playsInline = true;
-            // The first frame of a clip is often black, so seek a moment in.
-            v.addEventListener("loadedmetadata", () => {
-              try { v.currentTime = Math.min(1.5, (v.duration || 3) / 4); } catch (_) { finish(); }
-            }, { once: true });
-            v.addEventListener("seeked", finish, { once: true });
-            v.addEventListener("error", finish, { once: true });
-            v.src = links.url;
-            thumb.insertAdjacentElement("afterbegin", v);
-          } else if (isImage(file)) {
-            const img = new Image();
-            img.alt = "";
-            img.addEventListener("load", finish, { once: true });
-            img.addEventListener("error", finish, { once: true });
-            img.src = links.url;
-            thumb.insertAdjacentElement("afterbegin", img);
-          } else { finish(); }
-        });
-        done += 1; say();
-      };
-
-      const queue = files.slice();
-      await Promise.all(Array.from({ length: Math.min(AT_ONCE, queue.length) }, async () => {
-        while (queue.length && run === loadRun) await one(queue.shift());
-      }));
-      if (run !== loadRun) return;
-      bar.hidden = true;
-      drop.classList.remove("is-waiting");
-    }
-
-    // Make the thumbnails this folder is missing. A video only needs a frame,
-    // so it streams the piece it needs; a photo has to come down once, and
-    // then never again.
-    let shown = [];
-    $("cnt-thumbs").addEventListener("click", async () => {
-      const btn = $("cnt-thumbs");
-      const label0 = btn.textContent;
-      const todo = shown.filter(wantsThumb);
-      if (!todo.length) { alert("Every file here already has one."); return; }
-      const bar = $("cnt-loading"), label = $("cnt-loading-t");
-      btn.disabled = true;
-      bar.hidden = false;
-      let made = 0, failed = 0;
-      const tick = () => {
-        const n = made + failed;
-        // On the button as well as the line above the files: whichever the
-        // person happens to be looking at, it is moving.
-        btn.textContent = `Making ${Math.min(n + 1, todo.length)} of ${todo.length}…`;
-        label.textContent = `Making thumbnails ${Math.min(n + 1, todo.length)} of ${todo.length}… (${made} done${failed ? `, ${failed} skipped` : ""})`;
-      };
-      try {
-        for (const f of todo) {
-          tick();
-          try {
-            const links = await linksFor(f.key);
-            const blob = links ? await makeThumb(links.url, f.name, f.contentType) : null;
-            if (!blob) { failed += 1; console.warn("[thumbs] couldn't read", f.name); continue; }
-            const ok = await putThumb(WORKER, await token(), thumbKeyFor(f.key), blob);
-            ok ? (made += 1) : (failed += 1);
-            if (!ok) console.warn("[thumbs] couldn't store", f.name);
-            else linkCache.delete(thumbKeyFor(f.key));   // or the tile shows the old picture
-          } catch (err) { failed += 1; console.warn("[thumbs]", f.name, err); }
-        }
-      } catch (err) {
-        alert("Thumbnails stopped: " + ((err && err.message) || err));
-      }
-      bar.hidden = true;
-      btn.disabled = false;
-      btn.textContent = label0;
-      // Always says what happened: silence looked exactly like nothing working.
-      alert(failed
-        ? `${made} thumbnail${made === 1 ? "" : "s"} made. ${failed} couldn't be read, so those still load the full file.`
-        : `${made} thumbnail${made === 1 ? "" : "s"} made. Reopen the folder to see the difference.`);
-      browse(prefix);
-    });
-
-    /* ---------- Clicks ---------- */
-    document.addEventListener("click", async (e) => {
-      const nav = e.target.closest("[data-prefix]");
-      if (nav) { browse(nav.getAttribute("data-prefix")); return; }
-      const card = e.target.closest(".cnt-file");
-      if (!card) return;
-      const key = card.getAttribute("data-key");
-      const name = card.querySelector(".cnt-name").textContent;
-      if (e.target.closest("[data-open]")) { openFile(key, name); return; }
-      if (e.target.closest("[data-del]")) {
-        if (!confirm(`Delete ${name}? This removes the only copy.`)) return;
-        try {
-          await api(`/object?key=${encodeURIComponent(key)}`, { method: "DELETE" });
-          browse(prefix);
-        } catch (err) { alert("Couldn't delete: " + err.message); }
-      }
-    });
-
-    /* ---------- New folder ---------- */
-    $("cnt-newfolder").addEventListener("click", async () => {
-      const name = prompt("Name the folder");
-      if (!name) return;
-      try {
-        const out = await api("/folder", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prefix, name }),
-        });
-        browse(out.prefix || prefix);
-      } catch (err) { alert("Couldn't make the folder: " + err.message); }
-    });
-
-    /* ---------- Uploading into the open folder ---------- */
-    const PART = 8 * 1024 * 1024;
-    function uploadRow(name) {
-      const row = document.createElement("div");
-      row.className = "cnt-up";
-      row.innerHTML = `<span>${esc(name)}</span><span data-stat>Preparing…</span>`;
-      $("cnt-uploads").appendChild(row);
-      return { stat: (t) => { row.querySelector("[data-stat]").textContent = t; }, done: () => setTimeout(() => row.remove(), 2500) };
-    }
-    async function uploadFile(file, into) {
-      const ui = uploadRow(file.name);
-      try {
-        const t = await token();
-        const create = await fetch(`${WORKER}/create`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
-          body: JSON.stringify({ prefix: into, fileName: file.name, contentType: file.type || "application/octet-stream" }),
-        });
-        if (!create.ok) throw new Error("couldn't start (" + create.status + ")");
-        const { key, uploadId } = await create.json();
-        const parts = [];
-        const count = Math.max(1, Math.ceil(file.size / PART));
-        for (let i = 0; i < count; i++) {
-          const blob = file.slice(i * PART, Math.min((i + 1) * PART, file.size));
-          let attempt = 0;
-          for (;;) {
-            try {
-              const res = await fetch(`${WORKER}/part?key=${encodeURIComponent(key)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${i + 1}`, {
-                method: "PUT", headers: { Authorization: "Bearer " + t }, body: blob,
-              });
-              if (!res.ok) throw new Error("part " + (i + 1));
-              parts.push({ partNumber: i + 1, etag: (await res.json()).etag });
-              break;
-            } catch (err) {
-              if (++attempt >= 3) throw err;
-              await new Promise((r) => setTimeout(r, 800 * attempt));
-            }
-          }
-          ui.stat(`Uploading ${Math.round(((i + 1) / count) * 100)}%`);
-        }
-        const fin = await fetch(`${WORKER}/complete`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
-          body: JSON.stringify({ key, uploadId, parts }),
-        });
-        if (!fin.ok) throw new Error("couldn't finish (" + fin.status + ")");
-        // Made here from the file in hand, so it costs nothing to fetch.
-        try {
-          ui.stat("Making a thumbnail…");
-          const blob = await makeThumb(file, file.name, file.type);
-          if (blob) await putThumb(WORKER, t, thumbKeyFor(key), blob);
-        } catch (_) { /* a missing thumbnail only means a slower tile */ }
-        ui.stat(fmtSize(file.size) + " · done");
-        ui.done();
-        if (into === prefix) browse(prefix);
-      } catch (err) {
-        ui.stat("Failed: " + ((err && err.message) || "upload"));
-      }
-    }
-    const sendAll = (list) => { const into = prefix; Array.from(list || []).forEach((f) => uploadFile(f, into)); };
-    $("cnt-upload").addEventListener("click", () => $("cnt-file").click());
-    $("cnt-file").addEventListener("change", (e) => { sendAll(e.target.files); e.target.value = ""; });
-    const drop = $("cnt-drop");
-    ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("is-over"); }));
-    ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); if (ev === "drop") sendAll(e.dataTransfer.files); drop.classList.remove("is-over"); }));
-
-    /* ---------- Go ---------- */
     (async () => {
       const session = await requireAdmin();
       if (!session) return;
-      if (!WORKER) { $("cnt-count").textContent = "Storage isn't configured (PUBLIC_R2_WORKER_URL)."; return; }
-      await loadClients();
-      const start = new URLSearchParams(location.search).get("folder");
-      browse(start ? (start.startsWith(ROOT) ? start : ROOT + start) : ROOT);
+      if (!WORKER) { $("#cs-v-library").textContent = "Storage isn't configured (PUBLIC_R2_WORKER_URL)."; return; }
+      show(location.hash.slice(1) || "library");
+      startLibrary(new URLSearchParams(location.search).get("folder"));
     })();
   </script>
 </AdminShell>
