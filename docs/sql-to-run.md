@@ -4,8 +4,6 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/client_portal_shoots_added.sql — Last updated on the Creative Studio portal cards: records the moment a shoot is added to a portal. Changes nothing a client sees. Until it runs, the cards use the date the newest shoot's files were uploaded.
-- [ ] supabase/videography_shoot_name.sql — an optional Shoot name on each shoot's Delivery section, for its title in the new client portal. Sends nothing (7 Nov)
 
 
 
@@ -13,6 +11,8 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Done
 
+- [x] supabase/client_portal_shoots_added.sql — Last updated on the Creative Studio portal cards: records the moment a shoot is added to a portal. Changes nothing a client sees. Until it runs, the cards use the date the newest shoot's files were uploaded.
+- [x] supabase/videography_shoot_name.sql — an optional Shoot name on each shoot's Delivery section, for its title in the new client portal. Sends nothing (7 Nov)
 - [x] supabase/videography_cover.sql — the cover photo on a client's delivery emails, chosen on each shoot's Delivery section. Sends nothing (7 Nov; ran 7 Nov)
 - [x] supabase/videography_portal_ready.sql — Content ready as its own No or Yes on a shoot delivered by client portal, No on every shoot until someone saves Yes. It lists every shoot set to Client portal. Nothing is sent (6 Nov; found run 7 Nov)
 - [x] supabase/videography_delivery_method.sql — Deliver by on each shoot, Pixieset or Client portal, and Release before payment. Every existing shoot stays on Pixieset and nothing is sent (6 Nov; ran 6 Nov)
