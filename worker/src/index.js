@@ -27,6 +27,7 @@ import { invoiceEmail, invoiceReminderEmail, isBrandInvoice, PAY_TOKEN, PORTAL_T
 import { ruleForService, sectorForRule, reviewHtml } from "../../src/lib/revenue.js";
 import { ACTIVITIES as CAL_ACTIVITIES } from "../../src/data/marketing-activities.js";
 import puppeteer from "@cloudflare/puppeteer";
+import { isVideographyInvoicer } from "../../src/lib/team-roles.js";
 
 const PART_PREFIX = "deliverables";
 
@@ -2633,6 +2634,15 @@ async function isManagement(env, user) {
   return ok;
 }
 const MGMT_ONLY = { error: "Invoices and month end are management only." };
+/* Jack runs Videography with Danielle and Sam (src/lib/team-roles.js): he can
+   raise, edit drafts of and send a shoot's invoices, and release a shoot before
+   payment. Only on Videography. Marking paid, voiding and the books stay with
+   management (Dani, 9 Nov 2026). */
+async function isVideographyInvoice(env, id) {
+  if (!id) return false;
+  const row = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(String(id))}&select=booking_id,booking_source&limit=1`))?.[0];
+  return !!(row && row.booking_id && (row.booking_source || "videography") === "videography");
+}
 
 // Read from Supabase with the service role (server-side only, never exposed).
 async function sbGet(env, table, qs) {
@@ -12630,7 +12640,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       if (path.endsWith("/videography/release-before-payment") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
+        if (!(await isManagement(env, user)) && !isVideographyInvoicer(user.email)) return json(MGMT_ONLY, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const id = String((b && b.booking_id) || "");
         if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Which shoot?" }, 400, request, env);
@@ -14674,7 +14684,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         /* Everyone else can resend an invoice that has already gone, exactly as
            it was: no new invoices, no changes to the email (Danielle, 28 Oct
            2026). A change goes through Danielle. */
-        if (!(await isManagement(env, user))) {
+        if (!(await isManagement(env, user)) && !(isVideographyInvoicer(user.email) && await isVideographyInvoice(env, b && b.id))) {
           const cur = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(String(b.id || ""))}&select=status`))?.[0];
           if (!cur) return json({ error: "Invoice not found." }, 404, request, env);
           if (cur.status !== "sent" && cur.status !== "paid") return json({ error: "Only an invoice that has already been sent can be resent. Ask Danielle to send a new one." }, 403, request, env);
@@ -15124,8 +15134,15 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       if (path.endsWith("/invoicing/invoices") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         const b = await request.json().catch(() => ({}));
+        if (!(await isManagement(env, user))) {
+          // Jack, on a Videography shoot that exists, and nothing else.
+          const bid = String((b && b.booking_id) || "");
+          const shoot = isVideographyInvoicer(user.email) && (b.booking_source || "videography") === "videography" && /^[0-9a-f-]{36}$/i.test(bid)
+            && (await sbGet(env, "videography_bookings", `id=eq.${bid}&select=id&limit=1`))?.[0];
+          if (!shoot) return json(MGMT_ONLY, 403, request, env);
+          b.booking_source = "videography";
+        }
         const made = await createInvoiceDraft(env, b, user.email || null);
         if (!made.ok) return json({ error: made.error }, made.code || 502, request, env);
         return json({ ok: true, invoice: made.invoice }, 200, request, env);
@@ -15133,10 +15150,17 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       if (path.endsWith("/invoicing/invoices") && request.method === "PATCH") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const id = String((b && b.id) || "").trim();
         const status = ["draft", "sent", "paid", "void"].includes(b && b.status) ? b.status : null;
+        // Jack may change the words of a Videography draft, and void a draft he's
+        // replaced (editing one saves a new one); anything sent stays with management.
+        if (!(await isManagement(env, user))) {
+          const own = isVideographyInvoicer(user.email) && await isVideographyInvoice(env, id);
+          const draftNow = own && (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=status`))?.[0]?.status === "draft";
+          const ok = draftNow && ((!status && b && Array.isArray(b.line_items)) || status === "void");
+          if (!ok) return json(MGMT_ONLY, 403, request, env);
+        }
 
         // Editing the CONTENT of an invoice, as opposed to its status. Only
         // allowed while it is still a draft: once an invoice has been sent the
@@ -15329,7 +15353,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=id,number,status`))?.[0];
         // Management only, drafts included (Danielle, 28 Oct 2026): the team
         // can see and resend invoices, not change them.
-        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
+        // Jack may delete a Videography draft, nothing that has been sent.
+        if (!(await isManagement(env, user)) && !(isVideographyInvoicer(user.email) && inv && inv.status === "draft" && await isVideographyInvoice(env, id))) return json(MGMT_ONLY, 403, request, env);
         await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
           method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
         });
