@@ -18,6 +18,7 @@ export const TRIGGERS = [
   { key: "contact_created", label: "Contact created", group: "Contact" },
   { key: "account_created", label: "Account created", group: "Contact" },
   { key: "order_placed",    label: "Order placed / pack purchased", group: "Contact" },
+  { key: "pack_gifted",     label: "Pack gifted", group: "Contact" },
   { key: "tag_added",       label: "Tag added", group: "Contact" },
   { key: "tag_removed",     label: "Tag removed", group: "Contact" },
   { key: "note_added",      label: "Note added", group: "Contact" },

@@ -827,9 +827,7 @@ import "../../styles/admin.css";
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
     import { rebuildSite } from "../../lib/site-rebuild.js";
-
-    // Network tag from the email domain (mirrors the Worker's crmTags).
-    const netTag = (email) => { const d = (String(email || "").toLowerCase().match(/@([^@\s]+)$/) || [])[1] || ""; if (!d) return null; if (d.endsWith("experts.co.uk") || d === "theauctioncompany.co.uk" || d === "tmke.co.uk") return "Network: TEG"; if (d === "fineandcountry.com" || d === "fineandcountry.co.uk") return "Network: Fine-and-Country"; return "Network: External"; };
+    import { giftPack } from "../../lib/pack-gift.js";
 
     /** @type {any[]} */
     let allPacks = [];
@@ -1556,54 +1554,19 @@ import "../../styles/admin.css";
       if (!pack) return;
       const email = (giftEmailInput.value || "").trim().toLowerCase();
       const name = (giftNameInput.value || "").trim();
-      if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-        showGiftError("Enter a valid email address for the recipient.");
-        return;
-      }
       if (giftErrorEl) giftErrorEl.hidden = true;
       giftConfirmBtn.disabled = true;
       giftConfirmBtn.textContent = "Gifting…";
 
-      const { error } = await supabase.from("orders").insert({
-        pack_id: pack.id,
-        pack_slug: pack.slug,
-        pack_title: pack.title,
-        amount_pence: 0,
-        buyer_name: name || email.split("@")[0],
-        buyer_email: String(email || "").trim().toLowerCase(),   // an account's email always is, so an order's is too
-        buyer_company: "",
-        payment_method: "gift",
-        payment_ref: "gift_" + Date.now(),
-        status: "paid",
-      });
+      const { error } = await giftPack(pack, email, name);
 
       giftConfirmBtn.disabled = false;
       giftConfirmBtn.textContent = "Gift this pack →";
 
       if (error) {
-        showGiftError(error.message || "Couldn't gift the pack. Please try again.");
+        showGiftError(error);
         return;
       }
-      // Fire the "order placed" marketing automation (e.g. purchase
-      // confirmation). Fire-and-forget so the UI never waits on it.
-      try {
-        const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
-        const { data: { session } } = await supabase.auth.getSession();
-        if (WORKER && session) {
-          const parts = (name || "").trim().split(/\s+/);
-          fetch(`${WORKER}/automations/fire`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-            body: JSON.stringify({
-              trigger: "order_placed", email,
-              first_name: parts.shift() || (name || email.split("@")[0]), last_name: parts.join(" ") || null,
-              source: "pack_gift", lifecycle: "customer",
-              tags: ["Pack-Purchased", "Pack Name: " + pack.title, netTag(email)].filter(Boolean),
-              payload: { pack: pack.title, pack_slug: pack.slug, amount_pence: 0 },
-            }),
-          }).catch(() => {});
-        }
-      } catch (_) {}
 
       if (!customerEmails.includes(email)) {
         customerEmails.push(email);

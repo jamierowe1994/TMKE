@@ -4,7 +4,6 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/orders_lockdown.sql — security: pack orders can only be seen by the staff and the person who bought them, and only staff can change them. Tests itself as it runs, and if anything's wrong it stops and changes nothing. Sends nothing (9 Nov)
 
 
 
@@ -12,6 +11,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Done
 
+- [x] supabase/orders_lockdown.sql — security: pack orders can only be seen by the staff and the person who bought them, and only staff can change them. Tests itself as it runs, and if anything's wrong it stops and changes nothing. Sends nothing (9 Nov; ran 9 Nov)
 - [x] supabase/client_portal_shoots_added.sql — Last updated on the Creative Studio portal cards: records the moment a shoot is added to a portal. Changes nothing a client sees. Until it runs, the cards use the date the newest shoot's files were uploaded.
 - [x] supabase/videography_shoot_name.sql — an optional Shoot name on each shoot's Delivery section, for its title in the new client portal. Sends nothing (7 Nov)
 - [x] supabase/videography_cover.sql — the cover photo on a client's delivery emails, chosen on each shoot's Delivery section. Sends nothing (7 Nov; ran 7 Nov)

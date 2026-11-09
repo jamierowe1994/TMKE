@@ -1,400 +1,342 @@
 ---
+// Pack orders (Dani, 9 Nov 2026, agreed on the mock-up): the money pages' look,
+// with Orders, Top customers and Gifted as tabs. A gift is an orders row with
+// payment_method = "gift", and stays out of every order figure and chart.
 import AdminShell from "../../components/admin/AdminShell.astro";
-import "../../styles/admin.css";
+import "../../styles/money-os.css";
 ---
 
 <AdminShell active="orders" title="Pack orders" skin="hub">
-  <div class="page-header">
-    <div class="page-header-top">
-      <div class="page-header-left">
-        <div>
-          <div class="page-header-title">Pack orders</div>
-          <div class="page-header-sub">Pack purchases, free ones included, from checkout to fulfilment. For money across every channel, see Payments.</div>
-        </div>
-      </div>
-    </div>
-  </div>
   <div class="ash-panel ash-page">
-  <section class="admin-bar">
-    <div class="admin-bar-actions">
-      <div class="order-filters" id="order-filters" role="tablist">
-        <button type="button" class="enquiry-chip is-active" data-filter="all">All</button>
-        <button type="button" class="enquiry-chip" data-filter="paid">Paid</button>
-        <button type="button" class="enquiry-chip" data-filter="pending">Pending</button>
-        <button type="button" class="enquiry-chip" data-filter="refunded">Refunded</button>
-        <button type="button" class="enquiry-chip" data-filter="failed">Failed</button>
-      </div>
-      <input
-        type="search"
-        id="order-search"
-        class="admin-search"
-        placeholder="Search buyer, email, invoice…"
-      />
-      <span class="admin-bar-count" id="order-count">…</span>
-    </div>
-  </section>
-
-  <section class="g4 order-stats-grid" id="order-stats">
-    <div class="stat">
-      <div class="stat-num" data-stat="rev30">…</div>
-      <div class="stat-label">Revenue (paid · last 30 days)</div>
-    </div>
-    <div class="stat">
-      <div class="stat-num" data-stat="ord30">…</div>
-      <div class="stat-label">Orders (last 30 days)</div>
-    </div>
-    <div class="stat">
-      <div class="stat-num" data-stat="revLife">…</div>
-      <div class="stat-label">Lifetime revenue (paid)</div>
-    </div>
-    <div class="stat">
-      <div class="stat-num" data-stat="ordLife">…</div>
-      <div class="stat-label">Lifetime orders</div>
-    </div>
-  </section>
-
-  <section class="order-list wrap" id="order-list" aria-busy="true">
-    <p class="enquiry-loading" id="order-loading">Loading orders…</p>
-    <p class="enquiry-empty" id="order-empty" hidden>No orders match this filter.</p>
-    <div class="enquiry-table" id="order-table" role="table"></div>
-  </section>
-  </div>
-
-  <div class="modal-backdrop" id="order-modal" hidden>
-    <div class="modal enquiry-modal" role="dialog" aria-modal="true" aria-labelledby="order-modal-title">
-      <header class="modal-head">
-        <h2 id="order-modal-title">Order</h2>
-        <button type="button" class="modal-close" id="order-modal-close" aria-label="Close">&times;</button>
-      </header>
-      <div class="enquiry-detail" id="order-detail"></div>
-      <footer class="modal-foot enquiry-modal-foot">
-        <button type="button" class="admin-btn admin-btn-danger" data-status="refunded">Mark refunded</button>
-        <button type="button" class="admin-btn admin-btn-ghost" data-status="failed">Mark failed</button>
-        <div class="spacer"></div>
-        <button type="button" class="admin-btn admin-btn-ghost" data-status="pending">Mark pending</button>
-        <button type="button" class="admin-btn admin-btn-primary" data-status="paid">Mark paid</button>
-      </footer>
+    <div class="mo" id="po">
+      <section class="mo-head">
+        <div>
+          <p class="mo-eye">Money</p>
+          <div class="mo-title">Pack orders</div>
+          <p class="mo-sub" id="po-sub"></p>
+        </div>
+        <div class="mo-acts"><a class="mbtn" id="po-rev" href="/admin/revenue" hidden>Revenue</a></div>
+      </section>
+      <nav class="po-tabs" aria-label="Pack orders">
+        <button type="button" data-tab="orders">Orders</button>
+        <button type="button" data-tab="top">Top customers</button>
+        <button type="button" data-tab="gifted">Gifted</button>
+      </nav>
+      <p class="state" id="po-state">Reading the orders.</p>
+      <div id="po-main" hidden></div>
+      <div id="po-pop"></div>
+      <div class="tip" id="po-tip" hidden></div>
+      <div class="toast" id="po-toast" role="status" aria-live="polite"></div>
     </div>
   </div>
 
   <style is:global>
-    .admin-hero-pad { padding-top: 100px; }
-    @media (max-width: 720px) { .admin-hero-pad { padding-top: 56px; } }
-
-    .admin-search {
-      padding: 8px 12px;
-      border: 1px solid rgba(var(--violet-rgb), 0.3);
-      border-radius: 2px;
-      font-family: var(--sans);
-      font-size: 13px;
-      color: var(--ink);
-      background: var(--paper);
-      min-width: 220px;
-    }
-    .admin-search:focus { outline: none; border-color: var(--english-violet); }
-
-    .order-filters, .enquiry-filters { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-    .enquiry-chip {
-      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
-      background: #fff; border: 1px solid rgba(var(--violet-rgb), 0.3);
-      border-radius: 999px; font-family: var(--sans); font-size: 11px;
-      letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700;
-      color: var(--english-violet); cursor: pointer;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
-    }
-    .enquiry-chip:hover { background: rgba(var(--violet-rgb), 0.06); }
-    .enquiry-chip.is-active { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
-    .enquiry-chip-count {
-      display: inline-block; min-width: 18px; padding: 1px 6px; border-radius: 999px;
-      background: rgba(28, 29, 34, 0.12); font-size: 10px; letter-spacing: 0;
-    }
-    .enquiry-chip.is-active .enquiry-chip-count { background: rgba(244, 242, 241, 0.2); }
-
-    /* Reuses the Hub's shared .g4/.stat components (hub-tokens.css) rather
-       than a parallel lookalike — same code path as the Dashboard's stat
-       tiles, so this can't drift out of sync with them again. */
-    .order-stats-grid {
-      max-width: 1360px;
-      margin: 24px auto 28px;
-      padding: 0 36px;
-    }
-    @media (max-width: 860px) {
-      .order-stats-grid.g4 { grid-template-columns: repeat(2, 1fr); }
-    }
-
-    .order-list {
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 24px 36px 200px;
-    }
-    .order-row {
-      display: grid;
-      grid-template-columns: 140px 1.2fr 1.4fr 1.2fr 110px 90px 24px;
-      gap: 16px;
-      padding: 16px 20px;
-      background: var(--paper);
-      align-items: center;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .order-row.is-header {
-      cursor: default;
-      background: rgba(var(--violet-rgb), 0.04);
-      font-family: var(--sans);
-      font-size: 10px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: rgba(28, 29, 34, 0.55);
-    }
-    .order-row:not(.is-header):hover { background: rgba(var(--violet-rgb), 0.04); }
-    .order-invoice {
-      font-family: var(--sans);
-      font-size: 12px;
-      letter-spacing: 0.08em;
-      color: var(--ink);
-      font-weight: 700;
-    }
-    .order-invoice-when {
-      font-family: var(--sans);
-      font-size: 11px;
-      color: rgba(28, 29, 34, 0.55);
-      margin-top: 3px;
-      letter-spacing: 0;
-      font-weight: 400;
-    }
-    .order-amount {
-      font-family: var(--serif);
-      font-weight: 500;
-      font-size: 18px;
-      color: var(--ink); letter-spacing: -0.05em;
-    }
-    .order-pay {
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: rgba(28, 29, 34, 0.55);
-    }
-
-    .enquiry-status-pill.is-paid     { color: #2c7a4b; background: rgba(44, 122, 75, 0.1); }
-    .enquiry-status-pill.is-pending  { color: #b78a2e; background: rgba(183, 138, 46, 0.12); }
-    .enquiry-status-pill.is-refunded { color: rgba(28, 29, 34, 0.6); background: rgba(28, 29, 34, 0.06); }
-    .enquiry-status-pill.is-failed   { color: #a05a3c; background: rgba(160, 90, 60, 0.12); }
-
-    @media (max-width: 980px) {
-      .order-row {
-        grid-template-columns: 1fr;
-        gap: 6px;
-        padding: 14px 16px;
-      }
-      .order-row.is-header { display: none; }
-    }
+    #po .mo-head { margin-bottom: 14px; }
+    #po .po-tabs { display: flex; gap: 26px; margin: 0 0 20px; overflow-x: auto; scrollbar-width: none; box-shadow: inset 0 -1px 0 var(--linen); }
+    #po .po-tabs button { flex: none; height: 34px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--tx); cursor: pointer; }
+    #po .po-tabs button.on { color: var(--wine); border-bottom-color: var(--wine); }
+    #po .chips { order: 0; flex: 0 1 auto; }
+    #po .fig { cursor: default; }
+    #po .fig:hover { transform: none; box-shadow: none; }
+    #po .po-charts { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px; margin: 0 0 26px; }
+    #po .po-charts .section { grid-template-rows: auto 1fr; min-width: 0; }
+    #po .po-charts .section + .section { margin-top: 0; }
+    #po .chart { display: flex; flex-direction: column; justify-content: center; gap: 12px; min-width: 0; }
+    #po .bar-hit { cursor: pointer; }
+    #po .po-cbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; }
+    #po .po-cbar .tog { margin-left: auto; }
+    #po .po-pie-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; }
+    #po .po-pie-row .pie { flex: 0 0 180px; width: 180px; max-width: 100%; }
+    #po .po-legend { flex: 1 1 190px; min-width: 0; display: grid; }
+    #po .po-lg { display: grid; grid-template-columns: 10px minmax(0, 1fr) 24px 38px; gap: 8px; align-items: center; min-height: 28px; border-top: 1px solid var(--linen); font-variant-numeric: lining-nums tabular-nums; }
+    #po .po-lg:first-child { border-top: 0; }
+    #po .po-lg i { width: 10px; height: 10px; border-radius: 2px; }
+    #po .po-lg span:nth-child(2) { overflow-wrap: anywhere; }
+    #po .po-lg .tx { color: var(--tx); }
+    #po .pop-b p { margin: 0; color: var(--tx); }
+    #po .pop-b p.err { color: var(--bad); }
+    @media (max-width: 900px) { #po .po-charts { grid-template-columns: minmax(0, 1fr); } }
   </style>
 
   <script>
-    import { requireAdmin } from "../../lib/admin-gate.js";
-    import { supabase, gbpFromPence } from "../../lib/supabase.js";
+    import { requireAdmin, isManagementUser } from "../../lib/admin-gate.js";
+    import { supabase } from "../../lib/supabase.js";
+    import { fitScrim, gbp } from "../../lib/revenue.js";
+    import { giftPack } from "../../lib/pack-gift.js";
 
-    const STATUS_LABEL = { paid: "Paid", pending: "Pending", refunded: "Refunded", failed: "Failed" };
-    const PAY_LABEL = { apple_pay: "Apple Pay", google_pay: "Google Pay", card: "Card" };
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const when = (iso) => { const d = new Date(iso); return `${d.getDate()} ${MON[d.getMonth()]} ${d.getFullYear()}`; };
+    const ymOf = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+    const ymAdd = (ym, n) => { const [y, m] = ym.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+    const monShort = (ym) => MON[Number(ym.slice(5)) - 1];
+    const monLong = (ym) => `${LONG[Number(ym.slice(5)) - 1]} ${ym.slice(0, 4)}`;
+    const plural = (n) => n + (n === 1 ? " order" : " orders");
+    const SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
 
-    function escapeHtml(s) {
-      return String(s ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+    const SUBS = {
+      orders: "Every pack bought through The Edit. Open an order for its invoice or to change its status. All figures are without VAT.",
+      top: "Who spends the most on packs, for the period you pick. Paid orders only, so gifts aren't counted. All figures are without VAT.",
+      gifted: "Packs we've given to the people we work with. Gifts aren't orders, so they stay here and out of the figures.",
+    };
+    const STATUS = { paid: ["Paid", "good"], pending: ["Pending", "wait"], refunded: ["Refunded", "plain"], failed: ["Failed", "bad"] };
+    const PAY = { apple_pay: "Apple Pay", google_pay: "Google Pay", card: "Card" };
+    const THIS_MONTH = ymOf(new Date().toISOString());
+    const MONTHS = Array.from({ length: 6 }, (_, i) => ymAdd(THIS_MONTH, i - 5));
+
+    const S = { tab: "orders", status: "all", oq: "", win: "60", tq: "", gq: "", pie: "all", pieMonth: THIS_MONTH };
+    let ALL = [], PACKS = [], READY = false;
+
+    const isGift = (o) => o.payment_method === "gift";
+    const orders = () => ALL.filter((o) => !isGift(o));
+    const paidOrders = () => orders().filter((o) => o.status === "paid");
+    const gifts = () => ALL.filter((o) => isGift(o) && o.status === "paid");
+    // Older orders carry only what the card was charged, so their VAT is worked backwards.
+    function split(o) {
+      if (o.total_pence != null && o.vat_pence != null) return { net: o.amount_pence || 0, vat: o.vat_pence, gross: o.total_pence };
+      const gross = o.amount_pence || 0, net = Math.round(gross / 1.2);
+      return { net, vat: gross - net, gross };
     }
-    function fmtWhen(iso) {
-      if (!iso) return "";
-      const d = new Date(iso);
-      return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-    }
+    const net = (o) => split(o).net;
+    const sum = (list) => list.reduce((t, o) => t + net(o), 0);
 
-    let all = [];
-    let activeFilter = "all";
-    let search = "";
+    let toastT;
+    function toast(m) { const t = $("po-toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
+    const fig = (cls, val, label) => `<div class="fig ${cls} static"><b>${val}</b><span>${label}</span></div>`;
+    const find = (id, ph, val) => `<label class="find">${SEARCH}<input type="search" id="${id}" placeholder="${ph}" value="${esc(val)}" aria-label="${ph}"></label>`;
 
-    function visibleRows() {
-      let rows = activeFilter === "all" ? all : all.filter((r) => r.status === activeFilter);
-      const q = search.trim().toLowerCase();
-      if (q) {
-        rows = rows.filter((r) =>
-          [r.buyer_name, r.buyer_email, r.buyer_company, r.invoice_number, r.pack_title]
-            .filter(Boolean)
-            .some((v) => String(v).toLowerCase().includes(q))
-        );
-      }
-      return rows;
-    }
-
-    function applyFilter() {
-      const grid = document.getElementById("order-table");
-      const emptyEl = document.getElementById("order-empty");
-      if (!grid) return;
-      const rows = visibleRows();
-      const countEl = document.getElementById("order-count");
-      if (countEl) countEl.textContent = `${rows.length} ${rows.length === 1 ? "order" : "orders"}`;
-      if (rows.length === 0) {
-        grid.innerHTML = "";
-        if (emptyEl) emptyEl.hidden = false;
-        return;
-      }
-      if (emptyEl) emptyEl.hidden = true;
-      grid.innerHTML =
-        `<div class="order-row is-header">
-          <div>Invoice</div><div>Buyer</div><div>Pack</div><div>Email</div>
-          <div>Amount</div><div>Status</div><div></div>
-        </div>` +
-        rows
-          .map(
-            (r) => `
-            <div class="order-row" data-id="${r.id}">
-              <div>
-                <div class="order-invoice">${escapeHtml(r.invoice_number || "—")}</div>
-                <div class="order-invoice-when">${fmtWhen(r.created_at)}</div>
-              </div>
-              <div class="enquiry-who">
-                <div class="enquiry-who-name">${escapeHtml(r.buyer_name)}</div>
-                <div class="enquiry-who-meta">${escapeHtml(r.buyer_company || "—")}</div>
-              </div>
-              <div class="enquiry-who">
-                <div class="enquiry-who-name">${escapeHtml(r.pack_title)}</div>
-                <div class="enquiry-who-meta order-pay">${PAY_LABEL[r.payment_method] || r.payment_method}</div>
-              </div>
-              <div class="enquiry-who-meta">${escapeHtml(r.buyer_email)}</div>
-              <div class="order-amount">${gbpFromPence(r.amount_pence)}</div>
-              <div><span class="enquiry-status-pill is-${r.status}">${STATUS_LABEL[r.status] || r.status}</span></div>
-              <div class="enquiry-row-arrow">&rarr;</div>
-            </div>`
-          )
-          .join("");
-
-      grid.querySelectorAll("[data-id]").forEach((el) => {
-        el.addEventListener("click", () => openDetail(el.getAttribute("data-id")));
+    /* ---- Charts: paid orders only, so gifts never reach them. ---- */
+    function ordersBars() {
+      const paid = paidOrders();
+      const vals = MONTHS.map((m) => paid.filter((o) => ymOf(o.created_at) === m).length);
+      const sel = S.pie === "month" ? MONTHS.indexOf(S.pieMonth) : MONTHS.length - 1;
+      const w = 620, h = 270, pad = { l: 30, r: 2, t: 20, b: 22 }, iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+      const max = Math.max(...vals, 1), step = max <= 5 ? 1 : max <= 10 ? 2 : max <= 25 ? 5 : 10, top = Math.ceil(max / step) * step;
+      const y = (v) => pad.t + ih - (v / top) * ih;
+      let out = `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Orders per month, last six months: ${MONTHS.map((m, i) => monShort(m) + " " + vals[i]).join(", ")}">`;
+      for (let t = 0; t <= top; t += step) out += `<line x1="${pad.l}" x2="${w - pad.r}" y1="${y(t)}" y2="${y(t)}" stroke="#eae5e1"/><text x="${pad.l - 8}" y="${y(t) + 4}" text-anchor="end">${t}</text>`;
+      const bw = iw / vals.length, mw = Math.min(44, bw - 6);
+      vals.forEach((v, i) => {
+        const x = pad.l + bw * i + (bw - mw) / 2, yy = y(v), bh = pad.t + ih - yy, r = Math.min(4, bh);
+        if (v) out += `<path d="M${x} ${yy + bh}V${yy + r}Q${x} ${yy} ${x + r} ${yy}H${x + mw - r}Q${x + mw} ${yy} ${x + mw} ${yy + r}V${yy + bh}Z" fill="${i === sel ? "#371e28" : "#c9bcb7"}"/>`;
+        if (i === sel) out += `<text class="v" x="${x + mw / 2}" y="${yy - 6}" text-anchor="middle">${v}</text>`;
+        out += `<text x="${x + mw / 2}" y="${h - 6}" text-anchor="middle">${monShort(MONTHS[i])}</text>`;
+        out += `<rect class="bar-hit" x="${pad.l + bw * i}" y="${pad.t}" width="${bw}" height="${ih}" fill="transparent" data-month="${MONTHS[i]}" data-tip="${monLong(MONTHS[i])}: ${plural(v)}"/>`;
       });
+      return out + "</svg>";
     }
 
-    function recomputeStats() {
+    const PIE_COLOURS = ["#371e28", "#7e6765", "#c9bcb7"], PIE_OTHER = "#eae5e1";
+    function packPie() {
+      const paid = paidOrders();
+      const first = paid.reduce((m, o) => { const k = ymOf(o.created_at); return k < m ? k : m; }, THIS_MONTH);
+      // A pack keeps its colour in every view: it comes from the all-time ranking.
+      const tally = (list) => { const m = new Map(); list.forEach((o) => m.set(o.pack_title, (m.get(o.pack_title) || 0) + 1)); return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
+      const colour = new Map(tally(paid).map(([p], i) => [p, PIE_COLOURS[i] || PIE_OTHER]));
+      const rows = tally(S.pie === "all" ? paid : paid.filter((o) => ymOf(o.created_at) === S.pieMonth));
+      const total = rows.reduce((t, r) => t + r[1], 0);
+      const ctrl = `<div class="po-cbar">${S.pie === "month" ? `<div class="mnav"><button type="button" data-pm="-1" aria-label="Earlier month"${S.pieMonth > first ? "" : " disabled"}>‹</button><span>${monLong(S.pieMonth)}</span><button type="button" data-pm="1" aria-label="Later month"${S.pieMonth < THIS_MONTH ? "" : " disabled"}>›</button></div>` : ""}<div class="tog" role="group" aria-label="Period"><button type="button" data-pie="month" aria-pressed="${S.pie === "month"}">Monthly</button><button type="button" data-pie="all" aria-pressed="${S.pie === "all"}">All time</button></div></div>`;
+      if (!total) return { ctrl, body: `<div class="empty">${S.pie === "all" ? "No orders yet." : "No orders in that month."}</div>`, total };
+      const pc = (v) => Math.round(v / total * 100) + "%";
+      const named = rows.filter(([p]) => colour.get(p) !== PIE_OTHER), rest = rows.filter(([p]) => colour.get(p) === PIE_OTHER);
+      const slices = named.map(([p, v]) => [p, v, colour.get(p)]);
+      if (rest.length) slices.push([rest.length === 1 ? rest[0][0] : "Other packs", rest.reduce((t, r) => t + r[1], 0), PIE_OTHER]);
+      const c = 100, r = 96;
+      let a = -Math.PI / 2, svg = `<svg class="pie" viewBox="0 0 200 200" role="img" aria-label="${esc(rows.map(([p, v]) => p + " " + v).join(", "))}">`;
+      slices.forEach(([p, v, f]) => {
+        const tip = `${p}: ${plural(v)}, ${pc(v)}`, line = f === PIE_OTHER ? "#c9bcb7" : "#fff";
+        if (slices.length === 1) { svg += `<circle cx="${c}" cy="${c}" r="${r}" fill="${f}" stroke="${line}" data-tip="${esc(tip)}"/>`; return; }
+        const b = a + v / total * 2 * Math.PI, x1 = c + r * Math.cos(a), y1 = c + r * Math.sin(a), x2 = c + r * Math.cos(b), y2 = c + r * Math.sin(b);
+        svg += `<path d="M${c} ${c}L${x1.toFixed(2)} ${y1.toFixed(2)}A${r} ${r} 0 ${b - a > Math.PI ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}Z" fill="${f}" stroke="${line}" stroke-width="2" data-tip="${esc(tip)}"/>`;
+        a = b;
+      });
+      svg += "</svg>";
+      const legend = rows.map(([p, v]) => `<div class="po-lg"><i style="background:${colour.get(p)}${colour.get(p) === PIE_OTHER ? ";box-shadow:inset 0 0 0 1px #c9bcb7" : ""}"></i><span>${esc(p)}</span><span class="num">${v}</span><span class="num tx">${pc(v)}</span></div>`).join("");
+      return { ctrl, body: `<div class="po-pie-row">${svg}<div class="po-legend">${legend}</div></div>`, total };
+    }
+    function drawCharts() {
+      const pie = packPie();
+      return `<div class="po-charts"><div class="section"><div class="strip"><div class="strip-t">Orders per month</div><span class="aside">Last six months</span></div><div class="chart">${ordersBars()}</div></div><div class="section"><div class="strip"><div class="strip-t">Packs ordered</div><span class="aside">${plural(pie.total)}</span></div><div class="chart">${pie.ctrl}${pie.body}</div></div></div>`;
+    }
+
+    /* ---- The three tabs ---- */
+    function drawOrders() {
+      const list = orders(), paid = paidOrders(), now = Date.now(), last30 = paid.filter((o) => now - new Date(o.created_at).getTime() < 30 * 86400000);
+      const q = S.oq.trim().toLowerCase();
+      const rows = list.filter((o) => (S.status === "all" || o.status === S.status) && (!q || [o.buyer_name, o.buyer_company, o.buyer_email, o.invoice_number, o.pack_title].join(" ").toLowerCase().includes(q)));
+      const chips = [["all", "All", list.length], ...Object.keys(STATUS).map((k) => [k, STATUS[k][0], list.filter((o) => o.status === k).length])];
+      return `<div class="figs">${fig("dark", gbp(sum(last30)), "Revenue, last 30 days")}${fig("lin", last30.length, "Orders, last 30 days")}${fig("lin", gbp(sum(paid)), "Revenue, all time")}${fig("lin", paid.length, "Orders, all time")}</div>
+      ${drawCharts()}
+      <div class="bar">${find("oq", "Search buyer, email, invoice", S.oq)}<div class="chips" role="group" aria-label="Status">${chips.map(([k, l, c]) => `<button type="button" data-status="${k}" aria-pressed="${S.status === k}">${l} <i>${c}</i></button>`).join("")}</div></div>
+      <div class="section"><div class="strip"><div class="strip-t">Orders</div><span class="aside">${plural(rows.length)}</span></div>
+      ${rows.length ? `<div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Date</th><th>Invoice</th><th>Buyer</th><th>Company</th><th>Pack</th><th class="num">Net</th><th>Status</th></tr></thead><tbody>${rows.map((o) => `<tr class="click" data-order="${esc(o.id)}" tabindex="0"><td class="tx">${when(o.created_at)}</td><td class="tx">${esc(o.invoice_number || "—")}</td><td>${esc(o.buyer_name)}</td><td class="tx">${esc(o.buyer_company || "—")}</td><td>${esc(o.pack_title)}</td><td class="num">${gbp(net(o))}</td><td><span class="chip ${(STATUS[o.status] || ["", "plain"])[1]}">${esc((STATUS[o.status] || [o.status])[0])}</span></td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No orders match that.</div>'}</div>`;
+    }
+
+    function drawTop() {
       const now = Date.now();
-      const THIRTY = 30 * 24 * 60 * 60 * 1000;
-      let rev30 = 0, ord30 = 0, revLife = 0, ordLife = 0;
-      for (const r of all) {
-        if (r.status !== "paid") continue;
-        revLife += r.amount_pence || 0;
-        ordLife += 1;
-        const ts = new Date(r.created_at).getTime();
-        if (now - ts < THIRTY) {
-          rev30 += r.amount_pence || 0;
-          ord30 += 1;
-        }
+      const inWin = paidOrders().filter((o) => S.win === "all" || now - new Date(o.created_at).getTime() < Number(S.win) * 86400000);
+      const map = new Map();
+      inWin.forEach((o) => {
+        const key = String(o.buyer_email || "").trim().toLowerCase(); if (!key) return;
+        const r = map.get(key) || { name: o.buyer_name, company: o.buyer_company || "", email: o.buyer_email, count: 0, spend: 0, last: o.created_at };
+        r.count++; r.spend += net(o); if (o.created_at > r.last) r.last = o.created_at; if (!r.company && o.buyer_company) r.company = o.buyer_company;
+        map.set(key, r);
+      });
+      const all = [...map.values()].sort((a, b) => b.spend - a.spend || b.count - a.count);
+      const q = S.tq.trim().toLowerCase();
+      const rows = all.map((r, i) => ({ ...r, rank: i + 1 })).filter((r) => !q || [r.name, r.company, r.email].join(" ").toLowerCase().includes(q));
+      const total = all.reduce((t, r) => t + r.spend, 0), count = all.reduce((t, r) => t + r.count, 0);
+      const wins = [["30", "Last 30 days"], ["60", "Last 60 days"], ["90", "Last 90 days"], ["all", "All time"]];
+      return `<div class="figs">${fig("dark", gbp(total), "Revenue in this period")}${fig("lin", all.length, "Customers")}${fig("lin", count, "Orders")}${fig("lin", all.length ? gbp(Math.round(total / all.length)) : "—", "Average per customer")}</div>
+      <div class="bar">${find("tq", "Search name, email, company", S.tq)}<div class="chips" role="group" aria-label="Period">${wins.map(([k, l]) => `<button type="button" data-win="${k}" aria-pressed="${S.win === k}">${l}</button>`).join("")}</div></div>
+      <div class="section"><div class="strip"><div class="strip-t">Top customers</div><span class="aside">Highest spend first</span></div>
+      ${rows.length ? `<div class="tablewrap" data-lenis-prevent><table><thead><tr><th class="num">Rank</th><th>Customer</th><th>Company</th><th>Email</th><th class="num">Packs</th><th class="num">Spend</th><th>Last order</th></tr></thead><tbody>${rows.map((r) => `<tr><td class="num tx">${r.rank}</td><td>${esc(r.name)}</td><td class="tx">${esc(r.company || "—")}</td><td class="tx">${esc(r.email)}</td><td class="num">${r.count}</td><td class="num">${gbp(r.spend)}</td><td class="tx">${when(r.last)}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No customers in that period.</div>'}</div>`;
+    }
+
+    function drawGifted() {
+      const list = gifts(), q = S.gq.trim().toLowerCase();
+      const rows = list.filter((g) => !q || [g.buyer_name, g.buyer_email, g.pack_title].join(" ").toLowerCase().includes(q));
+      const people = new Set(list.map((g) => String(g.buyer_email || "").toLowerCase())).size;
+      const month = list.filter((g) => ymOf(g.created_at) === THIS_MONTH).length;
+      return `<div class="figs">${fig("dark", list.length, "Packs gifted")}${fig("lin", people, "People gifted to")}${fig("lin", month, `Gifted in ${LONG[Number(THIS_MONTH.slice(5)) - 1]}`)}</div>
+      <div class="bar">${find("gq", "Search name, email, pack", S.gq)}<div class="mo-acts" style="margin-left:auto"><button type="button" class="mbtn primary" id="gift-open">Gift a pack</button></div></div>
+      <div class="section"><div class="strip"><div class="strip-t">Gifted packs</div><span class="aside">${rows.length} ${rows.length === 1 ? "gift" : "gifts"}</span></div>
+      ${rows.length ? `<div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Date</th><th>Gifted to</th><th>Email</th><th>Pack</th><th class="num"></th></tr></thead><tbody>${rows.map((g) => `<tr><td class="tx">${when(g.created_at)}</td><td>${esc(g.buyer_name)}</td><td class="tx">${esc(g.buyer_email)}</td><td>${esc(g.pack_title)}</td><td class="num"><button type="button" class="mbtn danger" data-take="${esc(g.id)}">Take back</button></td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No gifts match that.</div>'}</div>`;
+    }
+
+    function draw() {
+      $("po-sub").textContent = SUBS[S.tab];
+      document.querySelectorAll(".po-tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === S.tab));
+      if (!READY) return;
+      $("po-main").innerHTML = S.tab === "orders" ? drawOrders() : S.tab === "top" ? drawTop() : drawGifted();
+    }
+    function show(t) {
+      S.tab = ["orders", "top", "gifted"].includes(t) ? t : "orders";
+      if (location.hash.slice(1) !== S.tab) history.replaceState(null, "", location.pathname + location.search + "#" + S.tab);
+      draw();
+    }
+
+    /* ---- Pop-outs ---- */
+    function pop(eye, title, body, foot) {
+      $("po-pop").innerHTML = `<div class="scrim" id="po-scrim"><div class="pop" role="dialog" aria-modal="true" aria-label="${esc(eye)}"><div class="pop-h"><div><p class="mo-eye" style="margin:0">${esc(eye)}</p><div class="pop-title">${esc(title)}</div></div><button type="button" class="x" data-close aria-label="Close">×</button></div><div class="pop-b" data-lenis-prevent>${body}</div><div class="pop-f">${foot}</div></div></div>`;
+      fitScrim();
+    }
+    const closePop = () => { $("po-pop").innerHTML = ""; };
+    addEventListener("resize", fitScrim);
+
+    function openOrder(id) {
+      const o = ALL.find((x) => x.id === id); if (!o) return;
+      const m = split(o), line = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`, st = STATUS[o.status] || [o.status, "plain"];
+      const acts = { paid: [["refunded", "Mark refunded", "danger"]], pending: [["failed", "Mark failed", "danger"], ["paid", "Mark paid", ""]], refunded: [["paid", "Mark paid", ""]], failed: [["paid", "Mark paid", ""]] }[o.status] || [];
+      const note = { paid: "Paid, so this pack is in their library. Marking it refunded takes it out.", pending: "Not paid yet, so this pack isn't in their library.", refunded: "Refunded, so this pack is no longer in their library.", failed: "The payment failed, so this pack isn't in their library." }[o.status] || "";
+      pop("Order", o.invoice_number || "Order", `<dl class="rows">${line("Placed", when(o.created_at))}${line("Pack", esc(o.pack_title))}${line("Net", gbp(m.net))}${line("VAT", gbp(m.vat))}${line("Total", gbp(m.gross))}${line("Status", `<span class="chip ${st[1]}">${esc(st[0])}</span>`)}${line("Buyer", esc(o.buyer_name))}${line("Email", esc(o.buyer_email))}${line("Phone", esc(o.buyer_phone || "—"))}${line("Company", esc(o.buyer_company || "—"))}${line("Payment", esc(PAY[o.payment_method] || o.payment_method || "—") + (o.payment_ref ? ` · ${esc(o.payment_ref)}` : ""))}</dl><p>${note}</p>`,
+        acts.map(([k, l, c]) => `<button type="button" class="mbtn ${c}" data-set="${k}" data-id="${esc(o.id)}">${l}</button>`).join("") + (o.status === "paid" ? `<button type="button" class="mbtn primary" data-invoice="${esc(o.id)}">Download invoice</button>` : ""));
+    }
+    async function setStatus(o, status, done) {
+      document.querySelectorAll("#po .pop-f button").forEach((b) => (b.disabled = true));
+      // .select() so a save the database turned down can't look like it worked.
+      const { data, error } = await supabase.from("orders").update({ status }).eq("id", o.id).select("id");
+      if (error || !data || !data.length) { document.querySelectorAll("#po .pop-f button").forEach((b) => (b.disabled = false)); toast("That didn't save. Please try again."); return; }
+      o.status = status; closePop(); draw(); toast(done);
+    }
+    async function downloadInvoice(o) {
+      // Opened before anything is awaited, or the browser treats it as an unasked-for pop-up.
+      const w = window.open("", "_blank", "width=880,height=1000");
+      if (!w) { toast("Your browser blocked the invoice. Allow pop-ups for this site and try again."); return; }
+      try {
+        const { renderInvoiceHtml } = await import("../../lib/invoice-render.js");
+        const { data: settings } = await supabase.from("invoice_settings").select("*").limit(1).maybeSingle();
+        const issued = new Date(o.created_at).toISOString().slice(0, 10), m = split(o);
+        w.document.write(renderInvoiceHtml({
+          settings: { ...(settings || {}), show_bank: false },
+          invoice: { number: o.invoice_number || "", issued_date: issued, paid_date: issued, status: o.status, payment_method: o.payment_method, bill_to_name: o.buyer_name || "", bill_to_email: o.buyer_email || "", bill_to_address: o.buyer_company || "", line_items: [{ description: o.pack_title || "TMKE pack", qty: 1, unit_pence: m.net }], subtotal_pence: m.net, vat_pence: m.vat, total_pence: m.gross },
+        }));
+        w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
+      } catch (_) { w.close(); toast("Couldn't build the invoice. Please try again."); }
+    }
+
+    function openGift() {
+      const emails = [...new Set(ALL.map((o) => String(o.buyer_email || "").toLowerCase()).filter(Boolean))].sort();
+      pop("Gifted", "Gift a pack", `<p>The pack goes straight into their library at no charge. It won't count as an order.</p><label class="field"><span>Pack</span><select id="g-pack"><option value="">Choose a pack</option>${PACKS.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join("")}</select></label><label class="field"><span>Their email</span><input type="email" id="g-email" list="g-emails" placeholder="name@company.co.uk" autocomplete="off"><datalist id="g-emails">${emails.map((e) => `<option value="${esc(e)}"></option>`).join("")}</datalist></label><label class="field"><span>Their name</span><input type="text" id="g-name" autocomplete="off"></label><p class="err" id="g-err" hidden></p>`,
+        `<button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" id="gift-go">Gift this pack</button>`);
+    }
+    async function giveGift(btn) {
+      const pack = PACKS.find((p) => p.id === $("g-pack").value);
+      btn.disabled = true; btn.textContent = "Gifting…";
+      const { order, error } = await giftPack(pack, $("g-email").value, $("g-name").value);
+      if (error) { btn.disabled = false; btn.textContent = "Gift this pack"; const x = $("g-err"); x.textContent = error; x.hidden = false; return; }
+      ALL.unshift(order); closePop(); draw(); toast(`${pack.title} gifted to ${order.buyer_name}.`);
+    }
+    function askTake(id) {
+      const g = ALL.find((x) => x.id === id); if (!g) return;
+      pop("Gifted", "Take this gift back", `<p>${esc(g.pack_title)} will come out of ${esc(g.buyer_name)}'s library.</p>`, `<button type="button" class="mbtn" data-close>Keep the gift</button><button type="button" class="mbtn primary" data-take-yes="${esc(g.id)}">Take it back</button>`);
+    }
+
+    /* ---- Clicks ---- */
+    $("po").addEventListener("click", (e) => {
+      const t = e.target, c = (s) => t.closest && t.closest(s);
+      let b;
+      if (c("[data-close]") || t.id === "po-scrim") { closePop(); return; }
+      if ((b = c("[data-tab]"))) { show(b.dataset.tab); return; }
+      if ((b = c("[data-status]"))) { S.status = b.dataset.status; draw(); return; }
+      if ((b = c("[data-win]"))) { S.win = b.dataset.win; draw(); return; }
+      if ((b = c("[data-pie]"))) { S.pie = b.dataset.pie; draw(); return; }
+      if ((b = c("[data-pm]"))) { S.pieMonth = ymAdd(S.pieMonth, Number(b.dataset.pm)); draw(); return; }
+      if ((b = c("[data-month]"))) { S.pie = "month"; S.pieMonth = b.dataset.month; draw(); return; }
+      if ((b = c("[data-set]"))) { const o = ALL.find((x) => x.id === b.dataset.id); setStatus(o, b.dataset.set, `${o.invoice_number || "Order"} marked ${STATUS[b.dataset.set][0].toLowerCase()}.`); return; }
+      if ((b = c("[data-invoice]"))) { downloadInvoice(ALL.find((x) => x.id === b.dataset.invoice)); return; }
+      if (c("#gift-open")) { openGift(); return; }
+      if ((b = c("#gift-go"))) { giveGift(b); return; }
+      if ((b = c("[data-take]"))) { askTake(b.dataset.take); return; }
+      if ((b = c("[data-take-yes]"))) { const g = ALL.find((x) => x.id === b.dataset.takeYes); setStatus(g, "refunded", `${g.pack_title} taken back from ${g.buyer_name}.`); return; }
+      if ((b = c("tr[data-order]"))) { openOrder(b.dataset.order); return; }
+    });
+    $("po").addEventListener("input", (e) => {
+      const id = e.target.id;
+      if (id !== "oq" && id !== "tq" && id !== "gq") return;
+      S[id] = e.target.value; draw();
+      const el = $(id); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closePop();
+      if (e.key === "Enter" && e.target.matches && e.target.matches("tr[data-order]")) openOrder(e.target.dataset.order);
+    });
+    document.addEventListener("mousemove", (e) => {
+      const tg = e.target.closest && e.target.closest("#po [data-tip]"), tip = $("po-tip");
+      if (!tg) { tip.hidden = true; return; }
+      tip.textContent = tg.getAttribute("data-tip"); tip.hidden = false;
+      tip.style.left = Math.max(8, Math.min(innerWidth - tip.offsetWidth - 8, e.clientX + 12)) + "px";
+      tip.style.top = Math.max(8, e.clientY - 36) + "px";
+    });
+    addEventListener("hashchange", () => show(location.hash.slice(1)));
+
+    // Every read stops at 1,000 rows, so this pages until it has them all.
+    async function readOrders() {
+      const out = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from("orders").select("*").order("created_at", { ascending: false }).range(from, from + 999);
+        if (error) throw error;
+        out.push(...(data || []));
+        if (!data || data.length < 1000) return out;
       }
-      const set = (k, v) => {
-        const el = document.querySelector(`[data-stat="${k}"]`);
-        if (el) el.textContent = v;
-      };
-      set("rev30", gbpFromPence(rev30));
-      set("ord30", String(ord30));
-      set("revLife", gbpFromPence(revLife));
-      set("ordLife", String(ordLife));
     }
 
-    let current = null;
-
-    function openDetail(id) {
-      const row = all.find((r) => r.id === id);
-      if (!row) return;
-      current = row;
-      const modal = document.getElementById("order-modal");
-      const detail = document.getElementById("order-detail");
-      const title = document.getElementById("order-modal-title");
-      if (!modal || !detail || !title) return;
-      title.textContent = row.invoice_number || "Order";
-      detail.innerHTML = `
-        <dl>
-          <dt>Placed</dt><dd>${new Date(row.created_at).toLocaleString("en-GB")}</dd>
-          <dt>Pack</dt><dd>${escapeHtml(row.pack_title)}</dd>
-          <dt>Amount</dt><dd>${gbpFromPence(row.amount_pence)}</dd>
-          <dt>Status</dt><dd><span class="enquiry-status-pill is-${row.status}">${STATUS_LABEL[row.status] || row.status}</span></dd>
-          <dt>Buyer</dt><dd>${escapeHtml(row.buyer_name)}</dd>
-          <dt>Email</dt><dd><a href="mailto:${row.buyer_email}">${escapeHtml(row.buyer_email)}</a></dd>
-          <dt>Phone</dt><dd>${row.buyer_phone ? `<a href="tel:${row.buyer_phone}">${escapeHtml(row.buyer_phone)}</a>` : "—"}</dd>
-          <dt>Company</dt><dd>${escapeHtml(row.buyer_company || "—")}</dd>
-          <dt>Payment</dt><dd>${PAY_LABEL[row.payment_method] || row.payment_method}${row.payment_ref ? ` &middot; ${escapeHtml(row.payment_ref)}` : ""}</dd>
-        </dl>
-      `;
-      modal.hidden = false;
-    }
-
-    function closeDetail() {
-      const modal = document.getElementById("order-modal");
-      if (modal) modal.hidden = true;
-      current = null;
-    }
-
-    async function changeStatus(status) {
-      if (!current) return;
-      const id = current.id;
-      const { error } = await supabase.from("orders").update({ status }).eq("id", id);
-      if (error) {
-        alert("Couldn't update status: " + error.message);
-        return;
-      }
-      const row = all.find((r) => r.id === id);
-      if (row) row.status = status;
-      recomputeStats();
-      applyFilter();
-      closeDetail();
-    }
-
+    show(location.hash.slice(1) || "orders");
     (async () => {
       const session = await requireAdmin();
       if (!session) return;
-
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      const loading = document.getElementById("order-loading");
-      if (loading) loading.hidden = true;
-      const listEl = document.getElementById("order-list");
-      if (listEl) listEl.removeAttribute("aria-busy");
-
-      if (error) {
-        if (loading) {
-          loading.hidden = false;
-          loading.textContent = "Could not load orders: " + error.message;
-        }
-        return;
+      isManagementUser(session.user).then((yes) => { $("po-rev").hidden = !yes; });
+      try {
+        const [rows, packs] = await Promise.all([readOrders(), supabase.from("packs").select("id, slug, title").eq("status", "active").order("title", { ascending: true })]);
+        if (packs.error) throw packs.error;
+        ALL = rows; PACKS = packs.data || []; READY = true;
+        $("po-state").hidden = true; $("po-main").hidden = false;
+        draw();
+      } catch (e) {
+        const s = $("po-state"); s.textContent = "The orders didn't load. Refresh to try again."; s.classList.add("bad");
       }
-
-      all = data || [];
-      recomputeStats();
-      applyFilter();
-
-      document.getElementById("order-filters")?.addEventListener("click", (e) => {
-        const btn = e.target.closest(".enquiry-chip");
-        if (!btn) return;
-        document.querySelectorAll("#order-filters .enquiry-chip").forEach((c) => c.classList.remove("is-active"));
-        btn.classList.add("is-active");
-        activeFilter = btn.getAttribute("data-filter") || "all";
-        applyFilter();
-      });
-
-      document.getElementById("order-search")?.addEventListener("input", (e) => {
-        search = e.target.value || "";
-        applyFilter();
-      });
-
-      document.getElementById("order-modal-close")?.addEventListener("click", closeDetail);
-      document.getElementById("order-modal")?.addEventListener("click", (e) => {
-        if (e.target instanceof HTMLElement && e.target.id === "order-modal") closeDetail();
-      });
-      document.querySelectorAll(".modal-foot [data-status]").forEach((btn) => {
-        btn.addEventListener("click", () => changeStatus(btn.getAttribute("data-status")));
-      });
     })();
   </script>
 </AdminShell>
