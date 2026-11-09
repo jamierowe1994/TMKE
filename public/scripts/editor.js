@@ -2769,6 +2769,25 @@ import { createResizeEngine } from "./resize-engine.js";
         if (el && el.y === 0 && el.h === 1350 && (el.type === "image" || el.type === "rect" || el.type === "frame")) el.h = 1440;
       });
     };
+    /* A design with one page chosen at 1080x1350 is that size throughout: a
+       page added before addPage carried the mark was upgraded on its own and
+       came out taller than the rest (Dani, 9 Nov). */
+    const chosen = (state.pages || []).some((p) => p && p.canvas && (p.canvas.sizeChosen || p.canvas.mockup)
+      && p.canvas.width === 1080 && p.canvas.height === 1350);
+    if (chosen) {
+      // A page that bug already stretched to 1440 goes back to the design's size.
+      (state.pages || []).forEach((p) => {
+        const cv = p && p.canvas;
+        if (!cv || cv.sizeChosen || cv.mockup || cv.width !== 1080 || cv.height !== 1440) return;
+        cv.height = 1350;
+        (p.elements || []).forEach((el) => {
+          if (el && el.y === 0 && el.h === 1440 && (el.type === "image" || el.type === "rect" || el.type === "frame")) el.h = 1350;
+        });
+      });
+      (state.pages || []).forEach((p) => { if (p && p.canvas && p.canvas.width === 1080 && p.canvas.height === 1350) p.canvas.sizeChosen = true; });
+      if (state.canvas && state.canvas.width === 1080 && state.canvas.height === 1350) state.canvas.sizeChosen = true;
+      return;
+    }
     fix(state.canvas, state.elements);
     (state.pages || []).forEach((p) => fix(p.canvas, p.elements));
   }
@@ -3048,7 +3067,10 @@ import { createResizeEngine } from "./resize-engine.js";
     state.pages.splice(state.currentPage + 1, 0, {
       id: uid("page"), name: "Page " + (state.pages.length + 1),
       // A mockup's pages are all mockups (Dani, 24 Oct: page 2 lost the option).
-      canvas: Object.assign({ width: cur.width, height: cur.height, background: cur.background }, cur.mockup ? { mockup: true } : {}),
+      // The same size as the page it follows, marked chosen like it, or the
+      // 1080x1350 upgrade below turned a new page 1080x1440 (Dani, 9 Nov).
+      canvas: Object.assign({ width: cur.width, height: cur.height, background: cur.background },
+        cur.mockup ? { mockup: true } : {}, cur.sizeChosen ? { sizeChosen: true } : {}, cur.brand ? { brand: cur.brand } : {}),
       elements: [],
     });
     loadPage(state.currentPage + 1);
