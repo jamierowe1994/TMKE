@@ -6556,7 +6556,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const askDesign = () => (typeof (window as any).__TMKE_DESIGN_BRAND__ === 'function' ? (window as any).__TMKE_DESIGN_BRAND__() : null);
       let made = askDesign();
       for (let i = 0; i < 20 && !made; i++) { await new Promise((r) => setTimeout(r, 150)); made = askDesign(); }
-      let at = made ? list.findIndex((b) => b.brand === made) : -1;
+      // Opened from a Content calendar month, its brand wins, so nobody has to
+      // change it design by design (Dani, 9 Nov).
+      const calBrand = (new URLSearchParams(location.search).get('ccbrand') || '').toLowerCase();
+      const calAt = calBrand ? list.findIndex((b) => String(b.brand).toLowerCase() === calBrand) : -1;
+      let at = calAt >= 0 ? calAt : (made ? list.findIndex((b) => b.brand === made) : -1);
       if (at < 0) at = 0; else apply(at);
       pick.value = String(at);
       pick.addEventListener('change', () => apply(+pick.value));

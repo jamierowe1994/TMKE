@@ -14,6 +14,10 @@ export const EDITIONS = [
   { key: "independent", label: "Independent agents" },
   { key: "lettings", label: "The Lettings Experts" },
 ];
+// The brand kit a design opens in, from the month it belongs to (Dani, 9 Nov).
+// Independent agents have no brand of their own, so nothing is set for them.
+export const EDITION_BRAND = { property: "The Property Experts", prestige: "Prestige Property Experts", lettings: "The Letting Experts" };
+
 export const editionLabel = (k) => (EDITIONS.find((e) => e.key === k) || {}).label || k;
 
 export const POST_TYPES = [

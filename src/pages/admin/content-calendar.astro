@@ -505,12 +505,14 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     import { escapeHtml as esc } from '../../lib/design-preview.js';
     import { upcomingDays } from '../../data/content-calendar.js';
     import {
-      EDITIONS, editionLabel, POST_TYPES, PLATFORMS, MAX_CAPTIONS, PILLARS, weekdaysOf, MONTHS_MISSING,
+      EDITIONS, editionLabel, EDITION_BRAND, POST_TYPES, PLATFORMS, MAX_CAPTIONS, PILLARS, weekdaysOf, MONTHS_MISSING,
     } from '../../lib/content-months.js';
 
     const DEV = import.meta.env.DEV;
     const $ = (id) => document.getElementById(id);
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+    // Opens the Studio in the brand of the month being worked on.
+    const brandParam = () => { const b = CUR && EDITION_BRAND[CUR.edition]; return b ? `&ccbrand=${encodeURIComponent(b)}` : ''; };
 
     let MONTHS = [];        // every month, every edition
     let POSTS = [];         // the open month's posts
@@ -923,7 +925,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         post.template_id = copy;
         id = copy;
       }
-      location.href = `/account/editor?id=${encodeURIComponent(id)}&mode=admin&ccnote=${post.id}`;
+      location.href = `/account/editor?id=${encodeURIComponent(id)}&mode=admin&ccnote=${post.id}${brandParam()}`;
     }
 
     // Read the drawer into a patch for the open post.
@@ -1146,7 +1148,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         const { error: e2 } = await supabase.from('content_month_posts').update({ template_id: id }).eq('id', NEW_FOR.id);
         if (e2) { alert(`The template was made, but couldn't be linked to the post: ${e2.message}`); }
       }
-      location.href = `/account/editor?id=${encodeURIComponent(id)}&mode=admin&title=${encodeURIComponent(name)}${NEW_FOR ? `&ccnote=${NEW_FOR.id}` : ''}`;
+      location.href = `/account/editor?id=${encodeURIComponent(id)}&mode=admin&title=${encodeURIComponent(name)}${NEW_FOR ? `&ccnote=${NEW_FOR.id}` : ''}${brandParam()}`;
     }
 
     // ---- Months ----
