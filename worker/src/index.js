@@ -957,6 +957,28 @@ function aiModel(env, job) {
 // Opus 5 and up and Sonnet 5.5 get the server-side fallback: a request one
 // model declines is answered by another rather than failing. When the credit
 // has run out, Danielle is told before the failure goes back to the caller.
+// Universal caption rules for estate-agent social media (client-supplied).
+// Edit this list to tune the house style; nothing else needs to change.
+const CAPTION_RULES = [
+  "You are writing a social-media caption (Instagram/Facebook) AS a knowledgeable LOCAL UK estate agent - not a marketer, not an AI. The reader should feel they're hearing from a real agent with genuine experience and knowledge of their area. Build familiarity, trust and engagement.",
+  "LENGTH: aim for 80 to 180 words. Go longer only for educational or advice content where extra explanation genuinely adds value; keep announcements, property launches and market updates shorter. Never pad to hit a word count - every sentence must earn its place.",
+  "STRUCTURE (natural, never formulaic): a natural attention-catching opening, then the main message or story, then supporting context or value, then ONE clear call to action. Do not open every caption with a question or reuse the same opening style.",
+  "TONE: write as if speaking directly to a client, in everyday language, confident but not promotional or corporate. Service-led content (property marketing, valuations, market updates, business announcements) should be more confident and informative, focused on expertise, process and value. Personal or community content (lifestyle, behind-the-scenes, community features, local recommendations) should be more relaxed and conversational, focused on personality, local knowledge and relationships.",
+  "PUNCTUATION: do NOT use em dashes anywhere; use commas or full stops instead. Limit exclamation marks. Avoid excessive ellipses.",
+  "EMOJI: only use an emoji if it genuinely suits the tone of the post. Use AT MOST ONE in the whole caption; zero is completely fine; never more than one.",
+  "AVOID AI-sounding language. Never use: in today's market; in today's world; ever wondered; here's why; game changer; unlock; elevate; leverage; delve; imagine this; whether you're…; it's not just… it's…; at the end of the day; rest assured; needless to say; without further ado; next level; revolutionary; cutting-edge; seamless; dynamic; powerful solution; transform your…; maximise your potential. Choose wording that sounds like natural conversation.",
+  "USE ESTATE-AGENCY CLICHÉS SPARINGLY (only where genuinely natural): dream home; forever home; your next chapter; making memories; perfect property; property journey; exceptional service; trusted experts; market-leading; bespoke service; award-winning team. Prefer fresher, more authentic alternatives.",
+  "FORMATTING: short readable paragraphs, mostly two to three sentences. Use a single-sentence paragraph only deliberately, for emphasis or a question. Do not start a new paragraph after every sentence and do not write large blocks of text. Space it as a person naturally would.",
+  "CALL TO ACTION: finish with ONE clear, relevant CTA that reads as a natural conclusion (e.g. ask a genuine question, invite opinions or local recommendations, invite direct messages or enquiries, invite a valuation booking, encourage arranging a viewing, or offer advice). Not tacked on for its own sake.",
+  "ENGAGEMENT: encourage genuine conversation with questions people would naturally want to answer. Never use engagement bait such as 'comment YES', 'tag three friends', 'smash the like button', 'don't forget to like and follow'.",
+  "AUTHENTICITY: write honestly, with no exaggerated claims, and not overly sales-focused unless the post is specifically promotional.",
+  "LOCAL RELEVANCE: reference the local area naturally only where it fits (schools, parks, businesses, landmarks, community events). NEVER invent local information, prices, names or any detail you were not given; only use facts provided.",
+  "GRAMMAR: British English. Use contractions naturally (you're, we're, it's, don't). Keep spelling, grammar and punctuation accurate. Write numbers naturally within sentences.",
+  "READABILITY: clear, conversational and easy to read. Prefer straightforward language. Vary sentence length for a natural rhythm; do not make every sentence the same length.",
+  "VARIETY: write the caption as its own original piece - vary the opening, sentence structure and closing rather than following a template.",
+  "FINAL CHECK before answering: does this sound like a real local estate agent rather than AI? Is every sentence adding value? Is the tone right for the content type? Is there exactly one clear CTA? Are the paragraphs naturally formatted? Have clichés and AI language been avoided? Would someone enjoy reading this on Facebook or Instagram? If any answer is no, rewrite it until it feels natural, authentic and human.",
+].join("\n- ");
+
 async function aiFetch(env, job, body) {
   const model = aiModel(env, job);
   const fallback = /^claude-(opus-5|sonnet-5-5|fable-5)/.test(model);
@@ -9101,6 +9123,68 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
       // Two routes: a structured PROPERTY post, or a free-form "what's it about".
       // The voice rules live in CAPTION_RULES so the client's own captioning
       // guidelines can be dropped in later without touching the wiring.
+      // ---- Admin: Claude drafts a Content calendar post's words (Dani, 9 Nov) -----
+      // Reads the design (its picture and the words on it), the title and the team's
+      // note. It only returns a draft: the page saves it, and only into empty boxes.
+      if (path.endsWith("/calendar/draft-words") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured - set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.post_id) || "").trim();
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Post not found." }, 404, request, env);
+        const post = (await sbGet(env, "content_month_posts", `id=eq.${id}&select=title,post_type,pillar,note,occasion,date_tied,template_id,month_id&limit=1`))?.[0];
+        if (!post) return json({ error: "Post not found." }, 404, request, env);
+        if (!post.template_id) return json({ error: "Link a design first. Claude reads it to write the words." }, 400, request, env);
+        const tpl = (await sbGet(env, "templates", `id=eq.${encodeURIComponent(post.template_id)}&select=name,thumb_url,elements,pages&limit=1`))?.[0];
+        if (!tpl) return json({ error: "That post's design couldn't be found." }, 404, request, env);
+        const month = (await sbGet(env, "content_months", `id=eq.${post.month_id}&select=intro&limit=1`))?.[0];
+        const pages = Array.isArray(tpl.pages) && tpl.pages.length ? tpl.pages : [{ elements: tpl.elements || [] }];
+        const onDesign = pages.map((pg, i) => { const words = (pg.elements || []).map((el) => el && (el.text || el.content)).filter((t) => typeof t === "string" && t.trim()).map((t) => t.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()); return words.length ? `Page ${i + 1}: ${words.join(" | ")}` : ""; }).filter(Boolean).join("\n").slice(0, 3000);
+        const content = [];
+        try {
+          if (tpl.thumb_url && /^https:/.test(tpl.thumb_url)) {
+            const pic = await fetch(tpl.thumb_url);
+            const type = (pic.headers.get("content-type") || "").split(";")[0];
+            if (pic.ok && /^image\/(jpeg|png|webp|gif)$/.test(type)) {
+              const buf = await pic.arrayBuffer();
+              if (buf.byteLength < 4500000) content.push({ type: "image", source: { type: "base64", media_type: type, data: bufToBase64(buf) } });
+            }
+          }
+        } catch (_) { /* the words on the design are still enough to draft from */ }
+        if (!content.length && !onDesign) return json({ error: "That design has no picture or words to read yet. Save it in the Studio first." }, 400, request, env);
+        const reel = post.post_type === "reel";
+        const facts = [
+          post.title ? `Post: ${post.title}` : "",
+          `Format: ${reel ? "Reel" : post.post_type === "carousel" ? "Carousel" : "Single image"}`,
+          post.pillar ? `Content pillar: ${post.pillar}` : "",
+          post.date_tied && post.occasion ? `It's for: ${post.occasion}` : "",
+          month && month.intro ? `This month is about: ${month.intro}` : "",
+          post.note ? `Note from the team: ${post.note}` : "",
+          onDesign ? `The words on the design (some may be guidance or sample text for the agent to replace):\n${onDesign}` : "",
+        ].filter(Boolean).join("\n");
+        const prompt = `TMKE writes a monthly content calendar for UK estate agents. Each post is a template the agent edits in the TMKE Studio and then posts as their own. Draft the words for this post, using the design${content.length ? " in the image" : ""} and these details.\n\n${facts}\n\nThree parts:\n\n` +
+          `what_to_film: ${reel ? "what the agent should film and say for this Reel: the shots in order, and any lines to say. Practical, short, written to the agent." : "leave this empty, it isn't a Reel."}\n\n` +
+          `how_to_edit: what the agent changes on this design before posting, based only on what's on it (for example the photo, the price, the street, the headline). Two or three short sentences, written to the agent as "you". No em dashes.\n\n` +
+          `caption: the post's caption, following these rules:\n- ${CAPTION_RULES}\n\nThe caption has to work for any agent who uses it. Where the agent's own details belong, use exactly these tags, which fill in automatically: {company name}, {area}, {website}, {agent name}, {agent first name}, {telephone}, {email}. Where the agent must type something specific, use square brackets such as [price], [street] or [school name]. Never invent a place, price, name or statistic.`;
+        content.push({ type: "text", text: prompt });
+        const schema = { type: "object", properties: { what_to_film: { type: "string" }, how_to_edit: { type: "string" }, caption: { type: "string" } }, required: ["what_to_film", "how_to_edit", "caption"], additionalProperties: false };
+        let res, out;
+        try {
+          res = await aiFetch(env, "write", { max_tokens: 2000, output_config: { format: { type: "json_schema", schema } }, messages: [{ role: "user", content }] });
+          out = await res.json().catch(() => null);
+        } catch (e) { return json({ error: "Couldn't reach Claude: " + (e.message || e) }, 502, request, env); }
+        if (!res.ok || !out) {
+          const why = (out && out.error && out.error.message) || "";
+          if (/credit balance/i.test(why)) return json({ error: "The Claude API credit has run out. Top it up at console.anthropic.com, under Billing." }, 502, request, env);
+          return json({ error: why || ("Claude said " + res.status) }, 502, request, env);
+        }
+        let r = null;
+        try { r = JSON.parse((out.content || []).filter((c) => c.type === "text").map((c) => c.text).join("")); } catch (_) {}
+        if (!r) return json({ error: "Claude didn't return a usable draft. Please try again." }, 502, request, env);
+        return json({ what_to_film: reel ? r.what_to_film : "", how_to_edit: r.how_to_edit, caption: r.caption }, 200, request, env);
+      }
+
       if (path.endsWith("/ai/caption") && request.method === "POST") {
         if (!cheapValid(request)) return json({ error: "Sign in to use AI." }, 401, request, env);
         if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured - set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
@@ -9108,27 +9192,6 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const mode = body.mode === "property" ? "property" : "general";
         const clean = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n || 200);
 
-        // Universal caption rules for estate-agent social media (client-supplied).
-        // Edit this list to tune the house style; nothing else needs to change.
-        const CAPTION_RULES = [
-          "You are writing a social-media caption (Instagram/Facebook) AS a knowledgeable LOCAL UK estate agent - not a marketer, not an AI. The reader should feel they're hearing from a real agent with genuine experience and knowledge of their area. Build familiarity, trust and engagement.",
-          "LENGTH: aim for 80 to 180 words. Go longer only for educational or advice content where extra explanation genuinely adds value; keep announcements, property launches and market updates shorter. Never pad to hit a word count - every sentence must earn its place.",
-          "STRUCTURE (natural, never formulaic): a natural attention-catching opening, then the main message or story, then supporting context or value, then ONE clear call to action. Do not open every caption with a question or reuse the same opening style.",
-          "TONE: write as if speaking directly to a client, in everyday language, confident but not promotional or corporate. Service-led content (property marketing, valuations, market updates, business announcements) should be more confident and informative, focused on expertise, process and value. Personal or community content (lifestyle, behind-the-scenes, community features, local recommendations) should be more relaxed and conversational, focused on personality, local knowledge and relationships.",
-          "PUNCTUATION: do NOT use em dashes anywhere; use commas or full stops instead. Limit exclamation marks. Avoid excessive ellipses.",
-          "EMOJI: only use an emoji if it genuinely suits the tone of the post. Use AT MOST ONE in the whole caption; zero is completely fine; never more than one.",
-          "AVOID AI-sounding language. Never use: in today's market; in today's world; ever wondered; here's why; game changer; unlock; elevate; leverage; delve; imagine this; whether you're…; it's not just… it's…; at the end of the day; rest assured; needless to say; without further ado; next level; revolutionary; cutting-edge; seamless; dynamic; powerful solution; transform your…; maximise your potential. Choose wording that sounds like natural conversation.",
-          "USE ESTATE-AGENCY CLICHÉS SPARINGLY (only where genuinely natural): dream home; forever home; your next chapter; making memories; perfect property; property journey; exceptional service; trusted experts; market-leading; bespoke service; award-winning team. Prefer fresher, more authentic alternatives.",
-          "FORMATTING: short readable paragraphs, mostly two to three sentences. Use a single-sentence paragraph only deliberately, for emphasis or a question. Do not start a new paragraph after every sentence and do not write large blocks of text. Space it as a person naturally would.",
-          "CALL TO ACTION: finish with ONE clear, relevant CTA that reads as a natural conclusion (e.g. ask a genuine question, invite opinions or local recommendations, invite direct messages or enquiries, invite a valuation booking, encourage arranging a viewing, or offer advice). Not tacked on for its own sake.",
-          "ENGAGEMENT: encourage genuine conversation with questions people would naturally want to answer. Never use engagement bait such as 'comment YES', 'tag three friends', 'smash the like button', 'don't forget to like and follow'.",
-          "AUTHENTICITY: write honestly, with no exaggerated claims, and not overly sales-focused unless the post is specifically promotional.",
-          "LOCAL RELEVANCE: reference the local area naturally only where it fits (schools, parks, businesses, landmarks, community events). NEVER invent local information, prices, names or any detail you were not given; only use facts provided.",
-          "GRAMMAR: British English. Use contractions naturally (you're, we're, it's, don't). Keep spelling, grammar and punctuation accurate. Write numbers naturally within sentences.",
-          "READABILITY: clear, conversational and easy to read. Prefer straightforward language. Vary sentence length for a natural rhythm; do not make every sentence the same length.",
-          "VARIETY: write the caption as its own original piece - vary the opening, sentence structure and closing rather than following a template.",
-          "FINAL CHECK before answering: does this sound like a real local estate agent rather than AI? Is every sentence adding value? Is the tone right for the content type? Is there exactly one clear CTA? Are the paragraphs naturally formatted? Have clichés and AI language been avoided? Would someone enjoy reading this on Facebook or Instagram? If any answer is no, rewrite it until it feels natural, authentic and human.",
-        ].join("\n- ");
 
         let brief;
         if (mode === "property") {

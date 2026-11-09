@@ -11,29 +11,24 @@
 // The build list is docs/content-calendar-build.md. Members see none of this
 // until the subscription launches.
 import AdminShell from "../../components/admin/AdminShell.astro";
-import "../../styles/admin.css";
+import "../../styles/money-os.css";
 import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FILL_INS } from "../../lib/content-months.js";
 ---
 
 <AdminShell active="calendar" title="Content calendar" skin="hub">
-  <div class="page-header">
-    <div class="page-header-top">
-      <div class="page-header-left">
-        <div>
-          <div class="page-header-title">Content calendar</div>
-          <div class="page-header-sub">The monthly posts for the Content Calendar subscription: every month by edition, and the builder for each.</div>
-        </div>
-      </div>
-      <div class="page-header-actions">
-        <nav class="cat-tabs" aria-label="Content calendar">
-          <button type="button" class="cat-tab" data-tab="overview">Overview</button>
-          <button type="button" class="cat-tab" data-tab="months">Catalogue</button>
-          <button type="button" class="cat-tab" data-tab="build">Month builder</button>
-        </nav>
-      </div>
-    </div>
-  </div>
   <div class="ash-panel ash-page">
+  <div class="mo" id="ccb">
+  <section class="mo-head">
+    <div>
+      <p class="mo-eye">Studio</p>
+      <div class="mo-title">Content calendar</div>
+      <p class="mo-sub">The monthly posts for the Content Calendar subscription: every month by edition, and the builder for each.</p>
+    </div>
+  </section>
+  <nav class="cc-tabs" aria-label="Content calendar">
+    <button type="button" class="cat-tab" data-tab="months">Catalogue</button>
+    <button type="button" class="cat-tab" data-tab="overview">Overview</button>
+  </nav>
 
   <!-- The levels: what each costs and what it opens (Danielle, 28–29 Oct).
        The Worker's access check reads the access rows, so this is where a
@@ -56,105 +51,96 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       <div class="ccl-foot">
         <p class="cc-hint">Prices are a month, ex VAT. Each paid level builds on the one before it. Courses take their level from the course editor in Guides.</p>
         <span class="cc-saved" id="ccl-state"></span>
-        <button type="button" class="admin-btn admin-btn-primary" id="ccl-save" disabled>Save changes</button>
+        <button type="button" class="mbtn primary" id="ccl-save" disabled>Save changes</button>
       </div>
     </div>
   </section>
 
-  <!-- Every month by edition, its state and its designs (Danielle, 28 Oct:
-       its own section, moved from the Catalogue and the Design studio). -->
-  <section class="ccm" id="cc-tab-months" hidden>
-    <p class="cc-note" id="ccm-loading">Loading the months…</p>
-    <div id="ccm-list"></div>
+  <!-- The opening page (Dani, 9 Nov): a box for each month, Videography's cards
+       nearer square, the month's picture coming in on hover. -->
+  <section id="cc-tab-months" hidden>
+    <p class="state" id="cc-loading">Reading the months.</p>
+    <div class="cc-missing" id="cc-missing" hidden>
+      <p><strong>The Content Calendar tables aren't in the database yet.</strong></p>
+      <p>Run <code>supabase/content_calendar_months.sql</code> in the Supabase SQL editor, then reload this page.</p>
+    </div>
+    <div id="cc-months-body" hidden>
+      <div class="bar">
+        <label class="pick"><span>Edition</span><select id="cc-edition">{EDITIONS.map((e) => <option value={e.key}>{e.label}</option>)}</select></label>
+        <div class="mo-acts" style="margin-left:auto"><button type="button" id="cc-new-month" class="mbtn primary">Start new month</button></div>
+      </div>
+      <div class="cc-months" id="ccm-list"></div>
+    </div>
   </section>
 
+  <!-- One month (Dani, 9 Nov, agreed on the mock-up): the photo card, the four
+       steps, then the table with only what that step needs. -->
   <div id="cc-tab-build" hidden>
-  <section class="studio-bar">
-    <div class="studio-bar-top">
-      <span class="studio-bar-count" id="cc-count">…</span>
-      <div class="studio-bar-filters">
-        <select class="tpl-filter" id="cc-edition" aria-label="Edition">
-          {EDITIONS.map((e) => <option value={e.key}>{e.label}</option>)}
-        </select>
-        <select class="tpl-filter" id="cc-month" aria-label="Month"></select>
+    <button type="button" class="cc-back" id="cc-back">&lsaquo; All months</button>
+    <section class="cc-month" id="cc-month-panel">
+      <div class="cc-banner" id="cc-banner">
+        <div class="cc-tags">
+          <span id="cc-pill"></span><span id="cc-ed-tag"></span><span id="cc-stage-tag"></span>
+          <button type="button" class="cc-vbtn small" id="cc-month-img">Choose a month image</button>
+          <span class="cc-saved" id="cc-saved"></span>
+        </div>
+        <div class="cc-ban-row">
+          <div><h2 id="cc-title"></h2><p id="cc-count"></p></div>
+          <div class="cc-ban-acts">
+            <button type="button" class="cc-vbtn" id="cc-delete-month">Delete month</button>
+            <button type="button" class="cc-vbtn" id="cc-stage-back">Move back a step</button>
+            <button type="button" class="cc-vbtn primary" id="cc-stage-next"></button>
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="studio-bar-row">
-      <span></span>
-      <div class="studio-bar-actions">
-        <button type="button" id="cc-new-tpl" class="admin-btn admin-btn-ghost">+ Create a design</button>
-        <button type="button" id="cc-new-month" class="admin-btn admin-btn-primary">+ New month</button>
+      <div class="cc-prog">
+        <div class="cc-tl" id="cc-tl"></div>
+        <div id="cc-call"></div>
       </div>
-    </div>
-  </section>
-
-  <p class="cc-note" id="cc-loading">Loading the Content Calendar…</p>
-  <div class="cc-missing" id="cc-missing" hidden>
-    <p><strong>The Content Calendar tables aren't in the database yet.</strong></p>
-    <p>Run <code>supabase/content_calendar_months.sql</code> in the Supabase SQL editor, then reload this page.</p>
-  </div>
-  <div class="cc-missing" id="cc-none" hidden>
-    <p><strong>No months for this edition yet.</strong></p>
-    <p>Click <strong>+ New month</strong> to start one. A month stays a draft until you publish it.</p>
-  </div>
-
-  <section class="cc-month" id="cc-month-panel" hidden>
-    <div class="cc-head">
-      <div class="cc-head-l">
-        <h2 class="cc-title" id="cc-title"></h2>
-        <span class="cc-pill" id="cc-pill" data-status="draft">Draft</span>
-        <span class="cc-saved" id="cc-saved"></span>
+      <label class="cc-f cc-about" id="cc-about"><span>About this month</span><input id="cc-intro" placeholder="A line about the month: what it's built around." /></label>
+      <div class="section cc-funnel" id="cc-funnel" hidden>
+        <div class="strip"><div class="strip-t">Marketing funnel</div><span class="aside">Coming soon</span></div>
+        <div class="empty">The launch email and mid-month reminders for this month will be created and managed here.</div>
       </div>
-      <div class="cc-head-r">
-        <button type="button" class="admin-btn admin-btn-ghost" id="cc-fill">Fill the weekdays</button>
-        <button type="button" class="admin-btn admin-btn-ghost" id="cc-copy">Copy posts from…</button>
-        <button type="button" class="admin-btn admin-btn-ghost" id="cc-delete-month">Delete month</button>
-        <button type="button" class="admin-btn admin-btn-primary" id="cc-publish">Publish</button>
+      <div class="chips cc-view-chips" id="cc-views" role="group" aria-label="View">
+        <button type="button" data-view="calendar" aria-pressed="true">Table</button>
+        <button type="button" data-view="templates" aria-pressed="false">Templates</button>
+        <button type="button" data-view="notes" aria-pressed="false">Notes</button>
       </div>
-    </div>
-    <label class="cc-f cc-intro"><span>About this month</span><input id="cc-intro" placeholder="A line about the month: what it's built around." /></label>
-    <p class="cc-note cc-pubnote">Publishing marks a month ready. Members won't see it until the subscription launches.</p>
 
-    <!-- Two ways to see a month (Danielle, 28 Oct): the calendar sheet to
-         build it, and its templates side by side. -->
-    <div class="cc-views" role="tablist">
-      <button type="button" class="cc-view is-on" data-view="calendar">Calendar</button>
-      <button type="button" class="cc-view" data-view="templates">Templates</button>
-      <button type="button" class="cc-view" data-view="notes">Notes</button>
-    </div>
+      <div id="cc-view-calendar">
+        <div class="tablewrap" data-lenis-prevent>
+          <table class="cc-sheet"><thead><tr id="cc-head"></tr></thead><tbody id="cc-rows"></tbody></table>
+        </div>
+      </div>
 
-    <div id="cc-view-calendar">
-    <div class="cc-sheet-wrap">
-      <table class="cc-sheet">
-        <thead>
-          <tr><th aria-label="Move"></th><th>Date</th><th>Design</th><th>Post</th><th>Type</th><th>Pillar</th><th>Caption</th><th>Platforms</th></tr>
-        </thead>
-        <tbody id="cc-rows"></tbody>
-      </table>
-    </div>
-    <button type="button" class="cc-add" id="cc-add">+ Add a post</button>
-    </div>
+      <div id="cc-view-templates" hidden>
+        <div class="section">
+          <div class="strip"><div class="strip-t">Shortlist for this month</div><span class="aside" id="cc-short-n"></span></div>
+          <p class="cc-hint">Templates you're thinking of using this month, as a reminder for Creation. They aren't linked to a date.</p>
+          <div class="cc-grid" id="cc-short"></div>
+          <div><button type="button" class="mbtn primary" id="cc-short-add">Add templates</button></div>
+        </div>
+        <div class="section">
+          <div class="strip"><div class="strip-t">This month's designs</div><span class="aside" id="cc-tpl-count"></span></div>
+          <div class="cc-grid" id="cc-grid"></div>
+        </div>
+      </div>
 
-    <div id="cc-view-templates" hidden>
-      <div class="cc-tpls-head"><h3>This month's templates</h3><span class="cc-note" id="cc-tpl-count"></span></div>
-      <div class="cc-grid" id="cc-grid"></div>
-      <div class="cc-tpls-head cc-tpls-head--more" id="cc-other-head" hidden><h3>Other Content Calendar templates</h3><span class="cc-note">Not used this month</span></div>
-      <div class="cc-grid" id="cc-other"></div>
-    </div>
-
-    <!-- Ideas and rough planning for the month, for the team only (Danielle,
-         28 Oct). Saves as you type. -->
-    <div id="cc-view-notes" hidden>
-      <div class="cc-tpls-head"><h3>Notes</h3><span class="cc-note" id="cc-notes-state"></span></div>
-      <p class="cc-hint cc-notes-hint">Ideas, rough plans, things to chase. For the team only; members never see these.</p>
-      <textarea id="cc-notes" class="cc-notes" placeholder="e.g. Bonfire Night post with a safety angle? Ask Jack for autumn street shots."></textarea>
-    </div>
-  </section>
-  </div>
+      <!-- Ideas and rough planning for the month, for the team only (Danielle,
+           28 Oct). Saves as you type. -->
+      <div id="cc-view-notes" hidden>
+        <div class="section">
+          <div class="strip"><div class="strip-t">Notes</div><span class="aside" id="cc-notes-state"></span></div>
+          <p class="cc-hint">Ideas, rough plans, things to chase. For the team only; members never see these.</p>
+          <textarea id="cc-notes" class="cc-notes" placeholder="e.g. Bonfire Night post with a safety angle? Ask Jack for autumn street shots."></textarea>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <!-- One post, all its fields: a pop-out, the design on the left and the
-       words on the right (Danielle, 28 Oct). -->
+  <!-- One post. Each step shows only what that step is about: data-in lists the
+       steps a part appears on (Dani, 9 Nov). -->
   <div class="cc-shade" id="cc-shade" hidden></div>
   <div class="cc-drawer" id="cc-drawer" hidden role="dialog" aria-modal="true" aria-label="Post" data-lenis-prevent>
     <div class="cc-drawer-bar">
@@ -164,15 +150,17 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     </div>
     <div class="cc-drawer-body">
       <div class="cc-pop-l">
-        <div class="cc-d-tpl" id="cc-d-tpl"></div>
-        <div class="cc-f2">
+        <div class="cc-d-tpl" id="cc-d-tpl" data-in="234"></div>
+        <div class="cc-f2" data-in="14">
           <label class="cc-f"><span>Date</span><input type="date" id="cc-d-date" /></label>
           <label class="cc-f"><span>Type</span><select id="cc-d-type">{POST_TYPES.map((t) => <option value={t.key}>{t.label}</option>)}</select></label>
         </div>
-        <label class="cc-check"><input type="checkbox" id="cc-d-tied" /> This post belongs to its day</label>
-        <label class="cc-f" id="cc-d-occ-wrap"><span>The day it's for</span><input id="cc-d-occ" list="cc-occasions" placeholder="e.g. Bonfire Night" /><datalist id="cc-occasions"></datalist></label>
-        <p class="cc-hint" id="cc-d-occ-hint">If an agent plans it for another date, they're asked: "This post is for <span id="cc-d-occ-name">that day</span>. Are you sure you want to post it on another day?"</p>
-        <div class="cc-f">
+        <div class="cc-stack" data-in="14">
+          <label class="cc-check"><input type="checkbox" id="cc-d-tied" /> Tied to a day</label>
+          <label class="cc-f" id="cc-d-occ-wrap"><span>The day it's for</span><input id="cc-d-occ" list="cc-occasions" placeholder="e.g. Christmas Day" /><datalist id="cc-occasions"></datalist></label>
+          <p class="cc-hint" id="cc-d-occ-hint">If an agent plans it for another date, they're asked: "This post is for <span id="cc-d-occ-name">that day</span>. Are you sure you want to post it on another day?"</p>
+        </div>
+        <div class="cc-f" data-in="14">
           <span>Platforms</span>
           <div class="cc-plats" id="cc-d-plats">
             {PLATFORMS.map((p) => <label class="cc-check"><input type="checkbox" value={p.key} /> {p.label}</label>)}
@@ -180,12 +168,15 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         </div>
       </div>
       <div class="cc-pop-r">
-        <div class="cc-f2">
-          <label class="cc-f"><span>Title</span><input id="cc-d-title" placeholder="e.g. Five things buyers notice first" /></label>
-          <label class="cc-f"><span>Content pillar</span><input id="cc-d-pillar" list="cc-pillars" placeholder="e.g. Market insight" /><datalist id="cc-pillars"></datalist></label>
+        <div class="cc-f2" data-in="14">
+          <label class="cc-f"><span>Post</span><input id="cc-d-title" placeholder="e.g. Five things buyers notice first" /></label>
+          <label class="cc-f"><span>Pillar</span><select id="cc-d-pillar"></select></label>
         </div>
-        <div class="cc-f">
-          <span>Captions <em>(up to {MAX_CAPTIONS}; the first is the example)</em></span>
+        <label class="cc-f" data-in="1234"><span>Note <em>(team only)</em></span><textarea id="cc-d-note" rows="3" placeholder="Anything the team needs to know about this post"></textarea></label>
+        <label class="cc-f" id="cc-d-film-wrap"><span>What to film</span><textarea id="cc-d-reel" rows="3" placeholder="What to film and say."></textarea></label>
+        <label class="cc-f" data-in="34"><span>How to edit</span><textarea id="cc-d-how" rows="3" placeholder="What the agent changes: the photo, the price, the street…"></textarea></label>
+        <div class="cc-f" data-in="34">
+          <span>Caption <em>(up to {MAX_CAPTIONS}; the first is the example)</em></span>
           <div class="cc-tags" id="cc-tags">
             {CAPTION_TAGS.map((t) => <button type="button" data-tag={`{${t}}`}>{`{${t}}`}</button>)}
             {CAPTION_FILL_INS.map((t) => <button type="button" class="is-fill" data-tag={t}>{t}</button>)}
@@ -195,29 +186,26 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
             <textarea class="cc-cap" data-cap={i} rows={i === 0 ? 6 : 3} placeholder={i === 0 ? "Caption" : `Caption ${i + 1} (optional)`}></textarea>
           ))}
         </div>
-        <div class="cc-f2">
-          <label class="cc-f"><span>How to edit it</span><textarea id="cc-d-how" rows="4" placeholder="What the agent changes: the photo, the price, the street…"></textarea></label>
-          <label class="cc-f"><span>Reel prompt</span><textarea id="cc-d-reel" rows="4" placeholder="For a reel: what to film and say."></textarea></label>
-        </div>
       </div>
     </div>
     <div class="cc-drawer-foot">
-      <button type="button" class="cc-del" id="cc-d-delete">Delete this post</button>
+      <button type="button" class="mbtn danger" id="cc-d-delete">Delete this post</button>
       <span class="cc-foot-gap"></span>
-      <button type="button" class="admin-btn admin-btn-ghost" id="cc-d-prev">&lsaquo; Previous</button>
-      <button type="button" class="admin-btn admin-btn-ghost" id="cc-d-next">Next &rsaquo;</button>
-      <button type="button" class="admin-btn admin-btn-primary" id="cc-d-done">Done</button>
+      <button type="button" class="mbtn" id="cc-d-claude" data-in="34">Draft with Claude</button>
+      <button type="button" class="mbtn" id="cc-d-prev">&lsaquo; Previous</button>
+      <button type="button" class="mbtn" id="cc-d-next">Next &rsaquo;</button>
+      <button type="button" class="mbtn primary" id="cc-d-done">Done</button>
     </div>
   </div>
 
-  <!-- Choose a design for a post. -->
+  <!-- Choose a design, shortlist templates, or pick the month's image. -->
   <div class="cc-modal" id="cc-pick" hidden>
     <div class="cc-modal-box cc-modal-wide" data-lenis-prevent>
       <div class="cc-drawer-bar">
-        <strong>Choose a design</strong>
-        <div class="cc-views cc-pick-src">
-          <button type="button" class="cc-view is-on" data-src="calendar">Content Calendar</button>
-          <button type="button" class="cc-view" data-src="all">All templates</button>
+        <strong id="cc-pick-title">Choose a design</strong>
+        <div class="chips cc-pick-src" id="cc-pick-src">
+          <button type="button" data-src="calendar" aria-pressed="true">Content Calendar</button>
+          <button type="button" data-src="all" aria-pressed="false">All templates</button>
         </div>
         <input type="search" id="cc-pick-q" class="cc-pick-q" placeholder="Search…" />
         <button type="button" class="cc-x" data-close aria-label="Close">&times;</button>
@@ -227,27 +215,40 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     </div>
   </div>
 
-  <!-- New month. -->
+  <!-- The Instagram grid and the Client calendar, from Creation on. -->
+  <div class="cc-modal cc-board" id="cc-board" hidden>
+    <div class="cc-modal-box" id="cc-board-box" data-lenis-prevent>
+      <div class="cc-drawer-bar"><strong id="cc-board-title"></strong><button type="button" class="cc-x" data-close aria-label="Close">&times;</button></div>
+      <div class="cc-board-b" id="cc-board-b"></div>
+    </div>
+  </div>
+
+  <!-- Start new month. -->
   <div class="cc-modal" id="cc-new" hidden>
     <div class="cc-modal-box">
-      <div class="cc-drawer-bar"><strong>New month</strong><button type="button" class="cc-x" data-close aria-label="Close">&times;</button></div>
+      <div class="cc-drawer-bar"><strong>Start new month</strong><button type="button" class="cc-x" data-close aria-label="Close">&times;</button></div>
       <div class="cc-modal-body">
         <label class="cc-f"><span>Month</span><input type="month" id="cc-new-m" /></label>
         <label class="cc-f"><span>Edition</span><select id="cc-new-e">{EDITIONS.map((e) => <option value={e.key}>{e.label}</option>)}</select></label>
-        <label class="cc-check"><input type="checkbox" id="cc-new-fill" checked /> Add a post for every weekday</label>
-        <div class="cc-modal-foot"><button type="button" class="admin-btn admin-btn-primary" id="cc-new-go">Create month</button></div>
+        <label class="cc-check"><input type="checkbox" id="cc-new-fill" checked /> Add a blank post for every weekday</label>
+        <div class="cc-modal-foot"><button type="button" class="mbtn primary" id="cc-new-go">Start month</button></div>
       </div>
     </div>
   </div>
 
-  <!-- Copy posts from another edition's same month. -->
+  <!-- Bring posts across from another month, to start from (Dani, 9 Nov). -->
   <div class="cc-modal" id="cc-copybox" hidden>
-    <div class="cc-modal-box">
-      <div class="cc-drawer-bar"><strong>Copy posts from…</strong><button type="button" class="cc-x" data-close aria-label="Close">&times;</button></div>
-      <div class="cc-modal-body">
-        <p class="cc-hint">Dates, titles, captions, how to edit, pillars and platforms come across. Designs don't, because each edition has its own.</p>
+    <div class="cc-modal-box cc-modal-mid" data-lenis-prevent>
+      <div class="cc-drawer-bar"><strong>Copy posts from</strong><button type="button" class="cc-x" data-close aria-label="Close">&times;</button></div>
+      <div class="cc-modal-body cc-copy-body">
         <label class="cc-f"><span>From</span><select id="cc-copy-from"></select></label>
-        <div class="cc-modal-foot"><button type="button" class="admin-btn admin-btn-primary" id="cc-copy-go">Copy posts</button></div>
+        <p class="cc-hint" id="cc-copy-hint"></p>
+        <div class="cc-copy-list" id="cc-copy-list"></div>
+        <label class="cc-check"><input type="checkbox" id="cc-copy-words" /> Also bring across the captions and guidance</label>
+      </div>
+      <div class="cc-modal-foot cc-copy-foot">
+        <button type="button" class="mbtn" id="cc-copy-all">Tick all</button>
+        <button type="button" class="mbtn primary" id="cc-copy-go">Copy posts</button>
       </div>
     </div>
   </div>
@@ -261,7 +262,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         <label class="cc-f"><span>The line under it</span><textarea id="ccl-w-summary" rows="3"></textarea></label>
         <label class="cc-f"><span>What it includes <em>(one per line)</em></span><textarea id="ccl-w-includes" rows="9"></textarea></label>
         <p class="cc-hint">For the account page and the upgrade prompts, once the subscription launches. Members don't see it yet.</p>
-        <div class="cc-modal-foot"><button type="button" class="admin-btn admin-btn-primary" id="ccl-w-go">Done</button></div>
+        <div class="cc-modal-foot"><button type="button" class="mbtn primary" id="ccl-w-go">Done</button></div>
       </div>
     </div>
   </div>
@@ -274,18 +275,21 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         <label class="cc-f"><span>Name</span><input id="cc-newtpl-name" placeholder="e.g. November – Bonfire Night" /></label>
         <p class="cc-hint" id="cc-newtpl-for" hidden></p>
         <p class="cc-hint">1080 &times; 1350, the 4:5 shape that suits both Instagram and Facebook. It opens in the Studio.</p>
-        <div class="cc-modal-foot"><button type="button" class="admin-btn admin-btn-primary" id="cc-newtpl-go">Create and open</button></div>
+        <div class="cc-modal-foot"><button type="button" class="mbtn primary" id="cc-newtpl-go">Create and open</button></div>
       </div>
     </div>
   </div>
 
+  </div>
+  </div>
+
   <style is:global>
-    /* The section's tabs sit on the dark page header, as the Catalogue's do. */
-    .cat-tabs { display: inline-flex; gap: 4px; }
-    .cat-tab { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 18px; border-radius: 999px; cursor: pointer; color: rgba(255,255,255,0.72); background: transparent; border: 1px solid rgba(255,255,255,0.28); transition: background 0.18s, color 0.18s, border-color 0.18s; }
-    .cat-tab:hover { color: #fff; border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.08); }
-    .cat-tab.is-on { background: var(--paper, #f4f2f1); color: var(--english-violet, #371e28); border-color: var(--paper, #f4f2f1); }
-    .cat-tab:focus-visible { outline: 2px solid rgba(255,255,255,0.7); outline-offset: 2px; }
+    #ccb .mo-head { margin-bottom: 14px; }
+    #ccb .cc-tabs { display: flex; gap: 26px; margin: 0 0 20px; overflow-x: auto; scrollbar-width: none; box-shadow: inset 0 -1px 0 var(--linen); }
+    #ccb .cat-tab { flex: none; height: 34px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--tx); cursor: pointer; }
+    #ccb .cat-tab.is-on { color: var(--wine); border-bottom-color: var(--wine); }
+    #ccb .chips { order: 0; flex: 0 1 auto; }
+    #ccb .ccl-table, #ccb .ccl-table th, #ccb .ccl-table td, #ccb .ccl-intro { font-size: 14px; }
     /* Overview: the levels side by side, ruled top and bottom. */
     .ccl[hidden] { display: none; }
     .ccl-intro { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.75); max-width: 75%; margin: 0 0 22px; }
@@ -315,144 +319,184 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .cc-modal-box.cc-modal-mid { width: min(620px, 100%); }
     .ccl-word-body { overflow-y: auto; }
 
-    .ccm { display: flex; flex-direction: column; gap: 26px; }
-    .ccm[hidden] { display: none; }
-    .ccm-month h2 { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 10px; }
-    .ccm-ed { display: grid; grid-template-columns: 220px minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 14px 0; border-top: 1px solid rgba(var(--violet-rgb), 0.18); }
-    .ccm-month .ccm-ed:last-child { border-bottom: 1px solid rgba(var(--violet-rgb), 0.18); }
-    .ccm-ed-name { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
-    .ccm-ed-meta { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
-    .ccm-pill { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: rgba(202,166,60,0.16); color: #8a6d1e; }
-    .ccm-pill.is-published { background: rgba(63,148,104,0.16); color: #2d6a44; }
-    .ccm-strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
-    .ccm-strip a, .ccm-strip span { flex: 0 0 44px; aspect-ratio: 4 / 5; border-radius: 2px; background: #eeeae7 center / cover no-repeat; border: 1px solid rgba(28,29,34,0.1); }
-    .ccm-strip span { border-style: dashed; }
-    .ccm-strip a:hover { border-color: var(--english-violet); }
-    .ccm-acts { display: flex; gap: 8px; }
-    @media (max-width: 860px) { .ccm-ed { grid-template-columns: 1fr; } }
-    .cc-note { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin: 0; }
-    .cc-missing { padding: 28px 32px; border: 1px dashed rgba(55,30,40,0.4); border-radius: 2px; font-family: var(--sans); color: rgba(28,29,34,0.75); max-width: 640px; }
-    .cc-missing p { margin: 0 0 8px; line-height: 1.55; }
+    .cc-note { margin: 0; color: var(--tx); }
+    .cc-missing { padding: 26px; border: 1px dashed var(--stone); border-radius: 4px; color: var(--tx); max-width: 640px; }
+    .cc-missing p { margin: 0 0 8px; }
     .cc-missing p:last-child { margin: 0; }
+    .cc-saved { color: var(--tx); }
+    .cc-hint { margin: 0; color: var(--tx); }
 
-    .cc-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
-    .cc-head-l, .cc-head-r { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .cc-title { font-family: var(--sans); font-size: 20px; font-weight: 600; color: var(--english-violet); margin: 0; }
-    .cc-pill { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: rgba(202,166,60,0.16); color: #8a6d1e; }
-    .cc-pill[data-status="published"] { background: rgba(63,148,104,0.16); color: #2d6a44; }
-    .cc-saved { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); }
-    .cc-intro { max-width: 760px; }
-    .cc-pubnote { margin: 8px 0 22px; }
+    /* The months: Videography's boxes, nearer square. */
+    .cc-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+    .cc-mcard { position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; padding: 16px 16px 12px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; cursor: pointer; overflow: hidden; text-align: left; transition: border-color .2s, transform .2s, box-shadow .2s; }
+    .cc-mcard:hover, .cc-mcard:focus-visible { border-color: var(--stone); transform: translateY(-2px); box-shadow: 0 10px 24px -18px rgba(55,30,40,.5); }
+    .cc-mcard img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .22s ease; z-index: 1; pointer-events: none; }
+    @media (hover: hover) { .cc-mcard:hover img { opacity: 1; } }
+    .cc-mcard-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .cc-mcard-t { font-family: var(--serif); font-weight: 300; font-size: 24px; line-height: 1.1; letter-spacing: -0.04em; }
+    .cc-mcard-y { color: var(--tx); margin-top: 3px; }
+    .cc-mcard dl { margin: auto 0 0; }
+    .cc-mcard dl > div { display: flex; justify-content: space-between; gap: 10px; min-height: 32px; align-items: center; border-top: 1px solid var(--linen); }
+    .cc-mcard dt { color: var(--tx); }
+    .cc-mcard dd { margin: 0; font-variant-numeric: lining-nums tabular-nums; }
+    @media (prefers-reduced-motion: reduce) { .cc-mcard { transition: none; } .cc-mcard img { transition: none; } }
 
-    .cc-f { display: flex; flex-direction: column; gap: 6px; }
-    .cc-f > span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
-    .cc-f > span em { font-style: normal; font-weight: 500; letter-spacing: 0.04em; text-transform: none; }
-    .cc-f input, .cc-f select, .cc-f textarea, .cc-pick-q { font-family: var(--sans); font-size: 14px; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.16); border-radius: 6px; background: #fff; color: var(--ink); width: 100%; box-sizing: border-box; }
-    .cc-f textarea { resize: vertical; line-height: 1.5; }
-    .cc-f input:focus, .cc-f select:focus, .cc-f textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
-    .cc-f2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .cc-check { display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
-    .cc-check input { accent-color: var(--english-violet); }
-    .cc-hint { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); margin: 0; }
+    /* A month: the photo card, the steps, then the table. */
+    .cc-back { display: inline-block; margin: 0 0 10px; padding: 0; border: 0; background: none; color: var(--tx); cursor: pointer; }
+    .cc-back:hover { color: var(--wine); }
+    .cc-banner { position: relative; overflow: hidden; border-radius: 6px; min-height: clamp(220px, 20vw, 290px); background: var(--wine) center 45% / cover no-repeat; color: #fff; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; padding: 18px 22px 32px; margin-bottom: 10px; }
+    .cc-banner::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(43,34,38,.05) 0%, rgba(43,34,38,0) 35%, rgba(43,34,38,.72) 100%); }
+    .cc-banner > * { position: relative; }
+    .cc-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .cc-tags > span:not(.cc-saved) { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 4px; background: rgba(255,255,255,.92); color: var(--wine); }
+    .cc-tags .cc-saved { color: #fff; margin-left: 6px; }
+    .cc-ban-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 20px; }
+    .cc-ban-row h2 { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 32px; line-height: 1.05; letter-spacing: -0.05em; color: #fff; }
+    .cc-ban-row p { margin: 8px 0 0; color: rgba(255,255,255,.88); }
+    .cc-ban-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+    #ccb .cc-vbtn { height: 30px; padding: 0 14px; border-radius: 4px; cursor: pointer; background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.4); white-space: nowrap; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+    #ccb .cc-vbtn:hover { border-color: #fff; }
+    #ccb .cc-vbtn.primary { background: #fff; color: var(--wine); border-color: #fff; }
+    #ccb .cc-vbtn.small { height: 24px; padding: 0 10px; background: rgba(43,34,38,.35); }
+    .cc-prog { border: 1px solid var(--edge); border-radius: 4px; padding: 14px 18px; margin-bottom: 16px; }
+    .cc-tl { position: relative; height: 56px; }
+    .cc-tl-track { position: absolute; top: 7px; left: 7px; right: 7px; height: 2px; background: var(--linen); }
+    .cc-tl-track div { height: 100%; background: var(--wine); }
+    #ccb .cc-tl-step { position: absolute; top: 0; display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 0; border: 0; background: none; color: var(--tx); cursor: pointer; transform: translateX(-50%); white-space: nowrap; }
+    #ccb .cc-tl-step.first { transform: none; align-items: flex-start; }
+    #ccb .cc-tl-step.last { transform: translateX(-100%); align-items: flex-end; }
+    .cc-tl-dot { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 2px solid var(--stone); box-sizing: border-box; }
+    #ccb .cc-tl-step.done { color: var(--ink); }
+    .cc-tl-step.done .cc-tl-dot { background: var(--wine); border-color: var(--wine); }
+    #ccb .cc-tl-step.cur { color: var(--wine); }
+    .cc-tl-step.cur .cc-tl-dot { box-shadow: 0 0 0 3px var(--linen); }
+    .cc-call { display: grid; gap: 12px; margin-top: 4px; padding: 14px 16px; background: var(--linen); border-radius: 4px; }
+    .cc-call h4 { margin: 0 0 8px; font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.1; letter-spacing: -0.04em; color: var(--ink); text-transform: none; }
+    .cc-call ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 26px; }
+    .cc-call li { display: inline-flex; align-items: center; gap: 8px; }
+    .cc-call li::before { content: ""; width: 16px; height: 16px; flex: none; border-radius: 50%; border: 1.5px solid var(--wine); box-sizing: border-box; }
+    .cc-call li.ok { color: var(--tx); }
+    .cc-call li.ok::before { border-color: var(--good); background: var(--good) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat; }
+    .cc-call p { margin: 8px 0 0; color: var(--tx); }
+    .cc-call-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .cc-about { margin: 0 0 16px; }
+    .cc-funnel { margin-bottom: 16px; }
+    .cc-view-chips { margin: 0 0 14px; }
+    #cc-views { display: flex; }
 
-    /* The sheet: ruled top and bottom, a row per post. */
-    .cc-sheet-wrap { overflow-x: auto; border-top: 1px solid rgba(55,30,40,0.35); border-bottom: 1px solid rgba(55,30,40,0.35); }
-    .cc-sheet { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
-    .cc-sheet th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); padding: 10px 12px; border-bottom: 1px solid rgba(28,29,34,0.12); white-space: nowrap; }
-    .cc-sheet td { padding: 8px 12px; border-bottom: 1px solid rgba(28,29,34,0.08); vertical-align: middle; color: var(--ink); }
-    .cc-sheet tr:last-child td { border-bottom: 0; }
-    .cc-sheet tbody tr { cursor: pointer; }
-    .cc-sheet tbody tr:hover td { background: rgba(55,30,40,0.04); }
-    .cc-sheet tbody tr.is-open td { background: rgba(55,30,40,0.07); }
-    /* Drag a row by this onto another day (Danielle, 9 Nov). */
-    .cc-sheet th:first-child, .cc-grip-cell { width: 26px; padding-right: 0 !important; }
-    .cc-grip { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 32px; color: var(--taupe, #7e6765); cursor: grab; }
-    .cc-grip:hover { color: #371e28; }
+    /* The table: the money pages', a row per post. */
+    #ccb .cc-sheet tbody tr { cursor: pointer; }
+    #ccb .cc-sheet tbody tr:hover td { background: #f7f4f2; }
+    #ccb .cc-sheet tbody td { height: 62px; }
+    #ccb .cc-sheet tbody tr.is-open td { background: var(--linen); }
+    #ccb .cc-sheet th:first-child, #ccb .cc-grip-cell { width: 26px; padding-right: 0; }
+    .cc-grip { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 32px; color: var(--taupe); cursor: grab; }
+    .cc-grip:hover { color: var(--wine); }
     .cc-grip:active { cursor: grabbing; }
     .cc-grip svg { width: 10px; height: 16px; fill: currentColor; pointer-events: none; }
-    .cc-sheet tbody tr.is-dragging td { opacity: 0.4; }
-    .cc-sheet tbody tr.is-drop td { background: rgba(55,30,40,0.1); box-shadow: inset 0 1px 0 #371e28, inset 0 -1px 0 #371e28; }
-    .cc-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .cc-date small { display: block; font-size: 11px; color: rgba(28,29,34,0.5); }
-    .cc-occ { display: inline-block; margin-top: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--english-violet); }
-    .cc-thumb { width: 42px; aspect-ratio: 4 / 5; border-radius: 2px; background: #eeeae7 center / cover no-repeat; border: 1px solid rgba(28,29,34,0.1); }
-    .cc-thumb.is-none { display: flex; align-items: center; justify-content: center; font-size: 16px; color: rgba(28,29,34,0.3); border-style: dashed; }
-    .cc-ttl { font-weight: 600; }
-    .cc-empty-cell { color: rgba(28,29,34,0.38); }
-    .cc-cap-cell { max-width: 320px; color: rgba(28,29,34,0.75); }
-    .cc-cap-cell small { color: rgba(28,29,34,0.45); }
-    .cc-plat-cell { white-space: nowrap; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: rgba(28,29,34,0.6); }
-    .cc-weekend td:first-child small { color: #a05a3c; }
-    .cc-add { margin-top: 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); background: #fff; border: 1px solid var(--english-violet); border-radius: 4px; height: 30px; padding: 0 14px; cursor: pointer; }
-    .cc-add:hover { background: rgba(55,30,40,0.06); }
+    #ccb .cc-sheet tbody tr.is-dragging td, .cc-ig-tile.is-dragging { opacity: .4; }
+    #ccb .cc-sheet tbody tr.is-drop td { background: var(--linen); box-shadow: inset 0 1px 0 var(--wine), inset 0 -1px 0 var(--wine); }
+    .cc-ig-tile.is-drop { outline: 2px solid var(--wine); outline-offset: -2px; }
+    #ccb .cc-sheet td small { display: block; color: var(--tx); font-size: 14px; }
+    #ccb td.cc-clip { max-width: 280px; overflow: hidden; text-overflow: ellipsis; color: var(--tx); }
+    .cc-thumb { display: block; width: 36px; aspect-ratio: 4 / 5; border-radius: 2px; background: var(--linen) center / cover no-repeat; }
+    .cc-thumb.is-none { display: grid; place-items: center; background: none; border: 1px dashed var(--stone); color: var(--tx); }
+    .cc-none { color: var(--tx); }
 
-    /* Templates drawn for the calendar. */
-    .cc-views { display: inline-flex; gap: 4px; padding: 3px; margin: 0 0 18px; border: 1px solid rgba(55,30,40,0.2); border-radius: 999px; background: #fff; }
-    .cc-view { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; padding: 7px 18px; border: 0; border-radius: 999px; background: transparent; color: rgba(28,29,34,0.6); cursor: pointer; }
-    .cc-view:hover { color: var(--ink); }
-    .cc-view.is-on { background: var(--english-violet); color: var(--paper); }
-    .cc-tpls-head--more { margin-top: 40px; }
-    .cc-notes-hint { margin: -8px 0 12px; max-width: 75%; }
-    #cc-view-notes textarea.cc-notes { display: block; width: 100%; box-sizing: border-box; min-height: 420px; resize: vertical; font-family: var(--sans); font-size: 14px; line-height: 1.6; padding: 14px 16px; border: 1px solid rgba(28,29,34,0.16); border-radius: 6px; background: #fff; color: var(--ink); }
-    #cc-view-notes textarea.cc-notes:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
-    .cc-card.is-empty { border-style: dashed; background: transparent; cursor: pointer; text-align: left; padding: 0; font: inherit; }
-    .cc-card.is-empty .cc-card-img { display: flex; align-items: center; justify-content: center; background: transparent; color: var(--english-violet); font-family: var(--sans); font-size: 12px; font-weight: 700; }
-    .cc-tpls-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px; }
-    .cc-tpls-head h3 { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); margin: 0; }
-    .cc-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 18px; }
-    @media (max-width: 1280px) { .cc-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-    @media (max-width: 760px) { .cc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    .cc-card { display: flex; flex-direction: column; text-decoration: none; color: var(--ink); border: 1px solid rgba(55,30,40,0.3); border-radius: 2px; background: rgba(255,255,255,0.5); overflow: hidden; }
-    .cc-card:hover { border-color: rgba(55,30,40,0.6); }
-    .cc-card.is-draft { border-style: dashed; }
-    .cc-card-img { aspect-ratio: 4 / 5; background: #eeeae7 center / cover no-repeat; }
-    .cc-card-b { padding: 9px 10px 11px; font-family: var(--sans); }
-    .cc-card-n { font-size: 13px; font-weight: 600; line-height: 1.3; }
-    .cc-card-m { font-size: 11px; color: rgba(28,29,34,0.55); margin-top: 3px; }
+    /* Templates and notes. */
+    .cc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+    .cc-card { display: flex; flex-direction: column; padding: 0; color: var(--ink); border: 1px solid var(--edge); border-radius: 4px; background: #fff; overflow: hidden; text-align: left; cursor: pointer; }
+    .cc-card:hover { border-color: var(--wine); }
+    .cc-card.is-empty { border-style: dashed; border-color: var(--stone); }
+    .cc-card-img { display: grid; place-items: center; aspect-ratio: 4 / 5; background: var(--linen) center / cover no-repeat; color: var(--tx); }
+    .cc-card.is-empty .cc-card-img { background: none; }
+    .cc-card-b { display: grid; gap: 2px; padding: 9px 10px 10px; }
+    .cc-card-m { color: var(--tx); }
+    .cc-card-f { display: flex; justify-content: flex-end; padding: 0 10px 10px; }
+    #cc-view-notes textarea.cc-notes { display: block; width: 100%; box-sizing: border-box; min-height: 420px; resize: vertical; line-height: 1.5; padding: 12px 14px; border: 1px solid var(--stone); border-radius: 4px; }
+    #cc-view-notes textarea.cc-notes:focus { outline: 0; border-color: var(--wine); }
 
-    /* Drawer and pop-outs. */
-    .cc-shade { position: fixed; inset: 0; background: rgba(28,29,34,0.28); z-index: 80; }
-    .cc-shade[hidden], .cc-drawer[hidden], .cc-modal[hidden] { display: none; }
-    /* Centred in the area right of the side menu, not the window, so nothing
-       sits under the menu (Danielle, 28 Oct). */
-    .cc-drawer { position: fixed; top: 50%; left: calc(50% + var(--ash-side-w, 0px) / 2); transform: translate(-50%, -50%); width: min(1100px, calc(100vw - var(--ash-side-w, 0px) - 40px)); max-height: calc(100vh - 48px); background: #fff; z-index: 81; display: flex; flex-direction: column; border-radius: 8px; overflow: hidden; box-shadow: 0 40px 90px -30px rgba(20,18,26,0.55); }
-    .cc-drawer-bar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid rgba(28,29,34,0.1); font-family: var(--sans); font-size: 14px; color: var(--english-violet); }
+    /* Fields, pop-outs. Pop-outs keep one size; the body scrolls. */
+    .cc-f { display: grid; gap: 6px; margin: 0; font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+    .cc-f > span { color: var(--tx); }
+    .cc-f > span em { font-style: normal; }
+    .cc-f input, .cc-f select, .cc-f textarea, .cc-pick-q { width: 100%; box-sizing: border-box; border: 1px solid var(--stone); border-radius: 4px; padding: 8px 10px; background: #fff; }
+    .cc-f input, .cc-f select, .cc-pick-q { height: 36px; }
+    .cc-f textarea { resize: vertical; line-height: 1.45; }
+    .cc-f input:focus, .cc-f select:focus, .cc-f textarea:focus, .cc-pick-q:focus { outline: 0; border-color: var(--wine); }
+    .cc-f2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .cc-stack { display: grid; gap: 10px; }
+    .cc-check { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; cursor: pointer; }
+    .cc-check input { accent-color: var(--wine); }
+    .cc-plats { display: flex; flex-wrap: wrap; gap: 14px; }
+    .cc-shade { position: fixed; inset: 0; background: rgba(55,30,40,.45); z-index: 80; }
+    .cc-drawer { position: fixed; top: 50%; left: calc(50% + var(--ash-side-w, 0px) / 2); transform: translate(-50%, -50%); width: min(1000px, calc(100vw - var(--ash-side-w, 0px) - 40px)); height: min(720px, calc(100vh - 48px)); background: #fff; z-index: 81; display: flex; flex-direction: column; border-radius: 4px; overflow: hidden; box-shadow: 0 24px 60px -20px rgba(55,30,40,.6); }
+    .cc-drawer-bar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: var(--linen); }
+    .cc-drawer-bar strong { font-family: var(--serif); font-weight: 300; font-size: 24px; letter-spacing: -0.04em; color: var(--ink); }
     .cc-drawer-bar .cc-x { margin-left: auto; }
-    .cc-x { border: 0; background: none; font-size: 24px; line-height: 1; color: rgba(28,29,34,0.5); cursor: pointer; padding: 0 4px; }
-    .cc-x:hover { color: var(--ink); }
-    .cc-drawer-body { overflow-y: auto; padding: 22px; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; align-items: start; }
-    .cc-pop-l, .cc-pop-r { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+    #ccb .cc-x { width: 30px; height: 30px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; cursor: pointer; flex: none; }
+    .cc-drawer-body { flex: 1; overflow-y: auto; padding: 20px; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start; align-content: start; }
+    .cc-pop-l, .cc-pop-r { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     @media (max-width: 820px) { .cc-drawer-body { grid-template-columns: 1fr; } }
-    .cc-drawer-foot { display: flex; align-items: center; gap: 10px; padding: 12px 22px; border-top: 1px solid rgba(28,29,34,0.1); }
+    .cc-drawer-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--linen); }
     .cc-foot-gap { flex: 1; }
     .cc-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-    .cc-tags button { font-family: var(--sans); font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(55,30,40,0.25); background: #fff; color: var(--english-violet); cursor: pointer; }
-    .cc-tags button.is-fill { color: #8a5a2c; border-color: rgba(160,110,60,0.35); }
-    .cc-tags button:hover { background: rgba(55,30,40,0.06); }
+    #ccb .cc-tags button[data-tag] { height: 24px; padding: 0 8px; border-radius: 4px; border: 1px solid var(--edge); background: #fff; color: var(--wine); cursor: pointer; }
+    #ccb .cc-tags button[data-tag]:hover { border-color: var(--wine); }
     .cc-cap + .cc-cap { margin-top: 8px; }
-    .cc-plats { display: flex; flex-wrap: wrap; gap: 14px; }
     .cc-d-tpl { display: flex; flex-direction: column; gap: 10px; }
-    .cc-d-tpl .cc-thumb { width: 100%; font-size: 28px; }
-    .cc-d-tpl-b { display: flex; flex-direction: column; gap: 8px; font-family: var(--sans); font-size: 13px; }
+    .cc-d-tpl .cc-thumb { width: 100%; }
+    .cc-d-tpl-b { display: flex; flex-direction: column; gap: 8px; }
     .cc-d-tpl-acts { display: flex; gap: 8px; flex-wrap: wrap; }
-    .cc-d-tpl-acts .admin-btn { padding: 6px 12px; font-size: 12px; }
-    .cc-del { align-self: flex-start; font-family: var(--sans); font-size: 12px; font-weight: 700; color: #a05a3c; background: #fff; border: 1px solid rgba(160,90,60,0.4); border-radius: 4px; height: 30px; padding: 0 14px; cursor: pointer; }
-    .cc-del:hover { background: rgba(160,90,60,0.08); }
-
-    .cc-modal { position: fixed; inset: 0; z-index: 90; background: rgba(28,29,34,0.35); display: flex; align-items: flex-start; justify-content: center; padding: 90px 20px 24px calc(var(--ash-side-w, 0px) + 20px); }
-    .cc-modal-box { background: #fff; border-radius: 8px; width: min(440px, 100%); max-height: calc(100vh - 120px); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 30px 60px -30px rgba(28,29,34,0.5); }
-    .cc-modal-wide { width: min(980px, 100%); }
+    .cc-modal { position: fixed; inset: 0; z-index: 90; background: rgba(55,30,40,.45); display: flex; align-items: center; justify-content: center; padding: 20px 20px 20px calc(var(--ash-side-w, 0px) + 20px); }
+    .cc-modal-box { background: #fff; border-radius: 4px; width: min(440px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 60px -20px rgba(55,30,40,.6); }
+    .cc-modal-wide { width: min(980px, 100%); height: min(720px, 100%); }
+    .cc-modal-mid { width: min(620px, 100%); }
     .cc-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
-    .cc-modal-foot { display: flex; justify-content: flex-end; }
-    .cc-pick-q { max-width: 260px; margin-left: 12px; }
-    .cc-pick-src { margin: 0 0 0 12px; }
+    .cc-modal-foot { display: flex; justify-content: flex-end; gap: 8px; }
+    .cc-copy-body { flex: 1; min-height: 0; overflow-y: auto; height: 520px; }
+    .cc-copy-foot { padding: 12px 18px; border-top: 1px solid var(--linen); }
+    .cc-copy-list { display: grid; }
+    .cc-copy-list label { display: grid; grid-template-columns: 18px 76px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 40px; margin: 0; border-top: 1px solid var(--linen); font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; cursor: pointer; }
+    .cc-copy-list span:nth-child(2), .cc-copy-list span:last-child { color: var(--tx); }
+    .cc-copy-list span:nth-child(3) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cc-pick-q { max-width: 240px; }
+    #ccb .cc-pick-src { flex: none; }
     .cc-pick-note { padding: 12px 18px 0; }
-    .cc-pick-grid { overflow-y: auto; padding: 18px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; }
+    .cc-pick-grid { flex: 1; overflow-y: auto; padding: 18px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; align-content: start; }
     @media (max-width: 760px) { .cc-pick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-    .cc-pick-grid button { border: 1px solid rgba(28,29,34,0.12); background: #fff; padding: 0; border-radius: 2px; cursor: pointer; text-align: left; font-family: var(--sans); overflow: hidden; }
-    .cc-pick-grid button:hover, .cc-pick-grid button.is-on { border-color: var(--english-violet); box-shadow: 0 0 0 2px var(--english-violet); }
-    .cc-pick-grid button span { display: block; font-size: 12px; padding: 7px 8px; color: var(--ink); }
-    .cc-pick-grid .cc-pick-new { display: flex; align-items: center; justify-content: center; aspect-ratio: 4 / 5; border-style: dashed; color: var(--english-violet); font-size: 13px; font-weight: 700; text-align: center; }
+    #ccb .cc-pick-grid button { border: 1px solid var(--edge); background: #fff; padding: 0; border-radius: 2px; cursor: pointer; text-align: left; overflow: hidden; }
+    #ccb .cc-pick-grid button:hover, #ccb .cc-pick-grid button.is-on { border-color: var(--wine); box-shadow: 0 0 0 2px var(--wine); }
+    .cc-pick-grid button > span { display: block; padding: 7px 8px; }
+    #ccb .cc-pick-grid .cc-pick-new { display: flex; align-items: center; justify-content: center; aspect-ratio: 4 / 5; border-style: dashed; color: var(--wine); text-align: center; padding: 8px; }
+
+    /* The Instagram grid and Client calendar. Three rows of squares in view. */
+    #cc-board-box { height: min(880px, 100%); }
+    #cc-board-box.is-grid { width: min(566px, 100%); }
+    #cc-board-box.is-client { width: min(1180px, 100%); }
+    .cc-board-b { flex: 1; overflow: auto; padding: 16px 20px; }
+    .cc-ig-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; }
+    #ccb .cc-ig-tile { position: relative; aspect-ratio: 3 / 4; padding: 0; border: 0; background: var(--linen) center / cover no-repeat; cursor: pointer; overflow: hidden; }
+    #ccb .cc-ig-tile.none { display: grid; place-content: center; gap: 2px; text-align: center; background: #f7f4f2; box-shadow: inset 0 0 0 1px var(--linen); color: var(--tx); }
+    .cc-ig-type { position: absolute; top: 6px; right: 6px; width: 15px; height: 15px; }
+    .cc-cal-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 12px; }
+    .cc-cal-note p { margin: 0; color: var(--tx); }
+    .cc-cal-note strong { font-weight: 400; color: var(--ink); }
+    .cc-cal-in { min-width: 680px; }
+    .cc-cal-head, .cc-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+    .cc-cal-head { margin-bottom: 6px; color: var(--tx); text-align: center; }
+    .cc-cal-day { position: relative; aspect-ratio: 4 / 5; border: 1px solid var(--linen); overflow: hidden; }
+    .cc-cal-day.other { border-color: transparent; }
+    .cc-cal-num { position: absolute; top: 5px; left: 7px; z-index: 2; color: var(--tx); }
+    .cc-cal-day.has .cc-cal-num { display: grid; place-items: center; min-width: 20px; height: 20px; left: 5px; padding: 0 4px; background: #fff; color: var(--ink); border-radius: 2px; }
+    #ccb .cc-cal-post { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: var(--linen) center / cover no-repeat; cursor: pointer; }
+    .cc-view-post { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 24px; }
+    .cc-view-pic { aspect-ratio: 4 / 5; border-radius: 2px; background: var(--linen) center / cover no-repeat; }
+    .cc-view-post h3 { margin: 0 0 10px; font-family: var(--serif); font-weight: 300; font-size: 22px; line-height: 1.15; letter-spacing: -0.04em; color: var(--ink); text-transform: none; }
+    .cc-view-post p { margin: 0 0 12px; color: var(--tx); white-space: pre-wrap; }
+    .cc-view-post p.lbl { margin: 0 0 4px; font-size: 11px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; }
+    .cc-facts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+    @media (max-width: 760px) { .cc-view-post { grid-template-columns: minmax(0, 1fr); } }
   </style>
 
   <script>
@@ -461,12 +505,12 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     import { escapeHtml as esc } from '../../lib/design-preview.js';
     import { upcomingDays } from '../../data/content-calendar.js';
     import {
-      EDITIONS, editionLabel, POST_TYPES, PLATFORMS, MAX_CAPTIONS, weekdaysOf, MONTHS_MISSING,
+      EDITIONS, editionLabel, POST_TYPES, PLATFORMS, MAX_CAPTIONS, PILLARS, weekdaysOf, MONTHS_MISSING,
     } from '../../lib/content-months.js';
 
     const DEV = import.meta.env.DEV;
     const $ = (id) => document.getElementById(id);
-    const VIEW_KEY = 'tmke.admin.calendar.view';
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
 
     let MONTHS = [];        // every month, every edition
     let POSTS = [];         // the open month's posts
@@ -491,13 +535,6 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       $('cc-loading').hidden = true;
       $('cc-missing').hidden = false;
       if (err && !MONTHS_MISSING.test(err)) $('cc-missing').innerHTML = `<p><strong>Couldn't load the Content Calendar.</strong></p><p>${esc(err)}</p>`;
-    }
-
-    function saveView() {
-      try { localStorage.setItem(VIEW_KEY, JSON.stringify({ edition: $('cc-edition').value, month: CUR ? CUR.month : '' })); } catch (_) {}
-    }
-    function readView() {
-      try { return JSON.parse(localStorage.getItem(VIEW_KEY) || 'null') || {}; } catch (_) { return {}; }
     }
 
     // ---- Loading ----
@@ -532,115 +569,240 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       }
     }
 
-    // ---- The month menu ----
-    function fillMonthMenu(prefer) {
-      const ed = $('cc-edition').value;
-      const list = MONTHS.filter((m) => m.edition === ed);
-      const sel = $('cc-month');
-      sel.innerHTML = list.map((m) => `<option value="${m.id}">${esc(monthName(m.month))}${m.status === 'published' ? '' : ' (draft)'}</option>`).join('');
-      sel.disabled = !list.length;
-      // The month asked for, else the soonest from this month on, else the latest.
-      const upcoming = list.filter((m) => m.month >= todayMonth());
-      const pick = list.find((m) => m.month === prefer) || upcoming[upcoming.length - 1] || list[0];
-      if (pick) sel.value = pick.id;
-      return pick || null;
-    }
-    const todayMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; };
+    // ---- One month: the card, the steps and the table ----
+    const STAGES = [[1, 'Initial planning'], [2, 'Creation'], [3, 'Captioning and guidance'], [4, 'Final checks']];
+    const stageOf = () => (CUR && CUR.stage >= 1 && CUR.stage <= 4 ? CUR.stage : 1);
+    const countOf = (f) => POSTS.filter(f).length;
+    const hasCap = (p) => (p.captions || []).some((c) => c && c.trim());
+    const thumbOf = (p) => { const t = p.template_id && TPLS.get(p.template_id); return (t && t.thumb_url) || ''; };
+    const shortDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const GRIP = '<svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="2" cy="14" r="1.5"/><circle cx="8" cy="14" r="1.5"/></svg>';
 
     async function openMonth(m) {
       if (CUR && CUR !== m) await saveNotes();   // typed notes stay with the month they were typed in
       CUR = m;
-      saveView();
-      $('cc-none').hidden = !!m;
-      $('cc-month-panel').hidden = !m;
-      if (!m) { $('cc-count').textContent = editionLabel($('cc-edition').value); renderTemplates(); return; }
+      if (!m) { history.replaceState(null, '', location.pathname); showTab('months'); return; }
+      history.replaceState(null, '', `${location.pathname}?month=${m.month}&edition=${m.edition}`);
       await loadPosts();
+      $('cc-intro').value = m.intro || '';
+      showNotes();
+      showView('calendar');
       renderMonth();
       renderTemplates();
+      showTab('build');
     }
 
     function renderMonth() {
-      const m = CUR;
-      $('cc-title').textContent = `${monthName(m.month)} · ${editionLabel(m.edition)}`;
-      $('cc-pill').dataset.status = m.status;
-      $('cc-pill').textContent = m.status === 'published' ? 'Published' : 'Draft';
-      $('cc-publish').textContent = m.status === 'published' ? 'Back to draft' : 'Publish';
-      $('cc-intro').value = m.intro || '';
-      showNotes();
+      const m = CUR, st = stageOf();
+      const live = m.status === 'published';
       const withDesign = POSTS.filter((p) => p.template_id).length;
-      $('cc-count').textContent = `${POSTS.length} post${POSTS.length === 1 ? '' : 's'} · ${withDesign} with a design`;
+      const first = POSTS.find((p) => thumbOf(p));
+      const img = m.image_url || (first && thumbOf(first)) || '';
+      $('cc-banner').style.backgroundImage = img ? `url("${img.replace(/"/g, '%22')}")` : 'none';
+      $('cc-title').textContent = monthName(m.month);
+      $('cc-pill').textContent = live ? 'Live' : 'Draft';
+      $('cc-ed-tag').textContent = editionLabel(m.edition);
+      $('cc-stage-tag').textContent = `Stage ${st} of 4`;
+      $('cc-count').textContent = `${POSTS.length} post${POSTS.length === 1 ? '' : 's'} · ${withDesign} with a design · ${live ? (m.published_at ? `Went live ${shortDate(m.published_at)}` : 'Live') : 'Not live yet'}`;
+      $('cc-stage-back').hidden = st === 1;
+      $('cc-stage-next').hidden = st === 4;
+      if (st < 4) $('cc-stage-next').textContent = `Next: ${STAGES[st][1]} →`;
+      $('cc-about').hidden = st !== 1;
+      $('cc-funnel').hidden = st !== 4;
+      renderProgress();
       renderRows();
-      fillPillars();
+    }
+
+    function checks() {
+      const n = POSTS.length, days = new Map(occasionsFor(CUR.month).map((o) => [o.name, isoOf(o.when)]));
+      const dated = POSTS.filter((p) => p.post_date);
+      return [
+        ['Every post has a design', countOf((p) => p.template_id), n],
+        ['Every post has a caption', countOf(hasCap), n],
+        ['Every post has guidance on how to edit it', countOf((p) => p.how_to_edit), n],
+        ['Every reel says what to film', countOf((p) => p.post_type !== 'reel' || p.reel_prompt), n],
+        ['Posts tied to a day are still on that day', countOf((p) => !p.date_tied || !days.has(p.occasion) || days.get(p.occasion) === p.post_date), n],
+        ['Every post has a date', dated.length, n],
+        ['Only one post on each day', new Set(dated.map((p) => p.post_date)).size, dated.length],
+      ];
+    }
+    let DRAFTING = null;   // { done, total } while Claude is working through the month
+    function renderProgress() {
+      const st = stageOf(), n = POSTS.length;
+      const fill = (st - 1) / (STAGES.length - 1) * 100;
+      $('cc-tl').innerHTML = `<div class="cc-tl-track"><div style="width:${fill}%"></div></div>` + STAGES.map(([s, l], i) =>
+        `<button type="button" class="cc-tl-step${i === 0 ? ' first' : ''}${i === STAGES.length - 1 ? ' last' : ''}${s <= st ? ' done' : ''}${s === st ? ' cur' : ''}" style="left:${i / (STAGES.length - 1) * 100}%" data-stage="${s}"><span class="cc-tl-dot"></span><span>${l}</span></button>`).join('');
+      const item = (ok, t) => `<li class="${ok ? 'ok' : ''}">${esc(t)}</li>`;
+      const btn = (k, l, cls) => `<button type="button" class="mbtn${cls ? ' ' + cls : ''}" data-call="${k}">${l}</button>`;
+      const boards = btn('grid', 'Instagram grid') + btn('client', 'Client calendar');
+      const box = (title, items, acts, hint) => `<div class="cc-call"><div><h4>${title}</h4><ul>${items.join('')}</ul>${hint ? `<p>${hint}</p>` : ''}</div><div class="cc-call-acts">${acts}</div></div>`;
+      const d = countOf((p) => p.template_id), c = countOf(hasCap), h = countOf((p) => p.how_to_edit), pl = countOf((p) => p.title && p.pillar);
+      const reels = countOf((p) => p.post_type === 'reel'), film = countOf((p) => p.post_type === 'reel' && p.reel_prompt);
+      let html;
+      if (st === 1) html = box('Initial planning', [item(!!(CUR.intro && CUR.intro.trim()), 'What the month is about'), item(n > 0 && pl === n, `${pl} of ${n} posts planned`)],
+        btn('fill', 'Create calendar template') + btn('copy', 'Copy posts from') + btn('add', 'Add a post'),
+        "Create calendar template gives you a blank post for every Monday to Friday, ready to fill with your ideas. Posts you've already started aren't touched.");
+      else if (st === 2) html = box('Creation', [item(n > 0 && d === n, `${d} of ${n} designs linked`)], btn('design', 'Create a design') + boards);
+      else if (st === 3) html = box('Captioning and guidance', [...(reels ? [item(film === reels, `${film} of ${reels} reels say what to film`)] : []), item(n > 0 && h === n, `${h} of ${n} how to edit written`), item(n > 0 && c === n, `${c} of ${n} captions written`)],
+        `<button type="button" class="mbtn primary" data-call="claude-all"${DRAFTING ? ' disabled' : ''}>${DRAFTING ? `Drafting ${DRAFTING.done} of ${DRAFTING.total}` : 'Draft the empty ones with Claude'}</button>` + boards,
+        "Claude reads each post's design, title and notes, then writes a first draft for you to check and edit. Anything already written stays as it is.");
+      else {
+        const all = checks(), ready = n > 0 && all.every(([, a, b]) => a === b), live = CUR.status === 'published';
+        html = box('Final checks', all.map(([l, a, b]) => item(a === b, a === b ? l : `${l} (${b - a} to do)`)), boards + (live
+          ? btn('publish', 'Back to draft')
+          : `<button type="button" class="mbtn primary" data-call="publish"${ready ? '' : ' disabled title="Finish the checks first"'}>Publish</button>`));
+      }
+      $('cc-call').innerHTML = html;
     }
 
     function renderRows() {
-      $('cc-rows').innerHTML = POSTS.map((p) => {
-        const d = p.post_date ? dayLabel(p.post_date) : null;
-        const t = p.template_id ? TPLS.get(p.template_id) : null;
-        const thumb = t && t.thumb_url
-          ? `<div class="cc-thumb" style="background-image:url('${esc(t.thumb_url)}')"></div>`
-          : `<div class="cc-thumb is-none">${t ? '' : '+'}</div>`;
-        const caps = (p.captions || []).filter((c) => c && c.trim());
-        const cap = caps.length
-          ? `${esc(caps[0].length > 90 ? caps[0].slice(0, 90) + '…' : caps[0])}${caps.length > 1 ? ` <small>+${caps.length - 1} more</small>` : ''}`
-          : '<span class="cc-empty-cell">No caption yet</span>';
-        return `<tr data-id="${p.id}" class="${d && d.weekend ? 'cc-weekend' : ''}${OPEN && OPEN.id === p.id ? ' is-open' : ''}">
-          <td class="cc-grip-cell"><span class="cc-grip" draggable="true" title="Drag onto another day to swap them"><svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="2" cy="14" r="1.5"/><circle cx="8" cy="14" r="1.5"/></svg></span></td>
-          <td class="cc-date">${d ? `${esc(d.day)}<small>${esc(d.wd)}</small>` : '<span class="cc-empty-cell">No date</span>'}${p.date_tied ? `<span class="cc-occ">${esc(p.occasion || 'Tied to the day')}</span>` : ''}</td>
-          <td>${thumb}</td>
-          <td>${p.title ? `<span class="cc-ttl">${esc(p.title)}</span>` : '<span class="cc-empty-cell">Untitled</span>'}</td>
-          <td>${esc(typeLabel(p.post_type))}</td>
-          <td>${p.pillar ? esc(p.pillar) : '<span class="cc-empty-cell">–</span>'}</td>
-          <td class="cc-cap-cell">${cap}</td>
-          <td class="cc-plat-cell">${(p.platforms || []).map((k) => platShort[k] || k).join(' · ')}</td>
-        </tr>`;
-      }).join('') || `<tr><td colspan="8" class="cc-empty-cell">No posts yet. Click <strong>Fill the weekdays</strong> for a post on every Monday to Friday, or <strong>+ Add a post</strong>.</td></tr>`;
+      const st = stageOf();
+      const grip = () => '<td class="cc-grip-cell"><span class="cc-grip" draggable="true" title="Drag onto another day to swap them">' + GRIP + '</span></td>';
+      const date = (p) => { const d = p.post_date ? dayLabel(p.post_date) : null; return `<td class="cc-date">${d ? `${esc(d.day)}<small>${esc(d.wd)}</small>` : '<span class="cc-none">No date</span>'}</td>`; };
+      const thumb = (p) => { const t = p.template_id ? TPLS.get(p.template_id) : null; return `<td>${t ? `<span class="cc-thumb" style="background-image:url('${esc(t.thumb_url || '')}')"></span>` : '<span class="cc-thumb is-none">+</span>'}</td>`; };
+      const post = (p) => `<td>${p.title ? esc(p.title) : '<span class="cc-none">Untitled</span>'}</td>`;
+      const type = (p) => `<td class="tx">${esc(typeLabel(p.post_type))}</td>`;
+      const pillar = (p) => `<td class="tx">${p.pillar ? esc(p.pillar) : '—'}</td>`;
+      const state = (ok, yes, no) => `<td><span class="chip ${ok ? 'good' : 'wait'}">${ok ? yes : no}</span></td>`;
+      const cap = (p) => { const c = (p.captions || []).find((x) => x && x.trim()); return `<td class="cc-clip">${c ? esc(c) : 'No caption yet'}</td>`; };
+      const LAYOUT = {
+        1: [['', 'Date', 'Post', 'Type', 'Pillar', 'Tied to a day', 'Note'], (p) => grip() + date(p) + post(p) + type(p) + pillar(p) + `<td class="tx">${p.date_tied ? esc(p.occasion || 'Yes') : '—'}</td><td class="cc-clip">${p.note ? esc(p.note) : '—'}</td>`],
+        2: [['', 'Date', 'Design', 'Post', 'Type', 'Status'], (p) => grip() + date(p) + thumb(p) + post(p) + type(p) + state(p.template_id, 'Design linked', 'To design')],
+        3: [['', 'Date', 'Design', 'Post', 'What to film', 'How to edit', 'Caption'], (p) => grip() + date(p) + thumb(p) + post(p) + (p.post_type === 'reel' ? state(p.reel_prompt, 'Written', 'To write') : '<td class="tx">Not a reel</td>') + state(p.how_to_edit, 'Written', 'To write') + cap(p)],
+        4: [['', 'Date', 'Design', 'Post', 'Type', 'Pillar', 'Caption'], (p) => grip() + date(p) + thumb(p) + post(p) + type(p) + pillar(p) + cap(p)],
+      }[st];
+      $('cc-head').innerHTML = LAYOUT[0].map((h, i) => i === 0 ? '<th aria-label="Move"></th>' : `<th>${h}</th>`).join('');
+      $('cc-rows').innerHTML = POSTS.map((p) => `<tr data-id="${p.id}" class="${OPEN && OPEN.id === p.id ? 'is-open' : ''}">${LAYOUT[1](p)}</tr>`).join('')
+        || `<tr><td colspan="${LAYOUT[0].length}" class="cc-none">No posts yet. Click <strong style="font-weight:400">Create calendar template</strong> at Initial planning for a post on every Monday to Friday.</td></tr>`;
     }
 
-    function fillPillars() {
-      // Every pillar used across every month, so they're spelled the same.
-      supabase.from('content_month_posts').select('pillar').not('pillar', 'is', null).limit(1000).then(({ data }) => {
-        const set = [...new Set((data || []).map((r) => r.pillar).filter(Boolean))].sort();
-        $('cc-pillars').innerHTML = set.map((p) => `<option value="${esc(p)}"></option>`).join('');
-      });
+    async function setStage(n) {
+      if (!CUR || n === stageOf()) return;
+      const m = CUR, was = m.stage;
+      m.stage = n;
+      renderMonth();
+      const { error } = await supabase.from('content_months').update({ stage: n }).eq('id', m.id);
+      if (error) { m.stage = was; if (m === CUR) renderMonth(); alert(`Couldn't save the step: ${error.message}`); }
     }
 
     function renderTemplates() {
       if (!CUR) return;
-      // The month's posts in date order, each with its design; a post with no
-      // design yet is a dashed card that opens it. Then the calendar's other
-      // templates, the ones this month doesn't use.
-      const used = new Set(POSTS.map((p) => p.template_id).filter(Boolean));
-      const card = (t, sub) => `<a class="cc-card${t.status === 'draft' ? ' is-draft' : ''}" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">
-          <div class="cc-card-img" style="${t.thumb_url ? `background-image:url('${esc(t.thumb_url)}')` : ''}"></div>
-          <div class="cc-card-b"><div class="cc-card-n">${esc(t.name || 'Untitled')}</div>${sub ? `<div class="cc-card-m">${esc(sub)}</div>` : ''}</div>
-        </a>`;
+      const card = (p) => {
+        const d = p.post_date ? dayLabel(p.post_date) : null, when = d ? `${d.wd} ${d.day}` : 'No date';
+        const t = p.template_id ? TPLS.get(p.template_id) : null;
+        return `<button type="button" class="cc-card${t ? '' : ' is-empty'}" data-open-post="${p.id}"><div class="cc-card-img" style="${t && t.thumb_url ? `background-image:url('${esc(t.thumb_url)}')` : ''}">${t ? '' : '+ Add a design'}</div><div class="cc-card-b"><div>${esc(p.title || (t && t.name) || 'No design yet')}</div><div class="cc-card-m">${esc(when)}</div></div></button>`;
+      };
       const withDesign = POSTS.filter((p) => p.template_id).length;
       $('cc-tpl-count').textContent = `${withDesign} of ${POSTS.length} posts have a design`;
-      $('cc-grid').innerHTML = POSTS.map((p) => {
-        const d = p.post_date ? dayLabel(p.post_date) : null;
-        const when = d ? `${d.wd} ${d.day}` : 'No date';
-        const t = p.template_id ? TPLS.get(p.template_id) : null;
-        if (t) return card(t, [when, p.title].filter(Boolean).join(' · '));
-        return `<button type="button" class="cc-card is-empty" data-open-post="${p.id}">
-          <div class="cc-card-img">+ Create a design</div>
-          <div class="cc-card-b"><div class="cc-card-n">${esc(p.title || 'No design yet')}</div><div class="cc-card-m">${esc(when)}</div></div>
-        </button>`;
-      }).join('') || '<p class="cc-note">No posts yet. Switch to Calendar and click <strong>Fill the weekdays</strong>.</p>';
-      const others = [...TPLS.values()].filter((t) => t.calendar && !used.has(t.id))
-        .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
-      $('cc-other-head').hidden = !others.length;
-      $('cc-other').innerHTML = others.map((t) => card(t, '')).join('');
+      $('cc-grid').innerHTML = POSTS.map(card).join('') || '<p class="cc-note">No posts yet.</p>';
+      const short = CUR.shortlist || [];
+      $('cc-short-n').textContent = String(short.length);
+      $('cc-short').innerHTML = short.map((id) => {
+        const t = TPLS.get(id);
+        return `<div class="cc-card" style="cursor:default"><div class="cc-card-img" style="${t && t.thumb_url ? `background-image:url('${esc(t.thumb_url)}')` : ''}"></div><div class="cc-card-b"><div>${esc((t && t.name) || 'Untitled')}</div></div><div class="cc-card-f"><button type="button" class="mbtn" data-short-rm="${esc(id)}">Remove</button></div></div>`;
+      }).join('') || '<p class="cc-note">Nothing shortlisted yet.</p>';
+    }
+    async function saveShortlist(next) {
+      const m = CUR, was = m.shortlist;
+      m.shortlist = next;
+      renderTemplates();
+      const { error } = await supabase.from('content_months').update({ shortlist: next }).eq('id', m.id);
+      if (error) { m.shortlist = was; renderTemplates(); alert(`Couldn't save the shortlist: ${error.message}`); }
     }
 
-    let VIEW = (() => { try { const v = localStorage.getItem('tmke.admin.calendar.tab'); return v === 'templates' || v === 'notes' ? v : 'calendar'; } catch (_) { return 'calendar'; } })();
     function showView(v) {
-      VIEW = v;
-      try { localStorage.setItem('tmke.admin.calendar.tab', v); } catch (_) {}
-      document.querySelectorAll('.cc-view').forEach((b) => b.classList.toggle('is-on', b.dataset.view === v));
+      document.querySelectorAll('#cc-views [data-view]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
       $('cc-view-calendar').hidden = v !== 'calendar';
       $('cc-view-templates').hidden = v !== 'templates';
       $('cc-view-notes').hidden = v !== 'notes';
+    }
+
+    // ---- The Instagram grid and the Client calendar ----
+    let BOARD = null, BOARD_POST = null;
+    function openBoard(kind) { BOARD = kind; BOARD_POST = null; renderBoard(); $('cc-board').hidden = false; }
+    function typeIcon(t) {
+      if (t === 'carousel') return '<svg class="cc-ig-type" viewBox="0 0 16 16" fill="#fff" stroke="#371e28" stroke-width="1" aria-label="Carousel"><rect x="5" y="1" width="10" height="10" rx="1.5"/><rect x="1" y="5" width="10" height="10" rx="1.5"/></svg>';
+      if (t === 'reel') return '<svg class="cc-ig-type" viewBox="0 0 16 16" fill="#fff" stroke="#371e28" stroke-width="1" aria-label="Reel"><path d="M3 1.5v13l11-6.5z"/></svg>';
+      return '';
+    }
+    function renderBoard() {
+      const box = $('cc-board-box'), b = $('cc-board-b');
+      box.className = `cc-modal-box ${BOARD === 'grid' ? 'is-grid' : 'is-client'}`;
+      if (BOARD === 'grid') {
+        $('cc-board-title').textContent = 'Instagram grid';
+        // Newest first, top left, the way a feed shows it.
+        const list = POSTS.filter((p) => p.post_date && (p.platforms || []).includes('instagram')).slice().sort((x, y) => y.post_date.localeCompare(x.post_date) || y.sort_order - x.sort_order);
+        b.innerHTML = list.length ? `<div class="cc-ig-grid">${list.map((p) => { const img = thumbOf(p), d = dayLabel(p.post_date);
+          return img
+            ? `<button type="button" class="cc-ig-tile" draggable="true" data-id="${p.id}" title="${esc(d.wd + ' ' + d.day)}" style="background-image:url('${esc(img)}')">${typeIcon(p.post_type)}</button>`
+            : `<button type="button" class="cc-ig-tile none" draggable="true" data-id="${p.id}"><span>${esc(d.day)}</span><span>No design yet</span></button>`; }).join('')}</div>` : '<p class="cc-note">No posts for Instagram yet.</p>';
+        return;
+      }
+      $('cc-board-title').textContent = 'Client calendar';
+      if (BOARD_POST) {
+        const p = BOARD_POST, img = thumbOf(p), d = p.post_date ? dayLabel(p.post_date) : null, cap = (p.captions || []).find((c) => c && c.trim());
+        const part = (l, v) => (v ? `<p class="lbl">${l}</p><p>${esc(v)}</p>` : '');
+        b.innerHTML = `<div style="margin:0 0 12px"><button type="button" class="mbtn" data-board-back>Back to the calendar</button></div><div class="cc-view-post"><div class="cc-view-pic" style="${img ? `background-image:url('${esc(img)}')` : ''}"></div><div><h3>${esc(p.title || 'Post')}</h3><div class="cc-facts">${d ? `<span class="chip plain">${esc(d.wd + ' ' + d.day)}</span>` : ''}<span class="chip plain">${esc(typeLabel(p.post_type))}</span>${p.pillar ? `<span class="chip plain">${esc(p.pillar)}</span>` : ''}</div>${p.post_type === 'reel' ? part('What to film', p.reel_prompt) : ''}${part('How to edit', p.how_to_edit)}${part('Caption', cap)}</div></div>`;
+        return;
+      }
+      const [y, m] = CUR.month.split('-').map(Number), lead = (new Date(y, m - 1, 1).getDay() + 6) % 7, last = new Date(y, m, 0).getDate();
+      const byDate = new Map(); POSTS.forEach((p) => { if (p.post_date && !byDate.has(p.post_date)) byDate.set(p.post_date, p); });
+      let cells = '<div class="cc-cal-day other"></div>'.repeat(lead);
+      for (let n = 1; n <= last; n++) {
+        const iso = `${y}-${String(m).padStart(2, '0')}-${String(n).padStart(2, '0')}`, p = byDate.get(iso), img = p && thumbOf(p);
+        cells += `<div class="cc-cal-day${img ? ' has' : ''}"><span class="cc-cal-num">${n}</span>${img ? `<button type="button" class="cc-cal-post" data-view-post="${p.id}" aria-label="${esc(p.title || 'Post')}" style="background-image:url('${esc(img)}')"></button>` : ''}</div>`;
+      }
+      const name = new Date(CUR.month + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long' });
+      b.innerHTML = `<div class="cc-cal-note"><p><strong>${esc(name)}'s posts.</strong> One for each weekday. Click a post to see it full size.</p><span class="chip plain">Preview: what members will see</span></div><div class="cc-cal-in"><div class="cc-cal-head"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div><div class="cc-cal-grid">${cells}</div></div>`;
+    }
+    $('cc-board-b').addEventListener('click', (e) => {
+      if (e.target.closest('[data-board-back]')) { BOARD_POST = null; renderBoard(); return; }
+      const v = e.target.closest('[data-view-post]');
+      if (v) { BOARD_POST = POSTS.find((p) => p.id === v.dataset.viewPost) || null; renderBoard(); return; }
+      const t = e.target.closest('.cc-ig-tile[data-id]');
+      if (t) { const p = POSTS.find((x) => x.id === t.dataset.id); if (p) { $('cc-board').hidden = true; openDrawer(p); } }
+    });
+
+    // ---- Claude drafts the words (Dani, 9 Nov). It never overwrites what's written. ----
+    async function draftWords(p) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${WORKER}/calendar/draft-words`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ post_id: p.id }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Claude couldn't draft that one.");
+      return d;
+    }
+    async function draftAll() {
+      if (DRAFTING) return;
+      const empty = (p) => !p.how_to_edit || !hasCap(p) || (p.post_type === 'reel' && !p.reel_prompt);
+      const todo = POSTS.filter((p) => p.template_id && empty(p)), skipped = countOf((p) => !p.template_id);
+      if (!todo.length) { alert(skipped ? `Nothing to draft. ${skipped} post${skipped === 1 ? " has" : "s have"} no design yet, and Claude needs the design to read.` : 'Every post already has its words.'); return; }
+      if (!confirm(`Claude will draft the empty words on ${todo.length} post${todo.length === 1 ? '' : 's'}. Anything already written stays as it is.${skipped ? ` ${skipped} with no design yet will be skipped.` : ''}`)) return;
+      DRAFTING = { done: 0, total: todo.length };
+      renderProgress();
+      const m = CUR, failed = []; let i = 0;
+      const worker = async () => {
+        while (i < todo.length) {
+          const p = todo[i++];
+          try {
+            const d = await draftWords(p), patch = {};
+            if (p.post_type === 'reel' && !p.reel_prompt && d.what_to_film) patch.reel_prompt = d.what_to_film;
+            if (!p.how_to_edit && d.how_to_edit) patch.how_to_edit = d.how_to_edit;
+            if (!hasCap(p) && d.caption) patch.captions = [d.caption];
+            if (Object.keys(patch).length) {
+              const { data, error } = await supabase.from('content_month_posts').update(patch).eq('id', p.id).select('id');
+              if (error || !data || !data.length) throw new Error((error && error.message) || "That post didn't save.");
+              Object.assign(p, patch);
+            }
+          } catch (e) { failed.push(e.message); }
+          DRAFTING.done++;
+          if (m === CUR) { renderProgress(); renderRows(); }
+        }
+      };
+      await Promise.all([worker(), worker(), worker()]);
+      DRAFTING = null;
+      if (m === CUR) renderMonth();
+      if (failed.length) alert(`${failed.length} of ${todo.length} didn't draft: ${failed[0]}`);
+      else saved($('cc-saved'), 'Drafted. Check and edit as you like.');
     }
 
     /* Notes save a second after typing stops, and when you leave the box. */
@@ -667,8 +829,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     }
     $('cc-notes').addEventListener('input', () => { clearTimeout(NOTES_T); NOTES_T = setTimeout(saveNotes, 1000); });
     $('cc-notes').addEventListener('blur', saveNotes);
-    document.querySelectorAll('.cc-view').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
-    showView(VIEW);
+    $('cc-views').addEventListener('click', (e) => { const b = e.target.closest('[data-view]'); if (b) showView(b.dataset.view); });
     $('cc-grid').addEventListener('click', (e) => {
       const b = e.target.closest('[data-open-post]');
       if (!b) return;
@@ -683,13 +844,20 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       return days;
     }
 
+    function drawerHead(p) { return [p.post_date ? `${dayLabel(p.post_date).wd} ${dayLabel(p.post_date).day}` : 'Post', p.title].filter(Boolean).join(' · '); }
+    // Each step shows only its own fields. A field that's hidden keeps its value.
+    function syncStageFields() {
+      const st = String(stageOf());
+      document.querySelectorAll('#cc-drawer [data-in]').forEach((el) => { el.hidden = !el.dataset.in.includes(st); });
+      $('cc-d-film-wrap').hidden = !((st === '3' || st === '4') && $('cc-d-type').value === 'reel');
+    }
     function openDrawer(p) {
       OPEN = p;
       renderRows();
       const at = POSTS.findIndex((x) => x.id === p.id);
       $('cc-d-prev').disabled = at <= 0;
       $('cc-d-next').disabled = at < 0 || at >= POSTS.length - 1;
-      $('cc-d-head').textContent = p.post_date ? `${dayLabel(p.post_date).wd} ${dayLabel(p.post_date).day}` : 'Post';
+      $('cc-d-head').textContent = drawerHead(p);
       const [y, m] = CUR.month.split('-').map(Number);
       const last = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
       $('cc-d-date').min = CUR.month; $('cc-d-date').max = last;
@@ -700,12 +868,16 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       $('cc-occasions').innerHTML = occasionsFor(CUR.month).map((d) => `<option value="${esc(d.name)}">${esc(d.when.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</option>`).join('');
       syncTied();
       $('cc-d-title').value = p.title || '';
+      // A pillar typed before the list existed stays as an option, so it's never lost.
+      $('cc-d-pillar').innerHTML = '<option value="">Choose a pillar</option>' + [...new Set([...PILLARS, ...(p.pillar ? [p.pillar] : [])])].map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
       $('cc-d-pillar').value = p.pillar || '';
+      $('cc-d-note').value = p.note || '';
       document.querySelectorAll('.cc-cap').forEach((ta, i) => { ta.value = (p.captions || [])[i] || ''; });
       $('cc-d-how').value = p.how_to_edit || '';
       $('cc-d-reel').value = p.reel_prompt || '';
       document.querySelectorAll('#cc-d-plats input').forEach((cb) => { cb.checked = (p.platforms || []).includes(cb.value); });
       renderDrawerTemplate();
+      syncStageFields();
       $('cc-shade').hidden = false;
       $('cc-drawer').hidden = false;
     }
@@ -726,14 +898,32 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       const t = OPEN.template_id ? TPLS.get(OPEN.template_id) : null;
       $('cc-d-tpl').innerHTML = t
         ? `<div class="cc-thumb" style="${t.thumb_url ? `background-image:url('${esc(t.thumb_url)}')` : ''}"></div>
-           <div class="cc-d-tpl-b"><strong>${esc(t.name || 'Untitled')}</strong>
-           <div class="cc-d-tpl-acts"><button type="button" class="admin-btn admin-btn-ghost" data-act="pick">Change</button>
-           <a class="admin-btn admin-btn-ghost" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Open in the Studio</a>
-           <button type="button" class="admin-btn admin-btn-ghost" data-act="unlink">Remove</button></div></div>`
+           <div class="cc-d-tpl-b"><span>${esc(t.name || 'Untitled')}</span>
+           <div class="cc-d-tpl-acts"><button type="button" class="mbtn" data-act="pick">Change</button>
+           <button type="button" class="mbtn" data-act="open">Open in the Studio</button>
+           <button type="button" class="mbtn" data-act="unlink">Remove</button></div></div>`
         : `<div class="cc-thumb is-none">+</div>
            <div class="cc-d-tpl-b">No design yet
-           <div class="cc-d-tpl-acts"><button type="button" class="admin-btn admin-btn-ghost" data-act="pick">Choose a design</button>
-           <button type="button" class="admin-btn admin-btn-ghost" data-act="new">Create a design</button></div></div>`;
+           <div class="cc-d-tpl-acts"><button type="button" class="mbtn" data-act="pick">Choose a design</button>
+           <button type="button" class="mbtn" data-act="new">Create a design</button></div></div>`;
+    }
+
+    /* A design used in another month gets its own copy the first time it's
+       opened here, so last month's stays exactly as it was (Dani, 9 Nov). */
+    async function openDesign(post) {
+      await flushSave();
+      let id = post.template_id;
+      const { data: others, error } = await supabase.from('content_month_posts').select('id').eq('template_id', id).neq('month_id', CUR.id).limit(1);
+      if (error) { alert(`Couldn't open the design: ${error.message}`); return; }
+      if (others && others.length) {
+        const copy = await copyIntoCalendar(id, monthName(CUR.month));
+        if (!copy) return;
+        const { error: e2 } = await supabase.from('content_month_posts').update({ template_id: copy }).eq('id', post.id);
+        if (e2) { alert(`The copy was made, but couldn't be linked to this post: ${e2.message}`); return; }
+        post.template_id = copy;
+        id = copy;
+      }
+      location.href = `/account/editor?id=${encodeURIComponent(id)}&mode=admin`;
     }
 
     // Read the drawer into a patch for the open post.
@@ -747,6 +937,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         pillar: $('cc-d-pillar').value.trim() || null,
         captions: [...document.querySelectorAll('.cc-cap')].map((ta) => ta.value.trim()).filter(Boolean).slice(0, MAX_CAPTIONS),
         how_to_edit: $('cc-d-how').value.trim() || null,
+        note: $('cc-d-note').value.trim() || null,
         reel_prompt: $('cc-d-reel').value.trim() || null,
         platforms: [...document.querySelectorAll('#cc-d-plats input:checked')].map((cb) => cb.value),
       };
@@ -756,15 +947,17 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       POSTS.sort((a, b) => String(a.post_date || '9999').localeCompare(String(b.post_date || '9999')) || a.sort_order - b.sort_order);
     }
 
-    // ---- Moving a post (Danielle, 9 Nov 2026): drag a row by its handle onto
-    // another day and the two swap days. Everything else stays where it is. ----
+    // ---- Moving a post (Danielle, 9 Nov 2026): drag a row by its handle, or a
+    // square in the Instagram grid, onto another day and the two swap days.
+    // Everything else stays where it is. ----
     async function swapPosts(a, b) {
       const tied = [a, b].filter((p) => p.date_tied);
       if (tied.length && !confirm(tied.map((p) => `"${p.title || 'This post'}" is tied to ${p.occasion || 'its day'}.`).join(' ') + ' Move it anyway?')) return;
       const slot = (p) => ({ post_date: p.post_date, sort_order: p.sort_order });
       const wasA = slot(a), wasB = slot(b);
       Object.assign(a, wasB); Object.assign(b, wasA);
-      sortPosts(); renderMonth(); renderTemplates();
+      const redraw = () => { sortPosts(); renderMonth(); renderTemplates(); if (BOARD && !$('cc-board').hidden) { const y = $('cc-board-b').scrollTop; renderBoard(); $('cc-board-b').scrollTop = y; } };
+      redraw();
       const save = async (p, patch) => {
         // .select() so a save the database turned down can't look like it worked.
         const { data, error } = await supabase.from('content_month_posts').update(patch).eq('id', p.id).select('id');
@@ -775,7 +968,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       if (!bothOk) {
         if (firstOk) await save(a, wasA);   // never leave two posts on one day by halves
         await loadPosts();
-        renderMonth(); renderTemplates();
+        redraw();
         alert("Couldn't move the post. Nothing has changed, please try again.");
         return;
       }
@@ -783,43 +976,45 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     }
 
     let DRAG = null;
-    const clearDrop = () => document.querySelectorAll('#cc-rows tr.is-drop').forEach((r) => r.classList.remove('is-drop'));
-    $('cc-rows').addEventListener('dragstart', (e) => {
-      const grip = e.target.closest && e.target.closest('.cc-grip');
-      const tr = grip && grip.closest('tr[data-id]');
-      if (!tr) { e.preventDefault(); return; }
-      DRAG = POSTS.find((p) => p.id === tr.dataset.id) || null;
+    const DROP = '#cc-rows tr[data-id], .cc-ig-tile[data-id]';
+    const clearDrop = () => document.querySelectorAll('#ccb .is-drop').forEach((r) => r.classList.remove('is-drop'));
+    $('ccb').addEventListener('dragstart', (e) => {
+      const h = e.target.closest && e.target.closest('.cc-grip, .cc-ig-tile[data-id]');
+      if (!h) return;
+      const el = h.closest(DROP);
+      if (!el) { e.preventDefault(); return; }
+      DRAG = POSTS.find((p) => p.id === el.dataset.id) || null;
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', tr.dataset.id);
-      e.dataTransfer.setDragImage(tr, 16, 20);
-      tr.classList.add('is-dragging');
+      e.dataTransfer.setData('text/plain', el.dataset.id);
+      e.dataTransfer.setDragImage(el, 16, 20);
+      el.classList.add('is-dragging');
     });
-    $('cc-rows').addEventListener('dragover', (e) => {
+    $('ccb').addEventListener('dragover', (e) => {
       if (!DRAG) return;
-      // The page scrolls itself near the top and bottom, so any day can be reached.
-      const pane = document.querySelector('.ash-content');
+      // Scrolls by itself near the top and bottom, so any day can be reached.
+      const pane = !$('cc-board').hidden ? $('cc-board-b') : document.querySelector('.ash-content');
       if (pane) {
         const r = pane.getBoundingClientRect();
         if (e.clientY < r.top + 70) pane.scrollTop -= 14;
         else if (e.clientY > r.bottom - 70) pane.scrollTop += 14;
       }
-      const tr = e.target.closest && e.target.closest('tr[data-id]');
+      const t = e.target.closest && e.target.closest(DROP);
       clearDrop();
-      if (!tr || tr.dataset.id === DRAG.id) return;
+      if (!t || t.dataset.id === DRAG.id) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      tr.classList.add('is-drop');
+      t.classList.add('is-drop');
     });
-    $('cc-rows').addEventListener('drop', (e) => {
-      const tr = e.target.closest && e.target.closest('tr[data-id]');
-      const from = DRAG, to = tr && POSTS.find((p) => p.id === tr.dataset.id);
+    $('ccb').addEventListener('drop', (e) => {
+      const t = e.target.closest && e.target.closest(DROP);
+      const from = DRAG, to = t && POSTS.find((p) => p.id === t.dataset.id);
       if (!from || !to || from === to) return;
       e.preventDefault();
       swapPosts(from, to);
     });
-    $('cc-rows').addEventListener('dragend', () => {
+    $('ccb').addEventListener('dragend', () => {
       DRAG = null; clearDrop();
-      document.querySelectorAll('#cc-rows tr.is-dragging').forEach((r) => r.classList.remove('is-dragging'));
+      document.querySelectorAll('#ccb .is-dragging').forEach((r) => r.classList.remove('is-dragging'));
     });
 
     let saveTimer = null;
@@ -839,7 +1034,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       if (error) { alert(`Couldn't save the post: ${error.message}`); return; }
       saved($('cc-d-saved'));
       if ('post_date' in patch) sortPosts();
-      if (OPEN === post) $('cc-d-head').textContent = post.post_date ? `${dayLabel(post.post_date).wd} ${dayLabel(post.post_date).day}` : 'Post';
+      if (OPEN === post) $('cc-d-head').textContent = drawerHead(post);
       renderMonth();
     }
 
@@ -868,27 +1063,37 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       ALL_TPLS = (data || []).filter((t) => t.collection !== 'calendar' && t.kind !== 'block' && !(t.canvas && t.canvas.mockup)
         && !PRINT_SIZES.has(Math.round((t.canvas || {}).width) + 'x' + Math.round((t.canvas || {}).height)));
     }
-    async function copyIntoCalendar(srcId) {
+    async function copyIntoCalendar(srcId, forMonth) {
       const FULL = 'id, name, category, thumb_url, render_url, canvas, elements, pages, size_variants';
       let { data: src, error } = await supabase.from('templates').select(FULL).eq('id', srcId).maybeSingle();
       if (error) ({ data: src, error } = await supabase.from('templates').select('id, name, category, thumb_url, canvas, elements, pages').eq('id', srcId).maybeSingle());
       if (error || !src) { alert(`Couldn't copy that template: ${error ? error.message : 'not found'}`); return null; }
       const id = 'tmpl-' + Math.random().toString(36).slice(2, 8);
-      const row = { ...src, id, status: 'draft', sort_order: 9000, collection: 'calendar', pack_id: null };
+      const name = forMonth ? `${String(src.name || 'Untitled').replace(/ [–-] [A-Z][a-z]+ \d{4}$/, '')} – ${forMonth}` : src.name;
+      const row = { ...src, id, name, status: 'draft', sort_order: 9000, collection: 'calendar', pack_id: null };
       const { error: e2 } = await supabase.from('templates').insert(row);
       if (e2) { alert(`Couldn't copy that template: ${e2.message}`); return null; }
-      TPLS.set(id, { id, name: src.name, thumb_url: src.thumb_url, status: 'draft', updated_at: new Date().toISOString(), calendar: true });
+      TPLS.set(id, { id, name, thumb_url: src.thumb_url, status: 'draft', updated_at: new Date().toISOString(), calendar: true });
       return id;
     }
-    document.querySelectorAll('.cc-pick-src .cc-view').forEach((b) => b.addEventListener('click', async () => {
+    $('cc-pick-src').addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-src]');
+      if (!b) return;
       PICK_SRC = b.dataset.src;
-      document.querySelectorAll('.cc-pick-src .cc-view').forEach((x) => x.classList.toggle('is-on', x === b));
+      document.querySelectorAll('#cc-pick-src [data-src]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
       $('cc-pick-note').hidden = PICK_SRC !== 'all';
       if (PICK_SRC === 'all') await loadAllTemplates();
       renderPicker();
-    }));
+    });
 
-    function openPicker() {
+    /* One picker, three jobs: a design for a post, the month's shortlist, the month's image. */
+    let PICK_MODE = 'post';
+    function openPicker(mode = 'post') {
+      PICK_MODE = mode;
+      if (mode !== 'post') PICK_SRC = 'calendar';
+      $('cc-pick-title').textContent = { post: 'Choose a design', short: 'Add to the shortlist', image: 'Choose a month image' }[mode];
+      $('cc-pick-src').hidden = mode !== 'post';
+      $('cc-pick-note').hidden = mode !== 'post' || PICK_SRC !== 'all';
       $('cc-pick-q').value = '';
       renderPicker();
       $('cc-pick').hidden = false;
@@ -896,13 +1101,19 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     }
     function renderPicker() {
       const q = $('cc-pick-q').value.trim().toLowerCase();
-      const all = PICK_SRC === 'all';
+      const tile = (t, attr, on) => `<button type="button" ${attr} class="${on ? 'is-on' : ''}"><div class="cc-card-img" style="${t.thumb_url ? `background-image:url('${esc(t.thumb_url)}')` : ''}"></div><span>${esc(t.name || 'Untitled')}</span></button>`;
+      if (PICK_MODE === 'image') {
+        const list = [...new Set(POSTS.map((p) => p.template_id).filter(Boolean))].map((id) => TPLS.get(id)).filter((t) => t && t.thumb_url && (!q || (t.name || '').toLowerCase().includes(q)));
+        $('cc-pick-grid').innerHTML = `<button type="button" class="cc-pick-new" data-img="">Use the month's first design</button>` + list.map((t) => tile(t, `data-img="${esc(t.thumb_url)}"`, CUR.image_url === t.thumb_url)).join('');
+        return;
+      }
+      const short = (CUR && CUR.shortlist) || [];
+      const all = PICK_MODE === 'post' && PICK_SRC === 'all';
       const pool = all ? (ALL_TPLS || []) : [...TPLS.values()].filter((t) => t.calendar);
-      const list = pool.filter((t) => !q || (t.name || '').toLowerCase().includes(q));
-      $('cc-pick-grid').innerHTML = (all ? '' : `<button type="button" class="cc-pick-new" data-new>+ Create a design</button>`) + list.map((t) =>
-        `<button type="button" data-pick="${esc(t.id)}" ${all ? 'data-copy' : ''} class="${OPEN && OPEN.template_id === t.id ? 'is-on' : ''}">
-          <div class="cc-card-img" style="${t.thumb_url ? `background-image:url('${esc(t.thumb_url)}')` : ''}"></div>
-          <span>${esc(t.name || 'Untitled')}</span></button>`).join('');
+      let list = pool.filter((t) => !q || (t.name || '').toLowerCase().includes(q));
+      if (!all && PICK_MODE === 'post') list = [...list.filter((t) => short.includes(t.id)), ...list.filter((t) => !short.includes(t.id))];   // the shortlist first
+      if (PICK_MODE === 'short') { $('cc-pick-grid').innerHTML = list.map((t) => tile(t, `data-short="${esc(t.id)}"`, short.includes(t.id))).join('') || '<p class="cc-note">No Content Calendar designs yet.</p>'; return; }
+      $('cc-pick-grid').innerHTML = (all ? '' : '<button type="button" class="cc-pick-new" data-new>+ Create a design</button>') + list.map((t) => tile(t, `data-pick="${esc(t.id)}" ${all ? 'data-copy' : ''}`, OPEN && OPEN.template_id === t.id)).join('');
     }
 
     // ---- New template ----
@@ -950,18 +1161,18 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       $('cc-new-e').value = ed;
       $('cc-new').hidden = false;
     }
+    const todayMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; };
     async function createMonth() {
       const mv = $('cc-new-m').value, ed = $('cc-new-e').value;
       if (!mv) return;
       const month = mv + '-01';
       const existing = MONTHS.find((m) => m.month === month && m.edition === ed);
       $('cc-new').hidden = true;
-      if (existing) { $('cc-edition').value = ed; fillMonthMenu(month); await openMonth(existing); return; }
+      $('cc-edition').value = ed;
+      if (existing) { await openMonth(existing); return; }
       const { data, error } = await supabase.from('content_months').insert({ month, edition: ed }).select().single();
       if (error) { alert(`Couldn't create the month: ${error.message}`); return; }
       MONTHS.push(data);
-      $('cc-edition').value = ed;
-      fillMonthMenu(month);
       await openMonth(data);
       if ($('cc-new-fill').checked) await fillWeekdays(true);
     }
@@ -971,7 +1182,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       const have = new Set(POSTS.map((p) => p.post_date));
       const days = weekdaysOf(CUR.month).filter((d) => !have.has(d));
       if (!days.length) { if (!quiet) alert('Every weekday this month already has a post.'); return; }
-      if (!quiet && !confirm(`Add a blank post for ${days.length} weekday${days.length === 1 ? '' : 's'} with nothing on yet?`)) return;
+      if (!quiet && !confirm(`Add a blank post to ${days.length} weekday${days.length === 1 ? '' : 's'} with nothing on yet? Posts you've already started aren't touched.`)) return;
       const tied = new Map(occasionsFor(CUR.month).map((o) => [isoOf(o.when), o.name]));
       const rows = days.map((d, i) => ({ month_id: CUR.id, post_date: d, sort_order: i, occasion: tied.get(d) || null }));
       const { error } = await supabase.from('content_month_posts').insert(rows);
@@ -1007,17 +1218,11 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     async function togglePublish() {
       if (!CUR) return;
       const going = CUR.status !== 'published';
-      if (going) {
-        const noDesign = POSTS.filter((p) => !p.template_id).length;
-        const noCap = POSTS.filter((p) => !(p.captions || []).length).length;
-        const gaps = [noDesign && `${noDesign} without a design`, noCap && `${noCap} without a caption`].filter(Boolean);
-        if (!POSTS.length) { alert('This month has no posts yet.'); return; }
-        if (gaps.length && !confirm(`${gaps.join(' and ')}. Publish anyway?`)) return;
-      }
-      const status = going ? 'published' : 'draft';
-      const { error } = await supabase.from('content_months').update({ status }).eq('id', CUR.id);
+      if (going && !(POSTS.length && checks().every(([, a, b]) => a === b))) return;
+      const status = going ? 'published' : 'draft', published_at = going ? new Date().toISOString() : null;
+      const { error } = await supabase.from('content_months').update({ status, published_at }).eq('id', CUR.id);
       if (error) { alert(`Couldn't change the month: ${error.message}`); return; }
-      CUR.status = status;
+      CUR.status = status; CUR.published_at = published_at;
       // A published month's designs are live templates, so members can open them.
       if (going) {
         const ids = [...new Set(POSTS.map((p) => p.template_id).filter(Boolean))];
@@ -1026,7 +1231,6 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
           ids.forEach((id) => { const t = TPLS.get(id); if (t && t.status === 'draft') t.status = 'active'; });
         }
       }
-      fillMonthMenu(CUR.month);
       renderMonth(); renderTemplates();
     }
 
@@ -1036,46 +1240,75 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       const { error } = await supabase.from('content_months').delete().eq('id', CUR.id);
       if (error) { alert(`Couldn't delete the month: ${error.message}`); return; }
       MONTHS = MONTHS.filter((m) => m.id !== CUR.id);
-      await openMonth(fillMonthMenu());
+      CUR = null;
+      await openMonth(null);
     }
 
+    // ---- Copy posts from another month, to start from (Dani, 9 Nov) ----
+    let COPY_SRC = [], COPY_FROM = null;
     function openCopy() {
       if (!CUR) return;
-      const others = MONTHS.filter((m) => m.month === CUR.month && m.id !== CUR.id);
-      if (!others.length) { alert(`No other edition has ${monthName(CUR.month)} yet.`); return; }
-      $('cc-copy-from').innerHTML = others.map((m) => `<option value="${m.id}">${esc(editionLabel(m.edition))}</option>`).join('');
+      const others = MONTHS.filter((m) => m.id !== CUR.id && (m.edition === CUR.edition || m.month === CUR.month))
+        .sort((a, b) => (b.edition === CUR.edition) - (a.edition === CUR.edition) || b.month.localeCompare(a.month));
+      if (!others.length) { alert('There are no other months to copy from yet.'); return; }
+      $('cc-copy-from').innerHTML = others.map((m) => `<option value="${m.id}">${esc(monthName(m.month))} · ${esc(editionLabel(m.edition))}</option>`).join('');
       $('cc-copybox').hidden = false;
+      loadCopyList();
+    }
+    async function loadCopyList() {
+      COPY_FROM = MONTHS.find((m) => m.id === $('cc-copy-from').value) || null;
+      if (!COPY_FROM) return;
+      const sameEd = COPY_FROM.edition === CUR.edition;
+      $('cc-copy-hint').textContent = sameEd
+        ? "Tick the posts to bring across. They land on the same weekday where there's room, and their designs come with them. Opening one in the Studio makes a copy for this month, so the original stays as it was."
+        : "Tick the posts to bring across. Designs don't come across, because each edition has its own.";
+      $('cc-copy-words').checked = COPY_FROM.month === CUR.month;
+      $('cc-copy-list').innerHTML = '<p class="cc-note">Reading the posts.</p>';
+      const { data, error } = await supabase.from('content_month_posts').select('*').eq('month_id', COPY_FROM.id)
+        .order('post_date', { ascending: true }).order('sort_order', { ascending: true });
+      if (error) { $('cc-copy-list').innerHTML = `<p class="cc-note">Couldn't read those posts: ${esc(error.message)}</p>`; return; }
+      COPY_SRC = data || [];
+      $('cc-copy-list').innerHTML = COPY_SRC.map((p, i) => { const d = p.post_date ? dayLabel(p.post_date) : null;
+        return `<label><input type="checkbox" data-copy-i="${i}"><span>${d ? esc(d.wd + ' ' + d.day) : 'No date'}</span><span>${esc(p.title || 'Untitled')}</span><span>${esc(typeLabel(p.post_type))}</span></label>`; }).join('') || '<p class="cc-note">That month has no posts.</p>';
     }
     async function copyPosts() {
-      const from = $('cc-copy-from').value;
-      const { data, error } = await supabase.from('content_month_posts').select('*').eq('month_id', from)
-        .order('post_date', { ascending: true }).order('sort_order', { ascending: true });
-      if (error) { alert(`Couldn't read those posts: ${error.message}`); return; }
-      const src = data || [];
-      if (!src.length) { alert('That month has no posts to copy.'); return; }
-      // A blank post on the same date is filled rather than doubled.
-      const blankByDate = new Map(POSTS.filter((p) => p.post_date && !p.title && !(p.captions || []).length && !p.template_id).map((p) => [p.post_date, p]));
-      if (POSTS.length > blankByDate.size && !confirm(`This month already has posts. Add ${src.length} more from ${editionLabel(MONTHS.find((m) => m.id === from)?.edition)}?`)) return;
+      const chosen = [...document.querySelectorAll('#cc-copy-list input:checked')].map((c) => COPY_SRC[Number(c.dataset.copyI)]);
+      if (!COPY_FROM || !chosen.length) { alert('Tick at least one post to copy.'); return; }
+      const sameMonth = COPY_FROM.month === CUR.month, sameEd = COPY_FROM.edition === CUR.edition, words = $('cc-copy-words').checked;
+      // Only an empty post can be filled. Anything already started is never touched.
+      const isBlank = (p) => !p.title && !hasCap(p) && !p.template_id && !p.note && !p.how_to_edit;
+      const blanks = new Map(POSTS.filter((p) => p.post_date && isBlank(p)).map((p) => [p.post_date, p]));
+      const taken = new Set(POSTS.filter((p) => p.post_date && !isBlank(p)).map((p) => p.post_date));
+      const srcDays = weekdaysOf(COPY_FROM.month), days = weekdaysOf(CUR.month);
+      const dayFor = (p) => {
+        if (sameMonth && p.post_date && !taken.has(p.post_date)) return p.post_date;
+        const at = Math.max(srcDays.indexOf(p.post_date), 0);
+        return [...days.slice(at), ...days.slice(0, at)].find((d) => !taken.has(d)) || null;
+      };
       const fields = (p) => ({
-        post_date: p.post_date, date_tied: p.date_tied, occasion: p.occasion, title: p.title, post_type: p.post_type,
-        pillar: p.pillar, captions: p.captions, how_to_edit: p.how_to_edit, reel_prompt: p.reel_prompt, platforms: p.platforms,
+        post_type: p.post_type, title: p.title, pillar: p.pillar, note: p.note, platforms: p.platforms,
+        date_tied: sameMonth ? p.date_tied : false, occasion: sameMonth ? p.occasion : null,
+        ...(sameEd ? { template_id: p.template_id } : {}),
+        ...(words ? { captions: p.captions, how_to_edit: p.how_to_edit, reel_prompt: p.reel_prompt } : {}),
       });
       const inserts = [];
-      for (const p of src) {
-        const blank = p.post_date && blankByDate.get(p.post_date);
+      for (const p of chosen) {
+        const d = dayFor(p);
+        if (d) taken.add(d);
+        const blank = d && blanks.get(d);
         if (blank) {
-          blankByDate.delete(p.post_date);
           const { error: e } = await supabase.from('content_month_posts').update(fields(p)).eq('id', blank.id);
-          if (e) { alert(`Couldn't copy a post: ${e.message}`); return; }
-        } else inserts.push({ ...fields(p), month_id: CUR.id, sort_order: p.sort_order });
+          if (e) { alert(`Couldn't copy a post: ${e.message}`); await loadPosts(); renderMonth(); renderTemplates(); return; }
+        } else inserts.push({ ...fields(p), post_date: d, month_id: CUR.id, sort_order: p.sort_order });
       }
       if (inserts.length) {
         const { error: e } = await supabase.from('content_month_posts').insert(inserts);
-        if (e) { alert(`Couldn't copy the posts: ${e.message}`); return; }
+        if (e) { alert(`Couldn't copy the posts: ${e.message}`); await loadPosts(); renderMonth(); renderTemplates(); return; }
       }
       $('cc-copybox').hidden = true;
       await loadPosts();
       renderMonth(); renderTemplates();
+      saved($('cc-saved'), `${chosen.length} copied`);
     }
 
     // ---- Wiring ----
@@ -1093,7 +1326,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       queueSave();
     });
     $('cc-drawer').addEventListener('input', (e) => {
-      if (e.target.closest('.cc-drawer-body')) { if (e.target.id === 'cc-d-occ' || e.target.id === 'cc-d-tied') syncTied(); queueSave(); }
+      if (e.target.closest('.cc-drawer-body')) { if (e.target.id === 'cc-d-occ' || e.target.id === 'cc-d-tied') syncTied(); if (e.target.id === 'cc-d-type') syncStageFields(); queueSave(); }
     });
     $('cc-drawer').addEventListener('change', (e) => { if (e.target.id === 'cc-d-tied') syncTied(); queueSave(); });
     $('cc-d-tpl').addEventListener('click', (e) => {
@@ -1102,6 +1335,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       if (a.dataset.act === 'pick') openPicker();
       if (a.dataset.act === 'new') { flushSave(); openNewTemplate(OPEN); }
       if (a.dataset.act === 'unlink') setTemplate(null);
+      if (a.dataset.act === 'open') openDesign(OPEN);
     });
     $('cc-d-close').addEventListener('click', closeDrawer);
     $('cc-d-done').addEventListener('click', closeDrawer);
@@ -1118,6 +1352,25 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     $('cc-d-next').addEventListener('click', () => stepPost(1));
     $('cc-shade').addEventListener('click', closeDrawer);
     $('cc-d-delete').addEventListener('click', deletePost);
+    $('cc-d-claude').addEventListener('click', async (e) => {
+      if (!OPEN) return;
+      const btn = e.currentTarget, post = OPEN;
+      if (!post.template_id) { alert('Link a design first. Claude reads it to write the words.'); return; }
+      await flushSave();
+      btn.disabled = true; btn.textContent = 'Drafting…';
+      try {
+        const d = await draftWords(post);
+        if (OPEN === post) {
+          // Only the empty boxes are filled.
+          if ($('cc-d-type').value === 'reel' && !$('cc-d-reel').value.trim() && d.what_to_film) $('cc-d-reel').value = d.what_to_film;
+          if (!$('cc-d-how').value.trim() && d.how_to_edit) $('cc-d-how').value = d.how_to_edit;
+          const cap = document.querySelector('.cc-cap');
+          if (![...document.querySelectorAll('.cc-cap')].some((t) => t.value.trim()) && d.caption) cap.value = d.caption;
+          await flushSave();
+        }
+      } catch (err) { alert(err.message); }
+      btn.disabled = false; btn.textContent = 'Draft with Claude';
+    });
     $('cc-rows').addEventListener('click', (e) => {
       const tr = e.target.closest('tr[data-id]');
       if (!tr || e.target.closest('.cc-grip')) return;
@@ -1126,9 +1379,24 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       if (p) openDrawer(p);
     });
     $('cc-pick-q').addEventListener('input', renderPicker);
-    $('cc-pick-grid').addEventListener('click', (e) => {
+    $('cc-pick-grid').addEventListener('click', async (e) => {
       const b = e.target.closest('button');
       if (!b) return;
+      if (b.hasAttribute('data-short')) {
+        const id = b.dataset.short, short = CUR.shortlist || [];
+        await saveShortlist(short.includes(id) ? short.filter((x) => x !== id) : [...short, id]);
+        renderPicker();
+        return;
+      }
+      if (b.hasAttribute('data-img')) {
+        const image_url = b.dataset.img || null, m = CUR;
+        const { error } = await supabase.from('content_months').update({ image_url }).eq('id', m.id);
+        if (error) { alert(`Couldn't save the image: ${error.message}`); return; }
+        m.image_url = image_url;
+        $('cc-pick').hidden = true;
+        renderMonth();
+        return;
+      }
       $('cc-pick').hidden = true;
       if (b.hasAttribute('data-new')) { flushSave(); openNewTemplate(OPEN); return; }
       if (b.hasAttribute('data-copy')) {
@@ -1154,67 +1422,78 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       if (error) { alert(`Couldn't save: ${error.message}`); return; }
       CUR.intro = intro;
       saved($('cc-saved'));
+      renderProgress();
     });
-    $('cc-edition').addEventListener('change', () => openMonth(fillMonthMenu(CUR && CUR.month)));
-    $('cc-month').addEventListener('change', () => openMonth(MONTHS.find((m) => m.id === $('cc-month').value) || null));
+    $('cc-edition').addEventListener('change', renderMonths);
     $('cc-new-month').addEventListener('click', openNewMonth);
     $('cc-new-go').addEventListener('click', createMonth);
-    $('cc-new-tpl').addEventListener('click', () => openNewTemplate(null));
     $('cc-newtpl-go').addEventListener('click', createTemplate);
     $('cc-newtpl-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') createTemplate(); });
-    $('cc-fill').addEventListener('click', () => fillWeekdays(false));
-    $('cc-copy').addEventListener('click', openCopy);
+    $('cc-call').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-call]');
+      if (!b) return;
+      const k = b.dataset.call;
+      if (k === 'fill') fillWeekdays(false);
+      if (k === 'copy') openCopy();
+      if (k === 'add') addPost();
+      if (k === 'design') openNewTemplate(null);
+      if (k === 'grid' || k === 'client') openBoard(k);
+      if (k === 'claude-all') draftAll();
+      if (k === 'publish') togglePublish();
+    });
+    $('cc-tl').addEventListener('click', (e) => { const b = e.target.closest('[data-stage]'); if (b) setStage(Number(b.dataset.stage)); });
+    $('cc-stage-back').addEventListener('click', () => setStage(stageOf() - 1));
+    $('cc-stage-next').addEventListener('click', () => setStage(stageOf() + 1));
+    $('cc-month-img').addEventListener('click', () => openPicker('image'));
+    $('cc-short-add').addEventListener('click', () => openPicker('short'));
+    $('cc-short').addEventListener('click', (e) => { const b = e.target.closest('[data-short-rm]'); if (b) saveShortlist((CUR.shortlist || []).filter((x) => x !== b.dataset.shortRm)); });
+    $('cc-copy-from').addEventListener('change', loadCopyList);
+    $('cc-copy-all').addEventListener('click', () => {
+      const boxes = [...document.querySelectorAll('#cc-copy-list input')], on = boxes.some((c) => !c.checked);
+      boxes.forEach((c) => { c.checked = on; });
+    });
+    $('cc-back').addEventListener('click', async () => { await flushSave(); await saveNotes(); CUR = null; history.replaceState(null, '', location.pathname); await loadMonthsTab(); showTab('months'); });
     $('cc-copy-go').addEventListener('click', copyPosts);
-    $('cc-add').addEventListener('click', addPost);
-    $('cc-publish').addEventListener('click', togglePublish);
     $('cc-delete-month').addEventListener('click', deleteMonth);
     window.addEventListener('beforeunload', () => { if (saveTimer) flushSave(); });
 
 
-    // ---- Months: every month by edition, with its designs ----
-    const monthLong = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    // ---- The opening page: a box for each month ----
+    let MONTH_POSTS = [];
     async function loadMonthsTab() {
-      const list = $('ccm-list');
-      $('ccm-loading').hidden = false;
       const { data: months, error } = await supabase.from('content_months').select('*').order('month', { ascending: false });
-      $('ccm-loading').hidden = true;
-      if (error) { list.innerHTML = `<p class="cc-note">Couldn't load the months: ${esc(error.message)}</p>`; return; }
-      const ids = (months || []).map((m) => m.id);
+      if (error) { showMissing(error.message); return; }
+      MONTHS = months || [];
+      const ids = MONTHS.map((m) => m.id);
       const { data: posts } = ids.length
-        ? await supabase.from('content_month_posts').select('month_id, post_date, template_id, title').in('month_id', ids).order('post_date', { ascending: true }).range(0, 4999)
+        ? await supabase.from('content_month_posts').select('month_id, post_date, sort_order, template_id').in('month_id', ids).order('post_date', { ascending: true }).order('sort_order', { ascending: true }).range(0, 4999)
         : { data: [] };
-      const need = [...new Set((posts || []).map((p) => p.template_id).filter((id) => id && !TPLS.has(id)))];
+      MONTH_POSTS = posts || [];
+      const need = [...new Set(MONTH_POSTS.map((p) => p.template_id).filter((id) => id && !TPLS.has(id)))];
       if (need.length) {
         const { data: more } = await supabase.from('templates').select('id, name, thumb_url, status, updated_at').in('id', need);
         (more || []).forEach((t) => TPLS.set(t.id, t));
       }
-      const byMonth = new Map();
-      (months || []).forEach((m) => { if (!byMonth.has(m.month)) byMonth.set(m.month, []); byMonth.get(m.month).push(m); });
-      const order = (k) => EDITIONS.findIndex((e) => e.key === k);
-      list.innerHTML = byMonth.size ? [...byMonth.entries()].map(([month, eds]) => `
-        <section class="ccm-month"><h2>${esc(monthLong(month))}</h2>
-        ${eds.sort((a, b) => order(a.edition) - order(b.edition)).map((m) => {
-          const ps = (posts || []).filter((p) => p.month_id === m.id);
-          const withDesign = ps.filter((p) => p.template_id).length;
-          return `<div class="ccm-ed">
-            <div><div class="ccm-ed-name">${esc(editionLabel(m.edition))}</div>
-              <div class="ccm-ed-meta"><span class="ccm-pill${m.status === 'published' ? ' is-published' : ''}">${m.status === 'published' ? 'Published' : 'Draft'}</span>${ps.length} post${ps.length === 1 ? '' : 's'} · ${withDesign} with a design</div></div>
-            <div class="ccm-strip">${ps.map((p) => { const t = p.template_id && TPLS.get(p.template_id);
-              return t ? `<a href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin" title="${esc((t.name || '') + (p.post_date ? ' · ' + p.post_date : ''))}" style="${t.thumb_url ? `background-image:url('${esc(t.thumb_url)}')` : ''}"></a>`
-                : `<span title="${esc((p.post_date || '') + ': no design yet')}"></span>`; }).join('')}</div>
-            <div class="ccm-acts"><button type="button" class="admin-btn admin-btn-primary admin-btn-sm" data-ccm-open="${m.id}">Open</button></div>
-          </div>`; }).join('')}
-        </section>`).join('') : `<p class="cc-note">No months yet. Open the <strong>Month builder</strong> and click <strong>+ New month</strong>.</p>`;
+      $('cc-loading').hidden = true;
+      $('cc-months-body').hidden = false;
+      renderMonths();
+    }
+    function renderMonths() {
+      const ed = $('cc-edition').value, list = MONTHS.filter((m) => m.edition === ed);
+      $('ccm-list').innerHTML = list.map((m) => {
+        const ps = MONTH_POSTS.filter((p) => p.month_id === m.id), withD = ps.filter((p) => p.template_id);
+        const firstT = withD.map((p) => TPLS.get(p.template_id)).find((t) => t && t.thumb_url);
+        const img = m.image_url || (firstT && firstT.thumb_url) || '';
+        const d = new Date(m.month + 'T12:00:00'), live = m.status === 'published';
+        const name = d.toLocaleDateString('en-GB', { month: 'long' });
+        return `<button type="button" class="cc-mcard" data-ccm-open="${m.id}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : ''}<div class="cc-mcard-h"><div><div class="cc-mcard-t">${esc(name)}</div><div class="cc-mcard-y">${d.getFullYear()}</div></div><span class="chip ${live ? 'good' : 'wait'}">${live ? 'Live' : 'Draft'}</span></div><dl><div><dt>Posts</dt><dd>${ps.length}</dd></div><div><dt>With a design</dt><dd>${withD.length}</dd></div><div><dt>Went live</dt><dd>${live ? (m.published_at ? esc(shortDate(m.published_at)) : '—') : 'Not live yet'}</dd></div></dl></button>`;
+      }).join('') || '<div class="empty" style="grid-column:1/-1">No months for this edition yet. Click Start new month to begin one.</div>';
     }
     $('ccm-list').addEventListener('click', async (e) => {
       const b = e.target.closest('[data-ccm-open]');
       if (!b) return;
       const m = MONTHS.find((x) => x.id === b.dataset.ccmOpen);
-      if (!m) return;
-      $('cc-edition').value = m.edition;
-      fillMonthMenu(m.month);
-      showTab('build');
-      await openMonth(m);
+      if (m) await openMonth(m);
     });
 
     // ---- Overview: the levels (content_levels) ----
@@ -1391,37 +1670,34 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     });
     window.addEventListener('beforeunload', (e) => { if (LEVELS && levelChanges().length) e.preventDefault(); });
 
-    const TAB_KEY = 'tmke.admin.calendar.section';
     function showTab(t) {
-      try { localStorage.setItem(TAB_KEY, t); } catch (_) {}
-      document.querySelectorAll('.cat-tab').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === t));
+      document.querySelectorAll('.cat-tab').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === (t === 'build' ? 'months' : t)));
       $('cc-tab-overview').hidden = t !== 'overview';
       $('cc-tab-months').hidden = t !== 'months';
       $('cc-tab-build').hidden = t !== 'build';
-      if (t === 'months') loadMonthsTab();
       if (t === 'overview') loadLevels();
     }
-    document.querySelectorAll('.cat-tab').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+    document.querySelectorAll('.cat-tab').forEach((b) => b.addEventListener('click', async () => {
+      if (b.dataset.tab === 'months' && CUR) { await flushSave(); await saveNotes(); CUR = null; history.replaceState(null, '', location.pathname); await loadMonthsTab(); }
+      showTab(b.dataset.tab);
+    }));
 
     (async () => {
+      showTab('months');
       if (!DEV) {
         const session = await requireAdmin();
         if (!session) return;
       }
       if (!(await loadMonths())) return;
       await loadTemplates();
-      $('cc-loading').hidden = true;
-      // ?month=YYYY-MM-01&edition=… (from the Catalogue's Content calendar tab)
-      // opens that month; ?new=1 starts a new one.
+      // ?month=YYYY-MM-01&edition=… opens that month (it's also how a reload stays
+      // in the month); ?new=1 starts a new one. Otherwise it opens on the boxes.
       const q = new URLSearchParams(location.search);
-      const v = readView();
-      if (q.get('month')) { v.month = q.get('month'); v.edition = q.get('edition') || v.edition; }
-      if (v.edition && EDITIONS.some((e) => e.key === v.edition)) $('cc-edition').value = v.edition;
-      await openMonth(fillMonthMenu(v.month));
-      let tab = 'overview';
-      try { const t = localStorage.getItem(TAB_KEY); if (t === 'build' || t === 'months') tab = t; } catch (_) {}
-      if (q.get('month') || q.get('new') === '1') tab = 'build';
-      showTab(tab);
+      const edition = q.get('edition');
+      if (edition && EDITIONS.some((e) => e.key === edition)) $('cc-edition').value = edition;
+      await loadMonthsTab();
+      const m = q.get('month') && MONTHS.find((x) => x.month === q.get('month') && x.edition === $('cc-edition').value);
+      if (m) await openMonth(m);
       if (q.get('new') === '1') openNewMonth();
     })();
   </script>

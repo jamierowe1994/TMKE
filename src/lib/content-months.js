@@ -29,6 +29,8 @@ export const PLATFORMS = [
   { key: "tiktok", label: "TikTok" },
 ];
 
+export const PILLARS = ["Seasonal", "Lifestyle", "Property", "Educational", "Community", "Service", "Personal"];
+
 export const MAX_CAPTIONS = 3;
 
 // Curly tags fill in from the brand kit: the editor's own menu (TAG_MENU in

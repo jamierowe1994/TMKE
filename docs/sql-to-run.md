@@ -11,6 +11,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Done
 
+- [x] supabase/content_calendar_builder.sql — the new Content calendar page: adds empty fields for the month's stage, image, go-live date, shortlist and a note on each post. Doesn't change any post, so December stays as it is. Sends nothing (9 Nov; ran 9 Nov)
 - [x] supabase/orders_lockdown.sql — security: pack orders can only be seen by the staff and the person who bought them, and only staff can change them. Tests itself as it runs, and if anything's wrong it stops and changes nothing. Sends nothing (9 Nov; ran 9 Nov)
 - [x] supabase/client_portal_shoots_added.sql — Last updated on the Creative Studio portal cards: records the moment a shoot is added to a portal. Changes nothing a client sees. Until it runs, the cards use the date the newest shoot's files were uploaded.
 - [x] supabase/videography_shoot_name.sql — an optional Shoot name on each shoot's Delivery section, for its title in the new client portal. Sends nothing (7 Nov)
