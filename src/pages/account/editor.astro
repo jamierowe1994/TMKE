@@ -10612,73 +10612,45 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     initTour();
   </script>
 
-  <!-- The Content calendar post's note, while the team designs it (Dani, 9 Nov).
-       Only when opened from the Content calendar (?mode=admin&ccnote=<post id>).
-       It sits over the Studio and is never part of the design; the database only
-       gives the note to staff. -->
-  <style is:global>
-    .ed-ccnote { position: fixed; right: 16px; bottom: 16px; z-index: 300; width: 320px; max-width: calc(100vw - 32px); background: #371e28; color: #fff; border-radius: 4px; box-shadow: 0 18px 40px -18px rgba(55,30,40,.7); font-family: var(--sans); font-size: 14px; font-weight: 400; line-height: 1.4; }
-    .ed-ccnote[hidden] { display: none; }
-    .ed-ccnote-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 12px 12px 10px 14px; cursor: move; touch-action: none; user-select: none; }
-    .ed-ccnote-k { display: block; font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: rgba(255,255,255,.65); }
-    .ed-ccnote-t { display: block; margin-top: 4px; font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.15; letter-spacing: -0.04em; }
-    .ed-ccnote-x { flex: none; width: 24px; height: 24px; padding: 0; border: 1px solid rgba(255,255,255,.4); border-radius: 4px; background: transparent; color: #fff; font: inherit; line-height: 1; cursor: pointer; }
-    .ed-ccnote-x:hover { border-color: #fff; }
-    .ed-ccnote-b { max-height: 38vh; overflow-y: auto; padding: 0 14px 12px; }
-    .ed-ccnote.is-closed .ed-ccnote-b { display: none; }
-    .ed-ccnote-m { margin: 0 0 8px; color: rgba(255,255,255,.65); }
-    .ed-ccnote-n { margin: 0; white-space: pre-wrap; }
-    .ed-ccnote-f { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.2); color: rgba(255,255,255,.65); }
-  </style>
+  <!-- The Content calendar post's note, at the top of Start while the team
+       designs it (Dani, 9 Nov). Only when opened from the Content calendar
+       (?mode=admin&ccnote=<post id>), in the same card as a member's month post.
+       The database only gives the note to staff. -->
   <script>
     import { supabase } from "../../lib/supabase.js";
     const q = new URLSearchParams(location.search), id = q.get("ccnote") || "";
-    const KEY = "tmke.studio.ccnote";
     const TYPES = { single: "Single image", carousel: "Carousel", reel: "Reel" };
-    const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (_) { return {}; } };
-    const write = (v) => { try { localStorage.setItem(KEY, JSON.stringify({ ...read(), ...v })); } catch (_) {} };
     if (q.get("mode") === "admin" && /^[0-9a-f-]{36}$/i.test(id)) (async () => {
       const { data: p } = await supabase.from("content_month_posts").select("post_date, title, post_type, pillar, note").eq("id", id).maybeSingle();
-      if (!p || !p.note) return;
+      const pane = document.querySelector('.ed-panel-pane[data-pane="start"]');
+      if (!p || !p.note || !pane) return;
       const when = p.post_date ? new Date(p.post_date + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }).replace(",", "") : "";
-      const box = document.createElement("aside");
-      box.className = "ed-ccnote";
-      box.setAttribute("aria-label", "Design prompt");
-      box.setAttribute("data-lenis-prevent", "");
-      const add = (parent, tag, cls, text) => { const el = document.createElement(tag); el.className = cls; if (text != null) el.textContent = text; parent.appendChild(el); return el; };
-      const head = add(box, "div", "ed-ccnote-h"), tx = add(head, "div", "");
-      add(tx, "span", "ed-ccnote-k", ["Design prompt", when].filter(Boolean).join(" · "));
-      add(tx, "span", "ed-ccnote-t", p.title || "Untitled");
-      const toggle = add(head, "button", "ed-ccnote-x");
+      const add = (parent, tag, cls, text) => { const el = document.createElement(tag); if (cls) el.className = cls; if (text != null) el.textContent = text; parent.appendChild(el); return el; };
+      const box = document.createElement("div");
+      box.className = "ed-prompt ed-ccpost is-open";
+      const toggle = add(box, "button", "ed-ccpost-toggle");
       toggle.type = "button";
-      const body = add(box, "div", "ed-ccnote-b");
-      const meta = [TYPES[p.post_type] || p.post_type, p.pillar].filter(Boolean).join(" · ");
-      if (meta) add(body, "p", "ed-ccnote-m", meta);
-      add(body, "p", "ed-ccnote-n", p.note);
-      add(body, "p", "ed-ccnote-f", "Just for the team. It isn't part of the design.");
-      const setClosed = (c) => { box.classList.toggle("is-closed", c); toggle.textContent = c ? "+" : "–"; toggle.setAttribute("aria-label", c ? "Open the design prompt" : "Close the design prompt"); toggle.setAttribute("aria-expanded", String(!c)); };
-      const saved = read();
-      setClosed(!!saved.closed);
-      toggle.addEventListener("click", () => { const c = !box.classList.contains("is-closed"); setClosed(c); write({ closed: c }); });
-      document.body.appendChild(box);
-      // Stays where it's put, day to day, and always on screen.
-      const place = (x, y) => {
-        const left = Math.max(8, Math.min(innerWidth - box.offsetWidth - 8, x)), top = Math.max(8, Math.min(innerHeight - 60, y));
-        box.style.left = left + "px"; box.style.top = top + "px"; box.style.right = "auto"; box.style.bottom = "auto";
-        return { left, top };
-      };
-      if (typeof saved.left === "number") place(saved.left, saved.top);
-      let drag = null;
-      head.addEventListener("pointerdown", (e) => {
-        if (e.target.closest("button")) return;
-        const r = box.getBoundingClientRect();
-        drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
-        head.setPointerCapture(e.pointerId);
+      toggle.setAttribute("aria-expanded", "true");
+      const tx = add(toggle, "span", "ed-prompt-tx");
+      add(tx, "b", "", ["Design prompt", when].filter(Boolean).join(" · "));
+      add(tx, "i", "", p.title || "Untitled");
+      const caret = add(toggle, "span", "ed-prompt-caret");
+      caret.setAttribute("aria-hidden", "true");
+      caret.innerHTML = '<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const inner = add(add(box, "div", "ed-prompt-body"), "div", "ed-prompt-inner");
+      const meta = add(inner, "span", "ed-ccpost-meta");
+      [TYPES[p.post_type] || p.post_type, p.pillar].filter(Boolean).forEach((t) => add(meta, "span", "ed-ccpost-chip", t));
+      add(add(inner, "span", "ed-prompt-part"), "i", "", p.note);
+      toggle.addEventListener("click", () => {
+        const open = !box.classList.contains("is-open");
+        box.classList.toggle("is-open", open);
+        toggle.setAttribute("aria-expanded", String(open));
       });
-      head.addEventListener("pointermove", (e) => { if (drag) drag.at = place(e.clientX - drag.dx, e.clientY - drag.dy); });
-      const end = () => { if (drag && drag.at) write(drag.at); drag = null; };
-      head.addEventListener("pointerup", end);
-      head.addEventListener("pointercancel", end);
+      pane.prepend(box);
+      // Open on Start, so the prompt is the first thing there.
+      const openStart = () => { const b = document.querySelector('.ed-rail-btn[data-tool="start"]'); if (b) b.click(); };
+      if (document.readyState === "complete") setTimeout(openStart, 400);
+      else addEventListener("load", () => setTimeout(openStart, 400), { once: true });
     })();
   </script>
 </BaseLayout>
