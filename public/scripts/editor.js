@@ -4949,9 +4949,14 @@ import { createResizeEngine } from "./resize-engine.js";
     positions.forEach(([h, fx, fy]) => {
       if (cornersOnly && h.length === 1) return;
       if (shortW && (h === "n" || h === "s")) return;
-      if (shortH && (h === "e" || h === "w")) return;
+      /* Text keeps its side handles however short the box: they are the only
+         way to make it wider without the words scaling too, and most text is
+         a line or two (Dani, 9 Nov). Their grab area narrows so the corners
+         above and below can still be caught. */
+      const tightSide = shortH && el.type === "text" && (h === "e" || h === "w");
+      if (shortH && (h === "e" || h === "w") && !tightSide) return;
       const handle = document.createElement("div");
-      handle.className = "ed-handle";
+      handle.className = tightSide ? "ed-handle is-tight" : "ed-handle";
       handle.dataset.h = h;
       const localX = fx * el.w;
       const localY = fy * el.h;
@@ -5555,6 +5560,8 @@ import { createResizeEngine } from "./resize-engine.js";
       el.w = Math.round(nw); el.h = Math.round(nh);
       snapResize(el, handle);   // same as dragging: always on, no modifier
       partialRenderElement(el);
+      // Wider or narrower, the words rewrap, so the box's height follows them.
+      if (el.type === "text" && (handle === "e" || handle === "w")) fitTextHeight(el);
       renderHandles();
     }
     function onUp() {
