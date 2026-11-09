@@ -127,7 +127,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     <div class="cc-sheet-wrap">
       <table class="cc-sheet">
         <thead>
-          <tr><th>Date</th><th>Design</th><th>Post</th><th>Type</th><th>Pillar</th><th>Caption</th><th>Platforms</th></tr>
+          <tr><th aria-label="Move"></th><th>Date</th><th>Design</th><th>Post</th><th>Type</th><th>Pillar</th><th>Caption</th><th>Platforms</th></tr>
         </thead>
         <tbody id="cc-rows"></tbody>
       </table>
@@ -364,6 +364,14 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .cc-sheet tbody tr { cursor: pointer; }
     .cc-sheet tbody tr:hover td { background: rgba(55,30,40,0.04); }
     .cc-sheet tbody tr.is-open td { background: rgba(55,30,40,0.07); }
+    /* Drag a row by this onto another day (Danielle, 9 Nov). */
+    .cc-sheet th:first-child, .cc-grip-cell { width: 26px; padding-right: 0 !important; }
+    .cc-grip { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 32px; color: var(--taupe, #7e6765); cursor: grab; }
+    .cc-grip:hover { color: #371e28; }
+    .cc-grip:active { cursor: grabbing; }
+    .cc-grip svg { width: 10px; height: 16px; fill: currentColor; pointer-events: none; }
+    .cc-sheet tbody tr.is-dragging td { opacity: 0.4; }
+    .cc-sheet tbody tr.is-drop td { background: rgba(55,30,40,0.1); box-shadow: inset 0 1px 0 #371e28, inset 0 -1px 0 #371e28; }
     .cc-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
     .cc-date small { display: block; font-size: 11px; color: rgba(28,29,34,0.5); }
     .cc-occ { display: inline-block; margin-top: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--english-violet); }
@@ -577,6 +585,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
           ? `${esc(caps[0].length > 90 ? caps[0].slice(0, 90) + '…' : caps[0])}${caps.length > 1 ? ` <small>+${caps.length - 1} more</small>` : ''}`
           : '<span class="cc-empty-cell">No caption yet</span>';
         return `<tr data-id="${p.id}" class="${d && d.weekend ? 'cc-weekend' : ''}${OPEN && OPEN.id === p.id ? ' is-open' : ''}">
+          <td class="cc-grip-cell"><span class="cc-grip" draggable="true" title="Drag onto another day to swap them"><svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="2" cy="14" r="1.5"/><circle cx="8" cy="14" r="1.5"/></svg></span></td>
           <td class="cc-date">${d ? `${esc(d.day)}<small>${esc(d.wd)}</small>` : '<span class="cc-empty-cell">No date</span>'}${p.date_tied ? `<span class="cc-occ">${esc(p.occasion || 'Tied to the day')}</span>` : ''}</td>
           <td>${thumb}</td>
           <td>${p.title ? `<span class="cc-ttl">${esc(p.title)}</span>` : '<span class="cc-empty-cell">Untitled</span>'}</td>
@@ -585,7 +594,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
           <td class="cc-cap-cell">${cap}</td>
           <td class="cc-plat-cell">${(p.platforms || []).map((k) => platShort[k] || k).join(' · ')}</td>
         </tr>`;
-      }).join('') || `<tr><td colspan="7" class="cc-empty-cell">No posts yet. Click <strong>Fill the weekdays</strong> for a post on every Monday to Friday, or <strong>+ Add a post</strong>.</td></tr>`;
+      }).join('') || `<tr><td colspan="8" class="cc-empty-cell">No posts yet. Click <strong>Fill the weekdays</strong> for a post on every Monday to Friday, or <strong>+ Add a post</strong>.</td></tr>`;
     }
 
     function fillPillars() {
@@ -743,6 +752,76 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       };
     }
 
+    function sortPosts() {
+      POSTS.sort((a, b) => String(a.post_date || '9999').localeCompare(String(b.post_date || '9999')) || a.sort_order - b.sort_order);
+    }
+
+    // ---- Moving a post (Danielle, 9 Nov 2026): drag a row by its handle onto
+    // another day and the two swap days. Everything else stays where it is. ----
+    async function swapPosts(a, b) {
+      const tied = [a, b].filter((p) => p.date_tied);
+      if (tied.length && !confirm(tied.map((p) => `"${p.title || 'This post'}" is tied to ${p.occasion || 'its day'}.`).join(' ') + ' Move it anyway?')) return;
+      const slot = (p) => ({ post_date: p.post_date, sort_order: p.sort_order });
+      const wasA = slot(a), wasB = slot(b);
+      Object.assign(a, wasB); Object.assign(b, wasA);
+      sortPosts(); renderMonth(); renderTemplates();
+      const save = async (p, patch) => {
+        // .select() so a save the database turned down can't look like it worked.
+        const { data, error } = await supabase.from('content_month_posts').update(patch).eq('id', p.id).select('id');
+        return !error && data && data.length > 0;
+      };
+      const firstOk = await save(a, wasB);
+      const bothOk = firstOk && await save(b, wasA);
+      if (!bothOk) {
+        if (firstOk) await save(a, wasA);   // never leave two posts on one day by halves
+        await loadPosts();
+        renderMonth(); renderTemplates();
+        alert("Couldn't move the post. Nothing has changed, please try again.");
+        return;
+      }
+      saved($('cc-saved'), 'Moved');
+    }
+
+    let DRAG = null;
+    const clearDrop = () => document.querySelectorAll('#cc-rows tr.is-drop').forEach((r) => r.classList.remove('is-drop'));
+    $('cc-rows').addEventListener('dragstart', (e) => {
+      const grip = e.target.closest && e.target.closest('.cc-grip');
+      const tr = grip && grip.closest('tr[data-id]');
+      if (!tr) { e.preventDefault(); return; }
+      DRAG = POSTS.find((p) => p.id === tr.dataset.id) || null;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', tr.dataset.id);
+      e.dataTransfer.setDragImage(tr, 16, 20);
+      tr.classList.add('is-dragging');
+    });
+    $('cc-rows').addEventListener('dragover', (e) => {
+      if (!DRAG) return;
+      // The page scrolls itself near the top and bottom, so any day can be reached.
+      const pane = document.querySelector('.ash-content');
+      if (pane) {
+        const r = pane.getBoundingClientRect();
+        if (e.clientY < r.top + 70) pane.scrollTop -= 14;
+        else if (e.clientY > r.bottom - 70) pane.scrollTop += 14;
+      }
+      const tr = e.target.closest && e.target.closest('tr[data-id]');
+      clearDrop();
+      if (!tr || tr.dataset.id === DRAG.id) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      tr.classList.add('is-drop');
+    });
+    $('cc-rows').addEventListener('drop', (e) => {
+      const tr = e.target.closest && e.target.closest('tr[data-id]');
+      const from = DRAG, to = tr && POSTS.find((p) => p.id === tr.dataset.id);
+      if (!from || !to || from === to) return;
+      e.preventDefault();
+      swapPosts(from, to);
+    });
+    $('cc-rows').addEventListener('dragend', () => {
+      DRAG = null; clearDrop();
+      document.querySelectorAll('#cc-rows tr.is-dragging').forEach((r) => r.classList.remove('is-dragging'));
+    });
+
     let saveTimer = null;
     function queueSave() {
       clearTimeout(saveTimer);
@@ -759,9 +838,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       const { error } = await supabase.from('content_month_posts').update(patch).eq('id', post.id);
       if (error) { alert(`Couldn't save the post: ${error.message}`); return; }
       saved($('cc-d-saved'));
-      if ('post_date' in patch) {
-        POSTS.sort((a, b) => String(a.post_date || '9999').localeCompare(String(b.post_date || '9999')) || a.sort_order - b.sort_order);
-      }
+      if ('post_date' in patch) sortPosts();
       if (OPEN === post) $('cc-d-head').textContent = post.post_date ? `${dayLabel(post.post_date).wd} ${dayLabel(post.post_date).day}` : 'Post';
       renderMonth();
     }
@@ -1043,7 +1120,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     $('cc-d-delete').addEventListener('click', deletePost);
     $('cc-rows').addEventListener('click', (e) => {
       const tr = e.target.closest('tr[data-id]');
-      if (!tr) return;
+      if (!tr || e.target.closest('.cc-grip')) return;
       flushSave();
       const p = POSTS.find((x) => x.id === tr.dataset.id);
       if (p) openDrawer(p);
