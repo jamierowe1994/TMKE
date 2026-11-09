@@ -10255,6 +10255,22 @@ import { createResizeEngine } from "./resize-engine.js";
     const fillMount = body.querySelector('[data-mount="fill-color"]');
     if (fillMount) {
       fillMount.appendChild(colorSwatchButton(fillCurrent(el), fillControl(el)));
+      /* Invert was two levels down in the colour panel, so it couldn't be found
+         (Dani, 9 Nov). Beside the fill, for anything filled with a gradient. */
+      if (el.fillGradient && el.fillGradient.enabled && Array.isArray(el.fillGradient.stops)) {
+        const invertBtn = document.createElement("button");
+        invertBtn.type = "button";
+        invertBtn.className = "ed-cpg-invert";
+        invertBtn.style.marginLeft = "auto";
+        invertBtn.textContent = "Invert";
+        invertBtn.title = "Swap the inside and the outside";
+        invertBtn.addEventListener("click", function () {
+          el.fillGradient.stops = el.fillGradient.stops.map(function (s) { return Object.assign({}, s, { pos: 100 - (s.pos || 0) }); });
+          fullRender();
+          pushHistory();
+        });
+        fillMount.parentElement.appendChild(invertBtn);
+      }
     }
     /* Transparency, in the panel rather than only on the toolbar. A gradient
        is rarely wanted at full strength — it sits behind text to make it
