@@ -3091,6 +3091,26 @@ import { createResizeEngine } from "./resize-engine.js";
     toast("Page deleted — press Undo if you didn't mean to.", 5000);
   }
 
+  /* Page order by drag and drop in the strip (Dani, 9 Nov). One step for
+     Undo, and the page you were on stays the one you are on wherever it
+     lands. A print design they were given keeps its order: a postcard's back
+     dragged in front would print the wrong way round. */
+  function pagesCanMove() {
+    return state.pages.length > 1 && !(pagesAreTheirsToKeep() && isPrintDesign());
+  }
+  function movePage(from, to) {
+    if (from === to || from < 0 || to < 0 || from >= state.pages.length || to >= state.pages.length) return;
+    const before = snapshotPages(), curBefore = state.currentPage;
+    const curPage = state.pages[state.currentPage];
+    const moved = state.pages.splice(from, 1)[0];
+    state.pages.splice(to, 0, moved);
+    state.currentPage = Math.max(0, state.pages.indexOf(curPage));
+    state.selectedIds = [];
+    pushDesignHistory(before, curBefore);
+    fullRender();
+    renderPageStrip();
+  }
+
   // Whether the strip is up because we put it up, and the design whose strip
   // the member has closed by hand.
   var _pagesOpenedForUs = false;
@@ -3157,6 +3177,41 @@ import { createResizeEngine } from "./resize-engine.js";
         tile.style.backgroundImage = "";
       }
       tile.addEventListener("click", () => goToPage(i));
+      if (pagesCanMove()) {
+        tile.draggable = true;
+        tile.title = "Page " + (i + 1) + " — drag to move it";
+        tile.addEventListener("dragstart", (e) => {
+          e.dataTransfer.effectAllowed = "move";
+          try { e.dataTransfer.setData("text/plain", "tmke-page:" + i); } catch (_) {}
+          strip.dataset.dragFrom = String(i);
+          tile.classList.add("is-dragging");
+        });
+        tile.addEventListener("dragend", () => {
+          delete strip.dataset.dragFrom;
+          strip.querySelectorAll(".is-drop-before, .is-drop-after, .is-dragging").forEach((t) => t.classList.remove("is-drop-before", "is-drop-after", "is-dragging"));
+        });
+        // Left half of a page drops before it, right half after it.
+        const sideOf = (e) => { const r = tile.getBoundingClientRect(); return e.clientX < r.left + r.width / 2 ? "before" : "after"; };
+        tile.addEventListener("dragover", (e) => {
+          if (strip.dataset.dragFrom == null) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          const side = sideOf(e);
+          strip.querySelectorAll(".is-drop-before, .is-drop-after").forEach((t) => { if (t !== tile) t.classList.remove("is-drop-before", "is-drop-after"); });
+          tile.classList.toggle("is-drop-before", side === "before");
+          tile.classList.toggle("is-drop-after", side === "after");
+        });
+        tile.addEventListener("dragleave", () => tile.classList.remove("is-drop-before", "is-drop-after"));
+        tile.addEventListener("drop", (e) => {
+          if (strip.dataset.dragFrom == null) return;
+          e.preventDefault();
+          const from = Number(strip.dataset.dragFrom);
+          let to = sideOf(e) === "before" ? i : i + 1;
+          if (from < to) to -= 1;   // the page leaves its own place first
+          delete strip.dataset.dragFrom;
+          movePage(from, to);
+        });
+      }
 
       const num = document.createElement("span");
       num.className = "ed-page-num";
