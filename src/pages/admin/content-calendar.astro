@@ -274,7 +274,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       <div class="cc-modal-body">
         <label class="cc-f"><span>Name</span><input id="cc-newtpl-name" placeholder="e.g. November – Bonfire Night" /></label>
         <p class="cc-hint" id="cc-newtpl-for" hidden></p>
-        <p class="cc-hint">1080 &times; 1350, the 4:5 shape that suits both Instagram and Facebook. It opens in the Studio.</p>
+        <p class="cc-hint" id="cc-newtpl-size">1080 &times; 1350, the 4:5 shape that suits both Instagram and Facebook. It opens in the Studio.</p>
         <div class="cc-modal-foot"><button type="button" class="mbtn primary" id="cc-newtpl-go">Create and open</button></div>
       </div>
     </div>
@@ -1120,6 +1120,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
 
     // ---- New template ----
     let NEW_FOR = null;   // the post a new template is drawn for, if any
+    const isReelFor = (p) => !!p && (OPEN === p ? $('cc-d-type').value : p.post_type) === 'reel';
     function openNewTemplate(forPost) {
       NEW_FOR = forPost || null;
       const nm = forPost
@@ -1127,6 +1128,9 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         : (CUR ? monthName(CUR.month) + ' – ' : '');
       $('cc-newtpl-name').value = nm;
       $('cc-newtpl-for').hidden = !forPost;
+      $('cc-newtpl-size').textContent = isReelFor(forPost)
+        ? '1080 × 1920, the full-screen 9:16 shape of a reel. It opens in the Studio.'
+        : '1080 × 1350, the 4:5 shape that suits both Instagram and Facebook. It opens in the Studio.';
       if (forPost) $('cc-newtpl-for').textContent = `It's linked to the ${forPost.post_date ? dayLabel(forPost.post_date).day : 'open'} post straight away.`;
       $('cc-newtpl').hidden = false;
       $('cc-newtpl-name').focus();
@@ -1139,7 +1143,8 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       btn.disabled = true;
       const { error } = await supabase.from('templates').insert({
         id, name, category: null, thumb_url: null,
-        canvas: { width: 1080, height: 1350, background: '#f4f2f1', sizeChosen: true },
+        // A reel's design is full screen, 9:16 (Dani, 9 Nov); everything else 4:5.
+        canvas: { width: 1080, height: isReelFor(NEW_FOR) ? 1920 : 1350, background: '#f4f2f1', sizeChosen: true },
         elements: [], status: 'draft', sort_order: 9000, collection: 'calendar',
       });
       btn.disabled = false;
