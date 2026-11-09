@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/orders_lockdown.sql — security: pack orders can only be seen by the staff and the person who bought them, and only staff can change them. Tests itself as it runs, and if anything's wrong it stops and changes nothing. Sends nothing (9 Nov)
 
 
 

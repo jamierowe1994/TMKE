@@ -247,6 +247,17 @@ import "../../styles/ws-system.css";
     let orderRow = null;
     let packRow = null;
 
+    // The buyer usually has no account yet, so the order comes through the
+    // Worker, which opens this one order by its id. The orders table itself is
+    // closed to the public.
+    const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+    async function fetchOrder() {
+      try {
+        const res = await fetch(`${WORKER_URL}/orders/receipt?id=${encodeURIComponent(orderId)}`, { cache: 'no-store' });
+        return res.ok ? await res.json() : null;
+      } catch (_) { return null; }
+    }
+
     async function loadOrder() {
       if (!orderId) {
         document.querySelector('.thanks-hero').innerHTML =
@@ -256,13 +267,9 @@ import "../../styles/ws-system.css";
         return;
       }
 
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
+      const data = await fetchOrder();
 
-      if (error || !data) {
+      if (!data) {
         document.querySelector('.thanks-hero').innerHTML =
           `<h1 class="thanks-h1">Order not found</h1>
            <p class="thanks-sub">We couldn't load that order. <a class="thanks-link" href="/edit">Return to The Edit</a>.</p>`;
@@ -312,7 +319,7 @@ import "../../styles/ws-system.css";
         let tries = 0;
         const iv = setInterval(async () => {
           tries += 1;
-          const { data: fresh } = await supabase.from('orders').select('status, payment_method').eq('id', orderId).single();
+          const fresh = await fetchOrder();
           if (fresh && fresh.status && fresh.status !== 'pending') {
             paintStatus(fresh.status);
             if (fresh.payment_method) elMethod.textContent = formatMethod(fresh.payment_method);

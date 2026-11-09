@@ -8149,6 +8149,19 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         return json({ ok: true, url: fileUrl }, 200, request, env);
       }
 
+      // ---- Public: one order, for the thank-you page ---------------------------
+      // A buyer lands on /edit/thanks straight from Stripe, usually before they
+      // have an account, so this can't ask them to sign in. The order's own
+      // random id is the key, and it only ever opens that one order. The orders
+      // table itself is closed to the public (supabase/orders_lockdown.sql).
+      if (path.endsWith("/orders/receipt") && request.method === "GET") {
+        const id = String(new URL(request.url).searchParams.get("id") || "").trim();
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Order not found." }, 404, request, env);
+        const rows = await sbGet(env, "orders", `id=eq.${id}&select=id,pack_id,pack_title,amount_pence,vat_pence,total_pence,status,payment_method,invoice_number,buyer_name,buyer_email,buyer_company,buyer_phone,created_at&limit=1`);
+        if (!rows || !rows[0]) return json({ error: "Order not found." }, 404, request, env);
+        return json(rows[0], 200, request, env);
+      }
+
       // ---- Stripe: create a hosted Checkout Session ---------------------------
       // The browser posts the pack id + buyer details; we re-read the pack price
       // from Supabase (never trust the client), create a `pending` order with the

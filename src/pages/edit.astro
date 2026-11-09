@@ -2646,6 +2646,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     // ============== Step 3 (stub fallback): processing → redirect ==============
     async function processPayment() {
       showStep('done');
+      // Local testing only. On the live site an order only ever comes from Stripe.
+      if (!import.meta.env.DEV) {
+        doneH.textContent = 'Something went wrong';
+        doneSub.textContent = "We can't take payment right now. Please try again in a moment.";
+        return;
+      }
       doneH.textContent = state.payMethod === 'card' ? 'Charging your card…' : 'Authenticating with your wallet…';
       doneSub.textContent = "This usually takes a few seconds. Please don't refresh.";
 
