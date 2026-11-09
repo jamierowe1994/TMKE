@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/content_calendar_dec_plan.sql — one-off: your December plan into The Property Experts' December, matched by date (title, type, pillar, tied day, note). Keeps a backup first and doesn't touch designs or captions. Sends nothing (9 Nov)
 
 
 
