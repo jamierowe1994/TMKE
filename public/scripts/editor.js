@@ -15870,6 +15870,7 @@ import { createResizeEngine } from "./resize-engine.js";
     state.pages.forEach(function (pg) { if (pg.canvas) pg.canvas.brand = _brandName; });
     reapplyBrandToDesign(prevLogo);
     renderBrandPane();
+    seedBrandIntoBackgroundPane();   // the Background pane's swatches are this brand's too (Dani, 9 Nov)
     pushHistory();
     fullRender();
     toast("Designing as " + _brandName);
