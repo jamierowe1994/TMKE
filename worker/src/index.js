@@ -4984,6 +4984,21 @@ ${cover ? `<tr><td style="padding:0 16px;"><img src="${esc(cover)}" alt="A photo
 <tr><td style="padding:0 16px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:18px 0 24px;border-top:1px solid #eae5e1;${foot}">TMKE<br><a href="https://tmke.co.uk" style="color:#7e6765;">tmke.co.uk</a><br>Questions? Reply to this email.</td></tr></table></td></tr>
 </table></td></tr></table></body></html>`;
 }
+/* Sent when a pack is gifted (Dani, 9 Nov 2026, her wording), in place of a purchase email. */
+function packGiftedEmail({ first, pack, studioUrl }) {
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const P = (x) => `<p style="${EM_P}text-align:left;">${x}</p>`;
+  // Titles are often "The Something" or end in "Pack", so "our The Property Pack template pack" can't happen.
+  const name = String(pack || "").trim().replace(/^the\s+/i, "");
+  const what = /\bpack$/i.test(name) ? `our ${esc(name)}` : `our ${esc(name)} template pack`;
+  const subject = `We've added ${pack} to your library in the Studio.`;
+  return { subject, html: deliveryShell({ subject, heading: "A Template Pack, On Us.", inner:
+    P(`Hi ${esc(first || "there")},`)
+    + P(`We've gifted you ${what}, and it's ready to use in your TMKE Studio library. There's nothing to pay.`)
+    + P("If you haven't created an account yet, simply sign up using this email address to access your pack.")
+    + `<p style="${EM_P}text-align:center;margin-top:4px;margin-bottom:20px;"><a href="${esc(studioUrl)}" style="${EM_BTN}">Open the Studio</a></p>`
+    + P("The TMKE Team") }) };
+}
 async function ensureEditsToken(env, bk) {
   if (bk.edits_token) return bk.edits_token;
   const token = crypto.randomUUID().replace(/-/g, "");
@@ -6592,7 +6607,7 @@ async function runSetupReminders(env) {
     const rows = await sbGet(
       env,
       "orders",
-      `status=eq.paid&user_id=is.null&setup_reminder_sent_at=is.null` +
+      `status=eq.paid&payment_method=neq.gift&user_id=is.null&setup_reminder_sent_at=is.null` +   // a gift has its own email and nothing to "unlock"
         `&created_at=lt.${encodeURIComponent(newer)}&created_at=gt.${encodeURIComponent(older)}` +
         `&select=id,buyer_email,buyer_name,pack_title&order=created_at.asc&limit=50`
     );
@@ -8160,6 +8175,25 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const rows = await sbGet(env, "orders", `id=eq.${id}&select=id,pack_id,pack_title,amount_pence,vat_pence,total_pence,status,payment_method,invoice_number,buyer_name,buyer_email,buyer_company,buyer_phone,created_at&limit=1`);
         if (!rows || !rows[0]) return json({ error: "Order not found." }, 404, request, env);
         return json(rows[0], 200, request, env);
+      }
+
+      // ---- Admin: the email for a gifted pack ----------------------------------
+      // Who it goes to and what it says come from the order itself, never the browser.
+      if (path.endsWith("/packs/gift-email") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.order_id) || "").trim();
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Order not found." }, 404, request, env);
+        const rows = await sbGet(env, "orders", `id=eq.${id}&payment_method=eq.gift&status=eq.paid&select=buyer_email,buyer_name,pack_title&limit=1`);
+        const o = rows && rows[0];
+        if (!o || !o.buyer_email) return json({ error: "Gift not found." }, 404, request, env);
+        await loadEmailStyles(env);
+        const site = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        const mail = packGiftedEmail({ first: deliveryFirstName(o.buyer_name), pack: o.pack_title, studioUrl: `${site}/account/studio` });
+        const sent = await sendEmail(env, { to: o.buyer_email, subject: mail.subject, html: mail.html });
+        if (!sent.ok) return json({ error: "The email didn't send." }, 502, request, env);
+        return json({ ok: true }, 200, request, env);
       }
 
       // ---- Stripe: create a hosted Checkout Session ---------------------------

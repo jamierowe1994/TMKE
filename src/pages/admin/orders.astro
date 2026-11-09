@@ -265,9 +265,9 @@ import "../../styles/money-os.css";
     async function giveGift(btn) {
       const pack = PACKS.find((p) => p.id === $("g-pack").value);
       btn.disabled = true; btn.textContent = "Gifting…";
-      const { order, error } = await giftPack(pack, $("g-email").value, $("g-name").value);
+      const { order, error, emailFailed } = await giftPack(pack, $("g-email").value, $("g-name").value);
       if (error) { btn.disabled = false; btn.textContent = "Gift this pack"; const x = $("g-err"); x.textContent = error; x.hidden = false; return; }
-      ALL.unshift(order); closePop(); draw(); toast(`${pack.title} gifted to ${order.buyer_name}.`);
+      ALL.unshift(order); closePop(); draw(); toast(emailFailed ? `${pack.title} gifted to ${order.buyer_name}, but the email didn't send.` : `${pack.title} gifted to ${order.buyer_name}. Email sent.`);
     }
     function askTake(id) {
       const g = ALL.find((x) => x.id === id); if (!g) return;

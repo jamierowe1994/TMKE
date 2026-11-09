@@ -15,7 +15,7 @@ function netTag(email) {
   return "Network: External";
 }
 
-/** Returns { order } when gifted, or { error } with a sentence to show. */
+/** Returns { order, emailFailed } when gifted, or { error } with a sentence to show. */
 export async function giftPack(pack, rawEmail, rawName) {
   const email = String(rawEmail || "").trim().toLowerCase();   // an account's email always is, so an order's is too
   const name = String(rawName || "").trim();
@@ -42,10 +42,17 @@ export async function giftPack(pack, rawEmail, rawName) {
   if (error || !order) return { error: (error && error.message) || "Couldn't gift the pack. Please try again." };
 
   // Their own trigger, so a gift doesn't get the purchase email. The tags are
-  // the same as a purchase. Fire-and-forget so the screen never waits on it.
+  // the same as a purchase. The gift email is awaited, so a failure can be said out loud.
+  let emailFailed = true;
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (WORKER && session) {
+      const res = await fetch(`${WORKER}/packs/gift-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ order_id: order.id }),
+      });
+      emailFailed = !res.ok;
       const parts = name.split(/\s+/).filter(Boolean);
       fetch(`${WORKER}/automations/fire`, {
         method: "POST",
@@ -61,5 +68,5 @@ export async function giftPack(pack, rawEmail, rawName) {
     }
   } catch (_) {}
 
-  return { order };
+  return { order, emailFailed };
 }

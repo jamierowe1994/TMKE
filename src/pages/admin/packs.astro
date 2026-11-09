@@ -1558,7 +1558,7 @@ import "../../styles/admin.css";
       giftConfirmBtn.disabled = true;
       giftConfirmBtn.textContent = "Gifting…";
 
-      const { error } = await giftPack(pack, email, name);
+      const { error, emailFailed } = await giftPack(pack, email, name);
 
       giftConfirmBtn.disabled = false;
       giftConfirmBtn.textContent = "Gift this pack →";
@@ -1575,7 +1575,7 @@ import "../../styles/admin.css";
         if (list) list.innerHTML = customerEmails.map((e) => `<option value="${escapeHtml(e)}"></option>`).join("");
       }
       closeGift();
-      toast(`Gifted “${pack.title}” to ${email}.`);
+      toast(emailFailed ? `Gifted “${pack.title}” to ${email}, but the email didn't send.` : `Gifted “${pack.title}” to ${email}. Email sent.`);
     }
 
     giftConfirmBtn?.addEventListener("click", confirmGift);
