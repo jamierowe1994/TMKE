@@ -923,7 +923,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         post.template_id = copy;
         id = copy;
       }
-      location.href = `/account/editor?id=${encodeURIComponent(id)}&mode=admin`;
+      location.href = `/account/editor?id=${encodeURIComponent(id)}&mode=admin&ccnote=${post.id}`;
     }
 
     // Read the drawer into a patch for the open post.
@@ -1146,7 +1146,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         const { error: e2 } = await supabase.from('content_month_posts').update({ template_id: id }).eq('id', NEW_FOR.id);
         if (e2) { alert(`The template was made, but couldn't be linked to the post: ${e2.message}`); }
       }
-      location.href = `/account/editor?id=${encodeURIComponent(id)}&mode=admin&title=${encodeURIComponent(name)}`;
+      location.href = `/account/editor?id=${encodeURIComponent(id)}&mode=admin&title=${encodeURIComponent(name)}${NEW_FOR ? `&ccnote=${NEW_FOR.id}` : ''}`;
     }
 
     // ---- Months ----
