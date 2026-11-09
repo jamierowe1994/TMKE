@@ -146,14 +146,14 @@ import "../../styles/money-os.css";
       const c = 100, r = 96;
       let a = -Math.PI / 2, svg = `<svg class="pie" viewBox="0 0 200 200" role="img" aria-label="${esc(rows.map(([p, v]) => p + " " + v).join(", "))}">`;
       slices.forEach(([p, v, f]) => {
-        const tip = `${p}: ${plural(v)}, ${pc(v)}`, line = f === PIE_OTHER ? "#c9bcb7" : "#fff";
-        if (slices.length === 1) { svg += `<circle cx="${c}" cy="${c}" r="${r}" fill="${f}" stroke="${line}" data-tip="${esc(tip)}"/>`; return; }
+        const tip = `${p}: ${plural(v)}, ${pc(v)}`;
+        if (slices.length === 1) { svg += `<circle cx="${c}" cy="${c}" r="${r}" fill="${f}" data-tip="${esc(tip)}"/>`; return; }
         const b = a + v / total * 2 * Math.PI, x1 = c + r * Math.cos(a), y1 = c + r * Math.sin(a), x2 = c + r * Math.cos(b), y2 = c + r * Math.sin(b);
-        svg += `<path d="M${c} ${c}L${x1.toFixed(2)} ${y1.toFixed(2)}A${r} ${r} 0 ${b - a > Math.PI ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}Z" fill="${f}" stroke="${line}" stroke-width="2" data-tip="${esc(tip)}"/>`;
+        svg += `<path d="M${c} ${c}L${x1.toFixed(2)} ${y1.toFixed(2)}A${r} ${r} 0 ${b - a > Math.PI ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}Z" fill="${f}" stroke="#fff" stroke-width="2" data-tip="${esc(tip)}"/>`;
         a = b;
       });
       svg += "</svg>";
-      const legend = rows.map(([p, v]) => `<div class="po-lg"><i style="background:${colour.get(p)}${colour.get(p) === PIE_OTHER ? ";box-shadow:inset 0 0 0 1px #c9bcb7" : ""}"></i><span>${esc(p)}</span><span class="num">${v}</span><span class="num tx">${pc(v)}</span></div>`).join("");
+      const legend = rows.map(([p, v]) => `<div class="po-lg"><i style="background:${colour.get(p)}"></i><span>${esc(p)}</span><span class="num">${v}</span><span class="num tx">${pc(v)}</span></div>`).join("");
       return { ctrl, body: `<div class="po-pie-row">${svg}<div class="po-legend">${legend}</div></div>`, total };
     }
     function drawCharts() {
