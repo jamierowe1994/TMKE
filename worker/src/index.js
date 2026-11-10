@@ -5573,7 +5573,21 @@ function tagMarketingLinks(html, { campaign, content } = {}) {
       return u.toString();
     } catch (_) { return url; }
   };
-  return html.replace(/href="(https?:\/\/[^"]+)"/gi, (m, url) => `href="${add(url.replace(/&amp;/g, "&")).replace(/&/g, "&amp;")}"`);
+  const tagged = html.replace(/href="(https?:\/\/[^"]+)"/gi, (m, url) => `href="${add(url.replace(/&amp;/g, "&")).replace(/&/g, "&amp;")}"`);
+  return withLinkCheck(tagged);
+}
+
+/* The bot trap (Dani, 10 Nov 2026). A link no person can see or reach:
+   hidden, out of the tab order and from screen readers. Security filters
+   such as Microsoft's Safe Links open every link in an email, so a click on
+   this one is a machine, and the insights treat that recipient's other clicks
+   in the same pass as the machine too. Added after tagging, so it carries no
+   campaign and a visit to it is never counted as one. */
+const LINK_CHECK_URL = "https://tmke.co.uk/link-check";
+function withLinkCheck(html) {
+  if (!html || html.includes(LINK_CHECK_URL)) return html;
+  const trap = `<div style="display:none;max-height:0;max-width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:transparent;opacity:0;" aria-hidden="true"><a href="${LINK_CHECK_URL}" tabindex="-1" aria-hidden="true" style="color:transparent;text-decoration:none;font-size:1px;">&#8203;</a></div>`;
+  return /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${trap}</body>`) : html + trap;
 }
 
 // mayEmail + an audit trail, so "why did this campaign only reach 340 people?"
