@@ -13989,7 +13989,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const note = document.createElement("p");
       note.className = "ed-ai-help-note";
       note.textContent = cb.checked
-        ? "Members see a “Stuck for words?” box here. It reads the name you've given each box above, plus anything you write here: word counts, limits, what the post is for, what to leave alone. It never makes up facts; anything it doesn't know is left in [brackets]."
+        ? "Members see a “Stuck for words?” box here, on every page. It reads the name you've given each box, the post's caption, the other words on the design, and what you write here: word counts, limits, what to leave alone. One brief covers every page. It never makes up facts; anything it doesn't know is left in [brackets]."
         : "Off. Turn it on for designs where members have to write sentences, and they'll get a box here that writes the words for them.";
       const save = function () {
         const c0 = state.pages[0].canvas;
