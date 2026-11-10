@@ -3153,6 +3153,24 @@ import { createResizeEngine } from "./resize-engine.js";
         e.preventDefault();
       }, { passive: false });
     }
+    /* Left and right arrows step through the pages once a page has been
+       clicked, until something else is (Dani, 10 Nov). Bound once; the tile
+       for the new page takes the focus so the next press carries on. */
+    if (!strip.dataset.keysBound) {
+      strip.dataset.keysBound = "1";
+      strip.addEventListener("keydown", (e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        if (!e.target || !e.target.classList || !e.target.classList.contains("ed-page-tile")) return;
+        if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const next = state.currentPage + (e.key === "ArrowRight" ? 1 : -1);
+        if (next < 0 || next >= state.pages.length) return;
+        goToPage(next);
+        const tile = strip.querySelector(".ed-page-tile.is-current");
+        if (tile) { tile.focus({ preventScroll: true }); tile.scrollIntoView({ block: "nearest", inline: "nearest" }); }
+      });
+    }
     strip.innerHTML = "";
     const multi = state.pages.length > 1;
 
@@ -3198,7 +3216,13 @@ import { createResizeEngine } from "./resize-engine.js";
       } else {
         tile.style.backgroundImage = "";
       }
-      tile.addEventListener("click", () => goToPage(i));
+      tile.addEventListener("click", () => {
+        goToPage(i);
+        // The strip is drawn again, so the clicked page's new tile takes the
+        // focus, ready for the arrow keys (Safari doesn't focus a clicked button).
+        const cur = strip.querySelector(".ed-page-tile.is-current");
+        if (cur) cur.focus({ preventScroll: true });
+      });
       if (pagesCanMove()) {
         tile.draggable = true;
         tile.title = "Page " + (i + 1) + " — drag to move it";
@@ -13508,10 +13532,25 @@ import { createResizeEngine } from "./resize-engine.js";
      change them one after another. */
   let brandPaneByChoice = false;
 
+  /* Each pane keeps its own place (Dani, 10 Nov). Putting a photo in opens
+     its settings, which share the panel's scroll, so going back to Images
+     landed at the top of a search scrolled through for ages. The selection
+     pane is the exception: it is a different item each time, so it starts
+     at the top. */
+  const _paneScroll = {};
   function showPane(name) {
+    const scroller = document.querySelector(".ed-panel");
+    const was = document.querySelector(".ed-panel-pane.is-active");
+    const wasName = was && was.dataset.pane;
+    if (scroller && wasName && wasName !== "selection") _paneScroll[wasName] = scroller.scrollTop;
     document.querySelectorAll(".ed-panel-pane").forEach((p) => {
       p.classList.toggle("is-active", p.dataset.pane === name);
     });
+    if (scroller && name !== wasName) {
+      const y = name === "selection" ? 0 : (_paneScroll[name] || 0);
+      scroller.scrollTop = y;
+      requestAnimationFrame(function () { scroller.scrollTop = y; });
+    }
   }
   /* Choosing another tool puts the colour panel away. It floats over the side
      panel, so with it left open the pane you just asked for - Layers, say - was
@@ -13702,16 +13741,35 @@ import { createResizeEngine } from "./resize-engine.js";
       : "Each box below is a part of this design you can make yours.";
 
     wrap.innerHTML = "";
+    if (sub) sub.hidden = false;
     if (bg) wrap.appendChild(backgroundFieldRow(admin));
     if (!items.length && !bg) {
+      /* A design with nothing to change is finished, not forgotten (Dani,
+         10 Nov): a member is told it's ready to download. */
+      // An empty page of their own is not a finished design.
+      const blankPage = !state.elements.some(function (el) { return el && !el.hidden; }) && !state.canvas.backgroundImage;
+      // Finished is ours to say: a template we made (or an author previewing one).
+      const ours = !!_templateOrigin || isAdminMode();
+      if (!admin && sub) sub.hidden = true;   // "Each box below" with no boxes below
+      if (!admin && !blankPage && ours) {
+        const done = document.createElement("div");
+        done.className = "ed-fields-done";
+        done.innerHTML = '<p class="ed-fields-done-title">You\u2019re good to go.</p>' +
+          '<p class="ed-fields-done-line">This design is already finished, so there\u2019s nothing you need to change. Click <strong>Download</strong> at the top right and it\u2019s ready to post or print.</p>';
+        wrap.appendChild(done);
+      }
       const cp = captionPromptBox(admin);
       if (cp) wrap.appendChild(cp);
+      const gone = admin ? hiddenFieldCount() : 0;
       if (empty) {
-        empty.hidden = false;
-        empty.textContent = admin
-          ? "Nothing on this design is set to Fixed yet. Select an item and set its lock to Fixed (not Locked), and it will appear here."
-          : "Nothing on this design has been set up to change yet \u2014 let TMKE know and we will sort it.";
+        empty.hidden = !admin && !blankPage;
+        empty.textContent = !admin ? "There\u2019s nothing on this page yet. Add some text or a picture and it will appear here."
+          : gone
+          ? "You\u2019ve taken every box off the members\u2019 list, so members will see \u201cYou\u2019re good to go.\u201d here, with a note that the design is finished and ready to download."
+          : "Nothing on this design is set to Fixed yet. Select an item and set its lock to Fixed (not Locked), and it will appear here.";
       }
+      // The way back belongs here too: taking the last item off used to hide it.
+      if (gone) wrap.appendChild(fieldsRestoreButton(gone));
       return;
     }
     if (empty) empty.hidden = true;
@@ -13774,20 +13832,21 @@ import { createResizeEngine } from "./resize-engine.js";
        Removing something with no route back is a trap, not a control. */
     if (admin) {
       const gone = hiddenFieldCount();
-      if (gone) {
-        const back = document.createElement("button");
-        back.type = "button";
-        back.className = "ed-fields-restore";
-        back.textContent = gone === 1 ? "1 item is off this list — put it back" : gone + " items are off this list — put them back";
-        back.addEventListener("click", function () {
-          state.elements.forEach(function (el) { if (el) delete el.fieldHidden; });
-          delete state.canvas.bgFieldHidden;
-          pushHistory();
-          renderFieldsPane();
-        });
-        wrap.appendChild(back);
-      }
+      if (gone) wrap.appendChild(fieldsRestoreButton(gone));
     }
+  }
+  function fieldsRestoreButton(gone) {
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "ed-fields-restore";
+    back.textContent = gone === 1 ? "1 item is off this list — put it back" : gone + " items are off this list — put them back";
+    back.addEventListener("click", function () {
+      state.elements.forEach(function (el) { if (el) delete el.fieldHidden; });
+      delete state.canvas.bgFieldHidden;
+      pushHistory();
+      renderFieldsPane();
+    });
+    return back;
   }
 
   /* The caption prompt (Dani, 22 Oct): on a design that is mostly a title,
