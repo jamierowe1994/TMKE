@@ -441,8 +441,10 @@ import "../../../styles/admin.css";
            is released from quarantine, comes much later. */
         /* THE TRAP. Every marketing email carries a hidden link to /link-check
            that no person can see. Whatever clicks it is a machine, and so is
-           anything that same recipient's copy did within two minutes of it:
-           the checker opens every link in one pass (10 Nov 2026). */
+           anything that same recipient's copy did within 60 seconds of it:
+           the checker opens every link in one pass, in seconds, and someone
+           reading the moment it lands still counts (Dani, 10 Nov 2026). */
+        const TRAP_WINDOW = 60e3;
         const isTrap = (e) => /\/link-check(\?|#|$)/.test(String(linkOf(e) || e.url || ""));
         const trapAt = new Map();
         ev.forEach((e) => { if (e.event === "clicked" && isTrap(e)) { const k = msgKey(e) + "|" + (e.contact_id || e.email); (trapAt.get(k) || trapAt.set(k, []).get(k)).push(T(e)); } });
@@ -458,7 +460,7 @@ import "../../../styles/admin.css";
           {
             const tk = msgKey(e) + "|" + (e.contact_id || e.email), ts = trapAt.get(tk);
             if (isTrap(e)) return "Clicked the hidden link that no person can see";
-            if (ts && ts.some((t) => Math.abs(T(e) - t) <= 120e3)) return "Within two minutes of clicking the hidden link that no person can see";
+            if (ts && ts.some((t) => Math.abs(T(e) - t) <= TRAP_WINDOW)) return "Within a minute of clicking the hidden link that no person can see";
           }
           // The open that comes with that check, within the same seconds, goes with it.
           const dk = msgKey(e) + "|" + (e.contact_id || e.email), d = doorDelivered.get(dk);
