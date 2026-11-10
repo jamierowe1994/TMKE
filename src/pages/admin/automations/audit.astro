@@ -495,11 +495,14 @@ import "../../../styles/admin.css";
           const stillBlocked = (re, want) => new Set(list.filter((x) => x.event === "blocked" && re.test(x.detail || "") === want && !wentOut.has(sendKey(x))).map(sendKey)).size;
           const delivered = uniq(list, "delivered");
           const people = list.filter((x) => !isMachine(x));
+          // Clicking means they opened it, even when the open wasn't recorded
+          // (Outlook blocks the image that records an open). Dani, 10 Nov 2026.
+          const openedOrClicked = new Set(people.filter((x) => x.event === "opened" || x.event === "clicked").map(sendKey)).size;
           return {
             sent, delivered,
-            opened: uniq(people, "opened"), clicked: uniq(people, "clicked"),
-            botOpened: uniq(list, "opened") - uniq(people, "opened"),
-            botClicked: uniq(list, "clicked") - uniq(people, "clicked"),
+            opened: openedOrClicked, clicked: uniq(people, "clicked"),
+            botOpened: (() => { const real = new Set(people.filter((x) => x.event === "opened" || x.event === "clicked").map(sendKey)); return new Set(list.filter((x) => x.event === "opened" && !real.has(sendKey(x))).map(sendKey)).size; })(),
+            botClicked: (() => { const real = new Set(people.filter((x) => x.event === "clicked").map(sendKey)); return new Set(list.filter((x) => x.event === "clicked" && !real.has(sendKey(x))).map(sendKey)).size; })(),
             unsub: uniq(list, "unsubscribed"),
             bounced: uniq(list, "bounced"), spam: uniq(list, "complained"),
             skipped: stillBlocked(gateReason, true),
@@ -534,7 +537,9 @@ import "../../../styles/admin.css";
         };
         const lists = (list) => {
           const humans = list.filter((x) => !isMachine(x));
-          const opened = peopleOf(humans, "opened"), clicked = peopleOf(humans, "clicked");
+          const clicked = peopleOf(humans, "clicked");
+          // Opened includes everyone who clicked.
+          const opened = (() => { const o = peopleOf(humans, "opened"), seen = new Set(o.map((x) => x.email)); return o.concat(clicked.filter((x) => !seen.has(x.email))).sort((a, b) => (a.at < b.at ? -1 : 1)); })();
           const on = (arr) => new Set(arr.map((x) => x.email));
           return {
             sent: peopleOf(list, "sent"), delivered: peopleOf(list, "delivered"),
@@ -559,8 +564,9 @@ import "../../../styles/admin.css";
         $("aud-stats").innerHTML =
           stat("Sent", all.sent, "", false, "sent") +
           stat("Delivered", all.delivered, pct(all.delivered, all.sent), false, "delivered") +
-          stat("Opened", all.opened, pct(all.opened, all.base), false, "opened") +
-          stat("Clicked", all.clicked, pct(all.clicked, all.base), false, "clicked") +
+          // With the scanners left out beside them, so the two add up to Resend's figure.
+          stat("Opened", all.opened, [pct(all.opened, all.base), all.botOpened ? `+${all.botOpened} scanners left out` : ""].filter(Boolean).join(" · "), false, "opened") +
+          stat("Clicked", all.clicked, [pct(all.clicked, all.base), all.botClicked ? `+${all.botClicked} scanners left out` : ""].filter(Boolean).join(" · "), false, "clicked") +
           stat("Came to the site", visitsTotal, pct(visitsTotal, all.base)) +
           stat("Unsubscribed", all.unsub, pct(all.unsub, all.base), true, "unsub") +
           (all.bounced ? stat("Bounced", all.bounced, pct(all.bounced, all.sent), true, "bounced") : "") +
@@ -619,14 +625,16 @@ import "../../../styles/admin.css";
         } else warn.hidden = true;
 
         $("aud-ins").hidden = false;
-        if (ev.length) loadAiSummary();   // only worth asking the AI once something has happened
+        // The summary reads the same people-counts as the boxes, scanners left
+        // out, so the two always agree (Dani, 10 Nov 2026).
+        if (ev.length) loadAiSummary({ sent: all.sent, delivered: all.delivered, opened_people: all.opened, clicked_people: all.clicked, came_to_the_site: visitsTotal, unsubscribed: all.unsub, bounced: all.bounced, spam_complaints: all.spam, not_emailed_no_optin_or_unsubscribed: all.skipped, failed_to_send: all.failed, security_scanner_opens_left_out: all.botOpened, security_scanner_clicks_left_out: all.botClicked });
       } catch (_) { /* insights are a bonus, never break the audit */ }
     }
 
     // The AI's read on the funnel — only asked for once there are events, and
     // failures just leave the box hidden; the numbers above stand on their own.
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
-    async function loadAiSummary() {
+    async function loadAiSummary(counted) {
       if (!WORKER) return;
       const box = $("aud-ai");
       try {
@@ -636,7 +644,7 @@ import "../../../styles/admin.css";
         const r = await fetch(`${WORKER}/automations/insights`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: session ? "Bearer " + session.access_token : "" },
-          body: JSON.stringify({ automation_id: id }),
+          body: JSON.stringify({ automation_id: id, counted }),
         });
         const d = await r.json().catch(() => ({}));
         if (!r.ok || !d.summary) { box.hidden = true; return; }

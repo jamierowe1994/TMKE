@@ -11562,7 +11562,22 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           recent_problems: problems,
           now: new Date().toISOString(),
         };
-        const prompt = `You are the email-marketing analyst for TMKE, a UK marketing agency. Below are the live numbers for one email funnel. Write a short plain-English summary for a non-technical marketer: first ONE paragraph (3-5 sentences, British English, no jargon, no bullet lists in this paragraph) on how the funnel is performing - be honest, specific and use the actual numbers, mention open/click rates only if delivery numbers exist, and don't invent anything not in the data. Then a line "Actions:" followed by either "none needed." or 1-3 short bullet points of things to do BEFORE the next email goes out (e.g. bounces to investigate, spam complaints, many contacts blocked for missing opt-in, nothing scheduled). If very little has happened yet, say so simply. Contacts "not emailed" for no opt-in or unsubscribing are the funnel working as intended, not a fault - only "failed_to_send" is a problem. Write plain text only: no markdown, no asterisks, no bold; bullets start with "- ". Total under 160 words.\n\nDATA:\n${JSON.stringify(facts, null, 2)}`;
+        // The page's own counts, when it sends them: each person once, security
+        // scanners left out, anyone who clicked counted as opened. They replace
+        // the raw event tallies so the summary says what the boxes say (10 Nov 2026).
+        const c = b.counted && typeof b.counted === "object" ? b.counted : null;
+        if (c) {
+          const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+          ["sent", "delivered", "opened_events", "clicked_events", "bounced", "spam_complaints", "unsubscribed", "not_emailed_no_optin_or_unsubscribed", "failed_to_send"].forEach((k) => delete facts[k]);
+          Object.assign(facts, {
+            note_on_counts: "Every figure below counts people, each once. Security scanners that open and click links automatically are already left out. Anyone who clicked is counted as having opened. Came to the site is the most reliable sign of a real person.",
+            sent: num(c.sent), delivered: num(c.delivered), opened_people: num(c.opened_people), clicked_people: num(c.clicked_people),
+            came_to_the_site: num(c.came_to_the_site), unsubscribed: num(c.unsubscribed), bounced: num(c.bounced), spam_complaints: num(c.spam_complaints),
+            not_emailed_no_optin_or_unsubscribed: num(c.not_emailed_no_optin_or_unsubscribed), failed_to_send: num(c.failed_to_send),
+            security_scanner_opens_left_out: num(c.security_scanner_opens_left_out), security_scanner_clicks_left_out: num(c.security_scanner_clicks_left_out),
+          });
+        }
+        const prompt = `You are the email-marketing analyst for TMKE, a UK marketing agency. Below are the live numbers for one email funnel. Write a short plain-English summary for a non-technical marketer: first ONE paragraph (3-5 sentences, British English, no jargon, no bullet lists in this paragraph) on how the funnel is performing - be honest, specific and use the actual numbers, mention open/click rates only if delivery numbers exist (rates are out of delivered), use exactly the figures given and don't work out any of your own, and don't invent anything not in the data. Then a line "Actions:" followed by either "none needed." or 1-3 short bullet points of things to do BEFORE the next email goes out (e.g. bounces to investigate, spam complaints, many contacts blocked for missing opt-in, nothing scheduled). If very little has happened yet, say so simply. Contacts "not emailed" for no opt-in or unsubscribing are the funnel working as intended, not a fault - only "failed_to_send" is a problem. Write plain text only: no markdown, no asterisks, no bold; bullets start with "- ". Total under 160 words.\n\nDATA:\n${JSON.stringify(facts, null, 2)}`;
         let text = "";
         try {
           const aiRes = await aiFetch(env, "admin", { max_tokens: 4000, messages: [{ role: "user", content: prompt }] });
