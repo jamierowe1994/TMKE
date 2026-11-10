@@ -468,6 +468,11 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     #ccb .cc-pick-grid button { border: 1px solid var(--edge); background: #fff; padding: 0; border-radius: 2px; cursor: pointer; text-align: left; overflow: hidden; }
     #ccb .cc-pick-grid button:hover, #ccb .cc-pick-grid button.is-on { border-color: var(--wine); box-shadow: 0 0 0 2px var(--wine); }
     .cc-pick-grid button > span { display: block; padding: 7px 8px; }
+    /* Duplicate and open (Dani, 10 Nov): a copy for this post, the original left alone. */
+    .cc-pick-tile { position: relative; display: grid; }
+    #ccb .cc-pick-grid .cc-pick-dupe { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 1px solid var(--stone); border-radius: 4px; background: #fff; color: var(--wine); box-shadow: none; }
+    #ccb .cc-pick-grid .cc-pick-dupe:hover, #ccb .cc-pick-grid .cc-pick-dupe:focus-visible { background: var(--wine); border-color: var(--wine); color: #fff; box-shadow: none; }
+    .cc-pick-dupe svg { width: 15px; height: 15px; display: block; }
     #ccb .cc-pick-grid .cc-pick-new { display: flex; align-items: center; justify-content: center; aspect-ratio: 4 / 5; border-style: dashed; color: var(--wine); text-align: center; padding: 8px; }
 
     /* The Instagram grid and Client calendar. Three rows of squares in view. */
@@ -1065,13 +1070,13 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       ALL_TPLS = (data || []).filter((t) => t.collection !== 'calendar' && t.kind !== 'block' && !(t.canvas && t.canvas.mockup)
         && !PRINT_SIZES.has(Math.round((t.canvas || {}).width) + 'x' + Math.round((t.canvas || {}).height)));
     }
-    async function copyIntoCalendar(srcId, forMonth) {
+    async function copyIntoCalendar(srcId, forMonth, asName) {
       const FULL = 'id, name, category, thumb_url, render_url, canvas, elements, pages, size_variants';
       let { data: src, error } = await supabase.from('templates').select(FULL).eq('id', srcId).maybeSingle();
       if (error) ({ data: src, error } = await supabase.from('templates').select('id, name, category, thumb_url, canvas, elements, pages').eq('id', srcId).maybeSingle());
       if (error || !src) { alert(`Couldn't copy that template: ${error ? error.message : 'not found'}`); return null; }
       const id = 'tmpl-' + Math.random().toString(36).slice(2, 8);
-      const name = forMonth ? `${String(src.name || 'Untitled').replace(/ [–-] [A-Z][a-z]+ \d{4}$/, '')} – ${forMonth}` : src.name;
+      const name = asName || (forMonth ? `${String(src.name || 'Untitled').replace(/ [–-] [A-Z][a-z]+ \d{4}$/, '')} – ${forMonth}` : src.name);
       const row = { ...src, id, name, status: 'draft', sort_order: 9000, collection: 'calendar', pack_id: null };
       const { error: e2 } = await supabase.from('templates').insert(row);
       if (e2) { alert(`Couldn't copy that template: ${e2.message}`); return null; }
@@ -1115,7 +1120,25 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       let list = pool.filter((t) => !q || (t.name || '').toLowerCase().includes(q));
       if (!all && PICK_MODE === 'post') list = [...list.filter((t) => short.includes(t.id)), ...list.filter((t) => !short.includes(t.id))];   // the shortlist first
       if (PICK_MODE === 'short') { $('cc-pick-grid').innerHTML = list.map((t) => tile(t, `data-short="${esc(t.id)}"`, short.includes(t.id))).join('') || '<p class="cc-note">No Content Calendar designs yet.</p>'; return; }
-      $('cc-pick-grid').innerHTML = (all ? '' : '<button type="button" class="cc-pick-new" data-new>+ Create a design</button>') + list.map((t) => tile(t, `data-pick="${esc(t.id)}" ${all ? 'data-copy' : ''}`, OPEN && OPEN.template_id === t.id)).join('');
+      const DUPE = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 3.5v-1a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h1"/></svg>';
+      const withDupe = (t, html) => all ? html : `<div class="cc-pick-tile">${html}<button type="button" class="cc-pick-dupe" data-dupe="${esc(t.id)}" title="Duplicate and open" aria-label="Duplicate ${esc(t.name || 'this design')} and open the copy">${DUPE}</button></div>`;
+      $('cc-pick-grid').innerHTML = (all ? '' : '<button type="button" class="cc-pick-new" data-new>+ Create a design</button>') + list.map((t) => withDupe(t, tile(t, `data-pick="${esc(t.id)}" ${all ? 'data-copy' : ''}`, OPEN && OPEN.template_id === t.id))).join('');
+    }
+
+    /* Duplicate and open (Dani, 10 Nov): copies a calendar design, links the
+       copy to the open post and opens it in the Studio. The original, and any
+       post already using it, stays exactly as it was. */
+    async function dupeAndOpen(srcId) {
+      const post = OPEN;
+      if (!post) return;
+      await flushSave();
+      const name = [CUR ? monthName(CUR.month) : '', post.title || post.occasion || ''].filter(Boolean).join(' – ') || undefined;
+      const id = await copyIntoCalendar(srcId, null, name);
+      if (!id) return;
+      const { error } = await supabase.from('content_month_posts').update({ template_id: id }).eq('id', post.id);
+      if (error) { alert(`The copy was made, but couldn't be linked to this post: ${error.message}`); return; }
+      post.template_id = id;
+      location.href = `/account/editor?id=${encodeURIComponent(id)}&mode=admin&ccnote=${post.id}${brandParam()}`;
     }
 
     // ---- New template ----
@@ -1405,6 +1428,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         return;
       }
       $('cc-pick').hidden = true;
+      if (b.hasAttribute('data-dupe')) { dupeAndOpen(b.dataset.dupe); return; }
       if (b.hasAttribute('data-new')) { flushSave(); openNewTemplate(OPEN); return; }
       if (b.hasAttribute('data-copy')) {
         copyIntoCalendar(b.dataset.pick).then((id) => { if (id) { setTemplate(id); renderTemplates(); } });
