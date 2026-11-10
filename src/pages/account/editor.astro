@@ -10484,6 +10484,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       };
       const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
       async function show(post) {
+        // Whether this is a Content Calendar design, for the Edit pane's "good to go".
+        (window as any).__TMKE_IS_CC_POST__ = !!post;
+        (window as any).__TMKE_RENDER_FIELDS__?.();
         if (!post) { box.hidden = true; return; }
         const { monthPostsName, fmtPostDate, POST_TYPE_LABEL } = await import("../../lib/calendar-month.js");
         const month = (post.month && post.month.month) || (post.post_date ? post.post_date.slice(0, 7) + "-01" : "");

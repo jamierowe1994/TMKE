@@ -13748,8 +13748,9 @@ import { createResizeEngine } from "./resize-engine.js";
          10 Nov): a member is told it's ready to download. */
       // An empty page of their own is not a finished design.
       const blankPage = !state.elements.some(function (el) { return el && !el.hidden; }) && !state.canvas.backgroundImage;
-      // Finished is ours to say: a template we made (or an author previewing one).
-      const ours = !!_templateOrigin || isAdminMode();
+      /* Only on Content Calendar designs (Dani, 10 Nov): some bought packs
+         haven't had their fields set up yet, and those must not say finished. */
+      const ours = isCalendarDesign();
       if (!admin && sub) sub.hidden = true;   // "Each box below" with no boxes below
       if (!admin && !blankPage && ours) {
         const done = document.createElement("div");
@@ -13765,7 +13766,9 @@ import { createResizeEngine } from "./resize-engine.js";
         empty.hidden = !admin && !blankPage;
         empty.textContent = !admin ? "There\u2019s nothing on this page yet. Add some text or a picture and it will appear here."
           : gone
-          ? "You\u2019ve taken every box off the members\u2019 list, so members will see \u201cYou\u2019re good to go.\u201d here, with a note that the design is finished and ready to download."
+          ? (ours
+            ? "You\u2019ve taken every box off the members\u2019 list, so members will see \u201cYou\u2019re good to go.\u201d here, with a note that the design is finished and ready to download."
+            : "You\u2019ve taken every box off the members\u2019 list, so they\u2019ll have nothing to change here. Only Content Calendar designs tell members they\u2019re good to go.")
           : "Nothing on this design is set to Fixed yet. Select an item and set its lock to Fixed (not Locked), and it will appear here.";
       }
       // The way back belongs here too: taking the last item off used to hide it.
@@ -13835,6 +13838,14 @@ import { createResizeEngine } from "./resize-engine.js";
       if (gone) wrap.appendChild(fieldsRestoreButton(gone));
     }
   }
+  /* A Content Calendar post's design: the admin calendar opens it with
+     ?ccnote, a member's month with ?ccpost, and the month's pack picker says
+     so through __TMKE_IS_CC_POST__ (editor.astro). */
+  function isCalendarDesign() {
+    const q = new URLSearchParams(location.search);
+    return q.has("ccnote") || q.has("ccpost") || window.__TMKE_IS_CC_POST__ === true;
+  }
+  window.__TMKE_RENDER_FIELDS__ = function () { try { renderFieldsPane(); } catch (_) {} };
   function fieldsRestoreButton(gone) {
     const back = document.createElement("button");
     back.type = "button";
