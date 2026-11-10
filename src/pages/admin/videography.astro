@@ -2308,14 +2308,23 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     const VB_CAP = { delivered: 4 };
     function vbOverdue(iv) { return iv && iv.status === "sent" && iv.due_date && new Date(iv.due_date + "T23:59:59") < new Date(); }
     function vbPaid(b) { return !!b.paid_at || (VBMONEY.get(b.id) || {}).status === "paid"; }
+    // An invoice is due two days before the shoot (or now, with no date).
+    // Before that there's nothing to do yet (Dani, 10 Nov 2026).
+    let VBPENDING = new Set();        // invoice ids with someone to approve them
+    function vbInvoiceDue(b) { return !b.shoot_date || Date.parse(b.shoot_date) - 2 * 864e5 <= Date.now(); }
+    function vbNeedsInvoice(b) {
+      if (isSmmCovered(b) || vbPaid(b) || ["delivered", "cancelled"].includes(b.stage)) return false;
+      const iv = VBMONEY.get(b.id);
+      return (!iv || iv.status === "draft") && vbInvoiceDue(b);
+    }
     function vbPay(b) {
       if (isSmmCovered(b)) return ["is-good", "Package"];
       if (vbPaid(b)) return ["is-good", "Paid"];
       const iv = VBMONEY.get(b.id);
-      if (!iv) return ["is-plain", "Awaiting invoice"];
+      if (!iv) return vbInvoiceDue(b) ? ["is-bad", "Not invoiced"] : ["is-plain", "Invoice " + new Date(Date.parse(b.shoot_date) - 2 * 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "short" })];
       if (vbOverdue(iv)) return ["is-bad", "Overdue"];
       if (iv.status === "sent") return ["is-info", "Invoice sent"];
-      if (iv.status === "draft") return ["is-plain", "Draft invoice"];
+      if (iv.status === "draft") return VBPENDING.has(iv.id) ? ["is-plain", "With Jack to approve"] : vbInvoiceDue(b) ? ["is-bad", "Draft, not sent"] : ["is-plain", "Draft invoice"];
       return ["is-plain", iv.status];
     }
     // The one thing holding the shoot up, as the client file's callout says it.
@@ -2328,7 +2337,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
         if (smm) return ["is-none", "Nothing to invoice: their package"];
         if (isBrandInvoiced(b) && !b.brand_fee_confirmed) return ["", "Fee check: " + ((FC_OFFICES.find((o) => o.key === b.fc_office) || {}).label || "the F&C office")];
         if (!iv) return ["", "Raise the invoice"];
-        if (iv.status === "draft") return ["", "Invoice waiting to go"];
+        if (iv.status === "draft") return ["", VBPENDING.has(iv.id) ? "With Jack to approve" : "Invoice waiting to go"];
         return ["is-none", b.shoot_date ? "Shoot " + dateOf(b.shoot_date) : "Invoice sent"];
       }
       if (st === "invoiced") return ["is-none", b.shoot_date ? "Shoot " + dateOf(b.shoot_date) : "Waiting for the shoot"];
@@ -2362,7 +2371,9 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       ["week", "Shooting in the next 7 days", (b) => { if (!b.shoot_date || b.stage === "delivered") return false; const t = Date.parse(b.shoot_date), now = Date.now(); return t >= now - 12 * 3600e3 && t <= now + 7 * 864e5; }],
       ["ready", "Ready, not paid", (b) => ["editing", "gallery_ready", "sent"].includes(b.stage) && !isSmmCovered(b) && !vbPaid(b)],
       ["overdue", "Overdue", (b) => b.stage !== "delivered" && !vbPaid(b) && vbOverdue(VBMONEY.get(b.id))],
-      ["toinvoice", "To invoice", (b) => ["booked", "awaiting_invoice"].includes(b.stage) && !isSmmCovered(b) && !VBMONEY.get(b.id)],
+      // Due now (two days before the shoot, or already shot) and not sent, at any stage:
+      // not raised, a draft, or with Jack to approve.
+      ["toinvoice", "To invoice", vbNeedsInvoice],
     ];
     function vbChips(rows) {
       const host = document.getElementById("vid-chips");
@@ -6742,9 +6753,11 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       const [bRes, aRes, iRes, eRes] = await Promise.all([
         supabase.from("videography_bookings").select("*").order("created_at", { ascending: false }),
         supabase.from("videography_availability").select("*"),
-        supabase.from("invoices").select("booking_id, status, due_date, created_at").not("booking_id", "is", null).neq("status", "void").order("created_at", { ascending: false }).range(0, 999),
+        supabase.from("invoices").select("id, booking_id, status, due_date, created_at").not("booking_id", "is", null).neq("status", "void").order("created_at", { ascending: false }).range(0, 999),
         supabase.from("videography_edit_requests").select("booking_id, status, stripe_session_id").order("created_at", { ascending: false }).range(0, 999),
       ]);
+      // Which drafts are with Jack: read separately, so a refusal here doesn't stop the page.
+      try { const { data } = await supabase.from("invoice_approvals").select("invoice_id").eq("status", "pending").range(0, 999); VBPENDING = new Set((data || []).map((x) => x.invoice_id)); } catch (_) { VBPENDING = new Set(); }
 
       bookings = bRes.error ? [] : (bRes.data || []);
       VBEDITS = new Set((eRes.error ? [] : (eRes.data || [])).filter(editsAsked).map((r) => r.booking_id));

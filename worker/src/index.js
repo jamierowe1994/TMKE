@@ -6856,8 +6856,12 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
   const vInv = [];
   const bIds = bookings.map((b) => b.id);
   for (let i = 0; i < bIds.length; i += 80) {
-    vInv.push(...(await readAll("invoices", `booking_source=eq.videography&booking_id=in.(${bIds.slice(i, i + 80).join(",")})&status=neq.void&select=booking_id,number,status,total_pence,due_date,paid_date&order=created_at.asc,id.asc`)));
+    vInv.push(...(await readAll("invoices", `booking_source=eq.videography&booking_id=in.(${bIds.slice(i, i + 80).join(",")})&status=neq.void&select=id,booking_id,number,status,total_pence,due_date,paid_date&order=created_at.asc,id.asc`)));
   }
+  // Drafts with someone to approve them (Jack), so they don't read as yours to do.
+  const draftIds = vInv.filter((iv) => iv.status === "draft").map((iv) => iv.id);
+  const withJack = new Set();
+  for (let i = 0; i < draftIds.length; i += 80) ((await readAll("invoice_approvals", `status=eq.pending&invoice_id=in.(${draftIds.slice(i, i + 80).join(",")})&select=invoice_id`)) || []).forEach((x) => withJack.add(x.invoice_id));
   const todayIso = new Date().toISOString().slice(0, 10);
   const shoots = bookings.map((b) => {
     const mine = vInv.filter((iv) => iv.booking_id === b.id);
@@ -6868,6 +6872,7 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
     if (b.payment_route === "smm_package") status = "package";
     else if (b.paid_at || mine.some((iv) => iv.status === "paid")) status = "paid";
     else if (sent.length) status = sent.some((iv) => iv.due_date && iv.due_date < todayIso) ? "payment_overdue" : "sent";
+    else if (mine.some((iv) => iv.status === "draft" && withJack.has(iv.id))) status = "with_jack";
     else status = dueBy && todayIso >= dueBy ? "late" : "not_due";
     const brand = b.payment_route === "brand_invoice" || b.payment_route === "brand_invoice_teg";
     return {
@@ -7405,7 +7410,9 @@ function invoiceBookRow(v, ctx) {
   const lead = (v.booking_source === "smm" && v.booking_id ? ctx.leads[v.booking_id] : null) || (r && r.lead_id ? ctx.leads[r.lead_id] : null);
   const leadName = lead ? (lead.business || lead.full_name || `${lead.first_name || ""} ${lead.last_name || ""}`.trim()) : "";
   // Social media monthly, a shoot, a brand's regular invoice, or a one-off.
-  const kind = bk ? "video" : (r && r.kind === "social") ? "social" : r ? "agent" : (lead && v.billing_month) ? "social" : "oneoff";
+  // Raised from a social media client's file, it's social media, monthly or
+  // not; a one-off is one raised on Invoicing for no one's file (Dani, 10 Nov).
+  const kind = bk ? "video" : (r && r.kind === "social") ? "social" : r ? "agent" : lead ? "social" : "oneoff";
   const interBrand = !!(bk && (bk.payment_route === "brand_invoice" || bk.payment_route === "brand_invoice_teg"))
     || !!(lead && lead.inter_brand_invoice)
     || kind === "agent"

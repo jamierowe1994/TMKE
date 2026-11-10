@@ -1307,7 +1307,7 @@ import "../../styles/money-os.css";
       if (c.draft) return { k: "draft", label: "Draft, not sent", chip: "wait", inv: pickInv("draft") };
       const dayN = (r.auto && r.auto.day_of_month) || 5;
       const late = ym < d.today || new Date().getDate() > dayN;
-      return late ? { k: "miss", label: "To send, late", chip: "bad" } : { k: "miss", label: `Goes on the ${ord(dayN)}`, chip: "wait" };
+      return late ? { k: "miss", late: true, label: "Not invoiced", chip: "bad" } : { k: "miss", label: `Goes on the ${ord(dayN)}`, chip: "plain" };
     }
     const riAmount = (r, ym) => r.quantity_label ? (r.quantities && r.quantities[ym] != null ? (r.amount_pence || 0) * r.quantities[ym] : null) : r.amount_pence;
     const riRecId = (r) => r.kind === "recurring" ? r.id : r.recurring_id || null;
@@ -1323,14 +1323,14 @@ import "../../styles/money-os.css";
       const m = RI.m;
       const rows = riRows().map((r) => ({ r, c: riCell(r, m) })).filter((x) => RI.tab === "recurring" || x.c.k !== "na");
       const due = rows.filter((x) => !["na", "skip"].includes(x.c.k));
-      const sent = due.filter((x) => ["sent", "paid"].includes(x.c.k)), paid = due.filter((x) => x.c.k === "paid"), toSend = due.filter((x) => ["miss", "draft"].includes(x.c.k));
+      const sent = due.filter((x) => ["sent", "paid"].includes(x.c.k)), paid = due.filter((x) => x.c.k === "paid"), toSend = due.filter((x) => (x.c.k === "miss" && x.c.late) || x.c.k === "draft");
       const owed = sent.filter((x) => x.c.k === "sent").reduce((t, x) => t + (riAmount(x.r, m) || 0), 0);
-      $("ri-figs").innerHTML = [["lin", due.length, "Due this month"], ["lin", sent.length, "Sent"], ["lin", paid.length, "Paid"], ["lin", toSend.length, "Still to send"], ["dark", gb(owed), "Waiting on payment, net"]]
+      $("ri-figs").innerHTML = [["lin", due.length, "Due this month"], ["lin", sent.length, "Sent"], ["lin", paid.length, "Paid"], ["lin", toSend.length, "To invoice"], ["dark", gb(owed), "Waiting on payment, net"]]
         .map(([k, b, s]) => `<div class="fig static ${k}"><b>${b}</b><span>${s}</span></div>`).join("");
-      const CH = [["all", "All", rows.length], ["send", "Still to send", toSend.length], ["owed", "Waiting on payment", sent.length - paid.length], ["paid", "Paid", paid.length]];
+      const CH = [["all", "All", rows.length], ["send", "To invoice", toSend.length], ["owed", "Waiting on payment", sent.length - paid.length], ["paid", "Paid", paid.length]];
       $("ri-chips").innerHTML = CH.map(([k, l, n]) => `<button type="button" data-rishow="${k}" aria-pressed="${RI.show === k}">${l} <i>${n}</i></button>`).join("");
       const q = RI.q;
-      const shown = rows.filter((x) => (RI.show === "all" || (RI.show === "send" && ["miss", "draft"].includes(x.c.k)) || (RI.show === "owed" && x.c.k === "sent") || (RI.show === "paid" && x.c.k === "paid"))
+      const shown = rows.filter((x) => (RI.show === "all" || (RI.show === "send" && ((x.c.k === "miss" && x.c.late) || x.c.k === "draft")) || (RI.show === "owed" && x.c.k === "sent") || (RI.show === "paid" && x.c.k === "paid"))
         && (!q || [x.r.client, x.r.contact, x.r.payer, x.r.match_email, x.c.inv && x.c.inv.number].join(" ").toLowerCase().includes(q)));
       $("ri-count").textContent = `${shown.length} of ${rows.length}`;
       const hist = (r) => `<span class="ri-hist">${RI.d.months.map((ym) => { const c = riCell(r, ym); return `<i class="${c.k === "na" ? "" : c.k}${ym === m ? " cur" : ""}" title="${esc(ymLabel(ym))}: ${esc(c.label)}${c.inv ? " (" + esc(c.inv.number) + ")" : ""}"></i>`; }).join("")}</span>`;
@@ -1361,17 +1361,18 @@ import "../../styles/money-os.css";
       $("ri-key").innerHTML = `<span><span class="ri-hist"><i class="paid"></i></span>Paid</span><span><span class="ri-hist"><i class="sent"></i></span>Sent</span><span><span class="ri-hist"><i class="draft"></i></span>Draft</span><span><span class="ri-hist"><i class="miss"></i></span>Due, not sent</span><span><span class="ri-hist"><i class="skip"></i></span>No invoice that month</span><span><span class="ri-hist"><i></i></span>Not due</span>`;
     }
     const SHOOT_STATUS = {
-      late: ["bad", "Late: not sent"], not_due: ["wait", "Not due yet"], sent: ["plain", "Sent"],
+      late: ["bad", "Not invoiced"], with_jack: ["wait", "With Jack to approve"], not_due: ["plain", "Not due yet"], sent: ["plain", "Sent"],
       payment_overdue: ["bad", "Sent, payment overdue"], paid: ["good", "Paid"], package: ["plain", "Covered by social package"],
     };
     function riDrawVideo() {
       const list = RI.d.shoots || [];
       const dd = (x) => x ? new Date(String(x).slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "—";
       const owed = list.filter((x) => ["sent", "payment_overdue"].includes(x.status)).reduce((t, x) => t + (x.amount_pence || 0), 0);
-      $("ri-figs").innerHTML = [["lin", list.length, "Shoots"], ["lin", list.filter((x) => ["sent", "payment_overdue", "paid"].includes(x.status)).length, "Invoiced"], ["lin", list.filter((x) => x.status === "paid").length, "Paid"], ["lin", list.filter((x) => ["late", "payment_overdue"].includes(x.status)).length, "Late or overdue"], ["dark", gb(owed), "Waiting on payment, net"]]
+      $("ri-figs").innerHTML = [["lin", list.length, "Shoots"], ["lin", list.filter((x) => ["sent", "payment_overdue", "paid"].includes(x.status)).length, "Invoiced"], ["lin", list.filter((x) => x.status === "paid").length, "Paid"], ["lin", list.filter((x) => ["late", "with_jack"].includes(x.status)).length, "To invoice"], ["dark", gb(owed), "Waiting on payment, net"]]
         .map(([k, b, s]) => `<div class="fig static ${k}"><b>${b}</b><span>${s}</span></div>`).join("");
-      const GROUP = { send: ["late", "not_due"], owed: ["sent", "payment_overdue"], paid: ["paid"] };
-      const CH = [["all", "All", list.length], ["send", "Still to send", list.filter((x) => GROUP.send.includes(x.status)).length], ["owed", "Waiting on payment", list.filter((x) => GROUP.owed.includes(x.status)).length], ["paid", "Paid", list.filter((x) => x.status === "paid").length]];
+      // To invoice: due now and not sent (not raised, or with Jack). Not due yet stays out (Dani, 10 Nov).
+      const GROUP = { send: ["late", "with_jack"], owed: ["sent", "payment_overdue"], paid: ["paid"] };
+      const CH = [["all", "All", list.length], ["send", "To invoice", list.filter((x) => GROUP.send.includes(x.status)).length], ["owed", "Waiting on payment", list.filter((x) => GROUP.owed.includes(x.status)).length], ["paid", "Paid", list.filter((x) => x.status === "paid").length]];
       $("ri-chips").innerHTML = CH.map(([k, l, n]) => `<button type="button" data-rishow="${k}" aria-pressed="${RI.show === k}">${l} <i>${n}</i></button>`).join("");
       const q = RI.q;
       const shown = list.filter((x) => (RI.show === "all" || (GROUP[RI.show] || []).includes(x.status)) && (!q || [x.client, x.company, x.service, (x.numbers || []).join(" ")].join(" ").toLowerCase().includes(q)));
