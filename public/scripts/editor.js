@@ -3070,7 +3070,8 @@ import { createResizeEngine } from "./resize-engine.js";
       // The same size as the page it follows, marked chosen like it, or the
       // 1080x1350 upgrade below turned a new page 1080x1440 (Dani, 9 Nov).
       canvas: Object.assign({ width: cur.width, height: cur.height, background: cur.background },
-        cur.mockup ? { mockup: true } : {}, cur.sizeChosen ? { sizeChosen: true } : {}, cur.brand ? { brand: cur.brand } : {}),
+        cur.mockup ? { mockup: true } : {}, cur.sizeChosen ? { sizeChosen: true } : {}, cur.brand ? { brand: cur.brand } : {},
+        cur.calendar ? { calendar: true } : {}),
       elements: [],
     });
     loadPage(state.currentPage + 1);
@@ -13717,6 +13718,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const admin = isAdminMode() && !_previewAsMember;
     const items = fieldElements();
     const bg = backgroundIsField();
+    isCalendarDesign();   // marks a design opened from the calendar, whatever is on it
     // The rail button only exists where the pane has something to say. On a
     // print template it IS the rail; on social it sits in the Start menu, so
     // the rail keeps its own button for authors only.
@@ -13841,9 +13843,15 @@ import { createResizeEngine } from "./resize-engine.js";
   /* A Content Calendar post's design: the admin calendar opens it with
      ?ccnote, a member's month with ?ccpost, and the month's pack picker says
      so through __TMKE_IS_CC_POST__ (editor.astro). */
+  /* Once opened as one it stays one (Dani, 10 Nov): the mark is kept on the
+     design's pages, so a member's own saved copy, reopened from their
+     designs, is still a Content Calendar design. An author saving the
+     template from the calendar marks the template itself. */
   function isCalendarDesign() {
     const q = new URLSearchParams(location.search);
-    return q.has("ccnote") || q.has("ccpost") || window.__TMKE_IS_CC_POST__ === true;
+    const live = q.has("ccnote") || q.has("ccpost") || window.__TMKE_IS_CC_POST__ === true;
+    if (live) (state.pages || []).forEach(function (p) { if (p && p.canvas && !p.canvas.calendar) p.canvas.calendar = true; });
+    return live || (state.pages || []).some(function (p) { return p && p.canvas && p.canvas.calendar; });
   }
   window.__TMKE_RENDER_FIELDS__ = function () { try { renderFieldsPane(); } catch (_) {} };
   function fieldsRestoreButton(gone) {
