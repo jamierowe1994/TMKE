@@ -4,7 +4,6 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/regular_invoices_tidy.sql — Regular invoices duplicates: Southam's monthly invoice tied to its card so it shows once, under Social media; PPE Monthly Assets, TLE Monthly Assets and TPE Marketing Hub stopped, leaving the proper ones that go out by themselves. Keeps a backup, deletes nothing and sends nothing. Lists what's left at the end (10 Nov)
 
 
 
@@ -12,6 +11,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Done
 
+- [x] supabase/regular_invoices_tidy.sql — Regular invoices duplicates: Southam's monthly invoice tied to its card so it shows once, under Social media; PPE Monthly Assets, TLE Monthly Assets and TPE Marketing Hub stopped, leaving the proper ones that go out by themselves. Keeps a backup, deletes nothing and sends nothing. Lists what's left at the end (10 Nov; ran 10 Nov)
 - [x] supabase/content_calendar_dec_plan.sql — one-off: your December plan into The Property Experts' December, matched by date (title, type, pillar, tied day, note). Keeps a backup first and doesn't touch designs or captions. Sends nothing (9 Nov; ran 9 Nov)
 - [x] supabase/content_calendar_builder.sql — the new Content calendar page: adds empty fields for the month's stage, image, go-live date, shortlist and a note on each post. Doesn't change any post, so December stays as it is. Sends nothing (9 Nov; ran 9 Nov)
 - [x] supabase/orders_lockdown.sql — security: pack orders can only be seen by the staff and the person who bought them, and only staff can change them. Tests itself as it runs, and if anything's wrong it stops and changes nothing. Sends nothing (9 Nov; ran 9 Nov)

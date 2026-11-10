@@ -728,12 +728,13 @@ import "../../styles/money-os.css";
     .inv-wrap .cim-pay.is-on { background: #eae5e1; color: #371e28; font-weight: 400; }
     /* Regular invoices (10 Nov 2026) */
     /* The three kinds, as the page's main choice (Dani, 10 Nov: easy to miss as underlined words). */
+    /* The strip's size (30px, 11px caps), full width (Dani, 10 Nov). */
     .mo .ri-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0 0 14px; border: 1px solid var(--wine); border-radius: 4px; overflow: hidden; }
-    .mo .ri-tabs button { height: 44px; padding: 0 12px; border: 0; border-left: 1px solid var(--wine); background: #fff; color: var(--wine); cursor: pointer; font-size: 12px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; white-space: nowrap; }
+    .mo .ri-tabs button { height: 28px; padding: 0 12px; border: 0; border-left: 1px solid var(--wine); background: #fff; color: var(--wine); cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; white-space: nowrap; }
     .mo .ri-tabs button:first-child { border-left: 0; }
     .mo .ri-tabs button:hover { background: var(--linen); }
     .mo .ri-tabs button.on { background: var(--wine); color: #fff; }
-    @media (max-width: 640px) { .mo .ri-tabs button { letter-spacing: .08em; font-size: 11px; } }
+    @media (max-width: 640px) { .mo .ri-tabs button { letter-spacing: .08em; } }
     .mo .ri-sub { margin: 0 0 16px; max-width: 75%; min-height: 0; }
     .mo .ri-hist { display: inline-flex; gap: 4px; vertical-align: middle; }
     .mo .ri-hist i { width: 12px; height: 12px; border-radius: 2px; background: var(--linen); border: 1px solid transparent; }
@@ -753,7 +754,7 @@ import "../../styles/money-os.css";
     .mo .ri-tbl td small { display: block; color: var(--tx); font-size: 14px; line-height: 1.2; }
     .mo .ri-tbl td.two { height: 54px; }
     .mo .ri-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
-    .mo .ri-check { display: flex; align-items: center; gap: 8px; }
+    .mo .ri-check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink); }
     .mo .ri-check input { width: 16px; height: 16px; accent-color: var(--wine); }
     .mo .ri-alloc { display: grid; }
     .mo .ri-alloc button { display: flex; justify-content: space-between; gap: 12px; padding: 10px 4px; border: 0; border-top: 1px solid var(--linen); background: none; text-align: left; cursor: pointer; }
@@ -1387,12 +1388,12 @@ import "../../styles/money-os.css";
     /* Raise a regular invoice for a month. The Worker makes it from the
        invoice's own setup, the same as the automatic one, then it's straight
        to the email review. */
-    function riRaise(r) {
+    function riRaise(r, want) {
       const rec = riRecId(r); if (!r || !rec) return;
       const d = RI.d;
       const opts = [...d.months].reverse().filter((m) => m <= d.today && !(r.cells[m] && (r.cells[m].sent || r.cells[m].paid)));
       if (!opts.length) { toast("Every month shown has gone already."); return; }
-      const pick = opts.includes(RI.m) ? RI.m : opts[0];
+      const pick = want && opts.includes(want) ? want : opts.includes(RI.m) ? RI.m : opts[0];
       const unit = r.amount_pence || 0, a = r.auto || {};
       popShell("Raise an invoice", esc(r.client), "",
         `<label class="field"><span>Which month it's for</span><select id="mr-month">${opts.map((m) => `<option value="${m}"${m === pick ? " selected" : ""}>${esc(ymLabel(m))}${r.cells[m] && r.cells[m].draft ? " (draft raised)" : ""}</option>`).join("")}</select></label>
@@ -1453,11 +1454,20 @@ import "../../styles/money-os.css";
       const m = RI.m, c = r.cells[m] || {};
       const rec = RI.tab === "recurring";
       popShell(rec ? "Recurring invoice" : "Social media client", esc(r.client), "",
-        `<dl class="rows">${[...RI.d.months].reverse().map((ym) => { const x = riCell(r, ym); return `<div><dt>${esc(ymLabel(ym))}</dt><dd><span class="chip ${x.chip}">${esc(x.label)}</span>${x.inv ? ` <span style="color:var(--tx)">${esc(x.inv.number)}</span>` : ""}</dd></div>`; }).join("")}</dl>
+        `<dl class="rows">${[...RI.d.months].reverse().map((ym) => {
+            const x = riCell(r, ym), can = riRecId(r) && ym <= RI.d.today && ym >= MC_FIRST;
+            const btn = x.k === "draft" && x.inv ? `<button type="button" class="ri-btn go" data-rpsend="${esc(x.inv.id)}">Send</button>`
+              : x.inv ? `<button type="button" class="ri-btn" data-rpview="${esc(x.inv.id)}">View</button>`
+              : can && ["miss", "na"].includes(x.k) ? `<button type="button" class="ri-btn${x.k === "miss" ? " go" : ""}" data-rpraise="${ym}">Raise</button>` : "";
+            return `<div><dt>${esc(ymLabel(ym))}</dt><dd style="display:flex;align-items:center;gap:8px"><span class="chip ${x.chip}">${esc(x.label)}</span>${x.inv ? `<span style="color:var(--tx)">${esc(x.inv.number)}</span>` : ""}<span style="margin-left:auto">${btn}</span></dd></div>`;
+          }).join("")}</dl>
          <label class="field"><span>Note for ${esc(ymLabel(m))}</span><textarea id="rn-note" rows="3" placeholder="e.g. Not charged this month, agreed with Sean">${esc(c.note || "")}</textarea></label>
          <label class="ri-check"><input type="checkbox" id="rn-skip"${c.skip ? " checked" : ""}> No invoice for ${esc(ymLabel(m))}, so it isn't flagged as missing</label>
          <p class="state bad" id="rn-msg" hidden></p>`,
         `<button type="button" class="mbtn" data-close>Close</button>${rec ? `<button type="button" class="mbtn danger" id="rn-stop">Stop it</button><button type="button" class="mbtn" id="rn-edit">Edit</button>` : `<a class="mbtn" href="/admin/social?lead=${encodeURIComponent(r.id)}">Open their file</a>`}<button type="button" class="mbtn primary" id="rn-save">Save</button>`);
+      $("io-pop").querySelectorAll("[data-rpraise]").forEach((b) => b.addEventListener("click", () => riRaise(r, b.dataset.rpraise)));
+      $("io-pop").querySelectorAll("[data-rpsend]").forEach((b) => b.addEventListener("click", () => fullInvoice(b.dataset.rpsend).then(riReview).catch((err) => toast(err.message))));
+      $("io-pop").querySelectorAll("[data-rpview]").forEach((b) => b.addEventListener("click", () => riView(b.dataset.rpview)));
       $("rn-save").addEventListener("click", async () => {
         try { await postJson("/invoicing/month-note", { row_kind: r.kind, row_id: r.id, month: m, note: $("rn-note").value, skip: $("rn-skip").checked }); closePop(); toast("Saved."); loadMonthly(); }
         catch (err) { $("rn-msg").textContent = err.message; $("rn-msg").hidden = false; }

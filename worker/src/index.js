@@ -6836,7 +6836,9 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
       quantities: Object.fromEntries([ymAdd(months[0], -1), ...months].filter((ym) => qtys.has(`${r.id}|${ym}`)).map((ym) => [ym, qtys.get(`${r.id}|${ym}`)])),
       // What the automatic invoicing needs (supabase/invoicing_automation.sql).
       auto: { auto_send: !!r.auto_send, day_of_month: r.day_of_month ?? null, frequency: r.frequency || "monthly", end_month: r.end_month || "", bill_to_name: r.bill_to_name || "", bill_to_email: r.bill_to_email || "", cc_email: r.cc_email || "", bill_to_address: r.bill_to_address || "", line: (Array.isArray(r.line_items) && r.line_items[0] && r.line_items[0].description) || "", terms_days: r.terms_days ?? null },
-      cells: cellsFor(mine, r.start_month || null, "recurring", r.id) });
+      // It starts from its first month, or its earliest invoice if that's sooner:
+      // invoices moved over from an older row count (Dani, 10 Nov 2026).
+      cells: cellsFor(mine, [r.start_month, ...mine.map(monthOf)].filter(Boolean).sort()[0] || null, "recurring", r.id) });
   }
   // Videography: where each shoot's invoice is. The rule: invoiced two days
   // before the shoot; past that and not sent, we're late (Danielle, 30 Sep
