@@ -432,10 +432,25 @@ import "../../../styles/admin.css";
            morning on one shared connection isn't mistaken for one. */
         const MACHINE_IP_REACH = 3, REACH_WINDOW = 3 * 60e3;
         const reachAt = (ip, t) => new Set((ipHits.get(ip) || []).filter((h) => Math.abs(h.t - t) <= REACH_WINDOW).map((h) => h.r)).size;
+        /* AT THE DOOR (Dani, 10 Nov 2026: Kerry Robinson delivered, opened and
+           clicked all at 1:01). Microsoft's Safe Links checks every link the
+           moment mail lands, whoever sent it and whatever the quarantine
+           settings. No one can open, read and click within seconds of an email
+           arriving, so a click that soon is the check. This adds to the rules
+           below; it doesn't replace them, because the second scan, when mail
+           is released from quarantine, comes much later. */
+        const AT_DOOR = 30e3;
+        const deliveredAt = new Map();
+        ev.forEach((e) => { if (e.event === "delivered") { const k = msgKey(e) + "|" + (e.contact_id || e.email); const t = T(e); if (!deliveredAt.has(k) || t < deliveredAt.get(k)) deliveredAt.set(k, t); } });
+        const clickedAtDoor = new Set();
+        ev.forEach((e) => { if (e.event !== "clicked") return; const k = msgKey(e) + "|" + (e.contact_id || e.email); const d = deliveredAt.get(k); if (d != null && T(e) - d >= -5e3 && T(e) - d <= AT_DOOR) clickedAtDoor.add(k); });
         function machineWhy(e) {
           if (e.event !== "clicked" && e.event !== "opened") return "";
           const ip = ipOf(e);
           if (knownScanner(ip)) return "A known email-security scanner address";
+          // The open that comes with that check, within the same seconds, goes with it.
+          const dk = msgKey(e) + "|" + (e.contact_id || e.email), d = deliveredAt.get(dk);
+          if (clickedAtDoor.has(dk) && d != null && T(e) - d <= AT_DOOR) return "Opened and clicked within seconds of arriving, before anyone could have read it: Microsoft's link check";
           if (ip) {
             const n = reachAt(ip, T(e));
             if (n >= MACHINE_IP_REACH) return `The same internet address acted for ${n} different people within three minutes`;
