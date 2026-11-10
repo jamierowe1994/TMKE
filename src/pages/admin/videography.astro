@@ -4109,6 +4109,9 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
     let vivPayByCard = true;   // set per booking in renderInvoiceCard
     let vivDraft = null;       // the created invoice awaiting send
     let vivReissueOf = null;   // { id, number } when reissuing a sent invoice
+    // A draft loaded back in is changed in place: same number, nothing voided,
+    // and it can go (back) to Jack (Dani, 10 Nov 2026). Only a sent invoice is reissued.
+    let vivEditDraft = null;   // { id, number, withJack } while editing a draft
 
     async function ensureInvSettings() {
       if (invSettings || !WORKER_URL) return invSettings;
@@ -4384,11 +4387,13 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       if (mode === "edit") {
         vivItems = (src.line_items || []).map((it) => ({ description: it.description || "", amount: (((it.unit_pence || 0) * (it.qty || 1)) / 100).toFixed(2) }));
         vivPayByCard = !!src.pay_by_card;
-        vivReissueOf = { id: src.id, number: src.number };
+        const isDraft = src.status === "draft";
+        vivEditDraft = isDraft ? { id: src.id, number: src.number, withJack: VBPENDING.has(src.id) } : null;
+        vivReissueOf = isDraft ? null : { id: src.id, number: src.number };
       } else {
         vivItems = mode === "new" ? [{ description: "", amount: "" }] : vivSeedItems(b);
         vivPayByCard = !brand && !teg;
-        vivReissueOf = null;
+        vivReissueOf = null; vivEditDraft = null;
       }
       vivDraft = null;
       const today = new Date().toISOString().slice(0, 10);
@@ -4396,7 +4401,9 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       const due = new Date(); due.setDate(due.getDate() + Number(terms));
       const lock = mode === "first" && brand && !b.brand_fee_confirmed
         ? `<div class="viv-lock"><b>Fee check first.</b> ${escapeHtml(officeName || "The Fine & Country office")} haven't confirmed they hold the seller's marketing fee, which pays for this shoot. You can get the invoice approved now; ask the office above.</div>` : "";
-      const reissue = mode === "edit" ? `<div class="viv-lock">Saving raises a new invoice and voids ${escapeHtml(src.number || "this one")}.</div>` : "";
+      const reissue = mode !== "edit" ? "" : vivEditDraft
+        ? `<div class="viv-lock">Editing draft ${escapeHtml(src.number || "")}. It keeps its number.${vivEditDraft.withJack ? " It's with Jack: Send for approval sends him this version instead." : ""}</div>`
+        : `<div class="viv-lock">${escapeHtml(src.number || "This invoice")} has been sent, so saving raises a new invoice and voids it.</div>`;
       host.innerHTML = msg + lock + reissue +
         vcSec("Who it's for", `<dl class="vc-pdl">
           ${vcPF("Client", `<input class="vc-in" id="viv-client" value="${escapeHtml(client)}" placeholder="Who the shoot was for" />`, brand || teg ? "Names the shoot for the accounts team, who pay for several agents at once." : "")}
@@ -4422,10 +4429,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       });
       document.getElementById("viv-terms").addEventListener("input", ciApplyVivTerms);
       document.getElementById("viv-issued").addEventListener("input", ciApplyVivTerms);
-      const say = mode === "edit" ? "" : `<span class="vc-say">Jack approves it, then it goes.</span>`;
-      vivFoot(mode === "edit"
+      const say = mode === "edit" && !vivEditDraft ? "" : `<span class="vc-say">Jack approves it, then it goes.</span>`;
+      vivFoot(mode === "edit" && !vivEditDraft
         ? vcFootBtn('data-viv="cancel"', "Cancel") + vcFootBtn('data-viv="pv-invoice"', "Preview invoice") + vcFootBtn('data-viv="pv-email"', "Preview email") + vcFootBtn('id="viv-draft"', "Reissue as draft") + vcFootBtn('id="viv-send"', "Reissue and send", true)
-        : say + vcFootBtn('data-viv="pv-invoice"', "Preview invoice") + vcFootBtn('data-viv="pv-email"', "Preview email") + vcFootBtn('id="viv-draft"', "Save draft") + vcFootBtn('id="viv-approve"', "Send for approval", true));
+        : (vivEditDraft ? vcFootBtn('data-viv="cancel"', "Cancel") : "") + say + vcFootBtn('data-viv="pv-invoice"', "Preview invoice") + vcFootBtn('data-viv="pv-email"', "Preview email") + vcFootBtn('id="viv-draft"', vivEditDraft ? "Save changes" : "Save draft") + vcFootBtn('id="viv-approve"', "Send for approval", true));
       vivWireFoot(b);
     }
     // The builder's invoice, as the preview and the email read it.
@@ -4442,7 +4449,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       f.querySelectorAll("[data-viv]").forEach((x) => x.addEventListener("click", () => {
         const k = x.getAttribute("data-viv");
         if (k === "back") { const snap = vivPreview && vivPreview.snap; vivPreview = null; renderInvoiceCard(b).then(() => vivRestore(snap)); return; }
-        if (k === "cancel") { vivSource = null; vivReissueOf = null; renderInvoiceCard(b); return; }
+        if (k === "cancel") { vivSource = null; vivReissueOf = null; vivEditDraft = null; renderInvoiceCard(b); return; }
         if (k === "pv-invoice" || k === "pv-email") {
           const kind = k === "pv-invoice" ? "invoice" : "email";
           if (vivPreview) { vivPreview.kind = kind; renderInvoiceCard(b); return; }
@@ -4454,7 +4461,8 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       document.getElementById("viv-draft")?.addEventListener("click", async () => {
         const reissue = !!vivSource;
         await createInvoice(b, false);
-        if (vivDraft) { vivFlash = `${vivDraft.number || "The invoice"} saved as a draft.${reissue ? " The old one is voided." : ""}`; vivTab = "this"; vivSource = null; renderInvoiceCard(b); vcFillMoney(b); }
+        const inPlace = !!vivEditDraft;
+        if (vivDraft) { vivFlash = inPlace ? `${vivDraft.number || "The draft"} saved.` : `${vivDraft.number || "The invoice"} saved as a draft.${reissue ? " The old one is voided." : ""}`; vivTab = "this"; vivSource = null; vivEditDraft = null; renderInvoiceCard(b); vcFillMoney(b); }
       });
       document.getElementById("viv-send")?.addEventListener("click", async () => {
         await createInvoice(b, true);
@@ -4470,9 +4478,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           const res = await fetch(`${WORKER_URL}/invoicing/approval/request`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: vivDraft.id }) });
           const d = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(d.error || res.status);
+          VBPENDING.add(vivDraft.id);
           vivFlash = d.test ? `${vivDraft.number} sent for approval. Test mode: the email came to you, not Jack.` : `${vivDraft.number} sent to Jack to approve. Once he does, it goes.`;
         } catch (err) { vivFlash = `${vivDraft.number} saved as a draft, but it couldn't go to Jack: ${err.message}`; }
-        vivTab = "this"; vivSource = null;
+        vivTab = "this"; vivSource = null; vivEditDraft = null;
         renderInvoiceCard(b); vcFillMoney(b);
       });
     }
@@ -4525,9 +4534,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       try {
         const token = await authToken();
         const res = await fetch(`${WORKER_URL}/invoicing/invoices`, {
-          method: "POST",
+          method: vivEditDraft ? "PATCH" : "POST",
           headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
           body: JSON.stringify({
+            ...(vivEditDraft ? { id: vivEditDraft.id } : {}),
             // The link that was missing: this invoice belongs to this shoot.
             booking_id: b.id, booking_source: "videography",
             bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null,
@@ -4731,6 +4741,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           const res = await fetch(`${WORKER_URL}/invoicing/approval/request`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: btn.getAttribute("data-vjack") }) });
           const d = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(d.error || res.status);
+          VBPENDING.add(btn.getAttribute("data-vjack"));
           vivFlash = d.test ? "Sent for approval. Test mode: the email came to you, not Jack." : "Sent to Jack to approve. Once he does, it goes.";
           vivRefresh(b);
         } catch (err) { vivStatus("Couldn't send it to Jack: " + err.message, true); btn.disabled = false; btn.textContent = "Send for approval"; }
