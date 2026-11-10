@@ -927,9 +927,11 @@ const hideFromSearch = noindex || privateArea;
     <!-- First-party analytics, gated behind consent. The banner re-fires the
          pageview after the visitor accepts. -->
     <script>
-      import { trackPageview } from "../lib/track.js";
+      import { trackPageview, countEmailArrival } from "../lib/track.js";
       import { getConsent, setConsent } from "../lib/consent.js";
 
+      // Arrived from one of our emails: counted whatever the cookie choice, anonymously without consent.
+      countEmailArrival();
       const banner = document.getElementById("cc-banner");
       const show = () => { if (banner) banner.hidden = false; };
       const hide = () => { if (banner) banner.hidden = true; };

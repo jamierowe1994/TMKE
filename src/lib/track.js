@@ -147,11 +147,45 @@ export async function reportStudioFault(props = {}) {
   } catch (_) { /* best-effort, like track() */ }
 }
 
+/**
+ * Arrived from a marketing email (Danielle, 10 Nov 2026): counted for everyone,
+ * not only people who accept cookies, because many leave before choosing.
+ * Without consent it's one anonymous row and nothing else: nothing stored in
+ * the browser, no visit id, no account, no referrer, just which email's link
+ * brought someone here. With consent the normal page view already carries it.
+ * If they accept on this same page, that page view is marked so the visit
+ * isn't counted twice.
+ */
+let emailArrivalCounted = false;
+export async function countEmailArrival() {
+  if (!isConfigured || typeof location === 'undefined') return;
+  if (/^\/(admin|editor|edit)(\/|$)/.test(location.pathname)) return;
+  if (analyticsAllowed() && !trackingOff()) return;
+  try {
+    const q = new URLSearchParams(location.search);
+    if (q.get('utm_source') !== 'email' || !q.get('utm_campaign')) return;
+    emailArrivalCounted = true;
+    await supabase.from('site_events').insert({
+      name: 'email_arrival',
+      path: location.pathname,
+      props: {
+        from: {
+          source: 'email',
+          medium: (q.get('utm_medium') || '').slice(0, 40) || null,
+          campaign: (q.get('utm_campaign') || '').slice(0, 80),
+          content: (q.get('utm_content') || '').slice(0, 80) || null,
+        },
+        anonymous: true,
+      },
+    });
+  } catch (_) { /* best-effort */ }
+}
+
 /** Convenience: record a page view for the current page. */
 export function trackPageview(extra = {}) {
   // Gated on consent — the banner re-calls this after the visitor accepts.
   if (!analyticsAllowed()) return;
-  track('pageview', { title: typeof document !== 'undefined' ? document.title : '', ...extra });
+  track('pageview', { title: typeof document !== 'undefined' ? document.title : '', ...(emailArrivalCounted ? { already_counted: true } : {}), ...extra });
 
   if (typeof location === 'undefined') return;
   const path = location.pathname || '';

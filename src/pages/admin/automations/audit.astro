@@ -499,8 +499,11 @@ import "../../../styles/admin.css";
               .select("session_id, id, props, created_at")
               .eq("props->from->>campaign", name)
               .limit(20000);
+            // A visit counted anonymously on arrival, whose person then accepted
+            // cookies on that page: the anonymous row stands, the session doesn't.
+            const twice = new Set((visits || []).filter((v) => v.session_id && v.props && v.props.already_counted).map((v) => v.session_id));
             const seen = new Map();
-            (visits || []).forEach((v) => {
+            (visits || []).filter((v) => !(v.session_id && twice.has(v.session_id))).forEach((v) => {
               const sid = v.session_id || v.id;
               const step = ((v.props || {}).from || {}).content || "";
               if (!seen.has(sid)) seen.set(sid, step);
@@ -602,7 +605,7 @@ import "../../../styles/admin.css";
           // With the scanners left out beside them, so the two add up to Resend's figure.
           stat("Opened", all.opened, [pct(all.opened, all.base), all.botOpened ? `${all.botOpened} may be scanners` : ""].filter(Boolean).join(" · "), false, "opened") +
           stat("Clicked", all.clicked, [pct(all.clicked, all.base), all.botClicked ? `${all.botClicked} may be scanners` : ""].filter(Boolean).join(" · "), false, "clicked") +
-          stat("Came to the site", visitsTotal, [pct(visitsTotal, all.base), "who accepted cookies"].filter(Boolean).join(" · ")) +
+          stat("Came to the site", visitsTotal, pct(visitsTotal, all.base)) +
           stat("Unsubscribed", all.unsub, pct(all.unsub, all.base), true, "unsub") +
           (all.bounced ? stat("Bounced", all.bounced, pct(all.bounced, all.sent), true, "bounced") : "") +
           (all.spam ? stat("Spam reports", all.spam, "", true) : "") +
@@ -662,7 +665,7 @@ import "../../../styles/admin.css";
         $("aud-ins").hidden = false;
         // The summary reads the same people-counts as the boxes, scanners left
         // out, so the two always agree (Dani, 10 Nov 2026).
-        if (ev.length) loadAiSummary({ sent: all.sent, delivered: all.delivered, opened_people: all.opened, clicked_people: all.clicked, came_to_the_site_who_accepted_cookies: visitsTotal, unsubscribed: all.unsub, bounced: all.bounced, spam_complaints: all.spam, not_emailed_no_optin_or_unsubscribed: all.skipped, failed_to_send: all.failed, opened_that_may_be_scanners: all.botOpened, clicked_that_may_be_scanners: all.botClicked });
+        if (ev.length) loadAiSummary({ sent: all.sent, delivered: all.delivered, opened_people: all.opened, clicked_people: all.clicked, came_to_the_site: visitsTotal, unsubscribed: all.unsub, bounced: all.bounced, spam_complaints: all.spam, not_emailed_no_optin_or_unsubscribed: all.skipped, failed_to_send: all.failed, opened_that_may_be_scanners: all.botOpened, clicked_that_may_be_scanners: all.botClicked });
       } catch (_) { /* insights are a bonus, never break the audit */ }
     }
 

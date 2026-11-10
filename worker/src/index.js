@@ -11584,9 +11584,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
           ["sent", "delivered", "opened_events", "clicked_events", "bounced", "spam_complaints", "unsubscribed", "not_emailed_no_optin_or_unsubscribed", "failed_to_send"].forEach((k) => delete facts[k]);
           Object.assign(facts, {
-            note_on_counts: "Every figure counts people, each once, the same as Resend's own figures. Anyone who clicked also counts as opened. Work email filters (Microsoft's on TEG addresses) open and click links automatically and Resend counts those too, so some opens and clicks may not be people: the *_that_may_be_scanners figures say how many look like that. Came to the site only counts visitors who accepted cookies, so it is a minimum.",
+            note_on_counts: "Every figure counts people, each once, the same as Resend's own figures. Anyone who clicked also counts as opened. Work email filters (Microsoft's on TEG addresses) open and click links automatically and Resend counts those too, so some opens and clicks may not be people: the *_that_may_be_scanners figures say how many look like that. Came to the site counts everyone who arrived from the email's links (from 10 Nov 2026; before that only visitors who accepted cookies, so older emails show a minimum). It is the most reliable sign of a real person.",
             sent: num(c.sent), delivered: num(c.delivered), opened_people: num(c.opened_people), clicked_people: num(c.clicked_people),
-            came_to_the_site_who_accepted_cookies: num(c.came_to_the_site_who_accepted_cookies), unsubscribed: num(c.unsubscribed), bounced: num(c.bounced), spam_complaints: num(c.spam_complaints),
+            came_to_the_site: num(c.came_to_the_site), unsubscribed: num(c.unsubscribed), bounced: num(c.bounced), spam_complaints: num(c.spam_complaints),
             not_emailed_no_optin_or_unsubscribed: num(c.not_emailed_no_optin_or_unsubscribed), failed_to_send: num(c.failed_to_send),
             opened_that_may_be_scanners: num(c.opened_that_may_be_scanners), clicked_that_may_be_scanners: num(c.clicked_that_may_be_scanners),
           });
