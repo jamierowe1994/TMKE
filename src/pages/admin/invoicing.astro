@@ -1270,6 +1270,7 @@ import "../../styles/money-os.css";
     async function loadMonthly() {
       const st = $("ri-state"), main = $("ri-main");
       st.hidden = false; st.className = "state"; st.textContent = "Loading…"; main.hidden = true;
+      riDraw();
       try {
         const d = await api(`/invoicing/monthly?from=${ymAdd(RI.m, -5)}`);
         RI.d = d; st.hidden = true; main.hidden = false; riDraw();
@@ -1292,7 +1293,8 @@ import "../../styles/money-os.css";
       const c = r.cells[ym], d = RI.d;
       const live = (c && c.invs || []).filter((v) => v.status !== "void");
       const pickInv = (st) => live.find((v) => v.status === st) || null;
-      if (!c) return { k: "na", label: "Not due", chip: "plain" };
+      // Before August 2026, invoicing wasn't done here, so nothing shows as missing.
+      if (!c || ym < MC_FIRST) return { k: "na", label: "Not due", chip: "plain" };
       if (c.skip) return { k: "skip", label: "No invoice", chip: "plain" };
       if (!c.due || ym > d.today) return { k: "na", label: "Not due", chip: "plain" };
       if (c.paid) return { k: "paid", label: "Paid", chip: "good", inv: pickInv("paid") };
