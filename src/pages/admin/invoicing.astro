@@ -1662,9 +1662,11 @@ import "../../styles/money-os.css";
     function chip(v) {
       const s = state(v);
       if (s === "paid") return `<span class="chip good">Paid ${esc(day(v.paid_on))}</span>`;
-      if (s === "draft") return '<span class="chip plain">Draft, not sent</span>';
+      // With someone to approve (Jack, for shoots): nothing for you to do (Dani, 10 Nov).
+      if (s === "draft") return PENDING.some((x) => x.invoice_id === v.id) ? '<span class="chip wait">Waiting for approval</span>' : '<span class="chip plain">Draft, not sent</span>';
       if (s === "over") return '<span class="chip bad">Overdue</span>';
-      return '<span class="chip wait">Waiting</span>';
+      // Sent, and its due date hasn't come: waiting on payment.
+      return '<span class="chip plain">Sent, not due yet</span>';
     }
     const flags = (v) => `<div class="flags">${chip(v)}${held(v) ? '<span class="chip wait">Content ready</span>' : ""}</div>`;
     function pass(v) {
@@ -1709,7 +1711,7 @@ import "../../styles/money-os.css";
       const live = inMonth.filter((v) => v.status !== "draft"), paid = live.filter((v) => v.status === "paid"), wait = live.filter((v) => state(v) === "wait");
       const n = (a) => `${a.length} ${a.length === 1 ? "invoice" : "invoices"}`;
       const fig = (cls, key, val, label) => `<button type="button" class="fig ${cls}" data-status="${key}" aria-pressed="${!!key && S.status === key}"><b>${val}</b><span>${label}</span></button>`;
-      $("io-figs").innerHTML = fig("lin", "", gb(sum(live)), `Raised in ${ymLong(S.month).split(" ")[0]}, ${n(live)}`) + fig("lin", "paid", gb(sum(paid)), `Paid, ${n(paid)}`) + fig("lin", "wait", gb(sum(wait)), `Waiting, ${wait.length} not yet due`) + fig("dark", "over", gb(sum(overAll)), `Overdue, ${overAll.length} from any month`);
+      $("io-figs").innerHTML = fig("lin", "", gb(sum(live)), `Raised in ${ymLong(S.month).split(" ")[0]}, ${n(live)}`) + fig("lin", "paid", gb(sum(paid)), `Paid, ${n(paid)}`) + fig("lin", "wait", gb(sum(wait)), `Waiting on payment, ${wait.length} not yet due`) + fig("dark", "over", gb(sum(overAll)), `Overdue, ${overAll.length} from any month`);
 
       // Needs you: only things someone has to do, worked out from the invoices.
       const needs = [];
