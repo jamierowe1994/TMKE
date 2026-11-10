@@ -37,9 +37,9 @@ import "../../styles/money-os.css";
       <p class="state" id="io-state">Loading…</p>
       <div id="io-main" hidden>
         <div class="bar">
-          <div class="mnav"><button type="button" id="io-prev" aria-label="Earlier month">‹</button><span id="io-month"></span><button type="button" id="io-next" aria-label="Later month">›</button></div>
+          <div class="bar-l"><div class="mnav"><button type="button" id="io-prev" aria-label="Earlier month">‹</button><span id="io-month"></span><button type="button" id="io-next" aria-label="Later month">›</button></div>
           <label class="find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="io-q" placeholder="Client or invoice number" aria-label="Client or invoice number"></label>
-          <div class="chips" id="io-chips" role="group" aria-label="Type of work"></div>
+          <div class="chips" id="io-chips" role="group" aria-label="Type of work"></div></div>
           <div class="mo-acts" style="margin-left:auto"><button type="button" class="mbtn" id="io-mend">Month-end email</button><button type="button" class="mbtn" id="io-mrev">Month-end review</button></div>
         </div>
         <div class="figs" id="io-figs" role="group" aria-label="This month"></div>
@@ -148,9 +148,9 @@ import "../../styles/money-os.css";
       </nav>
       <p class="mo-sub ri-sub" id="ri-sub"></p>
       <div class="bar">
-        <div class="mnav" id="ri-mnav"><button type="button" id="ri-prev" aria-label="Earlier month">‹</button><span id="ri-month"></span><button type="button" id="ri-next" aria-label="Later month">›</button></div>
+        <div class="bar-l"><div class="mnav" id="ri-mnav"><button type="button" id="ri-prev" aria-label="Earlier month">‹</button><span id="ri-month"></span><button type="button" id="ri-next" aria-label="Later month">›</button></div>
         <label class="find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="ri-q" placeholder="Client or invoice number" aria-label="Client or invoice number"></label>
-        <div class="chips" id="ri-chips" role="group" aria-label="Show"></div>
+        <div class="chips" id="ri-chips" role="group" aria-label="Show"></div></div>
         <div class="mo-acts" style="margin-left:auto"><button type="button" class="mbtn primary" id="ri-add" hidden>Add a regular invoice</button></div>
       </div>
       <p class="state" id="ri-state">Loading…</p>
@@ -727,9 +727,13 @@ import "../../styles/money-os.css";
     .inv-wrap .cim-pay { background: #eae5e1; }
     .inv-wrap .cim-pay.is-on { background: #eae5e1; color: #371e28; font-weight: 400; }
     /* Regular invoices (10 Nov 2026) */
-    .mo .ri-tabs { display: flex; gap: 26px; margin: 0 0 12px; overflow-x: auto; scrollbar-width: none; box-shadow: inset 0 -1px 0 var(--linen); }
-    .mo .ri-tabs button { flex: none; height: 34px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--tx); cursor: pointer; }
-    .mo .ri-tabs button.on { color: var(--wine); border-bottom-color: var(--wine); }
+    /* The three kinds, as the page's main choice (Dani, 10 Nov: easy to miss as underlined words). */
+    .mo .ri-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0 0 14px; border: 1px solid var(--wine); border-radius: 4px; overflow: hidden; }
+    .mo .ri-tabs button { height: 44px; padding: 0 12px; border: 0; border-left: 1px solid var(--wine); background: #fff; color: var(--wine); cursor: pointer; font-size: 12px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; white-space: nowrap; }
+    .mo .ri-tabs button:first-child { border-left: 0; }
+    .mo .ri-tabs button:hover { background: var(--linen); }
+    .mo .ri-tabs button.on { background: var(--wine); color: #fff; }
+    @media (max-width: 640px) { .mo .ri-tabs button { letter-spacing: .08em; font-size: 11px; } }
     .mo .ri-sub { margin: 0 0 16px; max-width: 75%; min-height: 0; }
     .mo .ri-hist { display: inline-flex; gap: 4px; vertical-align: middle; }
     .mo .ri-hist i { width: 12px; height: 12px; border-radius: 2px; background: var(--linen); border: 1px solid transparent; }
@@ -1264,7 +1268,7 @@ import "../../styles/money-os.css";
     const RI = { tab: "social", m: nowYm, show: "all", q: "", d: null };
     const RI_TABS = {
       social: ["Every active social media client, one month at a time. Their invoices go out on the 5th once Abbie has ticked them, or raise one here.", "Social media clients"],
-      video: ["This month's shoots, and any earlier one still not invoiced or paid. A shoot is invoiced two days before it happens; open one to raise or send it in Videography.", "Shoots"],
+      video: ["The month's shoots. This month also shows any earlier shoot still not invoiced or paid. A shoot is invoiced two days before it happens; open one to raise or send it in Videography.", "Shoots"],
       recurring: ["The brands' regular invoices, such as agent assets and the TPE Marketing Hub. Each is made from its own setup, so it goes with the right email and onto the accounts portal.", "Recurring invoices"],
     };
     async function loadMonthly() {
@@ -1310,7 +1314,7 @@ import "../../styles/money-os.css";
       document.querySelectorAll("[data-ritab]").forEach((b) => { const on = b.dataset.ritab === RI.tab; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
       $("ri-sub").textContent = RI_TABS[RI.tab][0]; $("ri-strip").textContent = RI_TABS[RI.tab][1];
       $("ri-add").hidden = RI.tab !== "recurring";
-      $("ri-mnav").hidden = RI.tab === "video";
+
       $("ri-month").textContent = ymLabel(RI.m);
       $("ri-prev").disabled = RI.m <= MC_FIRST; $("ri-next").disabled = RI.m >= nowYm;
       if (!RI.d) return;
@@ -1365,15 +1369,17 @@ import "../../styles/money-os.css";
       const owed = list.filter((x) => ["sent", "payment_overdue"].includes(x.status)).reduce((t, x) => t + (x.amount_pence || 0), 0);
       $("ri-figs").innerHTML = [["lin", list.length, "Shoots"], ["lin", list.filter((x) => ["sent", "payment_overdue", "paid"].includes(x.status)).length, "Invoiced"], ["lin", list.filter((x) => x.status === "paid").length, "Paid"], ["lin", list.filter((x) => ["late", "payment_overdue"].includes(x.status)).length, "Late or overdue"], ["dark", gb(owed), "Waiting on payment, net"]]
         .map(([k, b, s]) => `<div class="fig static ${k}"><b>${b}</b><span>${s}</span></div>`).join("");
-      $("ri-chips").innerHTML = "";
+      const GROUP = { send: ["late", "not_due"], owed: ["sent", "payment_overdue"], paid: ["paid"] };
+      const CH = [["all", "All", list.length], ["send", "Still to send", list.filter((x) => GROUP.send.includes(x.status)).length], ["owed", "Waiting on payment", list.filter((x) => GROUP.owed.includes(x.status)).length], ["paid", "Paid", list.filter((x) => x.status === "paid").length]];
+      $("ri-chips").innerHTML = CH.map(([k, l, n]) => `<button type="button" data-rishow="${k}" aria-pressed="${RI.show === k}">${l} <i>${n}</i></button>`).join("");
       const q = RI.q;
-      const shown = list.filter((x) => !q || [x.client, x.company, x.service, (x.numbers || []).join(" ")].join(" ").toLowerCase().includes(q));
-      $("ri-count").textContent = `${shown.length} shoot${shown.length === 1 ? "" : "s"}`;
+      const shown = list.filter((x) => (RI.show === "all" || (GROUP[RI.show] || []).includes(x.status)) && (!q || [x.client, x.company, x.service, (x.numbers || []).join(" ")].join(" ").toLowerCase().includes(q)));
+      $("ri-count").textContent = `${shown.length} of ${list.length}`;
       $("ri-tbl").innerHTML = `<thead><tr><th>Shoot</th><th>Client</th><th>Service</th><th class="num">Net</th><th>Invoice by</th><th>Invoice</th><th>Status</th></tr></thead><tbody>${shown.map((x) => {
         const [cls, label] = SHOOT_STATUS[x.status] || ["plain", x.status];
         const extra = x.draft && (x.status === "late" || x.status === "not_due") ? ", draft raised" : "";
         return `<tr class="click" data-rishoot="${esc(x.id)}"><td>${esc(dd(x.shoot_date))}</td><td class="two">${esc(x.client)}<small>${esc([x.company, x.billed_to ? "billed to the brand" : ""].filter(Boolean).join(", "))}</small></td><td class="tx">${esc(x.service || "")}</td><td class="num">${x.amount_pence != null ? gb(x.amount_pence) : "—"}</td><td class="tx">${x.status === "package" ? "—" : esc(dd(x.due_by))}</td><td class="tx">${esc(((x.numbers || [])[0] || "—").replace(/\s*\(.*\)$/, ""))}</td><td><span class="chip ${cls}">${esc(label + extra)}</span></td></tr>`;
-      }).join("") || `<tr><td colspan="7" class="tx">No shoots this month, and nothing earlier waiting on an invoice or payment.</td></tr>`}</tbody>`;
+      }).join("") || `<tr><td colspan="7" class="tx">${RI.m < nowYm ? `No shoots in ${esc(ymLabel(RI.m))}.` : "No shoots this month, and nothing earlier waiting on an invoice or payment."}</td></tr>`}</tbody>`;
       $("ri-key").innerHTML = "<span>Click a shoot to open it in Videography, where its invoice is raised and sent.</span>";
     }
     const riFind = (id) => (RI.d && RI.d.rows || []).find((x) => x.id === id);

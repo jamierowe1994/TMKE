@@ -6792,8 +6792,10 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
   const cellsFor = (list, start, kind, id) => Object.fromEntries(months.map((ym) => {
     const n = notes.get(`${kind}|${id}|${ym}`);
     const extra = n ? { note: n.note || "", skip: !!n.skip } : {};
-    if (start && ym < start) return [ym, { due: false, ...extra }];
     const here = list.filter((iv) => monthOf(iv) === ym);
+    // Before its first month, unless an invoice was raised for it anyway
+    // (October's TPE hub, raised by hand on 10 Nov 2026).
+    if (start && ym < start && !here.length) return [ym, { due: false, ...extra }];
     return [ym, {
       ...extra,
       due: !(n && n.skip),
@@ -6808,9 +6810,10 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
   const stoppedRec = await smmStoppedLeads(env, recurring.map((r) => r.lead_id));
   recurring = recurring.filter((r) => !(r.lead_id && stoppedRec.has(r.lead_id)));
   for (const l of leads) {
-    const mine = invs.filter((iv) => iv.booking_source === "smm" && iv.booking_id === l.id);
-    // Their monthly invoice's setup, so Raise makes it the same way (10 Nov 2026).
+    // Their monthly invoice's setup, so Raise makes it the same way, and an
+    // invoice raised from it counts here even without the client on it (10 Nov 2026).
     const recRow = recurring.find((x) => x.lead_id === l.id && x.kind === "social");
+    const mine = invs.filter((iv) => (iv.booking_source === "smm" && iv.booking_id === l.id) || (recRow && iv.recurring_id === recRow.id));
     rows.push({ kind: "social", id: l.id, client: l.business || l.full_name || "Client", contact: l.full_name || "", manager: l.social_media_manager || "",
       recurring_id: recRow ? recRow.id : null, payer: recRow ? (recRow.bill_to_name || "") : "", brand: !!l.inter_brand_invoice || /@newman\.uk\.com\b/i.test(String((recRow && (recRow.bill_to_email || recRow.match_email)) || "")),
       amount_pence: pounds(l.price), note: l.inter_brand_invoice ? "Billed to another brand" : "",
@@ -6840,7 +6843,10 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
   // 2026). Shown: this month's shoots (and the first two days of next month,
   // whose invoice is due this month), plus any earlier shoot still unsettled.
   // Settled past shoots stay off, or the page fills with done work.
-  const nowYm = londonToday().ym;
+  // The chosen month (the window's last): a past month shows that month's
+  // shoots, settled or not; this month works as above (Dani, 10 Nov 2026).
+  const todayYm = londonToday().ym;
+  const nowYm = last < todayYm ? last : todayYm, pastView = nowYm < todayYm;
   const nextStart = `${ymAdd(nowYm, 1)}-01`;
   const lookEnd = new Date(Date.parse(nextStart + "T00:00:00Z") + 2 * 864e5).toISOString().slice(0, 10);
   const bookings = await readAll("videography_bookings",
@@ -6871,7 +6877,7 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
     };
   // Shoots covered by a social package never need an invoice, so they're left
   // off altogether (Danielle, 30 Sep 2026).
-  }).filter((x) => x.status !== "package" && (!x.earlier || x.status !== "paid"));
+  }).filter((x) => x.status !== "package" && (pastView ? String(x.shoot_date || "").slice(0, 7) === nowYm : (!x.earlier || x.status !== "paid")));
   return { months, rows, shoots, recurringReady, notesReady, today: londonToday().ym, warnings, found: { social: leads.length, invoices: invs.length, shoots: shoots.length } };
 }
 

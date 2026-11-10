@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/regular_invoices_tidy.sql — Regular invoices duplicates: Southam's monthly invoice tied to its card so it shows once, under Social media; PPE Monthly Assets, TLE Monthly Assets and TPE Marketing Hub stopped, leaving the proper ones that go out by themselves. Keeps a backup, deletes nothing and sends nothing. Lists what's left at the end (10 Nov)
 
 
 
