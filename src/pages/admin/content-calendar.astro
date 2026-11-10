@@ -463,6 +463,9 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .cc-pick-q { max-width: 240px; }
     #ccb .cc-pick-src { flex: none; }
     .cc-pick-note { padding: 12px 18px 0; }
+    #ccb .cc-imgreq { text-align: center; }
+    #ccb td.cc-imgreq { cursor: default; }
+    .cc-imgreq input { width: 16px; height: 16px; margin: 0; accent-color: var(--wine); cursor: pointer; vertical-align: middle; }
     .cc-pick-grid { flex: 1; overflow-y: auto; padding: 18px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; align-content: start; }
     @media (max-width: 760px) { .cc-pick-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     #ccb .cc-pick-grid button { border: 1px solid var(--edge); background: #fff; padding: 0; border-radius: 2px; cursor: pointer; text-align: left; overflow: hidden; }
@@ -671,14 +674,16 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       const type = (p) => `<td class="tx">${esc(typeLabel(p.post_type))}</td>`;
       const pillar = (p) => `<td class="tx">${p.pillar ? esc(p.pillar) : '—'}</td>`;
       const state = (ok, yes, no) => `<td><span class="chip ${ok ? 'good' : 'wait'}">${ok ? yes : no}</span></td>`;
+      // Images required (Dani, 10 Nov): a tick for Sam, for the designs she puts the pictures in.
+      const imgReq = (p) => `<td class="cc-imgreq"><input type="checkbox" data-imgreq aria-label="Images required for ${esc(p.title || 'this post')}"${p.images_required ? ' checked' : ''} /></td>`;
       const cap = (p) => { const c = (p.captions || []).find((x) => x && x.trim()); return `<td class="cc-clip">${c ? esc(c) : 'No caption yet'}</td>`; };
       const LAYOUT = {
         1: [['', 'Date', 'Post', 'Type', 'Pillar', 'Tied to a day', 'Note'], (p) => grip() + date(p) + post(p) + type(p) + pillar(p) + `<td class="tx">${p.date_tied ? esc(p.occasion || 'Yes') : '—'}</td><td class="cc-clip">${p.note ? esc(p.note) : '—'}</td>`],
-        2: [['', 'Date', 'Design', 'Post', 'Pillar', 'Type', 'Status'], (p) => grip() + date(p) + thumb(p) + post(p) + pillar(p) + type(p) + state(p.template_id, 'Design linked', 'To design')],
+        2: [['', 'Date', 'Design', 'Post', 'Pillar', 'Type', 'Status', 'Images required'], (p) => grip() + date(p) + thumb(p) + post(p) + pillar(p) + type(p) + state(p.template_id, 'Design linked', 'To design') + imgReq(p)],
         3: [['', 'Date', 'Design', 'Post', 'What to film', 'How to edit', 'Caption'], (p) => grip() + date(p) + thumb(p) + post(p) + (p.post_type === 'reel' ? state(p.reel_prompt, 'Written', 'To write') : '<td class="tx">Not a reel</td>') + state(p.how_to_edit, 'Written', 'To write') + cap(p)],
         4: [['', 'Date', 'Design', 'Post', 'Type', 'Pillar', 'Caption'], (p) => grip() + date(p) + thumb(p) + post(p) + type(p) + pillar(p) + cap(p)],
       }[st];
-      $('cc-head').innerHTML = LAYOUT[0].map((h, i) => i === 0 ? '<th aria-label="Move"></th>' : `<th>${h}</th>`).join('');
+      $('cc-head').innerHTML = LAYOUT[0].map((h, i) => i === 0 ? '<th aria-label="Move"></th>' : `<th${h === 'Images required' ? ' class="cc-imgreq"' : ''}>${h}</th>`).join('');
       $('cc-rows').innerHTML = POSTS.map((p) => `<tr data-id="${p.id}" class="${OPEN && OPEN.id === p.id ? 'is-open' : ''}">${LAYOUT[1](p)}</tr>`).join('')
         || `<tr><td colspan="${LAYOUT[0].length}" class="cc-none">No posts yet. Click <strong style="font-weight:400">Create calendar template</strong> at Initial planning for a post on every Monday to Friday.</td></tr>`;
     }
@@ -1403,10 +1408,24 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     });
     $('cc-rows').addEventListener('click', (e) => {
       const tr = e.target.closest('tr[data-id]');
-      if (!tr || e.target.closest('.cc-grip')) return;
+      if (!tr || e.target.closest('.cc-grip') || e.target.closest('.cc-imgreq')) return;
       flushSave();
       const p = POSTS.find((x) => x.id === tr.dataset.id);
       if (p) openDrawer(p);
+    });
+    $('cc-rows').addEventListener('change', async (e) => {
+      const cb = e.target.closest('[data-imgreq]');
+      if (!cb) return;
+      const p = POSTS.find((x) => x.id === cb.closest('tr[data-id]').dataset.id);
+      if (!p) return;
+      const want = cb.checked;
+      const { error } = await supabase.from('content_month_posts').update({ images_required: want }).eq('id', p.id);
+      if (error) {
+        cb.checked = !want;
+        alert(/images_required/.test(error.message) ? 'Run content_calendar_images_required.sql first (it\'s on the SQL to run list), then try again.' : `Couldn't save: ${error.message}`);
+        return;
+      }
+      p.images_required = want;
     });
     $('cc-pick-q').addEventListener('input', renderPicker);
     $('cc-pick-grid').addEventListener('click', async (e) => {

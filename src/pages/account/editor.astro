@@ -5093,6 +5093,43 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-shape[hidden] { display: none !important; }
     /* Waiting for the click that finds a screen in the photo. */
     .ed-canvas.is-picking-screen, .ed-canvas.is-picking-screen * { cursor: crosshair !important; }
+    /* The AI helper (Dani, 10 Nov): a quiet card under the boxes, so it's
+       there when they're stuck and out of the way when they aren't. */
+    .ed-ai-help {
+      padding: 13px 15px 14px; border-radius: 8px;
+      background: #fff; border: 1px solid var(--english-violet);
+      font-family: var(--sans); color: var(--ink);
+    }
+    .ed-ai-help-h {
+      display: block; margin-bottom: 6px;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet);
+    }
+    .ed-ai-help-tx, .ed-ai-help-note { margin: 0 0 9px; font-size: var(--ws-t-meta); line-height: 1.45; color: rgba(28,29,34,0.62); }
+    .ed-ai-help-note { margin: 8px 0 0; }
+    .ed-ai-help-toggle { display: flex; align-items: center; gap: 8px; margin: 2px 0 9px; font-size: var(--ws-t-meta); font-weight: 600; cursor: pointer; }
+    .ed-ai-help-toggle input { accent-color: var(--english-violet); width: 15px; height: 15px; cursor: pointer; }
+    .ed-ai-help textarea {
+      width: 100%; box-sizing: border-box; resize: vertical; min-height: 80px;
+      padding: 9px 10px; border-radius: 7px; border: 1px solid rgba(28,29,34,0.16); background: #fff;
+      font-family: var(--sans); font-size: 13.5px; line-height: 1.45; color: var(--ink);
+    }
+    .ed-ai-help textarea:focus { outline: none; border-color: var(--english-violet); }
+    .ed-ai-help textarea[hidden] { display: none; }
+    .ed-ai-help-go, .ed-ai-help-use {
+      appearance: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+      height: 30px; padding: 0 14px; margin-top: 9px; border-radius: 4px;
+      border: 1px solid var(--english-violet); background: var(--english-violet); color: #fff;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .ed-ai-help-go:hover:not(:disabled) { filter: brightness(1.15); }
+    .ed-ai-help-use { height: 26px; margin-top: 7px; background: #fff; color: var(--english-violet); }
+    .ed-ai-help-use:hover:not(:disabled) { background: var(--english-violet); color: #fff; }
+    .ed-ai-help-go:disabled, .ed-ai-help-use:disabled { cursor: default; opacity: 0.55; }
+    .ed-ai-help-err { margin: 9px 0 0; font-size: var(--ws-t-meta); line-height: 1.45; font-weight: 600; color: var(--english-violet); }
+    .ed-ai-help-res { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(28,29,34,0.12); }
+    .ed-ai-help-item { padding: 10px 11px; border-radius: 7px; background: rgba(28,29,34,0.035); }
+    .ed-ai-help-lbl { display: block; font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.62); }
+    .ed-ai-help-out { margin: 5px 0 0; font-size: 13.5px; line-height: 1.45; white-space: pre-line; }
     .ed-fields-restore {
       appearance: none; cursor: pointer; width: 100%;
       margin-top: 2px; padding: 9px 12px; border-radius: 8px;
@@ -6515,6 +6552,21 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         body: JSON.stringify(payload),
       });
       return await r.json().catch(() => ({ error: 'Claude\'s answer couldn\'t be read.' }));
+    };
+
+    /* The AI helper on a design's Edit tab (Dani, 10 Nov): writes the words
+       for each text box from the author's brief and what the member says. */
+    window.__TMKE_AI_FIELDS__ = async (payload) => {
+      const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+      if (!WORKER) return { error: "The AI helper isn't set up here." };
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { error: 'Sign in again, then try.' };
+      const r = await fetch(WORKER + '/ai/fields', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify(payload),
+      });
+      return await r.json().catch(() => ({ error: "The answer couldn't be read. Try again." }));
     };
 
     // Glare and dim for a screen, suggested by Claude (worker /studio/screen-light).

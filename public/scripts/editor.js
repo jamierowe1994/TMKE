@@ -13830,6 +13830,9 @@ import { createResizeEngine } from "./resize-engine.js";
       wrap.appendChild(row);
     });
 
+    const ai = aiHelperBox(admin);
+    if (ai) wrap.appendChild(ai);
+
     const cp = captionPromptBox(admin);
     if (cp) wrap.appendChild(cp);
 
@@ -13904,6 +13907,175 @@ import { createResizeEngine } from "./resize-engine.js";
       box.appendChild(p);
     }
     return box;
+  }
+
+  /* The AI helper (Dani, 10 Nov): on the few designs where a member has to
+     write sentences, the author turns it on and leaves it a brief (word
+     counts, what the post is for). Members then get a box in the Edit tab
+     that reads every box's guidance, plus what they tell it, and writes the
+     words for each text box. Off unless the author turns it on. Kept on the
+     first page's canvas, so it covers every page of a carousel and a
+     member's saved copy carries it too. */
+  let _aiHelp = { notes: "", busy: false, results: null, error: "" };
+  function aiHelperCfg() {
+    const c = state.pages[0] && state.pages[0].canvas;
+    return (c && c.aiHelper) || null;
+  }
+  // Every text box the member is asked to fill, on every page, in order.
+  function aiHelperFields() {
+    const cur = state.currentPage, out = [];
+    try {
+      state.pages.forEach(function (pg, i) {
+        state.currentPage = i;
+        fieldElements().forEach(function (el) {
+          if (el.type !== "text") return;
+          out.push({ key: el.id, page: i + 1, label: (el.fieldLabel || "").trim(), current: String(el.text || "") });
+        });
+      });
+    } finally { state.currentPage = cur; }
+    return out;
+  }
+  function aiHelperApply(id, text) {
+    for (let i = 0; i < state.pages.length; i++) {
+      const el = (state.pages[i].elements || []).find(function (e) { return e && e.id === id; });
+      if (!el) continue;
+      if (i === state.currentPage) liveSetText(el, text);
+      else { el.text = text; el.runs = null; pushHistory(); }
+      return true;
+    }
+    return false;
+  }
+  function aiHelperBox(admin) {
+    const cfg = aiHelperCfg();
+    if (!admin && !(cfg && cfg.on)) return null;
+    const box = document.createElement("div");
+    box.className = "ed-ai-help";
+    const h = document.createElement("span");
+    h.className = "ed-ai-help-h";
+    h.textContent = admin ? "AI helper" : "Stuck for words?";
+    box.appendChild(h);
+
+    if (admin) {
+      const lab = document.createElement("label");
+      lab.className = "ed-ai-help-toggle";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = !!(cfg && cfg.on);
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(" Turn on the AI helper for this design"));
+      box.appendChild(lab);
+      const ta = document.createElement("textarea");
+      ta.rows = 4;
+      ta.value = (cfg && cfg.brief) || "";
+      ta.placeholder = "e.g. A carousel about one home they sold. Slide 2: two sentences, 30 words at most. Slide 3: three short points. Keep the title as it is.";
+      ta.hidden = !cb.checked;
+      const note = document.createElement("p");
+      note.className = "ed-ai-help-note";
+      note.textContent = cb.checked
+        ? "Members see a “Stuck for words?” box here. It reads the name you've given each box above, plus anything you write here: word counts, limits, what the post is for, what to leave alone. It never makes up facts; anything it doesn't know is left in [brackets]."
+        : "Off. Turn it on for designs where members have to write sentences, and they'll get a box here that writes the words for them.";
+      const save = function () {
+        const c0 = state.pages[0].canvas;
+        const brief = ta.value.trim();
+        if (cb.checked) c0.aiHelper = Object.assign({ on: true }, brief ? { brief: brief } : {});
+        else if (brief) c0.aiHelper = { on: false, brief: brief };   // the brief is kept for when it goes back on
+        else delete c0.aiHelper;
+        pushHistory();
+      };
+      cb.addEventListener("change", function () { save(); renderFieldsPane(); });
+      ta.addEventListener("change", save);
+      box.appendChild(ta);
+      box.appendChild(note);
+      return box;
+    }
+
+    const intro = document.createElement("p");
+    intro.className = "ed-ai-help-tx";
+    intro.textContent = "Tell it a little about what you want to say and it will write the words for each box. You can change anything afterwards.";
+    box.appendChild(intro);
+    const ta = document.createElement("textarea");
+    ta.rows = 4;
+    ta.value = _aiHelp.notes;
+    ta.placeholder = "e.g. Three-bed semi on Elm Road. On the market 2 weeks, 14 viewings, sold over asking to a first-time buyer.";
+    ta.addEventListener("input", function () { _aiHelp.notes = ta.value; });
+    box.appendChild(ta);
+    const go = document.createElement("button");
+    go.type = "button";
+    go.className = "ed-ai-help-go";
+    go.textContent = _aiHelp.busy ? "Writing…" : (_aiHelp.results ? "Write it again" : "Write it for me");
+    go.disabled = _aiHelp.busy;
+    go.addEventListener("click", function () { aiHelperRun(); });
+    box.appendChild(go);
+    if (_aiHelp.error) {
+      const err = document.createElement("p");
+      err.className = "ed-ai-help-err";
+      err.textContent = _aiHelp.error;
+      box.appendChild(err);
+    }
+    const res = _aiHelp.results;
+    if (res && res.length) {
+      const multi = state.pages.length > 1;
+      const list = document.createElement("div");
+      list.className = "ed-ai-help-res";
+      res.forEach(function (r) {
+        const item = document.createElement("div");
+        item.className = "ed-ai-help-item";
+        const lbl = document.createElement("span");
+        lbl.className = "ed-ai-help-lbl";
+        lbl.textContent = (multi ? "Page " + r.page + " · " : "") + (r.label || "Text");
+        const tx = document.createElement("p");
+        tx.className = "ed-ai-help-out";
+        tx.textContent = r.text;
+        const use = document.createElement("button");
+        use.type = "button";
+        use.className = "ed-ai-help-use";
+        use.textContent = r.used ? "Used" : "Use this";
+        use.disabled = !!r.used;
+        use.addEventListener("click", function () {
+          if (aiHelperApply(r.key, r.text)) { r.used = true; renderFieldsPane(); }
+        });
+        item.appendChild(lbl); item.appendChild(tx); item.appendChild(use);
+        list.appendChild(item);
+      });
+      if (res.length > 1 && res.some(function (r) { return !r.used; })) {
+        const all = document.createElement("button");
+        all.type = "button";
+        all.className = "ed-ai-help-go";
+        all.textContent = "Use them all";
+        all.addEventListener("click", function () {
+          res.forEach(function (r) { if (!r.used && aiHelperApply(r.key, r.text)) r.used = true; });
+          renderFieldsPane();
+        });
+        list.appendChild(all);
+      }
+      box.appendChild(list);
+    }
+    return box;
+  }
+  async function aiHelperRun() {
+    const cfg = aiHelperCfg() || {};
+    const fields = aiHelperFields();
+    if (!fields.length) { _aiHelp.error = "There's no text on this design for it to write."; renderFieldsPane(); return; }
+    if (typeof window.__TMKE_AI_FIELDS__ !== "function") { _aiHelp.error = "The AI helper isn't available here."; renderFieldsPane(); return; }
+    let tone = "";
+    try { const b = JSON.parse(localStorage.getItem("tmke.brand") || "null"); tone = b && typeof b.tone === "string" ? b.tone.trim().slice(0, 800) : ""; } catch (_) {}
+    _aiHelp.busy = true; _aiHelp.error = ""; renderFieldsPane();
+    let out;
+    try {
+      out = await window.__TMKE_AI_FIELDS__({ brief: cfg.brief || "", notes: _aiHelp.notes.trim(), tone: tone, fields: fields });
+    } catch (_) { out = { error: "Couldn't reach the AI helper. Try again in a moment." }; }
+    _aiHelp.busy = false;
+    if (!out || out.error || !Array.isArray(out.fields)) {
+      _aiHelp.error = (out && out.error) || "It didn't come back with anything. Try again.";
+    } else {
+      const byKey = {};
+      fields.forEach(function (f) { byKey[f.key] = f; });
+      _aiHelp.results = out.fields
+        .filter(function (r) { return r && byKey[r.key] && typeof r.text === "string" && r.text.trim() && r.text.trim() !== byKey[r.key].current.trim(); })
+        .map(function (r) { const f = byKey[r.key]; return { key: r.key, page: f.page, label: f.label || fieldLabelFor((state.pages[f.page - 1].elements || []).find(function (e) { return e.id === r.key; }) || {}), text: r.text.trim() }; });
+      if (!_aiHelp.results.length) _aiHelp.error = "It didn't suggest any changes. Add a little more about what you want to say and try again.";
+    }
+    renderFieldsPane();
   }
 
   // The background, as a row like any other.

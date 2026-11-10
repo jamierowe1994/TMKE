@@ -9325,6 +9325,53 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         return json({ ok: true, caption, hashtags }, 200, request, env);
       }
 
+      // ---- AI: the helper on a design's Edit tab (Dani, 10 Nov) ----
+      // Turned on per design by the author, with a brief. Reads each text
+      // box's guidance and current words, plus what the member says, and
+      // writes the words for each box. Never invents facts.
+      if (path.endsWith("/ai/fields") && request.method === "POST") {
+        if (!(await getUser(request, env))) return json({ error: "Sign in again to use the AI helper." }, 401, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured." }, 503, request, env);
+        let body; try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        const clip = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
+        const fields = (Array.isArray(body.fields) ? body.fields : []).slice(0, 40).map((f) => ({
+          key: clip(f && f.key, 80), page: Number(f && f.page) || 1, label: clip(f && f.label, 300), current: clip(f && f.current, 1500),
+        })).filter((f) => f.key);
+        if (!fields.length) return json({ error: "There's no text on this design for it to write." }, 400, request, env);
+        const brief = clip(body.brief, 2000), notes = clip(body.notes, 2000), tone = clip(body.tone, 800);
+        const boxes = fields.map((f) => `- key: ${f.key}\n  page: ${f.page}\n  guidance from the designer: ${f.label || "(none)"}\n  words in the box now (${f.current.length} characters): ${JSON.stringify(f.current)}`).join("\n");
+        const prompt = [
+          "You help an estate agent fill in the text boxes on a social media design made for them by The Marketing Experts. Write the words that go in each box.",
+          "RULES:",
+          "- Follow the designer's guidance for each box, and the designer's brief, exactly: word counts, limits, what to leave alone.",
+          "- Keep each box close to the length of the words in it now unless the guidance says otherwise, so the design still fits. A short heading stays a short heading.",
+          "- Use only the facts the agent gives you. Never invent names, places, prices, numbers or events. Where a fact is needed and you weren't given it, write a short placeholder in square brackets, e.g. [street name].",
+          "- A box that is a fixed heading or label, or that the guidance says to keep, comes back exactly as it is now.",
+          "- Write as the agent, in the first person where it fits, in plain, warm, confident British English with contractions. No em dashes, no exclamation marks, no emoji, no hashtags.",
+          "- Avoid AI-sounding phrases: in today's market, ever wondered, here's why, game changer, unlock, elevate, delve, seamless, dream home, forever home, your next chapter.",
+          "- Keep line breaks only where the box has them now.",
+          tone ? `\nThe agent's own brand voice, to match for tone:\n${tone}` : "",
+          brief ? `\nThe designer's brief for this design:\n${brief}` : "",
+          `\nWhat the agent has told you:\n${notes || "(nothing yet; write good general words and leave [brackets] for any facts)"}`,
+          `\nThe text boxes, in order:\n${boxes}`,
+          `\nReturn ONLY minified JSON, no markdown fences, exactly: {"fields":[{"key":"<key>","text":"<words, line breaks as \\n>"}]} with one entry for every box, in the same order.`,
+        ].filter(Boolean).join("\n");
+        let aiRes;
+        try { aiRes = await aiFetch(env, "write", { max_tokens: 4000, messages: [{ role: "user", content: prompt }] }); }
+        catch (_) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
+        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: aiFailMessage(aiRes.status, t) }, 502, request, env); }
+        const dataRes = await aiRes.json();
+        const text = (dataRes.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
+        let out;
+        try { const s0 = text.indexOf("{"), e0 = text.lastIndexOf("}"); out = JSON.parse(text.slice(s0, e0 + 1)); } catch (_) { out = null; }
+        const keys = new Set(fields.map((f) => f.key));
+        const list = (out && Array.isArray(out.fields) ? out.fields : [])
+          .filter((r) => r && keys.has(String(r.key)))
+          .map((r) => ({ key: String(r.key), text: String(r.text || "").replace(/—/g, ",").replace(/\s+,/g, ",").trim() }));
+        if (!list.length) return json({ error: "It didn't come back with anything. Try again." }, 502, request, env);
+        return json({ ok: true, fields: list }, 200, request, env);
+      }
+
       // ---- AI: the Help Centre's "Ask first" (Dani, 17 Oct) ----
       // Pack support and Quick question open on a chat. It answers from what
       // the hub is and from the member's own account -- their packs, brand
