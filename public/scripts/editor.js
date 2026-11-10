@@ -13878,6 +13878,8 @@ import { createResizeEngine } from "./resize-engine.js";
   function captionPromptBox(admin) {
     const text = (state.canvas && state.canvas.captionPrompt) || "";
     if (!admin && !text.trim()) return null;
+    // Never used on a Content Calendar design: its caption is written for it (Dani, 10 Nov).
+    if (admin && !text.trim() && isCalendarDesign()) return null;
     const box = document.createElement("div");
     box.className = "ed-caption-prompt";
     const h = document.createElement("span");
@@ -13933,6 +13935,21 @@ import { createResizeEngine } from "./resize-engine.js";
         });
       });
     } finally { state.currentPage = cur; }
+    return out;
+  }
+  // Every other word on the design, fixed or not asked for, so it writes in
+  // context (Dani, 10 Nov: "the content on the page as well").
+  function aiHelperOtherWords(fields) {
+    const asked = {};
+    fields.forEach(function (f) { asked[f.key] = true; });
+    const out = [];
+    state.pages.forEach(function (pg, i) {
+      (pg.elements || []).forEach(function (el) {
+        if (!el || el.hidden || el.type !== "text" || asked[el.id]) return;
+        const t = String(el.text || "").trim();
+        if (t) out.push({ page: i + 1, text: t });
+      });
+    });
     return out;
   }
   function aiHelperApply(id, text) {
@@ -14062,7 +14079,12 @@ import { createResizeEngine } from "./resize-engine.js";
     _aiHelp.busy = true; _aiHelp.error = ""; renderFieldsPane();
     let out;
     try {
-      out = await window.__TMKE_AI_FIELDS__({ brief: cfg.brief || "", notes: _aiHelp.notes.trim(), tone: tone, fields: fields });
+      out = await window.__TMKE_AI_FIELDS__({
+        brief: cfg.brief || "", notes: _aiHelp.notes.trim(), tone: tone, fields: fields,
+        others: aiHelperOtherWords(fields),
+        captionPrompt: state.pages.map(function (pg) { return (pg.canvas && pg.canvas.captionPrompt) || ""; }).filter(Boolean).join("\n"),
+        post: window.__TMKE_CC_CONTEXT__ || null,
+      });
     } catch (_) { out = { error: "Couldn't reach the AI helper. Try again in a moment." }; }
     _aiHelp.busy = false;
     if (!out || out.error || !Array.isArray(out.fields)) {

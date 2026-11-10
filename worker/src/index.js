@@ -9339,6 +9339,13 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         })).filter((f) => f.key);
         if (!fields.length) return json({ error: "There's no text on this design for it to write." }, 400, request, env);
         const brief = clip(body.brief, 2000), notes = clip(body.notes, 2000), tone = clip(body.tone, 800);
+        // The rest of what it reads (Dani, 10 Nov): the post's caption, title and
+        // how-to-edit, the design's caption prompt, and every other word on it.
+        const post = body.post && typeof body.post === "object" ? body.post : {};
+        const postTitle = clip(post.title, 200), postCaption = clip(post.caption, 3000), postHow = clip(post.how_to_edit, 1500);
+        const captionPrompt = clip(body.captionPrompt, 1000);
+        const others = (Array.isArray(body.others) ? body.others : []).slice(0, 60)
+          .map((o) => `- page ${Number(o && o.page) || 1}: ${JSON.stringify(clip(o && o.text, 400))}`).join("\n");
         const boxes = fields.map((f) => `- key: ${f.key}\n  page: ${f.page}\n  guidance from the designer: ${f.label || "(none)"}\n  words in the box now (${f.current.length} characters): ${JSON.stringify(f.current)}`).join("\n");
         const prompt = [
           "You help an estate agent fill in the text boxes on a social media design made for them by The Marketing Experts. Write the words that go in each box.",
@@ -9352,6 +9359,11 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           "- Keep line breaks only where the box has them now.",
           tone ? `\nThe agent's own brand voice, to match for tone:\n${tone}` : "",
           brief ? `\nThe designer's brief for this design:\n${brief}` : "",
+          postTitle ? `\nThe post this design is for: ${postTitle}` : "",
+          postCaption ? `\nThe caption that goes with this post (the design's words should sit well with it, not repeat it word for word):\n${postCaption}` : "",
+          postHow ? `\nHow the agent is told to edit this design:\n${postHow}` : "",
+          captionPrompt ? `\nWhat the caption is meant to be about:\n${captionPrompt}` : "",
+          others ? `\nOther words already on the design, which stay as they are (for context only):\n${others}` : "",
           `\nWhat the agent has told you:\n${notes || "(nothing yet; write good general words and leave [brackets] for any facts)"}`,
           `\nThe text boxes, in order:\n${boxes}`,
           `\nReturn ONLY minified JSON, no markdown fences, exactly: {"fields":[{"key":"<key>","text":"<words, line breaks as \\n>"}]} with one entry for every box, in the same order.`,

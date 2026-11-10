@@ -463,7 +463,11 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .cc-pick-q { max-width: 240px; }
     #ccb .cc-pick-src { flex: none; }
     .cc-pick-note { padding: 12px 18px 0; }
-    #ccb .cc-imgreq { text-align: center; }
+    #ccb .cc-sheet.cc-st2 { table-layout: fixed; }
+    #ccb .cc-sheet.cc-st2 td { overflow: hidden; text-overflow: ellipsis; }
+    #ccb .cc-sheet th.cc-w-date { width: 90px; }
+    #ccb .cc-sheet th.cc-w-design { width: 76px; }
+    #ccb .cc-sheet th.cc-even { width: 160px; }
     #ccb td.cc-imgreq { cursor: default; }
     .cc-imgreq input { width: 16px; height: 16px; margin: 0; accent-color: var(--wine); cursor: pointer; vertical-align: middle; }
     .cc-pick-grid { flex: 1; overflow-y: auto; padding: 18px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; align-content: start; }
@@ -683,7 +687,10 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         3: [['', 'Date', 'Design', 'Post', 'What to film', 'How to edit', 'Caption'], (p) => grip() + date(p) + thumb(p) + post(p) + (p.post_type === 'reel' ? state(p.reel_prompt, 'Written', 'To write') : '<td class="tx">Not a reel</td>') + state(p.how_to_edit, 'Written', 'To write') + cap(p)],
         4: [['', 'Date', 'Design', 'Post', 'Type', 'Pillar', 'Caption'], (p) => grip() + date(p) + thumb(p) + post(p) + type(p) + pillar(p) + cap(p)],
       }[st];
-      $('cc-head').innerHTML = LAYOUT[0].map((h, i) => i === 0 ? '<th aria-label="Move"></th>' : `<th${h === 'Images required' ? ' class="cc-imgreq"' : ''}>${h}</th>`).join('');
+      // Creation's last four columns evenly spaced, the post taking the slack (Dani, 10 Nov).
+      const EVEN = ['Pillar', 'Type', 'Status', 'Images required'];
+      $('cc-head').closest('table').classList.toggle('cc-st2', st === 2);
+      $('cc-head').innerHTML = LAYOUT[0].map((h, i) => i === 0 ? '<th aria-label="Move"></th>' : `<th class="${st === 2 ? (EVEN.includes(h) ? 'cc-even' : h === 'Date' ? 'cc-w-date' : h === 'Design' ? 'cc-w-design' : '') : ''}">${h}</th>`).join('');
       $('cc-rows').innerHTML = POSTS.map((p) => `<tr data-id="${p.id}" class="${OPEN && OPEN.id === p.id ? 'is-open' : ''}">${LAYOUT[1](p)}</tr>`).join('')
         || `<tr><td colspan="${LAYOUT[0].length}" class="cc-none">No posts yet. Click <strong style="font-weight:400">Create calendar template</strong> at Initial planning for a post on every Monday to Friday.</td></tr>`;
     }
