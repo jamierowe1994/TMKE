@@ -2625,7 +2625,11 @@ const mgmtPackages = (management && management.packages) || [];
       if (F.lost) {
         const back = r.lost_from_stage && r.lost_from_stage !== "active_client" && STAGE_INDEX[r.lost_from_stage] != null ? r.lost_from_stage : "inquiry";
         return box(wasClient(r) ? "Lost, was a client" : "Lost", [reason ? li(1, "Why: " + reason) : "", r.lost_at ? li(1, `Lost ${esc(sfDayYear(r.lost_at))}${r.lost_from_stage ? ", at " + esc(r.lost_from_stage === "active_client" ? "Active client" : sfStageLabel(r.lost_from_stage)) : ""}`) : "", fu].filter(Boolean),
-          sfHb(false, 'data-sf="followup"', r.follow_up_on ? "Move the follow-up" : "Schedule a follow-up") + sfHb(true, `data-sf-force="${back}"`, "Bring back"));
+          // A former client can come straight back as active, with everything on
+          // their file as it was, or start again from Enquiry (Dani, 10 Nov 2026).
+          wasClient(r)
+            ? sfHb(false, 'data-sf="followup"', r.follow_up_on ? "Move the follow-up" : "Schedule a follow-up") + sfHb(false, 'data-sf-force="inquiry"', "Start again from Enquiry") + sfHb(true, 'data-sf-force="active_client"', "Bring back as a client")
+            : sfHb(false, 'data-sf="followup"', r.follow_up_on ? "Move the follow-up" : "Schedule a follow-up") + sfHb(true, `data-sf-force="${back}"`, "Bring back"));
       }
       if (r.leaving_on) return box(`${r.leaving_as === "ended" ? "Leaving" : "Lost"} on ${esc(sfDayYear(r.leaving_on))}`, [reason ? li(1, "Why: " + reason) : "", li(0, `On ${esc(sfDay(r.leaving_on))} the card moves to Lost${r.leaving_as === "ended" ? ", was a client" : ""}`)].filter(Boolean), sfHb(false, 'data-sf="cancel-leaving"', "Cancel the date"));
       const st = F.st;
@@ -3144,7 +3148,7 @@ const mgmtPackages = (management && management.packages) || [];
         case "pricing_call": return `Moved to Pricing call.${call}`;
         case "contract_signed": return `Contract sent. Chase on ${day(sfAddDays(now, 3))}, then ${day(sfAddDays(now, 5))} if it isn't signed.`;
         case "onboarding": return "Signed contract back. Onboarding started: invoice the onboarding fee and set up the monthly invoice.";
-        case "active_client": return `Made a client active.${r.price ? ` Monthly fee ${r.price}.` : ""}${r.start_date ? ` Started ${sfDayYear(r.start_date)}.` : ""}`;
+        case "active_client": if (r.pipeline_stage === "lost") return `Brought back as a client, with their file as it was.${r.price ? ` Monthly fee ${r.price}.` : ""}`; return `Made a client active.${r.price ? ` Monthly fee ${r.price}.` : ""}${r.start_date ? ` Started ${sfDayYear(r.start_date)}.` : ""}`;
         case "lost": return `Marked lost${r.lost_reason ? `: ${r.lost_reason}` : ""}.`;
         default: return "";
       }
@@ -4290,9 +4294,15 @@ const mgmtPackages = (management && management.packages) || [];
     async function setStage(r, stage) {
       const wasActive = r.pipeline_stage === "active_client";
       if (stage !== r.pipeline_stage) sfAutoNote(r, `Stage: ${stage === "lost" ? "Lost" : sfStageLabel(stage)}`, sfStageNote(r, stage)).then(() => { if (current === r) loadThread(r); });
+      // Back from Lost: the database clears these (smm_lost_stamp), so does the page.
+      // Starting again as a lead drops "ended" too, or the nightly tidy-up
+      // (runSmmLeavingDue) would send the card straight back to Lost.
+      const restart = r.pipeline_stage === "lost" && !["lost", "active_client"].includes(stage) && r.client_status === "ended";
+      if (r.pipeline_stage === "lost" && stage !== "lost") { r.lost_at = null; r.lost_from_stage = null; r.lost_reason = null; }
+      if (restart) r.client_status = null;
       r.pipeline_stage = stage;
       if (stage === "lost" && wasActive) { r.client_status = "ended"; r.lost_from_stage = "active_client"; }
-      if (!isDemo(r)) { try { await supabase.from("smm_leads").update({ pipeline_stage: stage }).eq("id", r.id); } catch (_) {} }
+      if (!isDemo(r)) { try { await supabase.from("smm_leads").update(restart ? { pipeline_stage: stage, client_status: null } : { pipeline_stage: stage }).eq("id", r.id); } catch (_) {} }
       if (stage === "active_client") { if (!r.client_status || r.client_status === "ended") r.client_status = "active"; pushClientStatus(r, "active"); }
       if (stage === "lost" && wasActive) pushClientStatus(r, "ended");
       renderBoard();
