@@ -440,16 +440,16 @@ import "../../../styles/admin.css";
            below; it doesn't replace them, because the second scan, when mail
            is released from quarantine, comes much later. */
         const AT_DOOR = 30e3;
-        const deliveredAt = new Map();
-        ev.forEach((e) => { if (e.event === "delivered") { const k = msgKey(e) + "|" + (e.contact_id || e.email); const t = T(e); if (!deliveredAt.has(k) || t < deliveredAt.get(k)) deliveredAt.set(k, t); } });
+        const doorDelivered = new Map();
+        ev.forEach((e) => { if (e.event === "delivered") { const k = msgKey(e) + "|" + (e.contact_id || e.email); const t = T(e); if (!doorDelivered.has(k) || t < doorDelivered.get(k)) doorDelivered.set(k, t); } });
         const clickedAtDoor = new Set();
-        ev.forEach((e) => { if (e.event !== "clicked") return; const k = msgKey(e) + "|" + (e.contact_id || e.email); const d = deliveredAt.get(k); if (d != null && T(e) - d >= -5e3 && T(e) - d <= AT_DOOR) clickedAtDoor.add(k); });
+        ev.forEach((e) => { if (e.event !== "clicked") return; const k = msgKey(e) + "|" + (e.contact_id || e.email); const d = doorDelivered.get(k); if (d != null && T(e) - d >= -5e3 && T(e) - d <= AT_DOOR) clickedAtDoor.add(k); });
         function machineWhy(e) {
           if (e.event !== "clicked" && e.event !== "opened") return "";
           const ip = ipOf(e);
           if (knownScanner(ip)) return "A known email-security scanner address";
           // The open that comes with that check, within the same seconds, goes with it.
-          const dk = msgKey(e) + "|" + (e.contact_id || e.email), d = deliveredAt.get(dk);
+          const dk = msgKey(e) + "|" + (e.contact_id || e.email), d = doorDelivered.get(dk);
           if (clickedAtDoor.has(dk) && d != null && T(e) - d <= AT_DOOR) return "Opened and clicked within seconds of arriving, before anyone could have read it: Microsoft's link check";
           if (ip) {
             const n = reachAt(ip, T(e));
