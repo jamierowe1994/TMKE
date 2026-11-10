@@ -137,69 +137,29 @@ import "../../styles/money-os.css";
       </div>
     </section>
 
-    <!-- Monthly checklist: every client billed monthly, and whether this
-         month's invoice has gone out and been paid. -->
+    <!-- Regular invoices (Dani, 10 Nov 2026; agreed on the mock-up,
+         docs/tmke-os/regular-invoices): Social media, Videography and
+         Recurring, one month at a time, with a six-month trail per row. -->
     <section class="inv-panel" data-panel="monthly" hidden>
-      <div class="ash-card">
-        <div class="ash-card-head">
-          <div class="ash-card-title">Monthly checklist</div>
-          <div class="mc-nav"><button type="button" class="mc-arrow" id="mc-prev" aria-label="Earlier months">&larr;</button><span id="mc-range"></span><button type="button" class="mc-arrow" id="mc-next" aria-label="Later months">&rarr;</button></div>
-        </div>
-        <div class="ash-card-body">
-          <p class="inv-intro">Every active social media client, and the recurring invoices added below, month by month: has the invoice gone out, and has it been paid. A reminder comes on the 14th and 21st for anything not sent yet.</p>
-          <p class="inv-msg is-err" id="mc-msg" hidden></p>
-          <div class="mc-wrap"><table class="mc-tbl" id="mc-tbl"></table></div>
-          <p class="mc-key"><span class="mc-y">&#10003;</span> done &nbsp; <span class="mc-n">&#10007;</span> not yet &nbsp; <span class="mc-d">Draft</span> raised, not sent &nbsp; <span class="mc-na">&ndash;</span> not due (before they started, or a month still to come) &nbsp; <span class="mc-note">&#9998;</span> a note (click any month to add one)</p>
-
-          <!-- Videography: one-off, so a list of shoots rather than a month grid. -->
-          <div class="mc-shoots-head"><h3 class="mc-h">Videography shoots</h3><span class="mc-shoots-sum" id="mc-shoots-sum"></span></div>
-          <p class="inv-intro">This month's shoots, plus any earlier shoot still not invoiced or not yet paid; settled ones drop off. A shoot is invoiced two days before it happens; anything not sent by then shows as late. Click a shoot to open it in Videography.</p>
-          <div class="mc-wrap"><table class="mc-tbl mc-shoots" id="mc-shoots"></table></div>
-
-          <h3 class="mc-h" id="mc-form-h">Add a recurring invoice</h3>
-          <p class="inv-intro">For anyone billed every month who isn't a social media client, such as a brand's marketing assets and hub. An invoice counts for a month when it goes to this address; add words that are always on it if the same address gets other invoices too.</p>
-          <form id="mc-form" class="inv-book-form">
-            <div class="inv-row">
-              <label class="inv-field"><span>Name *</span><input name="name" placeholder="e.g. The Lettings Experts — assets &amp; hub" /></label>
-              <label class="inv-field"><span>Contact name</span><input name="contact_name" /></label>
-            </div>
-            <div class="inv-row">
-              <label class="inv-field"><span>Invoice goes to (email) *</span><input name="match_email" type="email" list="mc-emails" placeholder="accounts@…" /></label>
-              <label class="inv-field"><span>Monthly amount (£)</span><input name="amount" type="number" step="0.01" min="0" /></label>
-            </div>
-            <div class="inv-row">
-              <label class="inv-field"><span>Words always on it (optional)</span><input name="match_text" placeholder="e.g. Hub" /></label>
-              <label class="inv-field"><span>First month</span><input name="start_month" type="month" /></label>
-            </div>
-            <!-- Sent automatically (Danielle, 21 Oct 2026): on its day, until
-                 it's stopped, with nothing to press. -->
-            <fieldset class="mc-auto">
-              <label class="mc-auto-on"><input type="checkbox" name="auto_send" /> <span>Send it automatically</span></label>
-              <p class="inv-intro">On its day it's raised and emailed to them, with accounts copied, every time it's due until you stop it. You get an email saying what went out.</p>
-              <div class="inv-row">
-                <label class="inv-field"><span>Day of the month it goes out</span><input name="day_of_month" type="number" min="1" max="28" placeholder="e.g. 5" /></label>
-                <label class="inv-field"><span>How often</span><select name="frequency"><option value="monthly">Every month</option><option value="quarterly">Every 3 months</option><option value="6monthly">Every 6 months</option><option value="yearly">Every year</option><option value="oneoff">Once only</option></select></label>
-              </div>
-              <div class="inv-row">
-                <label class="inv-field"><span>Invoice to (company)</span><input name="bill_to_name" placeholder="e.g. Prestige Property Experts" /></label>
-                <label class="inv-field"><span>Last month (blank to run until stopped)</span><input name="end_month" type="month" /></label>
-              </div>
-              <div class="inv-row">
-                <label class="inv-field"><span>Invoice email (if not the one above)</span><input name="bill_to_email" type="email" placeholder="accounts@…" /></label>
-                <label class="inv-field"><span>CC</span><input name="cc_email" placeholder="Comma-separated" /></label>
-              </div>
-              <label class="inv-field"><span>What goes on the invoice</span><input name="line" placeholder="e.g. Marketing assets and hub (Month YYYY)" /></label>
-              <div class="inv-row">
-                <label class="inv-field"><span>Invoice address</span><textarea name="bill_to_address" rows="2"></textarea></label>
-                <label class="inv-field"><span>Payment terms (days)</span><input name="terms_days" type="number" min="0" placeholder="Your usual terms" /></label>
-              </div>
-              <p class="inv-intro">Write (Month YYYY) where the month should go: it becomes, for example, (November 2026).</p>
-            </fieldset>
-            <datalist id="mc-emails"></datalist>
-            <p class="inv-msg" id="mc-form-msg" hidden></p>
-            <div class="mc-form-acts"><button type="submit" class="inv-save" id="mc-form-btn">Add to the checklist</button><button type="button" class="inv-ghost" id="mc-form-cancel" hidden>Cancel</button></div>
-          </form>
-          <div class="mc-modal" id="mc-modal" hidden></div>
+      <nav class="ri-tabs" role="tablist" aria-label="Kind of invoice">
+        <button type="button" role="tab" data-ritab="social">Social media</button>
+        <button type="button" role="tab" data-ritab="video">Videography</button>
+        <button type="button" role="tab" data-ritab="recurring">Recurring</button>
+      </nav>
+      <p class="mo-sub ri-sub" id="ri-sub"></p>
+      <div class="bar">
+        <div class="mnav" id="ri-mnav"><button type="button" id="ri-prev" aria-label="Earlier month">‹</button><span id="ri-month"></span><button type="button" id="ri-next" aria-label="Later month">›</button></div>
+        <label class="find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="ri-q" placeholder="Client or invoice number" aria-label="Client or invoice number"></label>
+        <div class="chips" id="ri-chips" role="group" aria-label="Show"></div>
+        <div class="mo-acts" style="margin-left:auto"><button type="button" class="mbtn primary" id="ri-add" hidden>Add a regular invoice</button></div>
+      </div>
+      <p class="state" id="ri-state">Loading…</p>
+      <div id="ri-main" hidden>
+        <div class="figs" id="ri-figs"></div>
+        <div class="section">
+          <div class="strip"><div class="strip-t" id="ri-strip"></div><span class="aside" id="ri-count"></span></div>
+          <div class="tablewrap" data-lenis-prevent><table class="ri-tbl" id="ri-tbl"></table></div>
+          <div class="ri-key" id="ri-key"></div>
         </div>
       </div>
     </section>
@@ -766,6 +726,36 @@ import "../../styles/money-os.css";
     .inv-wrap .cim-sub, .inv-wrap .cim-pay { font-size: 14px; color: #7e6765; border-radius: 4px; }
     .inv-wrap .cim-pay { background: #eae5e1; }
     .inv-wrap .cim-pay.is-on { background: #eae5e1; color: #371e28; font-weight: 400; }
+    /* Regular invoices (10 Nov 2026) */
+    .mo .ri-tabs { display: flex; gap: 26px; margin: 0 0 12px; overflow-x: auto; scrollbar-width: none; box-shadow: inset 0 -1px 0 var(--linen); }
+    .mo .ri-tabs button { flex: none; height: 34px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--tx); cursor: pointer; }
+    .mo .ri-tabs button.on { color: var(--wine); border-bottom-color: var(--wine); }
+    .mo .ri-sub { margin: 0 0 16px; max-width: 75%; min-height: 0; }
+    .mo .ri-hist { display: inline-flex; gap: 4px; vertical-align: middle; }
+    .mo .ri-hist i { width: 12px; height: 12px; border-radius: 2px; background: var(--linen); border: 1px solid transparent; }
+    .mo .ri-hist i.paid { background: var(--wine); }
+    .mo .ri-hist i.sent { background: var(--stone); }
+    .mo .ri-hist i.draft { background: #fff; border: 1px dashed var(--tx); }
+    .mo .ri-hist i.miss { background: var(--bad-l, #f9f0f0); border-color: var(--bad, #8a3f3f); }
+    .mo .ri-hist i.skip { background: #fff; border-color: var(--edge); }
+    .mo .ri-hist i.cur { outline: 1px solid var(--wine); outline-offset: 2px; }
+    .mo .ri-key { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; color: var(--tx); }
+    .mo .ri-key > span { display: inline-flex; align-items: center; gap: 6px; }
+    .mo .ri-key .ri-hist i { width: 10px; height: 10px; }
+    .mo .ri-btn { height: 26px; padding: 0 10px; border-radius: 4px; border: 1px solid var(--edge); background: #fff; color: var(--ink, #2b2226); cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+    .mo .ri-btn:hover { border-color: var(--wine); color: var(--wine); }
+    .mo .ri-btn.go { background: var(--wine); border-color: var(--wine); color: #fff; }
+    .mo .ri-acts { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+    .mo .ri-tbl td small { display: block; color: var(--tx); font-size: 14px; line-height: 1.2; }
+    .mo .ri-tbl td.two { height: 54px; }
+    .mo .ri-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+    .mo .ri-check { display: flex; align-items: center; gap: 8px; }
+    .mo .ri-check input { width: 16px; height: 16px; accent-color: var(--wine); }
+    .mo .ri-alloc { display: grid; }
+    .mo .ri-alloc button { display: flex; justify-content: space-between; gap: 12px; padding: 10px 4px; border: 0; border-top: 1px solid var(--linen); background: none; text-align: left; cursor: pointer; }
+    .mo .ri-alloc button:hover { background: #f7f4f2; }
+    .mo .ri-alloc small { display: block; color: var(--tx); }
+    @media (max-width: 640px) { .mo .ri-grid2 { grid-template-columns: minmax(0, 1fr); } .mo .ri-sub { max-width: none; } }
   </style>
 
   <script>
@@ -797,7 +787,7 @@ import "../../styles/money-os.css";
     const PANEL_HEAD = {
       overview: ["Invoicing", "What's been raised this month, what's been paid and what needs you. Accounts confirm payments on their own page, so nobody has to chase by email."],
       create: ["New invoice", "Build it, preview it, then save or send. It's numbered automatically."],
-      monthly: ["Regular invoices", "Every invoice that repeats, and this month's shoots, month by month."],
+      monthly: ["Regular invoices", "Social media, videography and the brands' regular invoices, a month at a time: what's due, what's gone and what's been paid."],
       approvals: ["Automatic invoicing", "What the morning run does, and what it's waiting on."],
       portal: ["Accounts portal", "The page where accounts confirm invoices: its link, its passcode and who gets the emails."],
       settings: ["Company and bank", "The details on every invoice, and how they're numbered."],
@@ -1205,7 +1195,7 @@ import "../../styles/money-os.css";
         const reset = cimResetOnSend; closeEmailModal();
         if (reset) { msg("ci-msg", "Invoice sent.", true); ciReset(); }
         BOOK = null; if (!$("io-main").closest(".inv-panel").hidden) loadBook();
-        if (!$("mc-tbl").closest(".inv-panel").hidden) { loadMonthly(); toast("Sent."); }
+        if (!$("ri-tbl").closest(".inv-panel").hidden) { loadMonthly(); toast("Sent."); }
       } catch (err) { msg("cim-msg", err.message, false); }
       finally { btn.disabled = false; btn.textContent = "Send invoice"; }
     });
@@ -1261,237 +1251,308 @@ import "../../styles/money-os.css";
       ciRefresh();
     }
 
-    // ---- Monthly checklist ----
-    // From August 2026, when monthly invoicing started here; six months at a time.
+    // ---- Regular invoices (Dani, 10 Nov 2026) ----
+    // Social media, Videography and Recurring, one month at a time. The data is
+    // the Worker's monthly checklist, six months ending at the chosen month, so
+    // each row also shows its last six months.
     const MC_FIRST = "2026-08";
     const ymAdd = (ym, k) => { const [y, m] = ym.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + k, 1)); return d.toISOString().slice(0, 7); };
-    const ymLabel = (ym) => new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-    const nowYm = new Date().toISOString().slice(0, 7);
-    let mcFrom = [MC_FIRST, ymAdd(nowYm, -5)].sort()[1];
+    const ymLabel = (ym) => new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    const ymShortLabel = (ym) => new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "short" });
+    const nowYm = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }).slice(0, 7);
+    const ord = (n) => n + (n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th");
+    const RI = { tab: "social", m: nowYm, show: "all", q: "", d: null };
+    const RI_TABS = {
+      social: ["Every active social media client, one month at a time. Their invoices go out on the 5th once Abbie has ticked them, or raise one here.", "Social media clients"],
+      video: ["This month's shoots, and any earlier one still not invoiced or paid. A shoot is invoiced two days before it happens; open one to raise or send it in Videography.", "Shoots"],
+      recurring: ["The brands' regular invoices, such as agent assets and the TPE Marketing Hub. Each is made from its own setup, so it goes with the right email and onto the accounts portal.", "Recurring invoices"],
+    };
     async function loadMonthly() {
-      const tbl = $("mc-tbl"), m = $("mc-msg");
-      m.hidden = true; tbl.innerHTML = `<tbody><tr><td class="l">Loading…</td></tr></tbody>`;
-      $("mc-prev").disabled = mcFrom <= MC_FIRST;
+      const st = $("ri-state"), main = $("ri-main");
+      st.hidden = false; st.className = "state"; st.textContent = "Loading…"; main.hidden = true;
       try {
-        const d = await api(`/invoicing/monthly?from=${mcFrom}`);
-        $("mc-range").textContent = `${ymLabel(d.months[0])} – ${ymLabel(d.months[d.months.length - 1])}`;
+        const d = await api(`/invoicing/monthly?from=${ymAdd(RI.m, -5)}`);
+        RI.d = d; st.hidden = true; main.hidden = false; riDraw();
         const notes = [];
-        if (!d.recurringReady) notes.push("Recurring invoices need supabase/recurring_invoices.sql running once in Supabase; social clients show without it.");
+        if (!d.recurringReady) notes.push("Recurring invoices need supabase/recurring_invoices.sql running once in Supabase.");
         (d.warnings || []).forEach((w) => notes.push("Couldn't read " + w));
-        if (notes.length) { m.textContent = notes.join(" "); m.hidden = false; }
-        const noteMark = (c) => c && (c.note || c.skip) ? `<span class="mc-note" title="${esc((c.skip ? "No invoice this month. " : "") + (c.note || ""))}">&#9998;</span>` : "";
-        const mark = (c, which, ym) => {
-          if (c && c.skip) return which === "sent" ? `<span class="mc-na">No invoice</span>` : `<span class="mc-na">&ndash;</span>`;
-          if (!c || !c.due || ym > d.today) return `<span class="mc-na">&ndash;</span>`;
-          if (which === "sent") return c.sent ? `<span class="mc-y" title="${esc(c.numbers.join(", "))}">&#10003;</span>` : c.draft ? `<span class="mc-d" title="${esc(c.numbers.join(", "))}">Draft</span>` : `<span class="mc-n">&#10007;</span>`;
-          return !c.sent ? `<span class="mc-na">&ndash;</span>` : c.paid ? `<span class="mc-y">&#10003;</span>` : `<span class="mc-n">&#10007;</span>`;
-        };
-        const cls = (ym, i) => `${i === 0 ? "m0" : ""}${ym === d.today ? " is-now" : ""}`;
-        // A recurring month not sent yet can be raised from here, linked.
-        // ... or an invoice already sent can be allocated to it.
-        const raise = (r, ym) => { const c = r.cells[ym]; if (r.kind !== "recurring" || !c || !c.due || c.sent || ym > d.today) return "";
-          return `<button type="button" class="mc-raise" data-mcraise="${esc(r.id)}|${ym}">${c.draft ? "Send" : "Raise"}</button>` + (c.draft ? "" : `<button type="button" class="mc-raise" data-mcalloc="${esc(r.id)}|${ym}">Allocate</button>`); };
-        const row = (r) => `<tr><td class="l"><b>${esc(r.client)}</b><small>${esc([r.contact, r.kind === "social" ? r.manager : r.match_email, r.note].filter(Boolean).join(" · "))}</small></td>
-          <td class="amt">${r.amount_pence != null ? gbp(r.amount_pence) : "–"}${r.kind === "recurring" ? `<button type="button" class="mc-raise" data-mcraiseany="${esc(r.id)}" title="Raise an invoice for a month">Raise</button><button type="button" class="mc-x" data-mcedit="${esc(r.id)}" title="Edit" aria-label="Edit ${esc(r.client)}">&#9998;</button><button type="button" class="mc-x" data-mcdel="${esc(r.id)}" title="Take off the checklist" aria-label="Take ${esc(r.client)} off the checklist">&times;</button>` : ""}</td>
-          ${d.months.map((ym) => (r.cells[ym] && r.cells[ym].skip)
-            // No invoice that month: one cell across Sent and Paid, so it reads in full.
-            ? `<td colspan="2" class="${cls(ym, 0)} mc-cell mc-skipcell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}" title="${esc(r.cells[ym].note || "No invoice this month")}"><span class="mc-na">No invoice</span>${noteMark(r.cells[ym])}</td>`
-            : `<td class="${cls(ym, 0)} mc-cell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}" title="Click to add a note">${mark(r.cells[ym], "sent", ym)}${raise(r, ym)}${noteMark(r.cells[ym])}</td><td class="${cls(ym, 1)} mc-cell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}">${mark(r.cells[ym], "paid", ym)}</td>`).join("")}</tr>`;
-        MC_ROWS = d.rows;
-        mcShoots(d);
-        const social = d.rows.filter((r) => r.kind === "social"), rec = d.rows.filter((r) => r.kind === "recurring");
-        const span = 2 + d.months.length * 2;
-        tbl.innerHTML = `<thead><tr><th class="l" rowspan="2">Client</th><th rowspan="2" style="text-align:right">Monthly</th>${d.months.map((ym) => `<th colspan="2" class="m0${ym === d.today ? " is-now" : ""}">${esc(ymLabel(ym))}</th>`).join("")}</tr>
-          <tr>${d.months.map((ym) => `<th class="m0${ym === d.today ? " is-now" : ""}">Sent</th><th class="${ym === d.today ? "is-now" : ""}">Paid</th>`).join("")}</tr></thead>
-          <tbody>
-            <tr class="mc-sec"><td colspan="${span}">Social media clients · ${social.length}</td></tr>
-            ${social.map(row).join("") || `<tr><td class="l" colspan="${span}">No active social media clients.</td></tr>`}
-            <tr class="mc-sec"><td colspan="${span}">Recurring invoices · ${rec.length}</td></tr>
-            ${rec.map(row).join("") || `<tr><td class="l" colspan="${span}">None yet. Add one below.</td></tr>`}
-          </tbody>`;
-        tbl.querySelectorAll("[data-mcedit]").forEach((b) => b.addEventListener("click", () => mcEdit(d.rows.find((x) => x.id === b.dataset.mcedit))));
-        tbl.querySelectorAll("[data-mcraise]").forEach((b) => b.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const [id, ym] = b.dataset.mcraise.split("|");
-          mcRaise(d.rows.find((x) => x.id === id), ym, d);
-        }));
-        tbl.querySelectorAll("[data-mcraiseany]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); mcRaise(d.rows.find((x) => x.id === b.dataset.mcraiseany), null, d); }));
-        tbl.querySelectorAll("[data-mcalloc]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); const [id, ym] = b.dataset.mcalloc.split("|"); mcAllocate(d.rows.find((x) => x.id === id), ym); }));
-        tbl.querySelectorAll("[data-mcnote]").forEach((td) => td.addEventListener("click", () => { const [kind, id, ym] = td.dataset.mcnote.split("|"); mcNote(kind, id, ym); }));
-        if (d.notesReady === false) { m.textContent = (m.hidden ? "" : m.textContent + " ") + "Notes need supabase/invoice_month_notes.sql running once in Supabase."; m.hidden = false; }
-        tbl.querySelectorAll("[data-mcdel]").forEach((b) => b.addEventListener("click", async () => {
-          if (!confirm("Take this off the monthly checklist? Its invoices aren't touched.")) return;
-          try { await api(`/invoicing/recurring?id=${encodeURIComponent(b.dataset.mcdel)}`, { method: "DELETE" }); loadMonthly(); } catch (err) { alert(err.message); }
-        }));
-      } catch (err) { tbl.innerHTML = ""; m.textContent = "Couldn't load the checklist: " + err.message; m.hidden = false; }
-      // Addresses from the address book, to pick from.
-      try { const rr = await api("/invoicing/recipients"); $("mc-emails").innerHTML = (rr.recipients || rr.rows || []).map((x) => `<option value="${esc(x.email)}">${esc(x.name)}</option>`).join(""); } catch (_) {}
+        if (notes.length) { st.hidden = false; st.className = "state bad"; st.textContent = notes.join(" "); }
+      } catch (err) { st.className = "state bad"; st.textContent = "Couldn't load regular invoices: " + err.message; }
     }
-    let MC_ROWS = [];
-    /* Raise a regular invoice for a month (Dani, 10 Nov 2026). Made by the
-       Worker from the invoice's own setup, the same as the automatic one: who
-       it's billed to, who's copied, its line, and the email with the accounts
-       portal button. Then straight to the email review. */
-    function mcRaise(r, ym, d) {
-      if (!r) return;
-      const lastYm = ymAdd(d.today, -1);
-      // The months that could be raised: nothing sent for them yet.
-      const opts = [ymAdd(d.months[0], -1), ...d.months].filter((m, i, a) => a.indexOf(m) === i && m <= d.today && !(r.cells[m] && r.cells[m].sent));
+    const riSocialIds = () => new Set((RI.d.rows || []).filter((r) => r.kind === "social").map((r) => r.id));
+    function riRows() {
+      const rows = RI.d.rows || [];
+      if (RI.tab === "social") return rows.filter((r) => r.kind === "social");
+      // A social client's own monthly-invoice row shows under Social media, not twice.
+      const soc = riSocialIds();
+      return rows.filter((r) => r.kind === "recurring" && !(r.sub === "social" && r.lead_id && soc.has(r.lead_id)));
+    }
+    // What a row's month is: paid, sent, a draft, still to send, no invoice or not due.
+    function riCell(r, ym) {
+      const c = r.cells[ym], d = RI.d;
+      const live = (c && c.invs || []).filter((v) => v.status !== "void");
+      const pickInv = (st) => live.find((v) => v.status === st) || null;
+      if (!c) return { k: "na", label: "Not due", chip: "plain" };
+      if (c.skip) return { k: "skip", label: "No invoice", chip: "plain" };
+      if (!c.due || ym > d.today) return { k: "na", label: "Not due", chip: "plain" };
+      if (c.paid) return { k: "paid", label: "Paid", chip: "good", inv: pickInv("paid") };
+      if (c.sent) return { k: "sent", label: "Sent", chip: "plain", inv: pickInv("sent") };
+      if (c.draft) return { k: "draft", label: "Draft, not sent", chip: "wait", inv: pickInv("draft") };
+      const dayN = (r.auto && r.auto.day_of_month) || 5;
+      const late = ym < d.today || new Date().getDate() > dayN;
+      return late ? { k: "miss", label: "To send, late", chip: "bad" } : { k: "miss", label: `Goes on the ${ord(dayN)}`, chip: "wait" };
+    }
+    const riAmount = (r, ym) => r.quantity_label ? (r.quantities && r.quantities[ym] != null ? (r.amount_pence || 0) * r.quantities[ym] : null) : r.amount_pence;
+    const riRecId = (r) => r.kind === "recurring" ? r.id : r.recurring_id || null;
+    function riDraw() {
+      document.querySelectorAll("[data-ritab]").forEach((b) => { const on = b.dataset.ritab === RI.tab; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
+      $("ri-sub").textContent = RI_TABS[RI.tab][0]; $("ri-strip").textContent = RI_TABS[RI.tab][1];
+      $("ri-add").hidden = RI.tab !== "recurring";
+      $("ri-mnav").hidden = RI.tab === "video";
+      $("ri-month").textContent = ymLabel(RI.m);
+      $("ri-prev").disabled = RI.m <= MC_FIRST; $("ri-next").disabled = RI.m >= nowYm;
+      if (!RI.d) return;
+      if (RI.tab === "video") return riDrawVideo();
+      const m = RI.m;
+      const rows = riRows().map((r) => ({ r, c: riCell(r, m) })).filter((x) => RI.tab === "recurring" || x.c.k !== "na");
+      const due = rows.filter((x) => !["na", "skip"].includes(x.c.k));
+      const sent = due.filter((x) => ["sent", "paid"].includes(x.c.k)), paid = due.filter((x) => x.c.k === "paid"), toSend = due.filter((x) => ["miss", "draft"].includes(x.c.k));
+      const owed = sent.filter((x) => x.c.k === "sent").reduce((t, x) => t + (riAmount(x.r, m) || 0), 0);
+      $("ri-figs").innerHTML = [["lin", due.length, "Due this month"], ["lin", sent.length, "Sent"], ["lin", paid.length, "Paid"], ["lin", toSend.length, "Still to send"], ["dark", gb(owed), "Waiting on payment, net"]]
+        .map(([k, b, s]) => `<div class="fig static ${k}"><b>${b}</b><span>${s}</span></div>`).join("");
+      const CH = [["all", "All", rows.length], ["send", "Still to send", toSend.length], ["owed", "Waiting on payment", sent.length - paid.length], ["paid", "Paid", paid.length]];
+      $("ri-chips").innerHTML = CH.map(([k, l, n]) => `<button type="button" data-rishow="${k}" aria-pressed="${RI.show === k}">${l} <i>${n}</i></button>`).join("");
+      const q = RI.q;
+      const shown = rows.filter((x) => (RI.show === "all" || (RI.show === "send" && ["miss", "draft"].includes(x.c.k)) || (RI.show === "owed" && x.c.k === "sent") || (RI.show === "paid" && x.c.k === "paid"))
+        && (!q || [x.r.client, x.r.contact, x.r.payer, x.r.match_email, x.c.inv && x.c.inv.number].join(" ").toLowerCase().includes(q)));
+      $("ri-count").textContent = `${shown.length} of ${rows.length}`;
+      const hist = (r) => `<span class="ri-hist">${RI.d.months.map((ym) => { const c = riCell(r, ym); return `<i class="${c.k === "na" ? "" : c.k}${ym === m ? " cur" : ""}" title="${esc(ymLabel(ym))}: ${esc(c.label)}${c.inv ? " (" + esc(c.inv.number) + ")" : ""}"></i>`; }).join("")}</span>`;
+      const act = (r, c) => {
+        const rec = riRecId(r);
+        if (c.k === "miss") return (rec ? `<button type="button" class="ri-btn go" data-riraise="${esc(r.id)}">Raise</button>` : `<a class="ri-btn" href="/admin/social?lead=${encodeURIComponent(r.id)}" title="Their monthly invoice isn't set up yet">Set up</a>`) + (rec ? `<button type="button" class="ri-btn" data-rialloc="${esc(r.id)}">Allocate</button>` : "");
+        if (c.k === "draft") return `<button type="button" class="ri-btn go" data-risend="${esc(r.id)}">Send</button>`;
+        if (c.inv) return `<button type="button" class="ri-btn" data-riview="${esc(c.inv.id)}">View</button>`;
+        if (RI.tab === "recurring" && c.k === "na") return `<button type="button" class="ri-btn" data-riraise="${esc(r.id)}">Raise</button>`;
+        return "";
+      };
+      const head = RI.tab === "social"
+        ? `<thead><tr><th>Client</th><th>Managed by</th><th class="num">Monthly, net</th><th>Invoice</th><th>Status</th><th>Last six months</th><th></th></tr></thead>`
+        : `<thead><tr><th>Invoice</th><th>Goes out</th><th class="num">Amount, net</th><th>Invoice</th><th>Status</th><th>Last six months</th><th></th></tr></thead>`;
+      const body = shown.map(({ r, c }) => {
+        const noteIc = `<button type="button" class="ic${(r.cells[m] && r.cells[m].note) ? " has" : ""}" data-rinote="${esc(r.id)}" aria-label="Notes and history" title="Notes and history">${ICON_NOTE}</button>`;
+        const who = RI.tab === "social"
+          ? `<td class="two">${esc(r.client)}<small>${esc([r.contact !== r.client ? r.contact : "", r.note].filter(Boolean).join(" · "))}</small></td><td class="tx">${esc(r.manager || "")}</td><td class="num">${r.amount_pence != null ? gb(r.amount_pence) : "–"}</td>`
+          : (() => {
+              const a = r.auto || {}, amt = riAmount(r, m);
+              const goes = a.auto_send && a.day_of_month ? `The ${ord(a.day_of_month)}, by itself` : a.day_of_month ? `The ${ord(a.day_of_month)}, raised here` : "Raised here";
+              const amount = r.quantity_label ? (amt != null ? `${gb(amt)}<small>${gb(r.amount_pence || 0)} × ${r.quantities[m]}</small>` : `–<small>${gb(r.amount_pence || 0)} each</small>`) : (r.amount_pence != null ? gb(r.amount_pence) : "–");
+              return `<td class="two">${esc(r.client)}<small>${esc(a.bill_to_name || r.contact || r.match_email || "")}${r.brand ? ", on the accounts portal" : ""}</small></td><td class="two">${esc(goes)}${r.quantity_label ? `<small>Needs the ${esc(String(r.quantity_label).toLowerCase())}</small>` : ""}</td><td class="num two">${amount}</td>`;
+            })();
+        return `<tr class="click" data-rirow="${esc(r.id)}">${who}<td class="tx">${c.inv ? esc(c.inv.number) : "—"}</td><td><span class="chip ${c.chip}">${esc(c.label)}</span></td><td>${hist(r)}</td><td><div class="ri-acts">${act(r, c)}${noteIc}</div></td></tr>`;
+      }).join("");
+      $("ri-tbl").innerHTML = head + `<tbody>${body || `<tr><td colspan="7" class="tx">Nothing here for ${esc(ymLabel(m))}.</td></tr>`}</tbody>`;
+      $("ri-key").innerHTML = `<span><span class="ri-hist"><i class="paid"></i></span>Paid</span><span><span class="ri-hist"><i class="sent"></i></span>Sent</span><span><span class="ri-hist"><i class="draft"></i></span>Draft</span><span><span class="ri-hist"><i class="miss"></i></span>Due, not sent</span><span><span class="ri-hist"><i class="skip"></i></span>No invoice that month</span><span><span class="ri-hist"><i></i></span>Not due</span>`;
+    }
+    const SHOOT_STATUS = {
+      late: ["bad", "Late: not sent"], not_due: ["wait", "Not due yet"], sent: ["plain", "Sent"],
+      payment_overdue: ["bad", "Sent, payment overdue"], paid: ["good", "Paid"], package: ["plain", "Covered by social package"],
+    };
+    function riDrawVideo() {
+      const list = RI.d.shoots || [];
+      const dd = (x) => x ? new Date(String(x).slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "—";
+      const owed = list.filter((x) => ["sent", "payment_overdue"].includes(x.status)).reduce((t, x) => t + (x.amount_pence || 0), 0);
+      $("ri-figs").innerHTML = [["lin", list.length, "Shoots"], ["lin", list.filter((x) => ["sent", "payment_overdue", "paid"].includes(x.status)).length, "Invoiced"], ["lin", list.filter((x) => x.status === "paid").length, "Paid"], ["lin", list.filter((x) => ["late", "payment_overdue"].includes(x.status)).length, "Late or overdue"], ["dark", gb(owed), "Waiting on payment, net"]]
+        .map(([k, b, s]) => `<div class="fig static ${k}"><b>${b}</b><span>${s}</span></div>`).join("");
+      $("ri-chips").innerHTML = "";
+      const q = RI.q;
+      const shown = list.filter((x) => !q || [x.client, x.company, x.service, (x.numbers || []).join(" ")].join(" ").toLowerCase().includes(q));
+      $("ri-count").textContent = `${shown.length} shoot${shown.length === 1 ? "" : "s"}`;
+      $("ri-tbl").innerHTML = `<thead><tr><th>Shoot</th><th>Client</th><th>Service</th><th class="num">Net</th><th>Invoice by</th><th>Invoice</th><th>Status</th></tr></thead><tbody>${shown.map((x) => {
+        const [cls, label] = SHOOT_STATUS[x.status] || ["plain", x.status];
+        const extra = x.draft && (x.status === "late" || x.status === "not_due") ? ", draft raised" : "";
+        return `<tr class="click" data-rishoot="${esc(x.id)}"><td>${esc(dd(x.shoot_date))}</td><td class="two">${esc(x.client)}<small>${esc([x.company, x.billed_to ? "billed to the brand" : ""].filter(Boolean).join(", "))}</small></td><td class="tx">${esc(x.service || "")}</td><td class="num">${x.amount_pence != null ? gb(x.amount_pence) : "—"}</td><td class="tx">${x.status === "package" ? "—" : esc(dd(x.due_by))}</td><td class="tx">${esc(((x.numbers || [])[0] || "—").replace(/\s*\(.*\)$/, ""))}</td><td><span class="chip ${cls}">${esc(label + extra)}</span></td></tr>`;
+      }).join("") || `<tr><td colspan="7" class="tx">No shoots this month, and nothing earlier waiting on an invoice or payment.</td></tr>`}</tbody>`;
+      $("ri-key").innerHTML = "<span>Click a shoot to open it in Videography, where its invoice is raised and sent.</span>";
+    }
+    const riFind = (id) => (RI.d && RI.d.rows || []).find((x) => x.id === id);
+
+    /* Raise a regular invoice for a month. The Worker makes it from the
+       invoice's own setup, the same as the automatic one, then it's straight
+       to the email review. */
+    function riRaise(r) {
+      const rec = riRecId(r); if (!r || !rec) return;
+      const d = RI.d;
+      const opts = [...d.months].reverse().filter((m) => m <= d.today && !(r.cells[m] && (r.cells[m].sent || r.cells[m].paid)));
       if (!opts.length) { toast("Every month shown has gone already."); return; }
-      const pick = ym && opts.includes(ym) ? ym : opts.includes(lastYm) && !(r.cells[lastYm] && r.cells[lastYm].sent) ? lastYm : opts[opts.length - 1];
-      const longM = (m) => new Date(m + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
-      const unit = r.amount_pence || 0;
-      const qtyField = r.quantity_label ? `<label class="field"><span>${esc(r.quantity_label)}</span><input id="mr-qty" type="number" min="0" step="1" inputmode="numeric"></label>` : "";
+      const pick = opts.includes(RI.m) ? RI.m : opts[0];
+      const unit = r.amount_pence || 0, a = r.auto || {};
       popShell("Raise an invoice", esc(r.client), "",
-        `<label class="field"><span>Which month it's for</span><select id="mr-month">${opts.map((m) => `<option value="${m}"${m === pick ? " selected" : ""}>${esc(longM(m))}${r.cells[m] && r.cells[m].draft ? " (draft raised)" : ""}</option>`).join("")}</select></label>
-         ${qtyField}
-         <dl class="rows"><div><dt>Billed to</dt><dd>${esc((r.auto && r.auto.bill_to_name) || r.client)}</dd></div><div><dt>Sent to</dt><dd>${esc((r.auto && r.auto.bill_to_email) || r.match_email || "")}</dd></div>${r.auto && r.auto.cc_email ? `<div><dt>Copied in</dt><dd>${esc(r.auto.cc_email)}</dd></div>` : ""}<div><dt>Net</dt><dd id="mr-net"></dd></div></dl>
-         <p style="margin:0">It's made from this invoice's own setup, the same as the automatic one, so it gets the right email and goes on the accounts portal once it's sent. You'll see the email before anything goes.</p>
+        `<label class="field"><span>Which month it's for</span><select id="mr-month">${opts.map((m) => `<option value="${m}"${m === pick ? " selected" : ""}>${esc(ymLabel(m))}${r.cells[m] && r.cells[m].draft ? " (draft raised)" : ""}</option>`).join("")}</select></label>
+         ${r.quantity_label ? `<label class="field"><span>${esc(r.quantity_label)}</span><input id="mr-qty" type="number" min="0" step="1" inputmode="numeric"></label>` : ""}
+         <dl class="rows">${a.bill_to_name ? `<div><dt>Billed to</dt><dd>${esc(a.bill_to_name)}</dd></div>` : ""}${a.bill_to_email || r.match_email ? `<div><dt>Sent to</dt><dd>${esc(a.bill_to_email || r.match_email)}</dd></div>` : ""}${a.cc_email ? `<div><dt>Copied in</dt><dd>${esc(a.cc_email)}</dd></div>` : ""}<div><dt>Net</dt><dd id="mr-net"></dd></div></dl>
+         <p style="margin:0">Made from this invoice's own setup, the same as the automatic one, so it gets the right email${r.brand ? " and goes on the accounts portal" : ""}. You'll see the email before anything goes.</p>
          <p class="state bad" id="mr-msg" hidden></p>`,
         `<button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" id="mr-go">Raise and review the email</button>`);
       const sync = () => {
         const m = $("mr-month").value, q = $("mr-qty");
         if (q && !q.dataset.typed) q.value = r.quantities && r.quantities[m] != null ? r.quantities[m] : "";
         const n = q ? Number(q.value || 0) : 1;
-        $("mr-net").textContent = r.quantity_label ? `${gbp(unit * n)} (${gbp(unit)} × ${n || 0})` : gbp(unit);
+        $("mr-net").textContent = r.quantity_label ? `${gb(unit * n)} (${gb(unit)} × ${n || 0})` : gb(unit);
         $("mr-go").textContent = r.cells[m] && r.cells[m].draft ? "Review the draft's email" : "Raise and review the email";
       };
-      $("mr-month").addEventListener("change", sync);
+      $("mr-month").addEventListener("change", () => { const q = $("mr-qty"); if (q) delete q.dataset.typed; sync(); });
       if ($("mr-qty")) $("mr-qty").addEventListener("input", (e) => { e.target.dataset.typed = "1"; sync(); });
       sync();
       $("mr-go").addEventListener("click", async () => {
         const btn = $("mr-go"), m = $("mr-month").value, q = $("mr-qty");
-        if (q && !(r.cells[m] && r.cells[m].draft) && (q.value === "" || Number(q.value) < 0)) { $("mr-msg").textContent = `Add the ${String(r.quantity_label).toLowerCase()} for ${longM(m)}.`; $("mr-msg").hidden = false; return; }
+        if (q && !(r.cells[m] && r.cells[m].draft) && (q.value === "" || Number(q.value) < 0)) { $("mr-msg").textContent = `Add the ${String(r.quantity_label).toLowerCase()} for ${ymLabel(m)}.`; $("mr-msg").hidden = false; return; }
         btn.disabled = true; btn.textContent = "Raising…";
         try {
-          const out = await postJson("/invoicing/recurring/raise", { recurring_id: r.id, month: m, qty: q ? q.value : undefined });
-          closePop(); loadMonthly(); BOOK = null;
-          openEmailModal(out.invoice, false);
+          const out = await postJson("/invoicing/recurring/raise", { recurring_id: rec, month: m, qty: q ? q.value : undefined });
+          BOOK = null; loadMonthly(); riReview(out.invoice);
         } catch (err) { $("mr-msg").textContent = err.message; $("mr-msg").hidden = false; btn.disabled = false; sync(); }
       });
     }
-    // Videography shoots and where each invoice is.
-    const SHOOT_STATUS = {
-      late: ["is-late", "Late: not sent"], not_due: ["is-wait", "Not due yet"], sent: ["is-sent", "Sent"],
-      payment_overdue: ["is-late", "Sent, payment overdue"], paid: ["is-paid", "Paid"], package: ["is-wait", "Covered by social package"],
-    };
-    function mcShoots(d) {
-      const list = d.shoots || [];
-      const dd = (x) => x ? new Date(String(x).slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "–";
-      const late = list.filter((x) => x.status === "late").length, owed = list.filter((x) => x.status === "payment_overdue").length;
-      $("mc-shoots-sum").innerHTML = list.length ? [late ? `<b class="mc-n">${late} late</b>` : "", owed ? `<b class="mc-n">${owed} payment overdue</b>` : "", `${list.length} shoot${list.length === 1 ? "" : "s"}`].filter(Boolean).join(" · ") : "";
-      $("mc-shoots").innerHTML = list.length ? `<thead><tr><th class="l">Shoot</th><th class="l">Client</th><th class="l">Service</th><th style="text-align:right">Amount</th><th class="l">Invoice by</th><th class="l">Invoice</th></tr></thead><tbody>${list.map((x) => {
-        const [cls, label] = SHOOT_STATUS[x.status] || ["", x.status];
-        const extra = x.draft && (x.status === "late" || x.status === "not_due") ? " · draft raised" : "";
-        return `<tr class="mc-shoot ${x.status === "late" || x.status === "payment_overdue" ? "is-late" : ""}" data-shoot="${esc(x.id)}" title="${esc(x.numbers.join(", ") || "No invoice yet")}">
-          <td class="l">${esc(dd(x.shoot_date))}</td>
-          <td class="l"><b>${esc(x.client)}</b>${x.company ? `<small>${esc(x.company)}${x.billed_to ? " · billed to the brand" : ""}</small>` : x.billed_to ? "<small>Billed to the brand</small>" : ""}</td>
-          <td class="l">${esc(x.service || "")}</td>
-          <td class="amt">${x.amount_pence != null ? gbp(x.amount_pence) : "–"}</td>
-          <td class="l">${x.status === "package" ? "–" : esc(dd(x.due_by))}</td>
-          <td class="l"><span class="mc-chip ${cls}">${esc(label + extra)}</span></td></tr>`;
-      }).join("")}</tbody>` : `<tbody><tr><td class="l">No shoots this month, and nothing earlier waiting on an invoice or payment.</td></tr></tbody>`;
-      $("mc-shoots").querySelectorAll("[data-shoot]").forEach((tr) => tr.addEventListener("click", () => { location.href = `/admin/videography?booking=${encodeURIComponent(tr.dataset.shoot)}`; }));
-    }
-    // A note on a month, and whether an invoice is due at all.
-    function mcNote(kind, id, ym) {
-      const r = MC_ROWS.find((x) => x.id === id && x.kind === kind); if (!r) return;
-      const c = r.cells[ym] || {};
-      const host = $("mc-modal");
-      host.innerHTML = `<div class="mc-modal-box" role="dialog" aria-modal="true" aria-label="Note">
-        <h3>${esc(r.client)} · ${esc(new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric" }))}</h3>
-        <p class="inv-intro" style="margin:4px 0 12px">${c.numbers && c.numbers.length ? "Invoices: " + esc(c.numbers.join(", ")) : "No invoice for this month yet."}</p>
-        <label class="inv-field"><span>Note</span><textarea id="mc-note-t" rows="3" placeholder="e.g. Not charged this month, agreed with Sean">${esc(c.note || "")}</textarea></label>
-        <label class="mc-skip"><input type="checkbox" id="mc-note-skip" ${c.skip ? "checked" : ""}> No invoice this month (not flagged as missing)</label>
-        <p class="inv-msg" id="mc-note-msg" hidden></p>
-        <div class="mc-modal-acts"><button type="button" class="inv-ghost" data-mcclose>Cancel</button><button type="button" class="inv-save" id="mc-note-save">Save</button></div>
-      </div>`;
-      host.hidden = false; $("mc-note-t").focus();
-      $("mc-note-save").addEventListener("click", async () => {
+    // The email that goes with it, in the words the automatic invoicing uses
+    // (src/lib/invoice-email.js via the Worker), editable before it goes.
+    async function riReview(inv) {
+      if (!inv) return;
+      popShell("Review the email", `Invoice ${esc(inv.number || "")}`, "", '<p class="state">Loading the email…</p>', '<button type="button" class="mbtn" data-close>Close</button>', true);
+      let draft = {};
+      try { draft = await api(`/invoicing/email-draft?id=${encodeURIComponent(inv.id)}`); } catch (_) { draft = { subject: defaultEmailSubject(inv, currentSettings), body: defaultEmailBody(inv, currentSettings) }; }
+      popShell("Review the email", `Invoice ${esc(inv.number || "")}`, "",
+        `<div class="ri-grid2"><label class="field"><span>To</span><input value="${esc(inv.bill_to_email || "")}" readonly></label><label class="field"><span>Copied in</span><input id="rv-cc" value="${esc(inv.cc_email || "")}"></label></div>
+         <label class="field"><span>Subject</span><input id="rv-sub" value="${esc(draft.subject || "")}"></label>
+         <label class="field"><span>Message. The PDF is attached${/\[Accounts portal button\]/.test(draft.body || "") ? ", and the portal line becomes a button" : /\[Pay by card button\]/.test(draft.body || "") ? ", and the card line becomes a button" : ""}.</span><textarea id="rv-body" rows="14">${esc(draft.body || "")}</textarea></label>
+         <p style="margin:0">${esc(payLine(inv))} Total ${gb(inv.total_pence || 0)} with VAT.</p>
+         <p class="state bad" id="rv-msg" hidden></p>`,
+        `<button type="button" class="mbtn" data-close>Keep as a draft</button><button type="button" class="mbtn" data-pdf="${esc(inv.id)}">View PDF</button><button type="button" class="mbtn primary" id="rv-send">Send invoice</button>`, true);
+      $("rv-send").addEventListener("click", async () => {
+        const btn = $("rv-send"); btn.disabled = true; btn.textContent = "Sending…";
         try {
-          await api("/invoicing/month-note", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ row_kind: kind, row_id: id, month: ym, note: $("mc-note-t").value, skip: $("mc-note-skip").checked }) });
-          host.hidden = true; loadMonthly();
-        } catch (err) { msg("mc-note-msg", err.message, false); }
+          await postJson("/invoicing/invoices/send", { id: inv.id, email_subject: $("rv-sub").value.trim(), email_body: $("rv-body").value, cc: $("rv-cc").value.trim() });
+          closePop(); BOOK = null; toast(`${inv.number} sent.`);
+          if (!$("ri-tbl").closest(".inv-panel").hidden) loadMonthly(); else if (!$("io-main").closest(".inv-panel").hidden) loadBook();
+        } catch (err) { $("rv-msg").textContent = err.message; $("rv-msg").hidden = false; btn.disabled = false; btn.textContent = "Send invoice"; }
       });
     }
-    $("mc-modal").addEventListener("click", (e) => { if (e.target.id === "mc-modal" || e.target.closest("[data-mcclose]")) $("mc-modal").hidden = true; });
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("mc-modal").hidden = true; });
-    // Allocate: pick an invoice already sent for this recurring row and month.
-    async function mcAllocate(r, ym) {
-      if (!r) return;
-      const host = $("mc-modal");
-      const monthName = new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
-      host.innerHTML = `<div class="mc-modal-box mc-alloc" role="dialog" aria-modal="true" aria-label="Allocate an invoice">
-        <h3>Allocate an invoice</h3>
-        <p class="inv-intro" style="margin:4px 0 10px">${esc(r.client)} · ${esc(monthName)}. Pick the invoice that was sent for it; from then on its payment shows here.</p>
-        <input type="search" class="mc-alloc-q" id="mc-alloc-q" placeholder="Search number, name or amount">
-        <div class="mc-alloc-list" id="mc-alloc-list"><p class="inv-intro">Loading invoices…</p></div>
-        <p class="inv-msg" id="mc-alloc-msg" hidden></p>
-        <div class="mc-modal-acts"><button type="button" class="inv-ghost" data-mcclose>Cancel</button></div>
-      </div>`;
-      host.hidden = false;
+    async function riView(id) {
+      if (!BOOK) { try { const d = await api("/invoicing/book"); BOOK = d.invoices || []; TODAY = d.today; PENDING = d.pending || []; NUMBERS = d.numbers || []; TICKS = d.ticks || null; RELEASED = d.released || []; } catch (err) { toast(err.message); return; } }
+      if (byId(id)) openInv(id); else toast("Couldn't find that invoice.");
+    }
+    // A row's last six months, and the chosen month's note.
+    function riRowPop(r) {
+      const m = RI.m, c = r.cells[m] || {};
+      const rec = RI.tab === "recurring";
+      popShell(rec ? "Recurring invoice" : "Social media client", esc(r.client), "",
+        `<dl class="rows">${[...RI.d.months].reverse().map((ym) => { const x = riCell(r, ym); return `<div><dt>${esc(ymLabel(ym))}</dt><dd><span class="chip ${x.chip}">${esc(x.label)}</span>${x.inv ? ` <span style="color:var(--tx)">${esc(x.inv.number)}</span>` : ""}</dd></div>`; }).join("")}</dl>
+         <label class="field"><span>Note for ${esc(ymLabel(m))}</span><textarea id="rn-note" rows="3" placeholder="e.g. Not charged this month, agreed with Sean">${esc(c.note || "")}</textarea></label>
+         <label class="ri-check"><input type="checkbox" id="rn-skip"${c.skip ? " checked" : ""}> No invoice for ${esc(ymLabel(m))}, so it isn't flagged as missing</label>
+         <p class="state bad" id="rn-msg" hidden></p>`,
+        `<button type="button" class="mbtn" data-close>Close</button>${rec ? `<button type="button" class="mbtn danger" id="rn-stop">Stop it</button><button type="button" class="mbtn" id="rn-edit">Edit</button>` : `<a class="mbtn" href="/admin/social?lead=${encodeURIComponent(r.id)}">Open their file</a>`}<button type="button" class="mbtn primary" id="rn-save">Save</button>`);
+      $("rn-save").addEventListener("click", async () => {
+        try { await postJson("/invoicing/month-note", { row_kind: r.kind, row_id: r.id, month: m, note: $("rn-note").value, skip: $("rn-skip").checked }); closePop(); toast("Saved."); loadMonthly(); }
+        catch (err) { $("rn-msg").textContent = err.message; $("rn-msg").hidden = false; }
+      });
+      if (rec) {
+        $("rn-edit").addEventListener("click", () => riEdit(r));
+        $("rn-stop").addEventListener("click", async () => {
+          if (!confirm(`Stop ${r.client}? Nothing more is raised for it. Its invoices aren't touched.`)) return;
+          try { await api(`/invoicing/recurring?id=${encodeURIComponent(r.id)}`, { method: "DELETE" }); closePop(); toast("Stopped."); loadMonthly(); loadRecurringOptions(); }
+          catch (err) { $("rn-msg").textContent = err.message; $("rn-msg").hidden = false; }
+        });
+      }
+    }
+    // Add or edit a recurring invoice: everything the automatic run needs.
+    function riEdit(r) {
+      const a = (r && r.auto) || {}, v = (x) => esc(x == null ? "" : x);
+      const freq = [["monthly", "Every month"], ["quarterly", "Every 3 months"], ["6monthly", "Every 6 months"], ["yearly", "Every year"], ["oneoff", "Once only"]];
+      popShell("Recurring invoice", r ? "Edit " + esc(r.client) : "Add a regular invoice", "",
+        `<div class="ri-grid2">
+           <label class="field"><span>Name</span><input id="re-name" value="${v(r && r.client)}" placeholder="e.g. The Letting Experts: agent assets"></label>
+           <label class="field"><span>Contact name</span><input id="re-contact" value="${v(r && r.contact)}"></label>
+           <label class="field"><span>Billed to (company)</span><input id="re-billname" value="${v(a.bill_to_name)}"></label>
+           <label class="field"><span>Invoice email</span><input id="re-email" type="email" value="${v(r && r.match_email)}" placeholder="accounts@…"></label>
+           <label class="field"><span>Copied in. Separate several with commas.</span><input id="re-cc" value="${v(a.cc_email)}"></label>
+           <label class="field"><span>Amount, net (£)${r && r.quantity_label ? ", each" : ""}</span><input id="re-amt" type="number" step="0.01" min="0" value="${r && r.amount_pence != null ? (r.amount_pence / 100).toFixed(2) : ""}"></label>
+         </div>
+         <label class="field"><span>What goes on the invoice. Month YYYY becomes the month${r && r.quantity_label ? ", {qty} the number" : ""}.</span><input id="re-line" value="${v(a.line)}" placeholder="e.g. Monthly Agent Assets (Month YYYY)"></label>
+         <div class="ri-grid2">
+           <label class="field"><span>Goes out on the (day of the month)</span><input id="re-day" type="number" min="1" max="28" value="${v(a.day_of_month)}" placeholder="e.g. 5"></label>
+           <label class="field"><span>How often</span><select id="re-freq">${freq.map(([k, l]) => `<option value="${k}"${(a.frequency || "monthly") === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+           <label class="field"><span>First month</span><input id="re-start" type="month" value="${v(r && r.start_month)}"></label>
+           <label class="field"><span>Last month. Blank runs until it's stopped.</span><input id="re-end" type="month" value="${v(a.end_month)}"></label>
+           <label class="field"><span>Payment terms (days). Blank uses your usual.</span><input id="re-terms" type="number" min="0" value="${v(a.terms_days)}"></label>
+           <label class="field"><span>Invoice email, if not the one above</span><input id="re-billemail" type="email" value="${v(a.bill_to_email)}"></label>
+         </div>
+         <label class="field"><span>Invoice address</span><textarea id="re-addr" rows="2">${v(a.bill_to_address)}</textarea></label>
+         <label class="field"><span>Words always on it, if the same address gets other invoices too (optional)</span><input id="re-text" value="${v(r && r.match_text)}"></label>
+         <label class="ri-check"><input type="checkbox" id="re-auto"${a.auto_send ? " checked" : ""}> Send it by itself on its day. Off: it waits for you to raise it here.</label>
+         <p class="state bad" id="re-msg" hidden></p>`,
+        `<button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" id="re-save">${r ? "Save" : "Add"}</button>`, true);
+      $("re-save").addEventListener("click", async () => {
+        const g = (id) => $(id).value.trim(), amt = g("re-amt");
+        try {
+          await postJson("/invoicing/recurring", {
+            id: r ? r.id : undefined, name: g("re-name"), contact_name: g("re-contact"), match_email: g("re-email"), match_text: g("re-text"),
+            amount_pence: amt ? Math.round(Number(amt) * 100) : null, start_month: g("re-start") || null,
+            auto: { auto_send: $("re-auto").checked, day_of_month: g("re-day"), frequency: $("re-freq").value, end_month: g("re-end"),
+              bill_to_name: g("re-billname"), bill_to_email: g("re-billemail"), cc_email: g("re-cc"), bill_to_address: $("re-addr").value.trim(),
+              line: g("re-line"), terms_days: g("re-terms") },
+          });
+          closePop(); toast(r ? "Saved." : "Added."); loadMonthly(); loadRecurringOptions();
+        } catch (err) { $("re-msg").textContent = err.message; $("re-msg").hidden = false; }
+      });
+    }
+    // Allocate: an invoice already sent becomes this row's for the month.
+    async function riAlloc(r) {
+      const rec = riRecId(r); if (!rec) return;
+      const m = RI.m;
+      popShell("Allocate an invoice", esc(r.client), "", '<p class="state">Loading invoices…</p>', '<button type="button" class="mbtn" data-close>Cancel</button>');
       let list = [];
-      try { list = (await api("/invoicing/allocate")).invoices || []; } catch (err) { $("mc-alloc-list").innerHTML = ""; msg("mc-alloc-msg", err.message, false); return; }
-      const want = String(r.match_email || "").toLowerCase();
-      // Sent to this row's address first, then newest.
+      try { list = (await api("/invoicing/allocate")).invoices || []; } catch (err) { popShell("Allocate an invoice", esc(r.client), "", `<p class="state bad">${esc(err.message)}</p>`, '<button type="button" class="mbtn" data-close>Close</button>'); return; }
+      const want = String(r.match_email || (r.auto && r.auto.bill_to_email) || "").toLowerCase();
       list.sort((a, b) => ((String(b.bill_to_email || "").toLowerCase() === want) - (String(a.bill_to_email || "").toLowerCase() === want)));
-      const dd = (x) => x ? new Date(x + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
+      popShell("Allocate an invoice", esc(r.client), "",
+        `<p style="margin:0">Pick the invoice that was sent for ${esc(ymLabel(m))}. From then on its payment shows here.</p>
+         <label class="find" style="flex:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="ra-q" placeholder="Number, name or amount"></label>
+         <div class="ri-alloc" id="ra-list"></div><p class="state bad" id="ra-msg" hidden></p>`,
+        '<button type="button" class="mbtn" data-close>Cancel</button>');
       const draw = (q) => {
-        const rows = list.filter((iv) => !q || [iv.number, iv.bill_to_name, iv.client_name, iv.line, iv.bill_to_email, (iv.total_pence / 100).toFixed(2)].join(" ").toLowerCase().includes(q));
-        $("mc-alloc-list").innerHTML = rows.length ? rows.map((iv) => {
-          const here = iv.recurring_id === r.id, other = iv.recurring_id && !here;
-          return `<button type="button" class="mc-alloc-row${other ? " is-other" : ""}" data-iv="${esc(iv.id)}">
-            <span class="n"><b>${esc(iv.number || "—")}</b> ${esc(iv.bill_to_name || "")}<small>${esc([iv.line, dd(iv.issued_date)].filter(Boolean).join(" · "))}</small></span>
-            <span class="a">${gbp(iv.total_pence)}<small>${iv.status === "paid" ? "Paid" : "Sent"}${here ? " · already here" : other ? " · allocated elsewhere" : ""}</small></span>
-          </button>`;
-        }).join("") : `<p class="inv-intro">No invoices match.</p>`;
-        $("mc-alloc-list").querySelectorAll("[data-iv]").forEach((b) => b.addEventListener("click", async () => {
-          const iv = list.find((x) => x.id === b.dataset.iv);
-          if (iv.recurring_id && iv.recurring_id !== r.id && !confirm(`${iv.number} is already allocated to another recurring invoice. Move it to ${r.client}, ${monthName}?`)) return;
+        const rows = list.filter((iv) => !q || [iv.number, iv.bill_to_name, iv.client_name, iv.line, iv.bill_to_email, (iv.total_pence / 100).toFixed(2)].join(" ").toLowerCase().includes(q)).slice(0, 80);
+        $("ra-list").innerHTML = rows.map((iv) => `<button type="button" data-raiv="${esc(iv.id)}"><span>${esc(iv.number || "—")} ${esc(iv.bill_to_name || "")}<small>${esc([iv.line, iv.issued_date ? day(iv.issued_date) : ""].filter(Boolean).join(" · "))}</small></span><span style="text-align:right">${gb(iv.total_pence || 0)}<small>${iv.status === "paid" ? "Paid" : "Sent"}${iv.recurring_id && iv.recurring_id !== rec ? ", allocated elsewhere" : ""}</small></span></button>`).join("") || '<p class="state">No invoices match.</p>';
+        $("ra-list").querySelectorAll("[data-raiv]").forEach((b) => b.addEventListener("click", async () => {
+          const iv = list.find((x) => x.id === b.dataset.raiv);
+          if (iv.recurring_id && iv.recurring_id !== rec && !confirm(`${iv.number} is already allocated to another regular invoice. Move it to ${r.client}, ${ymLabel(m)}?`)) return;
           b.disabled = true;
-          try { await api("/invoicing/allocate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: iv.id, recurring_id: r.id, month: ym }) }); host.hidden = true; loadMonthly(); }
-          catch (err) { msg("mc-alloc-msg", err.message, false); b.disabled = false; }
+          try { await postJson("/invoicing/allocate", { invoice_id: iv.id, recurring_id: rec, month: m }); closePop(); toast("Allocated."); loadMonthly(); }
+          catch (err) { $("ra-msg").textContent = err.message; $("ra-msg").hidden = false; b.disabled = false; }
         }));
       };
-      draw("");
-      $("mc-alloc-q").addEventListener("input", (e) => draw(e.target.value.trim().toLowerCase()));
-      $("mc-alloc-q").focus();
+      draw(""); $("ra-q").addEventListener("input", (e) => draw(e.target.value.trim().toLowerCase())); $("ra-q").focus();
     }
-    // Editing a recurring invoice: back into the form, saved in place.
-    let mcEditing = null;
-    function mcEdit(r) {
-      if (!r) return;
-      const f = $("mc-form");
-      mcEditing = r.id;
-      f.name.value = r.client; f.contact_name.value = r.contact || ""; f.match_email.value = r.match_email || "";
-      f.amount.value = r.amount_pence != null ? (r.amount_pence / 100).toFixed(2) : ""; f.match_text.value = r.match_text || ""; f.start_month.value = r.start_month || "";
-      const a = r.auto || {};
-      f.auto_send.checked = !!a.auto_send; f.day_of_month.value = a.day_of_month ?? ""; f.frequency.value = a.frequency || "monthly"; f.end_month.value = a.end_month || "";
-      f.bill_to_name.value = a.bill_to_name || ""; f.bill_to_email.value = a.bill_to_email || ""; f.cc_email.value = a.cc_email || ""; f.bill_to_address.value = a.bill_to_address || "";
-      f.line.value = a.line || ""; f.terms_days.value = a.terms_days ?? "";
-      $("mc-form-h").textContent = "Edit a recurring invoice"; $("mc-form-btn").textContent = "Save changes"; $("mc-form-cancel").hidden = false;
-      f.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-    function mcEditDone() { mcEditing = null; $("mc-form").reset(); $("mc-form-h").textContent = "Add a recurring invoice"; $("mc-form-btn").textContent = "Add to the checklist"; $("mc-form-cancel").hidden = true; }
-    $("mc-form-cancel").addEventListener("click", mcEditDone);
-    $("mc-prev").addEventListener("click", () => { mcFrom = [MC_FIRST, ymAdd(mcFrom, -6)].sort()[1]; loadMonthly(); });
-    $("mc-next").addEventListener("click", () => { mcFrom = ymAdd(mcFrom, 6); loadMonthly(); });
-    $("mc-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const f = new FormData(e.target);
-      const amt = String(f.get("amount") || "").trim();
-      try {
-        const was = mcEditing;
-        await api("/invoicing/recurring", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-          id: mcEditing || undefined, name: f.get("name"), contact_name: f.get("contact_name"), match_email: f.get("match_email"), match_text: f.get("match_text"),
-          amount_pence: amt ? Math.round(Number(amt) * 100) : null, start_month: f.get("start_month") || null,
-          auto: { auto_send: !!f.get("auto_send"), day_of_month: f.get("day_of_month"), frequency: f.get("frequency"), end_month: f.get("end_month"),
-            bill_to_name: f.get("bill_to_name"), bill_to_email: f.get("bill_to_email"), cc_email: f.get("cc_email"), bill_to_address: f.get("bill_to_address"),
-            line: f.get("line"), terms_days: f.get("terms_days") },
-        }) });
-        mcEditDone(); msg("mc-form-msg", was ? "Saved." : "Added.", true); loadMonthly(); loadRecurringOptions();
-      } catch (err) { msg("mc-form-msg", err.message, false); }
+    // Clicks on the panel.
+    document.querySelector('.inv-panel[data-panel="monthly"]').addEventListener("click", (e) => {
+      const t = (s) => e.target.closest(s);
+      let b;
+      if ((b = t("[data-ritab]"))) { RI.tab = b.dataset.ritab; RI.show = "all"; riDraw(); return; }
+      if ((b = t("[data-rishow]"))) { RI.show = b.dataset.rishow; riDraw(); return; }
+      if ((b = t("[data-riraise]"))) { e.stopPropagation(); riRaise(riFind(b.dataset.riraise)); return; }
+      if ((b = t("[data-risend]"))) {
+        e.stopPropagation(); const r = riFind(b.dataset.risend), c = r && riCell(r, RI.m);
+        if (c && c.inv) fullInvoice(c.inv.id).then(riReview).catch((err) => toast(err.message)); else if (r && riRecId(r)) riRaise(r);
+        return;
+      }
+      if ((b = t("[data-rialloc]"))) { e.stopPropagation(); riAlloc(riFind(b.dataset.rialloc)); return; }
+      if ((b = t("[data-riview]"))) { e.stopPropagation(); riView(b.dataset.riview); return; }
+      if ((b = t("[data-rinote]"))) { e.stopPropagation(); riRowPop(riFind(b.dataset.rinote)); return; }
+      if (t("#ri-add")) { riEdit(null); return; }
+      if ((b = t("[data-rishoot]"))) { location.href = `/admin/videography?booking=${encodeURIComponent(b.dataset.rishoot)}`; return; }
+      if ((b = t("[data-rirow]"))) { riRowPop(riFind(b.dataset.rirow)); return; }
     });
+    $("ri-prev").addEventListener("click", () => { if (RI.m > MC_FIRST) { RI.m = ymAdd(RI.m, -1); loadMonthly(); } });
+    $("ri-next").addEventListener("click", () => { if (RI.m < nowYm) { RI.m = ymAdd(RI.m, 1); loadMonthly(); } });
+    $("ri-q").addEventListener("input", (e) => { RI.q = e.target.value.trim().toLowerCase(); riDraw(); });
 
     /* ---- Approvals (automatic invoicing) ---- */
     const AP_STATUS = { pending: "Waiting", approved: "Approved", rejected: "Rejected", superseded: "Replaced" };
@@ -1803,7 +1864,7 @@ import "../../styles/money-os.css";
       }
       if ((b = t.closest("[data-send]"))) {
         b.disabled = true;
-        try { const inv = await fullInvoice(b.dataset.send); closePop(); openEmailModal(inv, false); }
+        try { const inv = await fullInvoice(b.dataset.send); riReview(inv); }
         catch (err) { b.disabled = false; toast(err.message); }
         return;
       }

@@ -1,0 +1,418 @@
+<title>Regular Invoices Rebuild</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@400;500;600&family=Fraunces:opsz,wght@9..144,300&display=swap">
+<style>
+/* Layout: the money pages' look (src/styles/money-os.css), one linen head, three underline tabs below it. Light only, as the live money pages are. */
+:root { --sans: "Darker Grotesque", Inter, system-ui, sans-serif; --serif: "Fraunces", Georgia, serif; --wine: #371e28; --taupe: #7e6765; --stone: #c9bcb7; --linen: #eae5e1; --edge: #e2d9d4; --ink: #2b2226; --tx: #7e6765; --bad: #8a3f3f; --bad-l: #f9f0f0; --good: #3f7a56; --good-l: #edf4ef; color-scheme: light; }
+body { background: #fff; color: var(--ink); }
+.page { max-width: 1120px; margin: 0 auto; padding-block: 24px 60px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.mock-note { margin: 0 0 10px; font: 400 14px/1.35 var(--sans); color: var(--tx); }
+
+.mo { font-family: var(--sans); font-size: 14px; font-weight: 400; line-height: 1.35; color: var(--ink); font-variant-numeric: lining-nums; }
+.mo *, .mo *::before { box-sizing: border-box; }
+.mo button, .mo input, .mo select { font: inherit; color: inherit; }
+.mo input, .mo select { background: #fff; color: var(--ink); }
+.mo button:focus-visible, .mo input:focus-visible, .mo select:focus-visible, .mo a:focus-visible { outline: 2px solid var(--wine); outline-offset: 2px; }
+
+.mo-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; margin: 0 0 14px; padding: 24px 22px; background: var(--linen); border-radius: 4px; }
+.mo-head > div:first-child { flex: 1 1 420px; min-width: 0; }
+.mo-eye { margin: 0 0 8px; font-size: 11px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; color: var(--tx); }
+.mo-title { margin: 0; font-family: var(--serif); font-weight: 300; font-size: 30px; line-height: 1.05; letter-spacing: -0.05em; }
+.mo-sub { margin: 10px 0 0; color: var(--tx); max-width: 75%; min-height: calc(2 * 1.35em); }
+.mo-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.tabs { display: flex; gap: 26px; margin: 0 0 20px; overflow-x: auto; scrollbar-width: none; box-shadow: inset 0 -1px 0 var(--linen); }
+.tabs button { flex: none; height: 34px; padding: 0; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--tx); cursor: pointer; }
+.tabs button.on { color: var(--wine); border-bottom-color: var(--wine); }
+
+.mbtn { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 14px; border-radius: 4px; border: 1px solid var(--edge); background: #fff; color: var(--ink); cursor: pointer; font-size: 11px !important; font-weight: 600 !important; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; text-decoration: none; }
+.mbtn:hover { border-color: var(--wine); color: var(--wine); }
+.mbtn.primary { background: var(--wine); border-color: var(--wine); color: #fff; }
+.mbtn.primary:hover { background: #2a1620; color: #fff; }
+.mbtn.danger:hover { border-color: var(--bad); color: var(--bad); }
+
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 16px; }
+.find { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; flex: 0 1 280px; min-width: 0; }
+.find svg { width: 15px; height: 15px; color: var(--tx); flex: none; }
+.find input { height: 28px; padding: 0; border: 0; outline: 0; background: none; width: 100%; min-width: 0; }
+.find:focus-within { border-color: var(--wine); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; cursor: pointer; }
+.chips button:hover { border-color: var(--wine); }
+.chips button[aria-pressed="true"] { background: var(--wine); border-color: var(--wine); color: #fff; }
+.chips i { font-style: normal; color: var(--tx); }
+.chips button[aria-pressed="true"] i { color: rgba(255,255,255,.7); }
+
+.figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; margin: 0 0 26px; }
+.fig { display: grid; gap: 4px; padding: 16px 18px 14px; border-radius: 4px; }
+.fig b { font-weight: 400; font-size: 28px; line-height: 1.1; letter-spacing: -0.01em; font-variant-numeric: lining-nums tabular-nums; }
+.fig.lin { background: var(--linen); color: var(--wine); }
+.fig.lin span { color: var(--tx); }
+.fig.dark { background: var(--wine); color: #fff; }
+.fig.dark span { color: rgba(255,255,255,.8); }
+
+.section { display: grid; gap: 10px; }
+.strip { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 30px; padding: 0 14px; background: var(--wine); border-radius: 4px; }
+.strip-t { font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: #fff; }
+.strip .aside { color: rgba(255,255,255,.75); }
+
+.tablewrap { overflow-x: auto; padding-bottom: 10px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: lining-nums tabular-nums; }
+th, td { padding: 0 12px; height: 42px; border-bottom: 1px solid var(--linen); text-align: left; font-weight: 400; font-size: 14px; white-space: nowrap; }
+thead th { color: var(--tx); border-top: 1px solid var(--stone); border-bottom: 1px solid var(--stone); }
+tbody tr:last-child td { border-bottom: 1px solid var(--stone); }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover td { background: #f7f4f2; }
+.num { text-align: right; }
+td.tx { color: var(--tx); }
+.chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 4px; white-space: nowrap; }
+.chip.good { background: var(--good-l); color: var(--good); }
+.chip.bad { background: var(--bad-l); color: var(--bad); }
+.chip.wait { background: var(--stone); color: var(--wine); }
+.chip.plain { background: var(--linen); color: var(--wine); }
+.empty { padding: 26px; border: 1px dashed var(--stone); border-radius: 4px; color: var(--tx); text-align: center; }
+.charts { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px; margin: 0 0 26px; }
+.charts .section { grid-template-rows: auto 1fr; min-width: 0; }
+.chart { display: flex; flex-direction: column; justify-content: center; gap: 12px; min-width: 0; border: 1px solid var(--edge); border-radius: 4px; padding: 14px 16px 10px; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart text { font-family: var(--sans); font-size: 13px; fill: var(--tx); }
+.chart text.v { fill: var(--ink); }
+.bar-hit { cursor: pointer; }
+.chart-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; }
+.mnav { display: inline-flex; align-items: center; gap: 8px; }
+.mnav button { width: 30px; height: 30px; padding: 0; border: 1px solid var(--edge); border-radius: 4px; background: #fff; color: var(--wine); cursor: pointer; }
+.mnav button:disabled { opacity: .35; cursor: default; }
+.mnav span { min-width: 110px; line-height: 30px; text-align: center; }
+.tog { display: inline-flex; border: 1px solid var(--edge); border-radius: 4px; overflow: hidden; margin-left: auto; }
+.tog button { height: 28px; padding: 0 14px; border: 0; background: #fff; color: var(--tx); cursor: pointer; }
+.tog button[aria-pressed="true"] { background: var(--wine); color: #fff; }
+.pie-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; }
+.pie-row .pie { flex: 0 0 180px; max-width: 100%; }
+.legend { flex: 1 1 190px; min-width: 0; display: grid; }
+.lg { display: grid; grid-template-columns: 10px minmax(0, 1fr) 24px 38px; gap: 8px; align-items: center; min-height: 28px; border-top: 1px solid var(--linen); font-variant-numeric: lining-nums tabular-nums; }
+.lg:first-child { border-top: 0; }
+.lg i { width: 10px; height: 10px; border-radius: 2px; }
+.lg span:nth-child(2) { overflow-wrap: anywhere; }
+.lg .tx { color: var(--tx); }
+.mail-wrap { max-width: 600px; margin: 0 auto; display: grid; gap: 10px; }
+.mail-subject { padding: 10px 14px; background: var(--linen); border-radius: 4px; overflow-wrap: anywhere; }
+.mail-subject span { color: var(--tx); margin-right: 8px; }
+.mail { padding: 32px 36px; border: 1px solid var(--edge); border-radius: 4px; font-family: Verdana, Geneva, sans-serif; font-size: 13px; line-height: 1.6; color: var(--ink); }
+.mail-mark { font-weight: 700; letter-spacing: .18em; color: var(--wine); margin-bottom: 24px; }
+.mail h1 { margin: 0 0 18px; font: 400 26px/1.2 Verdana, Geneva, sans-serif; color: var(--wine); }
+.mail p { margin: 0 0 14px; }
+.mail-btn { display: inline-block; margin: 6px 0 22px; padding: 11px 22px; background: var(--wine); color: #fff; border-radius: 4px; }
+.tip { position: fixed; z-index: 270; padding: 6px 10px; border-radius: 4px; background: var(--wine); color: #fff; pointer-events: none; white-space: nowrap; }
+@media (max-width: 820px) { .charts { grid-template-columns: minmax(0, 1fr); } }
+
+.scrim { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(55,30,40,.45); }
+.pop { width: min(620px, 100%); height: 620px; max-height: 100%; display: flex; flex-direction: column; background: #fff; border-radius: 4px; overflow: hidden; box-shadow: 0 24px 60px -20px rgba(55,30,40,.6); }
+.pop-h { display: flex; justify-content: space-between; gap: 12px; padding: 18px 20px; background: var(--linen); }
+.pop-h .x { width: 30px; height: 30px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; cursor: pointer; flex: none; }
+.pop-title { margin: 4px 0 8px; font-family: var(--serif); font-weight: 300; font-size: 24px; letter-spacing: -0.04em; }
+.pop-b { flex: 1; overflow: auto; padding: 16px 20px; display: grid; gap: 16px; align-content: start; }
+.pop-f { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--linen); }
+.pop-b p { margin: 0; color: var(--tx); }
+.rows { margin: 0; }
+.rows > div { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 42px; border-top: 1px solid var(--linen); }
+.rows dt { color: var(--tx); }
+.rows dd { margin: 0; overflow-wrap: anywhere; }
+.field { display: grid; gap: 6px; }
+.field span { color: var(--tx); }
+.field input, .field select { width: 100%; height: 36px; border: 1px solid var(--stone); border-radius: 4px; padding: 0 10px; }
+.err { color: var(--bad) !important; }
+.toast { position: fixed; left: 50%; bottom: 24px; z-index: 280; transform: translateX(-50%); max-width: 90vw; background: var(--wine); color: #fff; padding: 8px 14px; border-radius: 4px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.on { opacity: 1; }
+@media (max-width: 640px) { .mo-head { padding: 18px 16px; } .mo-sub { max-width: none; } }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+
+<style>
+/* Regular invoices: one month at a time, three tabs, a six-month trail per row instead of the old 12-column grid. */
+.hist { display: inline-flex; gap: 4px; vertical-align: middle; }
+.hist i { width: 12px; height: 12px; border-radius: 2px; background: var(--linen); border: 1px solid transparent; }
+.hist i.paid { background: var(--wine); }
+.hist i.sent { background: var(--stone); }
+.hist i.draft { background: #fff; border: 1px dashed var(--taupe); }
+.hist i.miss { background: var(--bad-l); border-color: var(--bad); }
+.hist i.skip { background: #fff; border-color: var(--edge); }
+.hist i.cur { outline: 1px solid var(--wine); outline-offset: 2px; }
+.key { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; color: var(--tx); }
+.key span { display: inline-flex; align-items: center; gap: 6px; }
+.key .hist i { width: 10px; height: 10px; }
+.sbtn { height: 26px; padding: 0 10px; border-radius: 4px; border: 1px solid var(--edge); background: #fff; color: var(--ink); cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.sbtn:hover { border-color: var(--wine); color: var(--wine); }
+.sbtn.go { background: var(--wine); border-color: var(--wine); color: #fff; }
+.acts { display: flex; gap: 6px; justify-content: flex-end; }
+td small { display: block; color: var(--tx); font-size: 14px; line-height: 1.2; }
+td.two { height: 54px; }
+.ic { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--edge); border-radius: 4px; background: #fff; color: var(--tx); cursor: pointer; }
+.ic.has { color: var(--wine); border-color: var(--wine); }
+.ic svg { width: 14px; height: 14px; }
+.pop.wide { width: min(860px, 100%); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.field textarea { width: 100%; border: 1px solid var(--stone); border-radius: 4px; padding: 8px 10px; font: inherit; resize: vertical; }
+.sub-h { margin: 6px 0 0; font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--wine); }
+.check { display: flex; align-items: center; gap: 8px; }
+.check input { width: 16px; height: 16px; accent-color: var(--wine); }
+.mail .portal { display: inline-block; margin: 6px 0 16px; padding: 11px 22px; background: var(--wine); color: #fff; border-radius: 4px; }
+.mailtx { white-space: pre-wrap; }
+.hint { color: var(--tx); }
+.mo-acts .mbtn[hidden] { display: none; }
+@media (max-width: 640px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="page">
+  <p class="mock-note">Mock-up. Clients and amounts are from your invoicing sheet; what's sent and paid is made up.</p>
+  <div class="mo" id="ri">
+    <section class="mo-head">
+      <div>
+        <p class="mo-eye">Money</p>
+        <div class="mo-title">Regular invoices</div>
+        <p class="mo-sub" id="sub"></p>
+      </div>
+      <div class="mo-acts">
+        <button type="button" class="mbtn" data-toast="Back to the month on Invoicing.">Back to invoicing</button>
+        <button type="button" class="mbtn" data-toast="Opens Automatic invoicing: the mode, the 8am jobs and what's waiting to be approved.">Automatic invoicing</button>
+        <button type="button" class="mbtn primary" id="add" hidden>Add a regular invoice</button>
+      </div>
+    </section>
+    <nav class="tabs" role="tablist" aria-label="Kind of invoice">
+      <button type="button" role="tab" data-tab="social">Social media</button>
+      <button type="button" role="tab" data-tab="video">Videography</button>
+      <button type="button" role="tab" data-tab="recurring">Recurring</button>
+    </nav>
+    <div class="bar">
+      <div class="mnav"><button type="button" id="prev" aria-label="Earlier month">‹</button><span id="month"></span><button type="button" id="next" aria-label="Later month">›</button></div>
+      <label class="find"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="q" placeholder="Client or invoice number" aria-label="Client or invoice number"></label>
+      <div class="chips" id="chips" role="group" aria-label="Show"></div>
+    </div>
+    <div class="figs" id="figs"></div>
+    <div class="section">
+      <div class="strip"><div class="strip-t" id="strip-t"></div><span class="aside" id="strip-a"></span></div>
+      <div class="tablewrap"><table id="tbl"></table></div>
+      <div class="key" id="key"></div>
+    </div>
+  </div>
+  <div id="popwrap"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const gbp = (p) => "£" + (p / 100).toLocaleString("en-GB", { minimumFractionDigits: p % 100 ? 2 : 0, maximumFractionDigits: 2 });
+const MONTHS = ["2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11"];
+const TODAY = "2026-11-10", NOW = "2026-11";
+const mLong = (m) => new Date(m + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+const mShort = (m) => new Date(m + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "short" });
+const day = (d) => d ? new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—";
+let toastT;
+function toast(m) { const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2800); }
+const NOTE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>';
+
+// h: Jun..Nov. p paid, s sent, d draft, m missing (due, not raised), x no invoice that month, n not due yet.
+let num = 1088;
+const inv = () => "TMKE" + (num++);
+const SOCIAL = [
+  { id: "s1", client: "Terry Robinson", payer: "Fine & Country (Midlands)", brand: true, amt: 84500, h: "pppppd", tick: true },
+  { id: "s2", client: "Miranda Menzies", payer: "The Property Experts", brand: true, amt: 51700, h: "ppppps", tick: true },
+  { id: "s3", client: "Henry James", payer: "Henry James", amt: 7900, h: "ppppps", tick: true, note: "Newsletter only" },
+  { id: "s4", client: "Sean Coleman", payer: "EB Mortgage Services Ltd", amt: 40000, h: "pppppm", tick: false },
+  { id: "s5", client: "Nathaniel Cleaver", payer: "Nathaniel Cleaver", amt: 19900, h: "nnppss", tick: true },
+  { id: "s6", client: "Ian Anthony", payer: "Ian Anthony", amt: 49900, h: "pppxpm", tick: false, note: "No invoice in September, agreed with Ian" },
+  { id: "s7", client: "The Southam Property Experts", payer: "The Southam Property Experts", amt: 59900, h: "ppppsp", tick: true },
+  { id: "s8", client: "The Gavel Drops", payer: "The Auction Company", brand: true, amt: 52500, h: "nnnppm", tick: false },
+];
+const RECUR = [
+  { id: "r1", client: "The Property Experts: marketing hub", payer: "The Property Experts INTL Ltd", brand: true, unit: 2500, qtyLabel: "Number of agents", qty: { "2026-08": 14, "2026-09": 15 }, day: 15, auto: false, h: "nnppmn", line: "TPE Marketing Hub - Month YYYY - £25 x {qty} agents", to: "accountspayable@newman.uk.com", cc: "paula@newman.uk.com, Rosie-Anne@newman.uk.com, jim@thepropertyexperts.co.uk" },
+  { id: "r2", client: "Prestige Property Experts: agent assets", payer: "Prestige Property Experts", brand: true, amt: 15000, day: 5, auto: true, h: "pppppd", line: "PPE Monthly Agent Assets — Month YYYY", to: "accountspayable@newman.uk.com", cc: "paula@newman.uk.com, Rosie-Anne@newman.uk.com, jim@thepropertyexperts.co.uk" },
+  { id: "r3", client: "The Letting Experts: agent assets", payer: "The Letting Experts (Nationwide) Ltd", brand: true, amt: 30000, day: 5, auto: true, h: "ppppsm", line: "TLE Monthly Agent Assets — Month YYYY", to: "accountspayable@newman.uk.com", cc: "paula@newman.uk.com, Rosie-Anne@newman.uk.com, susan@thelettingexperts.co.uk" },
+];
+[...SOCIAL, ...RECUR].forEach((r) => { r.inv = {}; [...r.h].forEach((c, i) => { if ("psd".includes(c)) r.inv[MONTHS[i]] = { n: inv(), st: c, sent: MONTHS[i] + "-05" }; }); });
+const SHOOTS = [
+  { d: "2026-10-22", client: "Charlotte Hayes", co: "The Property Experts Rugby", svc: "New starter: Pro", amt: 39500, by: "2026-10-20", st: "owed", n: "TMKE1071", brand: true },
+  { d: "2026-10-29", client: "Marcus Bell", co: "Fine & Country Stratford", svc: "Property film", amt: 45000, by: "2026-10-27", st: "paid", n: "TMKE1076", brand: true },
+  { d: "2026-11-04", client: "Priya Shah", co: "The Letting Experts Leamington", svc: "Shot & Scheduled", amt: 29500, by: "2026-11-02", st: "sent", n: "TMKE1084" },
+  { d: "2026-11-12", client: "Tom Archer", co: "Archer Homes", svc: "Property film", amt: 45000, by: "2026-11-10", st: "draft", n: "TMKE1095" },
+  { d: "2026-11-13", client: "Ellie Ward", co: "The Property Experts Banbury", svc: "New starter: Academy", amt: 29500, by: "2026-11-11", st: "due" },
+  { d: "2026-11-19", client: "Sam Okafor", co: "Okafor Estates", svc: "Event coverage", amt: 65000, by: "2026-11-17", st: "due" },
+  { d: "2026-11-24", client: "Grace Linton", co: "Social media package", svc: "Content day", amt: 0, by: null, st: "package" },
+];
+
+const TABS = {
+  social: { sub: "Every active social media client, one month at a time. They go out on the 5th once Abbie has ticked them on Social media, or raise one here.", strip: "Social media clients" },
+  video: { sub: "The month's shoots, and any earlier one still not invoiced or paid. A shoot is invoiced two days before it happens; Jack approves it.", strip: "Shoots" },
+  recurring: { sub: "The brands' regular invoices: agent assets and the TPE Marketing Hub. Each is made from its own setup, so it goes with the right email and onto the accounts portal.", strip: "Recurring invoices" },
+};
+const S = { tab: "social", m: "2026-10", show: "all", q: "" };
+
+function cellOf(r, m) {
+  const i = MONTHS.indexOf(m), c = r.h[i];
+  const v = r.inv[m];
+  if (c === "p") return { k: "paid", label: "Paid", chip: "good", v };
+  if (c === "s") return { k: "sent", label: "Sent", chip: "plain", v };
+  if (c === "d") return { k: "draft", label: "Draft", chip: "wait", v };
+  if (c === "x") return { k: "skip", label: "No invoice", chip: "plain" };
+  if (c === "n") return { k: "na", label: "Not due", chip: "plain" };
+  // Due and not raised: late once its day has passed.
+  const dayN = r.day || 5, late = m < NOW || Number(TODAY.slice(8)) > dayN;
+  return { k: "miss", label: late ? "To raise, late" : `Goes on the ${dayN}${dayN === 15 ? "th" : "th"}`, chip: late ? "bad" : "wait" };
+}
+const hist = (r) => `<span class="hist">${MONTHS.map((m) => { const c = cellOf(r, m); const k = c.k === "na" ? "" : c.k; return `<i class="${k}${m === S.m ? " cur" : ""}" title="${esc(mLong(m))}: ${esc(c.label)}${c.v ? " (" + c.v.n + ")" : ""}"></i>`; }).join("")}</span>`;
+const amtOf = (r, m) => r.qtyLabel ? (r.qty[m] != null ? r.unit * r.qty[m] : null) : r.amt;
+
+function draw() {
+  document.querySelectorAll(".tabs button").forEach((b) => { b.classList.toggle("on", b.dataset.tab === S.tab); b.setAttribute("aria-selected", b.dataset.tab === S.tab); });
+  $("sub").textContent = TABS[S.tab].sub;
+  $("add").hidden = S.tab !== "recurring";
+  $("month").textContent = mLong(S.m);
+  $("prev").disabled = S.m === MONTHS[0]; $("next").disabled = S.m === MONTHS[MONTHS.length - 1];
+  $("strip-t").textContent = TABS[S.tab].strip;
+  if (S.tab === "video") return drawVideo();
+  const list = (S.tab === "social" ? SOCIAL : RECUR);
+  const rows = list.map((r) => ({ r, c: cellOf(r, S.m) })).filter((x) => x.c.k !== "na" || S.tab === "recurring");
+  const due = rows.filter((x) => !["na", "skip"].includes(x.c.k));
+  const sent = due.filter((x) => ["sent", "paid"].includes(x.c.k)), paid = due.filter((x) => x.c.k === "paid"), toRaise = due.filter((x) => ["miss", "draft"].includes(x.c.k));
+  const sum = (a) => a.reduce((t, x) => t + (amtOf(x.r, S.m) || 0), 0);
+  $("figs").innerHTML = [["lin", due.length, "Due this month"], ["lin", sent.length, "Sent"], ["lin", paid.length, "Paid"], ["lin", toRaise.length, "Still to send"], ["dark", gbp(sum(sent.filter((x) => x.c.k !== "paid"))), "Waiting on payment, net"]]
+    .map(([k, b, s]) => `<div class="fig ${k}"><b>${b}</b><span>${s}</span></div>`).join("");
+  const CH = [["all", "All", rows.length], ["send", "Still to send", toRaise.length], ["owed", "Waiting on payment", sent.length - paid.length], ["paid", "Paid", paid.length]];
+  $("chips").innerHTML = CH.map(([k, l, n]) => `<button type="button" data-show="${k}" aria-pressed="${S.show === k}">${l} <i>${n}</i></button>`).join("");
+  const shown = rows.filter((x) => (S.show === "all" || (S.show === "send" && ["miss", "draft"].includes(x.c.k)) || (S.show === "owed" && x.c.k === "sent") || (S.show === "paid" && x.c.k === "paid"))
+    && (!S.q || (x.r.client + " " + x.r.payer + " " + (x.c.v ? x.c.v.n : "")).toLowerCase().includes(S.q)));
+  $("strip-a").textContent = `${shown.length} of ${rows.length}`;
+  const act = (r, c) => c.k === "miss" ? `<button type="button" class="sbtn go" data-raise="${r.id}">Raise</button><button type="button" class="sbtn" data-alloc="${r.id}">Allocate</button>`
+    : c.k === "draft" ? `<button type="button" class="sbtn go" data-raise="${r.id}">Send</button>`
+    : c.k === "sent" ? `<button type="button" class="sbtn" data-view="${r.id}">View</button>` : c.k === "paid" ? `<button type="button" class="sbtn" data-view="${r.id}">View</button>` : "";
+  const head = S.tab === "social"
+    ? `<thead><tr><th>Client</th><th>Who pays</th><th class="num">Monthly, net</th><th>Ticked by Abbie</th><th>Invoice</th><th>Status</th><th>Last six months</th><th></th></tr></thead>`
+    : `<thead><tr><th>Invoice</th><th>Who pays</th><th>Goes out</th><th class="num">Amount, net</th><th>Invoice</th><th>Status</th><th>Last six months</th><th></th></tr></thead>`;
+  const body = shown.map(({ r, c }) => {
+    const a = amtOf(r, S.m);
+    const amount = r.qtyLabel ? (a != null ? `${gbp(a)}<small>${gbp(r.unit)} × ${r.qty[S.m]} agents</small>` : `—<small>${gbp(r.unit)} per agent</small>`) : gbp(r.amt);
+    const third = S.tab === "social" ? `<td>${S.m === NOW ? (r.tick ? '<span class="chip good">Ticked</span>' : '<span class="chip wait">Not yet</span>') : '<span class="tx">—</span>'}</td>`
+      : `<td class="two">${r.auto ? `The ${r.day}th, by itself` : `The ${r.day}th, by hand`}<small>${r.qtyLabel ? "Needs the month's agents" : r.auto ? "Automatic" : "Raise it here"}</small></td>`;
+    return `<tr class="click" data-row="${r.id}"><td class="two">${esc(r.client)}${r.note ? `<small>${esc(r.note)}</small>` : ""}</td><td class="tx">${esc(r.payer)}${r.brand ? '<small>Inter-brand, on the portal</small>' : ""}</td>${S.tab === "social" ? `<td class="num">${gbp(r.amt)}</td>${third}` : `${third}<td class="num two">${amount}</td>`}<td class="tx">${c.v ? esc(c.v.n) : "—"}</td><td><span class="chip ${c.chip}">${esc(c.label)}</span></td><td>${hist(r)}</td><td><div class="acts">${act(r, c)}<button type="button" class="ic${r.note ? " has" : ""}" data-note="${r.id}" aria-label="Note" title="${r.note ? "There's a note" : "Add a note"}">${NOTE}</button></div></td></tr>`;
+  }).join("");
+  $("tbl").innerHTML = head + `<tbody>${body || `<tr><td colspan="8" class="tx">Nothing here for ${esc(mLong(S.m))}.</td></tr>`}</tbody>`;
+  $("key").innerHTML = `<span><span class="hist"><i class="paid"></i></span>Paid</span><span><span class="hist"><i class="sent"></i></span>Sent</span><span><span class="hist"><i class="draft"></i></span>Draft</span><span><span class="hist"><i class="miss"></i></span>Due, not sent</span><span><span class="hist"><i class="skip"></i></span>No invoice that month</span><span><span class="hist"><i></i></span>Not due</span>`;
+}
+
+function drawVideo() {
+  const inM = SHOOTS.filter((x) => x.d.slice(0, 7) === S.m || (x.d.slice(0, 7) < S.m && ["owed", "due"].includes(x.st)));
+  const VS = { paid: ["good", "Paid"], sent: ["plain", "Sent"], owed: ["bad", "Sent, payment overdue"], draft: ["wait", "Draft, with Jack"], due: ["wait", "Not due yet"], package: ["plain", "Covered by social package"] };
+  const late = inM.filter((x) => x.st === "due" && x.by && x.by < TODAY);
+  $("figs").innerHTML = [["lin", inM.length, "Shoots"], ["lin", inM.filter((x) => ["sent", "owed", "paid"].includes(x.st)).length, "Invoiced"], ["lin", inM.filter((x) => x.st === "paid").length, "Paid"], ["lin", late.length + inM.filter((x) => x.st === "owed").length, "Late or overdue"], ["dark", gbp(inM.filter((x) => ["sent", "owed"].includes(x.st)).reduce((t, x) => t + x.amt, 0)), "Waiting on payment, net"]]
+    .map(([k, b, s]) => `<div class="fig ${k}"><b>${b}</b><span>${s}</span></div>`).join("");
+  $("chips").innerHTML = "";
+  const shown = inM.filter((x) => !S.q || (x.client + " " + x.co + " " + (x.n || "")).toLowerCase().includes(S.q));
+  $("strip-a").textContent = `${shown.length} shoot${shown.length === 1 ? "" : "s"}`;
+  $("tbl").innerHTML = `<thead><tr><th>Shoot</th><th>Client</th><th>Service</th><th class="num">Net</th><th>Invoice by</th><th>Invoice</th><th>Status</th></tr></thead><tbody>${shown.map((x) => {
+    const [c, l] = x.st === "due" && x.by && x.by < TODAY ? ["bad", "Late: not sent"] : VS[x.st];
+    return `<tr class="click" data-shoot="1"><td>${esc(day(x.d))}</td><td class="two">${esc(x.client)}<small>${esc(x.co)}${x.brand ? ", billed to the brand" : ""}</small></td><td class="tx">${esc(x.svc)}</td><td class="num">${x.amt ? gbp(x.amt) : "—"}</td><td class="tx">${esc(day(x.by))}</td><td class="tx">${esc(x.n || "—")}</td><td><span class="chip ${c}">${esc(l)}</span></td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="tx">No shoots in ${esc(mLong(S.m))}.</td></tr>`}</tbody>`;
+  $("key").innerHTML = `<span>Click a shoot to open it in Videography, where its invoice is raised and sent.</span>`;
+}
+
+/* ---- Pop-outs ---- */
+function pop(eye, title, body, foot, wide) {
+  $("popwrap").innerHTML = `<div class="scrim" id="scrim"><div class="pop${wide ? " wide" : ""}" role="dialog" aria-modal="true" aria-label="${esc(eye)}"><div class="pop-h"><div><p class="mo-eye" style="margin:0">${esc(eye)}</p><div class="pop-title">${title}</div></div><button type="button" class="x" data-close aria-label="Close">×</button></div><div class="pop-b">${body}</div><div class="pop-f">${foot}</div></div></div>`;
+}
+const close = () => { $("popwrap").innerHTML = ""; };
+const find = (id) => [...SOCIAL, ...RECUR].find((r) => r.id === id);
+
+function raise(r) {
+  const opts = MONTHS.filter((m) => m <= NOW && !["p", "s"].includes(r.h[MONTHS.indexOf(m)]));
+  const pick = opts.includes(S.m) ? S.m : opts[opts.length - 1];
+  pop("Raise an invoice", esc(r.client),
+    `<label class="field"><span>Which month it's for</span><select id="r-m">${opts.map((m) => `<option value="${m}"${m === pick ? " selected" : ""}>${esc(mLong(m))}</option>`).join("")}</select></label>
+     ${r.qtyLabel ? `<label class="field"><span>${esc(r.qtyLabel)}</span><input id="r-q" type="number" min="0" step="1" inputmode="numeric"></label>` : ""}
+     <dl class="rows"><div><dt>Billed to</dt><dd>${esc(r.payer)}</dd></div><div><dt>Sent to</dt><dd>${esc(r.to || "their accounts email")}</dd></div>${r.cc ? `<div><dt>Copied in</dt><dd>${esc(r.cc)}</dd></div>` : ""}<div><dt>Line</dt><dd id="r-line"></dd></div><div><dt>Net</dt><dd id="r-net"></dd></div></dl>
+     <p>Made from this invoice's own setup, the same as the automatic one. You'll see the email before anything goes.</p><p class="err" id="r-err" hidden></p>`,
+    `<button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" id="r-go">Raise and review the email</button>`);
+  const sync = () => {
+    const m = $("r-m").value, q = $("r-q");
+    const n = q ? Number(q.value || 0) : 1;
+    $("r-line").textContent = (r.line || r.client + " (Month YYYY)").replace("Month YYYY", mLong(m)).replace("{qty}", q ? (q.value || "…") : "");
+    $("r-net").textContent = r.qtyLabel ? `${gbp(r.unit * n)} (${gbp(r.unit)} × ${n})` : gbp(r.amt);
+  };
+  $("r-m").addEventListener("change", sync); if ($("r-q")) $("r-q").addEventListener("input", sync); sync();
+  $("r-go").addEventListener("click", () => {
+    const m = $("r-m").value, q = $("r-q");
+    if (q && q.value === "") { $("r-err").textContent = `Add the number of agents for ${mLong(m)}.`; $("r-err").hidden = false; return; }
+    if (q) r.qty[m] = Number(q.value);
+    review(r, m, inv());
+  });
+}
+
+function review(r, m, n) {
+  const a = amtOf(r, m) ?? r.amt, total = Math.round(a * 1.2);
+  const subj = r.qtyLabel ? `Invoice ${n}: TPE Marketing Hub for ${mLong(m)}.` : r.brand && S.tab === "recurring" ? `Invoice ${n}: monthly agent assets for ${r.payer}, ${mLong(m)}.` : `Invoice ${n}: social media management for ${r.client}, ${mLong(m)}.`;
+  const middle = r.qtyLabel ? `Please find attached invoice ${n} for the TPE Marketing Hub in ${mLong(m)}. It's charged at ${gbp(r.unit)} per agent, for ${r.qty[m]} agents.`
+    : S.tab === "recurring" ? `Please find attached invoice ${n} for ${r.payer}'s monthly agent assets for ${mLong(m)}.` : `Please find attached invoice ${n} for ${r.client}'s social media management in ${mLong(m)}. It's billed to ${r.payer}.`;
+  pop("Review the email", `Invoice ${n}`,
+    `<div class="grid2"><label class="field"><span>To</span><input value="${esc(r.to || "accounts@example.co.uk")}"></label><label class="field"><span>Copied in</span><input value="${esc(r.cc || "")}"></label></div>
+     <label class="field"><span>Subject</span><input value="${esc(subj)}"></label>
+     <p>${r.brand ? "Inter-brand: the email has the accounts portal button, where Paula presses Settled. The passcode is never in it." : "To the client: bank transfer, with the details on the invoice."} The PDF is attached.</p>
+     <div class="mail"><div class="mail-mark">TMKE</div><div class="mailtx">${esc(`${r.brand ? "Hi Paula," : "Hi " + r.client.split(" ")[0] + ","}\n\n${middle}\n\nAmount due: ${gbp(total)}\nDue date: 28 November 2026\n\n${r.brand ? `When the payment has been applied, please press Settled next to ${n} on the accounts portal, so it's recorded on our system straight away. It'll ask for the passcode we emailed you separately.` : `Please pay by bank transfer by 28 November 2026, using the account details on the invoice and quoting ${n} as the reference.`}`)}</div>${r.brand ? '<span class="portal">Open the accounts portal</span>' : ""}<div class="mailtx">${esc("If you have any questions, just reply to this email.\n\nKind regards,\nThe TMKE team")}</div></div>`,
+    `<button type="button" class="mbtn" data-close data-t="Kept as a draft. It shows as Draft until it's sent.">Keep as a draft</button><button type="button" class="mbtn" data-t="Opens the PDF.">View PDF</button><button type="button" class="mbtn primary" id="send">Send invoice</button>`, true);
+  $("send").addEventListener("click", () => {
+    const i = MONTHS.indexOf(m); r.h = r.h.slice(0, i) + "s" + r.h.slice(i + 1); r.inv[m] = { n, st: "s", sent: TODAY };
+    close(); draw(); toast(`${n} sent${r.brand ? ", and it's on the accounts portal" : ""}.`);
+  });
+}
+
+function rowPop(r) {
+  pop(S.tab === "social" ? "Social media client" : "Recurring invoice", esc(r.client),
+    `<dl class="rows">${MONTHS.slice().reverse().map((m) => { const c = cellOf(r, m); return `<div><dt>${esc(mLong(m))}</dt><dd><span class="chip ${c.chip}">${esc(c.label)}</span> ${c.v ? `<span class="hint">${esc(c.v.n)}, sent ${esc(day(c.v.sent))}</span>` : ""}</dd></div>`; }).join("")}</dl>
+     <label class="field"><span>Note for ${esc(mLong(S.m))}</span><textarea rows="3" placeholder="e.g. Not charged this month, agreed with Sean">${esc(r.note || "")}</textarea></label>
+     <label class="check"><input type="checkbox"> No invoice for ${esc(mLong(S.m))}, so it isn't flagged as missing</label>`,
+    `<button type="button" class="mbtn" data-close>Close</button>${S.tab === "recurring" ? `<button type="button" class="mbtn" data-edit="${r.id}">Edit</button><button type="button" class="mbtn danger" data-t="Taken off. Its invoices aren't touched.">Stop it</button>` : `<button type="button" class="mbtn" data-t="Opens their file on Social media.">Open their file</button>`}<button type="button" class="mbtn primary" data-close data-t="Saved.">Save</button>`);
+}
+
+function edit(r) {
+  r = r || {};
+  pop("Recurring invoice", r.id ? "Edit " + esc(r.client) : "Add a regular invoice",
+    `<div class="grid2"><label class="field"><span>Name</span><input value="${esc(r.client || "")}" placeholder="e.g. The Letting Experts: agent assets"></label><label class="field"><span>Billed to (company)</span><input value="${esc(r.payer || "")}"></label>
+     <label class="field"><span>Invoice email</span><input value="${esc(r.to || "")}" placeholder="accounts@…"></label><label class="field"><span>Copied in</span><input value="${esc(r.cc || "")}" placeholder="Separate with commas"></label></div>
+     <label class="field"><span>What goes on the invoice. Month YYYY becomes the month; {qty} the number.</span><input value="${esc(r.line || "")}"></label>
+     <div class="grid2"><label class="field"><span>Amount, net (£)</span><input type="number" value="${r.unit ? r.unit / 100 : r.amt ? r.amt / 100 : ""}"></label><label class="field"><span>A number each month (optional)</span><input value="${esc(r.qtyLabel || "")}" placeholder="e.g. Number of agents"></label>
+     <label class="field"><span>Goes out on the</span><input type="number" min="1" max="28" value="${r.day || ""}" placeholder="e.g. 5"></label><label class="field"><span>How often</span><select><option>Every month</option><option>Every 3 months</option><option>Every 6 months</option><option>Every year</option><option>Once only</option></select></label>
+     <label class="field"><span>First month</span><input type="month" value="2026-11"></label><label class="field"><span>Last month (blank to run until stopped)</span><input type="month"></label></div>
+     <label class="check"><input type="checkbox" ${r.auto ? "checked" : ""}> Send it by itself on its day. Off: it waits for you to raise it here.</label>`,
+    `<button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" data-close data-t="${r.id ? "Saved." : "Added."}">${r.id ? "Save" : "Add"}</button>`, true);
+}
+
+function alloc(r) {
+  pop("Allocate an invoice", esc(r.client),
+    `<p>Pick the invoice that was sent for ${esc(mLong(S.m))}. From then on its payment shows here.</p>
+     <label class="find" style="flex:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" placeholder="Number, name or amount"></label>
+     <div class="tablewrap"><table><thead><tr><th>Invoice</th><th>To</th><th>Sent</th><th class="num">Net</th></tr></thead><tbody>
+     <tr class="click" data-close data-t="Allocated."><td>TMKE1062</td><td class="tx">${esc(r.payer)}</td><td class="tx">3 Oct</td><td class="num">${gbp(r.amt || 30000)}</td></tr>
+     <tr class="click" data-close data-t="Allocated."><td>TMKE1049</td><td class="tx">${esc(r.payer)}</td><td class="tx">12 Sep</td><td class="num">${gbp(r.amt || 30000)}</td></tr></tbody></table></div>`,
+    `<button type="button" class="mbtn" data-close>Cancel</button>`);
+}
+
+document.addEventListener("click", (e) => {
+  const t = e.target;
+  const tt = t.closest("[data-t]"); if (tt) toast(tt.dataset.t);
+  if (t.closest("[data-close]") || t.id === "scrim") { close(); return; }
+  const tab = t.closest("[data-tab]"); if (tab) { S.tab = tab.dataset.tab; S.show = "all"; if (S.tab === "video" && S.m < "2026-10") S.m = "2026-10"; draw(); return; }
+  const sh = t.closest("[data-show]"); if (sh) { S.show = sh.dataset.show; draw(); return; }
+  const ts = t.closest("[data-toast]"); if (ts) { toast(ts.dataset.toast); return; }
+  const rb = t.closest("[data-raise]"); if (rb) { raise(find(rb.dataset.raise)); return; }
+  const ab = t.closest("[data-alloc]"); if (ab) { alloc(find(ab.dataset.alloc)); return; }
+  const vb = t.closest("[data-view]"); if (vb) { toast("Opens the invoice: PDF, resend, mark paid."); return; }
+  const nb = t.closest("[data-note]"); if (nb) { rowPop(find(nb.dataset.note)); return; }
+  const eb = t.closest("[data-edit]"); if (eb) { edit(find(eb.dataset.edit)); return; }
+  if (t.closest("#add")) { edit(); return; }
+  if (t.closest("[data-shoot]")) { toast("Opens the shoot in Videography."); return; }
+  const row = t.closest("[data-row]"); if (row) { rowPop(find(row.dataset.row)); return; }
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+$("prev").addEventListener("click", () => { const i = MONTHS.indexOf(S.m); if (i > 0) { S.m = MONTHS[i - 1]; draw(); } });
+$("next").addEventListener("click", () => { const i = MONTHS.indexOf(S.m); if (i < MONTHS.length - 1) { S.m = MONTHS[i + 1]; draw(); } });
+$("q").addEventListener("input", (e) => { S.q = e.target.value.trim().toLowerCase(); draw(); });
+draw();
+</script>

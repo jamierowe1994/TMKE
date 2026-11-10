@@ -6801,6 +6801,7 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
       paid: here.some((iv) => iv.status === "paid"),
       draft: here.some((iv) => iv.status === "draft"),
       numbers: here.map((iv) => `${iv.number || "draft"} (${iv.status})`),
+      invs: here.map((iv) => ({ id: iv.id, number: iv.number || "", status: iv.status })),
     }];
   }));
   const rows = [];
@@ -6808,7 +6809,10 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
   recurring = recurring.filter((r) => !(r.lead_id && stoppedRec.has(r.lead_id)));
   for (const l of leads) {
     const mine = invs.filter((iv) => iv.booking_source === "smm" && iv.booking_id === l.id);
+    // Their monthly invoice's setup, so Raise makes it the same way (10 Nov 2026).
+    const recRow = recurring.find((x) => x.lead_id === l.id && x.kind === "social");
     rows.push({ kind: "social", id: l.id, client: l.business || l.full_name || "Client", contact: l.full_name || "", manager: l.social_media_manager || "",
+      recurring_id: recRow ? recRow.id : null, payer: recRow ? (recRow.bill_to_name || "") : "", brand: !!l.inter_brand_invoice || /@newman\.uk\.com\b/i.test(String((recRow && (recRow.bill_to_email || recRow.match_email)) || "")),
       amount_pence: pounds(l.price), note: l.inter_brand_invoice ? "Billed to another brand" : "",
       cells: cellsFor(mine, l.start_date ? String(l.start_date).slice(0, 7) : null, "social", l.id) });
   }
@@ -6824,7 +6828,8 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
       && (!text || JSON.stringify([iv.line_items || [], iv.notes || ""]).toLowerCase().includes(text))));
     rows.push({ kind: "recurring", id: r.id, client: r.name, contact: r.contact_name || "", amount_pence: r.amount_pence ?? null,
       match_email: r.match_email, match_text: r.match_text || "", start_month: r.start_month || "",
-      sub: r.kind === "social" ? "social" : "recurring", quantity_label: r.quantity_label || null,
+      sub: r.kind === "social" ? "social" : "recurring", quantity_label: r.quantity_label || null, lead_id: r.lead_id || null,
+      brand: /@newman\.uk\.com\b/i.test(String(r.bill_to_email || r.match_email || "")),
       quantities: Object.fromEntries([ymAdd(months[0], -1), ...months].filter((ym) => qtys.has(`${r.id}|${ym}`)).map((ym) => [ym, qtys.get(`${r.id}|${ym}`)])),
       // What the automatic invoicing needs (supabase/invoicing_automation.sql).
       auto: { auto_send: !!r.auto_send, day_of_month: r.day_of_month ?? null, frequency: r.frequency || "monthly", end_month: r.end_month || "", bill_to_name: r.bill_to_name || "", bill_to_email: r.bill_to_email || "", cc_email: r.cc_email || "", bill_to_address: r.bill_to_address || "", line: (Array.isArray(r.line_items) && r.line_items[0] && r.line_items[0].description) || "", terms_days: r.terms_days ?? null },
