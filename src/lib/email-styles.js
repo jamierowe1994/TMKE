@@ -113,7 +113,9 @@ export function tableEmailButtons(html, input, slotAlign) {
       const st = m[2], bg = prop(st, 'background') || '#371e28', border = prop(st, 'border');
       const link = ['color', 'font-family', 'font-size', 'line-height', 'font-weight'].map((n) => prop(st, n) && `${n}:${prop(st, n)}`).filter(Boolean).join(';');
       const gap = i ? '<td width="8" style="width:8px;font-size:0;line-height:0;">&nbsp;</td>' : '';
-      return `${gap}<td bgcolor="${bg}" style="background:${bg};border-radius:${prop(st, 'border-radius') || '0'};padding:${prop(st, 'padding') || '0'};${border ? `border:${border};` : ''}"><a href="${m[1]}" style="${link};text-decoration:none;">${m[3]}</a></td>`;
+      // Every button has a 1px edge, in its own colour if it has none, so a
+      // filled button and an outlined one are the same height (Dani, 10 Nov 2026).
+      return `${gap}<td bgcolor="${bg}" style="background:${bg};border-radius:${prop(st, 'border-radius') || '0'};padding:${prop(st, 'padding') || '0'};border:${border || `1px solid ${bg}`};"><a href="${m[1]}" style="${link};text-decoration:none;">${m[3]}</a></td>`;
     }).join('');
     return `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr><td align="${align}" style="padding:${top} 0 ${bottom};"><table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;"><tr>${cells}</tr></table></td></tr></table>`;
   });

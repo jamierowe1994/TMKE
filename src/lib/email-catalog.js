@@ -416,7 +416,7 @@ export const EMAIL_CATALOG = [
     fires: "POST /videography/edits-complete-email",
     to: "The gallery email (or client email)",
     sender: "hello@tmke.co.uk",
-    subject: "Your {service} is all done",
+    subject: "Your shoot is all done.",
     summary: "Confirms everything is complete from TMKE's end, links back to their booking in My TMKE, and asks for a review. Not automatic on payment or delivery - the admin fires it explicitly once Jack's confirmed with the client directly that the edits are approved. Sends once - edits_complete_email_sent_at guards it.",
     fields: ["first_name", "service", "account_bookings_link", "review_link"],
   },

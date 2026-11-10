@@ -5071,7 +5071,7 @@ function deliveryEmail(kind, d) {
   const row = (...links) => (links.some(Boolean) ? `<p style="${EM_P}text-align:center;margin-top:4px;margin-bottom:20px;">${links.filter(Boolean).join("&nbsp;&nbsp;")}</p>` : "");
   // The same gap above the box and below it: the line above brings the house
   // paragraph gap, so the box adds that gap underneath and nothing on top.
-  const box = (label, value, button) => `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td style="padding:0 0 ${EMS.bodyGap}px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="#eae5e1" style="background:#eae5e1;padding:14px 16px;font-family:Verdana,Geneva,sans-serif;font-size:12px;line-height:1.5;color:#7e6765;">${esc(label)}<br><span style="font-size:16px;letter-spacing:1px;color:#371e28;">${esc(value)}</span>${button ? `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;"><tr><td height="12" style="height:12px;font-size:0;line-height:0;">&nbsp;</td></tr><tr><td align="center" bgcolor="${EMS.buttonBg}" style="background:${EMS.buttonBg};border-radius:${EMS.buttonRadius}px;padding:${EMS.buttonPadY}px ${EMS.buttonPadX}px;text-align:center;"><a href="${esc(button.url)}" style="display:block;color:${EMS.buttonColor};font-family:${EMS.font};font-size:${EMS.buttonSize}px;line-height:${EMS.bodyLine};font-weight:${EMS.buttonWeight};text-decoration:none;text-align:center;">${esc(button.text)}</a></td></tr></table>` : ""}</td></tr></table></td></tr></table>`;
+  const box = (label, value, button) => `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td style="padding:0 0 ${EMS.bodyGap}px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="#eae5e1" style="background:#eae5e1;padding:14px 16px;font-family:Verdana,Geneva,sans-serif;font-size:12px;line-height:1.5;color:#7e6765;">${esc(label)}<br><span style="font-size:16px;letter-spacing:1px;color:#371e28;">${esc(value)}</span>${button ? `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;"><tr><td height="12" style="height:12px;font-size:0;line-height:0;">&nbsp;</td></tr><tr><td align="center" bgcolor="${EMS.buttonBg}" style="background:${EMS.buttonBg};border:1px solid ${EMS.buttonBg};border-radius:${EMS.buttonRadius}px;padding:${EMS.buttonPadY}px ${EMS.buttonPadX}px;text-align:center;"><a href="${esc(button.url)}" style="display:block;color:${EMS.buttonColor};font-family:${EMS.font};font-size:${EMS.buttonSize}px;line-height:${EMS.bodyLine};font-weight:${EMS.buttonWeight};text-decoration:none;text-align:center;">${esc(button.text)}</a></td></tr></table>` : ""}</td></tr></table></td></tr></table>`;
   const hi = P(`Hi ${esc(d.first || "there")},`);
   const how = P(`When downloading, Pixieset will ask for your email address and PIN. Simply enter <strong style="font-weight:400;color:#371e28;">${esc(noAutoLink(d.email || ""))}</strong> and the PIN above.`);
   const stay = P("Your gallery will be available for three months, and we'll remind you before it expires.");
@@ -5097,6 +5097,18 @@ function deliveryEmail(kind, d) {
     + row(d.galleryUrl && main("View gallery", d.galleryUrl), tour, extra)
     + (d.inStudio ? P("You can also find the shoot, gallery and booking details under Previous Bookings in the TMKE Studio.") : "")
     + edits + P("We hope you love your content.") + team);
+  // The close-out (Dani, 10 Nov 2026): the same look as the gallery emails, her wording.
+  if (kind === "wrap") return wrap("Your shoot is all done.", "That's a Wrap.",
+    hi + P("Your booking is now complete and everything is finished from our end.")
+    + (d.amends ? P("The changes you asked for have been made, and you'll find the updated content in your gallery.") : "")
+    + row(d.galleryUrl && second("View gallery", d.galleryUrl))
+    + P("Now that everything's complete, if you have a spare minute, we'd really appreciate a review. It makes a big difference to us.")
+    + row(main("Leave a review", d.reviewUrl))
+    + (d.hasAccount
+      ? P("You'll find this shoot, along with your other bookings, under Previous Bookings in the TMKE Studio.") + row(second("View your booking", d.bookingsUrl))
+      : P("One more thing. You don't have a TMKE Member Account yet. It's the easiest way to keep track of your bookings, galleries and invoices in one place, and it only takes a minute to set up using this email address.")
+        + P("You'll also get access to our Design Studio, plus marketing insights, resources and training created for the property industry.") + row(second("Create your account", d.joinUrl)))
+    + P("Thanks again for working with us. We hope you love the finished content, and that we'll see you again soon.") + team);
   return wrap("New content in your portal.", "New Content in Your Portal.",
     hi + P("We've added a new folder to your TMKE portal, ready for you to view and download.")
     + box("Your passcode", d.passcode, { text: "Open the folder", url: d.portalUrl }) + P("Once entered, you'll stay signed in on that browser for seven days.") + edits + team);
@@ -5106,7 +5118,7 @@ function deliveryEmail(kind, d) {
 // id is delivery_<kind>@<booking id>. Reads only, and the buttons that would need
 // something the shoot hasn't got yet go to the website.
 async function deliveryPreview(env, id) {
-  const m = /^delivery_(paid|unpaid|pin|portal)@([0-9a-f-]{36})$/i.exec(String(id || ""));
+  const m = /^delivery_(paid|unpaid|pin|portal|wrap)@([0-9a-f-]{36})$/i.exec(String(id || ""));
   if (!m) return null;
   const bk = (await sbGet(env, "videography_bookings", `id=eq.${m[2]}&select=*`))?.[0];
   if (!bk) return null;
@@ -5127,6 +5139,7 @@ async function deliveryPreview(env, id) {
     invoiceNo: (inv && inv.number) || "", payUrl: site, attached: true, inStudio: true,
     portalUrl: portal ? portalFolderLink(env, portal, prefix) : site,
     passcode: (portal && portal.passcode) || "",
+    reviewUrl: `${site}/leave-a-review`, hasAccount: !!bk.account_user_id, bookingsUrl: `${site}/account/bookings`, joinUrl: `${site}/join`,
   });
 }
 
@@ -5145,6 +5158,8 @@ function emailPreviewSample(id) {
     delivery_paid: () => deliveryEmail("paid", DELIVERY_SAMPLE),
     delivery_unpaid: () => deliveryEmail("unpaid", { ...DELIVERY_SAMPLE, tourUrl: "" }),
     delivery_pin: () => deliveryEmail("pin", DELIVERY_SAMPLE),
+    delivery_wrap: () => deliveryEmail("wrap", { ...DELIVERY_SAMPLE, reviewUrl: "https://tmke.co.uk/leave-a-review", hasAccount: false, joinUrl: "https://tmke.co.uk/join", bookingsUrl: "https://tmke.co.uk/account/bookings" }),
+    vid_edits_complete: () => deliveryEmail("wrap", { ...DELIVERY_SAMPLE, reviewUrl: "https://tmke.co.uk/leave-a-review", hasAccount: false, joinUrl: "https://tmke.co.uk/join", bookingsUrl: "https://tmke.co.uk/account/bookings" }),
     delivery_portal: () => deliveryEmail("portal", { ...DELIVERY_SAMPLE, shoot: "Bootcamp coverage, 20 October", passcode: "BOOT26" }),
     post_reminder: () => ({ subject: "Your Instagram post is planned for today", html: reminderHtml({ title: "Spring launch teaser", asset_url: "https://assets.tmke.co.uk/white-1.webp" }, "Instagram", "New season, new listings ✨\n\nSwipe to see what's just come to market - book a viewing before they're gone.") }),
     setup_reminder: () => ({ subject: "Set your password to unlock your TMKE pack", html: setupReminderHtml({ name: "Alex Morgan", pack: "The Spring Collection", link: "https://tmke.co.uk/set-password?token=sample" }) }),
@@ -16907,6 +16922,7 @@ async function notifyEditRequest(env, requestId) {
 // details, and asks for a review. Idempotent via edits_complete_email_sent_at
 // so re-ticking "edits settled" on the client file can never double-send.
 async function sendEditsCompleteEmail(env, bookingId) {
+  await loadEmailStyles(env);
   const rows = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(bookingId)}&select=*`);
   const bk = rows && rows[0];
   if (!bk) return { ok: false, reason: "no booking" };
@@ -16967,10 +16983,6 @@ async function sendEditsCompleteEmail(env, bookingId) {
     <p style="${EM_P}">You&rsquo;ll also get access to our exclusive Design Studio, plus marketing insights, resources and training created specifically for the property industry.</p>
     <p style="${EM_P}"><a href="${siteUrl}/join?email=${encodeURIComponent(bk.client_email || "")}" style="${EM_BTN}">Create Your Account</a></p>`;
 
-  const galleryLine = bk.gallery_url
-    ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open Your Gallery</a></p>`
-    : "";
-
   /* The review link carries the booking, the name and the service. Without
      them the client retypes what we already know - and, more importantly, the
      review comes back with nothing tying it to the shoot, so their bookings
@@ -16980,25 +16992,13 @@ async function sendEditsCompleteEmail(env, bookingId) {
     + `&service=${encodeURIComponent(bk.service || "")}`
     + `&name=${encodeURIComponent(bk.client_name || "")}`;
 
-  const html = `<div style="${EM_WRAP}">
-    <h1 style="${EM_H1}">That&rsquo;s a wrap, ${esc(firstName)}</h1>
-    <p style="${EM_P}">Your videography booking is now complete and everything is finished from our end.</p>
-    ${factsHtml}
-    ${amendsLine}
-    ${galleryLine}
-    ${hasAccount ? `<p style="${EM_P}">You can find all the details for this booking, along with your other TMKE bookings, under <strong>Previously</strong> in your account.</p>
-    <p style="${EM_P}"><a href="${siteUrl}/account/bookings" style="${EM_BTN}">View Your Booking</a></p>` : ""}
-    <p style="${EM_P}">Now that everything&rsquo;s complete, if you have a spare minute, we&rsquo;d really appreciate a review. It makes a big difference to us.</p>
-    <p style="${EM_P}"><a href="${reviewUrl}" style="${EM_BTN}">Leave a Review</a></p>
-    ${accountLine}
-    <p style="${EM_P}">Thanks again for working with us. We hope you love the finished content, and hopefully we&rsquo;ll see you again soon!</p>
-    <p style="${EM_P}">The TMKE Team</p>
-  </div>`;
-
-  const sent = await sendEmail(env, {
-    to, subject: `Your ${bk.service || "shoot"} is all done`,
-    html: await wrapInBrandedBase(env, html),
+  // The gallery emails' look (deliveryShell), 10 Nov 2026.
+  const built = deliveryEmail("wrap", {
+    first: deliveryFirstName(bk.client_name), shoot: deliveryShootLine(bk), cover: bk.cover_url || "",
+    galleryUrl: bk.gallery_url || "", reviewUrl, amends: !!amendsLine, hasAccount,
+    bookingsUrl: `${siteUrl}/account/bookings`, joinUrl: `${siteUrl}/join?email=${encodeURIComponent(bk.client_email || "")}`,
   });
+  const sent = await sendEmail(env, { to, subject: built.subject, html: built.html });
   if (!sent.ok) return { ok: false, reason: sent.error || "send failed" };
 
   await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bookingId)}&edits_complete_email_sent_at=is.null`, {
