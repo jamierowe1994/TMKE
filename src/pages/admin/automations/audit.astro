@@ -497,12 +497,18 @@ import "../../../styles/admin.css";
           const people = list.filter((x) => !isMachine(x));
           // Clicking means they opened it, even when the open wasn't recorded
           // (Outlook blocks the image that records an open). Dani, 10 Nov 2026.
-          const openedOrClicked = new Set(people.filter((x) => x.event === "opened" || x.event === "clicked").map(sendKey)).size;
+          // The headline numbers are Resend's: everyone who opened or clicked,
+          // each once, a click counting as an open. How many of those look like
+          // a work email scanner is shown beside them, not taken out, because
+          // that judgement can be wrong (Dani, 10 Nov 2026, against Resend's export).
+          const oc = (l) => new Set(l.filter((x) => x.event === "opened" || x.event === "clicked").map(sendKey));
+          const allOpened = oc(list), realOpened = oc(people);
+          const allClicked = new Set(list.filter((x) => x.event === "clicked").map(sendKey)), realClicked = new Set(people.filter((x) => x.event === "clicked").map(sendKey));
           return {
             sent, delivered,
-            opened: openedOrClicked, clicked: uniq(people, "clicked"),
-            botOpened: (() => { const real = new Set(people.filter((x) => x.event === "opened" || x.event === "clicked").map(sendKey)); return new Set(list.filter((x) => x.event === "opened" && !real.has(sendKey(x))).map(sendKey)).size; })(),
-            botClicked: (() => { const real = new Set(people.filter((x) => x.event === "clicked").map(sendKey)); return new Set(list.filter((x) => x.event === "clicked" && !real.has(sendKey(x))).map(sendKey)).size; })(),
+            opened: allOpened.size, clicked: allClicked.size,
+            botOpened: allOpened.size - realOpened.size,
+            botClicked: allClicked.size - realClicked.size,
             unsub: uniq(list, "unsubscribed"),
             bounced: uniq(list, "bounced"), spam: uniq(list, "complained"),
             skipped: stillBlocked(gateReason, true),
@@ -565,9 +571,9 @@ import "../../../styles/admin.css";
           stat("Sent", all.sent, "", false, "sent") +
           stat("Delivered", all.delivered, pct(all.delivered, all.sent), false, "delivered") +
           // With the scanners left out beside them, so the two add up to Resend's figure.
-          stat("Opened", all.opened, [pct(all.opened, all.base), all.botOpened ? `+${all.botOpened} scanners left out` : ""].filter(Boolean).join(" · "), false, "opened") +
-          stat("Clicked", all.clicked, [pct(all.clicked, all.base), all.botClicked ? `+${all.botClicked} scanners left out` : ""].filter(Boolean).join(" · "), false, "clicked") +
-          stat("Came to the site", visitsTotal, pct(visitsTotal, all.base)) +
+          stat("Opened", all.opened, [pct(all.opened, all.base), all.botOpened ? `${all.botOpened} may be scanners` : ""].filter(Boolean).join(" · "), false, "opened") +
+          stat("Clicked", all.clicked, [pct(all.clicked, all.base), all.botClicked ? `${all.botClicked} may be scanners` : ""].filter(Boolean).join(" · "), false, "clicked") +
+          stat("Came to the site", visitsTotal, [pct(visitsTotal, all.base), "who accepted cookies"].filter(Boolean).join(" · ")) +
           stat("Unsubscribed", all.unsub, pct(all.unsub, all.base), true, "unsub") +
           (all.bounced ? stat("Bounced", all.bounced, pct(all.bounced, all.sent), true, "bounced") : "") +
           (all.spam ? stat("Spam reports", all.spam, "", true) : "") +
@@ -604,9 +610,9 @@ import "../../../styles/admin.css";
           const arr = L[m] || [], bots = m === "opened" ? L.openedBots : m === "clicked" ? L.clickedBots : [];
           const box = $("aud-modal");
           box.innerHTML = `<div class="aud-modal-box" role="dialog" aria-modal="true" aria-label="${esc(LABEL[m])}">
-            <div class="aud-modal-head"><div><h3>${esc(LABEL[m])} · ${arr.length} ${arr.length === 1 ? "person" : "people"}</h3><p>${esc(L.title)}</p></div><button type="button" class="aud-modal-x" data-close aria-label="Close">&times;</button></div>
+            <div class="aud-modal-head"><div><h3>${esc(LABEL[m])} · ${arr.length + bots.length} ${arr.length + bots.length === 1 ? "person" : "people"}</h3><p>${esc(L.title)}</p></div><button type="button" class="aud-modal-x" data-close aria-label="Close">&times;</button></div>
             <div class="aud-modal-body">${arr.length ? whoList(arr) : '<p class="aud-none">Nobody yet.</p>'}
-              ${bots.length ? `<details class="aud-bots"><summary>Security scanners · ${bots.length}, not counted</summary><p>Work email filters open and click links before the person sees the email. These looked like that, so they're left out of the numbers. Each says why. If one was really a person, tell us and the rule can be looked at.</p>${whoList(bots, true)}</details>` : ""}</div></div>`;
+              ${bots.length ? `<details class="aud-bots"><summary>May be security scanners · ${bots.length}</summary><p>Work email filters, such as Microsoft's on TEG addresses, open and click links before the person sees the email, and Resend counts those too. These looked like that, so they're in the number above but may not be a person. Each says why.</p>${whoList(bots, true)}</details>` : ""}</div></div>`;
           box.hidden = false;
         };
 
@@ -627,7 +633,7 @@ import "../../../styles/admin.css";
         $("aud-ins").hidden = false;
         // The summary reads the same people-counts as the boxes, scanners left
         // out, so the two always agree (Dani, 10 Nov 2026).
-        if (ev.length) loadAiSummary({ sent: all.sent, delivered: all.delivered, opened_people: all.opened, clicked_people: all.clicked, came_to_the_site: visitsTotal, unsubscribed: all.unsub, bounced: all.bounced, spam_complaints: all.spam, not_emailed_no_optin_or_unsubscribed: all.skipped, failed_to_send: all.failed, security_scanner_opens_left_out: all.botOpened, security_scanner_clicks_left_out: all.botClicked });
+        if (ev.length) loadAiSummary({ sent: all.sent, delivered: all.delivered, opened_people: all.opened, clicked_people: all.clicked, came_to_the_site_who_accepted_cookies: visitsTotal, unsubscribed: all.unsub, bounced: all.bounced, spam_complaints: all.spam, not_emailed_no_optin_or_unsubscribed: all.skipped, failed_to_send: all.failed, opened_that_may_be_scanners: all.botOpened, clicked_that_may_be_scanners: all.botClicked });
       } catch (_) { /* insights are a bonus, never break the audit */ }
     }
 
