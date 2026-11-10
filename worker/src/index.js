@@ -14586,12 +14586,18 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const ids = rows.map((r) => r.id);
         const ticks = ids.length ? (await sbGet(env, "recurring_month_approvals", `recurring_id=in.(${ids.join(",")})&month=in.(${months.join(",")})&select=recurring_id,month,approved,updated_by`)) || [] : [];
         const invs = ids.length ? (await sbGet(env, "invoices", `recurring_id=in.(${ids.join(",")})&billing_month=in.(${months.join(",")})&status=neq.void&select=recurring_id,billing_month,number,status`)) || [] : [];
+        // Raised another way (from their file, say): on the client, for the month (10 Nov 2026).
+        const leadIds = rows.map((r) => r.lead_id).filter(Boolean);
+        const byLead = leadIds.length ? (await sbGet(env, "invoices", `booking_source=eq.smm&booking_id=in.(${leadIds.join(",")})&recurring_id=is.null&status=neq.void&select=booking_id,billing_month,issued_date,number,status,line_items`)) || [] : [];
+        const leads = leadIds.length ? (await sbGet(env, "smm_leads", `id=in.(${leadIds.join(",")})&select=id,business,full_name`)) || [] : [];
+        const onboard = (v) => (v.line_items || []).some((l) => /onboarding/i.test(String(l && l.description || ""))) && (v.line_items || []).length === 1;
         const conf = (await sbGet(env, "social_invoice_months", `month=in.(${months.join(",")})&select=*`)) || [];
-        return json({ ok: true, months: months.map((m) => ({ month: m, label: invMonthLabel(m), confirmed: conf.find((c) => c.month === m) || null })),
-          rows: rows.map((r) => ({ ...r, cells: Object.fromEntries(months.map((m) => [m, {
+        return json({ ok: true, today: t0.ymd, months: months.map((m) => ({ month: m, label: invMonthLabel(m), confirmed: conf.find((c) => c.month === m) || null })),
+          rows: rows.map((r) => { const l = leads.find((x) => x.id === r.lead_id) || {}; return { ...r, business: l.business || "", person: l.full_name || r.contact_name || "", cells: Object.fromEntries(months.map((m) => [m, {
             ticked: !!ticks.find((x) => x.recurring_id === r.id && x.month === m && x.approved),
-            invoice: invs.find((x) => x.recurring_id === r.id && x.billing_month === m) || null,
-          }])) })) }, 200, request, env);
+            invoice: invs.find((x) => x.recurring_id === r.id && x.billing_month === m)
+              || byLead.find((x) => x.booking_id === r.lead_id && (x.billing_month || String(x.issued_date || "").slice(0, 7)) === m && !onboard(x)) || null,
+          }])) }; }) }, 200, request, env);
       }
       if (path.endsWith("/smm/monthly-invoices") && request.method === "POST") {
         const user = await getUser(request, env);
@@ -14600,6 +14606,34 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         if (!b.recurring_id || !/^\d{4}-\d{2}$/.test(String(b.month || ""))) return json({ error: "Which client and month?" }, 400, request, env);
         const r = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_month_approvals?on_conflict=recurring_id,month`, { method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ recurring_id: b.recurring_id, month: b.month, approved: !!b.approved, updated_by: user.email || null, updated_at: new Date().toISOString() }) });
         return r.ok ? json({ ok: true }, 200, request, env) : json({ error: /recurring_month_approvals/.test(await r.text()) ? "Run supabase/invoicing_automation_3.sql first." : "Couldn't save that." }, 502, request, env);
+      }
+      // Send now (Dani, 10 Nov 2026): someone ticked after their day, or missed,
+      // invoiced straight away from their monthly setup, the same invoice and
+      // email the 5th would have sent. Ticks them for the month too.
+      if (path.endsWith("/smm/monthly-invoices/send-now") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String(b.recurring_id || ""), m = String(b.month || "");
+        if (!/^[0-9a-f-]{36}$/i.test(id) || !/^\d{4}-\d{2}$/.test(m)) return json({ error: "Which client and month?" }, 400, request, env);
+        const r = (await sbGet(env, "recurring_invoices", `id=eq.${id}&active=eq.true&kind=eq.social&select=*`))?.[0];
+        if (!r) return json({ error: "Their monthly invoice isn't set up." }, 404, request, env);
+        if (m > invToday().ym) return json({ error: "That month hasn't started yet." }, 400, request, env);
+        const had = (await sbGet(env, "invoices", `recurring_id=eq.${id}&billing_month=eq.${m}&status=neq.void&select=id,number,status&order=created_at.desc`)) || [];
+        const gone = had.find((v) => v.status !== "draft");
+        if (gone) return json({ error: `${gone.number} has already gone for ${invMonthLabel(m)}.` }, 409, request, env);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_month_approvals?on_conflict=recurring_id,month`, { method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ recurring_id: id, month: m, approved: true, updated_by: user.email || null, updated_at: new Date().toISOString() }) });
+        let invId = had[0] && had[0].id;
+        if (!invId) {
+          const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+          const made = await raiseRecurringDraft(env, st, r, m, null, user.email || null);
+          if (!made.ok) return json({ error: made.error }, made.code || 502, request, env);
+          invId = made.invoice.id;
+        }
+        const sent = await sendInvoiceNow(env, { id: invId }, user.email || "admin");
+        if (!sent.ok) return json({ error: sent.error }, sent.code || 502, request, env);
+        const inv = (await sbGet(env, "invoices", `id=eq.${invId}&select=number`))?.[0] || {};
+        return json({ ok: true, number: inv.number || "", sent_to: sent.sent_to }, 200, request, env);
       }
       if (path.endsWith("/smm/monthly-invoices/confirm") && request.method === "POST") {
         const user = await getUser(request, env);

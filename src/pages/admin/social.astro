@@ -389,6 +389,8 @@ const mgmtPackages = (management && management.packages) || [];
     .hub-skin .mi-tick, .mi-tick { display: inline-flex; align-items: center; gap: 7px; margin: 0; font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: 0; cursor: pointer; }
     .mi-tick input { width: 16px; height: 16px; accent-color: var(--english-violet); }
     .mi-sent { font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.6); }
+    .mi-person { display: block; font-size: 13px; font-weight: 400; color: rgba(28,29,34,0.6); }
+    .mi-cell .mi-now { margin-left: 10px; }
     .smm-panel[data-panel="rates"] .smm-pagehead { margin-bottom: 24px; }
     .smm-panel-sub code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: rgba(28,29,34,0.06); padding: 1px 5px; border-radius: 3px; }
 
@@ -4409,11 +4411,16 @@ const mgmtPackages = (management && management.packages) || [];
             <span class="mi-mname">${esc(m.label)}</span>
             ${m.confirmed ? `<span class="mi-conf">Confirmed by ${esc(who(m.confirmed.confirmed_by))}, ${when(m.confirmed.confirmed_at)} <button type="button" class="mi-undo" data-miundo="${m.month}">Undo</button></span>`
               : `<button type="button" class="smm-btn smm-btn--primary smm-btn--sm" data-miconfirm="${m.month}">Confirm ${esc(m.label.split(" ")[0])}</button>`}</th>`).join("")}</tr></thead>
-          <tbody>${rows.map((r) => `<tr><td><strong>${esc(r.contact_name || r.name)}</strong></td><td>${esc(r.bill_to_name || "")}</td><td class="mi-num">${gbpP(r.amount_pence)}</td>${months.map((m) => {
+          <tbody>${rows.slice().sort((a, b) => String(a.business || a.contact_name || a.name).localeCompare(String(b.business || b.contact_name || b.name))).map((r) => `<tr><td><strong>${esc(r.business || r.contact_name || r.name)}</strong>${r.business && r.person ? `<span class="mi-person">${esc(r.person)}</span>` : ""}</td><td>${esc(r.bill_to_name || "")}</td><td class="mi-num">${gbpP(r.amount_pence)}</td>${months.map((m) => {
             const c = (r.cells || {})[m.month] || {};
             if (r.stopped && !c.invoice) return `<td class="mi-cell"><span class="mi-sent">${esc(r.stopped)}: not invoiced</span></td>`;
-            if (c.invoice) return `<td class="mi-cell is-sent"><span class="mi-sent">${esc(c.invoice.number)} ${c.invoice.status === "draft" ? "drafted" : esc(c.invoice.status)}</span></td>`;
-            return `<td class="mi-cell"><label class="mi-tick"><input type="checkbox" data-mitick="${esc(r.id)}" data-month="${m.month}"${c.ticked ? " checked" : ""}> Invoice</label></td>`;
+            if (c.invoice && c.invoice.status !== "draft") return `<td class="mi-cell is-sent"><span class="mi-sent">${esc(c.invoice.number)} ${esc(c.invoice.status)}</span></td>`;
+            // Past its day and not gone: missed. Tick it and Send now sends it as the 5th would have.
+            const day = r.day_of_month || 5, today = String(d.today || "");
+            const past = today && (m.month < today.slice(0, 7) || (m.month === today.slice(0, 7) && Number(today.slice(8, 10)) >= day));
+            const late = past ? `<button type="button" class="smm-btn smm-btn--primary smm-btn--sm mi-now" data-minow="${esc(r.id)}" data-month="${m.month}"${c.ticked ? "" : " hidden"}>Send now</button>` : "";
+            const lbl = c.invoice ? `${esc(c.invoice.number)} drafted` : past && c.ticked ? "Missed" : "Invoice";
+            return `<td class="mi-cell"><label class="mi-tick"><input type="checkbox" data-mitick="${esc(r.id)}" data-month="${m.month}"${c.ticked ? " checked" : ""}> <span>${lbl}</span></label>${late}</td>`;
           }).join("")}</tr>`).join("")}</tbody></table>`;
         host.querySelectorAll("[data-mitick]").forEach((cb) => cb.addEventListener("change", async () => {
           cb.disabled = true;
@@ -4422,8 +4429,23 @@ const mgmtPackages = (management && management.packages) || [];
             const r = await fetch(`${WORKER}/smm/monthly-invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ recurring_id: cb.dataset.mitick, month: cb.dataset.month, approved: cb.checked }) });
             const j = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error(j.error || "Couldn't save that.");
+            const now = cb.closest("td").querySelector("[data-minow]"); if (now) now.hidden = !cb.checked;
           } catch (err) { cb.checked = !cb.checked; note.hidden = false; note.textContent = err.message; }
           finally { cb.disabled = false; }
+        }));
+        host.querySelectorAll("[data-minow]").forEach((b) => b.addEventListener("click", async () => {
+          const row = rows.find((x) => x.id === b.dataset.minow) || {};
+          const label = (months.find((x) => x.month === b.dataset.month) || {}).label || "";
+          if (!confirm(`Send ${row.business || row.contact_name || "their"} invoice for ${label} now? It goes out exactly as it would have on the 5th: ${gbpP(row.amount_pence)} plus VAT, to ${row.bill_to_name || "them"}.`)) return;
+          b.disabled = true; b.textContent = "Sending…";
+          try {
+            const token = await authToken();
+            const r = await fetch(`${WORKER}/smm/monthly-invoices/send-now`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ recurring_id: b.dataset.minow, month: b.dataset.month }) });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(j.error || "Couldn't send it.");
+            note.hidden = false; note.textContent = `${j.number} sent to ${j.sent_to}.`;
+            loadMonthlyInvoices();
+          } catch (err) { note.hidden = false; note.textContent = err.message; b.disabled = false; b.textContent = "Send now"; }
         }));
         host.querySelectorAll("[data-miconfirm], [data-miundo]").forEach((b) => b.addEventListener("click", async () => {
           const month = b.dataset.miconfirm || b.dataset.miundo, undo = !!b.dataset.miundo;
