@@ -15308,6 +15308,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         // When marked paid, re-render the saved PDF so the stored copy (and the
         // client's future hub view) shows the "Paid · <date>" stamp.
         if (status === "paid") await invoicePaidEffects(env, id, user.email || "admin");
+        // A voided invoice has nothing left to approve: its request stops showing as Waiting (10 Nov 2026).
+        if (status === "void") await sbPatch(env, "invoice_approvals", `invoice_id=eq.${encodeURIComponent(id)}&status=eq.pending`, { status: "superseded" });
         return json({ ok: true }, 200, request, env);
       }
       // ---- Management: the monthly invoicing checklist + recurring invoices --
