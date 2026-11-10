@@ -1205,6 +1205,7 @@ import "../../styles/money-os.css";
         const reset = cimResetOnSend; closeEmailModal();
         if (reset) { msg("ci-msg", "Invoice sent.", true); ciReset(); }
         BOOK = null; if (!$("io-main").closest(".inv-panel").hidden) loadBook();
+        if (!$("mc-tbl").closest(".inv-panel").hidden) { loadMonthly(); toast("Sent."); }
       } catch (err) { msg("cim-msg", err.message, false); }
       finally { btn.disabled = false; btn.textContent = "Send invoice"; }
     });
@@ -1289,9 +1290,9 @@ import "../../styles/money-os.css";
         // A recurring month not sent yet can be raised from here, linked.
         // ... or an invoice already sent can be allocated to it.
         const raise = (r, ym) => { const c = r.cells[ym]; if (r.kind !== "recurring" || !c || !c.due || c.sent || ym > d.today) return "";
-          return (c.draft ? "" : `<button type="button" class="mc-raise" data-mcraise="${esc(r.id)}|${ym}">Raise</button>`) + `<button type="button" class="mc-raise" data-mcalloc="${esc(r.id)}|${ym}">Allocate</button>`; };
+          return `<button type="button" class="mc-raise" data-mcraise="${esc(r.id)}|${ym}">${c.draft ? "Send" : "Raise"}</button>` + (c.draft ? "" : `<button type="button" class="mc-raise" data-mcalloc="${esc(r.id)}|${ym}">Allocate</button>`); };
         const row = (r) => `<tr><td class="l"><b>${esc(r.client)}</b><small>${esc([r.contact, r.kind === "social" ? r.manager : r.match_email, r.note].filter(Boolean).join(" · "))}</small></td>
-          <td class="amt">${r.amount_pence != null ? gbp(r.amount_pence) : "–"}${r.kind === "recurring" ? `<button type="button" class="mc-x" data-mcedit="${esc(r.id)}" title="Edit" aria-label="Edit ${esc(r.client)}">&#9998;</button><button type="button" class="mc-x" data-mcdel="${esc(r.id)}" title="Take off the checklist" aria-label="Take ${esc(r.client)} off the checklist">&times;</button>` : ""}</td>
+          <td class="amt">${r.amount_pence != null ? gbp(r.amount_pence) : "–"}${r.kind === "recurring" ? `<button type="button" class="mc-raise" data-mcraiseany="${esc(r.id)}" title="Raise an invoice for a month">Raise</button><button type="button" class="mc-x" data-mcedit="${esc(r.id)}" title="Edit" aria-label="Edit ${esc(r.client)}">&#9998;</button><button type="button" class="mc-x" data-mcdel="${esc(r.id)}" title="Take off the checklist" aria-label="Take ${esc(r.client)} off the checklist">&times;</button>` : ""}</td>
           ${d.months.map((ym) => (r.cells[ym] && r.cells[ym].skip)
             // No invoice that month: one cell across Sent and Paid, so it reads in full.
             ? `<td colspan="2" class="${cls(ym, 0)} mc-cell mc-skipcell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}" title="${esc(r.cells[ym].note || "No invoice this month")}"><span class="mc-na">No invoice</span>${noteMark(r.cells[ym])}</td>`
@@ -1312,15 +1313,9 @@ import "../../styles/money-os.css";
         tbl.querySelectorAll("[data-mcraise]").forEach((b) => b.addEventListener("click", (e) => {
           e.stopPropagation();
           const [id, ym] = b.dataset.mcraise.split("|");
-          // The row carries what the form needs, so Raise works even before
-          // the recurring list has loaded on the Create tab.
-          const row = d.rows.find((x) => x.id === id);
-          if (row && !ciRecurring.some((x) => x.id === id)) ciRecurring.push({ id, name: row.client, match_email: row.match_email, amount_pence: row.amount_pence });
-          if (row && !$("ci-recurring").querySelector(`option[value="${id}"]`)) $("ci-recurring").insertAdjacentHTML("beforeend", `<option value="${esc(id)}">${esc(row.client)}</option>`);
-          ciReset(); showPanel("create");
-          $("ci-recurring").value = id; ciApplyRecurring(id, ym);
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          mcRaise(d.rows.find((x) => x.id === id), ym, d);
         }));
+        tbl.querySelectorAll("[data-mcraiseany]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); mcRaise(d.rows.find((x) => x.id === b.dataset.mcraiseany), null, d); }));
         tbl.querySelectorAll("[data-mcalloc]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); const [id, ym] = b.dataset.mcalloc.split("|"); mcAllocate(d.rows.find((x) => x.id === id), ym); }));
         tbl.querySelectorAll("[data-mcnote]").forEach((td) => td.addEventListener("click", () => { const [kind, id, ym] = td.dataset.mcnote.split("|"); mcNote(kind, id, ym); }));
         if (d.notesReady === false) { m.textContent = (m.hidden ? "" : m.textContent + " ") + "Notes need supabase/invoice_month_notes.sql running once in Supabase."; m.hidden = false; }
@@ -1333,6 +1328,48 @@ import "../../styles/money-os.css";
       try { const rr = await api("/invoicing/recipients"); $("mc-emails").innerHTML = (rr.recipients || rr.rows || []).map((x) => `<option value="${esc(x.email)}">${esc(x.name)}</option>`).join(""); } catch (_) {}
     }
     let MC_ROWS = [];
+    /* Raise a regular invoice for a month (Dani, 10 Nov 2026). Made by the
+       Worker from the invoice's own setup, the same as the automatic one: who
+       it's billed to, who's copied, its line, and the email with the accounts
+       portal button. Then straight to the email review. */
+    function mcRaise(r, ym, d) {
+      if (!r) return;
+      const lastYm = ymAdd(d.today, -1);
+      // The months that could be raised: nothing sent for them yet.
+      const opts = [ymAdd(d.months[0], -1), ...d.months].filter((m, i, a) => a.indexOf(m) === i && m <= d.today && !(r.cells[m] && r.cells[m].sent));
+      if (!opts.length) { toast("Every month shown has gone already."); return; }
+      const pick = ym && opts.includes(ym) ? ym : opts.includes(lastYm) && !(r.cells[lastYm] && r.cells[lastYm].sent) ? lastYm : opts[opts.length - 1];
+      const longM = (m) => new Date(m + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+      const unit = r.amount_pence || 0;
+      const qtyField = r.quantity_label ? `<label class="field"><span>${esc(r.quantity_label)}</span><input id="mr-qty" type="number" min="0" step="1" inputmode="numeric"></label>` : "";
+      popShell("Raise an invoice", esc(r.client), "",
+        `<label class="field"><span>Which month it's for</span><select id="mr-month">${opts.map((m) => `<option value="${m}"${m === pick ? " selected" : ""}>${esc(longM(m))}${r.cells[m] && r.cells[m].draft ? " (draft raised)" : ""}</option>`).join("")}</select></label>
+         ${qtyField}
+         <dl class="rows"><div><dt>Billed to</dt><dd>${esc((r.auto && r.auto.bill_to_name) || r.client)}</dd></div><div><dt>Sent to</dt><dd>${esc((r.auto && r.auto.bill_to_email) || r.match_email || "")}</dd></div>${r.auto && r.auto.cc_email ? `<div><dt>Copied in</dt><dd>${esc(r.auto.cc_email)}</dd></div>` : ""}<div><dt>Net</dt><dd id="mr-net"></dd></div></dl>
+         <p style="margin:0">It's made from this invoice's own setup, the same as the automatic one, so it gets the right email and goes on the accounts portal once it's sent. You'll see the email before anything goes.</p>
+         <p class="state bad" id="mr-msg" hidden></p>`,
+        `<button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" id="mr-go">Raise and review the email</button>`);
+      const sync = () => {
+        const m = $("mr-month").value, q = $("mr-qty");
+        if (q && !q.dataset.typed) q.value = r.quantities && r.quantities[m] != null ? r.quantities[m] : "";
+        const n = q ? Number(q.value || 0) : 1;
+        $("mr-net").textContent = r.quantity_label ? `${gbp(unit * n)} (${gbp(unit)} × ${n || 0})` : gbp(unit);
+        $("mr-go").textContent = r.cells[m] && r.cells[m].draft ? "Review the draft's email" : "Raise and review the email";
+      };
+      $("mr-month").addEventListener("change", sync);
+      if ($("mr-qty")) $("mr-qty").addEventListener("input", (e) => { e.target.dataset.typed = "1"; sync(); });
+      sync();
+      $("mr-go").addEventListener("click", async () => {
+        const btn = $("mr-go"), m = $("mr-month").value, q = $("mr-qty");
+        if (q && !(r.cells[m] && r.cells[m].draft) && (q.value === "" || Number(q.value) < 0)) { $("mr-msg").textContent = `Add the ${String(r.quantity_label).toLowerCase()} for ${longM(m)}.`; $("mr-msg").hidden = false; return; }
+        btn.disabled = true; btn.textContent = "Raising…";
+        try {
+          const out = await postJson("/invoicing/recurring/raise", { recurring_id: r.id, month: m, qty: q ? q.value : undefined });
+          closePop(); loadMonthly(); BOOK = null;
+          openEmailModal(out.invoice, false);
+        } catch (err) { $("mr-msg").textContent = err.message; $("mr-msg").hidden = false; btn.disabled = false; sync(); }
+      });
+    }
     // Videography shoots and where each invoice is.
     const SHOOT_STATUS = {
       late: ["is-late", "Late: not sent"], not_due: ["is-wait", "Not due yet"], sent: ["is-sent", "Sent"],

@@ -514,6 +514,33 @@ function invApprovalPage(title, inner) {
       </div></body></html>`;
 }
 
+/* A recurring invoice's draft for a month, made from its own setup: who it's
+   billed to, who's copied, the line in its words ("Month YYYY", "{qty}") and
+   when it's due. The morning run and the admin's Raise both use it, so a
+   recurring invoice raised by hand is the same as one raised automatically,
+   and gets the same email and the accounts portal (Dani, 10 Nov 2026).
+   ym: the month it's for. qty: the month's number, for one that has one. */
+async function raiseRecurringDraft(env, st, r, ym, qty, by) {
+  const today = invToday();
+  // Pays a month ahead (Dani, 5 Nov 2026): raised in December, for January.
+  const month = invMonthLabel(r.pays_ahead ? ymAdd(ym, 1) : ym);
+  const fill = (d) => String(d || "").replace(/\{month year\}|\{month\}|Month YYYY/g, month).replace(/\{qty\}|\{number of agents\}/gi, qty != null ? String(qty) : "");
+  const items = Array.isArray(r.line_items) && r.line_items.length
+    ? r.line_items.map((it) => ({ description: fill(it.description), qty: qty != null ? qty : (it.qty || 1), unit_pence: it.unit_pence || r.amount_pence || 0 }))
+    : [{ description: `${r.name} (${month})`, qty: qty != null ? qty : 1, unit_pence: r.amount_pence || 0 }];
+  // Due on its day of the month (the 28th), or after its terms.
+  let due = invAddDays(today.ymd, r.terms_days != null ? r.terms_days : ((st && st.payment_terms_days) || 7));
+  if (r.due_day) { const dd = String(Math.min(28, r.due_day)).padStart(2, "0"); due = `${today.ym}-${dd}`; if (due <= today.ymd) { const [y, m] = today.ym.split("-").map(Number); due = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-${dd}`; } }
+  return createInvoiceDraft(env, {
+    bill_to_name: r.bill_to_name || r.name, bill_to_email: r.bill_to_email || r.match_email, bill_to_address: r.bill_to_address || null,
+    cc_email: r.cc_email != null ? r.cc_email : undefined, bcc_email: r.bcc_email || null, template: r.template || null,
+    line_items: items, notes: r.notes || null, terms_days: r.terms_days, pay_by_card: !!r.pay_by_card,
+    recurring_id: r.id, billing_month: ym, issued_date: today.ymd, due_date: due,
+    // A social media client's: on their file, and in their hub.
+    ...(r.lead_id ? { booking_id: r.lead_id, booking_source: "smm", client_name: r.contact_name || null } : {}),
+  }, by);
+}
+
 /* The morning run (08:00). */
 async function runInvoiceAutomation(env) {
   const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0];
@@ -551,21 +578,7 @@ async function runInvoiceAutomation(env) {
       const had = (await sbGet(env, "invoices", `recurring_id=eq.${r.id}&billing_month=eq.${today.ym}&status=neq.void&select=id&limit=1`)) || [];
       if (had.length) { await invLogOnce(env, key, "already raised by hand"); continue; }
       if (!(await invLogOnce(env, key, "raising"))) continue;
-      const fill = (d) => String(d || "").replace(/\{month year\}|\{month\}|Month YYYY/g, month).replace(/\{qty\}|\{number of agents\}/gi, qty != null ? String(qty) : "");
-      const items = Array.isArray(r.line_items) && r.line_items.length
-        ? r.line_items.map((it) => ({ description: fill(it.description), qty: qty != null ? qty : (it.qty || 1), unit_pence: it.unit_pence || r.amount_pence || 0 }))
-        : [{ description: `${r.name} (${month})`, qty: qty != null ? qty : 1, unit_pence: r.amount_pence || 0 }];
-      // Due on its day of the month (the 28th), or after its terms.
-      let due = invAddDays(today.ymd, r.terms_days != null ? r.terms_days : (st.payment_terms_days || 7));
-      if (r.due_day) { const dd = String(Math.min(28, r.due_day)).padStart(2, "0"); due = `${today.ym}-${dd}`; if (due <= today.ymd) { const [y, m] = today.ym.split("-").map(Number); due = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-${dd}`; } }
-      const made = await createInvoiceDraft(env, {
-        bill_to_name: r.bill_to_name || r.name, bill_to_email: r.bill_to_email || r.match_email, bill_to_address: r.bill_to_address || null,
-        cc_email: r.cc_email != null ? r.cc_email : undefined, bcc_email: r.bcc_email || null, template: r.template || null,
-        line_items: items, notes: r.notes || null, terms_days: r.terms_days, pay_by_card: !!r.pay_by_card,
-        recurring_id: r.id, billing_month: today.ym, issued_date: today.ymd, due_date: due,
-        // A social media client's: on their file, and in their hub.
-        ...(r.lead_id ? { booking_id: r.lead_id, booking_source: "smm", client_name: r.contact_name || null } : {}),
-      }, "automatic (recurring)");
+      const made = await raiseRecurringDraft(env, st, r, today.ym, qty, "automatic (recurring)");
       if (!made.ok) { await invLogForget(env, key); lines.push(`<li>Couldn't raise <strong>${invEsc(r.name)}</strong> for ${month}: ${invEsc(made.error)}. It'll try again tomorrow.</li>`); continue; }
       const inv = made.invoice;
       if (r.approver_email) {
@@ -6799,12 +6812,20 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
       amount_pence: pounds(l.price), note: l.inter_brand_invoice ? "Billed to another brand" : "",
       cells: cellsFor(mine, l.start_date ? String(l.start_date).slice(0, 7) : null, "social", l.id) });
   }
+  // The month's number for one that has one (the TPE hub's agents).
+  const qtys = new Map();
+  if (recurring.some((r) => r.quantity_label)) {
+    const qr = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_quantities?month=gte.${ymAdd(months[0], -1)}&month=lte.${last}&select=recurring_id,month,qty`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
+    if (qr.ok) (await qr.json()).forEach((x) => qtys.set(`${x.recurring_id}|${x.month}`, Number(x.qty)));
+  }
   for (const r of recurring) {
     const want = String(r.match_email || "").toLowerCase().trim(), text = String(r.match_text || "").toLowerCase().trim();
     const mine = invs.filter((iv) => iv.recurring_id === r.id || (!iv.recurring_id && !iv.booking_id && String(iv.bill_to_email || "").toLowerCase().trim() === want
       && (!text || JSON.stringify([iv.line_items || [], iv.notes || ""]).toLowerCase().includes(text))));
     rows.push({ kind: "recurring", id: r.id, client: r.name, contact: r.contact_name || "", amount_pence: r.amount_pence ?? null,
       match_email: r.match_email, match_text: r.match_text || "", start_month: r.start_month || "",
+      sub: r.kind === "social" ? "social" : "recurring", quantity_label: r.quantity_label || null,
+      quantities: Object.fromEntries([ymAdd(months[0], -1), ...months].filter((ym) => qtys.has(`${r.id}|${ym}`)).map((ym) => [ym, qtys.get(`${r.id}|${ym}`)])),
       // What the automatic invoicing needs (supabase/invoicing_automation.sql).
       auto: { auto_send: !!r.auto_send, day_of_month: r.day_of_month ?? null, frequency: r.frequency || "monthly", end_month: r.end_month || "", bill_to_name: r.bill_to_name || "", bill_to_email: r.bill_to_email || "", cc_email: r.cc_email || "", bill_to_address: r.bill_to_address || "", line: (Array.isArray(r.line_items) && r.line_items[0] && r.line_items[0].description) || "", terms_days: r.terms_days ?? null },
       cells: cellsFor(mine, r.start_month || null, "recurring", r.id) });
@@ -15277,6 +15298,41 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const done = r.ok ? await r.json().catch(() => []) : [];
         if (!r.ok || !done.length) return json({ error: "Couldn't link that invoice." }, 502, request, env);
         return json({ ok: true }, 200, request, env);
+      }
+      // Raise a recurring invoice for a month by hand, from its own setup, and
+      // return the draft for the email review (Dani, 10 Nov 2026). A month that
+      // needs a number (the TPE hub's agents) takes it here and keeps it.
+      if (path.endsWith("/invoicing/recurring/raise") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String(b.recurring_id || "").trim(), ym = String(b.month || "");
+        if (!/^[0-9a-f-]{36}$/i.test(id) || !/^\d{4}-\d{2}$/.test(ym)) return json({ error: "Which invoice, and for which month?" }, 400, request, env);
+        const r = (await sbGet(env, "recurring_invoices", `id=eq.${id}&select=*`))?.[0];
+        if (!r) return json({ error: "That regular invoice isn't there any more." }, 404, request, env);
+        const had = (await sbGet(env, "invoices", `recurring_id=eq.${id}&billing_month=eq.${ym}&status=neq.void&select=*&order=created_at.desc`)) || [];
+        const sentOne = had.find((v) => v.status !== "draft");
+        if (sentOne) return json({ error: `${sentOne.number} has already gone for ${invMonthLabel(ym)}.` }, 409, request, env);
+        // A draft for the month already: carry on with that one.
+        if (had[0]) return json({ ok: true, invoice: had[0], existing: true }, 200, request, env);
+        let qty = null;
+        if (r.quantity_label) {
+          const typed = b.qty != null && String(b.qty).trim() !== "" ? Math.round(Number(b.qty)) : null;
+          if (typed != null && !(typed >= 0)) return json({ error: `The ${String(r.quantity_label).toLowerCase()} should be a number.` }, 400, request, env);
+          if (typed != null) {
+            await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_quantities?on_conflict=recurring_id,month`, { method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ recurring_id: id, month: ym, qty: typed, entered_by: user.email || null, entered_at: new Date().toISOString() }) });
+            qty = typed;
+          } else {
+            const q = (await sbGet(env, "recurring_quantities", `recurring_id=eq.${id}&month=eq.${ym}&select=qty`))?.[0];
+            if (!q) return json({ error: `Add the ${String(r.quantity_label).toLowerCase()} for ${invMonthLabel(ym)} first.`, needs: r.quantity_label }, 400, request, env);
+            qty = Number(q.qty);
+          }
+        }
+        const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+        const made = await raiseRecurringDraft(env, st, r, ym, qty, user.email || null);
+        if (!made.ok) return json({ error: made.error }, made.code || 502, request, env);
+        return json({ ok: true, invoice: made.invoice }, 200, request, env);
       }
       if (path.endsWith("/invoicing/recurring") && request.method === "GET") {
         const user = await getUser(request, env);
