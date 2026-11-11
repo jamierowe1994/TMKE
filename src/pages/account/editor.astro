@@ -1397,6 +1397,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
               <span>Caption <span class="ed-sched-optional">— optional</span></span>
               <button type="button" class="ed-sched-ai" id="ed-sched-ai"><span aria-hidden="true">✨</span> Generate with AI</button>
             </span>
+            <!-- A Content Calendar post's captions, to choose from (Plan It). -->
+            <span class="ed-sched-caps" id="ed-sched-caps" hidden></span>
             <textarea id="ed-sched-caption" rows="4" maxlength="2200" placeholder="The copy you'll post alongside the image. Or generate one with AI — hashtags, mentions and calls to action, ready to go."></textarea>
           </label>
 
@@ -1429,6 +1431,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           </label>
 
           <div class="ed-sched-error" id="ed-schedule-error" hidden></div>
+          <div class="ed-sched-warn" id="ed-schedule-warn" hidden></div>
 
           <footer class="ed-sched-foot">
             <button type="button" class="ed-sched-cancel" id="ed-schedule-cancel">Cancel</button>
@@ -5500,6 +5503,23 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       font-weight: 400;
     }
 
+    /* Plan It (Dani, 11 Nov): a calendar post's three captions as choices,
+       and the checks before it goes on the calendar, on linen. */
+    .ed-sched-caps { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
+    .ed-sched-caps[hidden] { display: none; }
+    .ed-sched-cap {
+      appearance: none; border: 1px solid rgba(var(--violet-rgb), 0.3); background: #fff; color: var(--english-violet);
+      font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.04em;
+      padding: 5px 11px; border-radius: 999px; cursor: pointer;
+    }
+    .ed-sched-cap.is-on { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .ed-sched-warn {
+      padding: 10px 14px; background: #eae5e1; color: var(--english-violet); border-radius: 3px;
+      font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.5;
+    }
+    .ed-sched-warn p { margin: 0; }
+    .ed-sched-warn p + p { margin-top: 6px; }
+    .ed-sched-warn[hidden] { display: none; }
     .ed-sched-error {
       padding: 10px 14px;
       background: rgba(195, 65, 50, 0.08);
@@ -7892,6 +7912,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     const $emailNow = document.getElementById("ed-schedule-emailnow");
     const $remind   = document.getElementById("ed-sched-remind");
     const $error    = document.getElementById("ed-schedule-error");
+    const $warn     = document.getElementById("ed-schedule-warn");
+    const $caps     = document.getElementById("ed-sched-caps");
 
     // Where the Worker lives (send-now endpoint). Same env the rest of the
     // editor uses for deliverables.
@@ -7928,6 +7950,58 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     function clearError() {
       $error.hidden = true;
       $error.textContent = "";
+    }
+
+    /* Plan It for a Content Calendar post (Dani, 11 Nov; the plan's "Captions
+       and dates"): the post's own date, its three captions to choose from with
+       {tags} filled from the brand kit, and two checks before it goes on the
+       calendar: a [bracket] still to fill in, and a post tied to its day
+       planned for another. */
+    let ccPlanPost = null;
+    async function ccPostForPlan() {
+      const cur = (window as any).__TMKE_CC_CURRENT__;
+      if (cur && cur.id) return cur;
+      const id = (window as any).__TMKE_DESIGN_CC_POST__?.();
+      if (!id) return null;
+      if (ccPlanPost && ccPlanPost.id === id) return ccPlanPost;
+      try {
+        const { loadPost } = await import("../../lib/calendar-month.js");
+        return await loadPost(supabase, id);
+      } catch (_) { return null; }
+    }
+    const fillTags = (t) => { try { return (window as any).__TMKE_APPLY_TAGS__ ? (window as any).__TMKE_APPLY_TAGS__(t) : t; } catch (_) { return t; } };
+    function showCaptionChoices(post) {
+      const list = ((post && post.captions) || []).map((c) => String(c || "").trim()).filter(Boolean);
+      $caps.innerHTML = "";
+      $caps.hidden = list.length < 2;
+      if (list.length && !$caption.value.trim()) $caption.value = fillTags(list[0]);
+      if (list.length < 2) return;
+      list.forEach((c, i) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "ed-sched-cap" + (fillTags(c) === $caption.value ? " is-on" : "");
+        b.textContent = "Caption " + (i + 1);
+        b.title = c.slice(0, 160);
+        b.addEventListener("click", () => {
+          $caption.value = fillTags(c);
+          $caps.querySelectorAll(".ed-sched-cap").forEach((x) => x.classList.toggle("is-on", x === b));
+          clearWarn();
+        });
+        $caps.appendChild(b);
+      });
+    }
+    function clearWarn() { if ($warn) { $warn.hidden = true; $warn.innerHTML = ""; } delete $form.dataset.warned; $submit.textContent = "Plan post"; }
+    // What to check before planning; [] when nothing.
+    function planChecks(post, caption, dateStr) {
+      const out = [];
+      if (!post) return out;
+      const left = [...new Set((caption.match(/\[[^\]\n]{1,60}\]/g) || []))];
+      if (left.length) out.push(`Your caption still has ${left.join(", ")} to fill in.`);
+      if (post.date_tied && post.post_date && dateStr && dateStr !== post.post_date) {
+        const on = new Date(post.post_date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+        out.push(`This post is for ${post.occasion || "a particular day"}, on ${on}. Are you sure you want to post it on another day?`);
+      }
+      return out;
     }
 
     function defaultDate() {
@@ -7967,6 +8041,18 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       }
       // Don't clobber a time the user may have set on a previous open.
       if (!$time.value) $time.value = "09:00";
+      clearWarn();
+      $caps.hidden = true;
+      ccPlanPost = null;
+      ccPostForPlan().then((post) => {
+        if (!post || $modal.hidden) return;
+        ccPlanPost = post;
+        if (post.title) $title.value = post.title;
+        const q = new URLSearchParams(location.search);
+        const todayStr = ymd(new Date());
+        if (!q.get("schedule") && !q.get("for") && post.post_date && post.post_date >= todayStr) $date.value = post.post_date;
+        showCaptionChoices(post);
+      }).catch(() => {});
 
       const today = new Date();
       const todayYmd = ymd(today);
@@ -8010,6 +8096,10 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       return pub?.publicUrl || "";
     }
 
+    // Changing the caption or the date asks the checks again.
+    $caption.addEventListener("input", () => { if ($form.dataset.warned) clearWarn(); });
+    $date.addEventListener("change", () => { if ($form.dataset.warned) clearWarn(); });
+
     // ----- open / close wiring -----
     $btn.addEventListener("click", openModal);
     $close.addEventListener("click", closeModal);
@@ -8051,6 +8141,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
       if (!title)   return showError("Give the post a short title — it shows on your calendar.");
       if (!dateStr) return showError("Pick a date for the post.");
+      // A calendar post's checks: shown once, then Plan it anyway goes ahead.
+      const checks = planChecks(ccPlanPost, caption, dateStr);
+      const checkKey = checks.join("|");
+      if (checks.length && $form.dataset.warned !== checkKey) {
+        $warn.innerHTML = checks.map((c) => `<p>${c.replace(/[&<>]/g, (x) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[x]))}</p>`).join("");
+        $warn.hidden = false;
+        $form.dataset.warned = checkKey;
+        $submit.textContent = "Plan it anyway";
+        return;
+      }
       if (!isConfigured) {
         return showError("Supabase isn't configured in this environment — set PUBLIC_SUPABASE_URL / PUBLIC_SUPABASE_ANON_KEY to enable scheduling.");
       }
@@ -8105,6 +8205,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           platform_hint: platform,
           status: "scheduled",
           reminder: wantsReminder,
+          // From the month's posts: the calendar marks that post On your calendar.
+          ...(ccPlanPost ? { details: { cc_post_id: String(ccPlanPost.id), cc_month: (ccPlanPost.month && ccPlanPost.month.month) || null } } : {}),
         });
         if (insErr) {
           if (/relation .* does not exist/i.test(insErr.message)) {
@@ -10539,6 +10641,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       async function show(post) {
         // Whether this is a Content Calendar design, for the Edit pane's "good to go".
         (window as any).__TMKE_IS_CC_POST__ = !!post;
+        // The post itself, for Plan It's caption choices and date.
+        (window as any).__TMKE_CC_CURRENT__ = post || null;
         // What the AI helper reads about the post: its title, caption and how to edit it.
         (window as any).__TMKE_CC_CONTEXT__ = post ? { title: post.title || "", caption: ((post.captions || []).find((c) => c && c.trim())) || "", how_to_edit: post.how_to_edit || "" } : null;
         (window as any).__TMKE_RENDER_FIELDS__?.();
@@ -10569,12 +10673,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const lift = () => document.documentElement.classList.remove("ed-direct");
       const giveUp = setTimeout(lift, 8000);
       (async () => {
-        const { loadPost } = await import("../../lib/calendar-month.js");
+        const { loadPost, loadCalendarTemplate } = await import("../../lib/calendar-month.js");
         const post = await loadPost(supabase, id);
         // Nothing to show this person (not published, or not theirs to see):
         // the Studio's own front page, rather than an empty canvas.
         if (!post || !post.template_id) { location.replace("/account/editor"); return; }
-        const row = await fetchTemplateRow(post.template_id);
+        // Members can't read calendar designs from the table: the Worker hands
+        // over the post's design once it has checked the month is theirs.
+        const row = (await loadCalendarTemplate(supabase, post.template_id)) || await fetchTemplateRow(post.template_id);
         if (!row) { location.replace("/account/editor"); return; }
         // The engine may still be starting up.
         for (let i = 0; i < 100 && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ !== "function"; i++) await new Promise((r) => setTimeout(r, 50));

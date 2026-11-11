@@ -118,6 +118,12 @@ import "../../styles/account-sections.css";
           <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
         </div>
         <div class="cc-grid" id="cc-grid"></div>
+        <!-- A member without the calendar sees the real month, blurred, with
+             the way in (the plan's demo, Dani 21 Oct). -->
+        <div class="cc-lock" id="cc-lock" hidden>
+          <h3 class="cc-lock-h" id="cc-lock-h"></h3>
+          <p class="cc-lock-tx">A ready-made post for every weekday, on its day, to brand and post.</p>
+        </div>
       </div>
       <button type="button" class="cc-tab" id="cc-tab" hidden></button>
     </section>
@@ -175,6 +181,7 @@ import "../../styles/account-sections.css";
           <div class="ccp-part" id="ccp-howto-wrap" hidden><p class="ccp-ph">How to edit</p><p class="ccp-tx" id="ccp-howto"></p></div>
           <div class="ccp-part" id="ccp-cap-wrap" hidden><p class="ccp-ph">Caption</p><p class="ccp-tx" id="ccp-cap"></p></div>
         </div>
+        <p class="ccp-mine" id="ccp-mine" hidden></p>
         <a class="ws-btn ws-btn--primary ccp-use" id="ccp-use" href="#">Use This Template</a>
       </div>
     </div>
@@ -1354,8 +1361,20 @@ import "../../styles/account-sections.css";
     .cc-post-k { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.46); line-height: 1.3; }
     .cc-post-h { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; line-height: 1.2; color: var(--violet-deep); }
     .cc-post-go { margin-top: 2px; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: var(--violet-deep); text-decoration: underline; text-underline-offset: 2px; }
-    .cc-badge { position: absolute; top: 5px; right: 5px; padding: 1px 6px; border-radius: 99px; background: #f9eeda; color: #8a5a10; font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+    .cc-badge { position: absolute; top: 5px; right: 5px; padding: 1px 6px; border-radius: 99px; background: #eae5e1; color: var(--english-violet); font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
     .cc-post:hover .cc-badge { opacity: 0; }
+    /* The blurred preview (Dani, 11 Nov): the real month, no way into it. */
+    .cc-ours { position: relative; }
+    .cc-ours.is-preview .cc-post { filter: blur(7px); pointer-events: none; }
+    .cc-lock { position: absolute; top: 160px; left: 50%; transform: translateX(-50%); z-index: 3; width: min(440px, 90%); box-sizing: border-box; padding: 22px 24px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; text-align: center; box-shadow: 0 18px 50px rgba(55,30,40,0.2); }
+    .cc-lock[hidden] { display: none; }
+    .cc-lock-h { margin: 0 0 6px; font-family: var(--sans); font-size: 22px; font-weight: 600; line-height: 1.15; color: var(--violet-deep); }
+    .cc-lock-tx { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.5; color: rgba(28,29,34,0.7); }
+    /* Planned from the month: on their own calendar already. */
+    .cc-mine { position: absolute; left: 5px; bottom: 5px; padding: 1px 6px; border-radius: 99px; background: var(--english-violet); color: #fff; font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+    .cc-post:hover .cc-mine { opacity: 0; }
+    .ccp-mine { margin: 0 0 10px; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: var(--violet-deep); }
+    .ccp-mine[hidden] { display: none; }
     .cc-empty { margin: 0; padding: 24px 0; font-family: var(--sans); font-size: var(--ws-t-body); color: rgba(28,29,34,0.6); }
     /* The tab on the right edge: the other calendar. */
     .cc-tab { position: absolute; right: calc(-1 * clamp(14px, 2vw, 34px)); top: 120px; z-index: 3; writing-mode: vertical-rl; transform: rotate(180deg); padding: 16px 8px; border: 0; border-radius: 0 3px 3px 0; background: var(--english-violet); color: #fff; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; box-shadow: 0 6px 18px rgba(55,30,40,0.18); }
@@ -1384,7 +1403,7 @@ import "../../styles/account-sections.css";
     .ccp-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 12px 0 18px; padding-bottom: 16px; border-bottom: 1px solid rgba(28,29,34,0.12); font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.7); }
     .ccp-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 99px; background: rgba(var(--violet-rgb), 0.08); color: var(--violet-deep); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
     .ccp-chip[hidden] { display: none; }
-    .ccp-chip--tied { background: #f9eeda; color: #8a5a10; }
+    .ccp-chip--tied { background: #eae5e1; color: var(--english-violet); }
     .ccp-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 4px; }
     .ccp-part[hidden] { display: none; }
     .ccp-part + .ccp-part { margin-top: 16px; }
@@ -1788,8 +1807,21 @@ import "../../styles/account-sections.css";
     const ccMonths = new Map();          // "2026-11-01" -> month | null
     const ccLoading = new Map();
     // Which of the two shows: ours unless they've turned to their own.
-    let ccLayer = 'ours';
-    try { if (sessionStorage.getItem('tmke.cc.layer') === 'mine') ccLayer = 'mine'; } catch (_) {}
+    /* Which of the two shows. Subscribers open on the month's posts, a member
+       without the calendar on their own (the plan, 1.1); either way their
+       choice holds for the visit. */
+    let ccLayerChosen = null;
+    try { const v = sessionStorage.getItem('tmke.cc.layer'); if (v === 'mine' || v === 'ours') ccLayerChosen = v; } catch (_) {}
+    let ccLayer = ccLayerChosen || 'ours';
+    // The month's posts already planned on their own calendar, by post id.
+    function ccPlanned() {
+      const out = new Map();
+      (items || []).forEach((it) => {
+        const id = it && it.details && it.details.cc_post_id;
+        if (id && it.status !== 'cancelled' && !out.has(String(id))) out.set(String(id), it);
+      });
+      return out;
+    }
     let ccEdition = null;
     function ccFor(d) {
       const k = ccMonthKey(d);
@@ -1810,6 +1842,16 @@ import "../../styles/account-sections.css";
       if (!has) { $ours.hidden = true; $cal.classList.remove('is-ours'); return; }
       const name = monthPostsName(m.month.month);
       document.getElementById('cc-ours-name').textContent = name + '.';
+      ccLayer = ccLayerChosen || (m.preview ? 'mine' : 'ours');
+      $ours.classList.toggle('is-preview', !!m.preview);
+      const lock = document.getElementById('cc-lock');
+      if (lock) {
+        lock.hidden = !m.preview;
+        document.getElementById('cc-lock-h').textContent = 'Subscribe to use ' + name;
+      }
+      document.getElementById('cc-ours-sub').textContent = m.preview
+        ? 'One for each weekday, ready to brand and post.'
+        : 'One for each weekday. Click a post to see it full size.';
       // Staff testing: a month published for more than one edition.
       const ed = document.getElementById('cc-ours-ed');
       const sel = document.getElementById('cc-ours-ed-sel');
@@ -1822,6 +1864,7 @@ import "../../styles/account-sections.css";
       $ccTab.setAttribute('aria-label', showOurs ? 'Show your calendar' : 'Show ' + name);
       if (!showOurs) return;
       const byDate = bucketBy(m.posts.filter((p) => p.post_date), (p) => p.post_date);
+      const planned = m.preview ? new Map() : ccPlanned();
       const today = new Date(); const todayKey = ymd(today);
       // Only the weeks the month is in.
       const days = buildGridDays();
@@ -1833,12 +1876,13 @@ import "../../styles/account-sections.css";
         const post = other ? null : (byDate.get(key) || [])[0];
         const img = post && post.template && post.template.thumb_url;
         const cls = ['cc-day', other ? 'is-other-month' : '', key === todayKey ? 'is-today' : ''].filter(Boolean).join(' ');
-        const pic = post ? `<button type="button" class="cc-post" data-cc-post="${escapeHtml(post.id)}" aria-label="${escapeHtml(post.title || 'Post')}">${img ? `<img src="${escapeHtml(img)}" alt="" loading="lazy">` : ''}${post.date_tied ? '<span class="cc-badge">On this day</span>' : ''}<span class="cc-post-card">${post.pillar ? `<span class="cc-post-k">${escapeHtml(post.pillar)}</span>` : ''}<span class="cc-post-h">${escapeHtml(post.title || (post.template && post.template.name) || 'Post')}</span><span class="cc-post-go">See it full size</span></span></button>` : '<span class="cc-slot" aria-hidden="true"></span>';
+        const pic = post ? `<button type="button" class="cc-post" data-cc-post="${escapeHtml(post.id)}" aria-label="${escapeHtml(post.title || 'Post')}"${m.preview ? ' tabindex="-1" aria-hidden="true"' : ''}>${img ? `<img src="${escapeHtml(img)}" alt="" loading="lazy">` : ''}${post.date_tied ? '<span class="cc-badge">On this day</span>' : ''}${planned.has(String(post.id)) ? '<span class="cc-mine">On your calendar</span>' : ''}<span class="cc-post-card">${post.pillar ? `<span class="cc-post-k">${escapeHtml(post.pillar)}</span>` : ''}<span class="cc-post-h">${escapeHtml(post.title || (post.template && post.template.name) || 'Post')}</span><span class="cc-post-go">See it full size</span></span></button>` : '<span class="cc-slot" aria-hidden="true"></span>';
         return `<div class="${cls}"><span class="cc-num">${d.getDate()}</span>${pic}</div>`;
       }).join('');
     }
     $ccTab?.addEventListener('click', () => {
       ccLayer = ccLayer === 'ours' ? 'mine' : 'ours';
+      ccLayerChosen = ccLayer;
       try { sessionStorage.setItem('tmke.cc.layer', ccLayer); } catch (_) {}
       $cal.classList.toggle('is-mine-in', ccLayer === 'mine');
       paintOurs();
@@ -1853,7 +1897,7 @@ import "../../styles/account-sections.css";
     const $ccp = document.getElementById('ccp');
     function openCcPost(id) {
       const m = ccMonths.get(ccMonthKey(viewMonth));
-      const p = m && m.posts.find((x) => x.id === id);
+      const p = m && !m.preview && m.posts.find((x) => x.id === id);
       if (!p) return;
       const set = (elId, text) => { const el = document.getElementById(elId); el.textContent = text || ''; return el; };
       const img = document.getElementById('ccp-img');
@@ -1868,6 +1912,10 @@ import "../../styles/account-sections.css";
       const cap = (p.captions || []).find((c) => c && c.trim());
       set('ccp-cap', cap); document.getElementById('ccp-cap-wrap').hidden = !cap;
       set('ccp-reel', p.post_type === 'reel' ? p.reel_prompt : ''); document.getElementById('ccp-reel-wrap').hidden = !(p.post_type === 'reel' && p.reel_prompt);
+      const mine = ccPlanned().get(String(p.id));
+      const mineEl = document.getElementById('ccp-mine');
+      mineEl.textContent = mine && mine.scheduled_date ? 'On your calendar for ' + fmtPostDate(String(mine.scheduled_date).slice(0, 10)) + '.' : '';
+      mineEl.hidden = !mine;
       const use = document.getElementById('ccp-use');
       use.href = `/account/editor?ccpost=${encodeURIComponent(p.id)}`;
       use.hidden = !p.template_id;

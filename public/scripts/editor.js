@@ -13854,9 +13854,20 @@ import { createResizeEngine } from "./resize-engine.js";
     const q = new URLSearchParams(location.search);
     const live = q.has("ccnote") || q.has("ccpost") || window.__TMKE_IS_CC_POST__ === true;
     if (live) (state.pages || []).forEach(function (p) { if (p && p.canvas && !p.canvas.calendar) p.canvas.calendar = true; });
+    // Which month's post it is, for Plan It's captions and date on a saved copy.
+    const cur = window.__TMKE_CC_CURRENT__;
+    if (live && cur && cur.id && state.pages[0] && state.pages[0].canvas && state.pages[0].canvas.ccPost !== cur.id) state.pages[0].canvas.ccPost = String(cur.id);
     return live || (state.pages || []).some(function (p) { return p && p.canvas && p.canvas.calendar; });
   }
   window.__TMKE_RENDER_FIELDS__ = function () { try { renderFieldsPane(); } catch (_) {} };
+  // A caption's {tags} filled from the brand kit (Plan It). Never in the
+  // admin Studio, where the tag is the template.
+  window.__TMKE_APPLY_TAGS__ = function (t) { return isAdminMode() ? t : applyMergeTags(String(t || "")); };
+  // The month's post this design was made from, if any (Plan It).
+  window.__TMKE_DESIGN_CC_POST__ = function () {
+    const c = state.pages && state.pages[0] && state.pages[0].canvas;
+    return (c && c.ccPost) || null;
+  };
   function fieldsRestoreButton(gone) {
     const back = document.createElement("button");
     back.type = "button";

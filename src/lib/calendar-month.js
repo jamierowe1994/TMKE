@@ -40,7 +40,7 @@ export function memberAccess(supabase) {
     const base = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const { data: { session } } = await supabase.auth.getSession();
     if (!base || !session) return null;
-    const res = await fetch(`${base}/access/me`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+    const res = await fetch(`${base}/access/me${asParam()}`, { headers: { Authorization: `Bearer ${session.access_token}` } });
     if (!res.ok) return null;
     const a = await res.json();
     if (!a || !a.ok) return null;
@@ -49,6 +49,35 @@ export function memberAccess(supabase) {
   })().catch(() => null);
   return accessP;
 }
+/* Staff can see the hub as a level (?as=free shows the blurred preview,
+   ?as=calendar a subscriber's view). The Worker ignores it for members. */
+function asParam() {
+  try {
+    const v = new URLSearchParams(location.search).get("as");
+    return v && /^[a-z_]+$/.test(v) ? `?as=${v}` : "";
+  } catch (_) { return ""; }
+}
+
+/* Members read the month through the Worker (Danielle, 11 Nov): the month
+   tables and calendar designs are admin-only in the database, so a real
+   agent's month comes from /calendar/*, where memberAccess decides and the
+   service key reads. Null when the Worker can't be reached or says no. */
+async function calendarGet(supabase, route, params) {
+  const base = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!base || !session) return null;
+  const q = new URLSearchParams();
+  Object.entries(params || {}).forEach(([k, v]) => { if (v != null && v !== "") q.set(k, v); });
+  try {
+    const as = new URLSearchParams(location.search).get("as");
+    if (as && /^[a-z_]+$/.test(as)) q.set("as", as);
+  } catch (_) {}
+  const res = await fetch(`${base}/calendar/${route}?${q}`, { headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null);
+  if (!res || !res.ok) return null;
+  const out = await res.json().catch(() => null);
+  return out && out.ok ? out : null;
+}
+
 export function setPreferredEdition(v) {
   try { localStorage.setItem(EDITION_KEY, v); } catch (_) {}
 }
@@ -77,7 +106,16 @@ async function templatesById(supabase, ids) {
 export async function loadPublishedMonth(supabase, month, edition) {
   try {
     const access = await memberAccess(supabase);
-    if (!access || !access.calendar) return null;
+    if (!access || !(access.calendar || access.preview)) return null;
+    // Everyone through the Worker, staff included, so staff see what a member would.
+    const w = await calendarGet(supabase, "month", { month: String(month).slice(0, 7), edition: edition || preferredEdition() });
+    if (w) {
+      if (!w.month) return null;
+      return { month: w.month, editions: w.editions || [w.month.edition], posts: w.posts || [], preview: !!w.preview };
+    }
+    // The Worker unreachable: staff can still read the tables themselves; a
+    // member can't, so they see nothing, as before.
+    if (!access.staff || !access.calendar) return null;
     const { data: months, error } = await supabase.from("content_months")
       .select("id, month, edition, status, intro").eq("month", month).eq("status", "published");
     if (error || !months || !months.length) return null;
@@ -93,6 +131,7 @@ export async function loadPublishedMonth(supabase, month, edition) {
       month: m,
       editions: months.map((x) => x.edition).sort((a, b) => EDITION_ORDER.indexOf(a) - EDITION_ORDER.indexOf(b)),
       posts: (posts || []).map((p) => ({ ...p, template: tpls.get(p.template_id) || null })),
+      preview: false,
     };
   } catch (_) { return null; }
 }
@@ -103,6 +142,9 @@ export async function loadPublishedMonths(supabase, fromMonth) {
   try {
     const access = await memberAccess(supabase);
     if (!access || !access.calendar) return [];
+    const w = await calendarGet(supabase, "months", { from: String(fromMonth).slice(0, 7), edition: preferredEdition() });
+    if (w) return w.months || [];
+    if (!access.staff) return [];
     const { data, error } = await supabase.from("content_months")
       .select("id, month, edition").eq("status", "published").gte("month", fromMonth)
       .order("month", { ascending: true });
@@ -131,6 +173,10 @@ export async function loadPublishedMonths(supabase, fromMonth) {
 // One month's posts with their full templates, for the Studio pack.
 export async function loadMonthTemplates(supabase, monthId) {
   try {
+    const w = await calendarGet(supabase, "templates", { month_id: monthId });
+    if (w) return { posts: w.posts || [], templates: w.templates || [] };
+    const access = await memberAccess(supabase);
+    if (!access || !access.staff) return { posts: [], templates: [] };
     const { data: posts, error } = await supabase.from("content_month_posts")
       .select(POST_COLS).eq("month_id", monthId)
       .order("post_date", { ascending: true }).order("sort_order", { ascending: true });
@@ -147,11 +193,21 @@ export async function loadMonthTemplates(supabase, monthId) {
   } catch (_) { return { posts: [], templates: [] }; }
 }
 
+/* One calendar design, whole, when it belongs to a month this member may
+   open. Members can't read calendar designs from the templates table. */
+export async function loadCalendarTemplate(supabase, id) {
+  const w = await calendarGet(supabase, "template", { id });
+  return (w && w.template) || null;
+}
+
 // One post, with its month, for ?ccpost= in the Studio.
 export async function loadPost(supabase, id) {
   try {
     const access = await memberAccess(supabase);
     if (!access || !access.calendar) return null;
+    const w = await calendarGet(supabase, "post", { id });
+    if (w) return w.post || null;
+    if (!access.staff) return null;
     const { data: p, error } = await supabase.from("content_month_posts").select(POST_COLS).eq("id", id).maybeSingle();
     if (error || !p) return null;
     const { data: m } = await supabase.from("content_months").select("id, month, edition, status").eq("id", p.month_id).maybeSingle();
