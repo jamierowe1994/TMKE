@@ -1,0 +1,551 @@
+---
+/* The Done For You waitlist (Danielle, 11 Nov 2026): the Halloween seasonal
+   page's layout (src/pages/seasonal/[slug].astro) for a waitlist instead of a
+   sign-up. One sideways scroll in four sections: the board, which turns over
+   to the waitlist form; the offer under its photo; the two ways to have it,
+   with RRP and TEG prices; and what the tier includes.
+   Everything said on it, prices included, is in src/data/dfy-waitlist.js.
+   The waitlist itself is the Worker's: GET /dfy/waitlist/status and
+   POST /dfy/waitlist (Admin chat, 11 Nov). It stays closed until switched on
+   in Content calendar › Overview, apart from test logins and staff. */
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { DFY, PRICES } from "../../data/dfy-waitlist.js";
+
+const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
+const fill = (t) => String(t || "")
+  .replaceAll("{subRrp}", PRICES.subscription.rrp).replaceAll("{subTeg}", PRICES.subscription.teg)
+  .replaceAll("{addRrp}", PRICES.addOn.rrp).replaceAll("{addTeg}", PRICES.addOn.teg);
+const opts = [
+  { key: "subscription", d: DFY.subscription, p: PRICES.subscription },
+  { key: "add_on", d: DFY.addOn, p: PRICES.addOn },
+];
+---
+
+<BaseLayout title={DFY.title} description={DFY.description} ogImage={DFY.og} hideFooter noindex>
+  <section class="sn" data-lenis-prevent data-turnstile={TURNSTILE_SITE} data-msg={JSON.stringify(DFY.messages)}>
+    <div class="sn-rail" id="sn-rail">
+
+      <!-- ===== 1 and 2: the board, and the offer under its photo ===== -->
+      <div class="sn-home">
+        <div class="sn-board" id="sn-board">
+          <span class="sn-eyebrow">{DFY.eyebrow}</span>
+          <span class="sn-emboss" aria-hidden="true">{DFY.board}</span>
+
+          <div class="sn-member" id="sn-member" hidden>
+            <button type="button" class="sn-member-x" id="sn-member-x" aria-label="Back">&times;</button>
+            <div class="sn-member-top">
+              <h2 class="sn-member-h">{DFY.panel.heading}</h2>
+              <p class="sn-member-lede">{DFY.panel.sub}</p>
+              <form class="sn-form" id="sn-join" novalidate>
+                <label class="sn-field"><span>Full name</span>
+                  <input type="text" name="name" autocomplete="name" required placeholder="Jane Smith" /></label>
+                <label class="sn-field"><span>Email</span>
+                  <input type="email" name="email" autocomplete="email" required placeholder="you@agency.co.uk" /></label>
+                <label class="sn-field"><span>{DFY.panel.brand}</span>
+                  <select name="brand" id="dfy-brand" required>
+                    <option value="" disabled selected>Choose your brand</option>
+                    {DFY.brands.map((b) => <option value={b}>{b}</option>)}
+                  </select></label>
+                <fieldset class="sn-field sn-opts">
+                  <legend>{DFY.panel.option}</legend>
+                  {opts.map((o, i) => (
+                    <label class="sn-opt">
+                      <input type="radio" name="option" value={o.key} checked={i === 0} />
+                      <span>{o.d.label}</span>
+                    </label>
+                  ))}
+                </fieldset>
+                <input type="text" name="hp" class="sn-hp" tabindex="-1" autocomplete="off" aria-hidden="true" />
+                <div class="sn-turnstile"></div>
+                <button type="submit" class="sn-join-btn"><span data-label>{DFY.panel.submit}</span> <span aria-hidden="true">&rarr;</span></button>
+                <p class="sn-join-err" id="sn-join-err" hidden></p>
+                <p class="sn-member-alt">{DFY.panel.privacy}</p>
+              </form>
+              <div class="sn-done" id="sn-done" hidden>
+                <h3 class="sn-done-h" id="sn-done-h"></h3>
+                <p class="sn-member-lede" id="sn-done-p"></p>
+              </div>
+            </div>
+          </div>
+
+          <button type="button" class="sn-unlock" data-join>{DFY.boardLink} <span aria-hidden="true">&rsaquo;</span></button>
+        </div>
+
+        <div class="sn-feature">
+          <span class="sn-label">{DFY.featureLabel}</span>
+          <div class="sn-feature-card">
+            <span class="sn-feature-media"><img src={DFY.hero.src} alt={DFY.hero.alt} fetchpriority="high" /></span>
+            <span class="sn-feature-title">{DFY.heading}</span>
+            <span class="sn-feature-foot">
+              <span class="sn-feature-meta"><span>{DFY.meta}</span><span id="dfy-left"></span></span>
+              <span class="sn-feature-stand">{DFY.featureBody}</span>
+            </span>
+            <button type="button" class="sn-btn" data-join>{DFY.button} <span aria-hidden="true">&rarr;</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 3: the two ways to have it, where Halloween had its templates ===== -->
+      <div class="sn-panel sn-options">
+        <span class="sn-label">{DFY.options.label}</span>
+        <div class="sn-band sn-opt-band">
+          <div class="sn-opt-intro">
+            <h2 class="sn-more-h">{DFY.options.heading}</h2>
+            <p class="sn-more-p">{DFY.options.intro}</p>
+          </div>
+          <div class="sn-opt-cards">
+            {opts.map((o, i) => (
+              <article class="sn-card">
+                <span class="sn-cap-num">Option {String(i + 1).padStart(2, "0")}</span>
+                <h3 class="sn-card-h">{o.d.name}</h3>
+                <p class="sn-price">
+                  <span class="sn-rrp"><span class="sn-price-k">RRP</span> <s>{o.p.rrp}</s></span>
+                  <span class="sn-teg"><span class="sn-price-k">Your price</span> <b>{o.p.teg}</b><span class="sn-per">{o.p.per}</span></span>
+                </p>
+                <p class="sn-card-p">{fill(o.d.summary)}</p>
+                <ul class="sn-list">{o.d.includes.map((t) => <li>{t}</li>)}</ul>
+                {o.d.excludes && <p class="sn-card-note">{o.d.excludes}</p>}
+                <button type="button" class="sn-btn" data-join data-option={o.key}>{DFY.button} <span aria-hidden="true">&rarr;</span></button>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 4: what the tier includes, its tiles as Halloween's "And there's more" ===== -->
+      <div class="sn-panel sn-more">
+        <span class="sn-label">{DFY.more.label}</span>
+        <div class="sn-band sn-more-band">
+          <div class="sn-more-intro">
+            <h2 class="sn-more-h">{DFY.more.heading}</h2>
+            <p class="sn-more-p">{DFY.more.intro}</p>
+            <button type="button" class="sn-btn" data-join>{DFY.more.button} <span aria-hidden="true">&rarr;</span></button>
+          </div>
+          <div class="sn-more-grid">
+            {DFY.more.tiles.map((t) => (
+              <div class="sn-hub">
+                <span class="sn-hub-img"><img src={t.img} alt="" loading="lazy" /></span>
+                <span class="sn-cap">
+                  <span class="sn-cap-num">{t.key}</span>
+                  <span class="sn-hub-line">{t.line}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="sn-back" id="sn-back" type="button" aria-label="Back to the start">&times;</button>
+  </section>
+
+  <style>
+    /* The nav carries the mark and the menu only, as on Insights. */
+    :global(.nav-cta) { display: none; }
+
+    .sn {
+      --peek: 232px;
+      --inset: clamp(68px, 9vh, 100px);
+      --bottom: clamp(36px, 5.5vh, 80px);
+      --hairline: rgba(28,29,34,0.16);
+      --band-h: calc(100vh - var(--inset) - var(--bottom) - 56px);
+      position: relative; height: 100vh; overflow: hidden;
+      background: var(--paper); color: var(--ink);
+    }
+    .sn-rail { display: flex; height: 100%; will-change: transform; }
+    .sn-label, .sn-eyebrow {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
+    }
+
+    /* ----- 1 and 2 (as the Halloween page) ----- */
+    .sn-home {
+      flex: 0 0 calc(100vw - var(--peek)); height: 100%; box-sizing: border-box;
+      display: grid; grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr); gap: clamp(28px, 3.4vw, 60px);
+      padding: var(--inset) 21px var(--bottom) var(--page-gutter);
+    }
+    .sn-board {
+      position: relative; overflow: hidden; min-width: 0;
+      display: flex; flex-direction: column; justify-content: space-between; gap: 14px;
+      background: var(--english-violet) url("/images/insights-board-blank.webp") center / cover;
+      color: var(--paper); padding: 21px; border-radius: 2px;
+    }
+    .sn-board > * { position: relative; z-index: 1; }
+    .sn-board .sn-eyebrow { color: rgba(244,242,241,0.62); transition: opacity 0.35s ease; }
+    .sn-emboss {
+      position: absolute !important; inset: 0; z-index: 0 !important;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      padding: 0 8%; pointer-events: none;
+      font-family: var(--subhead); font-weight: 400; text-transform: uppercase;
+      font-size: clamp(34px, 4.6vw, 76px); line-height: 1.08; letter-spacing: 0.01em;
+      color: #2f1922;
+      text-shadow: 0 -1px 1px rgba(0,0,0,0.55), 0 1.5px 0.5px rgba(255,235,240,0.085);
+      transition: opacity 0.6s ease;
+    }
+    .sn-board.is-member .sn-emboss { opacity: 0; }
+    .sn-unlock {
+      align-self: flex-start; display: inline-flex; align-items: center; gap: 9px;
+      appearance: none; background: none; border: 0; padding: 10px 2px; cursor: pointer; text-decoration: none;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(244,242,241,0.78); transition: color 0.25s ease, gap 0.25s ease, opacity 0.35s ease;
+    }
+    .sn-unlock:hover { color: var(--paper); gap: 15px; }
+    .sn-board.is-quiet .sn-eyebrow, .sn-board.is-quiet .sn-unlock { opacity: 0; pointer-events: none; }
+
+    .sn-member {
+      flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 14px;
+      margin-top: calc(-0.5 * (1.2em - 1cap));
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    .sn-member.is-on { opacity: 1; }
+    .sn-member[hidden], .sn-form[hidden], .sn-done[hidden] { display: none; }
+    .sn-member-top {
+      flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none;
+      display: flex; flex-direction: column; gap: 13px;
+    }
+    .sn-member-top::-webkit-scrollbar { width: 0; display: none; }
+    .sn-member-x {
+      position: absolute; top: 0; right: 0; z-index: 2;
+      appearance: none; background: none; border: 0; padding: 4px 6px; cursor: pointer;
+      font-size: 20px; line-height: 1; color: rgba(244,242,241,0.6);
+    }
+    .sn-member-x:hover { color: var(--paper); }
+    .sn-member-h, .sn-done-h {
+      margin: 0; max-width: 75%; font-family: var(--subhead); font-weight: 700;
+      font-size: clamp(20px, 1.6vw, 25px); line-height: 1.2; letter-spacing: -0.01em; color: var(--paper);
+    }
+    .sn-member-lede { margin: 0; font-family: var(--sans); font-size: clamp(13.5px, 1vw, 15px); line-height: 1.55; color: rgba(244,242,241,0.82); }
+    .sn-form { display: flex; flex-direction: column; gap: 11px; }
+    .sn-field { display: flex; flex-direction: column; gap: 5px; margin: 0; padding: 0; border: 0; min-width: 0; }
+    .sn-field > span, .sn-field > legend { padding: 0; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(244,242,241,0.55); }
+    .sn-field input, .sn-field select {
+      appearance: none; background: none; border: 0; border-bottom: 1px solid rgba(244,242,241,0.3); border-radius: 0;
+      padding: 7px 0; color: var(--paper); font-family: var(--sans); font-size: 14px;
+    }
+    .sn-field select { cursor: pointer; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23f4f2f1' stroke-width='1.4'/%3E%3C/svg%3E") right 2px center no-repeat; padding-right: 18px; }
+    .sn-field select option { color: var(--ink); }
+    .sn-field input::placeholder { color: rgba(244,242,241,0.35); }
+    .sn-field input:focus, .sn-field select:focus { outline: none; border-bottom-color: var(--paper); }
+    .sn-opts { gap: 7px; }
+    .sn-opts legend { margin-bottom: 5px; }
+    .sn-opt { display: flex; align-items: flex-start; gap: 9px; cursor: pointer; font-family: var(--sans); font-size: 13.5px; line-height: 1.4; color: rgba(244,242,241,0.88); }
+    .sn-opt input { margin: 2px 0 0; accent-color: var(--paper); }
+    .sn-hp { position: absolute !important; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+    .sn-turnstile:empty { display: none; }
+    .sn-join-btn {
+      align-self: flex-start; margin-top: 4px; display: inline-flex; align-items: center; gap: 10px;
+      cursor: pointer; padding: 7px 18px; border-radius: 5px;
+      background: var(--paper); color: var(--english-violet); border: 1px solid var(--paper);
+      font-family: var(--sans); font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
+      transition: background 0.25s, color 0.25s, transform 0.25s;
+    }
+    .sn-join-btn:hover { background: transparent; color: var(--paper); transform: translateY(-2px); }
+    .sn-join-btn[disabled] { opacity: 0.55; cursor: default; transform: none; }
+    .sn-join-err { margin: 0; font-family: var(--sans); font-size: 12.5px; line-height: 1.45; color: #f2c6c6; }
+    .sn-member-alt { margin: 2px 0 0; font-family: var(--sans); font-size: 12px; line-height: 1.45; color: rgba(244,242,241,0.55); }
+    .sn-done { display: flex; flex-direction: column; gap: 10px; }
+
+    /* The offer, laid out as Insights' featured article. */
+    .sn-feature { position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .sn-feature::before, .sn-feature::after {
+      content: ""; position: absolute; z-index: 0; pointer-events: none; width: 1px;
+      top: calc(-1 * var(--inset)); height: 100vh; background: var(--hairline);
+    }
+    .sn-feature::before { left: -20px; }
+    .sn-feature::after { left: calc(100% + 20px); }
+    .sn-feature-card {
+      flex: 1; min-height: 0; display: flex; flex-direction: column; gap: clamp(10px, 1.4vh, 18px);
+      border-top: 1px solid var(--hairline); padding-top: clamp(14px, 1.8vh, 22px);
+    }
+    .sn-feature-media { flex: 1; min-height: 0; display: block; overflow: hidden; border-radius: 3px; background: rgba(28,29,34,0.05); }
+    .sn-feature-media img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; display: block; }
+    .sn-feature-title { font-family: var(--sans); font-weight: 400; font-size: clamp(20px, 1.8vw, 27px); line-height: 1.08; color: var(--ink); }
+    .sn-feature-foot { display: flex; flex-direction: column; gap: 12px; margin-top: calc(7px - clamp(10px, 1.4vh, 18px)); }
+    .sn-feature-meta { display: flex; flex-wrap: wrap; gap: 0 10px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .sn-feature-meta #dfy-left:not(:empty)::before { content: "·"; margin-right: 10px; }
+    .sn-feature-stand { font-family: var(--sans); font-size: clamp(12.5px, 0.95vw, 13.5px); line-height: 1.5; color: rgba(28,29,34,0.72); }
+
+    .sn-btn {
+      align-self: flex-start; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; text-decoration: none;
+      padding: 7px 16px; border-radius: 5px; background: var(--english-violet); color: var(--paper);
+      border: 1px solid var(--english-violet); font-family: var(--sans); font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
+      transition: background 0.25s, color 0.25s, transform 0.25s;
+    }
+    .sn-btn:hover { background: transparent; color: var(--english-violet); transform: translateY(-2px); }
+
+    /* ----- 3 and 4: sections across, each a label over a rule ----- */
+    .sn-panel {
+      flex: 0 0 auto; box-sizing: border-box; height: 100%;
+      padding: var(--inset) clamp(28px, 3vw, 48px) var(--bottom) 20px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .sn-panel + .sn-panel { border-left: 1px solid var(--hairline); padding-left: clamp(28px, 3vw, 48px); }
+    .sn-band { border-top: 1px solid var(--hairline); padding-top: clamp(14px, 1.8vh, 22px); }
+    .sn-cap { display: flex; flex-direction: column; gap: 1.5px; max-width: 100%; }
+    .sn-cap-num { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
+    .sn-hub-line { font-family: var(--sans); font-weight: 500; font-size: clamp(12.5px, 0.95vw, 13.5px); line-height: 1.3; color: rgba(28,29,34,0.72); }
+
+    /* The two ways to have it: an intro on the foot, then two cards, all ending on the board's foot. */
+    .sn-opt-band { display: flex; align-items: stretch; gap: clamp(28px, 3vw, 48px); height: var(--band-h); }
+    .sn-opt-intro { flex: 0 0 clamp(240px, 20vw, 310px); display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; }
+    .sn-opt-cards { display: grid; grid-template-columns: repeat(2, clamp(280px, 22vw, 340px)); gap: 10px; }
+    .sn-card {
+      display: flex; flex-direction: column; gap: 12px; min-width: 0;
+      border: 1px solid var(--hairline); border-radius: 3px; padding: clamp(18px, 2vh, 26px) 22px; background: #fff;
+    }
+    .sn-card-h { margin: 0; font-family: var(--sans); font-weight: 400; font-size: clamp(19px, 1.5vw, 23px); line-height: 1.12; color: var(--ink); }
+    .sn-price { margin: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 0; border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+    .sn-price-k { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-right: 6px; }
+    .sn-rrp { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); }
+    .sn-rrp s { text-decoration-thickness: 1px; }
+    .sn-teg { font-family: var(--sans); font-size: 14px; color: var(--english-violet); }
+    .sn-teg b { font-size: clamp(22px, 1.8vw, 28px); font-weight: 600; letter-spacing: -0.01em; }
+    .sn-per { margin-left: 4px; font-size: 13px; color: rgba(28,29,34,0.55); }
+    .sn-card-p { margin: 0; font-family: var(--sans); font-size: clamp(12.5px, 0.95vw, 13.5px); line-height: 1.5; color: rgba(28,29,34,0.72); }
+    .sn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .sn-list li { position: relative; padding-left: 14px; font-family: var(--sans); font-size: clamp(12.5px, 0.95vw, 13.5px); line-height: 1.4; color: rgba(28,29,34,0.78); }
+    .sn-list li::before { content: ""; position: absolute; left: 0; top: 0.6em; width: 5px; height: 5px; border-radius: 50%; background: var(--english-violet); opacity: 0.5; }
+    .sn-card-note { margin: 0; font-family: var(--sans); font-size: 12px; line-height: 1.45; color: rgba(28,29,34,0.55); }
+    .sn-card .sn-btn { margin-top: auto; }
+
+    /* What the tier includes (as Halloween's "And there's more"). */
+    .sn-more-band { display: flex; align-items: stretch; align-self: flex-start; gap: clamp(28px, 3vw, 48px); }
+    .sn-more-intro { flex: 0 0 clamp(260px, 22vw, 340px); display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; }
+    .sn-more-h { margin: 0; font-family: var(--sans); font-weight: 400; font-size: clamp(20px, 1.8vw, 27px); line-height: 1.08; letter-spacing: normal; color: var(--ink); }
+    .sn-more-p { margin: 0; font-family: var(--sans); font-size: clamp(12.5px, 0.95vw, 13.5px); line-height: 1.5; color: rgba(28,29,34,0.72); }
+    .sn-more-intro .sn-btn { margin-top: 26px; }
+    .sn-more-grid { display: grid; grid-template-columns: repeat(4, auto); grid-auto-rows: max-content; gap: 14px 10px; align-content: start; }
+    .sn-hub { display: flex; flex-direction: column; gap: 8px; }
+    .sn-hub-img { display: block; height: var(--img-h, calc((var(--band-h) - 14px) / 2 - 58px)); aspect-ratio: 3 / 4; overflow: hidden; border-radius: 2px; background: rgba(28,29,34,0.06); }
+    .sn-hub-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .sn-hub .sn-cap { width: 0; min-width: 100%; }
+
+    .sn-back {
+      position: fixed; top: calc(var(--inset) - 15px); right: clamp(16px, 3vw, 34px); z-index: 160;
+      width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.2);
+      background: var(--paper); color: var(--ink); font-size: 19px; line-height: 1; cursor: pointer;
+      display: grid; place-items: center; opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease, background 0.25s, color 0.25s, transform 0.4s;
+    }
+    .sn-back:hover { background: var(--ink); color: var(--paper); transform: rotate(90deg); }
+    :global(.nav-logo) { transition: opacity 0.3s ease; }
+    :global(body.sn-across .nav-logo) { opacity: 0; pointer-events: none; }
+
+    /* ----- Narrower screens: the sections stack and scroll down ----- */
+    @media (max-width: 1000px) {
+      .sn { height: auto; overflow: visible; --band-h: auto; }
+      .sn-rail { flex-direction: column; transform: none !important; height: auto; }
+      .sn-feature::before, .sn-feature::after { display: none; }
+      .sn-home { flex: none; width: 100%; height: auto; grid-template-columns: 1fr; gap: 40px; padding: 90px 24px 48px; }
+      .sn-board { min-height: 72vh; }
+      .sn-feature-media { flex: none; aspect-ratio: 4 / 3; }
+      .sn-panel, .sn-panel + .sn-panel { flex: none; width: 100%; height: auto; border-left: 0; padding: 8px 24px 48px; }
+      .sn-opt-band, .sn-more-band { height: auto; flex-direction: column; }
+      .sn-opt-intro, .sn-more-intro { flex: none; }
+      .sn-opt-cards { grid-template-columns: 1fr 1fr; }
+      .sn-hub-img { height: auto !important; width: 100%; }
+      .sn-more-grid { grid-template-columns: repeat(2, 1fr); gap: 18px 10px; }
+      .sn-back { display: none; }
+    }
+    @media (max-width: 600px) {
+      .sn-feature-stand, .sn-more-p, .sn-card-p, .sn-list li { font-size: 15px; }
+      .sn-hub-line { font-size: 14px; }
+      .sn-feature .sn-btn { margin-top: clamp(10px, 1.4vh, 18px); }
+      .sn-hub-img { aspect-ratio: 1 / 1; }
+      .sn-home { padding: 84px 16px 40px; }
+      .sn-panel, .sn-panel + .sn-panel { padding: 8px 16px 40px; }
+      .sn-board { min-height: 64vh; }
+      .sn-opt-cards { grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    import { track } from "../../lib/track.js";
+
+    const sn = document.querySelector(".sn");
+    const MSG = JSON.parse((sn && sn.dataset.msg) || "{}");
+    const SITE = (sn && sn.dataset.turnstile) || "";
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+    const fillPlace = (t, place) => String(t || "").replaceAll("{place}", String(place));
+
+    // ----- Spaces left, from the Worker -----
+    let status = null;
+    fetch(`${WORKER}/dfy/waitlist/status`).then((r) => r.json()).then((s) => {
+      status = s;
+      const el = document.getElementById("dfy-left");
+      if (el && s && s.ready && typeof s.left === "number") {
+        el.textContent = s.left > 0 ? fillPlace(MSG.left, s.left).replace("{spaces}", s.spaces) : MSG.full;
+      }
+    }).catch(() => {});
+
+    // ----- Across: the scroll moves the rail sideways (as the Halloween page) -----
+    const rail = document.getElementById("sn-rail");
+    const backBtn = document.getElementById("sn-back");
+    const desktop = window.matchMedia("(min-width: 1001px)");
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let at = 0, target = 0, max = 0;
+    const measure = () => { max = rail && sn ? Math.max(0, rail.scrollWidth - sn.clientWidth) : 0; target = Math.min(target, max); };
+    measure();
+    window.addEventListener("resize", measure);
+    window.addEventListener("load", measure);
+    (function frame() {
+      at += (target - at) * (reduce ? 1 : 0.3);
+      if (Math.abs(target - at) < 0.3) at = target;
+      if (rail) rail.style.transform = desktop.matches ? `translate3d(${(-at).toFixed(1)}px,0,0)` : "";
+      const across = desktop.matches && at > 80;
+      if (backBtn) { backBtn.style.opacity = across ? "1" : "0"; backBtn.style.pointerEvents = across ? "auto" : "none"; }
+      document.body.classList.toggle("sn-across", across);
+      requestAnimationFrame(frame);
+    })();
+    window.addEventListener("wheel", (e) => {
+      if (!desktop.matches) return;
+      const inForm = e.target.closest && e.target.closest(".sn-member-top");
+      if (inForm && inForm.scrollHeight > inForm.clientHeight) return;
+      e.preventDefault();
+      const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      target = Math.min(max, Math.max(0, target + d));
+    }, { passive: false });
+    window.addEventListener("keydown", (e) => {
+      if (!desktop.matches || (e.target.closest && e.target.closest("input, textarea, select, button, a"))) return;
+      const step = { ArrowRight: 120, ArrowDown: 120, PageDown: 600, " ": 600, ArrowLeft: -120, ArrowUp: -120, PageUp: -600 }[e.key];
+      if (step === undefined) return;
+      e.preventDefault();
+      target = Math.min(max, Math.max(0, target + step));
+    });
+    if (backBtn) backBtn.addEventListener("click", () => { target = 0; });
+
+    // The tiles end on the board's foot, as on the Halloween page.
+    const board0 = document.getElementById("sn-board");
+    function fitToBoard() {
+      document.querySelectorAll(".sn-more-grid").forEach((grid) => {
+        if (!desktop.matches) { grid.style.removeProperty("--img-h"); return; }
+        const pic = grid.querySelector(".sn-hub-img");
+        if (!pic || !board0) return;
+        let h = pic.getBoundingClientRect().height;
+        for (let i = 0; i < 4; i++) {
+          const foot = Math.max(...[...grid.children].map((c) => c.getBoundingClientRect().bottom));
+          const off = board0.getBoundingClientRect().bottom - foot;
+          if (Math.abs(off) < 0.5) break;
+          h += off / 2;
+          grid.style.setProperty("--img-h", h.toFixed(2) + "px");
+        }
+      });
+      // The two option cards end on the board's foot too.
+      const band = document.querySelector(".sn-opt-band");
+      if (band && board0) {
+        if (!desktop.matches) band.style.removeProperty("height");
+        else band.style.height = (board0.getBoundingClientRect().bottom - band.getBoundingClientRect().top).toFixed(1) + "px";
+      }
+      measure();
+    }
+    fitToBoard();
+    window.addEventListener("resize", fitToBoard);
+    window.addEventListener("load", fitToBoard);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitToBoard);
+
+    // ----- Turnstile, drawn when the form opens -----
+    let tsId, tsLoading = false;
+    function renderTurnstile() {
+      if (!SITE || tsId !== undefined) return;
+      const draw = () => { const el = document.querySelector(".sn-turnstile"); if (el && tsId === undefined) { try { tsId = window.turnstile.render(el, { sitekey: SITE, theme: "dark" }); } catch (_) {} } };
+      if (window.turnstile) return draw();
+      if (tsLoading) return;
+      tsLoading = true;
+      const s = document.createElement("script");
+      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      s.async = true; s.defer = true; s.onload = draw;
+      document.head.appendChild(s);
+    }
+    const tsToken = () => (SITE && window.turnstile && tsId !== undefined) ? (window.turnstile.getResponse(tsId) || "") : "";
+    const tsReset = () => { if (SITE && window.turnstile && tsId !== undefined) { try { window.turnstile.reset(tsId); } catch (_) {} } };
+
+    // ----- The board turns over to the waitlist form -----
+    const board = document.getElementById("sn-board");
+    const member = document.getElementById("sn-member");
+    const form = document.getElementById("sn-join");
+    const errEl = document.getElementById("sn-join-err");
+    const doneEl = document.getElementById("sn-done");
+    let busy = false;
+    const open = (option) => {
+      if (option) { const r = form.querySelector(`input[name="option"][value="${option}"]`); if (r) r.checked = true; }
+      if (busy || board.classList.contains("is-member")) return;
+      busy = true;
+      board.classList.add("is-quiet");
+      setTimeout(() => {
+        member.hidden = false;
+        void member.offsetWidth;
+        board.classList.add("is-member");
+        setTimeout(() => {
+          member.classList.add("is-on");
+          busy = false;
+          renderTurnstile();
+          const f = form.querySelector('input[name="name"]');
+          if (f && desktop.matches) f.focus({ preventScroll: true });
+        }, 240);
+      }, 300);
+    };
+    const close = () => {
+      if (busy || !board.classList.contains("is-member")) return;
+      busy = true;
+      member.classList.remove("is-on");
+      setTimeout(() => {
+        board.classList.remove("is-member");
+        setTimeout(() => board.classList.remove("is-quiet"), 180);
+        setTimeout(() => { member.hidden = true; busy = false; }, 620);
+      }, 240);
+    };
+    document.querySelectorAll("[data-join]").forEach((el) => el.addEventListener("click", (e) => {
+      e.preventDefault();
+      const opt = el.getAttribute("data-option");
+      if (desktop.matches) { target = 0; setTimeout(() => open(opt), at > 40 ? 420 : 0); }
+      else { board.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); open(opt); }
+    }));
+    document.getElementById("sn-member-x").addEventListener("click", close);
+    board.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errEl.hidden = true;
+      const d = new FormData(form);
+      const btn = form.querySelector('button[type="submit"]');
+      const label = btn.querySelector("[data-label]");
+      const orig = label.textContent;
+      if (!String(d.get("brand") || "")) { errEl.textContent = MSG.chooseBrand; errEl.hidden = false; return; }
+      btn.setAttribute("disabled", "true");
+      label.textContent = MSG.sending;
+      let body = {};
+      let ok = false;
+      try {
+        // A signed-in staff or test login can try it while the waitlist is closed.
+        const { data } = await supabase.auth.getSession();
+        const headers = { "Content-Type": "application/json" };
+        if (data && data.session) headers.Authorization = `Bearer ${data.session.access_token}`;
+        const res = await fetch(`${WORKER}/dfy/waitlist`, {
+          method: "POST", headers,
+          body: JSON.stringify({
+            name: d.get("name"), email: d.get("email"), brand: d.get("brand"), option: d.get("option"),
+            turnstile_token: tsToken(), hp: d.get("hp") || "", source: "waitlist-page",
+          }),
+        });
+        body = await res.json().catch(() => ({}));
+        ok = res.ok && body.ok;
+      } catch (_) { body = { error: MSG.offline }; }
+      btn.removeAttribute("disabled");
+      label.textContent = orig;
+      if (!ok) {
+        tsReset();
+        errEl.textContent = body.error === "The waitlist isn't open yet." ? MSG.closed : (body.error || MSG.offline);
+        errEl.hidden = false;
+        return;
+      }
+      track("dfy_waitlist_joined", { option: d.get("option"), reserve: !!body.reserve, already: !!body.already });
+      const m = body.already ? MSG.already : body.reserve ? MSG.reserve : MSG.space;
+      document.getElementById("sn-done-h").textContent = fillPlace(m.heading, body.place);
+      document.getElementById("sn-done-p").textContent = fillPlace(m.line, body.place);
+      form.hidden = true; doneEl.hidden = false;
+    });
+  </script>
+</BaseLayout>
