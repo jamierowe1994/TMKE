@@ -292,7 +292,7 @@ import "../../styles/account-sections.css";
 
   <script>
     import { supabase, gbpFromPence } from '../../lib/supabase.js';
-    import { memberAccess, EDITION_LABEL } from '../../lib/calendar-month.js';
+    import { memberAccess, refreshMemberAccess, EDITION_LABEL } from '../../lib/calendar-month.js';
     import { isTrainingDemo } from '../../lib/demo.js';
 
     const $ = (id) => document.getElementById(id);
@@ -402,8 +402,10 @@ import "../../styles/account-sections.css";
       return '';
     }
     function monthsLine(access) {
-      const L = access.library;
-      if (!L) return 'None yet';
+      const L0 = access.library;
+      if (!L0) return 'None yet';
+      // The Worker sends whole dates (2026-11-01); compare and show months.
+      const L = { from: L0.from ? String(L0.from).slice(0, 7) : null, to: L0.to ? String(L0.to).slice(0, 7) : null };
       const now = new Date(); const ym = (d) => d.toISOString().slice(0, 7);
       const thisM = ym(now); const nextM = ym(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)));
       if (L.from === thisM && L.to === nextM) return 'This month and next';
@@ -571,7 +573,7 @@ import "../../styles/account-sections.css";
       const wasDue = !!(bill && bill.upgrade && bill.upgrade.status === 'past_due');
       try {
         await api(what, { body: {} });
-        await loadBilling();
+        await loadBilling(true);
         flash(what === 'cancel' ? (wasDue ? 'Scheduling has ended. There\'s nothing to pay.' : 'Scheduling is cancelled. It runs to the end of the month you\'ve paid for.') : 'Scheduling is staying on your plan.');
       } catch (e) {
         document.querySelectorAll('#ya-up button').forEach((b) => { b.disabled = false; });
@@ -715,7 +717,7 @@ import "../../styles/account-sections.css";
       if (msg) msg.hidden = true;
       try {
         await api('retry', { body: {} });
-        await loadBilling();
+        await loadBilling(true);
         flash("That's gone through. Scheduling carries on as before.");
       } catch (err) {
         b.disabled = false; b.textContent = label;
@@ -731,8 +733,10 @@ import "../../styles/account-sections.css";
       } catch (e) { b.disabled = false; flash(e.message); }
     }
 
-    async function loadBilling() {
+    async function loadBilling(fresh) {
       let me = null, inv = null, failed = '';
+      // After cancelling or paying, the plan itself has changed: ask again (Danielle, 11 Nov).
+      if (fresh) { try { access = (await refreshMemberAccess(supabase)) || access; } catch (_) {} }
       try { me = await api('me'); } catch (e) { failed = e.message; }
       bill = me;
       try { inv = await api('invoices'); } catch (e) { failed = failed || e.message; }
@@ -817,7 +821,7 @@ import "../../styles/account-sections.css";
         } catch (e) {
           note = due ? `Your card is saved, but the payment didn't go through. ${e.message}` : e.message;
         }
-        await loadBilling().catch(() => null);
+        await loadBilling(true).catch(() => null);
         flash(note);
       }
       // Back from Stripe.

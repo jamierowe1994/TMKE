@@ -9150,8 +9150,10 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             if (!due) due = { amount_pence: null, month: null, retry_on: null };
           }
           if (!live) {
-            const last = ((await sbGet(env, "member_subscriptions", `user_id=eq.${user.id}&mode=eq.${mode}&status=eq.ended&ended_reason=eq.payment_failed&select=level,ended_at&order=ended_at.desc&limit=1`)) || [])[0];
-            if (last && last.ended_at && Date.now() - new Date(last.ended_at).getTime() < 30 * 86400000) ended = { level: last.level, reason: "payment_failed", at: last.ended_at };
+            // Only the most recent one, and only when it ended for an unpaid
+            // month: someone who cancelled it themselves doesn't need telling.
+            const last = ((await sbGet(env, "member_subscriptions", `user_id=eq.${user.id}&mode=eq.${mode}&status=eq.ended&select=level,ended_at,ended_reason&order=ended_at.desc&limit=1`)) || [])[0];
+            if (last && last.ended_reason === "payment_failed" && last.ended_at && Date.now() - new Date(last.ended_at).getTime() < 30 * 86400000) ended = { level: last.level, reason: "payment_failed", at: last.ended_at };
           }
           return json({ ok: true, mode, level: a.level, source: a.source, upgrade: live, due, ended, vat_rate: vat,
             offer: canUpgrade && price.pence != null ? {

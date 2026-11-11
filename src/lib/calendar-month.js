@@ -49,6 +49,12 @@ export function memberAccess(supabase) {
   })().catch(() => null);
   return accessP;
 }
+// Ask again after something changed their plan (Your Account: cancelling,
+// paying what was due), since memberAccess keeps its first answer.
+export function refreshMemberAccess(supabase) {
+  accessP = null;
+  return memberAccess(supabase);
+}
 /* Staff can see the hub as a level (?as=free shows the blurred preview,
    ?as=calendar a subscriber's view). The Worker ignores it for members. */
 function asParam() {
