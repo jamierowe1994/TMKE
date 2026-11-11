@@ -8027,8 +8027,8 @@ import { createResizeEngine } from "./resize-engine.js";
   // what runs out first.
   function fitZoom() {
     const stageRect = stageEl.getBoundingClientRect();
-    // The room left inside the stage's own padding (28 top and bottom, 40 at
-    // the sides on a computer). A phone has no room to give away around the
+    // The room left inside the stage's own padding (28 top, 40 bottom to
+    // meet the Creative Assistant button, 40 at the sides on a computer). A phone has no room to give away around the
     // design.
     const cs = getComputedStyle(stageEl);
     const padX = window.innerWidth <= 760 ? 28 : parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
