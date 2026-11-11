@@ -6415,7 +6415,6 @@ async function memberAccess(env, user, asLevel) {
     level = "calendar";
     source = test ? "test" : "teg";
   }
-  const tegAgent = editions.some((e) => CC_TEG_EDITIONS.includes(e));
   // A paid upgrade on top of it (Scheduling now; Done For You from January),
   // in Stripe's test mode for a test login and live for everyone else.
   let upgrade = null;
@@ -6437,11 +6436,10 @@ async function memberAccess(env, user, asLevel) {
     edition: primary || editions[0], editions,
     source,                                  // staff | test | teg (brand pays) | none; later "card"
     calendar: L.calendar,
-    // The month blurred (Danielle, 11 Nov): a TPE or PPE agent sees their own
-    // brand's month as "Coming soon" until the December rule is on; nobody
-    // else sees a month until independents open. Test logins and staff always.
-    preview: !L.calendar && (tegAgent || test || staff),
-    coming_soon: !L.calendar && tegAgent && !S.teg_live,
+    // A member without the calendar sees the month blurred, "Subscribe to
+    // use December's posts", once launched (the December rule on). Before
+    // that, only test logins and staff (Danielle, 11 Nov).
+    preview: !L.calendar && (S.teg_live || test || staff),
     library,                                 // months they can open, inclusive; from null = all
     scheduling: L.scheduling,
     done_for_you: L.done_for_you,
@@ -6480,9 +6478,8 @@ function ccPickEdition(a, published, want) {
   if (want && ok.includes(want)) return want;
   if (ok.includes(a.edition)) return a.edition;
   if (ok.length) return ok.sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y))[0];
-  // Nothing in their own edition: staff and test logins see the first published
-  // one, blurred. An agent only ever sees their own brand's month.
-  if (!a.calendar && (a.staff || a.test) && published.length) return published.slice().sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y))[0];
+  // Nothing in their own edition: a preview shows the first published one, blurred.
+  if (!a.calendar && published.length) return published.slice().sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y))[0];
   return null;
 }
 async function ccTemplatesById(env, ids, full) {
