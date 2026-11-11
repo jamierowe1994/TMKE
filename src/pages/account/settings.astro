@@ -94,6 +94,20 @@ import "../../styles/account-sections.css";
               <span class="ws-block-status" id="ya-acc-status" hidden></span>
             </header>
             <div class="ya-facts" id="ya-acc"><p class="ya-state">Loading your accounts&hellip;</p></div>
+            <!-- Row 1a (Danielle, 11 Nov; copy by the copywriter): what Facebook
+                 and Instagram ask, before they press Link. Shown while anything
+                 is still to link. The full guide's button joins it once the
+                 guide exists. -->
+            <div class="ya-box ya-linknote" id="ya-acc-note" hidden>
+              <p class="ya-sum" style="margin:0">Before you link</p>
+              <p class="ya-blurb">Linking takes you through Facebook's sign-in, so here's what you'll be asked before you press Link Instagram or Link Facebook.</p>
+              <ul class="ya-linklist">
+                <li><strong>Facebook:</strong> Facebook signs you in as yourself first, then you tick your business page on <strong>Choose the Pages</strong>. You'll need to be its admin, with full control.</li>
+                <li><strong>Instagram:</strong> It needs to be a Business or Creator account, not personal. You'll still sign in through Facebook.</li>
+                <li><strong>Social Media Connector:</strong> That's the scheduling service we use, so you're in the right place.</li>
+                <li><strong>Switching accounts:</strong> If Facebook shows this, press <strong>Continue</strong> to switch back to yourself.</li>
+              </ul>
+            </div>
           </section>
           <section class="ws-block" aria-labelledby="ya-up-h" id="ya-up-block" hidden>
             <header class="ws-block-head"><h2 class="ws-block-h" id="ya-up-h"><span class="ws-block-ch" id="ya-up-ch">Chapter 02</span><span id="ya-up-title">Add to your plan</span></h2></header>
@@ -216,6 +230,10 @@ import "../../styles/account-sections.css";
     .ya-acc-ic { width: 15px; height: 15px; fill: none; stroke: var(--ws-faint); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; margin-right: 6px; }
     @media (max-width: 1100px) { .ya-fc--wide { grid-column: 1 / -1; } }
     .ya-box { background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); padding: 24px 26px 22px; min-width: 0; }
+    .ya-linknote[hidden] { display: none; }
+    .ya-linklist { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 28px; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.45; color: var(--ws-tx); }
+    .ya-linklist strong { color: var(--ws-ink); font-weight: 600; }
+    @media (max-width: 760px) { .ya-linklist { grid-template-columns: 1fr; } }
     .ya-box--quiet { background: transparent; border-style: dashed; border-color: var(--stone, #c9bcb7); padding: 16px 18px; }
     .ya-strap { margin: 0; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); }
     .ya-name { margin: 8px 0 0; font-family: var(--serif); font-size: clamp(24px, 2.2vw, 28px); font-weight: 300; letter-spacing: -0.02em; line-height: 1.1; color: var(--ws-ink); }
@@ -517,6 +535,7 @@ import "../../styles/account-sections.css";
       const on = !!(access && access.scheduling) || !!(bill && bill.upgrade);
       block.hidden = !on;
       $('ya-up-ch').textContent = on ? 'Chapter 03' : 'Chapter 02';
+      if (!on) $('ya-acc-note').hidden = true;
       if (!on || accLoading) return;
       accLoading = true;
       let data = null;
@@ -543,6 +562,7 @@ import "../../styles/account-sections.css";
         : `<div class="ya-fc ya-fc--todo"><span class="ya-k">Next step</span><div class="ya-fb"><p class="ya-v">Link your accounts to start scheduling</p><p class="ya-s">Link Instagram or Facebook, then schedule posts straight from the Studio.</p></div></div>`);
       box.innerHTML = cards.join('');
       box.lastElementChild.classList.add('ya-fc--wide');
+      $('ya-acc-note').hidden = linked >= PLATS.length;
       box.querySelectorAll('[data-link]').forEach((b) => b.addEventListener('click', async () => {
         b.disabled = true; b.textContent = 'Opening…';
         try {
