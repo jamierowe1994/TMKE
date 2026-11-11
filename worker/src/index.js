@@ -9360,6 +9360,30 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         } catch (e) { return json({ error: `Couldn't move the clock: ${e.message}` }, 502, request, env); }
       }
 
+      // Staff: Start fresh (Danielle, 11 Nov). A test login's Stripe clock only
+      // moves forward, so once it's past 1 March the launch price can't be
+      // tried again. This ends its test subscription quietly (no member emails,
+      // linked accounts left alone) and forgets its test customer, so the next
+      // upgrade makes a new one with a clock set to today. The old customer and
+      // its history stay in Stripe's Sandbox. Test mode only.
+      if (path.endsWith("/billing/test-reset") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !user._isAdmin) return json({ error: "Staff only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const S = await ccSettings(env, true);
+        if (!S.test_user_ids.includes(b.user_id)) return json({ error: "Only a test login can start fresh." }, 400, request, env);
+        const uid = encodeURIComponent(b.user_id);
+        const subs = (await sbGet(env, "member_subscriptions", `user_id=eq.${uid}&mode=eq.test&status=in.(pending,active,past_due,cancelling)&select=id,stripe_subscription_id`)) || [];
+        for (const r of subs) {
+          // Ended here first, so Stripe's "deleted" message finds it done and does nothing more.
+          await sbPatch(env, "member_subscriptions", `id=eq.${r.id}`, { status: "ended", ended_at: new Date().toISOString(), ended_reason: "test_reset", updated_at: new Date().toISOString() });
+          if (r.stripe_subscription_id) { try { await ccStripe(env, "test", "DELETE", `subscriptions/${r.stripe_subscription_id}`); } catch (_) {} }
+        }
+        const del = await fetch(`${env.SUPABASE_URL}/rest/v1/member_billing?user_id=eq.${uid}&mode=eq.test`, { method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, Prefer: "return=minimal" } }).catch(() => null);
+        if (!del || !del.ok) return json({ error: "Couldn't clear its test customer." }, 502, request, env);
+        return json({ ok: true, ended: subs.length }, 200, request, env);
+      }
+
       // ── Scheduling (Zernio) ──────────────────────────────────────────────
       // Where the member stands: their connected accounts.
       if (path.endsWith("/schedule/status") && request.method === "GET") {

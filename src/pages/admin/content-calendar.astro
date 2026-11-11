@@ -1902,7 +1902,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         <td class="tx">${esc((t.brands || []).join(', ') || 'No brand')}</td>
         <td><span class="chip ${t.calendar ? 'good' : 'wait'}">${t.calendar ? 'Sees the month' : 'Sees it blurred'}</span></td>
         <td>${upgradeCell(t.upgrade)}</td>
-        <td class="num"><span class="row-acts">${!t.upgrade && t.calendar ? `<button type="button" class="mbtn" data-ccx-up="${esc(t.id)}" title="Opens Stripe's test checkout as this login. Pay with 4242 4242 4242 4242">Try the upgrade</button>` : ''}${t.upgrade ? `<button type="button" class="mbtn" data-ccx-cancel="${esc(t.id)}" data-undo="${t.upgrade.status === 'cancelling' ? '1' : ''}">${t.upgrade.status === 'cancelling' ? 'Undo cancel' : 'Cancel'}</button>` : ''}${t.has_clock ? `<button type="button" class="mbtn" data-ccx-clock="${esc(t.id)}" title="Moves this login's Stripe test clock to just after its next 1st, so the renewal happens now">Jump to the 1st</button>` : ''}<button type="button" class="mbtn" data-ccx-rm="${esc(t.id)}">Remove</button></span></td></tr>`).join('')
+        <td class="num"><span class="row-acts">${!t.upgrade && t.calendar ? `<button type="button" class="mbtn" data-ccx-up="${esc(t.id)}" title="Opens Stripe's test checkout as this login. Pay with 4242 4242 4242 4242">Try the upgrade</button>` : ''}${t.upgrade ? `<button type="button" class="mbtn" data-ccx-cancel="${esc(t.id)}" data-undo="${t.upgrade.status === 'cancelling' ? '1' : ''}">${t.upgrade.status === 'cancelling' ? 'Undo cancel' : 'Cancel'}</button>` : ''}${t.has_clock ? `<button type="button" class="mbtn" data-ccx-clock="${esc(t.id)}" title="Moves this login's Stripe test clock to just after its next 1st, so the renewal happens now">Jump to the 1st</button><button type="button" class="mbtn" data-ccx-fresh="${esc(t.id)}" title="Ends this login's test subscription and starts it again with Stripe's clock set to today, so the launch price can be tried again">Start fresh</button>` : ''}<button type="button" class="mbtn" data-ccx-rm="${esc(t.id)}">Remove</button></span></td></tr>`).join('')
         || '<tr><td colspan="6" class="tx">No test logins yet.</td></tr>';
     }
     // A test login's paid upgrade, in a word (Dani, 11 Nov).
@@ -1967,6 +1967,14 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
           $('ccx-msg').textContent = `Stripe's clock for that login is now ${new Date(d.now).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. Give it a minute, then reload to see the renewal.`;
         } catch (err) { $('ccx-msg').textContent = err.message; }
         k.disabled = false; k.textContent = 'Jump to the 1st';
+        return;
+      }
+      const fr = e.target.closest('[data-ccx-fresh]');
+      if (fr) {
+        if (!confirm("Start this test login fresh? Its test subscription ends (no emails) and the next upgrade starts from today, so the launch price applies again. Its Stripe history stays in the Sandbox.")) return;
+        fr.disabled = true; fr.textContent = 'Clearing…';
+        try { await staffBilling('test-reset', { user_id: fr.dataset.ccxFresh }); LAUNCH = await launchCall(); renderLaunch(); $('ccx-msg').textContent = 'Started fresh. Press Try the upgrade, or upgrade from Your Account, and it will be dated today.'; }
+        catch (err) { $('ccx-msg').textContent = err.message; fr.disabled = false; fr.textContent = 'Start fresh'; }
         return;
       }
       const b = e.target.closest('[data-ccx-rm]');
