@@ -6995,6 +6995,13 @@ async function ccOpenMonthRow(env, a, monthId) {
 // https://zernio.com/llms.txt  ·  ZERNIO_API_KEY is a Worker secret.
 const ZERNIO_API = "https://zernio.com/api/v1";
 const ZERNIO_PLATFORMS = ["instagram", "facebook", "linkedin", "tiktok"];
+// What a member's link lets us do (Danielle, 11 Nov 2026): post what they
+// schedule, and read how their posts did (for Content Calendar insights).
+// Nothing else: no comments, no messages, no ads or leads. Without this Zernio
+// asks Meta for every permission it supports. If we ever manage accounts
+// ourselves (our own social media management), those accounts link with a
+// wider list of their own; members' links stay this narrow.
+const ZERNIO_MEMBER_SCOPES = "posting,analytics";
 async function scheduleAllowed(env, user) {
   // Staff, or a member whose plan includes it: zernioMemberMayPost is the one
   // rule, and the daily check disconnects anyone it stops allowing.
@@ -9413,7 +9420,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const back = b.return_to === "/account/settings"
           ? `${site}/account/settings?tab=plan&connected=${platform}`
           : `${site}/account/schedule?connected=${platform}`;
-        const r = await zernio(env, `/connect/${platform}?profileId=${prof._id}&redirect_url=${encodeURIComponent(back)}`);
+        const r = await zernio(env, `/connect/${platform}?profileId=${prof._id}&scopes=${ZERNIO_MEMBER_SCOPES}&redirect_url=${encodeURIComponent(back)}`);
         if (!r.ok || !r.data.authUrl) return json({ error: (r.data && r.data.error) || "Couldn't start the connection." }, 502, request, env);
         return json({ ok: true, authUrl: r.data.authUrl }, 200, request, env);
       }
