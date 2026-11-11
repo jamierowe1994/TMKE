@@ -6625,6 +6625,15 @@ async function ccTaxRate(env, mode, pct) {
   CC_TAX_RATE[k] = tr.id;
   return tr.id;
 }
+// The monthly price for a level at an amount (ex VAT), found by its lookup key or made.
+async function ccMonthlyPrice(env, mode, level, pence) {
+  const key = `cc_${level}_${pence}`;
+  const found = await ccStripe(env, mode, "GET", "prices", { "lookup_keys[0]": key, active: "true", limit: 1 });
+  if (found.data && found.data[0]) return found.data[0].id;
+  const pr = await ccStripe(env, mode, "POST", "prices", { currency: "gbp", unit_amount: pence, "recurring[interval]": "month", lookup_key: key,
+    "product_data[name]": `${CC_LEVEL_NAME[level] || level}, the difference above a brand's Content Calendar` });
+  return pr.id;
+}
 // Their Stripe customer for this mode; a test one gets its own test clock.
 async function ccCustomer(env, mode, user, name) {
   const have = ((await sbGet(env, "member_billing", `user_id=eq.${user.id}&mode=eq.${mode}&select=stripe_customer_id,test_clock_id`)) || [])[0];
@@ -6671,9 +6680,35 @@ async function ccBillingEvent(env, event, mode) {
     const row = ((await sbGet(env, "member_subscriptions", `id=eq.${encodeURIComponent(o.metadata.sub_row)}&select=*`)) || [])[0];
     if (!row) return true;
     if (row.status !== "pending") return true;   // Stripe retried: already done
-    let fields = { status: "active", updated_at: new Date().toISOString() };
-    try { const sub = await ccStripe(env, mode, "GET", `subscriptions/${o.subscription}`); fields = { ...ccSubFields(sub) }; } catch (_) {}
-    await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { ...fields, stripe_subscription_id: o.subscription || null, stripe_customer_id: o.customer || row.stripe_customer_id, started_at: new Date().toISOString() });
+    if (o.payment_status !== "paid") return true;
+    // This month is paid: they have it now, to the next 1st.
+    const cust = ((await sbGet(env, "member_billing", `user_id=eq.${row.user_id}&mode=eq.${mode}&select=stripe_customer_id,test_clock_id`)) || [])[0] || { stripe_customer_id: o.customer };
+    const anchor = ccNextFirst(await ccNow(env, mode, cust));
+    await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { status: "active", stripe_customer_id: o.customer || row.stripe_customer_id,
+      current_period_end: new Date(anchor).toISOString(), started_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+    // Then the monthly charge from the 1st, on the card they just used.
+    try {
+      const pi = await ccStripe(env, mode, "GET", `payment_intents/${typeof o.payment_intent === "string" ? o.payment_intent : o.payment_intent.id}`);
+      const pm = typeof pi.payment_method === "string" ? pi.payment_method : pi.payment_method && pi.payment_method.id;
+      if (pm) await ccStripe(env, mode, "POST", `customers/${o.customer}`, { "invoice_settings[default_payment_method]": pm });
+      const price = await ccMonthlyPrice(env, mode, row.level, row.price_pence);
+      const tax = await ccTaxRate(env, mode, Number(row.vat_rate) || 20);
+      const sub = await ccStripe(env, mode, "POST", "subscriptions", {
+        customer: o.customer, "items[0][price]": price, "default_tax_rates[0]": tax,
+        default_payment_method: pm || undefined,
+        billing_cycle_anchor: Math.floor(anchor / 1000), proration_behavior: "none",
+        "metadata[kind]": "cc_upgrade", "metadata[sub_row]": row.id, "metadata[user_id]": row.user_id, "metadata[level]": row.level,
+      });
+      await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { stripe_subscription_id: sub.id, ...ccSubFields(sub), current_period_end: new Date(anchor).toISOString() });
+    } catch (e) {
+      // Paid for this month, but the monthly charge couldn't be set up: they
+      // keep this month, and the team is told to sort it out.
+      console.error("cc upgrade: subscription not made", e && e.message);
+      try {
+        await notifyAdmins(env, { area: "problem", event: "cc_upgrade_sub_failed", title: `${mode === "test" ? "Test: " : ""}A Scheduling upgrade was paid, but its monthly charge couldn't be set up`,
+          body: [row.email, String(e && e.message || "").slice(0, 160)].filter(Boolean).join(" · "), href: "/admin/content-calendar", key: `cc_subfail:${row.id}` });
+      } catch (_) {}
+    }
     await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: "calendar", to_level: row.level, source: "card", reason: `Upgraded by card, £${(row.price_pence / 100).toFixed(2)} a month + VAT${row.launch_offer ? " (launch offer)" : ""}` });
     try {
       await notifyAdmins(env, { area: "money", event: "cc_upgrade", title: `${mode === "test" ? "Test: " : ""}Upgraded to ${CC_LEVEL_NAME[row.level] || row.level}`,
@@ -6687,7 +6722,7 @@ async function ccBillingEvent(env, event, mode) {
     const row = await rowBySub(o.id) || (o.metadata.sub_row ? ((await sbGet(env, "member_subscriptions", `id=eq.${encodeURIComponent(o.metadata.sub_row)}&select=*`)) || [])[0] : null);
     if (!row) return true;
     const f = ccSubFields(o);
-    if (row.status === "pending" && f.status === "pending") return true;
+    if (f.status === "pending") return true;
     await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { ...f, stripe_subscription_id: o.id });
     if (row.status !== "cancelling" && f.status === "cancelling") await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: row.level, to_level: row.level, source: "card", reason: `Cancelled; keeps ${CC_LEVEL_NAME[row.level]} until ${String(f.current_period_end || "").slice(0, 10)}` });
     if (row.status === "cancelling" && f.status === "active") await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: row.level, to_level: row.level, source: "card", reason: "Cancellation undone" });
@@ -6752,24 +6787,26 @@ async function ccStartUpgrade(env, user, mode, level, back) {
   if (!ins || !ins.ok) { const e = new Error("Run member_subscriptions.sql first. It's on the SQL to run list."); e.status = 503; throw e; }
   const row = ((await ins.json().catch(() => [])) || [])[0];
   const name = CC_LEVEL_NAME[level];
+  // Stripe won't take a whole first month and anchor a subscription on the
+  // 1st in one Checkout, so Checkout takes this month and keeps the card;
+  // the subscription from the next 1st is made on that card once it's paid
+  // (ccBillingEvent). To the member it's one payment page.
+  const gbp = (p) => `£${(p / 100).toFixed(2)}`;
   let sess;
   try {
     sess = await ccStripe(env, mode, "POST", "checkout/sessions", {
-      mode: "subscription", customer: cust.stripe_customer_id, client_reference_id: user.id,
+      mode: "payment", customer: cust.stripe_customer_id, client_reference_id: user.id,
       "line_items[0][price_data][currency]": "gbp",
-      "line_items[0][price_data][product_data][name]": `${name}, the difference above your brand's calendar`,
+      "line_items[0][price_data][product_data][name]": `${name}, ${monthLabel}`,
+      "line_items[0][price_data][product_data][description]": "The difference above your brand's Content Calendar.",
       "line_items[0][price_data][unit_amount]": price.pence,
-      "line_items[0][price_data][recurring][interval]": "month",
       "line_items[0][quantity]": 1, "line_items[0][tax_rates][0]": tax,
-      "line_items[1][price_data][currency]": "gbp",
-      "line_items[1][price_data][product_data][name]": `${name}, ${monthLabel}`,
-      "line_items[1][price_data][unit_amount]": price.pence,
-      "line_items[1][quantity]": 1, "line_items[1][tax_rates][0]": tax,
-      "subscription_data[billing_cycle_anchor]": Math.floor(anchor / 1000),
-      "subscription_data[proration_behavior]": "none",
-      "subscription_data[metadata][kind]": "cc_upgrade", "subscription_data[metadata][sub_row]": row.id,
-      "subscription_data[metadata][user_id]": user.id, "subscription_data[metadata][level]": level,
-      "metadata[kind]": "cc_upgrade", "metadata[sub_row]": row.id,
+      "payment_intent_data[setup_future_usage]": "off_session",
+      "payment_intent_data[metadata][kind]": "cc_upgrade", "payment_intent_data[metadata][sub_row]": row.id,
+      "invoice_creation[enabled]": "true",
+      "invoice_creation[invoice_data][metadata][kind]": "cc_upgrade",
+      "custom_text[submit][message]": `Then ${gbp(price.pence)} + VAT on the 1st of each month, from ${new Date(anchor).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" })}. Cancel any time: it runs to the end of the month you've paid for.`,
+      "metadata[kind]": "cc_upgrade", "metadata[sub_row]": row.id, "metadata[level]": level,
       success_url: `${back}${back.includes("?") ? "&" : "?"}upgrade=done`, cancel_url: `${back}${back.includes("?") ? "&" : "?"}upgrade=cancelled`,
     });
   } catch (e) {
