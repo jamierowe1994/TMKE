@@ -9457,10 +9457,10 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         if (!item.asset_url) return json({ error: "Add the design to this post first." }, 400, request, env);
         // Post now (Danielle, 11 Nov): { now: true } publishes straight away,
         // after the member confirms in the pop-out. Otherwise at the post's own
-        // date and time, at least five minutes ahead.
+        // date and time, at least ten minutes ahead (Danielle, 11 Nov).
         const now = b.now === true;
         const when = now ? new Date().toISOString() : londonToUtcIso(item.scheduled_date, item.has_time === false ? "09:00" : item.scheduled_time);
-        if (!now && new Date(when).getTime() < Date.now() + 5 * 60000) return json({ error: "Pick a time at least five minutes from now." }, 400, request, env);
+        if (!now && new Date(when).getTime() < Date.now() + 10 * 60000) return json({ error: "Pick a time at least 10 minutes from now." }, 400, request, env);
         const prof = await zernioProfile(env, user);
         if (!prof) return json({ error: "Couldn't open your scheduling profile just now." }, 502, request, env);
         const acc = await zernio(env, `/accounts?profileId=${prof._id}`);
