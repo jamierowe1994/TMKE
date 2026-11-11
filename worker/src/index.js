@@ -6415,6 +6415,7 @@ async function memberAccess(env, user, asLevel) {
     level = "calendar";
     source = test ? "test" : "teg";
   }
+  const tegAgent = editions.some((e) => CC_TEG_EDITIONS.includes(e));
   // A paid upgrade on top of it (Scheduling now; Done For You from January),
   // in Stripe's test mode for a test login and live for everyone else.
   let upgrade = null;
@@ -6436,7 +6437,11 @@ async function memberAccess(env, user, asLevel) {
     edition: primary || editions[0], editions,
     source,                                  // staff | test | teg (brand pays) | none; later "card"
     calendar: L.calendar,
-    preview: !L.calendar,                    // free members see the month blurred
+    // The month blurred (Danielle, 11 Nov): a TPE or PPE agent sees their own
+    // brand's month as "Coming soon" until the December rule is on; nobody
+    // else sees a month until independents open. Test logins and staff always.
+    preview: !L.calendar && (tegAgent || test || staff),
+    coming_soon: !L.calendar && tegAgent && !S.teg_live,
     library,                                 // months they can open, inclusive; from null = all
     scheduling: L.scheduling,
     done_for_you: L.done_for_you,
@@ -6464,6 +6469,7 @@ function ccMonthKey(v) {
 function ccMayOpenMonth(a, ym) {
   if (a.staff) return true;
   if (a.calendar) return !!a.library && (!a.library.from || ym >= a.library.from) && ym <= a.library.to;
+  if (!a.preview) return false;                          // not launched: nothing at all
   return ym >= accessMonth(0) && ym <= accessMonth(1);   // the blurred preview: this month and next
 }
 function ccMayOpenEdition(a, ed) {
@@ -6474,8 +6480,9 @@ function ccPickEdition(a, published, want) {
   if (want && ok.includes(want)) return want;
   if (ok.includes(a.edition)) return a.edition;
   if (ok.length) return ok.sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y))[0];
-  // Nothing in their own edition: a preview shows the first published one, blurred.
-  if (!a.calendar && published.length) return published.slice().sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y))[0];
+  // Nothing in their own edition: staff and test logins see the first published
+  // one, blurred. An agent only ever sees their own brand's month.
+  if (!a.calendar && (a.staff || a.test) && published.length) return published.slice().sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y))[0];
   return null;
 }
 async function ccTemplatesById(env, ids, full) {
@@ -6776,7 +6783,7 @@ async function ccStartUpgrade(env, user, mode, level, back) {
 
 async function ccOpenMonthRow(env, a, monthId) {
   const m = ((await sbGet(env, "content_months", `id=eq.${encodeURIComponent(monthId)}&select=id,month,edition,status,intro`)) || [])[0];
-  if (!m || (m.status !== "published" && !a.staff)) return null;
+  if (!m || (m.status !== "published" && !a.staff && !a.test)) return null;
   if (!ccMayOpenMonth(a, m.month) || (a.calendar && !ccMayOpenEdition(a, m.edition))) return null;
   return m;
 }
@@ -8430,7 +8437,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           const ym = ccMonthKey(sp.get("month"));
           if (!ym) return json({ error: "Which month?" }, 400, request, env);
           if (!ccMayOpenMonth(a, ym)) return json({ ok: true, access: a, month: null }, 200, request, env);
-          const months = (await sbGet(env, "content_months", `month=eq.${ym}&status=eq.published&select=id,month,edition,intro`)) || [];
+          // Test logins see months still in draft, so they can be tried before publishing.
+          const months = (await sbGet(env, "content_months", `month=eq.${ym}&status=${a.test ? "in.(draft,published)" : "eq.published"}&select=id,month,edition,intro`)) || [];
           const ed = ccPickEdition(a, months.map((m) => m.edition), sp.get("edition"));
           const m = ed && months.find((x) => x.edition === ed);
           if (!m) return json({ ok: true, access: a, month: null }, 200, request, env);
@@ -8449,7 +8457,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         if (path.endsWith("/calendar/months")) {
           if (!a.calendar) return json({ ok: true, access: a, months: [] }, 200, request, env);
           const from = ccMonthKey(sp.get("from")) || accessMonth(0);
-          const rows = (await sbGet(env, "content_months", `status=eq.published&month=gte.${from}&select=id,month,edition&order=month.asc`)) || [];
+          const rows = (await sbGet(env, "content_months", `status=${a.test ? "in.(draft,published)" : "eq.published"}&month=gte.${from}&select=id,month,edition&order=month.asc`)) || [];
           const want = sp.get("edition");
           const byMonth = new Map();
           rows.filter((m) => ccMayOpenMonth(a, m.month) && ccMayOpenEdition(a, m.edition)).forEach((m) => {
