@@ -7000,6 +7000,281 @@ async function runZernioIdleCheck(env) {
   }
 }
 
+/* ==== Scheduled posts: what happened (Danielle, 11 Nov 2026) ====
+   Phase 4, step 5. Zernio tells us by webhook when a scheduled post went out
+   or didn't (post.published / post.partial / post.failed / post.cancelled),
+   signed with ZERNIO_WEBHOOK_SECRET. The result goes on the calendar row as
+   details.zernio:
+     status   scheduled | posted | partial | failed | cancelled
+     results  [{ platform, account_id, status: posted|failed, url, error, reason, what_to_do }]
+     posted_at, checked_at, notified_at (set once a failure has been told)
+   A failure tells the member (bell + email) with what to do. An hourly check
+   asks Zernio about any post still "scheduled" an hour after its time, in
+   case a webhook went missing. The endpoint registers itself with Zernio
+   (zernioEnsureWebhook) once the secret is set. */
+const ZERNIO_HOOK_URL = "https://api.tmke.co.uk/zernio/webhook";
+const ZERNIO_HOOK_EVENTS = ["post.published", "post.partial", "post.failed", "post.cancelled"];
+let zernioHookChecked = 0;
+async function zernioEnsureWebhook(env) {
+  if (!env.ZERNIO_API_KEY || !env.ZERNIO_WEBHOOK_SECRET) return { ok: false, why: "not set up" };
+  if (Date.now() - zernioHookChecked < 6 * 3600 * 1000) return { ok: true, cached: true };
+  const list = await zernio(env, "/webhooks/settings");
+  if (!list.ok) return { ok: false, why: `list ${list.status}` };
+  const mine = ((list.data && list.data.webhooks) || []).find((w) => String(w.url || "").replace(/\/+$/, "") === ZERNIO_HOOK_URL);
+  const body = { name: "TMKE calendar", url: ZERNIO_HOOK_URL, secret: env.ZERNIO_WEBHOOK_SECRET, events: ZERNIO_HOOK_EVENTS, isActive: true };
+  let r;
+  if (!mine) r = await zernio(env, "/webhooks/settings", { method: "POST", body: JSON.stringify(body) });
+  else {
+    const have = new Set(mine.events || []);
+    const fine = mine.isActive !== false && ZERNIO_HOOK_EVENTS.every((e) => have.has(e));
+    // The secret can't be read back, so it's re-sent whenever anything is put right.
+    r = fine ? { ok: true } : await zernio(env, "/webhooks/settings", { method: "PUT", body: JSON.stringify({ webhookId: mine._id, ...body }) });
+  }
+  if (r.ok) zernioHookChecked = Date.now();
+  return { ok: !!r.ok, made: !mine, why: r.ok ? "" : `${r.status} ${JSON.stringify(r.data || {}).slice(0, 200)}` };
+}
+async function zernioHookVerify(raw, sig, secret) {
+  if (!sig || !secret) return false;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(raw));
+  const hex = [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const got = String(sig).trim().toLowerCase();
+  if (hex.length !== got.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hex.length; i++) diff |= hex.charCodeAt(i) ^ got.charCodeAt(i);
+  return diff === 0;
+}
+// What the member should do, by Zernio's error category (copywriter, 11 Nov).
+const ZERNIO_WHAT_TO_DO = {
+  auth_expired: "The link to this account has expired or been removed. Link it again on Your Account › Plan, then press Try again.",
+  account_issue: "Check Instagram is still a Business or Creator account and you're still a Facebook Page admin, then link it again on Your Account › Plan and press Try again.",
+  user_content: "Instagram or Facebook turned down the picture or caption, so check their reason beside the post on Your calendar, change it and press Try again.",
+  user_abuse: "Instagram or Facebook treated the post as automated or spam, so wait a few hours, change the caption a little, then press Try again.",
+  quota_exhausted: "This account has reached Instagram or Facebook's posting limit for now, so press Try again later today or tomorrow.",
+  platform_rate_limit: "This account has reached Instagram or Facebook's posting limit for now, so press Try again later today or tomorrow.",
+  other: "Something went wrong while sending it, so press Try again, and if it fails a second time, get in touch and we'll look into it.",
+};
+const ZERNIO_FAIL_COPY = {
+  failed: {
+    note_title: "\u201c{title}\u201d didn't go out on {accounts}",
+    note_body: "Open it on Your calendar to see what happened and press Try again.",
+    subject: "Your post didn't go out on {accounts}.",
+    heading: "Your Post Didn't Go Out.",
+    paras: ["Your post \u201c{title}\u201d was scheduled for {when}, but it didn't go out on {accounts}.", "{what}"],
+    button: "Open the post",
+  },
+  partial: {
+    note_title: "\u201c{title}\u201d went out on {posted}, not {failed}",
+    note_body: "Open it on Your calendar to see why it didn't go out on {failed}.",
+    subject: "Your post went out on {posted}, but not on {failed}.",
+    heading: "Your Post Didn't Go Out Everywhere.",
+    paras: ["Your post \u201c{title}\u201d was scheduled for {when}. It went out on {posted}, but it didn't go out on {failed}.", "{what}"],
+    button: "Open the post",
+  },
+};
+function zernioWhatToDo(cat) { return ZERNIO_WHAT_TO_DO[cat] || ZERNIO_WHAT_TO_DO.other; }
+function zernioNames(list) {
+  const n = [...new Set(list.map((p) => ZERNIO_NAMES[p] || p))];
+  return n.length <= 1 ? (n[0] || "") : `${n.slice(0, -1).join(", ")} and ${n[n.length - 1]}`;
+}
+// One shape from a webhook's post or GET /posts/{id}'s.
+function zernioResults(post) {
+  return ((post && post.platforms) || []).map((p) => {
+    const st = String(p.status || "");
+    const ok = st === "published";
+    const failed = st === "failed";
+    const cat = p.errorCategory || (failed ? "unknown" : null);
+    return {
+      platform: p.platform,
+      account_id: (p.accountId && (p.accountId._id || p.accountId)) || null,
+      status: ok ? "posted" : failed ? "failed" : st === "cancelled" ? "cancelled" : "pending",
+      url: p.publishedUrl || p.platformPostUrl || null,
+      error: failed ? String(p.error || p.errorMessage || "").slice(0, 400) || null : null,
+      reason: failed ? cat : null,
+      what_to_do: failed ? zernioWhatToDo(cat) : null,
+    };
+  });
+}
+function zernioOverall(status, results) {
+  const s = String(status || "");
+  if (s === "published") return "posted";
+  if (s === "partial") return "partial";
+  if (s === "failed") return "failed";
+  if (s === "cancelled") return "cancelled";
+  if (results.length && results.every((r) => r.status === "posted")) return "posted";
+  if (results.length && results.every((r) => r.status === "failed")) return "failed";
+  if (results.some((r) => r.status === "failed") && results.some((r) => r.status === "posted")) return "partial";
+  return "scheduled";
+}
+function zernioWhen(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit", hourCycle: "h23" }).formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.weekday} ${p.day} ${p.month} at ${Number(p.hour)}:${p.minute}`;
+}
+// Put Zernio's word on the calendar row, and tell the member once if it failed.
+async function zernioApplyResult(env, post, opts = {}) {
+  const pid = String((post && (post.id || post._id)) || "");
+  if (!/^[0-9a-f]{24}$/.test(pid)) return { ok: false, why: "no post id" };
+  const rows = (await sbGet(env, "calendar_items", `details->zernio->>post_id=eq.${pid}&select=id,user_id,title,details`)) || [];
+  const row = rows[0];
+  if (!row) return { ok: true, why: "not on a calendar" };   // taken back, or a staff test
+  const prev = (row.details && row.details.zernio) || {};
+  const results = zernioResults(post);
+  const status = zernioOverall(post.status, results);
+  const now = new Date().toISOString();
+  const zern = {
+    ...prev,
+    status,
+    results: results.length ? results : (prev.results || []),
+    checked_at: now,
+    ...(status === "posted" || status === "partial" ? { posted_at: post.publishedAt || prev.posted_at || now } : {}),
+    ...(opts.eventId ? { event_id: opts.eventId } : {}),
+  };
+  const tell = (status === "failed" || status === "partial") && !prev.notified_at;
+  if (tell) zern.notified_at = now;
+  await sbPatch(env, "calendar_items", `id=eq.${row.id}`, { details: { ...(row.details || {}), zernio: zern } });
+  if (tell) await zernioTellFailure(env, row, zern).catch((e) => console.error("zernio tell", e && e.message));
+  return { ok: true, status };
+}
+async function zernioTellFailure(env, row, zern) {
+  const failed = zern.results.filter((r) => r.status === "failed");
+  const posted = zern.results.filter((r) => r.status === "posted");
+  if (!failed.length) return;
+  const title = String(row.title || "Your post").slice(0, 120);
+  const F = zernioNames(failed.map((r) => r.platform)), P = zernioNames(posted.map((r) => r.platform));
+  const what = failed[0].what_to_do;
+  const href = `/account/schedule?item=${row.id}`;
+  const fill = (s) => String(s).replace(/\{title\}/g, title).replace(/\{accounts\}/g, F).replace(/\{failed\}/g, F).replace(/\{posted\}/g, P).replace(/\{what\}/g, what).replace(/\{when\}/g, zernioWhen(zern.scheduled_for));
+  const C = posted.length ? ZERNIO_FAIL_COPY.partial : ZERNIO_FAIL_COPY.failed;
+  await notifyMember(env, row.user_id, { kind: "schedule_failed", title: fill(C.note_title), body: fill(C.note_body) + " " + what, href, meta: { item_id: row.id, post_id: zern.post_id } });
+  const u = await ccUserById(env, row.user_id).catch(() => null);
+  if (!u || !u.email) return;
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const first = esc(String((u.user_metadata && (u.user_metadata.first_name || u.user_metadata.full_name || u.user_metadata.name)) || "").split(" ")[0] || "there");
+  const reason = failed.map((r) => r.error ? `<p style="${EM_SMALL}">${esc(ZERNIO_NAMES[r.platform] || r.platform)} said: ${esc(r.error)}</p>` : "").join("");
+  const paras = C.paras.map((p) => `<p style="${EM_P}">${esc(fill(p))}</p>`).join("");
+  await sendEmail(env, {
+    to: u.email,
+    subject: fill(C.subject),
+    html: `<div style="${EM_WRAP}">
+      <h1 style="${EM_H1}">${esc(fill(C.heading))}</h1>
+      <p style="${EM_P}">Hi ${first},</p>
+      ${paras}
+      ${reason}
+      <p style="${EM_P}"><a href="${invSite(env)}${href}" style="${EM_BTN}">${esc(C.button)}</a></p>
+      <p style="${EM_P}">The TMKE Team</p>
+    </div>`,
+  });
+}
+// Hourly: anything we still think is scheduled an hour after its time. Zernio's
+// own answer wins; if Zernio still hasn't sent it three hours on, staff hear.
+async function runZernioStuckCheck(env) {
+  if (!env.ZERNIO_API_KEY) return;
+  await zernioEnsureWebhook(env).catch(() => {});
+  const cutoff = new Date(Date.now() - 3600 * 1000).toISOString();
+  const rows = (await sbGet(env, "calendar_items", `details->zernio->>status=eq.scheduled&details->zernio->>scheduled_for=lt.${encodeURIComponent(cutoff)}&select=id,user_id,title,details&limit=100`)) || [];
+  for (const row of rows) {
+    try {
+      const z = row.details.zernio;
+      const r = await zernio(env, `/posts/${z.post_id}`);
+      if (r.status === 404) {
+        await sbPatch(env, "calendar_items", `id=eq.${row.id}`, { details: { ...row.details, zernio: { ...z, status: "failed", checked_at: new Date().toISOString(), results: (z.accounts || []).map((a) => ({ platform: null, account_id: a, status: "failed", url: null, error: "The scheduler has no record of this post.", reason: "unknown", what_to_do: zernioWhatToDo("unknown") })) } } });
+        continue;
+      }
+      if (!r.ok) continue;
+      const post = r.data.post || r.data;
+      const res = await zernioApplyResult(env, post);
+      if (res.status === "scheduled" && new Date(z.scheduled_for).getTime() < Date.now() - 3 * 3600 * 1000 && !z.stuck_alerted) {
+        await notifyAdmins(env, { area: "problem", event: "schedule_stuck", title: "A member's scheduled post hasn't gone out", body: `"${String(row.title || "").slice(0, 80)}" was due ${zernioWhen(z.scheduled_for)} and the scheduler still has it as ${post.status || "scheduled"}.`, key: `schedule_stuck_${row.id}` });
+        const fresh = ((await sbGet(env, "calendar_items", `id=eq.${row.id}&select=details`)) || [])[0];
+        if (fresh) await sbPatch(env, "calendar_items", `id=eq.${row.id}`, { details: { ...fresh.details, zernio: { ...fresh.details.zernio, stuck_alerted: true } } });
+      }
+    } catch (e) { console.error("zernio stuck", row.id, e && e.message); }
+  }
+}
+
+/* ==== What Instagram and Facebook will take (Phase 4, step 7) ====
+   Checked 11 Nov 2026 against Meta's Content Publishing docs (IG User Media)
+   and Zernio's platform pages:
+   - Instagram feed image: aspect 4:5 (0.8) to 1.91:1, width 320 to 1440
+     (scaled outside that), 8 MB, JPEG per Meta. Zernio lists JPEG and PNG and
+     compresses anything over the limit, so our PNGs go through Zernio.
+     Zernio also lists 9:16 as allowed; Meta's own page still says 4:5, so we
+     hold to 4:5. Caption 2,200 characters, 30 hashtags, 20 @ tags.
+   - Facebook Page feed image: JPEG, PNG, GIF (WebP converted by Zernio),
+     4 MB (Facebook rejects anything bigger, and Zernio doesn't say it
+     compresses for Facebook). Text 63,206 characters.
+   One picture per post for now; carousels and Reels later. */
+const SCHEDULE_RULES = {
+  instagram: { name: "Instagram", ratio_min: 0.8, ratio_max: 1.91, min_width: 320, max_bytes: 8 * 1024 * 1024, types: ["image/jpeg", "image/png"], caption_max: 2200, hashtags_max: 30, mentions_max: 20 },
+  facebook: { name: "Facebook", max_bytes: 4 * 1024 * 1024, types: ["image/jpeg", "image/png", "image/gif", "image/webp"], caption_max: 63206 },
+};
+// Width, height and type from the first bytes of a PNG, JPEG, GIF or WebP.
+function imageSize(u8) {
+  const b = u8, n = b.length;
+  const be16 = (i) => (b[i] << 8) | b[i + 1], le16 = (i) => b[i] | (b[i + 1] << 8);
+  const be32 = (i) => ((b[i] << 24) >>> 0) + (b[i + 1] << 16) + (b[i + 2] << 8) + b[i + 3];
+  if (n > 24 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return { type: "image/png", width: be32(16), height: be32(20) };
+  if (n > 10 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return { type: "image/gif", width: le16(6), height: le16(8) };
+  if (n > 30 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) {
+    const kind = String.fromCharCode(b[12], b[13], b[14], b[15]);
+    if (kind === "VP8 ") return { type: "image/webp", width: le16(26) & 0x3fff, height: le16(28) & 0x3fff };
+    if (kind === "VP8L") { const v = b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24); return { type: "image/webp", width: (v & 0x3fff) + 1, height: ((v >> 14) & 0x3fff) + 1 }; }
+    if (kind === "VP8X") return { type: "image/webp", width: 1 + (b[24] | (b[25] << 8) | (b[26] << 16)), height: 1 + (b[27] | (b[28] << 8) | (b[29] << 16)) };
+  }
+  if (n > 4 && b[0] === 0xff && b[1] === 0xd8) {
+    let i = 2;
+    while (i + 9 < n) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const m = b[i + 1];
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { type: "image/jpeg", width: be16(i + 7), height: be16(i + 5) };
+      if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
+      i += 2 + be16(i + 2);
+    }
+    return { type: "image/jpeg", width: 0, height: 0 };
+  }
+  return null;
+}
+async function schedulePicture(url) {
+  const res = await fetch(url, { headers: { Range: "bytes=0-131071" } }).catch(() => null);
+  if (!res || !(res.ok || res.status === 206)) return { error: "We couldn't open the picture." };
+  const buf = new Uint8Array(await res.arrayBuffer());
+  const total = Number(((res.headers.get("content-range") || "").split("/")[1]) || (res.status === 200 ? res.headers.get("content-length") || buf.length : 0)) || null;
+  const s = imageSize(buf);
+  if (!s) return { error: "The picture isn't a JPEG, PNG, GIF or WebP.", content_type: res.headers.get("content-type") || null, bytes: total };
+  return { ...s, bytes: total };
+}
+// Plain-words problems for one picture and caption, per platform.
+function scheduleProblems(pic, caption, platforms) {
+  const out = [];
+  const mb = (x) => `${(x / 1048576).toFixed(1).replace(/\.0$/, "")} MB`;
+  const text = String(caption || "");
+  const chars = [...text].length;
+  const tags = (text.match(/(^|\s)#[\p{L}\p{N}_]+/gu) || []).length;
+  const ats = (text.match(/(^|\s)@[\w.]+/g) || []).length;
+  for (const p of platforms) {
+    const R = SCHEDULE_RULES[p];
+    if (!R) continue;
+    const add = (field, message) => out.push({ platform: p, field, message });
+    if (pic && !pic.error) {
+      if (R.types && !R.types.includes(pic.type)) add("picture", `${R.name} can't take this kind of picture.`);
+      if (R.max_bytes && pic.bytes && pic.bytes > R.max_bytes && p !== "instagram") add("picture", `The picture is ${mb(pic.bytes)} and ${R.name} takes up to ${mb(R.max_bytes)}.`);
+      if (R.ratio_min && pic.width && pic.height) {
+        const r = pic.width / pic.height;
+        if (r < R.ratio_min - 0.005) add("picture", `The picture is too tall for an ${R.name} post. The tallest it takes is 4:5, like 1080 × 1350.`);
+        else if (r > R.ratio_max + 0.005) add("picture", `The picture is too wide for an ${R.name} post. The widest it takes is 1.91:1, like 1080 × 566.`);
+      }
+      if (R.min_width && pic.width && pic.width < R.min_width) add("picture", `The picture is only ${pic.width} pixels wide, so it will look blurry on ${R.name}.`);
+    } else if (pic && pic.error) add("picture", pic.error);
+    if (R.caption_max && chars > R.caption_max) add("caption", `The caption is ${chars.toLocaleString("en-GB")} characters and ${R.name} takes up to ${R.caption_max.toLocaleString("en-GB")}.`);
+    if (R.hashtags_max && tags > R.hashtags_max) add("caption", `The caption has ${tags} hashtags and ${R.name} takes up to ${R.hashtags_max}.`);
+    if (R.mentions_max && ats > R.mentions_max) add("caption", `The caption tags ${ats} accounts with @ and ${R.name} takes up to ${R.mentions_max}.`);
+  }
+  return { problems: out, caption: { chars, hashtags: tags, mentions: ats } };
+}
+
 // A notification in a member's bell (member_notifications.sql). Never throws:
 // a missing table or a failed write costs the notification, not the action.
 async function notifyMember(env, userId, { kind, title, body, href, meta }) {
@@ -8102,6 +8377,8 @@ export default {
       ctx.waitUntil(pollSmmInbox(env));
       let mins = 0; try { mins = new Date(event.scheduledTime).getUTCMinutes(); } catch (_) {}
       if (mins === 0) ctx.waitUntil(runAiCreditCheck(env));
+      // Scheduled posts an hour past their time with no word from Zernio (Phase 4, step 5).
+      if (mins === 0) ctx.waitUntil(runZernioStuckCheck(env).catch((e) => console.error("zernio stuck check", e && e.message)));
       // A folder added to a portal that emails someone (the TEG new-starter portal).
       ctx.waitUntil(pinArchiveFolders(env).catch(() => {}).then(() => runStarterPortalAdds(env)).catch(() => {}).then(() => runSmmPortalFlags(env)).catch(() => {}).then(() => runPortalDeliveries(env)).catch(() => {}).then(() => runPortalFolderNotices(env)).catch(() => {}));
     }
@@ -8956,6 +9233,23 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         await sbPatch(env, "calendar_items", `id=eq.${id}&user_id=eq.${user.id}`, { details: { ...(item.details || {}), zernio: zern } });
         return json({ ok: true, zernio: zern }, 200, request, env);
       }
+      // Will Instagram and Facebook take this post? (Phase 4, step 7.) The
+      // pop-out asks before Schedule it, with the caption as it stands there.
+      // { item_id, caption?, platforms? } -> { problems: [{ platform, field, message }], picture, caption, rules }
+      if (path.endsWith("/schedule/check") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String(b.item_id || "");
+        if (!/^[0-9a-f-]{36}$/.test(id)) return json({ error: "Which post?" }, 400, request, env);
+        const item = ((await sbGet(env, "calendar_items", `select=id,asset_url,caption&id=eq.${id}&user_id=eq.${user.id}`)) || [])[0];
+        if (!item) return json({ error: "That post isn't on your calendar." }, 404, request, env);
+        const platforms = (Array.isArray(b.platforms) && b.platforms.length ? b.platforms : ["instagram", "facebook"]).map(String).filter((p) => SCHEDULE_RULES[p]);
+        const caption = typeof b.caption === "string" ? b.caption : String(item.caption || "");
+        const picture = item.asset_url ? await schedulePicture(item.asset_url) : { error: "Add the design to this post first." };
+        const out = scheduleProblems(picture, caption, platforms);
+        return json({ ok: true, problems: out.problems, picture, caption: out.caption, rules: SCHEDULE_RULES }, 200, request, env);
+      }
       // Take a scheduled post back off.
       if (path.endsWith("/schedule/cancel") && request.method === "POST") {
         const user = await getUser(request, env);
@@ -9366,6 +9660,22 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
       }
 
       // Stripe's test mode, for the test logins' upgrades (Danielle, 11 Nov).
+      // Zernio: what happened to a scheduled post (Phase 4, step 5). Signed
+      // with ZERNIO_WEBHOOK_SECRET; answered quickly, and safe to receive twice.
+      if (path.endsWith("/zernio/webhook") && request.method === "POST") {
+        const raw = await request.text();
+        const ok = await zernioHookVerify(raw, request.headers.get("X-Zernio-Signature") || "", env.ZERNIO_WEBHOOK_SECRET);
+        if (!ok) return json({ error: "Bad signature" }, 400, request, env);
+        let ev;
+        try { ev = JSON.parse(raw); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        if (ev.test || !ev.post || !ZERNIO_HOOK_EVENTS.includes(ev.event)) return json({ received: true }, 200, request, env);
+        try {
+          const post = { ...ev.post, status: ev.event === "post.published" ? "published" : ev.event === "post.partial" ? "partial" : ev.event === "post.failed" ? "failed" : "cancelled" };
+          await zernioApplyResult(env, post, { eventId: ev.id });
+        } catch (e) { console.error("zernio webhook", e && e.message); return json({ error: "Not handled" }, 500, request, env); }
+        return json({ received: true }, 200, request, env);
+      }
+
       if (path.endsWith("/stripe/webhook-test") && request.method === "POST") {
         const raw = await request.text();
         const ok = await stripeVerify(raw, request.headers.get("Stripe-Signature") || "", env.STRIPE_TEST_WEBHOOK_SECRET);
