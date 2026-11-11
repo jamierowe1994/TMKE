@@ -78,6 +78,9 @@ import "../../styles/account-sections.css";
 
         <!-- ============ PLAN ============ -->
         <div class="ya-panel" data-panel="plan" hidden>
+          <!-- A payment that didn't go through, or Scheduling that ended for it
+               (Danielle, 11 Nov). Filled by paintAlerts(). -->
+          <div class="ya-alert" id="ya-plan-alert" role="status" hidden></div>
           <section class="ws-block" aria-labelledby="ya-plan-h">
             <header class="ws-block-head">
               <h2 class="ws-block-h" id="ya-plan-h"><span class="ws-block-ch">Chapter 01</span>Your plan</h2>
@@ -126,6 +129,7 @@ import "../../styles/account-sections.css";
 
         <!-- ============ BILLING ============ -->
         <div class="ya-panel" data-panel="billing" hidden>
+          <div class="ya-alert" id="ya-pay-alert" role="status" hidden></div>
           <section class="ws-block" aria-labelledby="ya-pay-h">
             <header class="ws-block-head">
               <h2 class="ws-block-h" id="ya-pay-h"><span class="ws-block-ch">Chapter 01</span>Payment</h2>
@@ -223,6 +227,11 @@ import "../../styles/account-sections.css";
 
     .ya-fc--wide { grid-column: span 2; }
     .ya-fc--todo { background: var(--lilac, #eae5e1); border-color: var(--lilac, #eae5e1); }
+    /* A payment problem, above everything on Plan and Billing (Danielle, 11 Nov). */
+    .ya-alert { background: var(--lilac, #eae5e1); border: 1px solid var(--lilac, #eae5e1); border-radius: var(--ws-r); padding: 22px 26px; margin: 0 0 18px; }
+    .ya-alert[hidden] { display: none; }
+    .ya-alert .ya-sum { margin: 0; color: var(--english-violet); }
+    .ya-alert .ya-blurb { color: var(--english-violet); max-width: 75ch; }
     .ya-fc--todo .ya-s, .ya-fc--todo .ya-v { color: var(--english-violet); }
     .ya-acc-v { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .ya-acc-v img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none; }
@@ -410,7 +419,10 @@ import "../../styles/account-sections.css";
         // lands, and Next payment just says nothing's due, so it isn't said twice.
         const ending = up.status === 'cancelling' && up.ends_on;
         cards.push(fact('Scheduling', `${esc(gbpFromPence(up.price_pence))} a month + VAT`, ending ? `Cancelled, ends ${esc(lastDay(up.ends_on))}` : up.launch_offer ? 'Launch offer, kept while you stay' : 'By card'));
-        cards.push(fact('Next payment', up.renews_on ? `${esc(gbp2(monthly))} on ${esc(day(up.renews_on))}` : 'Nothing due'));
+        const due = up.status === 'past_due' ? ((bill && bill.due) || {}) : null;
+        cards.push(due
+          ? fact('Payment due', due.amount_pence != null ? esc(gbp2(due.amount_pence)) : 'Due', due.retry_on ? `We try again on ${esc(day(due.retry_on))}` : '')
+          : fact('Next payment', up.renews_on ? `${esc(gbp2(monthly))} on ${esc(day(up.renews_on))}` : 'Nothing due'));
         status.textContent = up.status === 'cancelling' ? `Ends ${lastDay(up.ends_on)}` : up.status === 'past_due' ? 'Payment due' : 'Active';
         status.hidden = false;
         brief.plan = ['+ Scheduling', up.status === 'cancelling' ? `ends ${lastDay(up.ends_on)}` : 'on your Content Calendar'];
@@ -431,9 +443,36 @@ import "../../styles/account-sections.css";
         brief.plan = access && access.calendar ? [LEVEL_NAME[lvl], who || 'your plan'] : ['Free membership', 'Studio and Planner'];
       }
       $('ya-plan').innerHTML = cards.join('');
+      paintAlerts();
       paintUpgrade();
       loadAccounts();
       paintBrief();
+    }
+
+    // Payment due, or Scheduling ended for an unpaid month (copywriter, 11 Nov).
+    function paintAlerts() {
+      const due = bill && bill.upgrade && bill.upgrade.status === 'past_due' ? (bill.due || {}) : null;
+      const ended = !(bill && bill.upgrade) && bill && bill.ended;
+      const retry = due && due.retry_on ? new Date(due.retry_on).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : 'the next try';
+      let html = '';
+      if (due) {
+        const amount = due.amount_pence != null ? gbp2(due.amount_pence) : 'the payment';
+        html = `<p class="ya-sum">Your payment didn't go through</p>
+          <p class="ya-blurb">We couldn't take ${esc(amount)} for ${esc(due.month || 'this month')}, so we'll try your card again on ${esc(retry)}. If that payment doesn't go through, Scheduling will end that day, so update your card before then if you need to.</p>
+          <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" data-card-go>Update card</button></div>`;
+      } else if (ended) {
+        html = `<p class="ya-sum">Scheduling has ended</p>
+          <p class="ya-blurb">Your last payment didn't go through on either try, so Scheduling ended and your Instagram and Facebook were unlinked. There's nothing to pay, and you can upgrade again whenever you're ready.</p>
+          ${bill.offer ? '<div class="ya-acts"><a class="ws-btn ws-btn--primary" href="#ya-up-block" data-go-up>Upgrade to Scheduling</a></div>' : ''}`;
+      }
+      for (const id of ['ya-plan-alert', 'ya-pay-alert']) {
+        const el = $(id);
+        // Ended is said on Plan only; Billing has nothing to act on.
+        const show = !!html && (id === 'ya-plan-alert' || !!due);
+        el.innerHTML = show ? html : ''; el.hidden = !show;
+      }
+      document.querySelectorAll('.ya-alert [data-card-go]').forEach((b) => b.addEventListener('click', updateCard));
+      document.querySelector('.ya-alert [data-go-up]')?.addEventListener('click', (e) => { e.preventDefault(); $('ya-up-block')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
     }
 
     function paintUpgrade() {
@@ -446,6 +485,21 @@ import "../../styles/account-sections.css";
             <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-resume">Keep Scheduling</button></div>
             <p class="ya-small" id="ya-up-msg" hidden></p>`;
           $('ya-resume').addEventListener('click', () => change('resume'));
+        } else if (up.status === 'past_due') {
+          const due = bill.due || {};
+          const retry = due.retry_on ? new Date(due.retry_on).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : 'the next try';
+          box.innerHTML = `<div id="ya-cx-idle"><p class="ya-sum" style="margin:0">Your payment for ${esc(due.month || 'this month')} is still due.</p>
+              <p class="ya-blurb">Update your card and we'll use it when we try again on ${esc(retry)}. If you'd rather stop Scheduling, you can cancel it instead: it ends straight away and there's nothing to pay. Your designs and Content Calendar stay as they are.</p>
+              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" data-card-go>Update card</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-go">Cancel Scheduling</button></div></div>
+            <div class="ya-confirm" id="ya-cx-confirm" hidden>
+              <span><strong>Cancel Scheduling now?</strong> It ends straight away and your Instagram and Facebook are unlinked, so nothing scheduled will post. There's nothing to pay for ${esc(due.month || 'this month')}.</span>
+              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-cx-yes">Cancel Scheduling</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-no">Keep it</button></div>
+            </div>
+            <p class="ya-small" id="ya-up-msg" hidden></p>`;
+          box.querySelector('[data-card-go]').addEventListener('click', updateCard);
+          $('ya-cx-go').addEventListener('click', () => { $('ya-cx-idle').hidden = true; $('ya-cx-confirm').hidden = false; });
+          $('ya-cx-no').addEventListener('click', () => { $('ya-cx-idle').hidden = false; $('ya-cx-confirm').hidden = true; });
+          $('ya-cx-yes').addEventListener('click', () => change('cancel'));
         } else {
           box.innerHTML = `<div id="ya-cx-idle"><p class="ya-sum" style="margin:0">Cancel Scheduling at any time.</p>
               <p class="ya-blurb">You keep it to the end of the month you've paid for. Your designs and your Content Calendar stay as they are.</p>
@@ -597,9 +651,16 @@ import "../../styles/account-sections.css";
       const cards = [];
       cards.push(card
         // Update card lives in its box, not on the strip, so every strip is one height (Dani, 11 Nov).
-        ? fact('Card on file', `${esc(BRAND[card.brand] || 'Card')} ending ${esc(card.last4)}`, `${card.exp_month ? `Expires ${String(card.exp_month).padStart(2, '0')}/${card.exp_year} · ` : ''}<button type="button" class="ya-link" id="ya-card-go">Update card</button>`)
-        : fact('Card on file', 'None', 'You add one if you upgrade.'));
-      if (up && up.renews_on) {
+        ? fact('Card on file', `${esc(BRAND[card.brand] || 'Card')} ending ${esc(card.last4)}`, `${card.exp_month ? `Expires ${String(card.exp_month).padStart(2, '0')}/${card.exp_year} · ` : ''}<button type="button" class="ya-link" id="ya-card-go" data-card-go>Update card</button>`)
+        : up
+          // Subscribed with no card left (removed on Stripe's page): they must be able to add one.
+          ? fact('Card on file', 'None', '<button type="button" class="ya-link" id="ya-card-go" data-card-go>Add a card</button>')
+          : fact('Card on file', 'None', 'You add one if you upgrade.'));
+      if (up && up.status === 'past_due') {
+        const due = (bill && bill.due) || {};
+        cards.push(fact('Payment due', due.amount_pence != null ? esc(gbp2(due.amount_pence)) : 'Due', due.retry_on ? `We try again on ${esc(day(due.retry_on))}` : ''));
+        brief.pay = ['Payment due', card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'no card on file'];
+      } else if (up && up.renews_on) {
         const monthly = Math.round(up.price_pence * (1 + vat / 100));
         cards.push(fact('Next payment', `${esc(gbp2(monthly))} on ${esc(day(up.renews_on))}`, `Scheduling ${esc(gbp2(up.price_pence))} + VAT ${esc(gbp2(monthly - up.price_pence))}`));
         brief.pay = [`${gbp2(monthly)} on ${new Date(up.renews_on).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`, card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'by card'];
@@ -632,8 +693,8 @@ import "../../styles/account-sections.css";
       }
       paintBrief();
     }
-    async function updateCard() {
-      const b = $('ya-card-go'); b.disabled = true;
+    async function updateCard(e) {
+      const b = (e && e.currentTarget) || $('ya-card-go'); b.disabled = true;
       try {
         const out = await api('card', { body: { return_to: location.origin + HERE } });
         try { sessionStorage.setItem('ya-return-tab', 'billing'); } catch (_) {}

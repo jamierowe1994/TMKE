@@ -6690,6 +6690,108 @@ function ccSubFields(sub) {
   if (status === "active" && sub.cancel_at_period_end) status = "cancelling";
   return { status, cancel_at_period_end: !!sub.cancel_at_period_end, current_period_end: end ? new Date(end * 1000).toISOString() : null, updated_at: new Date().toISOString() };
 }
+// "Wednesday 7 January", UK time.
+function ccDayName(ms) {
+  return new Date(ms).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" });
+}
+// Every post waiting to go out on a member's calendar, taken back off Zernio.
+async function zernioTakeBackAll(env, userId) {
+  if (!userId) return 0;
+  const rows = (await sbGet(env, "calendar_items", `user_id=eq.${encodeURIComponent(userId)}&details->zernio->>status=eq.scheduled&select=id,details&limit=500`)) || [];
+  for (const r of rows) {
+    const pid = r.details && r.details.zernio && r.details.zernio.post_id;
+    if (pid && env.ZERNIO_API_KEY) await zernio(env, `/posts/${pid}`, { method: "DELETE" });
+    const { zernio: _gone, ...rest } = r.details || {};
+    await sbPatch(env, "calendar_items", `id=eq.${r.id}`, { details: rest });
+  }
+  return rows.length;
+}
+// Failed Scheduling payments, told to the member (copywriter, 11 Nov 2026).
+const CC_PAY_COPY = {
+  failed: {
+    bell_title: "Your Scheduling payment didn't go through",
+    bell_body: "We'll try your card again on {retry}, and you can update it on Your Account › Billing before then.",
+    subject: "Your Scheduling payment didn't go through.",
+    heading: "We Couldn't Take Your Payment.",
+    paras: [
+      "We tried to take {amount} for Content Calendar + Scheduling for {month}, but the payment didn't go through.",
+      "We'll try your card once more on {retry}. If you'd like us to use a different card, update it on Your Account › Billing before then. Updating your card won't take the payment straight away. We'll use the new card when we try again.",
+      "If the payment doesn't go through on {retry}, Scheduling will end that day. Your Instagram and Facebook will be unlinked, any posts waiting to go out won't be posted, and you'll be back on the Content Calendar your brand pays for.",
+      "Whatever happens, your designs and calendar stay as they are.",
+    ],
+    button: "Update your card",
+  },
+  ended: {
+    bell_title: "Scheduling has ended",
+    bell_body: "Your payment didn't go through on either try, so your Instagram and Facebook have been unlinked, and your designs and calendar stay as they are.",
+    subject: "Scheduling has ended on your account.",
+    heading: "Scheduling Has Ended.",
+    paras: [
+      "We tried twice to take {amount} for Content Calendar + Scheduling for {month}. Neither payment went through, so Scheduling ended today.",
+      "Your Instagram and Facebook have been unlinked, and any posts that were waiting to go out have been taken off, so they won't be posted. You're back on the Content Calendar your brand pays for, and your designs and calendar stay as they are.",
+      "You don't owe anything for {month}, and you won't be asked to pay it. If you'd like Scheduling back, you can upgrade again from Your Account › Plan at any time. The first month is paid in full on the day you upgrade, and you'll need to link your Instagram and Facebook again.",
+    ],
+    button: "View your plan",
+  },
+};
+// A failed Scheduling payment, told to the member: bell and email (copywriter, 11 Nov).
+async function ccTellMember(env, row, kind, vars) {
+  const C = CC_PAY_COPY[kind];
+  if (!C || !row || !row.user_id) return;
+  const c0 = ((await sbGet(env, "contacts", `user_id=eq.${row.user_id}&select=first_name&limit=1`)) || [])[0];
+  const u = await ccUserById(env, row.user_id).catch(() => null);
+  const first = String((c0 && c0.first_name) || (u && u.user_metadata && (u.user_metadata.first_name || String(u.user_metadata.full_name || "").split(" ")[0])) || "there").trim() || "there";
+  const V = { ...vars, first };
+  const fill = (t) => String(t).replace(/\{(\w+)\}/g, (m, k) => (V[k] != null ? V[k] : m));
+  const href = kind === "failed" ? "/account/settings?tab=billing" : "/account/settings?tab=plan";
+  await notifyMember(env, row.user_id, { kind: `cc_payment_${kind}`, title: fill(C.bell_title), body: fill(C.bell_body), href });
+  const to = (u && u.email) || row.email;
+  if (!to) return;
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  await sendEmail(env, {
+    to,
+    subject: fill(C.subject),
+    html: `<div style="${EM_WRAP}">
+      <h1 style="${EM_H1}">${esc(fill(C.heading))}</h1>
+      <p style="${EM_P}">Hi ${esc(first)},</p>
+      ${C.paras.map((t) => `<p style="${EM_P}">${esc(fill(t))}</p>`).join("")}
+      <p style="${EM_P}"><a href="${invSite(env)}${href}" style="${EM_BTN}">${esc(C.button)}</a></p>
+      <p style="${EM_P}">The TMKE Team</p>
+    </div>`,
+  });
+}
+// Scheduling has ended (cancelled and run out, cancelled while a payment was
+// due, or a payment failed twice): the row, the unpaid month written off,
+// waiting posts taken back, accounts unlinked, the member and staff told.
+async function ccEndSubscription(env, row, subId, mode, reason) {
+  await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { status: "ended", ended_at: new Date().toISOString(), ended_reason: reason, updated_at: new Date().toISOString() });
+  await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: row.level, to_level: "calendar", source: "card",
+    reason: reason === "payment_failed" ? "The card payment failed twice; back to the brand-paid calendar" : "The paid month ended after cancelling" });
+  // The unpaid month is written off (Danielle, 11 Nov), so nothing shows as due.
+  const owed = {};
+  try {
+    const open = await ccStripe(env, mode, "GET", "invoices", { subscription: subId, status: "open", limit: 10 });
+    for (const inv of (open && open.data) || []) {
+      if (!owed.amount) {
+        const line = inv.lines && inv.lines.data && inv.lines.data[0];
+        const start = (line && line.period && line.period.start) || inv.period_end || inv.created;
+        owed.amount = `£${((Number(inv.amount_due) || 0) / 100).toFixed(2)}`;
+        owed.month = new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+      }
+      await ccStripe(env, mode, "POST", `invoices/${inv.id}/void`, {});
+    }
+  } catch (e) { console.warn("void after end", e && e.message); }
+  // Posts waiting to go out are taken off first, so nothing posts after it ends
+  // and no "didn't go out" emails follow the unlinking.
+  try { await zernioTakeBackAll(env, row.user_id); } catch (e) { console.warn("zernio take back", e && e.message); }
+  // Their social accounts are disconnected the moment scheduling stops.
+  try { await zernioDisconnectMember(env, row.user_id); } catch (e) { console.warn("zernio disconnect", e && e.message); }
+  if (reason === "payment_failed") { try { await ccTellMember(env, row, "ended", { amount: owed.amount || "the payment", month: owed.month || "this month" }); } catch (e) { console.warn("cc tell ended", e && e.message); } }
+  try {
+    await notifyAdmins(env, { area: "money", event: "cc_upgrade_ended", title: `${mode === "test" ? "Test: " : ""}${CC_LEVEL_NAME[row.level] || row.level} ended`,
+      body: [row.email, reason === "payment_failed" ? "payment failed twice" : "cancelled"].filter(Boolean).join(" · "), href: "/admin/content-calendar", key: `cc_upgrade_end:${row.id}` });
+  } catch (_) {}
+}
 /* Stripe tells us what happened (either mode). Returns true when the event was
    a member subscription's, so the live webhook stops there. */
 async function ccBillingEvent(env, event, mode) {
@@ -6745,6 +6847,9 @@ async function ccBillingEvent(env, event, mode) {
     if (!(o.metadata && o.metadata.kind === "cc_upgrade")) return false;
     const row = await rowBySub(o.id) || (o.metadata.sub_row ? ((await sbGet(env, "member_subscriptions", `id=eq.${encodeURIComponent(o.metadata.sub_row)}&select=*`)) || [])[0] : null);
     if (!row) return true;
+    // Stripe doesn't send events in order: a late "updated" must never bring an
+    // ended subscription back (Danielle's failed-card test, 11 Nov).
+    if (row.status === "ended") return true;
     const f = ccSubFields(o);
     if (f.status === "pending") return true;
     await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { ...f, stripe_subscription_id: o.id });
@@ -6757,16 +6862,7 @@ async function ccBillingEvent(env, event, mode) {
     if (!(o.metadata && o.metadata.kind === "cc_upgrade")) return false;
     const row = await rowBySub(o.id);
     if (!row || row.status === "ended") return true;
-    const reason = row.failed_attempts >= 2 ? "payment_failed" : "cancelled";
-    await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { status: "ended", ended_at: new Date().toISOString(), ended_reason: reason, updated_at: new Date().toISOString() });
-    await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: row.level, to_level: "calendar", source: "card",
-      reason: reason === "payment_failed" ? "The card payment failed twice; back to the brand-paid calendar" : "The paid month ended after cancelling" });
-    // Their social accounts are disconnected the moment scheduling stops.
-    try { await zernioDisconnectMember(env, row.user_id); } catch (e) { console.warn("zernio disconnect", e && e.message); }
-    try {
-      await notifyAdmins(env, { area: "money", event: "cc_upgrade_ended", title: `${mode === "test" ? "Test: " : ""}${CC_LEVEL_NAME[row.level] || row.level} ended`,
-        body: [row.email, reason === "payment_failed" ? "payment failed twice" : "cancelled"].filter(Boolean).join(" · "), href: "/admin/content-calendar", key: `cc_upgrade_end:${row.id}` });
-    } catch (_) {}
+    await ccEndSubscription(env, row, o.id, mode, row.failed_attempts >= 2 ? "payment_failed" : "cancelled");
     return true;
   }
 
@@ -6806,6 +6902,15 @@ async function ccBillingEvent(env, event, mode) {
       // The second try failed: it ends now (the deleted event does the rest).
       try { await ccStripe(env, mode, "DELETE", `subscriptions/${subId}`); } catch (e) { console.warn("cancel after 2 fails", e && e.message); }
     } else {
+      try {
+        const line = o.lines && o.lines.data && o.lines.data[0];
+        const start = (line && line.period && line.period.start) || o.period_end || o.created;
+        await ccTellMember(env, row, "failed", {
+          amount: `£${((Number(o.amount_due) || 0) / 100).toFixed(2)}`,
+          month: new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }),
+          retry: o.next_payment_attempt ? ccDayName(o.next_payment_attempt * 1000) : "in a few days",
+        });
+      } catch (e) { console.warn("cc tell failed", e && e.message); }
       try {
         await notifyAdmins(env, { area: "money", event: "cc_upgrade_failed", title: `${mode === "test" ? "Test: " : ""}A Scheduling payment failed`,
           body: [row.email, "Stripe will try once more"].filter(Boolean).join(" · "), href: "/admin/content-calendar", key: `cc_fail:${o.id}` });
@@ -9024,7 +9129,27 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
         if (path.endsWith("/billing/me") && request.method === "GET") {
           const price = await ccUpgradePrice(env, "scheduling", Date.now());
-          return json({ ok: true, mode, level: a.level, source: a.source, upgrade: live, vat_rate: vat,
+          // Payment due: what, and when the card is tried again. Ended for an
+          // unpaid month in the last 30 days: said on Plan (Danielle, 11 Nov).
+          let due = null, ended = null;
+          if (live && live.status === "past_due") {
+            try {
+              const r0 = ((await sbGet(env, "member_subscriptions", `id=eq.${live.id}&select=stripe_subscription_id`)) || [])[0];
+              const open = r0 && r0.stripe_subscription_id ? await ccStripe(env, mode, "GET", "invoices", { subscription: r0.stripe_subscription_id, status: "open", limit: 1 }) : null;
+              const inv = open && open.data && open.data[0];
+              if (inv) {
+                const line = inv.lines && inv.lines.data && inv.lines.data[0];
+                const start = (line && line.period && line.period.start) || inv.period_end || inv.created;
+                due = { amount_pence: inv.amount_due, month: new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }), retry_on: inv.next_payment_attempt ? new Date(inv.next_payment_attempt * 1000).toISOString() : null };
+              }
+            } catch (_) {}
+            if (!due) due = { amount_pence: null, month: null, retry_on: null };
+          }
+          if (!live) {
+            const last = ((await sbGet(env, "member_subscriptions", `user_id=eq.${user.id}&mode=eq.${mode}&status=eq.ended&ended_reason=eq.payment_failed&select=level,ended_at&order=ended_at.desc&limit=1`)) || [])[0];
+            if (last && last.ended_at && Date.now() - new Date(last.ended_at).getTime() < 30 * 86400000) ended = { level: last.level, reason: "payment_failed", at: last.ended_at };
+          }
+          return json({ ok: true, mode, level: a.level, source: a.source, upgrade: live, due, ended, vat_rate: vat,
             offer: canUpgrade && price.pence != null ? {
               level: "scheduling", name: CC_LEVEL_NAME.scheduling,
               price_pence: price.pence, vat_rate: vat, total_pence: Math.round(price.pence * (1 + vat / 100)),
@@ -9051,6 +9176,14 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           const row = live && ((await sbGet(env, "member_subscriptions", `id=eq.${live.id}&select=stripe_subscription_id`)) || [])[0];
           if (!row || !row.stripe_subscription_id) return json({ error: "There's no subscription to change." }, 404, request, env);
           const cancel = path.endsWith("/billing/cancel");
+          // Cancelling while a payment is due ends it now, the unpaid month written off.
+          if (cancel && live.status === "past_due") {
+            try { await ccStripe(env, mode, "DELETE", `subscriptions/${row.stripe_subscription_id}`); }
+            catch (e) { return json({ error: `Couldn't cancel it: ${e.message}` }, 502, request, env); }
+            const full = ((await sbGet(env, "member_subscriptions", `id=eq.${live.id}&select=*`)) || [])[0];
+            if (full && full.status !== "ended") await ccEndSubscription(env, full, row.stripe_subscription_id, mode, "cancelled");
+            return json({ ok: true, upgrade: null }, 200, request, env);
+          }
           try {
             const sub = await ccStripe(env, mode, "POST", `subscriptions/${row.stripe_subscription_id}`, { cancel_at_period_end: cancel ? "true" : "false" });
             await sbPatch(env, "member_subscriptions", `id=eq.${live.id}`, ccSubFields(sub));
