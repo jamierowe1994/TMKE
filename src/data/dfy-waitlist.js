@@ -56,7 +56,7 @@ export const DFY = {
   subscription: {
     label: "Done For You subscription",
     name: "Done For You subscription",
-    summary: "You get ten branded posts every month, plus everything in Content Calendar + Scheduling. On top of that, you get advanced training, the full content library and a few extras.",
+    summary: "You get ten branded posts every month, plus everything in Content Calendar Plus. On top of that, you get advanced training, the full content library and a few extras.",
     includes: [
       "Ten branded, personalised posts every month",
       "Schedule and publish to Instagram and Facebook",
@@ -75,13 +75,13 @@ export const DFY = {
       "Ten branded, personalised posts for that month",
       "Placed in your calendar for you to approve",
     ],
-    excludes: "Scheduling, the content library, advanced training and the other extras aren't included unless you're also on Content Calendar + Scheduling.",
+    excludes: "Scheduling, the content library, advanced training and the other extras aren't included unless you're also on Content Calendar Plus.",
   },
 
   more: {
     label: "And There's More",
     heading: "Your Posts, and Everything Around Them",
-    intro: "The Done For You subscription includes everything in Content Calendar + Scheduling, so you can schedule and publish to Instagram and Facebook straight from the Hub. It also gives you the full library of past content, advanced training courses and masterclasses, free seasonal Edit packs and discounted tickets to affiliated estate agency events.",
+    intro: "The Done For You subscription includes everything in Content Calendar Plus, so you can schedule and publish to Instagram and Facebook straight from the Hub. It also gives you the full library of past content, advanced training courses and masterclasses, free seasonal Edit packs and discounted tickets to affiliated estate agency events.",
     button: "Join the waitlist",
     tiles: [
       { key: "Brand", line: "Ten posts branded for you.", img: "/assets/signup/2.webp" },

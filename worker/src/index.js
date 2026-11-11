@@ -6561,7 +6561,7 @@ function dfyWaitlistEmail(r, place, spaces, reserve) {
 // difference is Overview's TEG price for Scheduling (content_levels.price_teg);
 // the launch offer is below. Change them here and on Overview, nowhere else.
 const CC_LAUNCH_OFFER = { level: "scheduling", pence: 1200, until: "2027-03-01" };   // £12 a month, kept while they stay, for upgrades before 1 March 2027
-const CC_LEVEL_NAME = { calendar: "Content Calendar", scheduling: "Content Calendar + Scheduling", done_for_you: "Done For You" };
+const CC_LEVEL_NAME = { calendar: "Content Calendar", scheduling: "Content Calendar Plus", done_for_you: "Done For You" };   // "Content Calendar Plus" from 11 Nov (Danielle, hub wording)
 /* What every payment is called in Stripe (Danielle, 11 Nov: "if we're looking
    at Stripe, we can clearly see what all of the payments relate to"). One
    pattern, TMKE <area>: <what>, and Revenue reads it back. */
@@ -6572,7 +6572,7 @@ function payLabel(area, what) { return `TMKE ${area}: ${what}`.slice(0, 990); }
      TMKE Content Calendar: first payment, February 2027
      TMKE Content Calendar: monthly, March 2027
      TMKE Scheduling upgrade: first payment, November 2026
-     TMKE Content Calendar + Scheduling: monthly, December 2026
+     TMKE Content Calendar Plus: monthly, December 2026
      TMKE Done For You: one-off, January 2027 */
 const CC_UPGRADE_NAME = { scheduling: "Scheduling upgrade", done_for_you: "Done For You upgrade" };
 function ccPayLabel(level, monthLabel, kind, basis) {
@@ -6656,9 +6656,15 @@ async function ccTaxRate(env, mode, pct) {
 async function ccMonthlyPrice(env, mode, level, pence) {
   const key = `cc_${level}_${pence}`;
   const found = await ccStripe(env, mode, "GET", "prices", { "lookup_keys[0]": key, active: "true", limit: 1 });
-  if (found.data && found.data[0]) return found.data[0].id;
+  const pname = CC_LEVEL_NAME[level] || level;
+  if (found.data && found.data[0]) {
+    // The plan's name changed (Content Calendar Plus, 11 Nov): bring the product's along, as it's what invoices show.
+    const pid = typeof found.data[0].product === "string" ? found.data[0].product : found.data[0].product && found.data[0].product.id;
+    if (pid) { try { const pr0 = await ccStripe(env, mode, "GET", `products/${pid}`); if (pr0 && pr0.name !== pname) await ccStripe(env, mode, "POST", `products/${pid}`, { name: pname }); } catch (_) {} }
+    return found.data[0].id;
+  }
   const pr = await ccStripe(env, mode, "POST", "prices", { currency: "gbp", unit_amount: pence, "recurring[interval]": "month", lookup_key: key,
-    "product_data[name]": `${CC_LEVEL_NAME[level] || level}, the difference above a brand's Content Calendar` });
+    "product_data[name]": pname });
   return pr.id;
 }
 // Their Stripe customer for this mode; a test one gets its own test clock.
@@ -6721,7 +6727,7 @@ const CC_PAY_COPY = {
     subject: "Your Scheduling payment didn't go through.",
     heading: "We Couldn't Take Your Payment.",
     paras: [
-      "We tried to take {amount} for Content Calendar + Scheduling for {month}, but the payment didn't go through.",
+      "We tried to take {amount} for Content Calendar Plus for {month}, but the payment didn't go through.",
       "We'll try your card once more on {retry}. If you've sorted it out with your bank, press Try my card again on Your Account › Billing and we'll take it straight away. If you'd like to use a different card, update it there and we'll take the payment with it straight away.",
       "If the payment doesn't go through on {retry}, Scheduling will end that day. Your Instagram and Facebook will be unlinked, any posts waiting to go out won't be posted, and you'll be back on the Content Calendar your brand pays for.",
       "Whatever happens, your designs and calendar stay as they are.",
@@ -6734,7 +6740,7 @@ const CC_PAY_COPY = {
     subject: "Scheduling has ended on your account.",
     heading: "Scheduling Has Ended.",
     paras: [
-      "We tried twice to take {amount} for Content Calendar + Scheduling for {month}. Neither payment went through, so Scheduling ended today.",
+      "We tried twice to take {amount} for Content Calendar Plus for {month}. Neither payment went through, so Scheduling ended today.",
       "Your Instagram and Facebook have been unlinked, and any posts that were waiting to go out have been taken off, so they won't be posted. You're back on the Content Calendar your brand pays for, and your designs and calendar stay as they are.",
       "You don't owe anything for {month}, and you won't be asked to pay it. If you'd like Scheduling back, you can upgrade again from Your Account › Plan at any time. The first month is paid in full on the day you upgrade, and you'll need to link your Instagram and Facebook again.",
     ],
@@ -6958,8 +6964,7 @@ async function ccStartUpgrade(env, user, mode, level, back) {
     sess = await ccStripe(env, mode, "POST", "checkout/sessions", {
       mode: "payment", customer: cust.stripe_customer_id, client_reference_id: user.id,
       "line_items[0][price_data][currency]": "gbp",
-      "line_items[0][price_data][product_data][name]": `${name}, ${monthLabel}`,
-      "line_items[0][price_data][product_data][description]": "The difference above your brand's Content Calendar.",
+      "line_items[0][price_data][product_data][name]": name,
       "line_items[0][price_data][unit_amount]": price.pence,
       "line_items[0][quantity]": 1, "line_items[0][tax_rates][0]": tax,
       "payment_intent_data[setup_future_usage]": "off_session",
@@ -6968,7 +6973,7 @@ async function ccStartUpgrade(env, user, mode, level, back) {
       "invoice_creation[invoice_data][description]": ccPayLabel(level, monthLabel, "first", "teg_upgrade"),
       "invoice_creation[enabled]": "true",
       "invoice_creation[invoice_data][metadata][kind]": "cc_upgrade",
-      "custom_text[submit][message]": `Then ${gbp(price.pence)} + VAT on the 1st of each month, from ${new Date(anchor).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" })}. Cancel any time: it runs to the end of the month you've paid for.`,
+      "custom_text[submit][message]": `Then ${gbp(price.pence)} + VAT on the 1st of each month, from ${new Date(anchor).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" })}. Cancel anytime, and you'll keep access until the end of your paid month.`,
       "metadata[kind]": "cc_upgrade", "metadata[sub_row]": row.id, "metadata[level]": level,
       success_url: `${back}${back.includes("?") ? "&" : "?"}upgrade=done`, cancel_url: `${back}${back.includes("?") ? "&" : "?"}upgrade=cancelled`,
     });
@@ -7068,9 +7073,9 @@ async function zernioDisconnectAccounts(env, prof, accounts, why) {
   if (gone.length && prof.externalId) {
     const names = gone.length === 1 ? gone[0] : `${gone.slice(0, -1).join(", ")} and ${gone[gone.length - 1]}`;
     const body = why === "ended"
-      ? "Your scheduling has ended with your subscription, so we've disconnected them. Your designs and calendar stay as they are."
-      : "Nothing has been scheduled or posted for 30 days. Link them again from Your Account whenever you're ready, or when you next go to post.";
-    await notifyMember(env, prof.externalId, { kind: "schedule_disconnected", title: `We've disconnected your ${names}`, body, href: "/account/settings?tab=plan" });
+      ? "Your Content Calendar Plus subscription has ended, so you can no longer post or schedule directly from the Studio. Your designs and Content Calendar remain available."
+      : "We've noticed you haven't posted or scheduled anything for 30 days, so we've disconnected your social accounts. You can reconnect them whenever you're ready from Your Account.";
+    await notifyMember(env, prof.externalId, { kind: "schedule_disconnected", title: `We've disconnected your ${names} ${gone.length === 1 ? "account" : "accounts"}.`, body, href: "/account/settings?tab=plan" });
   }
   return gone;
 }

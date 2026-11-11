@@ -102,15 +102,17 @@ import "../../styles/account-sections.css";
                  is still to link. The full guide's button joins it once the
                  guide exists. -->
             <div class="ya-box ya-linknote" id="ya-acc-note" hidden>
-              <p class="ya-sum" style="margin:0">Before you link</p>
-              <p class="ya-blurb">Here's what you'll be asked before you press Link Facebook or Link Instagram.</p>
+              <p class="ya-sum" style="margin:0">Connecting your social accounts</p>
+              <p class="ya-blurb">Connect your Facebook and Instagram accounts separately to post or schedule directly from the Studio. Here's how it works.</p>
               <ul class="ya-linklist">
-                <li><strong>Facebook:</strong> Facebook signs you in as yourself first, then you tick your business page on <strong>Choose the Pages</strong>. You'll need to be its admin, with full control.</li>
-                <!-- Instagram links through Instagram's own sign-in (Zernio's default), not Facebook's (Admin, 11 Nov); Danielle's wording to follow in the hub-wording doc. -->
-                <li><strong>Instagram:</strong> It needs to be a Business or Creator account, not personal.</li>
-                <li><strong>Social Media Connector:</strong> That's the scheduling service we use, so you're in the right place.</li>
-                <li><strong>Switching accounts:</strong> If Facebook shows this, press <strong>Continue</strong> to switch back to yourself.</li>
+                <li><strong>Facebook:</strong> Sign in with your personal Facebook account, then select the business Page you'd like to connect. You'll need full control of the Page.</li>
+                <li><strong>Instagram:</strong> Sign in directly through Instagram using your Business or Creator account. Personal accounts aren't supported.</li>
+                <li><strong>Zernio:</strong> We use Zernio to securely connect your social accounts. You may see their name during setup.</li>
+                <li><strong>Switching accounts:</strong> If Facebook asks you to switch accounts, select <strong>Continue</strong> to return to your personal account.</li>
               </ul>
+              <!-- Asked for only posting and post insights (ZERNIO_MEMBER_SCOPES in the Worker, 11 Nov). -->
+              <p class="ya-sum" style="margin-top:18px">What access are you giving us?</p>
+              <p class="ya-blurb">Connecting your accounts allows us to publish the posts you choose and see how they perform. We can't access your private messages, reply to comments or manage your advertising.</p>
             </div>
           </section>
           <section class="ws-block" aria-labelledby="ya-up-h" id="ya-up-block" hidden>
@@ -259,6 +261,8 @@ import "../../styles/account-sections.css";
     .ya-price b { font-family: var(--sans); font-size: 32px; font-weight: 500; letter-spacing: -0.02em; color: var(--ws-ink); }
     .ya-price span { font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-tx); }
     .ya-price s { font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-faint); }
+    .ya-up .ya-tag { margin-bottom: 8px; }
+    .ya-linknote .ya-sum + .ya-blurb { margin-bottom: 0; }
     .ya-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: var(--ws-r); background: var(--lilac, #eae5e1); color: var(--english-violet); font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
     .ya-small { margin: 8px 0 0; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-tx); }
     .ya-small.is-bad { color: #8a3f3f; }
@@ -395,7 +399,7 @@ import "../../styles/account-sections.css";
     });
 
     /* ---------------- plan ---------------- */
-    const LEVEL_NAME = { free: 'Free membership', calendar: 'Content Calendar', scheduling: 'Content Calendar + Scheduling', done_for_you: 'Done For You' };
+    const LEVEL_NAME = { free: 'Free membership', calendar: 'Content Calendar', scheduling: 'Content Calendar Plus', done_for_you: 'Done For You' };
     function payer(access) {
       if (access.source === 'teg') return EDITION_LABEL[access.edition] || 'Your brand';
       if (access.source === 'staff') return 'TMKE (staff login)';
@@ -428,14 +432,16 @@ import "../../styles/account-sections.css";
         // Cancelled (Danielle, 11 Nov): the Scheduling box says so where the eye
         // lands, and Next payment just says nothing's due, so it isn't said twice.
         const ending = up.status === 'cancelling' && up.ends_on;
-        cards.push(fact('Scheduling', `${esc(gbpFromPence(up.price_pence))} a month + VAT`, ending ? `Cancelled, ends ${esc(lastDay(up.ends_on))}` : up.launch_offer ? 'Launch offer, kept while you stay' : 'By card'));
+        // You pay, not Scheduling (Danielle, 11 Nov): from February independents pay
+        // for the whole plan, so the box says what comes off the card.
+        cards.push(fact('You pay', `${esc(gbpFromPence(up.price_pence))} a month + VAT`, ending ? `Cancelled, ends ${esc(lastDay(up.ends_on))}` : up.launch_offer ? 'Your launch price is locked in.' : 'By card'));
         const due = up.status === 'past_due' ? ((bill && bill.due) || {}) : null;
         cards.push(due
-          ? fact('Payment due', due.amount_pence != null ? esc(gbp2(due.amount_pence)) : 'Due', due.retry_on ? `We try again on ${esc(day(due.retry_on))}` : '')
-          : fact('Next payment', up.renews_on ? `${esc(gbp2(monthly))} on ${esc(day(up.renews_on))}` : 'Nothing due'));
+          ? fact('Payment failed', due.amount_pence != null ? esc(gbp2(due.amount_pence)) : 'Due', due.retry_on ? `We try again on ${esc(day(due.retry_on))}` : '')
+          : up.renews_on ? fact('Next payment', esc(gbp2(monthly)), `on ${esc(day(up.renews_on))}`) : fact('Next payment', 'Cancelled', 'Nothing due'));
         status.textContent = up.status === 'cancelling' ? `Ends ${lastDay(up.ends_on)}` : up.status === 'past_due' ? 'Payment due' : 'Active';
         status.hidden = false;
-        brief.plan = ['+ Scheduling', up.status === 'cancelling' ? `ends ${lastDay(up.ends_on)}` : 'on your Content Calendar'];
+        brief.plan = [LEVEL_NAME[up.level] || LEVEL_NAME.scheduling, up.status === 'cancelling' ? `ends ${lastDay(up.ends_on)}` : (payer(access) || 'by card')];
       } else {
         const lvl = access ? access.level : 'free';
         cards.push(fact('Plan', esc(LEVEL_NAME[lvl] || 'Free membership')));
@@ -443,7 +449,7 @@ import "../../styles/account-sections.css";
         if (access && access.calendar) {
           // The brand, not "paid by": it's part of their licence (Dani, 11 Nov).
           cards.push(fact(who ? 'Brand' : 'Paid by', esc(who || 'You')));
-          cards.push(fact('Months you can open', esc(monthsLine(access))));
+          cards.push(fact('Calendar view', esc(monthsLine(access))));
           cards.push(fact('Scheduling', access.scheduling ? 'Included' : 'Not included'));
           status.textContent = 'Active'; status.hidden = false;
         } else {
@@ -532,21 +538,22 @@ import "../../styles/account-sections.css";
       }
       if (!offer) { block.hidden = true; return; }
       $('ya-up-title').textContent = 'Add to your plan';
-      const was = offer.launch_offer && offer.standard_pence && offer.standard_pence > offer.price_pence ? `<s>${esc(gbpFromPence(offer.standard_pence))}</s><span class="ya-tag">Launch offer</span>` : '';
+      const launch = !!offer.launch_offer;
       const month = new Date().toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
       box.innerHTML = `<div class="ya-up">
           <div>
-            <p class="ya-strap">Post straight from the Studio</p>
+            <p class="ya-strap">Your content, taken care of.</p>
             <p class="ya-name">Scheduling</p>
-            <p class="ya-sum">Schedule your posts to Instagram and Facebook, and they go out on the day.</p>
-            <ul class="ya-inc"><li>Everything in your Content Calendar</li><li>Schedule from the Studio</li><li>Instagram and Facebook</li><li>Cancel at any time</li></ul>
+            <p class="ya-sum">Share and schedule posts straight from the Studio to your Instagram and Facebook accounts.</p>
+            <ul class="ya-inc"><li>Your Content Calendar</li><li>Post or schedule straight from the Studio</li><li>Publish to Instagram and Facebook</li><li>Cancel anytime</li></ul>
           </div>
           <div>
-            <div class="ya-price"><b>+${esc(gbpFromPence(offer.price_pence))}</b><span>a month + VAT</span>${was}</div>
-            <p class="ya-small">${esc(gbp2(offer.total_pence))} a month with VAT. You pay on the 1st of each month, and your first month in full today.</p>
-            <div class="ya-acts" id="ya-up-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-up-go">Upgrade to Scheduling</button></div>
+            ${launch ? '<span class="ya-tag">Launch Offer</span>' : ''}
+            <div class="ya-price"><b>+${esc(gbpFromPence(offer.price_pence))}</b><span>/month + VAT</span></div>
+            <p class="ya-small">${esc(gbp2(offer.total_pence))} a month including VAT. Your first payment is taken today, then on the 1st of each month.</p>
+            <div class="ya-acts" id="ya-up-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-up-go">Add Scheduling</button></div>
             <div class="ya-confirm" id="ya-up-confirm" hidden>
-              <span><strong>${esc(gbp2(offer.total_pence))} today</strong> for ${esc(month)}, then ${esc(gbp2(offer.total_pence))} on the 1st of each month. You'll add your card on the next page.</span>
+              <span><strong>${esc(gbp2(offer.total_pence))} today</strong> for ${esc(month)}, then ${esc(gbp2(offer.total_pence))} on the 1st of each month.</span>
               <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-up-yes">Continue to payment</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-up-no">Not now</button></div>
             </div>
             <p class="ya-small is-bad" id="ya-up-msg" hidden></p>
@@ -612,30 +619,30 @@ import "../../styles/account-sections.css";
       let data = null;
       try { data = await schedApi('status'); } catch (e) { box.innerHTML = `<p class="ya-state">${esc(e.message)}</p>`; accLoading = false; return; }
       accLoading = false;
-      if (!data.open || data.configured === false) { box.innerHTML = '<p class="ya-state">Linking accounts isn\'t open on your login yet.</p>'; st.hidden = true; return; }
+      if (!data.open || data.configured === false) { box.innerHTML = '<p class="ya-state">We couldn\'t connect your social accounts right now. Please try again later.</p>'; st.hidden = true; return; }
       const mine = (data.accounts || []);
       const linked = PLATS.filter(([k]) => mine.some((a) => a.platform === k)).length;
-      st.textContent = linked ? `${linked} linked` : 'None linked'; st.hidden = false;
+      st.textContent = linked ? `${linked} connected` : 'Connect your accounts'; st.hidden = false;
       const cards = PLATS.map(([k, name, ic]) => {
         const a = mine.find((x) => x.platform === k);
         if (a) {
           const who = a.username ? (k === 'instagram' && !a.username.startsWith('@') ? '@' + a.username : a.username) : name;
           return `<div class="ya-fc"><span class="ya-k">${ic}${name}</span><div class="ya-fb">
             <p class="ya-v ya-acc-v">${a.picture ? `<img src="${esc(a.picture)}" alt="">` : ''}<span>${esc(who)}</span></p>
-            <p class="ya-s" data-acc="${esc(a.id)}" data-name="${name}"><button type="button" class="ya-link" data-unlink>Unlink</button></p></div></div>`;
+            <p class="ya-s" data-acc="${esc(a.id)}" data-name="${name}"><button type="button" class="ya-link" data-unlink>Disconnect</button></p></div></div>`;
         }
         return `<div class="ya-fc"><span class="ya-k">${ic}${name}</span><div class="ya-fb">
-          <p class="ya-v">Not linked</p>
-          <p class="ya-s"><button type="button" class="ws-btn ws-btn--primary" data-link="${k}">Link ${name}</button></p></div></div>`;
+          <p class="ya-v">Not connected</p>
+          <p class="ya-s"><button type="button" class="ws-btn ws-btn--primary" data-link="${k}">Connect ${name}</button></p></div></div>`;
       });
       cards.push(linked
-        ? fact('How linking works', 'Your posts go out from these accounts', 'Nothing scheduled for 30 days? We unlink them. Link again here, or when you go to post.')
-        : `<div class="ya-fc ya-fc--todo"><span class="ya-k">Next step</span><div class="ya-fb"><p class="ya-v">Link your accounts to start scheduling</p><p class="ya-s">Link Instagram or Facebook, then schedule posts straight from the Studio.</p></div></div>`);
+        ? fact('How it works', 'Publish posts immediately or schedule them for later, straight from the Studio.', "If you don't publish or schedule anything for 30 days, we'll automatically disconnect your accounts. You can reconnect at any time.")
+        : `<div class="ya-fc ya-fc--todo"><span class="ya-k">Next step</span><div class="ya-fb"><p class="ya-v">Connect your social accounts</p><p class="ya-s">Connect Instagram or Facebook to publish posts immediately or schedule them for later.</p></div></div>`);
       box.innerHTML = cards.join('');
       box.lastElementChild.classList.add('ya-fc--wide');
       $('ya-acc-note').hidden = linked >= PLATS.length;
       box.querySelectorAll('[data-link]').forEach((b) => b.addEventListener('click', async () => {
-        b.disabled = true; b.textContent = 'Opening…';
+        b.disabled = true; b.textContent = 'Connecting…';
         try {
           const out = await schedApi('connect', { platform: b.dataset.link, return_to: HERE });
           location.href = out.authUrl;
@@ -643,11 +650,11 @@ import "../../styles/account-sections.css";
       }));
       box.querySelectorAll('[data-unlink]').forEach((b) => b.addEventListener('click', () => {
         const line = b.parentElement;
-        line.innerHTML = `Unlink ${esc(line.dataset.name)}? <button type="button" class="ya-link" data-yes>Unlink</button> · <button type="button" class="ya-link" data-no>Keep</button>`;
+        line.innerHTML = `Disconnect ${esc(line.dataset.name)}? Any posts scheduled to this account will no longer be published. <button type="button" class="ya-link" data-yes>Disconnect</button> · <button type="button" class="ya-link" data-no>Stay connected</button>`;
         line.querySelector('[data-no]').addEventListener('click', () => loadAccounts());
         line.querySelector('[data-yes]').addEventListener('click', async () => {
-          line.textContent = 'Unlinking…';
-          try { await schedApi('disconnect', { accountId: line.dataset.acc }); flash(`${line.dataset.name} is unlinked. Posts already scheduled to it won't go out.`); }
+          line.textContent = 'Disconnecting…';
+          try { await schedApi('disconnect', { accountId: line.dataset.acc }); flash(`Your ${line.dataset.name} account has been disconnected. Any scheduled posts for this account will no longer be published.`); }
           catch (e) { flash(e.message); }
           loadAccounts();
         });
@@ -675,15 +682,15 @@ import "../../styles/account-sections.css";
           : fact('Card on file', 'None', 'You add one if you upgrade.'));
       if (up && up.status === 'past_due') {
         const due = (bill && bill.due) || {};
-        cards.push(fact('Payment due', due.amount_pence != null ? esc(gbp2(due.amount_pence)) : 'Due', due.retry_on ? `We try again on ${esc(day(due.retry_on))}` : ''));
-        brief.pay = ['Payment due', card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'no card on file'];
+        cards.push(fact('Payment failed', due.amount_pence != null ? esc(gbp2(due.amount_pence)) : 'Due', due.retry_on ? `We try again on ${esc(day(due.retry_on))}` : ''));
+        brief.pay = ['Payment failed', card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'no card on file'];
       } else if (up && up.renews_on) {
         const monthly = Math.round(up.price_pence * (1 + vat / 100));
         cards.push(fact('Next payment', `${esc(gbp2(monthly))} on ${esc(day(up.renews_on))}`, `Scheduling ${esc(gbp2(up.price_pence))} + VAT ${esc(gbp2(monthly - up.price_pence))}`));
         brief.pay = [`${gbp2(monthly)} on ${new Date(up.renews_on).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`, card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'by card'];
       } else {
         cards.push(fact('Next payment', 'Nothing due', up && up.ends_on ? `Scheduling ends on ${esc(lastDay(up.ends_on))}` : ''));
-        brief.pay = ['Nothing to pay', card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'no card on file'];
+        brief.pay = up && up.status === 'cancelling' ? ['Cancelled', 'nothing to pay'] : ['Nothing to pay', card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'no card on file'];
       }
       cards.push(access && access.source === 'teg'
         ? fact('Content Calendar', esc(EDITION_LABEL[access.edition] || 'Your brand'), 'Part of your licence')
@@ -805,7 +812,7 @@ import "../../styles/account-sections.css";
         history.replaceState(null, '', u.pathname + u.search);
         show('plan');
         const nm = (PLATS.find(([k]) => k === linkedNow) || [])[1];
-        if (nm) flash(`${nm} is linked. You can schedule posts to it from the Studio.`);
+        if (nm) flash(`Your ${nm} account is now connected. You can publish or schedule posts directly from the Studio.`);
       }
       // Back from adding a card (Stripe's card step sets it as the one charged).
       // The new card becomes the one charged, and anything due is paid with it
@@ -832,17 +839,17 @@ import "../../styles/account-sections.css";
         const u = new URL(location.href); u.searchParams.delete('upgrade'); u.searchParams.set('tab', 'plan');
         history.replaceState(null, '', u.pathname + u.search);
         show('plan');
-        if (done === 'cancelled') flash('No payment was taken. You can upgrade whenever you like.');
-        else if (me && me.upgrade) flash('Scheduling is on. Thank you.');
+        if (done === 'cancelled') flash("No payment was taken. You can add Scheduling whenever you're ready.");
+        else if (me && me.upgrade) flash("You're all set. Scheduling has been added to your plan.");
         else {
           // Stripe tells us a moment after it takes the payment.
-          flash('Payment received. Setting up Scheduling…');
+          flash("Payment received. We're getting Scheduling ready for you…");
           for (let i = 0; i < 10; i++) {
             await new Promise((r) => setTimeout(r, 2000));
             const again = await loadBilling().catch(() => null);
-            if (again && again.upgrade) { flash('Scheduling is on. Thank you.'); return; }
+            if (again && again.upgrade) { flash("You're all set. Scheduling has been added to your plan."); return; }
           }
-          flash("Payment received. Scheduling is still being set up: refresh in a minute, or message us if it doesn't show.");
+          flash("Your payment was successful, but Scheduling is taking a little longer to activate. Try refreshing the page shortly, or get in touch if it doesn't appear.");
         }
       }
     })();
