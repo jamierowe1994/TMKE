@@ -6945,8 +6945,8 @@ async function zernioDisconnectAccounts(env, prof, accounts, why) {
     const names = gone.length === 1 ? gone[0] : `${gone.slice(0, -1).join(", ")} and ${gone[gone.length - 1]}`;
     const body = why === "ended"
       ? "Your scheduling has ended with your subscription, so we've disconnected them. Your designs and calendar stay as they are."
-      : "Nothing has been scheduled or posted for 30 days. Connect again from your Content Calendar whenever you're ready: it's one button.";
-    await notifyMember(env, prof.externalId, { kind: "schedule_disconnected", title: `We've disconnected your ${names}`, body, href: "/account/schedule" });
+      : "Nothing has been scheduled or posted for 30 days. Link them again from Your Account whenever you're ready, or when you next go to post.";
+    await notifyMember(env, prof.externalId, { kind: "schedule_disconnected", title: `We've disconnected your ${names}`, body, href: "/account/settings?tab=plan" });
   }
   return gone;
 }
@@ -8885,7 +8885,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const prof = await zernioProfile(env, user);
         if (!prof) return json({ error: "Couldn't open your scheduling profile just now." }, 502, request, env);
         const acc = await zernio(env, `/accounts?profileId=${prof._id}`);
-        const accounts = (acc.ok && acc.data.accounts || []).map((a) => ({ id: a._id || a.id, platform: a.platform, username: a.username || a.displayName || a.name || "", picture: a.profilePicture || a.avatar || "" }));
+        const accounts = (acc.ok && acc.data.accounts || []).map((a) => ({ id: a._id || a.id, platform: a.platform, username: a.username || a.displayName || a.name || "", picture: a.profilePicture || a.avatar || "", connected_at: a.connectedAt || a.createdAt || null }));
         return json({ ok: true, open: true, configured: true, accounts }, 200, request, env);
       }
       // Connect an account: Zernio's sign-in link for that platform, coming
@@ -8899,7 +8899,11 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         if (!ZERNIO_PLATFORMS.includes(platform)) return json({ error: "Pick Instagram, Facebook, LinkedIn or TikTok." }, 400, request, env);
         const prof = await zernioProfile(env, user);
         if (!prof) return json({ error: "Couldn't open your scheduling profile just now." }, 502, request, env);
-        const back = `${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/account/schedule?connected=${platform}`;
+        // Back to where they started: Your Account's Plan tab (Danielle, 11 Nov), or the calendar.
+        const site = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        const back = b.return_to === "/account/settings"
+          ? `${site}/account/settings?tab=plan&connected=${platform}`
+          : `${site}/account/schedule?connected=${platform}`;
         const r = await zernio(env, `/connect/${platform}?profileId=${prof._id}&redirect_url=${encodeURIComponent(back)}`);
         if (!r.ok || !r.data.authUrl) return json({ error: (r.data && r.data.error) || "Couldn't start the connection." }, 502, request, env);
         return json({ ok: true, authUrl: r.data.authUrl }, 200, request, env);

@@ -85,8 +85,18 @@ import "../../styles/account-sections.css";
             </header>
             <div class="ya-facts" id="ya-plan"><p class="ya-state">Loading your plan&hellip;</p></div>
           </section>
+          <!-- Linked accounts for Scheduling (Danielle, 11 Nov): after upgrading
+               nothing said they had to link anything. Shows what's linked, links
+               and unlinks; the 30-day idle rule unlinks here too and points back. -->
+          <section class="ws-block" aria-labelledby="ya-acc-h" id="ya-acc-block" hidden>
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="ya-acc-h"><span class="ws-block-ch">Chapter 02</span>Your social accounts</h2>
+              <span class="ws-block-status" id="ya-acc-status" hidden></span>
+            </header>
+            <div class="ya-facts" id="ya-acc"><p class="ya-state">Loading your accounts&hellip;</p></div>
+          </section>
           <section class="ws-block" aria-labelledby="ya-up-h" id="ya-up-block" hidden>
-            <header class="ws-block-head"><h2 class="ws-block-h" id="ya-up-h"><span class="ws-block-ch">Chapter 02</span><span id="ya-up-title">Add to your plan</span></h2></header>
+            <header class="ws-block-head"><h2 class="ws-block-h" id="ya-up-h"><span class="ws-block-ch" id="ya-up-ch">Chapter 02</span><span id="ya-up-title">Add to your plan</span></h2></header>
             <div class="ya-box" id="ya-up"></div>
           </section>
           <section class="ws-block" aria-labelledby="ya-dfy-h">
@@ -197,6 +207,14 @@ import "../../styles/account-sections.css";
     @media (max-width: 1100px) { .ya-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 620px) { .ya-facts, .ya-facts--3 { grid-template-columns: 1fr; } }
 
+    .ya-fc--wide { grid-column: span 2; }
+    .ya-fc--todo { background: var(--lilac, #eae5e1); border-color: var(--lilac, #eae5e1); }
+    .ya-fc--todo .ya-s, .ya-fc--todo .ya-v { color: var(--english-violet); }
+    .ya-acc-v { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .ya-acc-v img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none; }
+    .ya-acc-v span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ya-acc-ic { width: 15px; height: 15px; fill: none; stroke: var(--ws-faint); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; margin-right: 6px; }
+    @media (max-width: 1100px) { .ya-fc--wide { grid-column: 1 / -1; } }
     .ya-box { background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); padding: 24px 26px 22px; min-width: 0; }
     .ya-box--quiet { background: transparent; border-style: dashed; border-color: var(--stone, #c9bcb7); padding: 16px 18px; }
     .ya-strap { margin: 0; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); }
@@ -393,6 +411,7 @@ import "../../styles/account-sections.css";
       }
       $('ya-plan').innerHTML = cards.join('');
       paintUpgrade();
+      loadAccounts();
       paintBrief();
     }
 
@@ -471,6 +490,74 @@ import "../../styles/account-sections.css";
         document.querySelectorAll('#ya-up button').forEach((b) => { b.disabled = false; });
         if (m) { m.textContent = e.message; m.classList.add('is-bad'); m.hidden = false; }
       }
+    }
+
+    /* ---------------- linked social accounts ---------------- */
+    // Scheduling posts to Instagram and Facebook (the plan's wording).
+    const PLATS = [
+      ['instagram', 'Instagram', '<svg class="ya-acc-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.9"/></svg>'],
+      ['facebook', 'Facebook', '<svg class="ya-acc-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8.5h2.5V5H14a3.5 3.5 0 0 0-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.5L17 11h-3V9a.5.5 0 0 1 .5-.5z"/></svg>'],
+    ];
+    async function schedApi(route, body) {
+      const res = await fetch(`${BASE}/schedule/${route}`, {
+        method: body ? 'POST' : 'GET',
+        headers: { Authorization: `Bearer ${session.access_token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      }).catch(() => null);
+      const out = res ? await res.json().catch(() => null) : null;
+      if (!res || !res.ok || !out || !out.ok) throw new Error((out && out.error) || "We couldn't reach your social accounts just now. Try again in a moment.");
+      return out;
+    }
+    let accLoading = false;
+    async function loadAccounts() {
+      const block = $('ya-acc-block'), box = $('ya-acc'), st = $('ya-acc-status');
+      const on = !!(access && access.scheduling) || !!(bill && bill.upgrade);
+      block.hidden = !on;
+      $('ya-up-ch').textContent = on ? 'Chapter 03' : 'Chapter 02';
+      if (!on || accLoading) return;
+      accLoading = true;
+      let data = null;
+      try { data = await schedApi('status'); } catch (e) { box.innerHTML = `<p class="ya-state">${esc(e.message)}</p>`; accLoading = false; return; }
+      accLoading = false;
+      if (!data.open || data.configured === false) { box.innerHTML = '<p class="ya-state">Linking accounts isn\'t open on your login yet.</p>'; st.hidden = true; return; }
+      const mine = (data.accounts || []);
+      const linked = PLATS.filter(([k]) => mine.some((a) => a.platform === k)).length;
+      st.textContent = linked ? `${linked} linked` : 'None linked'; st.hidden = false;
+      const cards = PLATS.map(([k, name, ic]) => {
+        const a = mine.find((x) => x.platform === k);
+        if (a) {
+          const who = a.username ? (k === 'instagram' && !a.username.startsWith('@') ? '@' + a.username : a.username) : name;
+          return `<div class="ya-fc"><span class="ya-k">${ic}${name}</span><div class="ya-fb">
+            <p class="ya-v ya-acc-v">${a.picture ? `<img src="${esc(a.picture)}" alt="">` : ''}<span>${esc(who)}</span></p>
+            <p class="ya-s" data-acc="${esc(a.id)}" data-name="${name}"><button type="button" class="ya-link" data-unlink>Unlink</button></p></div></div>`;
+        }
+        return `<div class="ya-fc"><span class="ya-k">${ic}${name}</span><div class="ya-fb">
+          <p class="ya-v">Not linked</p>
+          <p class="ya-s"><button type="button" class="ws-btn ws-btn--primary" data-link="${k}">Link ${name}</button></p></div></div>`;
+      });
+      cards.push(linked
+        ? fact('How linking works', 'Your posts go out from these accounts', 'Nothing scheduled for 30 days? We unlink them. Link again here, or when you go to post.')
+        : `<div class="ya-fc ya-fc--todo"><span class="ya-k">Next step</span><div class="ya-fb"><p class="ya-v">Link your accounts to start scheduling</p><p class="ya-s">Link Instagram or Facebook, then schedule posts straight from the Studio.</p></div></div>`);
+      box.innerHTML = cards.join('');
+      box.lastElementChild.classList.add('ya-fc--wide');
+      box.querySelectorAll('[data-link]').forEach((b) => b.addEventListener('click', async () => {
+        b.disabled = true; b.textContent = 'Opening…';
+        try {
+          const out = await schedApi('connect', { platform: b.dataset.link, return_to: HERE });
+          location.href = out.authUrl;
+        } catch (e) { b.disabled = false; b.textContent = 'Try again'; flash(e.message); }
+      }));
+      box.querySelectorAll('[data-unlink]').forEach((b) => b.addEventListener('click', () => {
+        const line = b.parentElement;
+        line.innerHTML = `Unlink ${esc(line.dataset.name)}? <button type="button" class="ya-link" data-yes>Unlink</button> · <button type="button" class="ya-link" data-no>Keep</button>`;
+        line.querySelector('[data-no]').addEventListener('click', () => loadAccounts());
+        line.querySelector('[data-yes]').addEventListener('click', async () => {
+          line.textContent = 'Unlinking…';
+          try { await schedApi('disconnect', { accountId: line.dataset.acc }); flash(`${line.dataset.name} is unlinked. Posts already scheduled to it won't go out.`); }
+          catch (e) { flash(e.message); }
+          loadAccounts();
+        });
+      }));
     }
 
     /* ---------------- billing ---------------- */
@@ -592,6 +679,15 @@ import "../../styles/account-sections.css";
       loadOrders(user);
       const me = await loadBilling();
 
+      // Back from linking an account.
+      const linkedNow = params.get('connected');
+      if (linkedNow) {
+        const u = new URL(location.href); u.searchParams.delete('connected'); u.searchParams.set('tab', 'plan');
+        history.replaceState(null, '', u.pathname + u.search);
+        show('plan');
+        const nm = (PLATS.find(([k]) => k === linkedNow) || [])[1];
+        if (nm) flash(`${nm} is linked. You can schedule posts to it from the Studio.`);
+      }
       // Back from Stripe.
       const done = params.get('upgrade');
       if (done) {
