@@ -105,7 +105,6 @@ import "../../styles/account-sections.css";
           <section class="ws-block" aria-labelledby="ya-pay-h">
             <header class="ws-block-head">
               <h2 class="ws-block-h" id="ya-pay-h"><span class="ws-block-ch">Chapter 01</span>Payment</h2>
-              <button type="button" class="ws-btn ws-btn--ghost ya-strip-btn" id="ya-card-go" hidden>Update card</button>
             </header>
             <div class="ya-facts ya-facts--3" id="ya-pay"><p class="ya-state">Loading&hellip;</p></div>
           </section>
@@ -173,16 +172,16 @@ import "../../styles/account-sections.css";
     .ya-panel .ws-block-status { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.78); display: inline-flex; align-items: center; gap: 7px; line-height: 14px; }
     .ya-panel .ws-block-status[hidden] { display: none; }
     .ya-panel .ws-block-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--stone, #c9bcb7); }
-    .ya-strip-btn.ws-btn { height: 26px; background: transparent; color: #fff; border-color: rgba(255,255,255,0.35); }
-    .ya-strip-btn.ws-btn:hover { border-color: #fff; color: #fff; }
-    .ya-strip-btn[hidden] { display: none; }
 
     /* Fact cards: Your SMM's (.soc-pc). Values in Fraunces Light. */
     .ya-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ws-gap); }
     .ya-facts--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .ya-facts > .ya-state { grid-column: 1 / -1; }
     .ya-fc { display: flex; flex-direction: column; gap: 6px; padding: 15px 18px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); min-width: 0; }
-    .ya-fb { margin-top: auto; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    /* The small line sits right of the value on the same line when there's room
+       (Dani, 11 Nov), and drops under it when there isn't. */
+    .ya-fb { margin-top: auto; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; min-width: 0; }
+    .ya-fb .ya-s { text-align: right; margin-left: auto; }
     .ya-k { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
     /* Values in Darker Grotesque; Fraunces Light only for the name, brand and
        date on Account (Dani, 11 Nov: "it just feels too much"). */
@@ -192,7 +191,9 @@ import "../../styles/account-sections.css";
     .ya-v--plain span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ya-v--plain svg { flex: none; width: 13px; height: 13px; fill: none; stroke: var(--ws-faint); stroke-width: 1.8; }
     .ya-s { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--ws-tx); }
-    .ya-s a { color: var(--english-violet); font-weight: 600; }
+    .ya-s a, .ya-link { color: var(--english-violet); font-weight: 600; }
+    .ya-link { appearance: none; border: 0; background: none; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+    .ya-link:disabled { opacity: .55; cursor: default; }
     @media (max-width: 1100px) { .ya-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 620px) { .ya-facts, .ya-facts--3 { grid-template-columns: 1fr; } }
 
@@ -485,7 +486,8 @@ import "../../styles/account-sections.css";
       const card = inv && inv.card;
       const cards = [];
       cards.push(card
-        ? fact('Card on file', `${esc(BRAND[card.brand] || 'Card')} ending ${esc(card.last4)}`, card.exp_month ? `Expires ${String(card.exp_month).padStart(2, '0')}/${card.exp_year}` : '')
+        // Update card lives in its box, not on the strip, so every strip is one height (Dani, 11 Nov).
+        ? fact('Card on file', `${esc(BRAND[card.brand] || 'Card')} ending ${esc(card.last4)}`, `${card.exp_month ? `Expires ${String(card.exp_month).padStart(2, '0')}/${card.exp_year} · ` : ''}<button type="button" class="ya-link" id="ya-card-go">Update card</button>`)
         : fact('Card on file', 'None', 'You add one if you upgrade.'));
       if (up && up.renews_on) {
         const monthly = Math.round(up.price_pence * (1 + vat / 100));
@@ -499,7 +501,7 @@ import "../../styles/account-sections.css";
         ? fact('Content Calendar', esc(EDITION_LABEL[access.edition] || 'Your brand'), 'Part of your licence')
         : fact('When you pay', 'The 1st of each month', 'For that calendar month'));
       $('ya-pay').innerHTML = cards.join('');
-      $('ya-card-go').hidden = !card;
+      $('ya-card-go')?.addEventListener('click', updateCard);
 
       const list = (inv && inv.invoices) || [];
       const st = $('ya-inv-status');
@@ -520,14 +522,14 @@ import "../../styles/account-sections.css";
       }
       paintBrief();
     }
-    $('ya-card-go').addEventListener('click', async () => {
+    async function updateCard() {
       const b = $('ya-card-go'); b.disabled = true;
       try {
         const out = await api('card', { body: { return_to: location.origin + HERE } });
         try { sessionStorage.setItem('ya-return-tab', 'billing'); } catch (_) {}
         location.href = out.url;
       } catch (e) { b.disabled = false; flash(e.message); }
-    });
+    }
 
     async function loadBilling() {
       let me = null, inv = null, failed = '';
