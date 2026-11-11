@@ -6361,6 +6361,9 @@ const ACCESS_EDITION_OF_BRAND = {
    logins, which are treated as if it were already on. Read for 30 seconds
    at a time; before the SQL has run, both are off and nobody changes. */
 const CC_TEG_EDITIONS = ["property", "prestige"];
+// The blurred month for members without the calendar: off until independents
+// can subscribe (February 2027). Turn on then (Danielle, 11 Nov).
+const CC_PREVIEW_FOR_OTHERS = false;
 let CC_SETTINGS_CACHE = null;
 async function ccSettings(env, fresh) {
   if (!fresh && CC_SETTINGS_CACHE && Date.now() - CC_SETTINGS_CACHE.at < 30000) return CC_SETTINGS_CACHE;
@@ -6437,9 +6440,13 @@ async function memberAccess(env, user, asLevel) {
     source,                                  // staff | test | teg (brand pays) | none; later "card"
     calendar: L.calendar,
     // A member without the calendar sees the month blurred, "Subscribe to
-    // use December's posts", once launched (the December rule on). Before
-    // that, only test logins and staff (Danielle, 11 Nov).
-    preview: !L.calendar && (S.teg_live || test || staff),
+    // use December's posts", only once their group is on sale (Danielle,
+    // 11 Nov): in December only TPE and PPE have the pull-out at all, and
+    // they all have the calendar, so nobody sees it blurred. The Letting
+    // Experts, The Mortgage Experts and independents keep their Planner as
+    // it is until they go live. CC_PREVIEW_FOR_OTHERS switches it on (for
+    // independents, February). Test logins and staff see it now, to test.
+    preview: !L.calendar && (test || staff || (CC_PREVIEW_FOR_OTHERS && S.teg_live)),
     library,                                 // months they can open, inclusive; from null = all
     scheduling: L.scheduling,
     done_for_you: L.done_for_you,
