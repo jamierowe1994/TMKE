@@ -45,6 +45,9 @@ import "../../styles/account-sections.css";
           <div class="ws-hero-photo" role="img" aria-label="A styled interior"></div>
         </section>
 
+        <!-- One wrapper, so the hub's entrance (hub-entrance.css animates each
+             child of .ws-left) plays once and not again on every tab. -->
+        <div class="ya-body">
         <div class="ya-tabs" role="tablist" aria-label="Your Account">
           <button type="button" class="ya-tab" role="tab" data-tab="account" aria-selected="true">Account</button>
           <button type="button" class="ya-tab" role="tab" data-tab="plan" aria-selected="false">Plan</button>
@@ -127,6 +130,7 @@ import "../../styles/account-sections.css";
             <div id="ya-orders"></div>
           </section>
         </div>
+        </div>
 
       </div>
       <HubFootBar emailSlot />
@@ -151,7 +155,8 @@ import "../../styles/account-sections.css";
     @media (max-width: 620px) { .ya-hero .ya-brief { grid-template-columns: 1fr; } }
 
     /* Tabs: the Studio's Social / Print pill (.st-kinds). */
-    .ya-tabs { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; margin: 0 0 var(--ws-gap); border-radius: 999px; background: rgba(28,29,34,0.05); align-self: flex-start; }
+    .ya-body { display: flex; flex-direction: column; gap: var(--ws-gap); min-width: 0; }
+    .ya-tabs { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; margin: 0 0 4px; border-radius: 999px; background: rgba(28,29,34,0.05); align-self: flex-start; }
     .ya-tab { appearance: none; border: 0; cursor: pointer; padding: 7px 18px; border-radius: 999px; background: transparent; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ws-faint); transition: background 0.18s, color 0.18s, box-shadow 0.18s; }
     .ya-tab:hover { color: var(--ws-ink); }
     .ya-tab[aria-selected="true"] { background: #fff; color: var(--ws-ink); box-shadow: 0 1px 3px rgba(28,29,34,0.16); }
@@ -223,7 +228,7 @@ import "../../styles/account-sections.css";
     .ya-tbl .is-muted { color: var(--ws-tx); }
 
     .ya-state { margin: 0; padding: 16px 18px; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-tx); background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
-    .ya-note { margin: 0 0 var(--ws-gap); padding: 12px 16px; border-radius: var(--ws-r); background: var(--lilac, #eae5e1); color: var(--english-violet); font-family: var(--sans); font-size: var(--ws-t-row); }
+    .ya-note { margin: 0; padding: 12px 16px; border-radius: var(--ws-r); background: var(--lilac, #eae5e1); color: var(--english-violet); font-family: var(--sans); font-size: var(--ws-t-row); }
     .ya-note[hidden] { display: none; }
     .ya-foot { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-tx); }
     .ya-foot a { color: var(--english-violet); font-weight: 600; }
@@ -328,7 +333,7 @@ import "../../styles/account-sections.css";
     function payer(access) {
       if (access.source === 'teg') return EDITION_LABEL[access.edition] || 'Your brand';
       if (access.source === 'staff') return 'TMKE (staff login)';
-      if (access.source === 'test') return 'Test login';
+      if (access.source === 'test') return (EDITION_LABEL[access.edition] ? EDITION_LABEL[access.edition] + ' (test login)' : 'Test login');
       return '';
     }
     function monthsLine(access) {
