@@ -1547,11 +1547,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        any browser that asks for it. The same cover comes back at ~70KB — about
        forty times smaller. Falls through untouched for anything that is not a
        Supabase public object, so external and local art is unaffected. */
+    const ED_RESIZE = false;
     function edImg(src, width) {
       const s = String(src || '');
       const marker = '/storage/v1/object/public/';
       const at = s.indexOf(marker);
       if (!s || at === -1 || s.includes('/render/image/')) return s;
+      // Off since 11 Nov: Supabase answered every resize with 403 "feature not
+      // enabled for this tenant", so every cover was blank. The full-size file
+      // shows until image transformations are back on; then set this to true.
+      if (!ED_RESIZE) return s;
       const [path] = s.slice(at + marker.length).split('?');
       // resize=contain is load-bearing: asking for a width alone returns that
       // width at the ORIGINAL height — 1080x1440 came back 700x1440, which
