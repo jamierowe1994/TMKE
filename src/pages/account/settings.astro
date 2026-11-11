@@ -456,6 +456,10 @@ import "../../styles/account-sections.css";
 
     /* ---------------- billing ---------------- */
     const BRAND = { visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', discover: 'Discover', diners: 'Diners Club', jcb: 'JCB', unionpay: 'UnionPay' };
+    // Stripe's names are written for our books ("TMKE Scheduling upgrade: first
+    // payment, November 2026"); the member doesn't need our name on the front
+    // or the product's explanation on the end.
+    const whatFor = (t) => String(t || '').replace(/^TMKE\s+/, '').replace(/,\s*the difference above.*$/i, '').trim();
     const INV_STATE = { paid: 'Paid', open: 'Due', void: 'Cancelled', uncollectible: 'Unpaid' };
     function paintBilling(inv) {
       const up = bill && bill.upgrade;
@@ -490,7 +494,7 @@ import "../../styles/account-sections.css";
           <thead><tr><th>Invoice</th><th>For</th><th>Amount</th><th>Status</th><th class="r"></th></tr></thead>
           <tbody>${list.map((i) => `<tr>
             <td>${esc(i.number || '—')}</td>
-            <td>${esc(i.what || '')}</td>
+            <td>${esc(whatFor(i.what))}</td>
             <td>${esc(gbp2(i.total_pence))}</td>
             <td class="is-muted">${esc(INV_STATE[i.status] || i.status)}${i.status === 'paid' && (i.paid_at || i.created) ? ' ' + esc(dayY(i.paid_at || i.created)) : ''}</td>
             <td class="r">${i.pdf ? `<a class="ws-btn ws-btn--ghost" href="${esc(i.pdf)}" target="_blank" rel="noopener">Download</a>` : ''}</td>

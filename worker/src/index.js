@@ -8796,7 +8796,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
                 number: i.number || null,
                 created: i.created ? new Date(i.created * 1000).toISOString() : null,
                 paid_at: i.status_transitions && i.status_transitions.paid_at ? new Date(i.status_transitions.paid_at * 1000).toISOString() : null,
-                what: (line && line.description) || i.description || null,
+                // The invoice's own description first (Admin, 11 Nov: the first payment's reads best), then its first line.
+                what: i.description || (line && line.description) || null,
                 total_pence: i.total, status: i.status,
                 pdf: i.invoice_pdf || null,
               };
