@@ -2288,8 +2288,12 @@ import "../../styles/account-sections.css";
       schState(z);
       const access = await memberAccess(supabase);
       if (openPostId !== p.id) return;
-      // Row 6: locked below the level, pointing to the upgrade.
-      if (!access || !access.scheduling) {
+      // Nothing at all for a member without the calendar (TLE, TME and
+      // independents keep the Planner as it is, Danielle, 11 Nov): there's
+      // no upgrade they can buy yet.
+      if (!access || (!access.calendar && !access.scheduling)) { sec.hidden = true; return; }
+      // Row 6: on the calendar without Scheduling, locked, pointing to the upgrade.
+      if (!access.scheduling) {
         body.innerHTML = `<p class="sch-note">Schedule this post to go out on Instagram and Facebook by itself. Included in Content Calendar + Scheduling. <a href="${PLAN_LINK}">See your plan &rarr;</a></p>`;
         return;
       }
