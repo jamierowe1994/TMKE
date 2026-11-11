@@ -7069,7 +7069,7 @@ const ZERNIO_FAIL_COPY = {
     note_body: "Open it on Your calendar to see why it didn't go out on {failed}.",
     subject: "Your post went out on {posted}, but not on {failed}.",
     heading: "Your Post Didn't Go Out Everywhere.",
-    paras: ["Your post \u201c{title}\u201d was scheduled for {when}. It went out on {posted}, but it didn't go out on {failed}.", "{what}"],
+    paras: ["Your post \u201c{title}\u201d was scheduled for {when}. It went out on {posted}, but it didn't go out on {failed}.", "{what}", "Pressing Try again only sends it to {failed}, so it won't appear twice on {posted}."],
     button: "Open the post",
   },
 };
