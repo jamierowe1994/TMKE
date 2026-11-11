@@ -388,8 +388,11 @@ import "../../styles/account-sections.css";
         const monthly = Math.round(up.price_pence * (1 + vat / 100));
         cards.push(fact('Plan', esc(LEVEL_NAME[up.level] || LEVEL_NAME.scheduling)));
         if (payer(access)) cards.push(fact('Brand', esc(payer(access))));
-        cards.push(fact('Scheduling', `${esc(gbpFromPence(up.price_pence))} a month + VAT`, up.launch_offer ? 'Launch offer, kept while you stay' : 'By card'));
-        cards.push(fact('Next payment', up.renews_on ? `${esc(gbp2(monthly))} on ${esc(day(up.renews_on))}` : 'None', up.ends_on ? `Scheduling ends on ${esc(lastDay(up.ends_on))}` : ''));
+        // Cancelled (Danielle, 11 Nov): the Scheduling box says so where the eye
+        // lands, and Next payment just says nothing's due, so it isn't said twice.
+        const ending = up.status === 'cancelling' && up.ends_on;
+        cards.push(fact('Scheduling', `${esc(gbpFromPence(up.price_pence))} a month + VAT`, ending ? `Cancelled, ends ${esc(lastDay(up.ends_on))}` : up.launch_offer ? 'Launch offer, kept while you stay' : 'By card'));
+        cards.push(fact('Next payment', up.renews_on ? `${esc(gbp2(monthly))} on ${esc(day(up.renews_on))}` : 'Nothing due'));
         status.textContent = up.status === 'cancelling' ? `Ends ${lastDay(up.ends_on)}` : up.status === 'past_due' ? 'Payment due' : 'Active';
         status.hidden = false;
         brief.plan = ['+ Scheduling', up.status === 'cancelling' ? `ends ${lastDay(up.ends_on)}` : 'on your Content Calendar'];
