@@ -116,10 +116,13 @@ import "../../styles/account-sections.css";
             </div>
           </section>
           <section class="ws-block" aria-labelledby="ya-up-h" id="ya-up-block" hidden>
-            <header class="ws-block-head"><h2 class="ws-block-h" id="ya-up-h"><span class="ws-block-ch" id="ya-up-ch">Chapter 02</span><span id="ya-up-title">Add to your plan</span></h2></header>
-            <div class="ya-box" id="ya-up"></div>
+            <header class="ws-block-head"><h2 class="ws-block-h" id="ya-up-h"><span class="ws-block-ch" id="ya-up-ch">Chapter 02</span><span id="ya-up-title">Manage your plan</span></h2></header>
+            <!-- Manage your plan (Danielle, 11 Nov): the current plan on the left
+                 (keep, cancel, or what their brand covers), the next step up on the
+                 right (Plus, then Done For You). Filled by paintUpgrade(). -->
+            <div id="ya-up"></div>
           </section>
-          <section class="ws-block" aria-labelledby="ya-dfy-h">
+          <section class="ws-block" aria-labelledby="ya-dfy-h" id="ya-dfy-block">
             <header class="ws-block-head"><h2 class="ws-block-h" id="ya-dfy-h"><span class="ws-block-ch">Waitlist</span>Done For You, from January</h2></header>
             <div class="ya-box ya-box--quiet ya-dfy">
               <p class="ya-blurb">Ten of the month's posts branded by our team and back in your calendar to approve. Places are limited, so join the waitlist to hear first.</p>
@@ -253,6 +256,17 @@ import "../../styles/account-sections.css";
     .ya-blurb { margin: 4px 0 0; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-tx); max-width: 62ch; }
     .ya-box--quiet .ya-blurb { margin: 0; }
     .ya-dfy { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+    /* Manage your plan: two boxes side by side, one when there's no next step. */
+    .ya-mp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+    .ya-mp--one { grid-template-columns: minmax(0, 1fr); }
+    .ya-mp > .ya-box { display: flex; flex-direction: column; }
+    .ya-mp .ya-acts { margin-top: auto; padding-top: 18px; }
+    .ya-mp .ya-confirm .ya-acts { padding-top: 0; }
+    .ya-mp-next { background: var(--lilac, #eae5e1); border-color: var(--lilac, #eae5e1); }
+    .ya-mp .ya-name { margin-bottom: 4px; }
+    .ya-mp-list { margin: 8px 0 0; padding-left: 18px; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-tx); line-height: 1.5; }
+    .ya-mp .ws-btn svg { width: 14px; height: 14px; }
+    @media (max-width: 900px) { .ya-mp { grid-template-columns: minmax(0, 1fr); } }
     .ya-up { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 28px; align-items: end; }
     .ya-inc { list-style: none; padding: 0; margin: 16px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
     .ya-inc li { display: flex; gap: 10px; font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-ink); }
@@ -495,83 +509,116 @@ import "../../styles/account-sections.css";
 
     function paintUpgrade() {
       const block = $('ya-up-block'), box = $('ya-up'), up = bill && bill.upgrade, offer = bill && bill.offer;
-      if (up) {
-        $('ya-up-title').textContent = 'Change your plan';
-        if (up.status === 'cancelling') {
-          box.innerHTML = `<p class="ya-sum" style="margin:0">Scheduling ends on ${esc(lastDay(up.ends_on))}.</p>
-            <p class="ya-blurb">You won't be charged again. Changed your mind? You can keep it.</p>
-            <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-resume">Keep Scheduling</button></div>
-            <p class="ya-small" id="ya-up-msg" hidden></p>`;
-          $('ya-resume').addEventListener('click', () => change('resume'));
-        } else if (up.status === 'past_due') {
-          const due = bill.due || {};
-          const retry = due.retry_on ? new Date(due.retry_on).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : 'the next try';
-          box.innerHTML = `<div id="ya-cx-idle"><p class="ya-sum" style="margin:0">Your payment for ${esc(due.month || 'this month')} is still due.</p>
-              <p class="ya-blurb">Try your card again now, or update it and we'll take the payment with the new one straight away. Otherwise we try again on ${esc(retry)}. If you'd rather stop Scheduling, you can cancel it instead: it ends straight away and there's nothing to pay. Your designs and Content Calendar stay as they are.</p>
-              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" data-card-retry>Try my card again</button><button type="button" class="ws-btn ws-btn--ghost" data-card-go>Update card</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-go">Cancel Scheduling</button></div>
-              <p class="ya-small" data-retry-msg hidden></p></div>
-            <div class="ya-confirm" id="ya-cx-confirm" hidden>
-              <span><strong>Cancel Scheduling now?</strong> It ends straight away and your Instagram and Facebook are unlinked, so nothing scheduled will post. There's nothing to pay for ${esc(due.month || 'this month')}.</span>
-              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-cx-yes">Cancel Scheduling</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-no">Keep it</button></div>
-            </div>
-            <p class="ya-small" id="ya-up-msg" hidden></p>`;
-          box.querySelector('[data-card-go]').addEventListener('click', updateCard);
-          box.querySelector('[data-card-retry]').addEventListener('click', retryCard);
-          $('ya-cx-go').addEventListener('click', () => { $('ya-cx-idle').hidden = true; $('ya-cx-confirm').hidden = false; });
-          $('ya-cx-no').addEventListener('click', () => { $('ya-cx-idle').hidden = false; $('ya-cx-confirm').hidden = true; });
-          $('ya-cx-yes').addEventListener('click', () => change('cancel'));
-        } else {
-          box.innerHTML = `<div id="ya-cx-idle"><p class="ya-sum" style="margin:0">Cancel Scheduling at any time.</p>
-              <p class="ya-blurb">You keep it to the end of the month you've paid for. Your designs and your Content Calendar stay as they are.</p>
-              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-go">Cancel Scheduling</button></div></div>
-            <div class="ya-confirm" id="ya-cx-confirm" hidden>
-              <span><strong>Cancel Scheduling?</strong> You'll keep it until ${esc(lastDay(up.renews_on))}. After that your Instagram and Facebook disconnect, so anything scheduled later won't post.</span>
-              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-cx-yes">Cancel Scheduling</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-no">Keep it</button></div>
-            </div>
-            <p class="ya-small" id="ya-up-msg" hidden></p>`;
-          $('ya-cx-go').addEventListener('click', () => { $('ya-cx-idle').hidden = true; $('ya-cx-confirm').hidden = false; });
-          $('ya-cx-no').addEventListener('click', () => { $('ya-cx-idle').hidden = false; $('ya-cx-confirm').hidden = true; });
-          $('ya-cx-yes').addEventListener('click', () => change('cancel'));
-        }
-        block.hidden = false;
-        return;
-      }
-      if (!offer) { block.hidden = true; return; }
-      $('ya-up-title').textContent = 'Add to your plan';
-      const launch = !!offer.launch_offer;
-      const month = new Date().toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
-      box.innerHTML = `<div class="ya-up">
-          <div>
-            <p class="ya-strap">Your content, taken care of.</p>
-            <p class="ya-name">Scheduling</p>
-            <p class="ya-sum">Share and schedule posts straight from the Studio to your Instagram and Facebook accounts.</p>
-            <ul class="ya-inc"><li>Your Content Calendar</li><li>Post or schedule straight from the Studio</li><li>Publish to Instagram and Facebook</li><li>Cancel anytime</li></ul>
-          </div>
-          <div>
-            ${launch ? '<span class="ya-tag">Launch Offer</span>' : ''}
-            <div class="ya-price"><b>+${esc(gbpFromPence(offer.price_pence))}</b><span>/month + VAT</span></div>
+      const dfyBlock = $('ya-dfy-block');
+      if (dfyBlock) dfyBlock.hidden = false;
+      if (!up && !offer) { block.hidden = true; return; }
+      $('ya-up-title').textContent = 'Manage your plan';
+      const brand = access ? payer(access).replace(/ \(test login\)$/, '') : '';
+      const eyebrow = (t) => `<p class="ya-strap">${t}</p>`;
+      let left = '', right = '';
+
+      if (!up) {
+        // Their brand pays for the calendar: nothing to cancel.
+        left = `<div class="ya-box">${eyebrow('Your current plan')}
+            <p class="ya-name">Your Content Calendar</p>
+            <p class="ya-blurb">Your Content Calendar is included in your ${esc(brand || 'brand')} membership, so there's nothing to cancel or pay.</p>
+            <p class="ya-blurb">A ready-made post for every weekday, ready to make your own.</p>
+          </div>`;
+        const month = new Date().toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
+        right = `<div class="ya-box ya-mp-next">${eyebrow('Take it further')}
+            <p class="ya-name">Meet Content Calendar Plus.</p>
+            <p class="ya-blurb">Why stop at creating your content? With Content Calendar Plus, you can publish directly to Instagram and Facebook or schedule posts to go out automatically, all from the Studio.</p>
+            ${offer.launch_offer ? '<span class="ya-tag" style="margin-top:14px;align-self:flex-start">Launch Offer</span>' : ''}
+            <div class="ya-price"${offer.launch_offer ? '' : ' style="margin-top:14px"'}><b>+${esc(gbpFromPence(offer.price_pence))}</b><span>/month + VAT</span></div>
             <p class="ya-small">${esc(gbp2(offer.total_pence))} a month including VAT. Your first payment is taken today, then on the 1st of each month.</p>
-            <div class="ya-acts" id="ya-up-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-up-go">Add Scheduling</button></div>
+            <p class="ya-small">${brand ? `${esc(brand)} already covers your Content Calendar, so you only pay for posting and scheduling.` : 'Everything in your Content Calendar, plus posting and scheduling.'}</p>
+            <div class="ya-acts" id="ya-up-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-up-go">Upgrade to Plus ${ARROW}</button></div>
             <div class="ya-confirm" id="ya-up-confirm" hidden>
               <span><strong>${esc(gbp2(offer.total_pence))} today</strong> for ${esc(month)}, then ${esc(gbp2(offer.total_pence))} on the 1st of each month.</span>
               <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-up-yes">Continue to payment</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-up-no">Not now</button></div>
             </div>
             <p class="ya-small is-bad" id="ya-up-msg" hidden></p>
-          </div>
-        </div>`;
-      $('ya-up-go').addEventListener('click', () => { $('ya-up-acts').hidden = true; $('ya-up-confirm').hidden = false; });
-      $('ya-up-no').addEventListener('click', () => { $('ya-up-acts').hidden = false; $('ya-up-confirm').hidden = true; });
-      $('ya-up-yes').addEventListener('click', async () => {
-        const btn = $('ya-up-yes'); btn.disabled = true; btn.textContent = 'Opening payment…';
-        try {
-          const out = await api('upgrade', { body: { level: offer.level, return_to: location.origin + HERE } });
-          try { sessionStorage.setItem('ya-return-tab', 'plan'); } catch (_) {}
-          location.href = out.url;
-        } catch (e) {
-          btn.disabled = false; btn.textContent = 'Continue to payment';
-          const m = $('ya-up-msg'); m.textContent = e.message; m.hidden = false;
-        }
-      });
+          </div>`;
+      } else if (up.status === 'cancelling') {
+        left = `<div class="ya-box">${eyebrow('Your current plan')}
+            <p class="ya-name">Scheduling ends on ${esc(lastDay(up.ends_on))}.</p>
+            <p class="ya-blurb">You won't be charged again. Changed your mind? You can keep it.</p>
+            <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-resume">Keep Scheduling</button></div>
+            <p class="ya-small" id="ya-up-msg" hidden></p>
+          </div>`;
+      } else if (up.status === 'past_due') {
+        // A failed payment: cancelling ends it straight away, nothing to pay (its own confirm).
+        const due = bill.due || {};
+        const retry = due.retry_on ? new Date(due.retry_on).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : 'the next try';
+        left = `<div class="ya-box">${eyebrow('Your current plan')}
+            <div id="ya-cx-idle"><p class="ya-name">Your payment for ${esc(due.month || 'this month')} is still due.</p>
+              <p class="ya-blurb">Try your card again now, or update it and we'll take the payment with the new one straight away. Otherwise we try again on ${esc(retry)}. If you'd rather stop Scheduling, you can cancel it instead: it ends straight away and there's nothing to pay. Your designs and Content Calendar stay as they are.</p>
+              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" data-card-retry>Try my card again</button><button type="button" class="ws-btn ws-btn--ghost" data-card-go>Update card</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-go">Cancel Scheduling</button></div>
+              <p class="ya-small" data-retry-msg hidden></p></div>
+            <div class="ya-confirm" id="ya-cx-confirm" hidden>
+              <span><strong>Cancel Scheduling now?</strong> It ends straight away and your Instagram and Facebook are disconnected, so nothing scheduled will be published. There's nothing to pay for ${esc(due.month || 'this month')}.</span>
+              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-cx-yes">Confirm cancellation</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-no">Keep my plan</button></div>
+            </div>
+            <p class="ya-small" id="ya-up-msg" hidden></p>
+          </div>`;
+      } else {
+        // Paying for Plus: what they'd lose, then the next step up (Done For You).
+        const end = lastDay(up.renews_on);
+        left = `<div class="ya-box">${eyebrow('Your current plan')}
+            <div id="ya-cx-idle"><p class="ya-name">Manage your Scheduling</p>
+              <p class="ya-blurb">You can cancel Scheduling at any time and keep using it until the end of your paid month.</p>
+              <p class="ya-blurb">After that, you won't be able to post or schedule directly from the Studio, and your connected social accounts will be disconnected. Any posts scheduled for later won't be published.</p>
+              <p class="ya-blurb">Your designs and Content Calendar will remain available.</p>
+              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-go">Cancel Scheduling</button></div></div>
+            <div class="ya-confirm" id="ya-cx-confirm" hidden>
+              <span><strong>Cancel Scheduling?</strong></span>
+              <span>Your Scheduling subscription will end on ${esc(end)}. Until then, you can continue posting and scheduling directly from the Studio.</span>
+              <span>After that:</span>
+              <ul class="ya-mp-list">
+                <li>Your Instagram and Facebook accounts will be disconnected.</li>
+                <li>Any posts scheduled for after your end date won't be published.</li>
+                <li>You'll no longer be able to post directly from the Studio.</li>
+                <li>Your existing designs and Content Calendar will remain available.</li>
+              </ul>
+              <span>You won't be charged again.</span>
+              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-cx-yes">Confirm cancellation</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-no">Keep my plan</button></div>
+            </div>
+            <p class="ya-small" id="ya-up-msg" hidden></p>
+          </div>`;
+        right = `<div class="ya-box ya-mp-next">${eyebrow('Let us take care of it')}
+            <p class="ya-name">Prefer us to create your content?</p>
+            <p class="ya-blurb">With Done For You, our team creates your social media posts around your business and branding, ready for you to review and approve.</p>
+            <p class="ya-blurb">Less time creating content, more time focusing on your clients.</p>
+            <div class="ya-acts"><a class="ws-btn ws-btn--primary" href="/waitlist/done-for-you">Explore Done For You ${ARROW}</a></div>
+          </div>`;
+        if (dfyBlock) dfyBlock.hidden = true;   // the waitlist chapter would say it twice
+      }
+      box.innerHTML = `<div class="ya-mp${right ? '' : ' ya-mp--one'}">${left}${right}</div>`;
+
+      // Wiring.
+      $('ya-resume')?.addEventListener('click', () => change('resume'));
+      box.querySelector('[data-card-go]')?.addEventListener('click', updateCard);
+      box.querySelector('[data-card-retry]')?.addEventListener('click', retryCard);
+      if ($('ya-cx-go')) {
+        $('ya-cx-go').addEventListener('click', () => { $('ya-cx-idle').hidden = true; $('ya-cx-confirm').hidden = false; });
+        $('ya-cx-no').addEventListener('click', () => { $('ya-cx-idle').hidden = false; $('ya-cx-confirm').hidden = true; });
+        $('ya-cx-yes').addEventListener('click', () => change('cancel'));
+      }
+      if ($('ya-up-go')) {
+        $('ya-up-go').addEventListener('click', () => { $('ya-up-acts').hidden = true; $('ya-up-confirm').hidden = false; });
+        $('ya-up-no').addEventListener('click', () => { $('ya-up-acts').hidden = false; $('ya-up-confirm').hidden = true; });
+        $('ya-up-yes').addEventListener('click', async () => {
+          const btn = $('ya-up-yes'); btn.disabled = true; btn.textContent = 'Opening payment…';
+          try {
+            const out = await api('upgrade', { body: { level: offer.level, return_to: location.origin + HERE } });
+            try { sessionStorage.setItem('ya-return-tab', 'plan'); } catch (_) {}
+            location.href = out.url;
+          } catch (e) {
+            btn.disabled = false; btn.textContent = 'Continue to payment';
+            const m = $('ya-up-msg'); m.textContent = e.message; m.hidden = false;
+          }
+        });
+      }
       block.hidden = false;
     }
 
