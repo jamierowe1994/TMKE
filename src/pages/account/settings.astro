@@ -723,7 +723,8 @@ import "../../styles/account-sections.css";
     const whatFor = (t) => String(t || '').replace(/^TMKE\s+/, '').replace(/,\s*the difference above.*$/i, '').trim();
     const INV_STATE = { paid: 'Paid', open: 'Due', void: 'Cancelled', uncollectible: 'Unpaid' };
     // Ended after two failed tries = Unpaid; cancelled by them while due = Cancelled (Danielle, 11 Nov).
-    const invState = (i) => (i.status === 'void' && i.ended === 'payment_failed') ? 'Unpaid' : (INV_STATE[i.status] || i.status);
+    // Due before we've tried; Payment failed once a try was turned down.
+    const invState = (i) => (i.status === 'void' && i.ended === 'payment_failed') ? 'Unpaid' : (i.status === 'open' && i.tried > 0) ? 'Payment failed' : (INV_STATE[i.status] || i.status);
     function paintBilling(inv) {
       const up = bill && bill.upgrade;
       const vat = bill && bill.vat_rate != null ? Number(bill.vat_rate) : 20;
@@ -768,7 +769,7 @@ import "../../styles/account-sections.css";
         $('ya-invoices').innerHTML = '<p class="ya-state">Your invoices will appear here once you pay for anything by card.</p>';
         st.hidden = true;
       } else {
-        st.textContent = list.some((i) => i.status === 'open') ? 'Payment due' : 'All paid'; st.hidden = false;
+        st.textContent = list.some((i) => i.status === 'open' && i.tried > 0) ? 'Payment failed' : list.some((i) => i.status === 'open') ? 'Payment due' : 'All paid'; st.hidden = false;
         $('ya-invoices').innerHTML = `<div class="ya-tbl"><table>
           <thead><tr><th>Invoice</th><th>For</th><th>Amount</th><th>Status</th><th class="r"></th></tr></thead>
           <tbody>${list.map((i) => `<tr>
