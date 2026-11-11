@@ -6575,6 +6575,8 @@ function ccStripeKey(env, mode) { return mode === "test" ? env.STRIPE_TEST_SECRE
 async function ccStripe(env, mode, method, path, params) {
   const key = ccStripeKey(env, mode);
   if (!key) throw new Error(mode === "test" ? "Stripe's test key isn't set (STRIPE_TEST_SECRET_KEY)." : "Payments aren't set up (STRIPE_SECRET_KEY).");
+  // Never real money for a test login: the test slot must hold a test key.
+  if (mode === "test" && !/^(sk|rk)_test_/.test(key)) throw new Error("The key in STRIPE_TEST_SECRET_KEY isn't a test key. It must start sk_test_ (copy it from Stripe with Test mode switched on).");
   const qs = new URLSearchParams();
   Object.entries(params || {}).forEach(([k, v]) => { if (v !== undefined && v !== null) qs.append(k, String(v)); });
   const get = method === "GET" || method === "DELETE";
