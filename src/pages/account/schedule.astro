@@ -1333,10 +1333,20 @@ import "../../styles/account-sections.css";
     .cal { position: relative; }
     .cal.is-ours > .cal-legend, .cal.is-ours > .cal-weekhead, .cal.is-ours > #cal-grid, .cal.is-ours > #cal-state { display: none; }
     .cc-ours[hidden] { display: none; }
-    .cal.is-ours .cc-ours { animation: cc-in 0.42s cubic-bezier(.2,.8,.2,1); }
-    .cal.is-mine-in > #cal-grid { animation: cc-in-left 0.42s cubic-bezier(.2,.8,.2,1); }
-    @keyframes cc-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
-    @keyframes cc-in-left { from { transform: translateX(-40px); opacity: 0; } to { transform: none; opacity: 1; } }
+    /* Swapping calendars (Dani, 11 Nov: "deliberate, not glitchy"). The one
+       showing slides off the way the tab points, the other slides in from the
+       far side, and the page stays where it was. */
+    .cc-swap-out-l { animation: cc-out-l 0.28s cubic-bezier(.55,0,.8,.25) forwards; }
+    .cc-swap-out-r { animation: cc-out-r 0.28s cubic-bezier(.55,0,.8,.25) forwards; }
+    .cc-swap-in-r { animation: cc-in-r 0.5s cubic-bezier(.16,1,.3,1) both; }
+    .cc-swap-in-l { animation: cc-in-l 0.5s cubic-bezier(.16,1,.3,1) both; }
+    @keyframes cc-out-l { to { transform: translateX(-72px); opacity: 0; } }
+    @keyframes cc-out-r { to { transform: translateX(72px); opacity: 0; } }
+    @keyframes cc-in-r { from { transform: translateX(96px); opacity: 0; } to { transform: none; opacity: 1; } }
+    @keyframes cc-in-l { from { transform: translateX(-96px); opacity: 0; } to { transform: none; opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) {
+      .cc-swap-out-l, .cc-swap-out-r, .cc-swap-in-r, .cc-swap-in-l { animation: none; }
+    }
     .cc-ours-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 0 0 var(--ws-gap); }
     .cc-ours-line { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); color: rgba(28,29,34,0.7); }
     .cc-ours-line strong { color: var(--violet-deep); font-weight: 700; }
@@ -1880,13 +1890,45 @@ import "../../styles/account-sections.css";
         return `<div class="${cls}"><span class="cc-num">${d.getDate()}</span>${pic}</div>`;
       }).join('');
     }
+    // The member's own calendar, as the parts that slide together.
+    const mineEls = () => [...$cal.querySelectorAll(':scope > .cal-legend, :scope > .cal-weekhead, :scope > #cal-grid')];
+    const SWAP_CLS = ['cc-swap-out-l', 'cc-swap-out-r', 'cc-swap-in-r', 'cc-swap-in-l'];
+    let ccSwapping = false;
     $ccTab?.addEventListener('click', () => {
-      ccLayer = ccLayer === 'ours' ? 'mine' : 'ours';
-      ccLayerChosen = ccLayer;
-      try { sessionStorage.setItem('tmke.cc.layer', ccLayer); } catch (_) {}
-      $cal.classList.toggle('is-mine-in', ccLayer === 'mine');
-      paintOurs();
-      $cal.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (ccSwapping) return;
+      ccSwapping = true;
+      const toMine = ccLayer === 'ours';
+      const y = window.scrollY;
+      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const outs = toMine ? [$ours] : mineEls();
+      const keepAt = () => {
+        // Stay put (Dani, 11 Nov: "the view should stay the same").
+        if (window.__lenis && window.__lenis.scrollTo) window.__lenis.scrollTo(y, { immediate: true, force: true });
+        else window.scrollTo({ top: y, behavior: 'instant' });
+      };
+      const swap = () => {
+        const h = $cal.offsetHeight;
+        outs.forEach((el) => el.classList.remove(...SWAP_CLS));
+        ccLayer = toMine ? 'mine' : 'ours';
+        ccLayerChosen = ccLayer;
+        try { sessionStorage.setItem('tmke.cc.layer', ccLayer); } catch (_) {}
+        // Hold the height while it slides in, so nothing below jumps about.
+        $cal.style.minHeight = h + 'px';
+        paintOurs();
+        const ins = toMine ? mineEls() : [$ours];
+        ins.forEach((el) => { el.classList.remove(...SWAP_CLS); void el.offsetWidth; el.classList.add(toMine ? 'cc-swap-in-r' : 'cc-swap-in-l'); });
+        keepAt();
+        setTimeout(() => {
+          ins.forEach((el) => el.classList.remove(...SWAP_CLS));
+          $cal.style.minHeight = '';
+          $cal.classList.remove('is-swapping');
+          ccSwapping = false;
+        }, still ? 0 : 520);
+      };
+      if (still) { swap(); return; }
+      $cal.classList.add('is-swapping');
+      outs.forEach((el) => el.classList.add(toMine ? 'cc-swap-out-l' : 'cc-swap-out-r'));
+      setTimeout(swap, 280);
     });
     document.getElementById('cc-ours-ed-sel')?.addEventListener('change', (e) => {
       ccEdition = e.target.value; setPreferredEdition(ccEdition);
