@@ -7121,8 +7121,13 @@ async function zernioApplyResult(env, post, opts = {}) {
   const row = rows[0];
   if (!row) return { ok: true, why: "not on a calendar" };   // taken back, or a staff test
   const prev = (row.details && row.details.zernio) || {};
-  const results = zernioResults(post);
-  const status = zernioOverall(post.status, results);
+  // Try again after a partly posted one is a new Zernio post for the failed
+  // accounts only; the account that already went out keeps its result and link.
+  const fresh = zernioResults(post);
+  const kept = (prev.results || []).filter((r) => r.status === "posted" && !fresh.some((n) => String(n.account_id) === String(r.account_id)));
+  const results = [...kept, ...fresh];
+  let status = zernioOverall(post.status, fresh);
+  if (kept.length && status === "failed") status = "partial";
   const now = new Date().toISOString();
   const zern = {
     ...prev,
@@ -9242,6 +9247,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         if (!r.ok) return json({ error: (r.data && (r.data.error || r.data.message)) || "Zernio didn't take the post." }, 502, request, env);
         const post = r.data.post || r.data;
         const zern = { post_id: post._id || prev, status: post.status || "scheduled", scheduled_for: when, accounts: targets.map((t) => t.accountId), at: new Date().toISOString() };
+        // A retry of a partly posted one keeps the account that already went out (and its link).
+        if (finished && was.status === "partial" && Array.isArray(was.results)) zern.results = was.results.filter((x) => x && x.status === "posted");
         await sbPatch(env, "calendar_items", `id=eq.${id}&user_id=eq.${user.id}`, { details: { ...(item.details || {}), zernio: zern } });
         return json({ ok: true, zernio: zern }, 200, request, env);
       }
