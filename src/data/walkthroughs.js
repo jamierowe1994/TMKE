@@ -115,10 +115,10 @@ export const WALKS = {
         body: "Your details, your plan, how you pay and what you've ordered, in one place." },
       { path: "/account/settings", target: ".ya-tabs", placement: "bottom",
         eyebrow: "Your Account", title: "Four Tabs",
-        body: "Account for your details and password, Plan for your Content Calendar, Billing for your card and invoices, Orders for your packs." },
+        body: "Account for your details and password, Plan for your Content Calendar, Billing for your card and invoices, Template packs for what you've bought." },
       { path: "/account/settings", target: 'section[aria-labelledby="ya-olist-h"]', placement: "top",
-        eyebrow: "Orders", title: "Each Order",
-        body: "Everything you've bought from The Edit, each with its receipt." },
+        eyebrow: "Template packs", title: "Each Pack",
+        body: "Every template pack you've bought from The Edit, each with its receipt." },
     ],
   },
 

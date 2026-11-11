@@ -88,7 +88,7 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
           <button type="button" class="ws-navic" data-menu-btn aria-expanded="false" aria-haspopup="true" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="ws-dot" data-notif-dot></span></button>
           <div class="ws-dropdown ws-dropdown--right ws-dropdown--notif" role="menu">
             <div class="ws-notif-head"><strong>Notifications</strong><button type="button" class="ws-notif-clear" data-notif-clear>Mark all read</button></div>
-            <div class="ws-notif-list">
+            <div class="ws-notif-list" data-lenis-prevent>
               <!-- Filled by lib/notifications.js. Never sample items: they used to sit
                    here and stayed on screen whenever the real ones failed to load. -->
               <div class="ws-notif-empty">You&rsquo;re all caught up.</div>
@@ -601,6 +601,10 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     .ws-notif-clear { font-family: inherit; font-size: var(--ws-t-meta); font-weight: 600; color: var(--ws-accent); background: none; border: 0; padding: 0; cursor: pointer; }
     .ws-notif-clear:hover { text-decoration: underline; }
     .ws-notif-list { display: flex; flex-direction: column; }
+    /* A long list scrolls inside the box (Dani, 11 Nov). Closed, the box is
+       only see-through: at full length it ran past the foot of a short page
+       and left a grey band to scroll into. */
+    .ws-dropdown--notif .ws-notif-list { max-height: min(60vh, 460px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
     .ws-notif-item { display: flex; align-items: flex-start; gap: 11px; padding: 10px 10px; border-radius: 10px; text-decoration: none; transition: background 0.16s; }
     .ws-notif-item:hover { background: rgba(28, 29, 34, 0.05); }
     .ws-notif-item.is-unread { background: color-mix(in srgb, var(--ws-accent) 7%, transparent); }
