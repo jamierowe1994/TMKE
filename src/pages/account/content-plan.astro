@@ -329,6 +329,7 @@ import "../../styles/account-sections.css";
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
     import { PLAN_LINKED, FORMATS, PILLARS, PLAN_ROWS, monthKey, monthStart, monthName, planStore, postIsMade, pillarOfPrompt } from '../../lib/content-plan.js';
     import { undoToast } from '../../lib/undo-toast.js';
+    import { resendIfScheduled, cancelIfScheduled } from '../../lib/schedule-sync.js';
 
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -684,6 +685,10 @@ import "../../styles/account-sections.css";
       const at = rows.indexOf(r);
       const wasRow = { ...r }, wasItem = it ? JSON.parse(JSON.stringify(it)) : null;
       if (it) {
+        // A scheduled post is taken back first, so nothing goes out unseen.
+        try { await cancelIfScheduled(store, it); } catch (e) { return saved('err', "Couldn't take back its scheduled post"); }
+        // Undo puts it back as a plain planned post: what was scheduled is gone.
+        if (wasItem && wasItem.details) delete wasItem.details.zernio;
         const { error } = await store.db.from(store.table).delete().eq('id', it.id).eq('user_id', store.uid);
         if (error) return saved('err', "Couldn't remove its post");
         items = items.filter((x) => x !== it);
@@ -785,6 +790,7 @@ import "../../styles/account-sections.css";
           redrawPost(r);
           return;
         }
+        await cancelIfScheduled(store, it);
         const { error } = await store.db.from(store.table).delete().eq('id', it.id).eq('user_id', store.uid);
         if (error) throw error;
         items = items.filter((x) => x !== it); r.item_id = null;
@@ -853,6 +859,8 @@ import "../../styles/account-sections.css";
       const { error } = await store.db.from(store.table).update(patch).eq('id', it.id).eq('user_id', store.uid);
       if (error) throw error;
       Object.assign(it, patch);
+      // A scheduled post with a new design or caption goes to Zernio again.
+      await resendIfScheduled(store, it, Object.keys(patch));
     }
 
     // Choose one of your designs: social sizes only, as the Planner's picker.

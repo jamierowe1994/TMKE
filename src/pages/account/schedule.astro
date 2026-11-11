@@ -226,6 +226,13 @@ import "../../styles/account-sections.css";
             </span>
             <textarea id="post-caption" class="post-textarea" rows="5" placeholder="Write your caption… or generate one with AI"></textarea>
           </label>
+          <!-- Post it for me (Phase 4, Danielle, 11 Nov): schedule this post to
+               their linked Instagram and Facebook through Zernio. Filled by
+               paintSched(); locked below Content Calendar + Scheduling. -->
+          <section class="sch" id="post-sched" hidden aria-labelledby="sch-h">
+            <div class="sch-head"><span class="post-label" id="sch-h">Post it for me</span><span class="sch-state" id="sch-state" hidden></span></div>
+            <div class="sch-body" id="sch-body"></div>
+          </section>
           <label class="post-remind">
             <input type="checkbox" id="post-remind" />
             <span>Remind me on the day <span class="post-remind-note">— we'll email the caption &amp; image at 8am on the morning of this post</span></span>
@@ -1261,6 +1268,37 @@ import "../../styles/account-sections.css";
       text-transform: uppercase;
       color: rgba(28,29,34,0.5);
     }
+    /* ---- Post it for me (scheduling) ---- */
+    .sch { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border: 1px solid rgba(28,29,34,0.13); border-radius: 4px; }
+    .sch[hidden] { display: none; }
+    .sch-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .sch-state { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 4px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; background: #eae5e1; color: var(--violet-deep); }
+    .sch-state[hidden] { display: none; }
+    .sch-state.is-sched { background: var(--violet-deep); color: #fff; }
+    .sch-state.is-posted { background: #c9bcb7; color: var(--violet-deep); }
+    .sch-state.is-failed { background: #fff; color: #8a3f3f; box-shadow: inset 0 0 0 1px #8a3f3f; }
+    .sch-body { display: flex; flex-direction: column; gap: 10px; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.45; color: var(--ink); }
+    .sch-note { margin: 0; color: rgba(28,29,34,0.64); }
+    .sch-note a, .sch-link { color: var(--violet-deep); font-weight: 600; }
+    .sch-accs { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sch-acc { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #e2d9d4; border-radius: 4px; cursor: pointer; background: #fff; }
+    .sch-acc:has(input:checked) { border-color: var(--violet-deep); }
+    .sch-acc input { margin: 0; accent-color: var(--violet-deep); }
+    .sch-acc img { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
+    .sch-ic { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+    .sch-problems { margin: 0; padding: 10px 12px 10px 28px; background: #eae5e1; border-radius: 4px; color: var(--violet-deep); }
+    .sch-problems[hidden] { display: none; }
+    .sch-problems li + li { margin-top: 4px; }
+    .sch-res { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .sch-res li { display: flex; gap: 8px; align-items: baseline; }
+    .sch-res .is-bad { color: #8a3f3f; }
+    .sch-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sch-warn { margin: 0; padding: 10px 12px; background: #eae5e1; border-radius: 4px; color: var(--violet-deep); }
+    .cal-chip--post.is-zsched { background: #fff; color: var(--violet-deep); border-color: var(--violet-deep); }
+    .cal-chip--post.is-zsched::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: var(--violet-deep); vertical-align: 1px; }
+    .cal-chip--post.is-failed { background: #fff; color: #8a3f3f; border: 1px solid #8a3f3f; }
+    .day-item-status.is-zsched { background: var(--violet-deep); color: #fff; }
+    .day-item-status.is-failed { background: rgba(138, 63, 63, 0.1); color: #8a3f3f; }
     .post-remind {
       display: flex; align-items: flex-start; gap: 10px;
       padding: 12px 14px;
@@ -1528,7 +1566,8 @@ import "../../styles/account-sections.css";
     import { readBrandCache } from '../../lib/brand-cache.js';
     installTimePicker();
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
-    import { loadPublishedMonth, monthKey as ccMonthKey, monthPostsName, fmtPostDate, POST_TYPE_LABEL, EDITION_LABEL, setPreferredEdition } from '../../lib/calendar-month.js';
+    import { loadPublishedMonth, loadPost as loadCcPost, memberAccess, monthKey as ccMonthKey, monthPostsName, fmtPostDate, POST_TYPE_LABEL, EDITION_LABEL, setPreferredEdition } from '../../lib/calendar-month.js';
+    import { zernioOf, isScheduled, schedulePost, checkPost, cancelPost, resendIfScheduled, cancelIfScheduled } from '../../lib/schedule-sync.js';
 
     // ====== Elements ======
     const $title       = document.getElementById('cal-title');
@@ -1778,7 +1817,11 @@ import "../../styles/account-sections.css";
             const c = catOfItem(p);
             return `<span class="cal-chip cal-chip--act cal-chip--${c.key}${p.__cont ? ' is-cont' : ''}${p.booking ? ' cal-chip--booking' : ''}" title="${escapeHtml(activityOf(p.activity).label + ' — ' + (p.title || ''))}">${p.__cont ? '' : escapeHtml(p.title || activityOf(p.activity).label)}</span>`;
           }
-          const statusClass = p.status === 'done' ? 'is-done'
+          const zs = (zernioOf(p) || {}).status;
+          const statusClass = zs === 'scheduled' ? 'is-zsched'
+            : zs === 'posted' ? 'is-done'
+            : (zs === 'failed' || zs === 'partial') ? 'is-failed'
+            : p.status === 'done' ? 'is-done'
             : p.status === 'reminder_sent' ? 'is-sent'
             : p.status === 'cancelled' ? 'is-cancelled'
             : !postIsMade(p) ? 'is-todo' : '';
@@ -2070,13 +2113,15 @@ import "../../styles/account-sections.css";
             }
             const thumb = p.thumbnail_url || p.asset_url || '';
             const thumbStyle = thumb ? `style="background-image:url('${escapeHtml(thumb)}')"` : '';
-            const statusLabel = (p.status === 'scheduled' && !postIsMade(p)) ? 'To design' : ({
+            const zst = (zernioOf(p) || {}).status;
+            const zLabel = zst === 'scheduled' ? 'Scheduled' : zst === 'posted' ? 'Posted' : zst === 'partial' ? 'Partly posted' : zst === 'failed' ? 'Failed' : '';
+            const statusLabel = zLabel ? zLabel : (p.status === 'scheduled' && !postIsMade(p)) ? 'To design' : ({
               scheduled:     'Planned',
               reminder_sent: 'Reminder sent',
               done:          'Posted',
               cancelled:     'Cancelled',
             })[p.status] || 'Planned';
-            const statusClass = ({
+            const statusClass = zst === 'scheduled' ? 'is-zsched' : zst === 'posted' ? 'is-done' : (zst === 'failed' || zst === 'partial') ? 'is-failed' : ({
               scheduled:     'is-scheduled',
               reminder_sent: 'is-sent',
               done:          'is-done',
@@ -2169,6 +2214,8 @@ import "../../styles/account-sections.css";
       $postEmail.disabled = false; $postEmail.textContent = 'Email it to me now';
       $postDelete.disabled = false; $postDelete.textContent = 'Remove';
       $postMycal.hidden = (demoOn() && !isTrainingDemo()) || calSynced;
+      schedWarned = false;
+      paintSched(p);
       $postModal.hidden = false;
       document.body.style.overflow = 'hidden';
       requestAnimationFrame(() => requestAnimationFrame(() => $postModal.classList.add('is-open')));
@@ -2187,6 +2234,217 @@ import "../../styles/account-sections.css";
         if ($dayModal.hidden) document.body.style.overflow = '';
       }, 540);
     }
+
+
+    /* ====== Post it for me: scheduling to Instagram and Facebook ======
+       Content Calendar build list, Phase 4 rows 2, 3, 4, 6 and 7 (Danielle,
+       11 Nov). The Worker posts through Zernio; this section saves the row
+       first (the Worker reads the caption, picture and time from it), checks
+       what Instagram and Facebook will take, then sends. Status comes back on
+       the row as details.zernio (Admin's webhook). */
+    const SCH_PLATS = { instagram: 'Instagram', facebook: 'Facebook' };
+    const SCH_IC = {
+      instagram: '<svg class="sch-ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/></svg>',
+      facebook: '<svg class="sch-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8.5h2.5V5H14a3.5 3.5 0 0 0-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.5L17 11h-3V9a.5.5 0 0 1 .5-.5z"/></svg>',
+    };
+    const PLAN_LINK = '/account/settings?tab=plan';
+    let schedStatusCache = null, schedWarned = false, schedCheckTimer = 0, schedAccsShown = [];
+    async function schedStatus(acct) {
+      if (schedStatusCache) return schedStatusCache;
+      const res = await fetch(`${API_BASE}/schedule/status`, { headers: { Authorization: `Bearer ${acct.token}` } }).catch(() => null);
+      const out = res ? await res.json().catch(() => null) : null;
+      if (!res || !res.ok || !out || !out.ok) throw new Error((out && out.error) || "We couldn't reach your social accounts just now.");
+      schedStatusCache = out;
+      return out;
+    }
+    const schWhen = (iso) => {
+      try {
+        const d = new Date(iso);
+        return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })
+          + ' at ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+      } catch (_) { return ''; }
+    };
+    function schState(z) {
+      const st = document.getElementById('sch-state');
+      const map = { scheduled: ['Scheduled', 'is-sched'], posted: ['Posted', 'is-posted'], partial: ['Partly posted', 'is-failed'], failed: ['Failed', 'is-failed'] };
+      const m = z && map[z.status];
+      st.hidden = !m;
+      if (m) { st.textContent = m[0]; st.className = 'sch-state ' + m[1]; }
+    }
+    function schMsg(html, ok) {
+      const box = document.getElementById('sch-problems');
+      if (!box) return;
+      if (!html) { box.hidden = true; box.innerHTML = ''; return; }
+      box.innerHTML = html; box.hidden = false;
+      box.classList.toggle('is-ok', !!ok);
+    }
+
+    async function paintSched(p) {
+      const sec = document.getElementById('post-sched'), body = document.getElementById('sch-body');
+      const acct = await plannerStore();
+      if (!p || !acct || acct.blocked || acct.training || !API_BASE || (demoOn() && !isTrainingDemo()) || !isPostItem(p)) { sec.hidden = true; return; }
+      sec.hidden = false;
+      const z = zernioOf(p);
+      schState(z);
+      const access = await memberAccess(supabase);
+      if (openPostId !== p.id) return;
+      // Row 6: locked below the level, pointing to the upgrade.
+      if (!access || !access.scheduling) {
+        body.innerHTML = `<p class="sch-note">Schedule this post to go out on Instagram and Facebook by itself. Included in Content Calendar + Scheduling. <a href="${PLAN_LINK}">See your plan &rarr;</a></p>`;
+        return;
+      }
+      if (!p.asset_url) {
+        body.innerHTML = '<p class="sch-note">Add the design to this post, then you can schedule it.</p>';
+        return;
+      }
+      body.innerHTML = '<p class="sch-note">Checking your accounts&hellip;</p>';
+      let status;
+      try { status = await schedStatus(acct); } catch (e) { body.innerHTML = `<p class="sch-note">${escapeHtml(e.message)}</p>`; return; }
+      if (openPostId !== p.id) return;
+      const accs = (status.accounts || []).filter((a) => SCH_PLATS[a.platform]);
+      schedAccsShown = accs;
+      if (!status.open || !accs.length) {
+        body.innerHTML = `<p class="sch-note">Link Instagram or Facebook first, on Your Account. <a href="${PLAN_LINK}">Link your accounts &rarr;</a></p>`;
+        return;
+      }
+      const results = z && Array.isArray(z.results) ? z.results : [];
+      let head = '';
+      if (z && z.status === 'scheduled') {
+        const names = accs.filter((a) => (z.accounts || []).map(String).includes(String(a.id))).map((a) => SCH_IC[a.platform] + escapeHtml(SCH_PLATS[a.platform])).join(' &middot; ');
+        head = `<p class="sch-note">Goes out ${escapeHtml(schWhen(z.scheduled_for))}${names ? ' to ' + names : ''}. Change anything above, then press Change.</p>`;
+      } else if (z && (z.status === 'posted' || z.status === 'partial' || z.status === 'failed')) {
+        head = `<ul class="sch-res">${(results.length ? results : [{ status: z.status }]).map((r) => {
+          const nm = SCH_PLATS[r.platform] || 'Your post';
+          if (r.status === 'posted') return `<li>${SCH_IC[r.platform] || ''}<span>${escapeHtml(nm)}: posted${r.url ? ` &middot; <a class="sch-link" href="${escapeHtml(r.url)}" target="_blank" rel="noopener">See it</a>` : ''}</span></li>`;
+          if (r.status === 'failed') return `<li class="is-bad">${SCH_IC[r.platform] || ''}<span>${escapeHtml(nm)}: didn't post. ${escapeHtml(r.what_to_do || r.error || 'Try again, or message us if it happens again.')}</span></li>`;
+          return `<li>${SCH_IC[r.platform] || ''}<span>${escapeHtml(nm)}: ${escapeHtml(r.status || 'waiting')}</span></li>`;
+        }).join('')}</ul>`;
+      }
+      // Which accounts are ticked: the ones it's going to; for a partly posted
+      // one, only those that failed; otherwise all of them.
+      let ticked = accs.map((a) => String(a.id));
+      if (z && z.status === 'scheduled' && Array.isArray(z.accounts)) ticked = z.accounts.map(String);
+      if (z && z.status === 'partial') { const f = results.filter((r) => r.status === 'failed').map((r) => String(r.account_id)); if (f.length) ticked = f; }
+      const done = z && z.status === 'posted';
+      const ticks = done ? '' : `<div class="sch-accs">${accs.map((a) => `<label class="sch-acc"><input type="checkbox" data-acc value="${escapeHtml(String(a.id))}"${ticked.includes(String(a.id)) ? ' checked' : ''}>${a.picture ? `<img src="${escapeHtml(a.picture)}" alt="">` : SCH_IC[a.platform]}<span>${escapeHtml(a.username || SCH_PLATS[a.platform])}</span></label>`).join('')}</div>`;
+      const allDay = p.has_time === false && !(z && z.status === 'scheduled');
+      const timeNote = allDay && !done ? '<p class="sch-note">This post has no time yet, so it\'s set to 9:00 above. Change it if you\'d like another time.</p>' : '';
+      const btns = done ? '' : z && z.status === 'scheduled'
+        ? '<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Change</button><button type="button" class="ws-btn ws-btn--ghost" data-sch="cancel">Don\'t post it</button></div>'
+        : z && (z.status === 'failed' || z.status === 'partial')
+          ? '<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Try again</button></div>'
+          : '<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Schedule it</button></div>';
+      body.innerHTML = head + ticks + timeNote + '<ul class="sch-problems" id="sch-problems" hidden></ul>' + btns;
+      body.querySelector('[data-sch="send"]')?.addEventListener('click', (e) => scheduleNow(p, e.currentTarget));
+      body.querySelector('[data-sch="cancel"]')?.addEventListener('click', (e) => unschedule(p, e.currentTarget));
+      body.querySelectorAll('[data-acc]').forEach((i) => i.addEventListener('change', () => liveCheck(p)));
+      if (!done) liveCheck(p);
+    }
+
+    // Row 7: what Instagram and Facebook won't take, said before sending.
+    function tickedAccounts() {
+      const ids = [...document.querySelectorAll('#sch-body [data-acc]:checked')].map((i) => i.value);
+      return { ids, platforms: [...new Set(schedAccsShown.filter((a) => ids.includes(String(a.id))).map((a) => a.platform))] };
+    }
+    function liveCheck(p) {
+      clearTimeout(schedCheckTimer);
+      schedCheckTimer = setTimeout(async () => {
+        if (openPostId !== p.id) return;
+        const { platforms } = tickedAccounts();
+        if (!platforms.length) { schMsg(''); return; }
+        const acct = await plannerStore();
+        try {
+          const out = await checkPost(acct.token, p.id, $postCaption.value || '', platforms);
+          if (openPostId !== p.id) return;
+          const probs = out.problems || [];
+          schMsg(probs.length ? probs.map((x) => `<li>${escapeHtml(x.message)}</li>`).join('') : '');
+        } catch (_) { /* checked again when they press Schedule it */ }
+      }, 500);
+    }
+    $postCaption?.addEventListener('input', () => { const p = items.find((i) => String(i.id) === String(openPostId)); if (p && !document.getElementById('post-sched').hidden) liveCheck(p); });
+
+    async function scheduleNow(p, btn) {
+      const label = btn.textContent;
+      const fail = (msg) => { btn.disabled = false; btn.textContent = label; schMsg(`<li>${escapeHtml(msg)}</li>`); };
+      const acct = await plannerStore();
+      if (!acct || acct.blocked) return fail(acct ? acct.reason : "You're signed out. Sign in again.");
+      const { ids, platforms } = tickedAccounts();
+      if (!ids.length) return fail('Tick at least one account to post to.');
+      const title = ($postTitle.value || '').trim();
+      const date = $postDate.value;
+      const time = String($postTime.value || '09:00').slice(0, 5);
+      const caption = ($postCaption.value || '').trim();
+      if (!title) return fail('Give the post a short title.');
+      if (!date) return fail('Pick a date for the post.');
+      if (!caption) return fail('Add a caption first.');
+      if (new Date(`${date}T${time}:00`).getTime() < Date.now() + 5 * 60000) return fail('Pick a time at least five minutes from now.');
+      btn.disabled = true; btn.textContent = 'Checking…';
+      // A calendar post tied to its day (Bonfire Night, say), moved to another:
+      // the same warning as Plan It, once, then Schedule it anyway.
+      const ccId = p.details && p.details.cc_post_id;
+      if (ccId && !schedWarned) {
+        try {
+          const cp = await loadCcPost(supabase, ccId);
+          if (cp && cp.date_tied && cp.post_date && String(cp.post_date).slice(0, 10) !== date) {
+            schedWarned = true;
+            btn.disabled = false; btn.textContent = 'Schedule it anyway';
+            schMsg(`<li>This post is written for ${escapeHtml(new Date(cp.post_date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }))}. Check it still makes sense on another day.</li>`);
+            return;
+          }
+        } catch (_) {}
+      }
+      // Save the row first: the Worker posts what's on it.
+      const patch = { title, scheduled_date: date, scheduled_time: time, has_time: true, caption };
+      const { error } = await acct.db.from(acct.table).update(patch).eq('id', p.id);
+      if (error) return fail(error.message || "Couldn't save the post.");
+      Object.assign(p, patch);
+      try {
+        const chk = await checkPost(acct.token, p.id, caption, platforms);
+        if ((chk.problems || []).length) {
+          btn.disabled = false; btn.textContent = label;
+          schMsg(chk.problems.map((x) => `<li>${escapeHtml(x.message)}</li>`).join(''));
+          return;
+        }
+        btn.textContent = 'Scheduling…';
+        const out = await schedulePost(acct.token, p.id, ids);
+        p.details = { ...(p.details || {}), zernio: out.zernio };
+        renderCalendar(); refreshDayUnder();
+        showPostError(`Scheduled for ${schWhen(out.zernio.scheduled_for)}.`, true);
+        paintSched(p);
+      } catch (e) { fail(e.message); }
+    }
+
+    // Row 3: take it back.
+    async function unschedule(p, btn) {
+      btn.disabled = true; btn.textContent = 'Taking it back…';
+      const acct = await plannerStore();
+      try {
+        await cancelPost(acct.token, p.id);
+        const { zernio, ...rest } = p.details || {};
+        p.details = rest;
+        renderCalendar(); refreshDayUnder();
+        showPostError("It won't be posted. It's still on your calendar.", true);
+        paintSched(p);
+      } catch (e) { btn.disabled = false; btn.textContent = "Don't post it"; schMsg(`<li>${escapeHtml(e.message)}</li>`); }
+    }
+
+    // A failure email links to /account/schedule?item=<id>: open that post.
+    async function openItemFromUrl() {
+      const id = new URLSearchParams(location.search).get('item');
+      if (!id || !/^[0-9a-f-]{36}$/.test(id)) return;
+      let it = items.find((i) => String(i.id) === id);
+      if (!it) {
+        const acct = await plannerStore();
+        if (!acct || acct.blocked) return;
+        const { data } = await acct.db.from(acct.table).select('*').eq('id', id).maybeSingle();
+        if (!data) return;
+        items.push(data); it = data;
+      }
+      const u = new URL(location.href); u.searchParams.delete('item');
+      history.replaceState(null, '', u.pathname + u.search);
+      openPost(it.id);
+    }
+    let itemUrlChecked = false;
 
     // ====== Plan a post: pick one you've already made ======
     // The library in a pop-out over the calendar. Picking a design doesn't open
@@ -3509,6 +3767,8 @@ import "../../styles/account-sections.css";
       if (acct.blocked) return showPostError(acct.reason);
       $postSave.disabled = true; $postSave.textContent = 'Saving…';
       const patch = { title, scheduled_date: dateStr, scheduled_time: timeStr, caption: caption || null, reminder: wantsReminder };
+      const before = items.find((i) => String(i.id) === String(openPostId));
+      const changed = before ? Object.keys(patch).filter((k) => String(before[k] ?? '').slice(0, k === 'scheduled_time' ? 5 : undefined) !== String(patch[k] ?? '').slice(0, k === 'scheduled_time' ? 5 : undefined)) : [];
       let { error } = await acct.db.from(acct.table).update(patch).eq('id', openPostId);
       if (error && /reminder/i.test(error.message || '') && /column/i.test(error.message || '')) {
         // reminder column not migrated yet — persist everything else.
@@ -3521,6 +3781,11 @@ import "../../styles/account-sections.css";
       }
       const p = items.find((i) => String(i.id) === String(openPostId));
       if (p) Object.assign(p, patch);
+      // Scheduled: Zernio gets the new date, time or caption too (row 3).
+      if (p && isScheduled(p)) {
+        try { await resendIfScheduled(acct, p, changed); }
+        catch (e) { renderCalendar(); $postSave.disabled = false; $postSave.textContent = 'Save changes'; return showPostError(e.message); }
+      }
       renderCalendar();
       $postSave.textContent = 'Saved ✓';
       showPostError('Changes saved.', true);
@@ -3587,6 +3852,11 @@ import "../../styles/account-sections.css";
       $postDelete.disabled = true; $postDelete.textContent = 'Removing…';
       const acct = await plannerStore();
       if (!acct || acct.blocked) { $postDelete.disabled = false; $postDelete.textContent = 'Remove'; return showPostError(acct ? acct.reason : "You're signed out — sign in again."); }
+      // A scheduled post is taken back from Zernio first (row 3).
+      if (was && isScheduled(was)) {
+        try { await cancelIfScheduled(acct, was); }
+        catch (e) { $postDelete.disabled = false; $postDelete.textContent = 'Remove'; return showPostError(`It's still scheduled, so it wasn't removed: ${e.message}`); }
+      }
       const { error } = await acct.db.from(acct.table).delete().eq('id', openPostId);
       if (error) {
         $postDelete.disabled = false; $postDelete.textContent = 'Remove';
@@ -3719,6 +3989,7 @@ import "../../styles/account-sections.css";
       } catch (_) { prompts = []; }
 
       loadedWindow = { fromYmd, toYmd };
+      if (!itemUrlChecked) { itemUrlChecked = true; setTimeout(() => openItemFromUrl().catch(() => {}), 0); }
     }
 
     // Tiny holiday stub so the page still demos before the seed has been

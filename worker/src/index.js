@@ -9219,11 +9219,23 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const acc = await zernio(env, `/accounts?profileId=${prof._id}`);
         const owned = (acc.ok && acc.data.accounts || []);
         const picked = (Array.isArray(b.accountIds) ? b.accountIds : []).map(String);
-        const targets = owned.filter((a) => picked.includes(a._id || a.id)).map((a) => ({ platform: a.platform, accountId: a._id || a.id }));
+        let targets = owned.filter((a) => picked.includes(a._id || a.id)).map((a) => ({ platform: a.platform, accountId: a._id || a.id }));
         if (!targets.length) return json({ error: "Pick at least one of your connected accounts." }, 400, request, env);
         const isVideo = /\.(mp4|mov|m4v|webm)(\?|$)/i.test(item.asset_url);
+        // Change re-sends to the same Zernio post while it's still waiting. Try
+        // again after it's gone out (failed, partial, posted) is a new post,
+        // since Zernio won't edit a finished one; a partial one goes only to
+        // the accounts that failed, so the one that worked isn't posted twice
+        // (Admin, 11 Nov).
+        const was = item.details && item.details.zernio;
+        const finished = was && ["failed", "partial", "posted"].includes(was.status);
+        if (was && was.status === "partial" && Array.isArray(was.results)) {
+          const failed = was.results.filter((x) => x && x.status === "failed").map((x) => String(x.account_id));
+          if (failed.length) targets = targets.filter((t) => failed.includes(String(t.accountId)));
+          if (!targets.length) return json({ error: "Those accounts already have this post." }, 400, request, env);
+        }
         const body = { content: String(item.caption || ""), scheduledFor: when, profileId: prof._id, platforms: targets, mediaItems: [{ type: isVideo ? "video" : "image", url: item.asset_url }] };
-        const prev = item.details && item.details.zernio && item.details.zernio.post_id;
+        const prev = !finished && was && was.post_id;
         const r = prev
           ? await zernio(env, `/posts/${prev}`, { method: "PUT", body: JSON.stringify(body) })
           : await zernio(env, "/posts", { method: "POST", body: JSON.stringify(body) });
