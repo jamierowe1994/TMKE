@@ -7252,6 +7252,7 @@ async function zernioApplyResult(env, post, opts = {}) {
   const results = [...kept, ...fresh];
   let status = zernioOverall(post.status, fresh);
   if (kept.length && status === "failed") status = "partial";
+  if (status === "scheduled" && prev.status === "posting") status = "posting";   // Post now, still going out
   const now = new Date().toISOString();
   const zern = {
     ...prev,
@@ -7303,7 +7304,7 @@ async function runZernioStuckCheck(env) {
   if (!env.ZERNIO_API_KEY) return;
   await zernioEnsureWebhook(env).catch(() => {});
   const cutoff = new Date(Date.now() - 3600 * 1000).toISOString();
-  const rows = (await sbGet(env, "calendar_items", `details->zernio->>status=eq.scheduled&details->zernio->>scheduled_for=lt.${encodeURIComponent(cutoff)}&select=id,user_id,title,details&limit=100`)) || [];
+  const rows = (await sbGet(env, "calendar_items", `details->zernio->>status=in.(scheduled,posting)&details->zernio->>scheduled_for=lt.${encodeURIComponent(cutoff)}&select=id,user_id,title,details&limit=100`)) || [];
   for (const row of rows) {
     try {
       const z = row.details.zernio;
@@ -7315,7 +7316,7 @@ async function runZernioStuckCheck(env) {
       if (!r.ok) continue;
       const post = r.data.post || r.data;
       const res = await zernioApplyResult(env, post);
-      if (res.status === "scheduled" && new Date(z.scheduled_for).getTime() < Date.now() - 3 * 3600 * 1000 && !z.stuck_alerted) {
+      if ((res.status === "scheduled" || res.status === "posting") && new Date(z.scheduled_for).getTime() < Date.now() - 3 * 3600 * 1000 && !z.stuck_alerted) {
         await notifyAdmins(env, { area: "problem", event: "schedule_stuck", title: "A member's scheduled post hasn't gone out", body: `"${String(row.title || "").slice(0, 80)}" was due ${zernioWhen(z.scheduled_for)} and the scheduler still has it as ${post.status || "scheduled"}.`, key: `schedule_stuck_${row.id}` });
         const fresh = ((await sbGet(env, "calendar_items", `id=eq.${row.id}&select=details`)) || [])[0];
         if (fresh) await sbPatch(env, "calendar_items", `id=eq.${row.id}`, { details: { ...fresh.details, zernio: { ...fresh.details.zernio, stuck_alerted: true } } });
@@ -9454,8 +9455,12 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const item = rows && rows[0];
         if (!item) return json({ error: "That post isn't on your calendar." }, 404, request, env);
         if (!item.asset_url) return json({ error: "Add the design to this post first." }, 400, request, env);
-        const when = londonToUtcIso(item.scheduled_date, item.has_time === false ? "09:00" : item.scheduled_time);
-        if (new Date(when).getTime() < Date.now() + 5 * 60000) return json({ error: "Pick a time at least five minutes from now." }, 400, request, env);
+        // Post now (Danielle, 11 Nov): { now: true } publishes straight away,
+        // after the member confirms in the pop-out. Otherwise at the post's own
+        // date and time, at least five minutes ahead.
+        const now = b.now === true;
+        const when = now ? new Date().toISOString() : londonToUtcIso(item.scheduled_date, item.has_time === false ? "09:00" : item.scheduled_time);
+        if (!now && new Date(when).getTime() < Date.now() + 5 * 60000) return json({ error: "Pick a time at least five minutes from now." }, 400, request, env);
         const prof = await zernioProfile(env, user);
         if (!prof) return json({ error: "Couldn't open your scheduling profile just now." }, 502, request, env);
         const acc = await zernio(env, `/accounts?profileId=${prof._id}`);
@@ -9476,17 +9481,29 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           if (failed.length) targets = targets.filter((t) => failed.includes(String(t.accountId)));
           if (!targets.length) return json({ error: "Those accounts already have this post." }, 400, request, env);
         }
-        const body = { content: String(item.caption || ""), scheduledFor: when, profileId: prof._id, platforms: targets, mediaItems: [{ type: isVideo ? "video" : "image", url: item.asset_url }] };
-        const prev = !finished && was && was.post_id;
+        const body = { content: String(item.caption || ""), profileId: prof._id, platforms: targets, mediaItems: [{ type: isVideo ? "video" : "image", url: item.asset_url }] };
+        if (now) body.publishNow = true; else body.scheduledFor = when;
+        let prev = !finished && was && was.post_id;
+        // Posting now something already scheduled: take the scheduled one back first.
+        if (now && prev) { await zernio(env, `/posts/${prev}`, { method: "DELETE" }); prev = null; }
         const r = prev
           ? await zernio(env, `/posts/${prev}`, { method: "PUT", body: JSON.stringify(body) })
           : await zernio(env, "/posts", { method: "POST", body: JSON.stringify(body) });
-        if (!r.ok) return json({ error: (r.data && (r.data.error || r.data.message)) || "Zernio didn't take the post." }, 502, request, env);
+        if (!r.ok) return json({ error: (r.data && (r.data.error || r.data.message)) || "The post didn't go through to the scheduler. Try again in a moment." }, 502, request, env);
         const post = r.data.post || r.data;
-        const zern = { post_id: post._id || prev, status: post.status || "scheduled", scheduled_for: when, accounts: targets.map((t) => t.accountId), at: new Date().toISOString() };
+        // A post going out now reads "posting" until Zernio says how it went
+        // (often in the same answer). They're watching, so a failure here is
+        // shown in the pop-out, not sent as a bell and email (notified_at).
+        const zern = { post_id: post._id || prev, status: now ? "posting" : (post.status || "scheduled"), scheduled_for: when, accounts: targets.map((t) => t.accountId), at: new Date().toISOString() };
+        if (now) { zern.now = true; zern.notified_at = zern.at; }
         // A retry of a partly posted one keeps the account that already went out (and its link).
         if (finished && was.status === "partial" && Array.isArray(was.results)) zern.results = was.results.filter((x) => x && x.status === "posted");
         await sbPatch(env, "calendar_items", `id=eq.${id}&user_id=eq.${user.id}`, { details: { ...(item.details || {}), zernio: zern } });
+        if (now && ["published", "partial", "failed"].includes(post.status)) {
+          await zernioApplyResult(env, post);
+          const fresh = ((await sbGet(env, "calendar_items", `id=eq.${id}&select=details`)) || [])[0];
+          if (fresh && fresh.details && fresh.details.zernio) return json({ ok: true, zernio: fresh.details.zernio }, 200, request, env);
+        }
         return json({ ok: true, zernio: zern }, 200, request, env);
       }
       // Will Instagram and Facebook take this post? (Phase 4, step 7.) The
