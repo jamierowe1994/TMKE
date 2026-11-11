@@ -1294,6 +1294,9 @@ import "../../styles/account-sections.css";
     .sch-res .is-bad { color: #8a3f3f; }
     .sch-acts { display: flex; flex-wrap: wrap; gap: 8px; }
     .sch-warn { margin: 0; padding: 10px 12px; background: #eae5e1; border-radius: 4px; color: var(--violet-deep); }
+    .sch-confirm { display: flex; flex-direction: column; gap: 10px; }
+    .sch-confirm[hidden] { display: none; }
+    .sch-acts[hidden] { display: none; }
     .cal-chip--post.is-zsched { background: #fff; color: var(--violet-deep); border-color: var(--violet-deep); }
     .cal-chip--post.is-zsched::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: var(--violet-deep); vertical-align: 1px; }
     .cal-chip--post.is-failed { background: #fff; color: #8a3f3f; border: 1px solid #8a3f3f; }
@@ -1818,7 +1821,7 @@ import "../../styles/account-sections.css";
             return `<span class="cal-chip cal-chip--act cal-chip--${c.key}${p.__cont ? ' is-cont' : ''}${p.booking ? ' cal-chip--booking' : ''}" title="${escapeHtml(activityOf(p.activity).label + ' — ' + (p.title || ''))}">${p.__cont ? '' : escapeHtml(p.title || activityOf(p.activity).label)}</span>`;
           }
           const zs = (zernioOf(p) || {}).status;
-          const statusClass = zs === 'scheduled' ? 'is-zsched'
+          const statusClass = (zs === 'scheduled' || zs === 'posting') ? 'is-zsched'
             : zs === 'posted' ? 'is-done'
             : (zs === 'failed' || zs === 'partial') ? 'is-failed'
             : p.status === 'done' ? 'is-done'
@@ -2114,14 +2117,14 @@ import "../../styles/account-sections.css";
             const thumb = p.thumbnail_url || p.asset_url || '';
             const thumbStyle = thumb ? `style="background-image:url('${escapeHtml(thumb)}')"` : '';
             const zst = (zernioOf(p) || {}).status;
-            const zLabel = zst === 'scheduled' ? 'Scheduled' : zst === 'posted' ? 'Posted' : zst === 'partial' ? 'Partly posted' : zst === 'failed' ? 'Failed' : '';
+            const zLabel = zst === 'scheduled' ? 'Scheduled' : zst === 'posting' ? 'Posting' : zst === 'posted' ? 'Posted' : zst === 'partial' ? 'Partly posted' : zst === 'failed' ? 'Failed' : '';
             const statusLabel = zLabel ? zLabel : (p.status === 'scheduled' && !postIsMade(p)) ? 'To design' : ({
               scheduled:     'Planned',
               reminder_sent: 'Reminder sent',
               done:          'Posted',
               cancelled:     'Cancelled',
             })[p.status] || 'Planned';
-            const statusClass = zst === 'scheduled' ? 'is-zsched' : zst === 'posted' ? 'is-done' : (zst === 'failed' || zst === 'partial') ? 'is-failed' : ({
+            const statusClass = (zst === 'scheduled' || zst === 'posting') ? 'is-zsched' : zst === 'posted' ? 'is-done' : (zst === 'failed' || zst === 'partial') ? 'is-failed' : ({
               scheduled:     'is-scheduled',
               reminder_sent: 'is-sent',
               done:          'is-done',
@@ -2266,7 +2269,7 @@ import "../../styles/account-sections.css";
     };
     function schState(z) {
       const st = document.getElementById('sch-state');
-      const map = { scheduled: ['Scheduled', 'is-sched'], posted: ['Posted', 'is-posted'], partial: ['Partly posted', 'is-failed'], failed: ['Failed', 'is-failed'] };
+      const map = { scheduled: ['Scheduled', 'is-sched'], posting: ['Posting…', 'is-sched'], posted: ['Posted', 'is-posted'], partial: ['Partly posted', 'is-failed'], failed: ['Failed', 'is-failed'] };
       const m = z && map[z.status];
       st.hidden = !m;
       if (m) { st.textContent = m[0]; st.className = 'sch-state ' + m[1]; }
@@ -2316,6 +2319,8 @@ import "../../styles/account-sections.css";
       if (z && z.status === 'scheduled') {
         const names = accs.filter((a) => (z.accounts || []).map(String).includes(String(a.id))).map((a) => SCH_IC[a.platform] + escapeHtml(SCH_PLATS[a.platform])).join(' &middot; ');
         head = `<p class="sch-note">Goes out ${escapeHtml(schWhen(z.scheduled_for))}${names ? ' to ' + names : ''}. Change anything above, then press Change.</p>`;
+      } else if (z && z.status === 'posting') {
+        head = '<p class="sch-note">Posting now. This takes a few seconds.</p>';
       } else if (z && (z.status === 'posted' || z.status === 'partial' || z.status === 'failed')) {
         head = `<ul class="sch-res">${(results.length ? results : [{ status: z.status }]).map((r) => {
           const nm = SCH_PLATS[r.platform] || 'Your post';
@@ -2329,17 +2334,24 @@ import "../../styles/account-sections.css";
       let ticked = accs.map((a) => String(a.id));
       if (z && z.status === 'scheduled' && Array.isArray(z.accounts)) ticked = z.accounts.map(String);
       if (z && z.status === 'partial') { const f = results.filter((r) => r.status === 'failed').map((r) => String(r.account_id)); if (f.length) ticked = f; }
-      const done = z && z.status === 'posted';
+      const done = z && (z.status === 'posted' || z.status === 'posting');
       const ticks = done ? '' : `<div class="sch-accs">${accs.map((a) => `<label class="sch-acc"><input type="checkbox" data-acc value="${escapeHtml(String(a.id))}"${ticked.includes(String(a.id)) ? ' checked' : ''}>${a.picture ? `<img src="${escapeHtml(a.picture)}" alt="">` : SCH_IC[a.platform]}<span>${escapeHtml(a.username || SCH_PLATS[a.platform])}</span></label>`).join('')}</div>`;
       const allDay = p.has_time === false && !(z && z.status === 'scheduled');
       const timeNote = allDay && !done ? '<p class="sch-note">This post has no time yet, so it\'s set to 9:00 above. Change it if you\'d like another time.</p>' : '';
+      // Post now (Danielle, 11 Nov) sits beside Schedule it, Change and Try again.
+      const nowBtn = '<button type="button" class="ws-btn ws-btn--ghost" data-sch="now">Post now</button>';
       const btns = done ? '' : z && z.status === 'scheduled'
-        ? '<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Change</button><button type="button" class="ws-btn ws-btn--ghost" data-sch="cancel">Don\'t post it</button></div>'
+        ? `<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Change</button>${nowBtn}<button type="button" class="ws-btn ws-btn--ghost" data-sch="cancel">Don't post it</button></div>`
         : z && (z.status === 'failed' || z.status === 'partial')
-          ? '<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Try again</button></div>'
-          : '<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Schedule it</button></div>';
-      body.innerHTML = head + ticks + timeNote + '<ul class="sch-problems" id="sch-problems" hidden></ul>' + btns;
+          ? `<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Try again</button>${nowBtn}</div>`
+          : `<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Schedule it</button>${nowBtn}</div>`;
+      const confirmBox = '<div class="sch-warn sch-confirm" id="sch-confirm" hidden><span id="sch-confirm-q"></span><div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="now-yes">Post now</button><button type="button" class="ws-btn ws-btn--ghost" data-sch="now-no">Not now</button></div></div>';
+      body.innerHTML = head + ticks + timeNote + '<ul class="sch-problems" id="sch-problems" hidden></ul>' + confirmBox + btns;
       body.querySelector('[data-sch="send"]')?.addEventListener('click', (e) => scheduleNow(p, e.currentTarget));
+      body.querySelector('[data-sch="now"]')?.addEventListener('click', (e) => askPostNow(p, e.currentTarget));
+      body.querySelector('[data-sch="now-no"]')?.addEventListener('click', () => { document.getElementById('sch-confirm').hidden = true; body.querySelector('.sch-acts:last-child').hidden = false; });
+      body.querySelector('[data-sch="now-yes"]')?.addEventListener('click', (e) => postNow(p, e.currentTarget));
+      if (z && z.status === 'posting') pollPosting(p);
       body.querySelector('[data-sch="cancel"]')?.addEventListener('click', (e) => unschedule(p, e.currentTarget));
       body.querySelectorAll('[data-acc]').forEach((i) => i.addEventListener('change', () => liveCheck(p)));
       if (!done) liveCheck(p);
@@ -2381,7 +2393,7 @@ import "../../styles/account-sections.css";
       if (!title) return fail('Give the post a short title.');
       if (!date) return fail('Pick a date for the post.');
       if (!caption) return fail('Add a caption first.');
-      if (new Date(`${date}T${time}:00`).getTime() < Date.now() + 5 * 60000) return fail('Pick a time at least five minutes from now.');
+      if (new Date(`${date}T${time}:00`).getTime() < Date.now() + 10 * 60000) return fail('Pick a time at least 10 minutes from now.');
       btn.disabled = true; btn.textContent = 'Checking…';
       // A calendar post tied to its day (Bonfire Night, say), moved to another:
       // the same warning as Plan It, once, then Schedule it anyway.
@@ -2416,6 +2428,79 @@ import "../../styles/account-sections.css";
         showPostError(`Scheduled for ${schWhen(out.zernio.scheduled_for)}.`, true);
         paintSched(p);
       } catch (e) { fail(e.message); }
+    }
+
+    /* Post now (Danielle, 11 Nov): save, check, ask, then publish at once.
+       The Worker takes back a schedule first; a failure here sends no bell or
+       email, since they're watching, so it shows in the box. */
+    async function askPostNow(p, btn) {
+      const label = btn.textContent;
+      const fail = (msg) => { btn.disabled = false; btn.textContent = label; schMsg(`<li>${escapeHtml(msg)}</li>`); };
+      const acct = await plannerStore();
+      if (!acct || acct.blocked) return fail(acct ? acct.reason : "You're signed out. Sign in again.");
+      const { ids, platforms } = tickedAccounts();
+      if (!ids.length) return fail('Tick at least one account to post to.');
+      const title = ($postTitle.value || '').trim();
+      const caption = ($postCaption.value || '').trim();
+      if (!title) return fail('Give the post a short title.');
+      if (!caption) return fail('Add a caption first.');
+      btn.disabled = true; btn.textContent = 'Checking…';
+      const { error } = await acct.db.from(acct.table).update({ title, caption }).eq('id', p.id);
+      if (error) return fail(error.message || "Couldn't save the post.");
+      Object.assign(p, { title, caption });
+      try {
+        const chk = await checkPost(acct.token, p.id, caption, platforms);
+        if ((chk.problems || []).length) { btn.disabled = false; btn.textContent = label; schMsg(chk.problems.map((x) => `<li>${escapeHtml(x.message)}</li>`).join('')); return; }
+      } catch (e) { return fail(e.message); }
+      btn.disabled = false; btn.textContent = label;
+      schMsg('');
+      const names = [...new Set(schedAccsShown.filter((a) => ids.includes(String(a.id))).map((a) => SCH_PLATS[a.platform]))];
+      const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
+      document.getElementById('sch-confirm-q').textContent = `Post this now to ${list}?`;
+      document.getElementById('sch-confirm').hidden = false;
+      btn.closest('.sch-acts').hidden = true;
+    }
+    async function postNow(p, btn) {
+      btn.disabled = true; btn.textContent = 'Posting…';
+      const acct = await plannerStore();
+      const { ids } = tickedAccounts();
+      try {
+        const res = await fetch(`${API_BASE}/schedule/post`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${acct.token}` },
+          body: JSON.stringify({ item_id: p.id, accountIds: ids, now: true }),
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok || !out.ok) throw new Error(out.error || "It didn't post. Try again in a moment.");
+        p.details = { ...(p.details || {}), zernio: out.zernio };
+        renderCalendar(); refreshDayUnder();
+        const st = out.zernio && out.zernio.status;
+        if (st === 'posted') showPostError('Posted.', true);
+        paintSched(p);
+      } catch (e) {
+        btn.disabled = false; btn.textContent = 'Post now';
+        schMsg(`<li>${escapeHtml(e.message)}</li>`);
+      }
+    }
+    // Still "posting" in the answer: the webhook finishes it, so read the row
+    // again every few seconds for a while.
+    let pollFor = null;
+    async function pollPosting(p) {
+      if (pollFor === p.id) return;
+      pollFor = p.id;
+      const acct = await plannerStore();
+      for (let i = 0; i < 12 && openPostId === p.id; i++) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const { data } = await acct.db.from(acct.table).select('details').eq('id', p.id).maybeSingle();
+        const z = data && data.details && data.details.zernio;
+        if (z && z.status !== 'posting') {
+          p.details = data.details;
+          pollFor = null;
+          renderCalendar(); refreshDayUnder();
+          if (openPostId === p.id) paintSched(p);
+          return;
+        }
+      }
+      pollFor = null;
     }
 
     // Row 3: take it back.
