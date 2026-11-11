@@ -54,6 +54,36 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         <button type="button" class="mbtn primary" id="ccl-save" disabled>Save changes</button>
       </div>
     </div>
+
+    <!-- Launch (Danielle, 11 Nov): the December rule for TPE and PPE agents,
+         and the test logins treated as if it were on. Worker /calendar/launch,
+         table content_calendar_settings (content_calendar_launch.sql). -->
+    <div class="ccx" id="ccx">
+      <div class="strip"><span class="strip-t">Launch</span></div>
+      <p class="cc-note" id="ccx-loading">Loading…</p>
+      <div class="ccx-body" id="ccx-body" hidden>
+        <div class="ccx-row">
+          <div class="ccx-tx">
+            <p class="ccx-t">The December rule</p>
+            <p class="cc-hint">Agents on The Property Experts and Prestige Property Experts get the Content Calendar, paid by their brand. Off until launch week.</p>
+          </div>
+          <span class="chip" id="ccx-rule-state"></span>
+          <button type="button" class="mbtn" id="ccx-rule"></button>
+        </div>
+        <div class="ccx-row ccx-row-top">
+          <div class="ccx-tx">
+            <p class="ccx-t">Test logins</p>
+            <p class="cc-hint">Ordinary member logins, never staff, treated as if the rule were already on. A TPE or PPE login sees the month; a login with no brand sees it blurred. Sign in once with the login, then add its email here.</p>
+          </div>
+        </div>
+        <div class="tablewrap"><table class="ccx-table"><thead><tr><th>Email</th><th>Name</th><th>Brand</th><th>What they see</th><th></th></tr></thead><tbody id="ccx-rows"></tbody></table></div>
+        <div class="ccx-add">
+          <label class="find"><input type="email" id="ccx-email" placeholder="Test login's email" autocomplete="off" /></label>
+          <button type="button" class="mbtn primary" id="ccx-add">Add test login</button>
+          <span class="cc-hint" id="ccx-msg"></span>
+        </div>
+      </div>
+    </div>
   </section>
 
   <!-- The opening page (Dani, 9 Nov): a box for each month, Videography's cards
@@ -318,6 +348,15 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .ccl-fixed { color: var(--tx); }
     .ccl-foot { display: flex; align-items: center; gap: 16px; margin-top: 14px; }
     .ccl-foot .cc-hint { flex: 1; }
+    /* Launch (Dani, 11 Nov). */
+    .ccx { display: grid; gap: 14px; margin-top: 34px; }
+    .ccx-body { display: grid; gap: 14px; }
+    .ccx-row { display: flex; align-items: center; gap: 14px; }
+    .ccx-tx { flex: 1; min-width: 0; }
+    .ccx-t { margin: 0 0 2px; color: var(--ink); }
+    #ccb .ccx-table td.tx { color: var(--tx); }
+    .ccx-add { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    #ccb .ccx-add .find { flex: 0 1 300px; }
     .cc-modal-box.cc-modal-mid { width: min(620px, 100%); }
     .ccl-word-body { overflow-y: auto; }
 
@@ -1740,8 +1779,66 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       $('cc-tab-overview').hidden = t !== 'overview';
       $('cc-tab-months').hidden = t !== 'months';
       $('cc-tab-build').hidden = t !== 'build';
-      if (t === 'overview') loadLevels();
+      if (t === 'overview') { loadLevels(); loadLaunch(); }
     }
+
+    // ---- Launch: the December rule and the test logins (Dani, 11 Nov) ----
+    async function launchCall(body) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sign in again to see the launch settings.');
+      const res = await fetch(`${WORKER}/calendar/launch`, body
+        ? { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify(body) }
+        : { headers: { Authorization: `Bearer ${session.access_token}` } });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Couldn't reach the launch settings.");
+      return d;
+    }
+    let LAUNCH = null;
+    function renderLaunch() {
+      const L = LAUNCH;
+      $('ccx-loading').hidden = true;
+      $('ccx-body').hidden = false;
+      const st = $('ccx-rule-state');
+      st.textContent = !L.ready ? 'Needs its SQL' : L.teg_live ? 'On' : 'Off';
+      st.className = 'chip ' + (!L.ready ? 'wait' : L.teg_live ? 'good' : 'plain');
+      $('ccx-rule').textContent = L.teg_live ? 'Switch off' : 'Switch on';
+      $('ccx-rule').disabled = !L.ready;
+      $('ccx-add').disabled = !L.ready;
+      $('ccx-msg').textContent = L.ready ? '' : 'Run content_calendar_launch.sql first. It\'s on the SQL to run list.';
+      $('ccx-rows').innerHTML = (L.testers || []).map((t) => `<tr>
+        <td>${esc(t.email || 'No contact found')}</td><td class="tx">${esc(t.name || '–')}</td>
+        <td class="tx">${esc((t.brands || []).join(', ') || 'No brand')}</td>
+        <td><span class="chip ${t.calendar ? 'good' : 'wait'}">${t.calendar ? 'Sees the month' : 'Sees it blurred'}</span></td>
+        <td class="num"><button type="button" class="mbtn" data-ccx-rm="${esc(t.id)}">Remove</button></td></tr>`).join('')
+        || '<tr><td colspan="5" class="tx">No test logins yet.</td></tr>';
+    }
+    async function loadLaunch() {
+      try { LAUNCH = await launchCall(); renderLaunch(); }
+      catch (err) { $('ccx-loading').textContent = err.message; }
+    }
+    $('ccx-rule').addEventListener('click', async (e) => {
+      const on = !LAUNCH.teg_live;
+      if (on && !confirm('Switch on the December rule? Every agent on The Property Experts and Prestige Property Experts gets the Content Calendar straight away.')) return;
+      e.currentTarget.disabled = true;
+      try { LAUNCH = await launchCall({ teg_live: on }); renderLaunch(); }
+      catch (err) { alert(err.message); e.currentTarget.disabled = false; }
+    });
+    async function addTester() {
+      const email = $('ccx-email').value.trim();
+      if (!email) { $('ccx-email').focus(); return; }
+      $('ccx-add').disabled = true; $('ccx-msg').textContent = 'Adding…';
+      try { LAUNCH = await launchCall({ add_email: email }); $('ccx-email').value = ''; renderLaunch(); }
+      catch (err) { $('ccx-msg').textContent = err.message; $('ccx-add').disabled = false; }
+    }
+    $('ccx-add').addEventListener('click', addTester);
+    $('ccx-email').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTester(); });
+    $('ccx-rows').addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-ccx-rm]');
+      if (!b) return;
+      b.disabled = true;
+      try { LAUNCH = await launchCall({ remove_id: b.dataset.ccxRm }); renderLaunch(); }
+      catch (err) { alert(err.message); b.disabled = false; }
+    });
     document.querySelectorAll('.cat-tab').forEach((b) => b.addEventListener('click', async () => {
       if (b.dataset.tab === 'months' && CUR) { await flushSave(); await saveNotes(); CUR = null; history.replaceState(null, '', location.pathname); await loadMonthsTab(); }
       showTab(b.dataset.tab);

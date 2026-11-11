@@ -9,6 +9,46 @@ between the two chats that own the files. Started 27 Oct 2026.
 
 Nothing here is seen by members until Danielle says go. Tick items off as they land, with the date.
 
+## Launch order and testing (Danielle, 11 Nov 2026) — read this first
+
+**Who gets it, and when**
+- **December 2026:** The Property Experts and Prestige Property Experts. Their brands pay for the Content Calendar, but agents can **upgrade from day one** to Content Calendar + Scheduling or Done For You, paying the difference by card. So **Stripe card subscriptions are needed for December** (Danielle, 11 Nov), and so are the scheduling and Done For You levels themselves.
+- **January 2027:** The Letting Experts and The Mortgage Experts join.
+- **February 2027:** independent agents, by card (Stripe). That gives a two-month buffer.
+- Nothing goes live to members until the last week of November, and only when Danielle says so. Before that it has to be tested thoroughly.
+
+**How we test: real ordinary member logins, not Danielle's and not the training account**
+- Danielle's login is staff. `memberAccess` gives staff everything, and the month tables are admin-only in the database (`content_months admin` / `content_month_posts admin` policies). So on her login the calendar would look perfect while every real agent saw nothing.
+- The training account isn't a login of its own: it reads through Danielle's admin login, so it has the same blind spot.
+- Testing must use plain member logins that go through exactly the path a real agent will.
+
+| Done | Item | Who |
+|---|---|---|
+| | Three real test member logins, non-staff, each with a contact and agent profile: one **The Property Experts**, one **Prestige Property Experts**, one with **no brand** (independent, should see the month blurred). Record them on the test accounts list, not in chat. | Admin |
+| | **Test allow-list** in `memberAccess`: a short server-side list of test user ids that get the `calendar` level, with `source: "test"`. Nobody else changes. Removed when the real rule below goes live. | Admin |
+| | **The December rule** in `memberAccess`, switched off until launch: agents whose brand is TPE or PPE (edition `property` / `prestige`) get `calendar`, `source: "teg"`. One switch to turn it on. An agent with a paid upgrade gets that level instead (`scheduling` or `done_for_you`), from their Stripe subscription. | Admin |
+| | **Stripe upgrades for TEG agents, needed for December:** card subscriptions for the difference only (TEG sees +£15 for scheduling, launch offer +£12, and the Done For You difference), billed on the one date with VAT; failed payment twice → back to the brand-paid calendar; cancel runs to the end of the paid month; webhooks change access straight away and call `zernioDisconnectMember` on any cancellation or suspension. Brings Phase 2's Stripe rows forward. | Admin |
+| | **Members can't read the month tables yet.** `src/lib/calendar-month.js` reads `content_months` and `content_month_posts` straight from Supabase, and RLS lets only admins in. Add a Worker route (e.g. `GET /calendar/month?month=YYYY-MM`) that runs `memberAccess`, checks the month is inside their `library`, and returns the published month and posts for their edition. Studio switches `calendar-month.js` to it. Keeps "access decided on the server". | Admin (route) / Studio (switch) |
+| | Check the month's templates and their thumbnails load for a non-staff login (calendar templates are kept out of Templates and packs; make sure members can still open the ones in their month). | Admin / Studio |
+| | **The Mortgage Experts** gets its own edition (its own posts and its own branding, Danielle 11 Nov). Not needed until January; set it up in December when the branding is ready: add it to `ACCESS_EDITION_OF_BRAND` and the month builder's editions. | Admin (December) |
+
+**What the test logins need to be able to do before launch (member side, Studio)**
+
+| Done | Item | Who |
+|---|---|---|
+| | Month view and post pop-out for a non-staff member with `calendar` (built 28 Oct, staff-only so far) | Studio |
+| | The month blurred for a member without it, "Subscribe to use December's posts" | Studio |
+| | Use This Template → the Studio → save → it lands on their calendar as Planned, marked On your calendar | Studio |
+| | Plan It: Add to Planner, the three caption choices, warnings for unfilled brackets and for moving a dated post | Studio |
+| | The month's pack in their Studio, How to edit and the caption at the top of Start (built 28 Oct; check on a member login) | Studio |
+| | Training, onboarding walkthrough, What's New entry, ready to switch on at launch | Studio |
+
+| | **Upgrade on the account page** for TEG agents: shows only the difference in price, takes the card through Stripe, and the new level shows straight away (Phase 2's account page row, brought forward) | Studio |
+| | **Scheduling for upgraded members** (Phase 4, brought forward): connect Instagram and Facebook, schedule from the calendar, Planned / Scheduled / Posted / Failed; `zernioMemberMayPost` reads their level; Post it for me locked for everyone else | Admin / Studio |
+| | **Done For You for upgraded members** (Phase 5, brought forward): the monthly queue for staff, and the member's swap / approve / ask for changes | Admin / Studio |
+
+**Test pass, on each test login:** opens on December's posts (or blurred, for the no-brand login) · pop-out shows pillar, how to edit, caption · Use This Template opens the Studio in their brand kit · save lands on their calendar as Planned · Plan It warnings fire · nothing staff-only shows · the other brand's edition doesn't show · Post it for me is locked on the Content Calendar level · upgrading with a Stripe test card shows only the difference, then unlocks scheduling (or Done For You) straight away · a failed test payment drops them back to the brand-paid calendar · cancelling keeps the upgrade to the end of the paid month.
+
 ## How the two halves meet
 
 Admin builds these first, so Studio builds against something real.

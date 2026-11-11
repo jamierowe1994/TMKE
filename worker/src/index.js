@@ -6356,6 +6356,23 @@ const ACCESS_EDITION_OF_BRAND = {
   // Same posts as England until there's a Scottish edition (Dani, 3 Nov 2026).
   "The Letting Experts Scotland": "lettings",
 };
+/* Launch switches (Danielle, 11 Nov 2026; content_calendar_launch.sql):
+   the December rule for TPE and PPE agents, off until launch, and the test
+   logins, which are treated as if it were already on. Read for 30 seconds
+   at a time; before the SQL has run, both are off and nobody changes. */
+const CC_TEG_EDITIONS = ["property", "prestige"];
+let CC_SETTINGS_CACHE = null;
+async function ccSettings(env, fresh) {
+  if (!fresh && CC_SETTINGS_CACHE && Date.now() - CC_SETTINGS_CACHE.at < 30000) return CC_SETTINGS_CACHE;
+  const row = ((await sbGet(env, "content_calendar_settings", "id=eq.1&select=teg_live,test_user_ids,updated_at,updated_by")) || [])[0];
+  CC_SETTINGS_CACHE = {
+    at: Date.now(), ready: !!row,
+    teg_live: !!(row && row.teg_live),
+    test_user_ids: (row && Array.isArray(row.test_user_ids)) ? row.test_user_ids : [],
+    updated_at: row ? row.updated_at : null, updated_by: row ? row.updated_by : null,
+  };
+  return CC_SETTINGS_CACHE;
+}
 function accessMonth(offset) {
   const p = londonParts(new Date()).ymd.split("-").map(Number);
   const d = new Date(Date.UTC(p[0], p[1] - 1 + offset, 1));
@@ -6382,7 +6399,16 @@ async function memberAccess(env, user, asLevel) {
   const staff = !!user._isAdmin;
   // Until subscriptions exist: Free for members, everything for staff.
   let level = staff ? "done_for_you" : "free";
+  let source = staff ? "staff" : "none";
   if (staff && ACCESS_LEVELS[asLevel]) level = asLevel;
+  // The December rule: a TPE or PPE agent's brand pays for the calendar. Off
+  // until launch; a test login gets it now, exactly as an agent would then.
+  const S = await ccSettings(env);
+  const test = !staff && S.test_user_ids.includes(user.id);
+  if (!staff && editions.some((e) => CC_TEG_EDITIONS.includes(e)) && (S.teg_live || test)) {
+    level = "calendar";
+    source = test ? "test" : "teg";
+  }
   const AL = await accessLevels(env);
   const L = AL.levels[level];
   const joined = null;   // the month they first subscribed, once subscriptions exist
@@ -6395,7 +6421,7 @@ async function memberAccess(env, user, asLevel) {
   return {
     ok: true, level, staff, teg,
     edition: primary || editions[0], editions,
-    source: staff ? "staff" : "none",       // later: "teg" (brand pays) or "card"
+    source,                                  // staff | test | teg (brand pays) | none; later "card"
     calendar: L.calendar,
     preview: !L.calendar,                    // free members see the month blurred
     library,                                 // months they can open, inclusive; from null = all
@@ -6403,7 +6429,56 @@ async function memberAccess(env, user, asLevel) {
     done_for_you: L.done_for_you,
     course_levels: Object.keys(ACCESS_LEVELS).filter((k) => ACCESS_LEVELS[k].rank <= L.rank),
     levels_from: AL.from,                    // "table", or "built-in" before the SQL has run
+    test,                                    // a test login (content_calendar_settings)
   };
+}
+
+/* ---- The month for members, through the Worker (Danielle, 11 Nov 2026) ----
+   content_months and content_month_posts are admin-only in the database, and
+   calendar designs aren't readable by members either, so a real agent reads
+   their month here: memberAccess decides, the service key reads. A member
+   with the calendar gets their own edition's published months inside their
+   library; a member without it gets this month and next as a blurred
+   preview (pictures and titles only). Staff can open any edition. */
+const CC_POST_COLS = "id,month_id,post_date,date_tied,occasion,title,post_type,pillar,captions,how_to_edit,reel_prompt,platforms,template_id,sort_order";
+const CC_PREVIEW_COLS = "id,month_id,post_date,title,post_type,pillar,template_id,sort_order";
+const CC_EDITION_ORDER = ["property", "prestige", "independent", "lettings"];
+function ccMonthKey(v) {
+  const m = String(v || "").match(/^(\d{4})-(\d{2})/);
+  return m ? `${m[1]}-${m[2]}-01` : null;
+}
+function ccMayOpenMonth(a, ym) {
+  if (a.staff) return true;
+  if (a.calendar) return !!a.library && (!a.library.from || ym >= a.library.from) && ym <= a.library.to;
+  return ym >= accessMonth(0) && ym <= accessMonth(1);   // the blurred preview: this month and next
+}
+function ccMayOpenEdition(a, ed) {
+  return a.staff || (a.editions || []).includes(ed);
+}
+function ccPickEdition(a, published, want) {
+  const ok = published.filter((ed) => ccMayOpenEdition(a, ed));
+  if (want && ok.includes(want)) return want;
+  if (ok.includes(a.edition)) return a.edition;
+  if (ok.length) return ok.sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y))[0];
+  // Nothing in their own edition: a preview shows the first published one, blurred.
+  if (!a.calendar && published.length) return published.slice().sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y))[0];
+  return null;
+}
+async function ccTemplatesById(env, ids, full) {
+  const want = [...new Set((ids || []).filter(Boolean))];
+  if (!want.length) return new Map();
+  const cols = full ? "id,name,category,thumb_url,canvas,elements,pages,size_variants" : "id,name,thumb_url";
+  const list = want.map((x) => `"${String(x).replace(/"/g, "")}"`).join(",");
+  let rows = await sbGet(env, "templates", `id=in.(${encodeURIComponent(list)})&select=${cols}`);
+  if (!rows && full) rows = await sbGet(env, "templates", `id=in.(${encodeURIComponent(list)})&select=id,name,category,thumb_url,canvas,elements`);
+  return new Map((rows || []).map((t) => [t.id, t]));
+}
+// A published month row this member may open, or null.
+async function ccOpenMonthRow(env, a, monthId) {
+  const m = ((await sbGet(env, "content_months", `id=eq.${encodeURIComponent(monthId)}&select=id,month,edition,status,intro`)) || [])[0];
+  if (!m || (m.status !== "published" && !a.staff)) return null;
+  if (!ccMayOpenMonth(a, m.month) || (a.calendar && !ccMayOpenEdition(a, m.edition))) return null;
+  return m;
 }
 
 // Zernio posts to the member's own social accounts. One Zernio profile per
@@ -8032,6 +8107,131 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
         return json(await memberAccess(env, user, url.searchParams.get("as")), 200, request, env);
+      }
+
+      // ---- The Content Calendar month, for members (Danielle, 11 Nov) ----
+      if (path.includes("/calendar/") && request.method === "GET"
+          && /\/calendar\/(month|months|post|templates|template)$/.test(path)) {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        const a = await memberAccess(env, user, url.searchParams.get("as"));
+        const sp = url.searchParams;
+
+        // One month: the posts of the edition to show, and the editions on offer.
+        if (path.endsWith("/calendar/month")) {
+          const ym = ccMonthKey(sp.get("month"));
+          if (!ym) return json({ error: "Which month?" }, 400, request, env);
+          if (!ccMayOpenMonth(a, ym)) return json({ ok: true, access: a, month: null }, 200, request, env);
+          const months = (await sbGet(env, "content_months", `month=eq.${ym}&status=eq.published&select=id,month,edition,intro`)) || [];
+          const ed = ccPickEdition(a, months.map((m) => m.edition), sp.get("edition"));
+          const m = ed && months.find((x) => x.edition === ed);
+          if (!m) return json({ ok: true, access: a, month: null }, 200, request, env);
+          const preview = !a.calendar;
+          const posts = (await sbGet(env, "content_month_posts", `month_id=eq.${m.id}&select=${preview ? CC_PREVIEW_COLS : CC_POST_COLS}&order=post_date.asc,sort_order.asc`)) || [];
+          const tpls = await ccTemplatesById(env, posts.map((p) => p.template_id));
+          return json({
+            ok: true, access: a, preview, month: m,
+            editions: months.map((x) => x.edition).filter((e) => a.staff || (a.editions || []).includes(e))
+              .sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y)),
+            posts: posts.map((p) => ({ ...p, template: tpls.get(p.template_id) || null })),
+          }, 200, request, env);
+        }
+
+        // The months to offer as packs in the Studio, from a month on.
+        if (path.endsWith("/calendar/months")) {
+          if (!a.calendar) return json({ ok: true, access: a, months: [] }, 200, request, env);
+          const from = ccMonthKey(sp.get("from")) || accessMonth(0);
+          const rows = (await sbGet(env, "content_months", `status=eq.published&month=gte.${from}&select=id,month,edition&order=month.asc`)) || [];
+          const want = sp.get("edition");
+          const byMonth = new Map();
+          rows.filter((m) => ccMayOpenMonth(a, m.month) && ccMayOpenEdition(a, m.edition)).forEach((m) => {
+            const have = byMonth.get(m.month);
+            const rank = (x) => (x.edition === want ? 0 : x.edition === a.edition ? 1 : 2 + CC_EDITION_ORDER.indexOf(x.edition));
+            if (!have || rank(m) < rank(have)) byMonth.set(m.month, m);
+          });
+          const out = [...byMonth.values()];
+          if (out.length) {
+            const posts = (await sbGet(env, "content_month_posts", `month_id=in.(${out.map((m) => m.id).join(",")})&template_id=not.is.null&select=month_id,template_id&order=post_date.asc,sort_order.asc`)) || [];
+            const first = new Map();
+            posts.forEach((p) => { if (!first.has(p.month_id)) first.set(p.month_id, p.template_id); });
+            const tpls = await ccTemplatesById(env, [...first.values()]);
+            out.forEach((m) => { const t = tpls.get(first.get(m.id)); m.cover = (t && t.thumb_url) || null; });
+          }
+          return json({ ok: true, access: a, months: out }, 200, request, env);
+        }
+
+        if (!a.calendar) return json({ error: "Your plan doesn't include the Content Calendar." }, 403, request, env);
+
+        // One post, with its month (?ccpost= in the Studio).
+        if (path.endsWith("/calendar/post")) {
+          const p = ((await sbGet(env, "content_month_posts", `id=eq.${encodeURIComponent(sp.get("id") || "")}&select=${CC_POST_COLS}`)) || [])[0];
+          const m = p && await ccOpenMonthRow(env, a, p.month_id);
+          if (!m) return json({ ok: true, post: null }, 200, request, env);
+          return json({ ok: true, post: { ...p, month: m } }, 200, request, env);
+        }
+
+        // A month's posts with their whole designs, for the Studio pack.
+        if (path.endsWith("/calendar/templates")) {
+          const m = await ccOpenMonthRow(env, a, sp.get("month_id") || "");
+          if (!m) return json({ ok: true, posts: [], templates: [] }, 200, request, env);
+          const posts = (await sbGet(env, "content_month_posts", `month_id=eq.${m.id}&select=${CC_POST_COLS}&order=post_date.asc,sort_order.asc`)) || [];
+          const ids = [...new Set(posts.map((p) => p.template_id).filter(Boolean))];
+          const byId = await ccTemplatesById(env, ids, true);
+          return json({ ok: true, month: m, posts, templates: ids.map((id) => byId.get(id)).filter(Boolean) }, 200, request, env);
+        }
+
+        // One whole design, when it belongs to a post in a month they may open.
+        if (path.endsWith("/calendar/template")) {
+          const id = sp.get("id") || "";
+          const posts = (await sbGet(env, "content_month_posts", `template_id=eq.${encodeURIComponent(id)}&select=month_id`)) || [];
+          let ok = false;
+          for (const p of posts) { if (await ccOpenMonthRow(env, a, p.month_id)) { ok = true; break; } }
+          if (!ok) return json({ ok: true, template: null }, 200, request, env);
+          const t = (await ccTemplatesById(env, [id], true)).get(id) || null;
+          return json({ ok: true, template: t }, 200, request, env);
+        }
+      }
+
+      // ---- Content Calendar launch switches, for staff (Danielle, 11 Nov) ----
+      // The December rule and the test logins (content_calendar_launch.sql).
+      if (path.endsWith("/calendar/launch") && (request.method === "GET" || request.method === "POST")) {
+        const user = await getUser(request, env);
+        if (!user || !user._isAdmin) return json({ error: "Staff only." }, 403, request, env);
+        const describe = async () => {
+          const S = await ccSettings(env, true);
+          const testers = [];
+          for (const id of S.test_user_ids) {
+            const c = ((await sbGet(env, "contacts", `user_id=eq.${encodeURIComponent(id)}&select=id,email,first_name,last_name&limit=1`)) || [])[0] || null;
+            const brands = c ? ((await sbGet(env, "agent_profiles", `contact_id=eq.${c.id}&left_at=is.null&select=brand`)) || []).map((r) => r.brand) : [];
+            const acc = await memberAccess(env, { id, email: c && c.email, _isAdmin: false });
+            testers.push({ id, email: c ? c.email : null, name: c ? [c.first_name, c.last_name].filter(Boolean).join(" ") : null,
+              brands, level: acc.level, calendar: acc.calendar, preview: acc.preview, edition: acc.edition });
+          }
+          return { ok: true, ready: S.ready, teg_live: S.teg_live, updated_at: S.updated_at, updated_by: S.updated_by, testers };
+        };
+        if (request.method === "GET") return json(await describe(), 200, request, env);
+        let b; try { b = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        const S = await ccSettings(env, true);
+        if (!S.ready) return json({ error: "Run content_calendar_launch.sql first. It's on the SQL to run list." }, 409, request, env);
+        const patch = { updated_at: new Date().toISOString(), updated_by: user.email || null };
+        if (typeof b.teg_live === "boolean") patch.teg_live = b.teg_live;
+        let ids = S.test_user_ids.slice();
+        if (b.add_email) {
+          const email = String(b.add_email).trim().toLowerCase();
+          const c = ((await sbGet(env, "contacts", `email=eq.${encodeURIComponent(email)}&select=id,user_id&limit=1`)) || [])[0];
+          if (!c) return json({ error: `There's no contact with the email ${email}. Add them in People first.` }, 404, request, env);
+          if (!c.user_id) return json({ error: `${email} hasn't signed in to the Hub yet. Sign in once with it, then add it here.` }, 409, request, env);
+          const who = { id: c.user_id, email };
+          const staffCheck = emailLooksAdmin(who) || !!(((await sbGet(env, "admins", `user_id=eq.${c.user_id}&select=user_id`)) || []).length);
+          if (staffCheck) return json({ error: `${email} is a staff login, so it would see everything. Use an ordinary member login.` }, 409, request, env);
+          if (!ids.includes(c.user_id)) ids.push(c.user_id);
+        }
+        if (b.remove_id) ids = ids.filter((x) => x !== b.remove_id);
+        patch.test_user_ids = ids;
+        const r = await sbPatch(env, "content_calendar_settings", "id=eq.1", patch);
+        if (!r || !r.ok) return json({ error: "Couldn't save the change." }, 502, request, env);
+        CC_SETTINGS_CACHE = null;
+        return json(await describe(), 200, request, env);
       }
 
       // ── Scheduling (Zernio) ──────────────────────────────────────────────
