@@ -6415,6 +6415,13 @@ async function memberAccess(env, user, asLevel) {
     level = "calendar";
     source = test ? "test" : "teg";
   }
+  // A paid upgrade on top of it (Scheduling now; Done For You from January),
+  // in Stripe's test mode for a test login and live for everyone else.
+  let upgrade = null;
+  if (!staff && (source === "teg" || source === "test")) {
+    upgrade = await ccActiveUpgrade(env, user.id, test ? "test" : "live");
+    if (upgrade && ACCESS_LEVELS[upgrade.level] && ACCESS_LEVELS[upgrade.level].rank > ACCESS_LEVELS[level].rank) level = upgrade.level;
+  }
   const AL = await accessLevels(env);
   const L = AL.levels[level];
   const joined = null;   // the month they first subscribed, once subscriptions exist
@@ -6436,6 +6443,7 @@ async function memberAccess(env, user, asLevel) {
     course_levels: Object.keys(ACCESS_LEVELS).filter((k) => ACCESS_LEVELS[k].rank <= L.rank),
     levels_from: AL.from,                    // "table", or "built-in" before the SQL has run
     test,                                    // a test login (content_calendar_settings)
+    upgrade,                                 // { level, status, renews_on | ends_on } when they pay for more by card
   };
 }
 
@@ -6529,6 +6537,243 @@ function dfyWaitlistEmail(r, place, spaces, reserve) {
     </div>`,
   };
 }
+/* ==== Card subscriptions: the Scheduling upgrade (Danielle, 11 Nov 2026) ====
+   member_subscriptions.sql. TEG agents' brands pay for the calendar; an agent
+   pays the difference for Scheduling by card. Billed on the 1st for that month:
+   the first month in full on joining (a one-off line), then the subscription
+   anchored on the next 1st with no part-month prices. A failed payment gets
+   one more try, then it ends and they're back on the brand-paid calendar.
+   Cancelling runs to the end of the paid month. Test logins use Stripe's test
+   mode (STRIPE_TEST_SECRET_KEY, a test clock each so the 1st can be reached
+   now); everyone else live. */
+// PRICES: STAND-IN until agreed (Danielle, 11-12 Nov). The standard Scheduling
+// difference is Overview's TEG price for Scheduling (content_levels.price_teg);
+// the launch offer is below. Change them here and on Overview, nowhere else.
+const CC_LAUNCH_OFFER = { level: "scheduling", pence: 1200, until: "2027-03-01" };   // £12 a month, kept while they stay, for upgrades before 1 March 2027
+const CC_LEVEL_NAME = { calendar: "Content Calendar", scheduling: "Content Calendar + Scheduling", done_for_you: "Done For You" };
+
+async function ccUserById(env, id) {
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(id)}`, {
+    headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+  }).catch(() => null);
+  if (!res || !res.ok) return null;
+  const u = await res.json().catch(() => null);
+  if (!u || !u.id) return null;
+  u._isAdmin = emailLooksAdmin(u) || !!(((await sbGet(env, "admins", `user_id=eq.${u.id}&select=user_id`)) || []).length);
+  return u;
+}
+async function ccStripeMode(env, userId) {
+  const S = await ccSettings(env);
+  return S.test_user_ids.includes(userId) ? "test" : "live";
+}
+function ccStripeKey(env, mode) { return mode === "test" ? env.STRIPE_TEST_SECRET_KEY : env.STRIPE_SECRET_KEY; }
+// One door to Stripe for either mode. params are flat, already-bracketed keys.
+async function ccStripe(env, mode, method, path, params) {
+  const key = ccStripeKey(env, mode);
+  if (!key) throw new Error(mode === "test" ? "Stripe's test key isn't set (STRIPE_TEST_SECRET_KEY)." : "Payments aren't set up (STRIPE_SECRET_KEY).");
+  const qs = new URLSearchParams();
+  Object.entries(params || {}).forEach(([k, v]) => { if (v !== undefined && v !== null) qs.append(k, String(v)); });
+  const get = method === "GET" || method === "DELETE";
+  const res = await fetch(`https://api.stripe.com/v1/${path}${get && [...qs].length ? `?${qs}` : ""}`, {
+    method, headers: { Authorization: `Bearer ${key}`, ...(get ? {} : { "Content-Type": "application/x-www-form-urlencoded" }) },
+    body: get ? undefined : qs,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data && data.error && data.error.message) || ("Stripe " + res.status));
+  return data;
+}
+// The upgrade they're paying for now, if any.
+async function ccActiveUpgrade(env, userId, mode) {
+  const row = ((await sbGet(env, "member_subscriptions",
+    `user_id=eq.${encodeURIComponent(userId)}&mode=eq.${mode}&status=in.(active,past_due,cancelling)&select=id,level,status,current_period_end,cancel_at_period_end,price_pence,launch_offer&order=created_at.desc&limit=1`)) || [])[0];
+  if (!row) return null;
+  // Cancelled and past the end of the paid month: over, even if a webhook was missed.
+  if (row.status === "cancelling" && row.current_period_end && new Date(row.current_period_end).getTime() < Date.now()) return null;
+  const day = row.current_period_end ? row.current_period_end.slice(0, 10) : null;
+  return { id: row.id, level: row.level, status: row.status, price_pence: row.price_pence, launch_offer: !!row.launch_offer,
+    renews_on: row.status === "cancelling" ? null : day, ends_on: row.status === "cancelling" ? day : null };
+}
+async function ccLogLevel(env, r) {
+  try { await sbPost(env, "member_level_log", r); } catch (_) {}
+}
+async function ccVatRate(env) {
+  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=vat_rate"))?.[0];
+  return st && st.vat_rate != null ? Number(st.vat_rate) : 20;
+}
+// What the upgrade costs this member now, ex VAT. Overview's TEG price, or the
+// launch offer before it ends.
+async function ccUpgradePrice(env, level, now) {
+  const row = ((await sbGet(env, "content_levels", `key=eq.${level}&select=price_teg`)) || [])[0];
+  const standard = row && row.price_teg != null ? Math.round(Number(row.price_teg) * 100) : null;
+  const offer = level === CC_LAUNCH_OFFER.level && new Date(now).toISOString().slice(0, 10) < CC_LAUNCH_OFFER.until;
+  return { pence: offer ? CC_LAUNCH_OFFER.pence : standard, standard_pence: standard, launch_offer: offer, offer_until: CC_LAUNCH_OFFER.until };
+}
+// Stripe's VAT rate for this mode (exclusive), found or made once.
+const CC_TAX_RATE = {};
+async function ccTaxRate(env, mode, pct) {
+  const k = `${mode}:${pct}`;
+  if (CC_TAX_RATE[k]) return CC_TAX_RATE[k];
+  const list = await ccStripe(env, mode, "GET", "tax_rates", { active: "true", limit: 100 });
+  let tr = (list.data || []).find((t) => !t.inclusive && Number(t.percentage) === Number(pct) && /vat/i.test(t.display_name || ""));
+  if (!tr) tr = await ccStripe(env, mode, "POST", "tax_rates", { display_name: "VAT", percentage: pct, inclusive: "false", country: "GB", jurisdiction: "GB", description: `UK VAT ${pct}%` });
+  CC_TAX_RATE[k] = tr.id;
+  return tr.id;
+}
+// Their Stripe customer for this mode; a test one gets its own test clock.
+async function ccCustomer(env, mode, user, name) {
+  const have = ((await sbGet(env, "member_billing", `user_id=eq.${user.id}&mode=eq.${mode}&select=stripe_customer_id,test_clock_id`)) || [])[0];
+  if (have) return have;
+  let clock = null;
+  if (mode === "test") {
+    const c = await ccStripe(env, mode, "POST", "test_helpers/test_clocks", { frozen_time: Math.floor(Date.now() / 1000), name: `TMKE test login ${String(user.email || user.id).slice(0, 40)}` });
+    clock = c.id;
+  }
+  const cus = await ccStripe(env, mode, "POST", "customers", { email: user.email || undefined, name: name || undefined, "metadata[user_id]": user.id, test_clock: clock || undefined });
+  const row = { user_id: user.id, mode, stripe_customer_id: cus.id, test_clock_id: clock };
+  await sbPost(env, "member_billing", row, "resolution=merge-duplicates");
+  return row;
+}
+// "Now" as Stripe sees it for this customer: a test clock's time, or now.
+async function ccNow(env, mode, cust) {
+  if (mode === "test" && cust && cust.test_clock_id) {
+    try { const c = await ccStripe(env, mode, "GET", `test_helpers/test_clocks/${cust.test_clock_id}`); if (c && c.frozen_time) return c.frozen_time * 1000; } catch (_) {}
+  }
+  return Date.now();
+}
+// The next 1st, midnight UTC, after a moment.
+function ccNextFirst(ms) {
+  const d = new Date(ms);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1, 0, 0, 0);
+}
+// Turn a Stripe subscription into our row's fields.
+function ccSubFields(sub) {
+  const item = sub.items && sub.items.data && sub.items.data[0];
+  const end = sub.current_period_end || (item && item.current_period_end) || null;
+  let status = { active: "active", trialing: "active", past_due: "past_due", unpaid: "past_due", canceled: "ended", incomplete_expired: "ended", incomplete: "pending" }[sub.status] || "pending";
+  if (status === "active" && sub.cancel_at_period_end) status = "cancelling";
+  return { status, cancel_at_period_end: !!sub.cancel_at_period_end, current_period_end: end ? new Date(end * 1000).toISOString() : null, updated_at: new Date().toISOString() };
+}
+/* Stripe tells us what happened (either mode). Returns true when the event was
+   a member subscription's, so the live webhook stops there. */
+async function ccBillingEvent(env, event, mode) {
+  const o = event && event.data && event.data.object;
+  if (!o) return false;
+  const rowBySub = async (subId) => subId ? ((await sbGet(env, "member_subscriptions", `stripe_subscription_id=eq.${encodeURIComponent(subId)}&select=*&limit=1`)) || [])[0] : null;
+
+  if (event.type === "checkout.session.completed") {
+    if (!(o.metadata && o.metadata.kind === "cc_upgrade" && o.metadata.sub_row)) return false;
+    const row = ((await sbGet(env, "member_subscriptions", `id=eq.${encodeURIComponent(o.metadata.sub_row)}&select=*`)) || [])[0];
+    if (!row) return true;
+    if (row.status !== "pending") return true;   // Stripe retried: already done
+    let fields = { status: "active", updated_at: new Date().toISOString() };
+    try { const sub = await ccStripe(env, mode, "GET", `subscriptions/${o.subscription}`); fields = { ...ccSubFields(sub) }; } catch (_) {}
+    await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { ...fields, stripe_subscription_id: o.subscription || null, stripe_customer_id: o.customer || row.stripe_customer_id, started_at: new Date().toISOString() });
+    await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: "calendar", to_level: row.level, source: "card", reason: `Upgraded by card, £${(row.price_pence / 100).toFixed(2)} a month + VAT${row.launch_offer ? " (launch offer)" : ""}` });
+    try {
+      await notifyAdmins(env, { area: "money", event: "cc_upgrade", title: `${mode === "test" ? "Test: " : ""}Upgraded to ${CC_LEVEL_NAME[row.level] || row.level}`,
+        body: [row.email, `£${(row.price_pence / 100).toFixed(2)} a month + VAT`].filter(Boolean).join(" · "), href: "/admin/content-calendar", key: `cc_upgrade:${row.id}` });
+    } catch (_) {}
+    return true;
+  }
+
+  if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.created") {
+    if (!(o.metadata && o.metadata.kind === "cc_upgrade")) return false;
+    const row = await rowBySub(o.id) || (o.metadata.sub_row ? ((await sbGet(env, "member_subscriptions", `id=eq.${encodeURIComponent(o.metadata.sub_row)}&select=*`)) || [])[0] : null);
+    if (!row) return true;
+    const f = ccSubFields(o);
+    if (row.status === "pending" && f.status === "pending") return true;
+    await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { ...f, stripe_subscription_id: o.id });
+    if (row.status !== "cancelling" && f.status === "cancelling") await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: row.level, to_level: row.level, source: "card", reason: `Cancelled; keeps ${CC_LEVEL_NAME[row.level]} until ${String(f.current_period_end || "").slice(0, 10)}` });
+    if (row.status === "cancelling" && f.status === "active") await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: row.level, to_level: row.level, source: "card", reason: "Cancellation undone" });
+    return true;
+  }
+
+  if (event.type === "customer.subscription.deleted") {
+    if (!(o.metadata && o.metadata.kind === "cc_upgrade")) return false;
+    const row = await rowBySub(o.id);
+    if (!row || row.status === "ended") return true;
+    const reason = row.failed_attempts >= 2 ? "payment_failed" : "cancelled";
+    await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { status: "ended", ended_at: new Date().toISOString(), ended_reason: reason, updated_at: new Date().toISOString() });
+    await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: row.level, to_level: "calendar", source: "card",
+      reason: reason === "payment_failed" ? "The card payment failed twice; back to the brand-paid calendar" : "The paid month ended after cancelling" });
+    // Their social accounts are disconnected the moment scheduling stops.
+    try { await zernioDisconnectMember(env, row.user_id); } catch (e) { console.warn("zernio disconnect", e && e.message); }
+    try {
+      await notifyAdmins(env, { area: "money", event: "cc_upgrade_ended", title: `${mode === "test" ? "Test: " : ""}${CC_LEVEL_NAME[row.level] || row.level} ended`,
+        body: [row.email, reason === "payment_failed" ? "payment failed twice" : "cancelled"].filter(Boolean).join(" · "), href: "/admin/content-calendar", key: `cc_upgrade_end:${row.id}` });
+    } catch (_) {}
+    return true;
+  }
+
+  if (event.type === "invoice.payment_failed" || event.type === "invoice.paid") {
+    const subId = typeof o.subscription === "string" ? o.subscription
+      : (o.parent && o.parent.subscription_details && o.parent.subscription_details.subscription) || null;
+    const row = await rowBySub(subId);
+    if (!row) return false;
+    if (event.type === "invoice.paid") {
+      if (row.failed_attempts) await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { failed_attempts: 0, status: row.status === "past_due" ? "active" : row.status, updated_at: new Date().toISOString() });
+      return true;
+    }
+    const attempts = Number(o.attempt_count) || (row.failed_attempts + 1);
+    await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { failed_attempts: attempts, status: "past_due", updated_at: new Date().toISOString() });
+    if (attempts >= 2) {
+      // The second try failed: it ends now (the deleted event does the rest).
+      try { await ccStripe(env, mode, "DELETE", `subscriptions/${subId}`); } catch (e) { console.warn("cancel after 2 fails", e && e.message); }
+    } else {
+      try {
+        await notifyAdmins(env, { area: "money", event: "cc_upgrade_failed", title: `${mode === "test" ? "Test: " : ""}A Scheduling payment failed`,
+          body: [row.email, "Stripe will try once more"].filter(Boolean).join(" · "), href: "/admin/content-calendar", key: `cc_fail:${o.id}` });
+      } catch (_) {}
+    }
+    return true;
+  }
+  return false;
+}
+
+// Start a card upgrade: a Stripe Checkout page, billed on the 1st. Returns its address.
+async function ccStartUpgrade(env, user, mode, level, back) {
+  const vat = await ccVatRate(env);
+  const c0 = ((await sbGet(env, "contacts", `user_id=eq.${user.id}&select=first_name,last_name&limit=1`)) || [])[0];
+  const cust = await ccCustomer(env, mode, user, c0 ? [c0.first_name, c0.last_name].filter(Boolean).join(" ") : null);
+  const now = await ccNow(env, mode, cust);
+  const price = await ccUpgradePrice(env, level, now);
+  if (price.pence == null) { const e = new Error("The price for this isn't set yet."); e.status = 503; throw e; }
+  const tax = await ccTaxRate(env, mode, vat);
+  const anchor = ccNextFirst(now);
+  const monthLabel = new Date(now).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+  const ins = await sbPost(env, "member_subscriptions", { user_id: user.id, email: user.email || null, mode, level, basis: "teg_upgrade",
+    price_pence: price.pence, vat_rate: vat, launch_offer: price.launch_offer, stripe_customer_id: cust.stripe_customer_id, status: "pending" }, "return=representation");
+  if (!ins || !ins.ok) { const e = new Error("Run member_subscriptions.sql first. It's on the SQL to run list."); e.status = 503; throw e; }
+  const row = ((await ins.json().catch(() => [])) || [])[0];
+  const name = CC_LEVEL_NAME[level];
+  let sess;
+  try {
+    sess = await ccStripe(env, mode, "POST", "checkout/sessions", {
+      mode: "subscription", customer: cust.stripe_customer_id, client_reference_id: user.id,
+      "line_items[0][price_data][currency]": "gbp",
+      "line_items[0][price_data][product_data][name]": `${name}, the difference above your brand's calendar`,
+      "line_items[0][price_data][unit_amount]": price.pence,
+      "line_items[0][price_data][recurring][interval]": "month",
+      "line_items[0][quantity]": 1, "line_items[0][tax_rates][0]": tax,
+      "line_items[1][price_data][currency]": "gbp",
+      "line_items[1][price_data][product_data][name]": `${name}, ${monthLabel}`,
+      "line_items[1][price_data][unit_amount]": price.pence,
+      "line_items[1][quantity]": 1, "line_items[1][tax_rates][0]": tax,
+      "subscription_data[billing_cycle_anchor]": Math.floor(anchor / 1000),
+      "subscription_data[proration_behavior]": "none",
+      "subscription_data[metadata][kind]": "cc_upgrade", "subscription_data[metadata][sub_row]": row.id,
+      "subscription_data[metadata][user_id]": user.id, "subscription_data[metadata][level]": level,
+      "metadata[kind]": "cc_upgrade", "metadata[sub_row]": row.id,
+      success_url: `${back}${back.includes("?") ? "&" : "?"}upgrade=done`, cancel_url: `${back}${back.includes("?") ? "&" : "?"}upgrade=cancelled`,
+    });
+  } catch (e) {
+    await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { status: "ended", ended_reason: "checkout_failed", ended_at: new Date().toISOString() });
+    throw new Error(`Couldn't start the payment: ${e.message}`);
+  }
+  await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { stripe_checkout_id: sess.id });
+  return sess.url;
+}
+
 async function ccOpenMonthRow(env, a, monthId) {
   const m = ((await sbGet(env, "content_months", `id=eq.${encodeURIComponent(monthId)}&select=id,month,edition,status,intro`)) || [])[0];
   if (!m || (m.status !== "published" && !a.staff)) return null;
@@ -6544,10 +6789,12 @@ async function ccOpenMonthRow(env, a, monthId) {
 // https://zernio.com/llms.txt  ·  ZERNIO_API_KEY is a Worker secret.
 const ZERNIO_API = "https://zernio.com/api/v1";
 const ZERNIO_PLATFORMS = ["instagram", "facebook", "linkedin", "tiktok"];
-function scheduleAllowed(env, user) {
+async function scheduleAllowed(env, user) {
   // Staff, or a member whose plan includes it: zernioMemberMayPost is the one
   // rule, and the daily check disconnects anyone it stops allowing.
-  return !!user && (isAdminEmail(user) || env.SCHEDULE_OPEN === "1");
+  if (!user) return false;
+  if (isAdminEmail(user) || user._isAdmin || env.SCHEDULE_OPEN === "1") return true;
+  try { return !!(await memberAccess(env, user)).scheduling; } catch (_) { return false; }
 }
 async function zernio(env, path, init = {}) {
   if (!env.ZERNIO_API_KEY) return { ok: false, status: 503, data: { error: "Scheduling isn't set up (ZERNIO_API_KEY)." } };
@@ -6626,7 +6873,13 @@ async function zernioDisconnectMember(env, userId) {
 // May this member schedule? Until subscriptions exist, only when it's opened
 // for everyone; then, their tier (or the TEG add-on) must include scheduling.
 async function zernioMemberMayPost(env, userId) {
-  return env.SCHEDULE_OPEN === "1";
+  if (env.SCHEDULE_OPEN === "1") return true;
+  // Their level, worked out the same way as everywhere else (Danielle, 11 Nov):
+  // a paid Scheduling upgrade, or staff.
+  try {
+    const u = await ccUserById(env, userId);
+    return !!(u && (u._isAdmin || (await memberAccess(env, u)).scheduling));
+  } catch (_) { return true; }   // can't tell: never disconnect on a guess
 }
 async function runZernioIdleCheck(env) {
   if (!env.ZERNIO_API_KEY) return;
@@ -8259,8 +8512,10 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             const c = ((await sbGet(env, "contacts", `user_id=eq.${encodeURIComponent(id)}&select=id,email,first_name,last_name&limit=1`)) || [])[0] || null;
             const brands = c ? ((await sbGet(env, "agent_profiles", `contact_id=eq.${c.id}&left_at=is.null&select=brand`)) || []).map((r) => r.brand) : [];
             const acc = await memberAccess(env, { id, email: c && c.email, _isAdmin: false });
+            const clock = ((await sbGet(env, "member_billing", `user_id=eq.${encodeURIComponent(id)}&mode=eq.test&select=test_clock_id`)) || [])[0];
             testers.push({ id, email: c ? c.email : null, name: c ? [c.first_name, c.last_name].filter(Boolean).join(" ") : null,
-              brands, level: acc.level, calendar: acc.calendar, preview: acc.preview, edition: acc.edition });
+              brands, level: acc.level, calendar: acc.calendar, preview: acc.preview, edition: acc.edition,
+              upgrade: acc.upgrade || null, has_clock: !!(clock && clock.test_clock_id) });
           }
           return { ok: true, ready: S.ready, teg_live: S.teg_live, updated_at: S.updated_at, updated_by: S.updated_by, testers };
         };
@@ -8382,12 +8637,129 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         return json({ ok: true, ready: true, open: S.dfy_open, audience: S.dfy_audience, spaces: S.dfy_spaces, taken: n, list, options: DFY_OPTIONS }, 200, request, env);
       }
 
+      // ---- Card subscriptions: the Scheduling upgrade (Danielle, 11 Nov) ----
+      // For the account page. Signed-in members only; their own subscription.
+      if (/\/billing\/(me|upgrade|cancel|resume|card)$/.test(path)) {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        const a = await memberAccess(env, user);
+        const mode = await ccStripeMode(env, user.id);
+        const vat = await ccVatRate(env);
+        const live = a.upgrade;
+        // TEG agents on the brand-paid calendar can upgrade; independents from February.
+        const canUpgrade = !a.staff && (a.source === "teg" || a.source === "test") && !live;
+
+        if (path.endsWith("/billing/me") && request.method === "GET") {
+          const price = await ccUpgradePrice(env, "scheduling", Date.now());
+          return json({ ok: true, mode, level: a.level, source: a.source, upgrade: live,
+            offer: canUpgrade && price.pence != null ? {
+              level: "scheduling", name: CC_LEVEL_NAME.scheduling,
+              price_pence: price.pence, vat_rate: vat, total_pence: Math.round(price.pence * (1 + vat / 100)),
+              standard_pence: price.standard_pence, launch_offer: price.launch_offer, offer_until: price.offer_until,
+              billed: "On the 1st of each month. The first month is paid in full today.",
+            } : null,
+            why_not: canUpgrade ? null : live ? "You already have it." : a.staff ? "Staff logins can't subscribe." : "Upgrades open to independent agents in February." }, 200, request, env);
+        }
+
+        if (path.endsWith("/billing/upgrade") && request.method === "POST") {
+          if (!canUpgrade) return json({ error: live ? "You already have Scheduling." : "This upgrade isn't open to you yet." }, 409, request, env);
+          const b = await request.json().catch(() => ({}));
+          const level = b.level === "scheduling" ? "scheduling" : null;
+          if (!level) return json({ error: "Choose what to upgrade to." }, 400, request, env);
+          // Back to the page they came from, on our own site only.
+          let back = "https://tmke.co.uk/account";
+          try { const u = new URL(String(b.return_to || "")); if (/(^|\.)tmke\.co\.uk$/.test(u.hostname) || u.hostname === "localhost") back = u.origin + u.pathname; } catch (_) {}
+          try { return json({ ok: true, url: await ccStartUpgrade(env, user, mode, level, back), mode }, 200, request, env); }
+          catch (e) { return json({ error: e.message }, e.status || 502, request, env); }
+        }
+
+        if (path.endsWith("/billing/cancel") || path.endsWith("/billing/resume")) {
+          if (request.method !== "POST") return json({ error: "POST" }, 405, request, env);
+          const row = live && ((await sbGet(env, "member_subscriptions", `id=eq.${live.id}&select=stripe_subscription_id`)) || [])[0];
+          if (!row || !row.stripe_subscription_id) return json({ error: "There's no subscription to change." }, 404, request, env);
+          const cancel = path.endsWith("/billing/cancel");
+          try {
+            const sub = await ccStripe(env, mode, "POST", `subscriptions/${row.stripe_subscription_id}`, { cancel_at_period_end: cancel ? "true" : "false" });
+            await sbPatch(env, "member_subscriptions", `id=eq.${live.id}`, ccSubFields(sub));
+          } catch (e) { return json({ error: `Couldn't change it: ${e.message}` }, 502, request, env); }
+          return json({ ok: true, upgrade: await ccActiveUpgrade(env, user.id, mode) }, 200, request, env);
+        }
+
+        // Update the card: Stripe's own billing page (needs its customer portal saved once in each mode).
+        if (path.endsWith("/billing/card") && request.method === "POST") {
+          const cust = ((await sbGet(env, "member_billing", `user_id=eq.${user.id}&mode=eq.${mode}&select=stripe_customer_id`)) || [])[0];
+          if (!cust) return json({ error: "There's no card on file yet." }, 404, request, env);
+          const b = await request.json().catch(() => ({}));
+          let back = "https://tmke.co.uk/account";
+          try { const u = new URL(String(b.return_to || "")); if (/(^|\.)tmke\.co\.uk$/.test(u.hostname) || u.hostname === "localhost") back = u.origin + u.pathname; } catch (_) {}
+          try {
+            const ps = await ccStripe(env, mode, "POST", "billing_portal/sessions", { customer: cust.stripe_customer_id, return_url: back });
+            return json({ ok: true, url: ps.url }, 200, request, env);
+          } catch (e) { return json({ error: `Couldn't open the card page: ${e.message}` }, 502, request, env); }
+        }
+        return json({ error: "Not found" }, 404, request, env);
+      }
+
+      // Staff: start a test login's upgrade from the Launch panel, so the
+      // payment can be tried before the account page has its button.
+      if (path.endsWith("/billing/test-upgrade") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !user._isAdmin) return json({ error: "Staff only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const S = await ccSettings(env, true);
+        if (!S.test_user_ids.includes(b.user_id)) return json({ error: "Only a test login can be upgraded from here." }, 400, request, env);
+        const who = await ccUserById(env, b.user_id);
+        if (!who) return json({ error: "Couldn't find that login." }, 404, request, env);
+        const a = await memberAccess(env, who);
+        if (a.upgrade) return json({ error: "That login already has Scheduling." }, 409, request, env);
+        if (a.source !== "test") return json({ error: "That login doesn't have the brand-paid calendar (it needs a TPE or PPE agent profile)." }, 409, request, env);
+        try { return json({ ok: true, url: await ccStartUpgrade(env, who, "test", "scheduling", "https://tmke.co.uk/admin/content-calendar?tab=overview") }, 200, request, env); }
+        catch (e) { return json({ error: e.message }, e.status || 502, request, env); }
+      }
+
+      // Staff: cancel (or undo cancelling) a test login's upgrade.
+      if (path.endsWith("/billing/test-cancel") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !user._isAdmin) return json({ error: "Staff only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const S = await ccSettings(env, true);
+        if (!S.test_user_ids.includes(b.user_id)) return json({ error: "Only a test login's upgrade can be changed here." }, 400, request, env);
+        const up = await ccActiveUpgrade(env, b.user_id, "test");
+        const row = up && ((await sbGet(env, "member_subscriptions", `id=eq.${up.id}&select=stripe_subscription_id`)) || [])[0];
+        if (!row || !row.stripe_subscription_id) return json({ error: "That login has no upgrade to cancel." }, 404, request, env);
+        try {
+          const sub = await ccStripe(env, "test", "POST", `subscriptions/${row.stripe_subscription_id}`, { cancel_at_period_end: b.undo ? "false" : "true" });
+          await sbPatch(env, "member_subscriptions", `id=eq.${up.id}`, ccSubFields(sub));
+        } catch (e) { return json({ error: `Couldn't change it: ${e.message}` }, 502, request, env); }
+        return json({ ok: true }, 200, request, env);
+      }
+
+      // Staff: move a test login's Stripe clock to just past its next billing
+      // date, so the 1st (renewal, a failed card, the end of a cancelled month)
+      // can be tried now. Test mode only.
+      if (path.endsWith("/billing/test-clock") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !user._isAdmin) return json({ error: "Staff only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const S = await ccSettings(env, true);
+        if (!S.test_user_ids.includes(b.user_id)) return json({ error: "Only a test login's clock can be moved." }, 400, request, env);
+        const cust = ((await sbGet(env, "member_billing", `user_id=eq.${encodeURIComponent(b.user_id)}&mode=eq.test&select=test_clock_id`)) || [])[0];
+        if (!cust || !cust.test_clock_id) return json({ error: "That login hasn't upgraded in test mode yet." }, 404, request, env);
+        try {
+          const c = await ccStripe(env, "test", "GET", `test_helpers/test_clocks/${cust.test_clock_id}`);
+          if (c.status !== "ready") return json({ error: "Stripe is still moving that clock. Try again in a minute." }, 409, request, env);
+          const to = ccNextFirst(c.frozen_time * 1000) + 2 * 3600 * 1000;
+          await ccStripe(env, "test", "POST", `test_helpers/test_clocks/${cust.test_clock_id}/advance`, { frozen_time: Math.floor(to / 1000) });
+          return json({ ok: true, now: new Date(to).toISOString() }, 200, request, env);
+        } catch (e) { return json({ error: `Couldn't move the clock: ${e.message}` }, 502, request, env); }
+      }
+
       // ── Scheduling (Zernio) ──────────────────────────────────────────────
       // Where the member stands: their connected accounts.
       if (path.endsWith("/schedule/status") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
-        if (!scheduleAllowed(env, user)) return json({ ok: true, open: false, accounts: [] }, 200, request, env);
+        if (!(await scheduleAllowed(env, user))) return json({ ok: true, open: false, accounts: [] }, 200, request, env);
         if (!env.ZERNIO_API_KEY) return json({ ok: true, open: true, configured: false, accounts: [] }, 200, request, env);
         const prof = await zernioProfile(env, user);
         if (!prof) return json({ error: "Couldn't open your scheduling profile just now." }, 502, request, env);
@@ -8400,7 +8772,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
       if (path.endsWith("/schedule/connect") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
-        if (!scheduleAllowed(env, user)) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
+        if (!(await scheduleAllowed(env, user))) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const platform = String(b.platform || "").toLowerCase();
         if (!ZERNIO_PLATFORMS.includes(platform)) return json({ error: "Pick Instagram, Facebook, LinkedIn or TikTok." }, 400, request, env);
@@ -8415,7 +8787,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
       if (path.endsWith("/schedule/disconnect") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
-        if (!scheduleAllowed(env, user)) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
+        if (!(await scheduleAllowed(env, user))) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const prof = await zernioProfile(env, user);
         const acc = prof ? await zernio(env, `/accounts?profileId=${prof._id}`) : null;
@@ -8430,7 +8802,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
       if (path.endsWith("/schedule/post") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
-        if (!scheduleAllowed(env, user)) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
+        if (!(await scheduleAllowed(env, user))) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const id = String(b.item_id || "");
         if (!/^[0-9a-f-]{36}$/.test(id)) return json({ error: "Which post?" }, 400, request, env);
@@ -8463,7 +8835,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
       if (path.endsWith("/schedule/cancel") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
-        if (!scheduleAllowed(env, user)) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
+        if (!(await scheduleAllowed(env, user))) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const id = String(b.item_id || "");
         const rows = /^[0-9a-f-]{36}$/.test(id) ? await sbGet(env, "calendar_items", `select=id,details&id=eq.${id}&user_id=eq.${user.id}`) : null;
@@ -8864,12 +9236,27 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         ), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
       }
 
+      // Stripe's test mode, for the test logins' upgrades (Danielle, 11 Nov).
+      if (path.endsWith("/stripe/webhook-test") && request.method === "POST") {
+        const raw = await request.text();
+        const ok = await stripeVerify(raw, request.headers.get("Stripe-Signature") || "", env.STRIPE_TEST_WEBHOOK_SECRET);
+        if (!ok) return json({ error: "Bad signature" }, 400, request, env);
+        let event;
+        try { event = JSON.parse(raw); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        try { await ccBillingEvent(env, event, "test"); }
+        catch (e) { console.error("cc billing (test)", e && e.message); return json({ error: "Not handled" }, 500, request, env); }
+        return json({ received: true }, 200, request, env);
+      }
+
       if (path.endsWith("/stripe/webhook") && request.method === "POST") {
         const raw = await request.text();
         const ok = await stripeVerify(raw, request.headers.get("Stripe-Signature") || "", env.STRIPE_WEBHOOK_SECRET);
         if (!ok) return json({ error: "Bad signature" }, 400, request, env);
         let event;
         try { event = JSON.parse(raw); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        // Member card subscriptions (the Scheduling upgrade) first.
+        try { if (await ccBillingEvent(env, event, "live")) return json({ received: true }, 200, request, env); }
+        catch (e) { console.error("cc billing (live)", e && e.message); return json({ error: "Not handled" }, 500, request, env); }
         if (event.type === "checkout.session.completed") {
           const s = event.data && event.data.object;
           const pi = s && (typeof s.payment_intent === "string" ? s.payment_intent : (s.payment_intent && s.payment_intent.id));

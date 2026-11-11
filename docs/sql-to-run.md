@@ -4,6 +4,8 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/member_subscriptions.sql — card subscriptions for the Scheduling upgrade: each member's Stripe customer, their subscription and price, and a log of every change of level. Test logins use Stripe's test mode. Changes nobody's access. Sends nothing (11 Nov)
+
 - [ ] supabase/content_calendar_images_required.sql — the "Images required" tick box at the end of each row on Content calendar › Creation, so Sam can see which designs need her pictures. Changes no post. Sends nothing (10 Nov)
 
 ## Done

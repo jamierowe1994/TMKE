@@ -76,7 +76,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
             <p class="cc-hint">Ordinary member logins, never staff, treated as if the rule were already on. A TPE or PPE login sees the month; a login with no brand sees it blurred. Sign in once with the login, then add its email here.</p>
           </div>
         </div>
-        <div class="tablewrap"><table class="ccx-table"><thead><tr><th>Email</th><th>Name</th><th>Brand</th><th>What they see</th><th></th></tr></thead><tbody id="ccx-rows"></tbody></table></div>
+        <div class="tablewrap"><table class="ccx-table"><thead><tr><th>Email</th><th>Name</th><th>Brand</th><th>What they see</th><th>Scheduling upgrade</th><th></th></tr></thead><tbody id="ccx-rows"></tbody></table></div>
         <div class="ccx-add">
           <label class="find"><input type="email" id="ccx-email" placeholder="Test login's email" autocomplete="off" /></label>
           <button type="button" class="mbtn primary" id="ccx-add">Add test login</button>
@@ -1901,8 +1901,17 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         <td>${esc(t.email || 'No contact found')}</td><td class="tx">${esc(t.name || '–')}</td>
         <td class="tx">${esc((t.brands || []).join(', ') || 'No brand')}</td>
         <td><span class="chip ${t.calendar ? 'good' : 'wait'}">${t.calendar ? 'Sees the month' : 'Sees it blurred'}</span></td>
-        <td class="num"><button type="button" class="mbtn" data-ccx-rm="${esc(t.id)}">Remove</button></td></tr>`).join('')
-        || '<tr><td colspan="5" class="tx">No test logins yet.</td></tr>';
+        <td>${upgradeCell(t.upgrade)}</td>
+        <td class="num"><span class="row-acts">${!t.upgrade && t.calendar ? `<button type="button" class="mbtn" data-ccx-up="${esc(t.id)}" title="Opens Stripe's test checkout as this login. Pay with 4242 4242 4242 4242">Try the upgrade</button>` : ''}${t.upgrade ? `<button type="button" class="mbtn" data-ccx-cancel="${esc(t.id)}" data-undo="${t.upgrade.status === 'cancelling' ? '1' : ''}">${t.upgrade.status === 'cancelling' ? 'Undo cancel' : 'Cancel'}</button>` : ''}${t.has_clock ? `<button type="button" class="mbtn" data-ccx-clock="${esc(t.id)}" title="Moves this login's Stripe test clock to just after its next 1st, so the renewal happens now">Jump to the 1st</button>` : ''}<button type="button" class="mbtn" data-ccx-rm="${esc(t.id)}">Remove</button></span></td></tr>`).join('')
+        || '<tr><td colspan="6" class="tx">No test logins yet.</td></tr>';
+    }
+    // A test login's paid upgrade, in a word (Dani, 11 Nov).
+    function upgradeCell(u) {
+      if (!u) return '<span class="tx">None</span>';
+      const day = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+      if (u.status === 'cancelling') return `<span class="chip wait">Ends ${day(u.ends_on)}</span>`;
+      if (u.status === 'past_due') return '<span class="chip bad">Payment failed</span>';
+      return `<span class="chip good">Renews ${day(u.renews_on)}</span>`;
     }
     async function loadLaunch() {
       try { LAUNCH = await launchCall(); renderLaunch(); }
@@ -1924,7 +1933,42 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     }
     $('ccx-add').addEventListener('click', addTester);
     $('ccx-email').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTester(); });
+    async function staffBilling(route, body) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sign in again.');
+      const res = await fetch(`${WORKER}/billing/${route}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify(body) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "That didn't work.");
+      return d;
+    }
     $('ccx-rows').addEventListener('click', async (e) => {
+      const up = e.target.closest('[data-ccx-up]');
+      if (up) {
+        up.disabled = true; up.textContent = 'Opening…';
+        try { const d = await staffBilling('test-upgrade', { user_id: up.dataset.ccxUp }); location.href = d.url; }
+        catch (err) { $('ccx-msg').textContent = err.message; up.disabled = false; up.textContent = 'Try the upgrade'; }
+        return;
+      }
+      const cx = e.target.closest('[data-ccx-cancel]');
+      if (cx) {
+        cx.disabled = true;
+        try { await staffBilling('test-cancel', { user_id: cx.dataset.ccxCancel, undo: !!cx.dataset.undo }); LAUNCH = await launchCall(); renderLaunch(); }
+        catch (err) { $('ccx-msg').textContent = err.message; cx.disabled = false; }
+        return;
+      }
+      const k = e.target.closest('[data-ccx-clock]');
+      if (k) {
+        k.disabled = true; k.textContent = 'Moving…';
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(`${WORKER}/billing/test-clock`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ user_id: k.dataset.ccxClock }) });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(d.error || "Couldn't move the clock.");
+          $('ccx-msg').textContent = `Stripe's clock for that login is now ${new Date(d.now).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}. Give it a minute, then reload to see the renewal.`;
+        } catch (err) { $('ccx-msg').textContent = err.message; }
+        k.disabled = false; k.textContent = 'Jump to the 1st';
+        return;
+      }
       const b = e.target.closest('[data-ccx-rm]');
       if (!b) return;
       b.disabled = true;
