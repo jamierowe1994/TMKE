@@ -6791,7 +6791,10 @@ async function ccEndSubscription(env, row, subId, mode, reason) {
         owed.amount = `£${((Number(inv.amount_due) || 0) / 100).toFixed(2)}`;
         owed.month = new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
       }
-      await ccStripe(env, mode, "POST", `invoices/${inv.id}/void`, {});
+      // How it ended, for Billing's label (Danielle, 11 Nov): Unpaid when the two
+    // tries failed and we ended it, Cancelled when they cancelled it themselves.
+    try { await ccStripe(env, mode, "POST", `invoices/${inv.id}`, { "metadata[ended]": reason }); } catch (_) {}
+    await ccStripe(env, mode, "POST", `invoices/${inv.id}/void`, {});
     }
   } catch (e) { console.warn("void after end", e && e.message); }
   // Posts waiting to go out are taken off first, so nothing posts after it ends
@@ -9293,6 +9296,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
                 // The invoice's own description first (Admin, 11 Nov: the first payment's reads best), then its first line.
                 what: i.description || (line && line.description) || null,
                 total_pence: i.total, status: i.status,
+                ended: (i.metadata && i.metadata.ended) || null,
+                tried: Number(i.attempt_count) || 0,
                 pdf: i.invoice_pdf || null,
               };
             });

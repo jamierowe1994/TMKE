@@ -722,6 +722,8 @@ import "../../styles/account-sections.css";
     // or the product's explanation on the end.
     const whatFor = (t) => String(t || '').replace(/^TMKE\s+/, '').replace(/,\s*the difference above.*$/i, '').trim();
     const INV_STATE = { paid: 'Paid', open: 'Due', void: 'Cancelled', uncollectible: 'Unpaid' };
+    // Ended after two failed tries = Unpaid; cancelled by them while due = Cancelled (Danielle, 11 Nov).
+    const invState = (i) => (i.status === 'void' && i.ended === 'payment_failed') ? 'Unpaid' : (INV_STATE[i.status] || i.status);
     function paintBilling(inv) {
       const up = bill && bill.upgrade;
       const vat = bill && bill.vat_rate != null ? Number(bill.vat_rate) : 20;
@@ -773,7 +775,7 @@ import "../../styles/account-sections.css";
             <td>${esc(i.number || '—')}</td>
             <td>${esc(whatFor(i.what))}</td>
             <td>${esc(gbp2(i.total_pence))}</td>
-            <td class="is-muted">${esc(INV_STATE[i.status] || i.status)}${i.status === 'paid' && (i.paid_at || i.created) ? ' ' + esc(dayY(i.paid_at || i.created)) : ''}</td>
+            <td class="is-muted">${esc(invState(i))}${i.status === 'paid' && (i.paid_at || i.created) ? ' ' + esc(dayY(i.paid_at || i.created)) : ''}</td>
             <td class="r">${i.pdf ? `<a class="ws-btn ws-btn--ghost" href="${esc(i.pdf)}" target="_blank" rel="noopener">Download</a>` : ''}</td>
           </tr>`).join('')}</tbody></table></div>`;
       }
