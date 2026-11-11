@@ -6717,7 +6717,8 @@ async function ccBillingEvent(env, event, mode) {
       const tax = await ccTaxRate(env, mode, Number(row.vat_rate) || 20);
       const sub = await ccStripe(env, mode, "POST", "subscriptions", {
         customer: o.customer, "items[0][price]": price, "default_tax_rates[0]": tax,
-        default_payment_method: pm || undefined,
+        // No card pinned on the subscription: it pays with the customer's default,
+        // so a card changed on Stripe's page is the one charged (Danielle's test, 11 Nov).
         billing_cycle_anchor: Math.floor(anchor / 1000), proration_behavior: "none",
         description: ccPayLabel(row.level, null, "subscription"),
         "metadata[kind]": "cc_upgrade", "metadata[sub_row]": row.id, "metadata[user_id]": row.user_id, "metadata[level]": row.level,
