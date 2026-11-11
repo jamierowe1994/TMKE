@@ -9228,11 +9228,14 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           if (!cust || !cust.stripe_customer_id) return json({ ok: true, mode, card: null, invoices: [] }, 200, request, env);
           const id = encodeURIComponent(cust.stripe_customer_id);
           try {
-            const [pms, inv] = await Promise.all([
+            // The card the subscription charges: the customer's default, else the newest.
+            const [cu, pms, inv] = await Promise.all([
+              ccStripe(env, mode, "GET", `customers/${id}`, { "expand[]": "invoice_settings.default_payment_method" }).catch(() => null),
               ccStripe(env, mode, "GET", `customers/${id}/payment_methods`, { type: "card", limit: 1 }),
               ccStripe(env, mode, "GET", "invoices", { customer: cust.stripe_customer_id, limit: 24 }),
             ]);
-            const c = pms && pms.data && pms.data[0] && pms.data[0].card;
+            const dpm = cu && cu.invoice_settings && cu.invoice_settings.default_payment_method;
+            const c = (dpm && typeof dpm === "object" && dpm.card) || (pms && pms.data && pms.data[0] && pms.data[0].card);
             const card = c ? { brand: c.brand || null, last4: c.last4 || null, exp_month: c.exp_month || null, exp_year: c.exp_year || null } : null;
             const invoices = ((inv && inv.data) || []).filter((i) => i.status !== "draft").map((i) => {
               const line = i.lines && i.lines.data && i.lines.data[0];
@@ -9258,7 +9261,16 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           let back = "https://tmke.co.uk/account";
           try { const u = new URL(String(b.return_to || "")); if (/(^|\.)tmke\.co\.uk$/.test(u.hostname) || u.hostname === "localhost") back = u.origin + u.pathname; } catch (_) {}
           try {
-            const ps = await ccStripe(env, mode, "POST", "billing_portal/sessions", { customer: cust.stripe_customer_id, return_url: back });
+            // Straight to Stripe's "add a card" step: the card added becomes the
+            // default (what the subscription charges) and they come back to
+            // Billing with ?card=updated. Stripe's own "Make default" didn't
+            // stick in Danielle's test, 11 Nov.
+            const ps = await ccStripe(env, mode, "POST", "billing_portal/sessions", {
+              customer: cust.stripe_customer_id, return_url: back,
+              "flow_data[type]": "payment_method_update",
+              "flow_data[after_completion][type]": "redirect",
+              "flow_data[after_completion][redirect][return_url]": `${back}?tab=billing&card=updated`,
+            });
             return json({ ok: true, url: ps.url }, 200, request, env);
           } catch (e) { return json({ error: `Couldn't open the card page: ${e.message}` }, 502, request, env); }
         }
