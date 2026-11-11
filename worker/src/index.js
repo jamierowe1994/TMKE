@@ -8729,7 +8729,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
       // ---- Card subscriptions: the Scheduling upgrade (Danielle, 11 Nov) ----
       // For the account page. Signed-in members only; their own subscription.
-      if (/\/billing\/(me|upgrade|cancel|resume|card)$/.test(path)) {
+      if (/\/billing\/(me|upgrade|cancel|resume|card|invoices)$/.test(path)) {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
         const a = await memberAccess(env, user);
@@ -8773,6 +8773,36 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             await sbPatch(env, "member_subscriptions", `id=eq.${live.id}`, ccSubFields(sub));
           } catch (e) { return json({ error: `Couldn't change it: ${e.message}` }, 502, request, env); }
           return json({ ok: true, upgrade: await ccActiveUpgrade(env, user.id, mode) }, 200, request, env);
+        }
+
+        /* Your Account › Billing (Danielle, 11 Nov: "native list"): the card on
+           file and their invoices, read from Stripe in their own mode. Only
+           what the page shows: brand, last four, expiry; number, date, what
+           for, amount, status and the PDF. Never another customer's. */
+        if (path.endsWith("/billing/invoices") && request.method === "GET") {
+          const cust = ((await sbGet(env, "member_billing", `user_id=eq.${user.id}&mode=eq.${mode}&select=stripe_customer_id`)) || [])[0];
+          if (!cust || !cust.stripe_customer_id) return json({ ok: true, mode, card: null, invoices: [] }, 200, request, env);
+          const id = encodeURIComponent(cust.stripe_customer_id);
+          try {
+            const [pms, inv] = await Promise.all([
+              ccStripe(env, mode, "GET", `customers/${id}/payment_methods`, { type: "card", limit: 1 }),
+              ccStripe(env, mode, "GET", "invoices", { customer: cust.stripe_customer_id, limit: 24 }),
+            ]);
+            const c = pms && pms.data && pms.data[0] && pms.data[0].card;
+            const card = c ? { brand: c.brand || null, last4: c.last4 || null, exp_month: c.exp_month || null, exp_year: c.exp_year || null } : null;
+            const invoices = ((inv && inv.data) || []).filter((i) => i.status !== "draft").map((i) => {
+              const line = i.lines && i.lines.data && i.lines.data[0];
+              return {
+                number: i.number || null,
+                created: i.created ? new Date(i.created * 1000).toISOString() : null,
+                paid_at: i.status_transitions && i.status_transitions.paid_at ? new Date(i.status_transitions.paid_at * 1000).toISOString() : null,
+                what: (line && line.description) || i.description || null,
+                total_pence: i.total, status: i.status,
+                pdf: i.invoice_pdf || null,
+              };
+            });
+            return json({ ok: true, mode, card, invoices }, 200, request, env);
+          } catch (e) { return json({ error: `Couldn't read your billing: ${e.message}` }, 502, request, env); }
         }
 
         // Update the card: Stripe's own billing page (needs its customer portal saved once in each mode).
