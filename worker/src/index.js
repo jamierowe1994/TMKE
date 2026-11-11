@@ -6715,7 +6715,7 @@ const CC_PAY_COPY = {
     heading: "We Couldn't Take Your Payment.",
     paras: [
       "We tried to take {amount} for Content Calendar + Scheduling for {month}, but the payment didn't go through.",
-      "We'll try your card once more on {retry}. If you've sorted it out with your bank, press Try my card again on Your Account › Billing and we'll take it straight away. If you'd like us to use a different card, update it there, then press Try my card again.",
+      "We'll try your card once more on {retry}. If you've sorted it out with your bank, press Try my card again on Your Account › Billing and we'll take it straight away. If you'd like to use a different card, update it there and we'll take the payment with it straight away.",
       "If the payment doesn't go through on {retry}, Scheduling will end that day. Your Instagram and Facebook will be unlinked, any posts waiting to go out won't be posted, and you'll be back on the Content Calendar your brand pays for.",
       "Whatever happens, your designs and calendar stay as they are.",
     ],
@@ -9121,7 +9121,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
       // ---- Card subscriptions: the Scheduling upgrade (Danielle, 11 Nov) ----
       // For the account page. Signed-in members only; their own subscription.
-      if (/\/billing\/(me|upgrade|cancel|resume|card|invoices|retry)$/.test(path)) {
+      if (/\/billing\/(me|upgrade|cancel|resume|card|invoices|retry|card-done)$/.test(path)) {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
         const a = await memberAccess(env, user);
@@ -9178,24 +9178,44 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         // Try my card again (Danielle, 11 Nov): take the payment that's due now,
         // on the card already on file, without waiting for the next try. A
         // failure here doesn't count towards the two tries that end Scheduling.
-        if (path.endsWith("/billing/retry") && request.method === "POST") {
-          if (!live || live.status !== "past_due") return json({ error: "There's nothing due." }, 409, request, env);
+        if ((path.endsWith("/billing/retry") || path.endsWith("/billing/card-done")) && request.method === "POST") {
+          const cardDone = path.endsWith("/billing/card-done");
+          let pmId = null, card = null;
+          // Back from Stripe's add-a-card step (Danielle, 11 Nov): the card just
+          // added is made the one charged (Stripe can lag in saying so), and if
+          // a payment is due it's taken now, as people expect once they've
+          // put their card in.
+          if (cardDone) {
+            const cust = ((await sbGet(env, "member_billing", `user_id=eq.${user.id}&mode=eq.${mode}&select=stripe_customer_id`)) || [])[0];
+            if (!cust || !cust.stripe_customer_id) return json({ error: "There's no card on file yet." }, 404, request, env);
+            try {
+              const pms = await ccStripe(env, mode, "GET", `customers/${encodeURIComponent(cust.stripe_customer_id)}/payment_methods`, { type: "card", limit: 20 });
+              const newest = ((pms && pms.data) || []).sort((x, y) => (y.created || 0) - (x.created || 0))[0];
+              if (newest) {
+                pmId = newest.id;
+                card = newest.card ? { brand: newest.card.brand || null, last4: newest.card.last4 || null, exp_month: newest.card.exp_month || null, exp_year: newest.card.exp_year || null } : null;
+                await ccStripe(env, mode, "POST", `customers/${encodeURIComponent(cust.stripe_customer_id)}`, { "invoice_settings[default_payment_method]": pmId });
+              }
+            } catch (e) { return json({ error: `Couldn't save your card: ${e.message}` }, 502, request, env); }
+            if (!live || live.status !== "past_due") return json({ ok: true, card, paid: false, due: false }, 200, request, env);
+          } else if (!live || live.status !== "past_due") return json({ error: "There's nothing due." }, 409, request, env);
           const r0 = ((await sbGet(env, "member_subscriptions", `id=eq.${live.id}&select=stripe_subscription_id`)) || [])[0];
           try {
             const open = r0 && r0.stripe_subscription_id ? await ccStripe(env, mode, "GET", "invoices", { subscription: r0.stripe_subscription_id, status: "open", limit: 1 }) : null;
             const inv = open && open.data && open.data[0];
-            if (!inv) return json({ error: "There's nothing due." }, 409, request, env);
+            if (!inv) return cardDone ? json({ ok: true, card, paid: false, due: false }, 200, request, env) : json({ error: "There's nothing due." }, 409, request, env);
+            // Their own try doesn't count towards the two that end Scheduling.
             const tries = Number((inv.metadata && inv.metadata.manual_tries) || 0) + 1;
             await ccStripe(env, mode, "POST", `invoices/${inv.id}`, { "metadata[manual_tries]": String(tries), "metadata[manual_last]": String((Number(inv.attempt_count) || 0) + 1) });
-            const paid = await ccStripe(env, mode, "POST", `invoices/${inv.id}/pay`, {});
+            const paid = await ccStripe(env, mode, "POST", `invoices/${inv.id}/pay`, pmId ? { payment_method: pmId } : {});
             if (paid.status === "paid") {
               await sbPatch(env, "member_subscriptions", `id=eq.${live.id}`, { failed_attempts: 0, status: "active", updated_at: new Date().toISOString() });
-              return json({ ok: true, paid: true, upgrade: await ccActiveUpgrade(env, user.id, mode) }, 200, request, env);
+              return json({ ok: true, card, paid: true, upgrade: await ccActiveUpgrade(env, user.id, mode) }, 200, request, env);
             }
-            return json({ error: "Your card was turned down again. Try another card with Update card." }, 402, request, env);
+            return json({ error: "Your card was turned down again. Try another card with Update card.", card }, 402, request, env);
           } catch (e) {
             const m = String(e.message || "");
-            return json({ error: /authenticat|action/i.test(m) ? "Your bank wants you to confirm this payment. Use Update card and it will ask you." : /declin|insufficient|card/i.test(m) ? "Your card was turned down again. Try another card with Update card." : `Couldn't take the payment: ${m}` }, 402, request, env);
+            return json({ card, error: /authenticat|action/i.test(m) ? "Your bank wants you to confirm this payment. Use Update card and it will ask you." : /declin|insufficient|card/i.test(m) ? "Your card was turned down. Try another card with Update card." : `Couldn't take the payment: ${m}` }, 402, request, env);
           }
         }
 

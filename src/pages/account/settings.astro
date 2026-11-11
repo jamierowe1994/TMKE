@@ -498,7 +498,7 @@ import "../../styles/account-sections.css";
           const due = bill.due || {};
           const retry = due.retry_on ? new Date(due.retry_on).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : 'the next try';
           box.innerHTML = `<div id="ya-cx-idle"><p class="ya-sum" style="margin:0">Your payment for ${esc(due.month || 'this month')} is still due.</p>
-              <p class="ya-blurb">Try your card again now, or update it and we'll use the new one when we try again on ${esc(retry)}. If you'd rather stop Scheduling, you can cancel it instead: it ends straight away and there's nothing to pay. Your designs and Content Calendar stay as they are.</p>
+              <p class="ya-blurb">Try your card again now, or update it and we'll take the payment with the new one straight away. Otherwise we try again on ${esc(retry)}. If you'd rather stop Scheduling, you can cancel it instead: it ends straight away and there's nothing to pay. Your designs and Content Calendar stay as they are.</p>
               <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" data-card-retry>Try my card again</button><button type="button" class="ws-btn ws-btn--ghost" data-card-go>Update card</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-go">Cancel Scheduling</button></div>
               <p class="ya-small" data-retry-msg hidden></p></div>
             <div class="ya-confirm" id="ya-cx-confirm" hidden>
@@ -802,13 +802,23 @@ import "../../styles/account-sections.css";
         if (nm) flash(`${nm} is linked. You can schedule posts to it from the Studio.`);
       }
       // Back from adding a card (Stripe's card step sets it as the one charged).
+      // The new card becomes the one charged, and anything due is paid with it
+      // now: people expect that once they've put their card in (Danielle, 11 Nov).
       if (params.get('card') === 'updated') {
         const u = new URL(location.href); u.searchParams.delete('card'); u.searchParams.set('tab', 'billing');
         history.replaceState(null, '', u.pathname + u.search);
         show('billing');
-        flash(me && me.upgrade && me.upgrade.status === 'past_due'
-          ? "Your card is updated. Press Try my card again to pay what's due now."
-          : 'Your card is updated. We\'ll use it from your next payment.');
+        const due = !!(me && me.upgrade && me.upgrade.status === 'past_due');
+        flash(due ? 'Saving your card and taking the payment…' : 'Saving your card…');
+        let note = '';
+        try {
+          const out = await api('card-done', { body: {} });
+          note = out.paid ? "Your card is updated and the payment has gone through. Scheduling carries on as before." : "Your card is updated. We'll use it from your next payment.";
+        } catch (e) {
+          note = due ? `Your card is saved, but the payment didn't go through. ${e.message}` : e.message;
+        }
+        await loadBilling().catch(() => null);
+        flash(note);
       }
       // Back from Stripe.
       const done = params.get('upgrade');
