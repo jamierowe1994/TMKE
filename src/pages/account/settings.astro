@@ -459,7 +459,8 @@ import "../../styles/account-sections.css";
         const amount = due.amount_pence != null ? gbp2(due.amount_pence) : 'the payment';
         html = `<p class="ya-sum">Your payment didn't go through</p>
           <p class="ya-blurb">We couldn't take ${esc(amount)} for ${esc(due.month || 'this month')}, so we'll try your card again on ${esc(retry)}. If that payment doesn't go through, Scheduling will end that day, so update your card before then if you need to.</p>
-          <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" data-card-go>Update card</button></div>`;
+          <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" data-card-retry>Try my card again</button><button type="button" class="ws-btn ws-btn--ghost" data-card-go>Update card</button></div>
+          <p class="ya-small" data-retry-msg hidden></p>`;
       } else if (ended) {
         html = `<p class="ya-sum">Scheduling has ended</p>
           <p class="ya-blurb">Your last payment didn't go through on either try, so Scheduling ended and your Instagram and Facebook were unlinked. There's nothing to pay, and you can upgrade again whenever you're ready.</p>
@@ -472,6 +473,7 @@ import "../../styles/account-sections.css";
         el.innerHTML = show ? html : ''; el.hidden = !show;
       }
       document.querySelectorAll('.ya-alert [data-card-go]').forEach((b) => b.addEventListener('click', updateCard));
+      document.querySelectorAll('.ya-alert [data-card-retry]').forEach((b) => b.addEventListener('click', retryCard));
       document.querySelector('.ya-alert [data-go-up]')?.addEventListener('click', (e) => { e.preventDefault(); $('ya-up-block')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
     }
 
@@ -489,14 +491,16 @@ import "../../styles/account-sections.css";
           const due = bill.due || {};
           const retry = due.retry_on ? new Date(due.retry_on).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : 'the next try';
           box.innerHTML = `<div id="ya-cx-idle"><p class="ya-sum" style="margin:0">Your payment for ${esc(due.month || 'this month')} is still due.</p>
-              <p class="ya-blurb">Update your card and we'll use it when we try again on ${esc(retry)}. If you'd rather stop Scheduling, you can cancel it instead: it ends straight away and there's nothing to pay. Your designs and Content Calendar stay as they are.</p>
-              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" data-card-go>Update card</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-go">Cancel Scheduling</button></div></div>
+              <p class="ya-blurb">Try your card again now, or update it and we'll use the new one when we try again on ${esc(retry)}. If you'd rather stop Scheduling, you can cancel it instead: it ends straight away and there's nothing to pay. Your designs and Content Calendar stay as they are.</p>
+              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" data-card-retry>Try my card again</button><button type="button" class="ws-btn ws-btn--ghost" data-card-go>Update card</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-go">Cancel Scheduling</button></div>
+              <p class="ya-small" data-retry-msg hidden></p></div>
             <div class="ya-confirm" id="ya-cx-confirm" hidden>
               <span><strong>Cancel Scheduling now?</strong> It ends straight away and your Instagram and Facebook are unlinked, so nothing scheduled will post. There's nothing to pay for ${esc(due.month || 'this month')}.</span>
               <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-cx-yes">Cancel Scheduling</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-no">Keep it</button></div>
             </div>
             <p class="ya-small" id="ya-up-msg" hidden></p>`;
           box.querySelector('[data-card-go]').addEventListener('click', updateCard);
+          box.querySelector('[data-card-retry]').addEventListener('click', retryCard);
           $('ya-cx-go').addEventListener('click', () => { $('ya-cx-idle').hidden = true; $('ya-cx-confirm').hidden = false; });
           $('ya-cx-no').addEventListener('click', () => { $('ya-cx-idle').hidden = false; $('ya-cx-confirm').hidden = true; });
           $('ya-cx-yes').addEventListener('click', () => change('cancel'));
@@ -557,10 +561,11 @@ import "../../styles/account-sections.css";
     async function change(what) {
       const m = $('ya-up-msg');
       document.querySelectorAll('#ya-up button').forEach((b) => { b.disabled = true; });
+      const wasDue = !!(bill && bill.upgrade && bill.upgrade.status === 'past_due');
       try {
         await api(what, { body: {} });
         await loadBilling();
-        flash(what === 'cancel' ? 'Scheduling is cancelled. It runs to the end of the month you\'ve paid for.' : 'Scheduling is staying on your plan.');
+        flash(what === 'cancel' ? (wasDue ? 'Scheduling has ended. There\'s nothing to pay.' : 'Scheduling is cancelled. It runs to the end of the month you\'ve paid for.') : 'Scheduling is staying on your plan.');
       } catch (e) {
         document.querySelectorAll('#ya-up button').forEach((b) => { b.disabled = false; });
         if (m) { m.textContent = e.message; m.classList.add('is-bad'); m.hidden = false; }
@@ -692,6 +697,22 @@ import "../../styles/account-sections.css";
           </tr>`).join('')}</tbody></table></div>`;
       }
       paintBrief();
+    }
+    // Try my card again (Danielle, 11 Nov): the payment that's due, on the card
+    // already on file, now. Doesn't count as one of the two tries.
+    async function retryCard(e) {
+      const b = e.currentTarget, msg = b.closest('.ya-alert, #ya-up')?.querySelector('[data-retry-msg]');
+      const label = b.textContent;
+      b.disabled = true; b.textContent = 'Trying your card…';
+      if (msg) msg.hidden = true;
+      try {
+        await api('retry', { body: {} });
+        await loadBilling();
+        flash("That's gone through. Scheduling carries on as before.");
+      } catch (err) {
+        b.disabled = false; b.textContent = label;
+        if (msg) { msg.textContent = err.message; msg.classList.add('is-bad'); msg.hidden = false; } else flash(err.message);
+      }
     }
     async function updateCard(e) {
       const b = (e && e.currentTarget) || $('ya-card-go'); b.disabled = true;

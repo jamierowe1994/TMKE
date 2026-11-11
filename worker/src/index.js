@@ -6715,11 +6715,11 @@ const CC_PAY_COPY = {
     heading: "We Couldn't Take Your Payment.",
     paras: [
       "We tried to take {amount} for Content Calendar + Scheduling for {month}, but the payment didn't go through.",
-      "We'll try your card once more on {retry}. If you'd like us to use a different card, update it on Your Account › Billing before then. Updating your card won't take the payment straight away. We'll use the new card when we try again.",
+      "We'll try your card once more on {retry}. If you've sorted it out with your bank, press Try my card again on Your Account › Billing and we'll take it straight away. If you'd like us to use a different card, update it there, then press Try my card again.",
       "If the payment doesn't go through on {retry}, Scheduling will end that day. Your Instagram and Facebook will be unlinked, any posts waiting to go out won't be posted, and you'll be back on the Content Calendar your brand pays for.",
       "Whatever happens, your designs and calendar stay as they are.",
     ],
-    button: "Update your card",
+    button: "Sort out my payment",
   },
   ended: {
     bell_title: "Scheduling has ended",
@@ -6896,7 +6896,11 @@ async function ccBillingEvent(env, event, mode) {
       }
       return true;
     }
-    const attempts = Number(o.attempt_count) || (row.failed_attempts + 1);
+    // A member's own "Try my card again" doesn't count towards the two tries
+    // (Danielle, 11 Nov): the invoice carries how many of its attempts were theirs.
+    const manual = Number((o.metadata && o.metadata.manual_tries) || 0);
+    if (o.metadata && o.metadata.manual_last && String(o.metadata.manual_last) === String(o.attempt_count)) return true;
+    const attempts = Math.max(1, (Number(o.attempt_count) || (row.failed_attempts + 1)) - manual);
     await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { failed_attempts: attempts, status: "past_due", updated_at: new Date().toISOString() });
     if (attempts >= 2) {
       // The second try failed: it ends now (the deleted event does the rest).
@@ -9117,7 +9121,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
       // ---- Card subscriptions: the Scheduling upgrade (Danielle, 11 Nov) ----
       // For the account page. Signed-in members only; their own subscription.
-      if (/\/billing\/(me|upgrade|cancel|resume|card|invoices)$/.test(path)) {
+      if (/\/billing\/(me|upgrade|cancel|resume|card|invoices|retry)$/.test(path)) {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
         const a = await memberAccess(env, user);
@@ -9169,6 +9173,30 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           try { const u = new URL(String(b.return_to || "")); if (/(^|\.)tmke\.co\.uk$/.test(u.hostname) || u.hostname === "localhost") back = u.origin + u.pathname; } catch (_) {}
           try { return json({ ok: true, url: await ccStartUpgrade(env, user, mode, level, back), mode }, 200, request, env); }
           catch (e) { return json({ error: e.message }, e.status || 502, request, env); }
+        }
+
+        // Try my card again (Danielle, 11 Nov): take the payment that's due now,
+        // on the card already on file, without waiting for the next try. A
+        // failure here doesn't count towards the two tries that end Scheduling.
+        if (path.endsWith("/billing/retry") && request.method === "POST") {
+          if (!live || live.status !== "past_due") return json({ error: "There's nothing due." }, 409, request, env);
+          const r0 = ((await sbGet(env, "member_subscriptions", `id=eq.${live.id}&select=stripe_subscription_id`)) || [])[0];
+          try {
+            const open = r0 && r0.stripe_subscription_id ? await ccStripe(env, mode, "GET", "invoices", { subscription: r0.stripe_subscription_id, status: "open", limit: 1 }) : null;
+            const inv = open && open.data && open.data[0];
+            if (!inv) return json({ error: "There's nothing due." }, 409, request, env);
+            const tries = Number((inv.metadata && inv.metadata.manual_tries) || 0) + 1;
+            await ccStripe(env, mode, "POST", `invoices/${inv.id}`, { "metadata[manual_tries]": String(tries), "metadata[manual_last]": String((Number(inv.attempt_count) || 0) + 1) });
+            const paid = await ccStripe(env, mode, "POST", `invoices/${inv.id}/pay`, {});
+            if (paid.status === "paid") {
+              await sbPatch(env, "member_subscriptions", `id=eq.${live.id}`, { failed_attempts: 0, status: "active", updated_at: new Date().toISOString() });
+              return json({ ok: true, paid: true, upgrade: await ccActiveUpgrade(env, user.id, mode) }, 200, request, env);
+            }
+            return json({ error: "Your card was turned down again. Try another card with Update card." }, 402, request, env);
+          } catch (e) {
+            const m = String(e.message || "");
+            return json({ error: /authenticat|action/i.test(m) ? "Your bank wants you to confirm this payment. Use Update card and it will ask you." : /declin|insufficient|card/i.test(m) ? "Your card was turned down again. Try another card with Update card." : `Couldn't take the payment: ${m}` }, 402, request, env);
+          }
         }
 
         if (path.endsWith("/billing/cancel") || path.endsWith("/billing/resume")) {
