@@ -6559,8 +6559,22 @@ const CC_LEVEL_NAME = { calendar: "Content Calendar", scheduling: "Content Calen
    at Stripe, we can clearly see what all of the payments relate to"). One
    pattern, TMKE <area>: <what>, and Revenue reads it back. */
 function payLabel(area, what) { return `TMKE ${area}: ${what}`.slice(0, 990); }
-const CC_PAY_WHAT = { scheduling: "Scheduling upgrade", done_for_you: "Done For You upgrade", done_for_you_one_off: "Done For You one-off" };
-function ccPayLabel(level, monthLabel) { return payLabel("Content Calendar", `${CC_PAY_WHAT[level] || CC_LEVEL_NAME[level] || level}${monthLabel ? ", " + monthLabel : ""}`); }
+/* Named by the package (Danielle, 11 Nov): the first payment says what was
+   bought (a TEG agent's upgrade says "upgrade"), each month after says the
+   package they're on, and the subscription is simply the package.
+     TMKE Content Calendar: first payment, February 2027
+     TMKE Content Calendar: monthly, March 2027
+     TMKE Scheduling upgrade: first payment, November 2026
+     TMKE Content Calendar + Scheduling: monthly, December 2026
+     TMKE Done For You: one-off, January 2027 */
+const CC_UPGRADE_NAME = { scheduling: "Scheduling upgrade", done_for_you: "Done For You upgrade" };
+function ccPayLabel(level, monthLabel, kind, basis) {
+  const pkg = CC_LEVEL_NAME[level] || level;
+  if (kind === "subscription") return `TMKE ${pkg}`;
+  if (kind === "one_off") return payLabel(pkg, `one-off${monthLabel ? ", " + monthLabel : ""}`);
+  const area = kind === "first" && basis === "teg_upgrade" ? (CC_UPGRADE_NAME[level] || pkg) : pkg;
+  return payLabel(area, `${kind === "first" ? "first payment" : "monthly"}${monthLabel ? ", " + monthLabel : ""}`);
+}
 
 async function ccUserById(env, id) {
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(id)}`, {
@@ -6705,7 +6719,7 @@ async function ccBillingEvent(env, event, mode) {
         customer: o.customer, "items[0][price]": price, "default_tax_rates[0]": tax,
         default_payment_method: pm || undefined,
         billing_cycle_anchor: Math.floor(anchor / 1000), proration_behavior: "none",
-        description: ccPayLabel(row.level, "monthly"),
+        description: ccPayLabel(row.level, null, "subscription"),
         "metadata[kind]": "cc_upgrade", "metadata[sub_row]": row.id, "metadata[user_id]": row.user_id, "metadata[level]": row.level,
       });
       await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { stripe_subscription_id: sub.id, ...ccSubFields(sub), current_period_end: new Date(anchor).toISOString() });
@@ -6768,7 +6782,7 @@ async function ccBillingEvent(env, event, mode) {
           const line = o.lines && o.lines.data && o.lines.data[0];
           const start = (line && line.period && line.period.start) || o.period_end || o.created;
           const month = new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
-          const label = ccPayLabel(row.level, month);
+          const label = ccPayLabel(row.level, month, "monthly", row.basis);
           let pi = typeof o.payment_intent === "string" ? o.payment_intent : o.payment_intent && o.payment_intent.id;
           if (!pi) {
             const ip = await ccStripe(env, mode, "GET", "invoice_payments", { invoice: o.id, limit: 1 });
@@ -6832,9 +6846,9 @@ async function ccStartUpgrade(env, user, mode, level, back) {
       "line_items[0][price_data][unit_amount]": price.pence,
       "line_items[0][quantity]": 1, "line_items[0][tax_rates][0]": tax,
       "payment_intent_data[setup_future_usage]": "off_session",
-      "payment_intent_data[description]": ccPayLabel(level, monthLabel),
+      "payment_intent_data[description]": ccPayLabel(level, monthLabel, "first", "teg_upgrade"),
       "payment_intent_data[metadata][kind]": "cc_upgrade", "payment_intent_data[metadata][sub_row]": row.id, "payment_intent_data[metadata][level]": level,
-      "invoice_creation[invoice_data][description]": ccPayLabel(level, monthLabel),
+      "invoice_creation[invoice_data][description]": ccPayLabel(level, monthLabel, "first", "teg_upgrade"),
       "invoice_creation[enabled]": "true",
       "invoice_creation[invoice_data][metadata][kind]": "cc_upgrade",
       "custom_text[submit][message]": `Then ${gbp(price.pence)} + VAT on the 1st of each month, from ${new Date(anchor).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" })}. Cancel any time: it runs to the end of the month you've paid for.`,
@@ -9847,7 +9861,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             if (md.order_id)        return { source: "pack",        ref: String(md.order_id) };
             // Content Calendar: the first month (its Checkout) and every renewal (labelled on invoice.paid).
             const cm = c.metadata || {};
-            if (md.kind === "cc_upgrade" || cm.kind === "cc_upgrade" || /^TMKE Content Calendar:/.test(c.description || "")) return { source: "calendar", ref: md.sub_row || cm.sub_row || null };
+            if (md.kind === "cc_upgrade" || cm.kind === "cc_upgrade" || /^TMKE (Content Calendar|Scheduling upgrade|Done For You)/.test(c.description || "")) return { source: "calendar", ref: md.sub_row || cm.sub_row || null };
             return { source: "external", ref: null };
           };
           const tagged = paid.map((c) => ({ charge: c, ...classify(c) }));
