@@ -135,9 +135,9 @@ Staff can add `?as=free` (or any level) to see the hub as that level.
 
 - Prices for each level (Phase 2 can't start without them).
 - TEG: whether brands confirm the count before invoicing.
-- How long the +£12 launch offer runs.
 
 ## Decided
 
 - **Billing date (Danielle, 11 Nov):** everyone is billed on the 1st, for that calendar month. Someone who joins mid-month pays the full month's price on the day they join (that month's posts are all there at once), then on the 1st from the next month. No part-month (pro-rata) prices. Cancelling runs to the end of the paid month. In Stripe: charge the first month in full on joining, then `billing_cycle_anchor` on the next 1st with `proration_behavior: none`. Applies to the Scheduling difference for TEG agents in December too.
+- **The +£12 launch offer (Danielle, 11 Nov):** a TEG agent who upgrades to Scheduling in the first three months it's live (December 2026, January and February 2027) pays +£12 a month, and it stays at £12. Anyone upgrading from 1 March 2027 pays +£15. Read as: the £12 is kept for as long as they stay subscribed; still to confirm whether it's kept if they cancel and come back later. In Stripe: two prices, and the subscription keeps the one it started on.
 - Done For You: who chooses the ten posts, who schedules them.
