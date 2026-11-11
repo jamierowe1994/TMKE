@@ -84,6 +84,34 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         </div>
       </div>
     </div>
+
+    <!-- The Done For You waitlist (Danielle, 11 Nov): sign-ups from the
+         website's waitlist page, in the order they joined. Worker
+         /dfy/waitlist/admin, table dfy_waitlist (dfy_waitlist.sql). -->
+    <div class="ccx" id="ccw">
+      <div class="strip"><span class="strip-t">Done For You waitlist<span id="ccw-count"></span></span></div>
+      <p class="cc-note" id="ccw-loading">Loading…</p>
+      <div class="ccx-body" id="ccw-body" hidden>
+        <div class="ccx-row">
+          <div class="ccx-tx">
+            <p class="ccx-t">Taking sign-ups</p>
+            <p class="cc-hint">Off until the waitlist page goes out. Test logins and staff can sign up while it's off, so the page can be tried.</p>
+          </div>
+          <span class="chip" id="ccw-open-state"></span>
+          <button type="button" class="mbtn" id="ccw-open"></button>
+        </div>
+        <div class="ccx-row">
+          <div class="ccx-tx">
+            <p class="ccx-t">Spaces and who can join</p>
+            <p class="cc-hint">Past the spaces, people go on the reserve list in order. TEG agents only in December; everyone from February.</p>
+          </div>
+          <label class="ccl-price">Spaces <input type="number" min="0" max="500" step="1" id="ccw-spaces" /></label>
+          <select id="ccw-aud" class="ccw-sel"><option value="teg">TEG agents only</option><option value="all">Everyone</option></select>
+        </div>
+        <div class="tablewrap"><table class="ccx-table"><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Brand</th><th>Option</th><th>Agent check</th><th>Joined</th><th>Status</th></tr></thead><tbody id="ccw-rows"></tbody></table></div>
+        <span class="cc-hint" id="ccw-msg"></span>
+      </div>
+    </div>
   </section>
 
   <!-- The opening page (Dani, 9 Nov): a box for each month, Videography's cards
@@ -355,6 +383,10 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .ccx-tx { flex: 1; min-width: 0; }
     .ccx-t { margin: 0 0 2px; color: var(--ink); }
     #ccb .ccx-table td.tx { color: var(--tx); }
+    #ccb .ccw-sel, #ccb .ccw-st { height: 36px; padding: 0 8px; border: 1px solid var(--stone); border-radius: 4px; }
+    #ccb #ccw-spaces { width: 80px; }
+    #ccb label.ccl-price { margin: 0; font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--tx); }
+    #ccb .ccx-table tr.is-gone td { color: var(--tx); text-decoration: line-through; }
     .ccx-add { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     #ccb .ccx-add .find { flex: 0 1 300px; }
     .cc-modal-box.cc-modal-mid { width: min(620px, 100%); }
@@ -1779,10 +1811,70 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       $('cc-tab-overview').hidden = t !== 'overview';
       $('cc-tab-months').hidden = t !== 'months';
       $('cc-tab-build').hidden = t !== 'build';
-      if (t === 'overview') { loadLevels(); loadLaunch(); }
+      if (t === 'overview') { loadLevels(); loadLaunch(); loadWaitlist(); }
     }
 
     // ---- Launch: the December rule and the test logins (Dani, 11 Nov) ----
+    // ---- The Done For You waitlist (Dani, 11 Nov) ----
+    async function waitCall(body) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sign in again to see the waitlist.');
+      const res = await fetch(`${WORKER}/dfy/waitlist/admin`, body
+        ? { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify(body) }
+        : { headers: { Authorization: `Bearer ${session.access_token}` } });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Couldn't reach the waitlist.");
+      return d;
+    }
+    let WAIT = null;
+    const WAIT_STATUS = { waiting: 'Waiting', invited: 'Invited', joined: 'Joined', removed: 'Removed' };
+    function renderWaitlist() {
+      const W = WAIT;
+      if (!W.ready) { $('ccw-loading').textContent = 'Run dfy_waitlist.sql first (after content_calendar_launch.sql). Both are on the SQL to run list.'; return; }
+      $('ccw-loading').hidden = true;
+      $('ccw-body').hidden = false;
+      $('ccw-count').textContent = `${W.taken} of ${W.spaces}`;
+      $('ccw-open-state').textContent = W.open ? 'On' : 'Off';
+      $('ccw-open-state').className = 'chip ' + (W.open ? 'good' : 'plain');
+      $('ccw-open').textContent = W.open ? 'Stop sign-ups' : 'Start sign-ups';
+      $('ccw-spaces').value = W.spaces;
+      $('ccw-aud').value = W.audience;
+      const day = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      $('ccw-rows').innerHTML = (W.list || []).map((r) => `<tr class="${r.status === 'removed' ? 'is-gone' : ''}">
+        <td>${r.place ? (r.reserve ? `Reserve ${r.place - W.spaces}` : r.place) : '–'}</td>
+        <td>${esc(r.name)}</td><td class="tx">${esc(r.email)}</td><td class="tx">${esc(r.brand)}</td>
+        <td class="tx">${esc((W.options || {})[r.option] || r.option)}</td>
+        <td>${r.brand === 'Independent agent' ? '<span class="tx">–</span>' : `<span class="chip ${r.matched ? 'good' : 'wait'}">${r.matched ? 'Agent found' : 'Not found'}</span>`}</td>
+        <td class="tx">${day(r.created_at)}</td>
+        <td><select class="ccw-st" data-ccw="${esc(r.id)}">${Object.entries(WAIT_STATUS).map(([k, t]) => `<option value="${k}"${k === r.status ? ' selected' : ''}>${t}</option>`).join('')}</select></td></tr>`).join('')
+        || '<tr><td colspan="8" class="tx">Nobody on the waitlist yet.</td></tr>';
+    }
+    async function loadWaitlist() {
+      try { WAIT = await waitCall(); renderWaitlist(); }
+      catch (err) { $('ccw-loading').textContent = err.message; }
+    }
+    async function saveWaitlist(body, el) {
+      if (el) el.disabled = true;
+      $('ccw-msg').textContent = '';
+      try { WAIT = await waitCall(body); renderWaitlist(); }
+      catch (err) { $('ccw-msg').textContent = err.message; }
+      if (el) el.disabled = false;
+    }
+    $('ccw-open').addEventListener('click', (e) => {
+      if (!WAIT.open && !confirm('Start taking sign-ups? Anyone with the waitlist page can join once it\'s on.')) return;
+      saveWaitlist({ open: !WAIT.open }, e.currentTarget);
+    });
+    $('ccw-spaces').addEventListener('change', (e) => {
+      const n = Math.round(Number(e.currentTarget.value));
+      if (!(n >= 0)) { e.currentTarget.value = WAIT.spaces; return; }
+      saveWaitlist({ spaces: n }, e.currentTarget);
+    });
+    $('ccw-aud').addEventListener('change', (e) => saveWaitlist({ audience: e.currentTarget.value }, e.currentTarget));
+    $('ccw-rows').addEventListener('change', (e) => {
+      const sel = e.target.closest('[data-ccw]');
+      if (sel) saveWaitlist({ id: sel.dataset.ccw, status: sel.value }, sel);
+    });
+
     async function launchCall(body) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Sign in again to see the launch settings.');

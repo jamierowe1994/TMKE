@@ -6364,12 +6364,18 @@ const CC_TEG_EDITIONS = ["property", "prestige"];
 let CC_SETTINGS_CACHE = null;
 async function ccSettings(env, fresh) {
   if (!fresh && CC_SETTINGS_CACHE && Date.now() - CC_SETTINGS_CACHE.at < 30000) return CC_SETTINGS_CACHE;
-  const row = ((await sbGet(env, "content_calendar_settings", "id=eq.1&select=teg_live,test_user_ids,updated_at,updated_by")) || [])[0];
+  let row = ((await sbGet(env, "content_calendar_settings", "id=eq.1&select=teg_live,test_user_ids,updated_at,updated_by,dfy_spaces,dfy_audience,dfy_open")) || [])[0];
+  // Before dfy_waitlist.sql has added its columns.
+  if (!row) row = ((await sbGet(env, "content_calendar_settings", "id=eq.1&select=teg_live,test_user_ids,updated_at,updated_by")) || [])[0];
   CC_SETTINGS_CACHE = {
     at: Date.now(), ready: !!row,
     teg_live: !!(row && row.teg_live),
     test_user_ids: (row && Array.isArray(row.test_user_ids)) ? row.test_user_ids : [],
     updated_at: row ? row.updated_at : null, updated_by: row ? row.updated_by : null,
+    dfy_ready: !!(row && row.dfy_spaces != null),
+    dfy_spaces: (row && Number(row.dfy_spaces)) || 10,
+    dfy_audience: (row && row.dfy_audience) || "teg",
+    dfy_open: !!(row && row.dfy_open),
   };
   return CC_SETTINGS_CACHE;
 }
@@ -6474,6 +6480,55 @@ async function ccTemplatesById(env, ids, full) {
   return new Map((rows || []).map((t) => [t.id, t]));
 }
 // A published month row this member may open, or null.
+/* ---- The Done For You waitlist (Danielle, 11 Nov 2026; dfy_waitlist.sql) ----
+   Done For You opens in January. In December the website's waitlist page
+   takes sign-ups: 10 spaces, TEG agents only (dfy_audience "teg"); from
+   February the same list opens to independents ("all"). Past the spaces,
+   people join the reserve list in order. Closed (dfy_open false) until the
+   page goes out, except for test logins and staff, so it can be tried. */
+const DFY_TEG_BRANDS = ["The Property Experts", "Prestige Property Experts"];
+const DFY_OPTIONS = { subscription: "The Done For You subscription", add_on: "Done For You as a monthly add-on" };
+async function dfyCounts(env) {
+  const rows = (await sbGetAll(env, "dfy_waitlist", "status=neq.removed&select=id,created_at&order=created_at.asc")) || [];
+  return rows;
+}
+// The confirmation (copy: tmke-copywriter, 11 Nov). A reserve place counts
+// from the end of the spaces, so the eleventh to join is reserve number 1.
+function dfyWaitlistEmail(r, place, spaces, reserve) {
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const first = esc(String(r.name || "").split(" ")[0] || "there");
+  const opt = esc(DFY_OPTIONS[r.option] || "");
+  const what = `<p style="${EM_P}">Done For You is the top tier of the Content Calendar subscription in your Member Hub. Our team takes the month&rsquo;s Content Calendar posts and brands them for you, finalising ten posts a month.</p>
+    <p style="${EM_P}">${opt} is the option you chose when you signed up.</p>`;
+  const tail = `<p style="${EM_P}">If you&rsquo;d like to change your option or come off the list, just reply to this email.</p>
+    <p style="${EM_P}">The TMKE Team</p>`;
+  if (!reserve) return {
+    to: r.email,
+    subject: "You're on the Done For You waitlist.",
+    html: `<div style="${EM_WRAP}">
+      <h1 style="${EM_H1}">You&rsquo;ve Got One of the Spaces.</h1>
+      <p style="${EM_P}">Hi ${first},</p>
+      <p style="${EM_P}">Thanks for joining the Done For You waitlist. You&rsquo;re number ${place} of ${spaces}, so you&rsquo;ve got one of the spaces.</p>
+      ${what}
+      <p style="${EM_P}">Done For You launches in January 2027. We&rsquo;re inviting people in the order they joined, ahead of January, and we&rsquo;ll email you when it&rsquo;s your turn.</p>
+      <p style="${EM_P}">Joining the waitlist doesn&rsquo;t charge you anything. It isn&rsquo;t an account and doesn&rsquo;t commit you to anything.</p>
+      ${tail}
+    </div>`,
+  };
+  return {
+    to: r.email,
+    subject: "You're on the Done For You reserve list.",
+    html: `<div style="${EM_WRAP}">
+      <h1 style="${EM_H1}">You&rsquo;re on the Reserve List.</h1>
+      <p style="${EM_P}">Hi ${first},</p>
+      <p style="${EM_P}">Thanks for joining the Done For You waitlist. All ${spaces} spaces have already been taken, so you&rsquo;re on the reserve list at number ${place - spaces}.</p>
+      <p style="${EM_P}">If a space opens up, we&rsquo;ll offer it to the reserve list in order, and we&rsquo;ll email you when it&rsquo;s your turn.</p>
+      ${what}
+      <p style="${EM_P}">Done For You launches in January 2027. Being on the reserve list doesn&rsquo;t charge you anything. It isn&rsquo;t an account and doesn&rsquo;t commit you to anything.</p>
+      ${tail}
+    </div>`,
+  };
+}
 async function ccOpenMonthRow(env, a, monthId) {
   const m = ((await sbGet(env, "content_months", `id=eq.${encodeURIComponent(monthId)}&select=id,month,edition,status,intro`)) || [])[0];
   if (!m || (m.status !== "published" && !a.staff)) return null;
@@ -8232,6 +8287,99 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         if (!r || !r.ok) return json({ error: "Couldn't save the change." }, 502, request, env);
         CC_SETTINGS_CACHE = null;
         return json(await describe(), 200, request, env);
+      }
+
+      // ---- Done For You waitlist: the website's page (public) ----
+      if (path.endsWith("/dfy/waitlist/status") && request.method === "GET") {
+        const S = await ccSettings(env);
+        if (!S.dfy_ready) return json({ ok: true, ready: false, open: false }, 200, request, env);
+        const taken = (await dfyCounts(env)).length;
+        return json({ ok: true, ready: true, open: S.dfy_open, audience: S.dfy_audience, spaces: S.dfy_spaces,
+          taken, left: Math.max(0, S.dfy_spaces - taken),
+          brands: S.dfy_audience === "teg" ? DFY_TEG_BRANDS : [...DFY_TEG_BRANDS, "Independent agent"],
+          options: DFY_OPTIONS }, 200, request, env);
+      }
+      if (path.endsWith("/dfy/waitlist") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        if (b.hp) return json({ ok: true }, 200, request, env);   // honeypot: a bot, dropped quietly
+        const ip = request.headers.get("CF-Connecting-IP") || "";
+        if (!(await verifyTurnstile(env, b.turnstile_token, ip))) return json({ error: "Spam check failed. Please try again." }, 400, request, env);
+        const S = await ccSettings(env, true);
+        if (!S.dfy_ready) return json({ error: "The waitlist isn't open yet." }, 503, request, env);
+        const name = String(b.name || "").replace(/\s+/g, " ").trim().slice(0, 120);
+        const email = String(b.email || "").trim().toLowerCase().slice(0, 200);
+        const brand = String(b.brand || "").trim();
+        const option = String(b.option || "");
+        if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Add your name and email address." }, 400, request, env);
+        if (!DFY_OPTIONS[option]) return json({ error: "Choose how you'd like Done For You." }, 400, request, env);
+        const brands = S.dfy_audience === "teg" ? DFY_TEG_BRANDS : [...DFY_TEG_BRANDS, "Independent agent"];
+        if (!brands.includes(brand)) return json({ error: S.dfy_audience === "teg"
+          ? "This waitlist is for The Property Experts and Prestige Property Experts agents for now. Independent agents can join from February."
+          : "Choose your brand." }, 400, request, env);
+        // Who they are, if we know them: their contact, and whether they're an agent on that brand.
+        const c = ((await sbGet(env, "contacts", `email=eq.${encodeURIComponent(email)}&select=id,user_id&limit=1`)) || [])[0] || null;
+        let matched = false;
+        if (c && brand !== "Independent agent") {
+          matched = !!(((await sbGet(env, "agent_profiles", `contact_id=eq.${c.id}&brand=eq.${encodeURIComponent(brand)}&left_at=is.null&select=id&limit=1`)) || []).length);
+        }
+        // Closed until the page goes out, but test logins and staff can try it.
+        if (!S.dfy_open) {
+          const viewer = await getUser(request, env).catch(() => null);
+          const tester = (c && c.user_id && S.test_user_ids.includes(c.user_id)) || (viewer && (viewer._isAdmin || S.test_user_ids.includes(viewer.id)));
+          if (!tester) return json({ error: "The waitlist isn't open yet." }, 403, request, env);
+        }
+        let rows = await dfyCounts(env);
+        const existing = ((await sbGet(env, "dfy_waitlist", `email=eq.${encodeURIComponent(email)}&status=neq.removed&select=id,created_at&limit=1`)) || [])[0];
+        if (existing) {
+          const place = rows.findIndex((r) => r.id === existing.id) + 1;
+          return json({ ok: true, already: true, place, spaces: S.dfy_spaces, reserve: place > S.dfy_spaces }, 200, request, env);
+        }
+        const ins = await sbPost(env, "dfy_waitlist", { name, email, brand, option, user_id: c ? c.user_id : null, contact_id: c ? c.id : null,
+          matched, source: String(b.source || "").slice(0, 120) || null }, "return=representation");
+        if (!ins || !ins.ok) {
+          const t = ins ? await ins.text().catch(() => "") : "";
+          if (/duplicate|unique/i.test(t)) return json({ ok: true, already: true }, 200, request, env);
+          return json({ error: "Couldn't add you to the waitlist. Please try again." }, 502, request, env);
+        }
+        const row = ((await ins.json().catch(() => [])) || [])[0] || {};
+        rows = await dfyCounts(env);
+        const place = Math.max(1, rows.findIndex((r) => r.id === row.id) + 1);
+        const reserve = place > S.dfy_spaces;
+        try { await sendEmail(env, dfyWaitlistEmail({ name, email, option }, place, S.dfy_spaces, reserve)); }
+        catch (e) { console.warn("dfy waitlist email", e && e.message); }
+        return json({ ok: true, place, spaces: S.dfy_spaces, reserve }, 200, request, env);
+      }
+
+      // ---- Done For You waitlist: the team's list (staff) ----
+      if (path.endsWith("/dfy/waitlist/admin") && (request.method === "GET" || request.method === "POST")) {
+        const user = await getUser(request, env);
+        if (!user || !user._isAdmin) return json({ error: "Staff only." }, 403, request, env);
+        const S0 = await ccSettings(env, true);
+        if (!S0.dfy_ready) return json({ ok: true, ready: false }, 200, request, env);
+        if (request.method === "POST") {
+          let b; try { b = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+          const set = {};
+          if (Number.isInteger(b.spaces) && b.spaces >= 0 && b.spaces <= 500) set.dfy_spaces = b.spaces;
+          if (b.audience === "teg" || b.audience === "all") set.dfy_audience = b.audience;
+          if (typeof b.open === "boolean") set.dfy_open = b.open;
+          if (Object.keys(set).length) {
+            const r = await sbPatch(env, "content_calendar_settings", "id=eq.1", { ...set, updated_at: new Date().toISOString(), updated_by: user.email || null });
+            if (!r || !r.ok) return json({ error: "Couldn't save the change." }, 502, request, env);
+            CC_SETTINGS_CACHE = null;
+          }
+          if (b.id && (["waiting", "invited", "joined", "removed"].includes(b.status) || typeof b.note === "string")) {
+            const patch = {};
+            if (b.status) { patch.status = b.status; if (b.status === "invited") patch.invited_at = new Date().toISOString(); }
+            if (typeof b.note === "string") patch.note = b.note.trim().slice(0, 500) || null;
+            const r = await sbPatch(env, "dfy_waitlist", `id=eq.${encodeURIComponent(b.id)}`, patch);
+            if (!r || !r.ok) return json({ error: "Couldn't save the change." }, 502, request, env);
+          }
+        }
+        const S = await ccSettings(env, true);
+        const list = (await sbGetAll(env, "dfy_waitlist", "select=id,created_at,name,email,brand,option,matched,status,invited_at,note,source&order=created_at.asc")) || [];
+        let n = 0;
+        list.forEach((r) => { if (r.status !== "removed") { n += 1; r.place = n; r.reserve = n > S.dfy_spaces; } else r.place = null; });
+        return json({ ok: true, ready: true, open: S.dfy_open, audience: S.dfy_audience, spaces: S.dfy_spaces, taken: n, list, options: DFY_OPTIONS }, 200, request, env);
       }
 
       // ── Scheduling (Zernio) ──────────────────────────────────────────────

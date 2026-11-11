@@ -6,6 +6,8 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 - [ ] supabase/content_calendar_launch.sql — the Content Calendar's launch switches: the December rule for TPE and PPE agents (off) and the list of test logins, both on Content calendar › Overview › Launch. Changes nobody's access until you use them. Sends nothing (11 Nov)
 
+- [ ] supabase/dfy_waitlist.sql — the Done For You waitlist: sign-ups from the waitlist page, 10 spaces, TEG agents only in December, listed in order on Content calendar › Overview. Run after content_calendar_launch.sql. Sends nothing (11 Nov)
+
 - [ ] supabase/content_calendar_images_required.sql — the "Images required" tick box at the end of each row on Content calendar › Creation, so Sam can see which designs need her pictures. Changes no post. Sends nothing (10 Nov)
 
 
