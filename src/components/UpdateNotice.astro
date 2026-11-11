@@ -1,0 +1,138 @@
+---
+// "We've updated the site. Refresh to carry on." (Dani, 11 Nov 2026)
+//
+// Every publish gives each CHANGED piece of the site's code a new name and
+// deletes the old one. A page left open across a publish still asks for the
+// old names, so a panel or button that loads its code on first use quietly
+// fails (40 "page not found" hits on /_astro/ files on 10 Nov). Pieces that
+// did not change keep their names, so someone on a page the publish did not
+// touch never sees this.
+//
+// So this only ever speaks after something on THIS page has failed to load,
+// and only once it has checked the piece is really gone (a 404 now, not a
+// Wi-Fi blip). Once per page visit at most, never refreshes by itself (the
+// Studio's own "unsaved changes" warning still guards a refresh), and it can
+// be hidden with the ×. Each showing is logged to site_events as
+// `stale_page`, so the daily check can tell "old page after an update" from a
+// real broken link.
+//
+// Inline on purpose: a script bundled into /_astro/ could itself be one of
+// the pieces that went missing. It sits at the top of <head> so it is
+// listening before the page's own code starts.
+const sbUrl = import.meta.env.PUBLIC_SUPABASE_URL || "";
+const sbKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || "";
+---
+<style is:inline>
+  .tmke-upd { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2147483000;
+    display: flex; align-items: center; gap: 14px; box-sizing: border-box; width: max-content; max-width: calc(100% - 32px);
+    padding: 8px 8px 8px 18px; border-radius: 6px; background: var(--english-violet, #371e28); color: #F0EEEB;
+    font-family: "Darker Grotesque", "Inter", system-ui, sans-serif; font-size: 14px; font-weight: 400; line-height: 1.3;
+    box-shadow: 0 10px 30px rgba(28, 29, 34, 0.18); }
+  .tmke-upd-tx { flex: 1 1 auto; min-width: 0; text-wrap: balance; }
+  .tmke-upd-go { all: unset; flex: 0 0 auto; cursor: pointer; display: inline-flex; align-items: center; height: 32px; padding: 0 14px;
+    border-radius: 4px; background: #F0EEEB; color: var(--english-violet, #371e28); font-family: inherit; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase; transition: background 0.18s; }
+  .tmke-upd-go:hover { background: #fff; }
+  .tmke-upd-x { all: unset; flex: 0 0 auto; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 4px; color: rgba(240, 238, 235, 0.75); font-size: 18px; line-height: 1; }
+  .tmke-upd-x:hover { color: #F0EEEB; background: rgba(240, 238, 235, 0.12); }
+  .tmke-upd-go:focus-visible, .tmke-upd-x:focus-visible { outline: 2px solid #F0EEEB; outline-offset: 2px; }
+  @media (max-width: 560px) { .tmke-upd { left: 16px; right: 16px; transform: none; width: auto; max-width: none; gap: 10px; padding-left: 14px; } }
+</style>
+<script is:inline define:vars={{ sbUrl, sbKey }}>
+  (function () {
+    if (window.__tmkeUpd) return;
+    var state = window.__tmkeUpd = { shown: false, checking: false };
+
+    function chunkPath(u) {
+      try { var x = new URL(u, location.href); return x.origin === location.origin && x.pathname.indexOf("/_astro/") === 0 ? x.href : null; }
+      catch (_) { return null; }
+    }
+    function urlIn(text) {
+      var m = String(text || "").match(/https?:\/\/[^\s'")]+\/_astro\/[^\s'")]+/);
+      return m ? chunkPath(m[0]) : null;
+    }
+    // Is this really a newer site, not a dropped connection? With the piece's
+    // address: it now says "not found". Without one: one of the pieces this
+    // page has loaded now says "not found". (Comparing against a fresh copy
+    // of the page was wrong: pieces the page adds as it runs are never in it.)
+    function gone(u) {
+      return fetch(u, { method: "HEAD", cache: "no-store" }).then(function (r) { return r.status === 404 || r.status === 410; });
+    }
+    function confirmGone(u) {
+      if (u) return gone(u);
+      var seen = {}, mine = [];
+      [].slice.call(document.querySelectorAll('script[src*="/_astro/"], link[href*="/_astro/"]')).forEach(function (el) {
+        var p = chunkPath(el.src || el.href);
+        if (p && !seen[p]) { seen[p] = 1; mine.push(p); }
+      });
+      return Promise.all(mine.slice(0, 30).map(function (p) { return gone(p).catch(function () { return false; }); }))
+        .then(function (r) { return r.indexOf(true) !== -1; });
+    }
+    function maybe(u) {
+      if (state.shown || state.checking) return;
+      state.checking = true;
+      confirmGone(u).then(function (gone) { state.checking = false; if (gone) show(u); }, function () { state.checking = false; });
+    }
+    function log(u) {
+      try { if (localStorage.getItem("tmke-notrack") === "1") return; } catch (_) {}
+      if (!sbUrl || !sbKey) return;
+      try {
+        fetch(sbUrl + "/rest/v1/site_events", {
+          method: "POST", keepalive: true,
+          headers: { apikey: sbKey, Authorization: "Bearer " + sbKey, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ name: "stale_page", path: location.pathname, props: { piece: u ? new URL(u).pathname.split("/").pop() : null } }),
+        }).catch(function () {});
+      } catch (_) {}
+    }
+    function show(u) {
+      if (state.shown) return;
+      state.shown = true;
+      var bar = document.createElement("div");
+      bar.className = "tmke-upd";
+      bar.setAttribute("role", "status");
+      bar.setAttribute("aria-live", "polite");
+      bar.innerHTML = '<span class="tmke-upd-tx">We’ve updated the site. Refresh to carry on.</span>'
+        + '<button type="button" class="tmke-upd-go">Refresh</button>'
+        + '<button type="button" class="tmke-upd-x" aria-label="Hide this message">×</button>';
+      bar.querySelector(".tmke-upd-go").addEventListener("click", function () { location.reload(); });
+      bar.querySelector(".tmke-upd-x").addEventListener("click", function () { bar.remove(); });
+      (document.body || document.documentElement).appendChild(bar);
+      // Sits just above the cookie banner while that is showing, rather than
+      // on top of it; back down to the foot once it has been answered.
+      var lift = function () {
+        if (!bar.isConnected) { clearInterval(t); return; }
+        var cc = document.getElementById("cc-banner"), r = cc && cc.getBoundingClientRect();
+        var up = r && r.height > 0 && getComputedStyle(cc).display !== "none" && getComputedStyle(cc).visibility !== "hidden" && r.top < innerHeight;
+        bar.style.bottom = up ? Math.round(innerHeight - r.top + 12) + "px" : "";
+      };
+      var t = setInterval(lift, 800);
+      lift();
+      log(u);
+    }
+
+    // A failed dynamic import, as Vite reports it.
+    window.addEventListener("vite:preloadError", function (e) { maybe(urlIn(e && e.payload && (e.payload.message || e.payload))); });
+    // The same failure where nothing caught it.
+    window.addEventListener("unhandledrejection", function (e) {
+      var r = e && e.reason, m = r && (r.message || String(r));
+      if (/dynamically imported module|Importing a module script failed|error loading dynamically imported|Unable to preload CSS/i.test(m || "")) maybe(urlIn(m));
+    });
+    // A <script> or stylesheet from /_astro/ that would not load.
+    window.addEventListener("error", function (e) {
+      var t = e && e.target;
+      if (!t || t === window || (t.tagName !== "SCRIPT" && t.tagName !== "LINK")) return;
+      var u = chunkPath(t.src || t.href);
+      if (u) maybe(u);
+    }, true);
+    // And the ones the page's own code catches and carries on from, which
+    // raise no event at all: the browser's own record of what it fetched.
+    try {
+      new PerformanceObserver(function (list) {
+        list.getEntries().forEach(function (en) {
+          if (en.responseStatus === 404 && chunkPath(en.name)) maybe(en.name);
+        });
+      }).observe({ type: "resource", buffered: true });
+    } catch (_) {}
+  })();
+</script>
