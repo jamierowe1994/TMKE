@@ -4255,7 +4255,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       const s = iv.status;
       const late = s === "sent" && iv.due_date && new Date(iv.due_date + "T23:59:59") < new Date();
       if (s === "paid") return vcChip("is-good", "Paid" + (iv.paid_date ? " " + vcDay(iv.paid_date) : ""));
-      if (s === "draft") return vcChip("is-plain", "Draft");
+      if (s === "draft") return VBPENDING.has(iv.id) ? vcChip("is-info", "With Jack to approve") : vcChip("is-plain", "Draft");
       if (s === "void") return vcChip("is-plain", "Void");
       if (s === "sent") return vcChip(late ? "is-bad" : "is-info", (late ? "Overdue, due " : "Sent, due ") + vcDay(iv.due_date));
       return vcChip("is-plain", s || "");
@@ -4359,7 +4359,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       if (chip) chip.innerHTML = vivChip(inv);
       flash();
       let foot = vcFootBtn(`data-vview="${escapeHtml(inv.id)}"`, "View PDF");
-      if (money && inv.status === "draft") foot = vcFootBtn(`data-vdel="${escapeHtml(inv.id)}"`, "Delete") + foot + vcFootBtn(`data-vedit="${escapeHtml(inv.id)}"`, "Edit") + vcFootBtn(`data-vjack="${escapeHtml(inv.id)}"`, "Send for approval", true);
+      if (money && inv.status === "draft") foot = (VBPENDING.has(inv.id) ? `<span class="vc-say">With Jack to approve. Once he does, it goes to the client.</span>` : "") + vcFootBtn(`data-vdel="${escapeHtml(inv.id)}"`, "Delete") + foot + vcFootBtn(`data-vedit="${escapeHtml(inv.id)}"`, "Edit") + (VBPENDING.has(inv.id) ? "" : vcFootBtn(`data-vjack="${escapeHtml(inv.id)}"`, "Send for approval", true));
       else if (books && inv.status === "sent") foot += vcFootBtn(`data-vedit="${escapeHtml(inv.id)}"`, "Edit") + vcFootBtn(`data-vpaid="${escapeHtml(inv.id)}"`, "Mark paid") + vcFootBtn(`data-vresend="${escapeHtml(inv.id)}"`, "Resend", true);
       else if ((inv.status === "sent" || inv.status === "paid") && inv.bill_to_email) foot += vcFootBtn(`data-vresend="${escapeHtml(inv.id)}"`, "Resend", true);
       vivFoot((inv.status === "paid" ? `<span class="vc-say">Paid, so it can't be changed.</span>` : "") + foot);
@@ -4479,7 +4479,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           const d = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(d.error || res.status);
           VBPENDING.add(vivDraft.id);
-          vivFlash = d.test ? `${vivDraft.number} sent for approval. Test mode: the email came to you, not Jack.` : `${vivDraft.number} sent to Jack to approve. Once he does, it goes.`;
+          const num = vivDraft.number;
+          vivTab = "this"; vivSource = null; vivEditDraft = null;
+          vivSent(b, d.test ? `${num} sent for approval. Test mode: the email came to you, not Jack.` : `${num} sent to Jack to approve. Once he does, it goes to the client.`);
+          return;
         } catch (err) { vivFlash = `${vivDraft.number} saved as a draft, but it couldn't go to Jack: ${err.message}`; }
         vivTab = "this"; vivSource = null; vivEditDraft = null;
         renderInvoiceCard(b); vcFillMoney(b);
@@ -4517,6 +4520,26 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
       el.innerHTML = `<span>Subtotal ${vivMoney(t.subtotal)}</span><span>VAT (${t.rate}%) ${vivMoney(t.vat)}</span><strong>Total ${vivMoney(t.total)}</strong>`;
     }
 
+    /* Sent to Jack (Danielle, 11 Nov): close the box, say so where it can't be
+       missed, and redraw the shoot so it reads "With Jack to approve". */
+    function vivSent(b, msg) {
+      vcClose();
+      vbToast(msg);
+      try { renderBoard(); } catch (_) {}
+      try { vcFillMoney(b); } catch (_) {}
+      try { loadInvoices(b); } catch (_) {}
+    }
+    function vbToast(msg) {
+      let t = document.getElementById("vb-toast");
+      if (!t) {
+        t = document.createElement("div");
+        t.id = "vb-toast"; t.setAttribute("role", "status");
+        t.style.cssText = "position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:400;max-width:min(560px,calc(100vw - 32px));padding:12px 18px;border-radius:4px;background:#371e28;color:#fff;font-family:var(--sans);font-size:14px;line-height:1.4;box-shadow:0 18px 40px -18px rgba(55,30,40,.6)";
+        document.body.appendChild(t);
+      }
+      t.textContent = msg; t.hidden = false;
+      clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; }, 6000);
+    }
     function vivStatus(msg, bad) {
       const el = document.getElementById("viv-msg");
       if (!el) return;
@@ -4673,7 +4696,7 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           (iv.status === "sent" || iv.status === "paid") && iv.bill_to_email ? `<button type="button" class="vc-act" data-vresend="${escapeHtml(iv.id)}">Resend</button>` : "",
           (iv.status === "draft" ? raise : money && iv.status !== "void") ? `<button type="button" class="vc-act" data-vedit="${escapeHtml(iv.id)}">Edit</button>` : "",
           money && iv.status !== "paid" && iv.status !== "void" ? `<button type="button" class="vc-act" data-vpaid="${escapeHtml(iv.id)}">Mark paid</button>` : "",
-          raise && iv.status === "draft" ? `<button type="button" class="vc-act" data-vjack="${escapeHtml(iv.id)}">Send for approval</button>` : "",
+          raise && iv.status === "draft" && !VBPENDING.has(iv.id) ? `<button type="button" class="vc-act" data-vjack="${escapeHtml(iv.id)}">Send for approval</button>` : "",
           raise && iv.status === "draft" ? `<button type="button" class="vc-act" data-vdel="${escapeHtml(iv.id)}">Delete</button>` : "",
           money && iv.status !== "draft" && iv.status !== "paid" && iv.status !== "void" ? `<button type="button" class="vc-act" data-vvoid="${escapeHtml(iv.id)}">Void</button>` : "",
         ].join("");
@@ -4741,9 +4764,10 @@ import { VIDEO_SERVICES } from "../../data/videography-services.js";
           const res = await fetch(`${WORKER_URL}/invoicing/approval/request`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: btn.getAttribute("data-vjack") }) });
           const d = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(d.error || res.status);
-          VBPENDING.add(btn.getAttribute("data-vjack"));
-          vivFlash = d.test ? "Sent for approval. Test mode: the email came to you, not Jack." : "Sent to Jack to approve. Once he does, it goes.";
-          vivRefresh(b);
+          const id = btn.getAttribute("data-vjack");
+          VBPENDING.add(id);
+          const num = (find(id).number) || "The invoice";
+          vivSent(b, d.test ? `${num} sent for approval. Test mode: the email came to you, not Jack.` : `${num} sent to Jack to approve. Once he does, it goes to the client.`);
         } catch (err) { vivStatus("Couldn't send it to Jack: " + err.message, true); btn.disabled = false; btn.textContent = "Send for approval"; }
       }));
     }
