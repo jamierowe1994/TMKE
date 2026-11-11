@@ -9141,7 +9141,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
       // ---- Card subscriptions: the Scheduling upgrade (Danielle, 11 Nov) ----
       // For the account page. Signed-in members only; their own subscription.
-      if (/\/billing\/(me|upgrade|cancel|resume|card|invoices|retry|card-done)$/.test(path)) {
+      if (/\/billing\/(me|upgrade|cancel|resume|card|invoices|retry|card-done|card-remove|card-use)$/.test(path)) {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
         const a = await memberAccess(env, user);
@@ -9273,12 +9273,17 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             // The card the subscription charges: the customer's default, else the newest.
             const [cu, pms, inv] = await Promise.all([
               ccStripe(env, mode, "GET", `customers/${id}`, { "expand[]": "invoice_settings.default_payment_method" }).catch(() => null),
-              ccStripe(env, mode, "GET", `customers/${id}/payment_methods`, { type: "card", limit: 1 }),
+              ccStripe(env, mode, "GET", `customers/${id}/payment_methods`, { type: "card", limit: 10 }),
               ccStripe(env, mode, "GET", "invoices", { customer: cust.stripe_customer_id, limit: 24 }),
             ]);
             const dpm = cu && cu.invoice_settings && cu.invoice_settings.default_payment_method;
+            const dpmId = dpm && (typeof dpm === "object" ? dpm.id : dpm);
             const c = (dpm && typeof dpm === "object" && dpm.card) || (pms && pms.data && pms.data[0] && pms.data[0].card);
             const card = c ? { brand: c.brand || null, last4: c.last4 || null, exp_month: c.exp_month || null, exp_year: c.exp_year || null } : null;
+            // Every saved card, the one we charge marked (Danielle, 11 Nov: remove a card only while another is saved).
+            const list = ((pms && pms.data) || []);
+            const chargedId = dpmId || (list[0] && list[0].id) || null;
+            const cards = list.map((pm) => ({ id: pm.id, brand: (pm.card && pm.card.brand) || null, last4: (pm.card && pm.card.last4) || null, exp_month: (pm.card && pm.card.exp_month) || null, exp_year: (pm.card && pm.card.exp_year) || null, charged: pm.id === chargedId }));
             const invoices = ((inv && inv.data) || []).filter((i) => i.status !== "draft").map((i) => {
               const line = i.lines && i.lines.data && i.lines.data[0];
               return {
@@ -9291,8 +9296,40 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
                 pdf: i.invoice_pdf || null,
               };
             });
-            return json({ ok: true, mode, card, invoices }, 200, request, env);
+            return json({ ok: true, mode, card, cards, invoices }, 200, request, env);
           } catch (e) { return json({ error: `Couldn't read your billing: ${e.message}` }, 502, request, env); }
+        }
+
+        // Saved cards (Danielle, 11 Nov): use another saved card for payments, or
+        // remove one, but never the last. Removing the one we charge moves
+        // payments to the newest card left.
+        if ((path.endsWith("/billing/card-remove") || path.endsWith("/billing/card-use")) && request.method === "POST") {
+          const cust = ((await sbGet(env, "member_billing", `user_id=eq.${user.id}&mode=eq.${mode}&select=stripe_customer_id`)) || [])[0];
+          if (!cust || !cust.stripe_customer_id) return json({ error: "There's no card on file yet." }, 404, request, env);
+          const b = await request.json().catch(() => ({}));
+          const cid = encodeURIComponent(cust.stripe_customer_id);
+          try {
+            const [cu, pms] = await Promise.all([
+              ccStripe(env, mode, "GET", `customers/${cid}`),
+              ccStripe(env, mode, "GET", `customers/${cid}/payment_methods`, { type: "card", limit: 10 }),
+            ]);
+            const list = ((pms && pms.data) || []).sort((x, y) => (y.created || 0) - (x.created || 0));
+            const pm = list.find((x) => x.id === String(b.id || ""));
+            if (!pm) return json({ error: "That card isn't on your account." }, 404, request, env);
+            const def = cu && cu.invoice_settings && cu.invoice_settings.default_payment_method;
+            const defId = (def && (typeof def === "object" ? def.id : def)) || (list[0] && list[0].id);
+            if (path.endsWith("/billing/card-use")) {
+              await ccStripe(env, mode, "POST", `customers/${cid}`, { "invoice_settings[default_payment_method]": pm.id });
+              return json({ ok: true }, 200, request, env);
+            }
+            if (list.length < 2) return json({ error: "You need another card saved before you can remove this one." }, 409, request, env);
+            if (pm.id === defId) {
+              const next = list.find((x) => x.id !== pm.id);
+              await ccStripe(env, mode, "POST", `customers/${cid}`, { "invoice_settings[default_payment_method]": next.id });
+            }
+            await ccStripe(env, mode, "POST", `payment_methods/${pm.id}/detach`, {});
+            return json({ ok: true }, 200, request, env);
+          } catch (e) { return json({ error: `Couldn't change your cards: ${e.message}` }, 502, request, env); }
         }
 
         // Update the card: Stripe's own billing page (needs its customer portal saved once in each mode).

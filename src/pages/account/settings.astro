@@ -141,6 +141,8 @@ import "../../styles/account-sections.css";
               <h2 class="ws-block-h" id="ya-pay-h"><span class="ws-block-ch">Chapter 01</span>Payment</h2>
             </header>
             <div class="ya-facts ya-facts--3" id="ya-pay"><p class="ya-state">Loading&hellip;</p></div>
+            <!-- Saved cards, shown when there's more than one (Danielle, 11 Nov). -->
+            <div class="ya-box ya-cards" id="ya-cards" hidden></div>
           </section>
           <section class="ws-block" aria-labelledby="ya-inv-h">
             <header class="ws-block-head">
@@ -277,6 +279,11 @@ import "../../styles/account-sections.css";
     .ya-price s { font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-faint); }
     .ya-up .ya-tag { margin-bottom: 8px; }
     .ya-linknote .ya-sum + .ya-blurb { margin-bottom: 0; }
+    .ya-cards { margin-top: 16px; padding: 18px 26px; }
+    .ya-cards[hidden] { display: none; }
+    .ya-card-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 18px; padding: 12px 0; border-top: 1px solid var(--ws-line); font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-ink); }
+    .ya-card-row:first-of-type { border-top: 0; }
+    .ya-card-row .ya-s { margin: 0; }
     .ya-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: var(--ws-r); background: var(--lilac, #eae5e1); color: var(--english-violet); font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
     .ya-small { margin: 8px 0 0; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-tx); }
     .ya-small.is-bad { color: #8a3f3f; }
@@ -751,6 +758,7 @@ import "../../styles/account-sections.css";
         : fact('When you pay', 'The 1st of each month', 'For that calendar month'));
       $('ya-pay').innerHTML = cards.join('');
       $('ya-card-go')?.addEventListener('click', updateCard);
+      paintCards(inv);
 
       const list = (inv && inv.invoices) || [];
       const st = $('ya-inv-status');
@@ -786,6 +794,32 @@ import "../../styles/account-sections.css";
         b.disabled = false; b.textContent = label;
         if (msg) { msg.textContent = err.message; msg.classList.add('is-bad'); msg.hidden = false; } else flash(err.message);
       }
+    }
+    // Saved cards (Danielle, 11 Nov): with more than one, choose which is used
+    // and remove any, but never the last one.
+    function paintCards(inv) {
+      const el = $('ya-cards'), list = (inv && inv.cards) || [];
+      if (list.length < 2) { el.hidden = true; el.innerHTML = ''; return; }
+      el.innerHTML = `<p class="ya-k">Saved cards</p>${list.map((c) => `<div class="ya-card-row" data-card="${esc(c.id)}">
+          <span>${esc(BRAND[c.brand] || 'Card')} ending ${esc(c.last4)}${c.exp_month ? ` <span class="ya-s" style="display:inline">· Expires ${String(c.exp_month).padStart(2, '0')}/${c.exp_year}</span>` : ''}</span>
+          <span class="ya-s">${c.charged ? 'Used for payments · ' : `<button type="button" class="ya-link" data-card-use>Use this card</button> · `}<button type="button" class="ya-link" data-card-rm>Remove</button></span>
+        </div>`).join('')}`;
+      el.hidden = false;
+      el.querySelectorAll('[data-card-use]').forEach((b) => b.addEventListener('click', async () => {
+        const id = b.closest('[data-card]').dataset.card; b.disabled = true;
+        try { await api('card-use', { body: { id } }); await loadBilling(true); flash("That card will be used for your payments from now on."); }
+        catch (e) { b.disabled = false; flash(e.message); }
+      }));
+      el.querySelectorAll('[data-card-rm]').forEach((b) => b.addEventListener('click', () => {
+        const row = b.closest('[data-card]'), line = b.parentElement;
+        line.innerHTML = `Remove this card? <button type="button" class="ya-link" data-yes>Remove</button> · <button type="button" class="ya-link" data-no>Keep</button>`;
+        line.querySelector('[data-no]').addEventListener('click', () => paintCards(inv));
+        line.querySelector('[data-yes]').addEventListener('click', async () => {
+          line.textContent = 'Removing…';
+          try { await api('card-remove', { body: { id: row.dataset.card } }); await loadBilling(true); flash('Card removed.'); }
+          catch (e) { flash(e.message); paintCards(inv); }
+        });
+      }));
     }
     async function updateCard(e) {
       const b = (e && e.currentTarget) || $('ya-card-go'); b.disabled = true;
