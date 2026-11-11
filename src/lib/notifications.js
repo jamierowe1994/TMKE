@@ -43,6 +43,16 @@ function titleFor(m) {
   return "New message";
 }
 
+// Cut a long line at a word, with an ellipsis, never mid-word ("Your Account
+// > Bill", Dani, 11 Nov).
+function clip(t, n) {
+  const s = String(t || "").trim();
+  if (s.length <= n) return s;
+  const cut = s.slice(0, n + 1);
+  const at = cut.lastIndexOf(" ");
+  return (at > n * 0.6 ? cut.slice(0, at) : s.slice(0, n)).replace(/[\s,;:.\-]+$/, "") + "…";
+}
+
 export async function initNotifications() {
   const lists = Array.from(document.querySelectorAll(".ws-notif-list"));
   if (!lists.length) return;
@@ -107,7 +117,7 @@ export async function initNotifications() {
   const html = items.length
     ? items.map((i) => `<a class="ws-notif-item${i.unread ? " is-unread" : ""}" role="menuitem" href="${esc(i.href)}"${isExternal(i.href) ? ' target="_blank" rel="noopener"' : ""} data-notif-item${i.id ? ` data-notif-id="${esc(i.id)}"` : ""}>
           <span class="ws-notif-ic ws-notif-ic--${i.tone}"><svg viewBox="0 0 24 24" aria-hidden="true">${i.icon}</svg></span>
-          <span class="ws-notif-txt"><b>${esc(i.title)}</b><i>${esc((i.body || "").slice(0, i.long ? 160 : 90))}</i>${i.cta ? `<em class="ws-notif-cta">${esc(i.cta)}</em>` : ""}</span>
+          <span class="ws-notif-txt"><b>${esc(i.title)}</b><i>${esc(clip(i.body, i.long ? 160 : 90))}</i>${i.cta ? `<em class="ws-notif-cta">${esc(i.cta)}</em>` : ""}</span>
           <span class="ws-notif-time">${timeAgo(i.at)}</span>
         </a>`).join("")
     : `<div class="ws-notif-empty">You're all caught up.</div>`;
