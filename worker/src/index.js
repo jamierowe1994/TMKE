@@ -6729,7 +6729,7 @@ const CC_PAY_COPY = {
     paras: [
       "We tried to take {amount} for Content Calendar Plus for {month}, but the payment didn't go through.",
       "We'll try your card once more on {retry}. If you've sorted it out with your bank, press Try my card again on Your Account › Billing and we'll take it straight away. If you'd like to use a different card, update it there and we'll take the payment with it straight away.",
-      "If the payment doesn't go through on {retry}, Scheduling will end that day. Your Instagram and Facebook will be unlinked, any posts waiting to go out won't be posted, and you'll be back on the Content Calendar your brand pays for.",
+      "If the payment doesn't go through on {retry}, Scheduling will end that day. Your Instagram and Facebook will be unlinked, any posts waiting to go out won't be posted, and you'll keep the Content Calendar that's part of your brand licence.",
       "Whatever happens, your designs and calendar stay as they are.",
     ],
     button: "Sort out my payment",
@@ -6741,7 +6741,7 @@ const CC_PAY_COPY = {
     heading: "Scheduling Has Ended.",
     paras: [
       "We tried twice to take {amount} for Content Calendar Plus for {month}. Neither payment went through, so Scheduling ended today.",
-      "Your Instagram and Facebook have been unlinked, and any posts that were waiting to go out have been taken off, so they won't be posted. You're back on the Content Calendar your brand pays for, and your designs and calendar stay as they are.",
+      "Your Instagram and Facebook have been unlinked, and any posts that were waiting to go out have been taken off, so they won't be posted. You still have the Content Calendar that's part of your brand licence, and your designs and calendar stay as they are.",
       "You don't owe anything for {month}, and you won't be asked to pay it. If you'd like Scheduling back, you can upgrade again from Your Account › Plan at any time. The first month is paid in full on the day you upgrade, and you'll need to link your Instagram and Facebook again.",
     ],
     button: "View your plan",
