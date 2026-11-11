@@ -151,7 +151,7 @@ import "../../styles/account-sections.css";
             </header>
             <div id="ya-invoices"><p class="ya-state">Loading&hellip;</p></div>
           </section>
-          <p class="ya-foot">Videography invoices are on <a href="/account/bookings">Bookings</a>. Managed social media invoices are on <a href="/account/social">Your SMM</a>.</p>
+          <p class="ya-foot">Videography booking details and invoices can be found under <a href="/account/bookings"><strong>Bookings</strong></a>, while social media management clients can access their invoices under <a href="/account/social"><strong>Your SMM</strong></a>.</p>
         </div>
 
         <!-- ============ ORDERS ============ -->
@@ -500,14 +500,16 @@ import "../../styles/account-sections.css";
       let html = '';
       if (due) {
         const amount = due.amount_pence != null ? gbp2(due.amount_pence) : 'the payment';
-        html = `<p class="ya-sum">Your payment didn't go through</p>
-          <p class="ya-blurb">We couldn't take ${esc(amount)} for ${esc(due.month || 'this month')}, so we'll try your card again on ${esc(retry)}. If that payment doesn't go through, Scheduling will end that day, so update your card before then if you need to.</p>
+        html = `<p class="ya-sum">Payment failed</p>
+          <p class="ya-blurb">We were unable to take ${esc(amount)} for ${esc(due.month || 'this month')}. We'll try your card again on ${esc(retry)}. If that payment doesn't go through, Scheduling will end that day, so update your card before then if you need to.</p>
           <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" data-card-retry>Try my card again</button><button type="button" class="ws-btn ws-btn--ghost" data-card-go>Update card</button></div>
           <p class="ya-small" data-retry-msg hidden></p>`;
       } else if (ended) {
-        html = `<p class="ya-sum">Scheduling has ended</p>
-          <p class="ya-blurb">Your last payment didn't go through on either try, so Scheduling ended and your Instagram and Facebook were unlinked. There's nothing to pay, and you can upgrade again whenever you're ready.</p>
-          ${bill.offer ? '<div class="ya-acts"><a class="ws-btn ws-btn--primary" href="#ya-up-block" data-go-up>Upgrade to Scheduling</a></div>' : ''}`;
+        const what = ended.amount_pence != null && ended.month ? `your payment of ${esc(gbp2(ended.amount_pence))} for ${esc(ended.month)}` : 'your payment';
+        html = `<p class="ya-sum">Your Content Calendar Plus subscription has ended.</p>
+          <p class="ya-blurb">We were unable to process ${what} and your social media accounts have been unlinked.</p>
+          <p class="ya-blurb">You can upgrade your subscription whenever you're ready.</p>
+          ${bill.offer ? '<div class="ya-acts"><a class="ws-btn ws-btn--primary" href="#ya-up-block" data-go-up>Upgrade your plan</a></div>' : ''}`;
       }
       for (const id of ['ya-plan-alert', 'ya-pay-alert']) {
         const el = $(id);
@@ -759,12 +761,12 @@ import "../../styles/account-sections.css";
         cards.push(fact('Next payment', `${esc(gbp2(monthly))} on ${esc(day(up.renews_on))}`, `Scheduling ${esc(gbp2(up.price_pence))} + VAT ${esc(gbp2(monthly - up.price_pence))}`));
         brief.pay = [`${gbp2(monthly)} on ${new Date(up.renews_on).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`, card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'by card'];
       } else {
-        cards.push(fact('Next payment', 'Nothing due', up && up.ends_on ? `Scheduling ends on ${esc(lastDay(up.ends_on))}` : ''));
+        cards.push(up && up.ends_on ? fact('Next payment', 'No further payments', `Scheduling ends ${esc(lastDay(up.ends_on))}`) : fact('Next payment', 'Nothing due'));
         brief.pay = up && up.status === 'cancelling' ? ['Cancelled', 'nothing to pay'] : ['Nothing to pay', card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'no card on file'];
       }
       cards.push(access && access.source === 'teg'
-        ? fact('Content Calendar', esc(EDITION_LABEL[access.edition] || 'Your brand'), 'Part of your licence')
-        : fact('When you pay', 'The 1st of each month', 'For that calendar month'));
+        ? fact('Content Calendar', `Included with your ${esc(EDITION_LABEL[access.edition] || 'brand')} licence`, 'No additional cost')
+        : fact('When you pay', '1st of each month', 'For the month ahead'));
       $('ya-pay').innerHTML = cards.join('');
       $('ya-card-go')?.addEventListener('click', updateCard);
       paintCards(inv);
@@ -790,7 +792,7 @@ import "../../styles/account-sections.css";
         $('ya-invoices').querySelectorAll('[data-go-tab]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); show(a.dataset.goTab, true); window.scrollTo({ top: 0, behavior: 'smooth' }); }));
         st.hidden = true;
       } else {
-        st.textContent = list.some((i) => i.status === 'open' && i.tried > 0) ? 'Payment failed' : list.some((i) => i.status === 'open') ? 'Payment due' : 'All paid'; st.hidden = false;
+        st.textContent = list.some((i) => i.status === 'open' && i.tried > 0) ? 'Payment failed' : list.some((i) => i.status === 'open') ? 'Payment outstanding' : 'Paid'; st.hidden = false;
         $('ya-invoices').innerHTML = `<div class="ya-tbl"><table>
           <thead><tr><th>Invoice</th><th>For</th><th>Amount</th><th>Status</th><th class="r"></th></tr></thead>
           <tbody>${list.map((i) => `<tr>
@@ -808,12 +810,12 @@ import "../../styles/account-sections.css";
     async function retryCard(e) {
       const b = e.currentTarget, msg = b.closest('.ya-alert, #ya-up')?.querySelector('[data-retry-msg]');
       const label = b.textContent;
-      b.disabled = true; b.textContent = 'Trying your card…';
+      b.disabled = true; b.textContent = 'Processing payment…';
       if (msg) msg.hidden = true;
       try {
         await api('retry', { body: {} });
         await loadBilling(true);
-        flash("That's gone through. Scheduling carries on as before.");
+        flash('Payment received. Thank you.');
       } catch (err) {
         b.disabled = false; b.textContent = label;
         if (msg) { msg.textContent = err.message; msg.classList.add('is-bad'); msg.hidden = false; } else flash(err.message);
@@ -934,13 +936,13 @@ import "../../styles/account-sections.css";
         history.replaceState(null, '', u.pathname + u.search);
         show('billing');
         const due = !!(me && me.upgrade && me.upgrade.status === 'past_due');
-        flash(due ? 'Saving your card and taking the payment…' : 'Saving your card…');
+        flash(due ? 'Saving your card details and processing your payment…' : 'Saving your card details…');
         let note = '';
         try {
           const out = await api('card-done', { body: {} });
-          note = out.paid ? "Your card is updated and the payment has gone through. Scheduling carries on as before." : "Your card is updated. We'll use it from your next payment.";
+          note = out.paid ? 'Your card details have been updated and your payment was successful.' : 'Your card details have been updated.';
         } catch (e) {
-          note = due ? `Your card is saved, but the payment didn't go through. ${e.message}` : e.message;
+          note = due ? "Your card details have been updated, but we couldn't process your payment. Please select Update card to try a different card." : e.message;
         }
         await loadBilling(true).catch(() => null);
         flash(note);

@@ -6722,8 +6722,8 @@ async function zernioTakeBackAll(env, userId) {
 // Failed Scheduling payments, told to the member (copywriter, 11 Nov 2026).
 const CC_PAY_COPY = {
   failed: {
-    bell_title: "Your Scheduling payment didn't go through",
-    bell_body: "We'll try your card again on {retry}, and you can update it on Your Account › Billing before then.",
+    bell_title: "Your Content Calendar Plus payment was unsuccessful",
+    bell_body: "We'll try your card again on {retry}. You can update your card details in Your Account › Billing before then.",
     subject: "Your Scheduling payment didn't go through.",
     heading: "We Couldn't Take Your Payment.",
     paras: [
@@ -6735,8 +6735,8 @@ const CC_PAY_COPY = {
     button: "Sort out my payment",
   },
   ended: {
-    bell_title: "Scheduling has ended",
-    bell_body: "Your payment didn't go through on either try, so your Instagram and Facebook have been unlinked, and your designs and calendar stay as they are.",
+    bell_title: "Your Content Calendar Plus subscription has ended.",
+    bell_body: "We were unable to process your payment of {amount} for {month} and your social media accounts have been unlinked.",
     subject: "Scheduling has ended on your account.",
     heading: "Scheduling Has Ended.",
     paras: [
@@ -6801,7 +6801,7 @@ async function ccEndSubscription(env, row, subId, mode, reason) {
   // and no "didn't go out" emails follow the unlinking.
   try { await zernioTakeBackAll(env, row.user_id); } catch (e) { console.warn("zernio take back", e && e.message); }
   // Their social accounts are disconnected the moment scheduling stops.
-  try { await zernioDisconnectMember(env, row.user_id); } catch (e) { console.warn("zernio disconnect", e && e.message); }
+  try { await zernioDisconnectMember(env, row.user_id, reason === "payment_failed"); } catch (e) { console.warn("zernio disconnect", e && e.message); }
   if (reason === "payment_failed") { try { await ccTellMember(env, row, "ended", { amount: owed.amount || "the payment", month: owed.month || "this month" }); } catch (e) { console.warn("cc tell ended", e && e.message); } }
   try {
     await notifyAdmins(env, { area: "money", event: "cc_upgrade_ended", title: `${mode === "test" ? "Test: " : ""}${CC_LEVEL_NAME[row.level] || row.level} ended`,
@@ -7067,13 +7067,13 @@ const ZERNIO_NAMES = { instagram: "Instagram", facebook: "Facebook", linkedin: "
 // Disconnect a member's accounts from Zernio and tell them why. The one way
 // accounts come off: the idle check below, and (when subscriptions exist)
 // every cancellation, ours or theirs, must call zernioDisconnectMember.
-async function zernioDisconnectAccounts(env, prof, accounts, why) {
+async function zernioDisconnectAccounts(env, prof, accounts, why, quiet) {
   const gone = [];
   for (const a of accounts) {
     const r = await zernio(env, `/accounts/${encodeURIComponent(a._id || a.id)}`, { method: "DELETE" });
     if (r.ok) gone.push(ZERNIO_NAMES[a.platform] || a.platform);
   }
-  if (gone.length && prof.externalId) {
+  if (gone.length && prof.externalId && !quiet) {
     const names = gone.length === 1 ? gone[0] : `${gone.slice(0, -1).join(", ")} and ${gone[gone.length - 1]}`;
     const body = why === "ended"
       ? "Your Content Calendar Plus subscription has ended, so you can no longer post or schedule directly from the Studio. Your designs and Content Calendar remain available."
@@ -7083,13 +7083,15 @@ async function zernioDisconnectAccounts(env, prof, accounts, why) {
   return gone;
 }
 // Every account a member has, off, because their scheduling has ended.
-async function zernioDisconnectMember(env, userId) {
+// quiet: no "We've disconnected" bell, when another bell already says so
+// (Scheduling ended for an unpaid month, Danielle 11 Nov).
+async function zernioDisconnectMember(env, userId, quiet) {
   if (!env.ZERNIO_API_KEY || !userId) return [];
   const found = await zernio(env, `/profiles?externalId=${encodeURIComponent(userId)}`);
   const prof = found.ok && (found.data.profiles || [])[0];
   if (!prof || prof.isDefault) return [];
   const acc = await zernio(env, `/accounts?profileId=${prof._id}`);
-  return zernioDisconnectAccounts(env, prof, (acc.ok && acc.data.accounts) || [], "ended");
+  return zernioDisconnectAccounts(env, prof, (acc.ok && acc.data.accounts) || [], "ended", quiet);
 }
 // May this member schedule? Until subscriptions exist, only when it's opened
 // for everyone; then, their tier (or the TEG add-on) must include scheduling.
@@ -9175,8 +9177,21 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           if (!live) {
             // Only the most recent one, and only when it ended for an unpaid
             // month: someone who cancelled it themselves doesn't need telling.
-            const last = ((await sbGet(env, "member_subscriptions", `user_id=eq.${user.id}&mode=eq.${mode}&status=eq.ended&select=level,ended_at,ended_reason&order=ended_at.desc&limit=1`)) || [])[0];
-            if (last && last.ended_reason === "payment_failed" && last.ended_at && Date.now() - new Date(last.ended_at).getTime() < 30 * 86400000) ended = { level: last.level, reason: "payment_failed", at: last.ended_at };
+            const last = ((await sbGet(env, "member_subscriptions", `user_id=eq.${user.id}&mode=eq.${mode}&status=eq.ended&select=level,ended_at,ended_reason,stripe_subscription_id&order=ended_at.desc&limit=1`)) || [])[0];
+            if (last && last.ended_reason === "payment_failed" && last.ended_at && Date.now() - new Date(last.ended_at).getTime() < 30 * 86400000) {
+              ended = { level: last.level, reason: "payment_failed", at: last.ended_at, amount_pence: null, month: null };
+              // The month that went unpaid, for the notice (Danielle, 11 Nov).
+              try {
+                const v = last.stripe_subscription_id ? await ccStripe(env, mode, "GET", "invoices", { subscription: last.stripe_subscription_id, status: "void", limit: 1 }) : null;
+                const inv = v && v.data && v.data[0];
+                if (inv) {
+                  const line = inv.lines && inv.lines.data && inv.lines.data[0];
+                  const start = (line && line.period && line.period.start) || inv.period_end || inv.created;
+                  ended.amount_pence = inv.amount_due;
+                  ended.month = new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+                }
+              } catch (_) {}
+            }
           }
           return json({ ok: true, mode, level: a.level, source: a.source, upgrade: live, due, ended, vat_rate: vat,
             offer: canUpgrade && price.pence != null ? {
@@ -9237,10 +9252,10 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
               await sbPatch(env, "member_subscriptions", `id=eq.${live.id}`, { failed_attempts: 0, status: "active", updated_at: new Date().toISOString() });
               return json({ ok: true, card, paid: true, upgrade: await ccActiveUpgrade(env, user.id, mode) }, 200, request, env);
             }
-            return json({ error: "Your card was turned down again. Try another card with Update card.", card }, 402, request, env);
+            return json({ error: "We were unable to process your payment. Please select Update card to try a different card.", card }, 402, request, env);
           } catch (e) {
             const m = String(e.message || "");
-            return json({ card, error: /authenticat|action/i.test(m) ? "Your bank wants you to confirm this payment. Use Update card and it will ask you." : /declin|insufficient|card/i.test(m) ? "Your card was turned down. Try another card with Update card." : `Couldn't take the payment: ${m}` }, 402, request, env);
+            return json({ card, error: /authenticat|action/i.test(m) ? "Your bank wants you to confirm this payment. Update card to proceed." : /declin|insufficient|card/i.test(m) ? "We were unable to process your payment. Please select Update card to try a different card." : `We were unable to process your payment: ${m}` }, 402, request, env);
           }
         }
 
@@ -9293,8 +9308,21 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
                 number: i.number || null,
                 created: i.created ? new Date(i.created * 1000).toISOString() : null,
                 paid_at: i.status_transitions && i.status_transitions.paid_at ? new Date(i.status_transitions.paid_at * 1000).toISOString() : null,
-                // The invoice's own description first (Admin, 11 Nov: the first payment's reads best), then its first line.
-                what: i.description || (line && line.description) || null,
+                // What it was for (Danielle, 11 Nov): "{plan}: first payment - {month}",
+                // "{plan}: Upgrade - {month}" (a brand agent's first payment for Plus),
+                // and "{plan} - {month}" each month after.
+                what: (() => {
+                  const plan = CC_LEVEL_NAME.scheduling;
+                  const desc = String(i.description || "");
+                  const fromDesc = (desc.match(/,\s*([A-Z][a-z]+ \d{4})\s*$/) || [])[1];
+                  const subId = i.subscription || (i.parent && i.parent.subscription_details && i.parent.subscription_details.subscription);
+                  if (subId) {
+                    const start = (line && line.period && line.period.start) || i.period_start || i.created;
+                    return `${plan} - ${new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })}`;
+                  }
+                  if (/first payment/i.test(desc) && fromDesc) return /upgrade/i.test(desc) ? `${plan}: Upgrade - ${fromDesc}` : `${plan}: first payment - ${fromDesc}`;
+                  return desc || (line && line.description) || null;
+                })(),
                 total_pence: i.total, status: i.status,
                 ended: (i.metadata && i.metadata.ended) || null,
                 tried: Number(i.attempt_count) || 0,
