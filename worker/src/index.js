@@ -6643,7 +6643,9 @@ async function ccCustomer(env, mode, user, name) {
     const c = await ccStripe(env, mode, "POST", "test_helpers/test_clocks", { frozen_time: Math.floor(Date.now() / 1000), name: `TMKE test login ${String(user.email || user.id).slice(0, 40)}` });
     clock = c.id;
   }
-  const cus = await ccStripe(env, mode, "POST", "customers", { email: user.email || undefined, name: name || undefined, "metadata[user_id]": user.id, test_clock: clock || undefined });
+  // Said in Stripe's customer list, where members sit among invoice payers (Dani, 11 Nov).
+  const cus = await ccStripe(env, mode, "POST", "customers", { email: user.email || undefined, name: name || undefined,
+    description: `${mode === "test" ? "Test login. " : ""}TMKE member: Content Calendar subscription`, "metadata[user_id]": user.id, test_clock: clock || undefined });
   const row = { user_id: user.id, mode, stripe_customer_id: cus.id, test_clock_id: clock };
   await sbPost(env, "member_billing", row, "resolution=merge-duplicates");
   return row;
