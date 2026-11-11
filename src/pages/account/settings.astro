@@ -136,7 +136,7 @@ import "../../styles/account-sections.css";
         <!-- ============ BILLING ============ -->
         <div class="ya-panel" data-panel="billing" hidden>
           <div class="ya-alert" id="ya-pay-alert" role="status" hidden></div>
-          <section class="ws-block" aria-labelledby="ya-pay-h">
+          <section class="ws-block" aria-labelledby="ya-pay-h" id="ya-pay-block">
             <header class="ws-block-head">
               <h2 class="ws-block-h" id="ya-pay-h"><span class="ws-block-ch">Chapter 01</span>Payment</h2>
             </header>
@@ -146,7 +146,7 @@ import "../../styles/account-sections.css";
           </section>
           <section class="ws-block" aria-labelledby="ya-inv-h">
             <header class="ws-block-head">
-              <h2 class="ws-block-h" id="ya-inv-h"><span class="ws-block-ch">Chapter 02</span>Invoices</h2>
+              <h2 class="ws-block-h" id="ya-inv-h"><span class="ws-block-ch" id="ya-inv-ch">Chapter 02</span>Invoices</h2>
               <span class="ws-block-status" id="ya-inv-status" hidden></span>
             </header>
             <div id="ya-invoices"><p class="ya-state">Loading&hellip;</p></div>
@@ -279,6 +279,12 @@ import "../../styles/account-sections.css";
     .ya-price s { font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-faint); }
     .ya-up .ya-tag { margin-bottom: 8px; }
     .ya-linknote .ya-sum + .ya-blurb { margin-bottom: 0; }
+    /* Billing with nothing to bill (Danielle, 11 Nov): a picture and a way on, not an empty table. */
+    .ya-empty { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); overflow: hidden; }
+    .ya-empty-photo { background: url('/assets/bag.jpg') center / cover no-repeat; min-height: 260px; }
+    .ya-empty-tx { padding: 32px 34px; display: flex; flex-direction: column; justify-content: center; }
+    .ya-empty-tx .ya-acts { margin-top: 20px; }
+    @media (max-width: 760px) { .ya-empty { grid-template-columns: 1fr; } .ya-empty-photo { min-height: 180px; } }
     .ya-cards { margin-top: 16px; padding: 18px 26px; }
     .ya-cards[hidden] { display: none; }
     .ya-card-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 18px; padding: 12px 0; border-top: 1px solid var(--ws-line); font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-ink); }
@@ -765,8 +771,23 @@ import "../../styles/account-sections.css";
 
       const list = (inv && inv.invoices) || [];
       const st = $('ya-inv-status');
+      // Never paid by card and nothing running: no Payment chapter, just the
+      // Invoices chapter with a picture and a way on (Danielle, 11 Nov).
+      const paying = !!up || !!card || list.length > 0;
+      $('ya-pay-block').hidden = !paying;
+      $('ya-inv-ch').textContent = paying ? 'Chapter 02' : 'Chapter 01';
       if (!list.length) {
-        $('ya-invoices').innerHTML = '<p class="ya-state">Your invoices will appear here once you pay for anything by card.</p>';
+        const brandLic = access && access.calendar && access.source !== 'staff' ? payer(access).replace(/ \(test login\)$/, '') : '';
+        const offerOn = !!(bill && bill.offer);
+        $('ya-invoices').innerHTML = `<div class="ya-empty"><div class="ya-empty-photo" role="img" aria-label="A TMKE bag"></div><div class="ya-empty-tx">
+            <p class="ya-strap">Invoices</p>
+            <p class="ya-name">No invoices yet</p>
+            <p class="ya-blurb">Any invoices for additional services or purchases you make will appear here.</p>
+            ${brandLic
+              ? (offerOn ? `<div class="ya-acts"><a class="ws-btn ws-btn--primary" href="${HERE}?tab=plan" data-go-tab="plan">See Content Calendar Plus ${ARROW}</a></div>` : '')
+              : `<div class="ya-acts"><a class="ws-btn ws-btn--primary" href="/edit">Browse The Edit ${ARROW}</a></div>`}
+          </div></div>`;
+        $('ya-invoices').querySelectorAll('[data-go-tab]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); show(a.dataset.goTab, true); window.scrollTo({ top: 0, behavior: 'smooth' }); }));
         st.hidden = true;
       } else {
         st.textContent = list.some((i) => i.status === 'open' && i.tried > 0) ? 'Payment failed' : list.some((i) => i.status === 'open') ? 'Payment due' : 'All paid'; st.hidden = false;
