@@ -77,10 +77,10 @@ const FIRST_LOGIN = [
     body: 'Add new design packs from The Edit without leaving your workspace. Anything you buy lands straight in your library below.',
   },
   {
-    path: '/account', target: 'a[href="/account/orders"]', placement: 'bottom',
-    eyebrow: 'Orders',
-    title: 'Your <em>receipts.</em>',
-    body: 'Every purchase, invoice and download lives here. Handy come accounting time.',
+    path: '/account', target: '.ws-whobtn', placement: 'bottom',
+    eyebrow: 'Your Account',
+    title: 'Your <em>account.</em>',
+    body: 'Your plan, your billing and every receipt, under your picture in Your Account.',
   },
   {
     path: '/account', target: '.app-header-dd', placement: 'bottom',

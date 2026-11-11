@@ -8741,7 +8741,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
         if (path.endsWith("/billing/me") && request.method === "GET") {
           const price = await ccUpgradePrice(env, "scheduling", Date.now());
-          return json({ ok: true, mode, level: a.level, source: a.source, upgrade: live,
+          return json({ ok: true, mode, level: a.level, source: a.source, upgrade: live, vat_rate: vat,
             offer: canUpgrade && price.pence != null ? {
               level: "scheduling", name: CC_LEVEL_NAME.scheduling,
               price_pence: price.pence, vat_rate: vat, total_pence: Math.round(price.pence * (1 + vat / 100)),

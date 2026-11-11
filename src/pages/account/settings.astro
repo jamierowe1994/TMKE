@@ -1,0 +1,592 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
+import HubFootBar from "../../components/account/HubFootBar.astro";
+import "../../styles/workspace.css";
+import "../../styles/ws-system.css";
+import "../../styles/account-sections.css";
+---
+
+<!--
+  Your Account (Danielle, 11 Nov 2026; agreed on the mock-up,
+  docs/your-account/index.html). One page for the member's details, their
+  Content Calendar plan, how they pay and what they've ordered. Your Orders
+  moved in as the Orders tab and left the top bar (/account/orders now comes
+  here). Built on the shared hub system: Your SMM's hero, fact cards and
+  table, the Studio's Social / Print switch for the tabs, admin buttons.
+
+  Where the figures come from:
+    · Account  the sign-in (name, email, joined) and /access/me (brand)
+    · Plan     the Worker's /access/me and /billing/me (level, who pays, the
+               upgrade on offer at its real price, the upgrade they have)
+    · Billing  /billing/invoices (card on file, Stripe invoices)
+    · Orders   the orders table, as Your Orders read it
+  Nothing shows until it has loaded: no sample figures.
+-->
+<BaseLayout title="Your Account · TMKE" description="Your details, your plan, how you pay and everything you've ordered." dashboard hideNav hideFooter>
+  <div class="ws">
+    <WorkspaceHeader active="account" />
+    <main class="ws-main">
+      <div class="ws-left">
+
+        <section class="ws-hero ws-hero--sub ya-hero">
+          <div class="ws-hero-copy">
+            <p class="ws-hero-date"><a href="/account" class="back-link">&larr; Workspace</a></p>
+            <h1 class="ws-greeting">Your Account.</h1>
+            <p class="ws-hero-sub">Your details, your plan, how you pay and everything you've ordered.</p>
+            <div class="ws-hero-cta ya-hero-cta">
+              <a class="ws-btn ws-btn--primary" href="/account/settings?tab=plan" data-go-tab="plan">See your plan
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+              <a class="ws-btn ws-btn--ghost" href="/account/contact">Message us</a>
+            </div>
+            <ul class="ws-brief ya-brief" id="ya-brief" hidden></ul>
+          </div>
+          <div class="ws-hero-photo" role="img" aria-label="A styled interior"></div>
+        </section>
+
+        <div class="ya-tabs" role="tablist" aria-label="Your Account">
+          <button type="button" class="ya-tab" role="tab" data-tab="account" aria-selected="true">Account</button>
+          <button type="button" class="ya-tab" role="tab" data-tab="plan" aria-selected="false">Plan</button>
+          <button type="button" class="ya-tab" role="tab" data-tab="billing" aria-selected="false">Billing</button>
+          <button type="button" class="ya-tab" role="tab" data-tab="orders" aria-selected="false">Orders</button>
+        </div>
+
+        <p class="ya-note" id="ya-flash" hidden></p>
+
+        <!-- ============ ACCOUNT ============ -->
+        <div class="ya-panel" data-panel="account">
+          <section class="ws-block" aria-labelledby="ya-det-h">
+            <header class="ws-block-head"><h2 class="ws-block-h" id="ya-det-h"><span class="ws-block-ch">Chapter 01</span>Your details</h2></header>
+            <div class="ya-facts" id="ya-details"><p class="ya-state">Loading your details&hellip;</p></div>
+          </section>
+          <section class="ws-block" aria-labelledby="ya-pw-h">
+            <header class="ws-block-head"><h2 class="ws-block-h" id="ya-pw-h"><span class="ws-block-ch">Chapter 02</span>Password</h2></header>
+            <form class="ya-box" id="ya-pw" novalidate>
+              <div class="ya-pw">
+                <label class="ya-field"><span class="ya-k">New password</span><input id="ya-pw1" type="password" autocomplete="new-password"></label>
+                <label class="ya-field"><span class="ya-k">Type it again</span><input id="ya-pw2" type="password" autocomplete="new-password"></label>
+                <button class="ws-btn ws-btn--primary" type="submit" id="ya-pw-go">Update password</button>
+              </div>
+              <p class="ya-small" id="ya-pw-msg">At least 8 characters.</p>
+            </form>
+          </section>
+        </div>
+
+        <!-- ============ PLAN ============ -->
+        <div class="ya-panel" data-panel="plan" hidden>
+          <section class="ws-block" aria-labelledby="ya-plan-h">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="ya-plan-h"><span class="ws-block-ch">Chapter 01</span>Your plan</h2>
+              <span class="ws-block-status" id="ya-plan-status" hidden></span>
+            </header>
+            <div class="ya-facts" id="ya-plan"><p class="ya-state">Loading your plan&hellip;</p></div>
+          </section>
+          <section class="ws-block" aria-labelledby="ya-up-h" id="ya-up-block" hidden>
+            <header class="ws-block-head"><h2 class="ws-block-h" id="ya-up-h"><span class="ws-block-ch">Chapter 02</span><span id="ya-up-title">Add to your plan</span></h2></header>
+            <div class="ya-box" id="ya-up"></div>
+          </section>
+          <section class="ws-block" aria-labelledby="ya-dfy-h">
+            <header class="ws-block-head"><h2 class="ws-block-h" id="ya-dfy-h"><span class="ws-block-ch">Coming in January</span>Done For You</h2></header>
+            <div class="ya-box ya-box--quiet"><p class="ya-blurb">Ten of the month's posts branded by our team and back in your calendar to approve.</p></div>
+          </section>
+        </div>
+
+        <!-- ============ BILLING ============ -->
+        <div class="ya-panel" data-panel="billing" hidden>
+          <section class="ws-block" aria-labelledby="ya-pay-h">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="ya-pay-h"><span class="ws-block-ch">Chapter 01</span>Payment</h2>
+              <button type="button" class="ws-btn ws-btn--ghost ya-strip-btn" id="ya-card-go" hidden>Update card</button>
+            </header>
+            <div class="ya-facts ya-facts--3" id="ya-pay"><p class="ya-state">Loading&hellip;</p></div>
+          </section>
+          <section class="ws-block" aria-labelledby="ya-inv-h">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="ya-inv-h"><span class="ws-block-ch">Chapter 02</span>Invoices</h2>
+              <span class="ws-block-status" id="ya-inv-status" hidden></span>
+            </header>
+            <div id="ya-invoices"><p class="ya-state">Loading&hellip;</p></div>
+          </section>
+          <p class="ya-foot">Videography invoices are on <a href="/account/bookings">Bookings</a>. Managed social media invoices are on <a href="/account/social">Your SMM</a>.</p>
+        </div>
+
+        <!-- ============ ORDERS ============ -->
+        <div class="ya-panel" data-panel="orders" hidden>
+          <section class="ws-block" aria-labelledby="ya-osum-h">
+            <header class="ws-block-head"><h2 class="ws-block-h" id="ya-osum-h"><span class="ws-block-ch">Chapter 01</span>Summary</h2></header>
+            <div class="ya-facts ya-facts--3" id="ya-osum"><p class="ya-state">Loading your orders&hellip;</p></div>
+          </section>
+          <section class="ws-block" aria-labelledby="ya-olist-h">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="ya-olist-h"><span class="ws-block-ch">Chapter 02</span>All orders</h2>
+              <a class="ws-block-link" href="/edit">Browse The Edit
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+            </header>
+            <div id="ya-orders"></div>
+          </section>
+        </div>
+
+      </div>
+      <HubFootBar emailSlot />
+    </main>
+  </div>
+
+  <style is:global>
+    /* Hero: Your SMM's arrangement - words across the top, buttons bottom
+       left, the three boxes level with them on the right. */
+    .ya-hero > .ws-hero-copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(24px, 3vw, 48px); align-items: end; }
+    .ya-hero .ws-hero-date, .ya-hero .ws-greeting, .ya-hero .ws-hero-sub { grid-column: 1 / -1; }
+    .ya-hero .ya-hero-cta { grid-column: 1; grid-row: 4; align-self: end; display: flex; flex-wrap: wrap; gap: 8px; }
+    .ya-hero .ya-brief { grid-column: 2; grid-row: 4; align-self: end; }
+    .ya-brief[hidden] { display: none !important; }
+    .ya-brief .ws-brief-tx strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+    .ya-brief .ws-brief-ic svg { width: 17px; height: 17px; fill: none; stroke: var(--english-violet); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    @media (max-width: 900px) {
+      .ya-hero > .ws-hero-copy { grid-template-columns: minmax(0, 1fr); }
+      .ya-hero .ya-brief { grid-column: 1; grid-row: 4; margin-top: clamp(18px, 2.4vh, 26px); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .ya-hero .ya-hero-cta { grid-row: 5; }
+    }
+    @media (max-width: 620px) { .ya-hero .ya-brief { grid-template-columns: 1fr; } }
+
+    /* Tabs: the Studio's Social / Print pill (.st-kinds). */
+    .ya-tabs { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; margin: 0 0 var(--ws-gap); border-radius: 999px; background: rgba(28,29,34,0.05); align-self: flex-start; }
+    .ya-tab { appearance: none; border: 0; cursor: pointer; padding: 7px 18px; border-radius: 999px; background: transparent; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ws-faint); transition: background 0.18s, color 0.18s, box-shadow 0.18s; }
+    .ya-tab:hover { color: var(--ws-ink); }
+    .ya-tab[aria-selected="true"] { background: #fff; color: var(--ws-ink); box-shadow: 0 1px 3px rgba(28,29,34,0.16); }
+    .ya-tab:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    .ya-panel { display: flex; flex-direction: column; gap: clamp(24px, 3vh, 32px); }
+    .ya-panel[hidden] { display: none; }
+
+    /* Strip status: Your SMM's. */
+    .ya-panel .ws-block-status { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.78); display: inline-flex; align-items: center; gap: 7px; line-height: 14px; }
+    .ya-panel .ws-block-status[hidden] { display: none; }
+    .ya-panel .ws-block-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--stone, #c9bcb7); }
+    .ya-strip-btn.ws-btn { height: 26px; background: transparent; color: #fff; border-color: rgba(255,255,255,0.35); }
+    .ya-strip-btn.ws-btn:hover { border-color: #fff; color: #fff; }
+    .ya-strip-btn[hidden] { display: none; }
+
+    /* Fact cards: Your SMM's (.soc-pc). Values in Fraunces Light. */
+    .ya-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ws-gap); }
+    .ya-facts--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .ya-facts > .ya-state { grid-column: 1 / -1; }
+    .ya-fc { display: flex; flex-direction: column; gap: 6px; padding: 15px 18px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); min-width: 0; }
+    .ya-k { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
+    .ya-v { margin: 0; font-family: var(--serif); font-size: clamp(20px, 1.8vw, 24px); font-weight: 300; letter-spacing: -0.01em; color: var(--ws-ink); overflow-wrap: anywhere; line-height: 1.25; }
+    .ya-v--plain { font-family: var(--sans); font-size: var(--ws-t-row); font-weight: 500; letter-spacing: 0; display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .ya-v--plain span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ya-v--plain svg { flex: none; width: 13px; height: 13px; fill: none; stroke: var(--ws-faint); stroke-width: 1.8; }
+    .ya-s { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--ws-tx); }
+    .ya-s a { color: var(--english-violet); font-weight: 600; }
+    @media (max-width: 1100px) { .ya-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 620px) { .ya-facts, .ya-facts--3 { grid-template-columns: 1fr; } }
+
+    .ya-box { background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); padding: 24px 26px 22px; min-width: 0; }
+    .ya-box--quiet { background: transparent; border-style: dashed; border-color: var(--stone, #c9bcb7); padding: 16px 18px; }
+    .ya-strap { margin: 0; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); }
+    .ya-name { margin: 8px 0 0; font-family: var(--serif); font-size: clamp(24px, 2.2vw, 28px); font-weight: 300; letter-spacing: -0.02em; line-height: 1.1; color: var(--ws-ink); }
+    .ya-sum { margin: 10px 0 0; font-family: var(--sans); font-size: var(--ws-t-row); font-weight: 700; color: var(--ws-ink); }
+    .ya-blurb { margin: 4px 0 0; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-tx); max-width: 62ch; }
+    .ya-box--quiet .ya-blurb { margin: 0; }
+    .ya-up { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 28px; align-items: end; }
+    .ya-inc { list-style: none; padding: 0; margin: 16px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
+    .ya-inc li { display: flex; gap: 10px; font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-ink); }
+    .ya-inc li::before { content: ""; flex: none; width: 9px; height: 5px; margin-top: 6px; border-left: 1.6px solid var(--english-violet); border-bottom: 1.6px solid var(--english-violet); transform: rotate(-45deg); }
+    .ya-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+    .ya-price b { font-family: var(--serif); font-size: 34px; font-weight: 300; letter-spacing: -0.02em; color: var(--ws-ink); }
+    .ya-price span { font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-tx); }
+    .ya-price s { font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-faint); }
+    .ya-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: var(--ws-r); background: var(--lilac, #eae5e1); color: var(--english-violet); font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+    .ya-small { margin: 8px 0 0; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-tx); }
+    .ya-small.is-bad { color: #8a3f3f; }
+    .ya-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .ya-acts[hidden], .ya-confirm[hidden] { display: none; }
+    .ya-confirm { margin-top: 14px; background: var(--lilac, #eae5e1); border-radius: var(--ws-r); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; font-family: var(--sans); font-size: var(--ws-t-row); color: var(--english-violet); }
+    .ya-confirm .ya-acts { margin-top: 0; }
+    @media (max-width: 1100px) { .ya-up { grid-template-columns: 1fr; } }
+    @media (max-width: 620px) { .ya-inc { grid-template-columns: 1fr; } }
+
+    .ya-pw { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; gap: var(--ws-gap); align-items: end; }
+    .ya-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .ya-field input { height: 30px; border: 1px solid #e2d9d4; border-radius: var(--ws-r); padding: 0 10px; font-family: var(--sans); font-size: var(--ws-t-row); background: #fff; color: var(--ws-ink); width: 100%; box-sizing: border-box; }
+    .ya-field input:focus { outline: none; border-color: var(--english-violet); }
+    @media (max-width: 760px) { .ya-pw { grid-template-columns: 1fr; } }
+
+    /* Tables: Your SMM's invoices (.soc-it), in a white box. */
+    .ya-tbl { background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); overflow-x: auto; }
+    .ya-tbl table { width: 100%; min-width: 620px; border-collapse: collapse; font-family: var(--sans); }
+    .ya-tbl th { text-align: left; padding: 13px 18px 10px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); border-bottom: 1px solid var(--ws-line); }
+    .ya-tbl td { padding: 12px 18px; font-size: var(--ws-t-row); color: var(--ws-ink); border-top: 1px solid var(--ws-line); vertical-align: middle; font-variant-numeric: tabular-nums; }
+    .ya-tbl tbody tr:first-child td { border-top: 0; }
+    .ya-tbl td.r, .ya-tbl th.r { text-align: right; }
+    .ya-tbl .is-muted { color: var(--ws-tx); }
+
+    .ya-state { margin: 0; padding: 16px 18px; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-tx); background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+    .ya-note { margin: 0 0 var(--ws-gap); padding: 12px 16px; border-radius: var(--ws-r); background: var(--lilac, #eae5e1); color: var(--english-violet); font-family: var(--sans); font-size: var(--ws-t-row); }
+    .ya-note[hidden] { display: none; }
+    .ya-foot { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-tx); }
+    .ya-foot a { color: var(--english-violet); font-weight: 600; }
+  </style>
+
+  <script>
+    import { supabase, gbpFromPence } from '../../lib/supabase.js';
+    import { memberAccess, EDITION_LABEL } from '../../lib/calendar-month.js';
+    import { isTrainingDemo } from '../../lib/demo.js';
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const BASE = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+    const HERE = '/account/settings';
+    const gbp2 = (p) => '£' + (Number(p || 0) / 100).toFixed(2);
+    const day = (iso) => { try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'Europe/London' }); } catch (_) { return ''; } };
+    const dayY = (iso) => { try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' }); } catch (_) { return ''; } };
+    // Stripe's period ends at midnight on the 1st; the member keeps it through the day before.
+    const lastDay = (iso) => { try { return day(new Date(new Date(iso).getTime() - 86400000).toISOString()); } catch (_) { return ''; } };
+    const monthY = (iso) => { try { return new Date(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'Europe/London' }); } catch (_) { return ''; } };
+    const fact = (k, v, s, plain) => `<div class="ya-fc"><span class="ya-k">${k}</span><p class="ya-v${plain ? ' ya-v--plain' : ''}">${v}</p>${s ? `<p class="ya-s">${s}</p>` : ''}</div>`;
+    const ARROW = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    let session = null;
+    async function api(route, opts) {
+      const res = await fetch(`${BASE}/billing/${route}`, {
+        method: opts && opts.body ? 'POST' : 'GET',
+        headers: { Authorization: `Bearer ${session.access_token}`, ...(opts && opts.body ? { 'Content-Type': 'application/json' } : {}) },
+        body: opts && opts.body ? JSON.stringify(opts.body) : undefined,
+      }).catch(() => null);
+      const out = res ? await res.json().catch(() => null) : null;
+      if (!res || !res.ok || !out || !out.ok) throw new Error((out && out.error) || "We couldn't reach your billing just now. Try again in a moment.");
+      return out;
+    }
+
+    /* ---------------- tabs ---------------- */
+    const TABS = ['account', 'plan', 'billing', 'orders'];
+    function show(tab, push) {
+      if (!TABS.includes(tab)) tab = 'account';
+      document.querySelectorAll('.ya-panel').forEach((p) => { p.hidden = p.dataset.panel !== tab; });
+      document.querySelectorAll('.ya-tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+      if (push) {
+        const u = new URL(location.href); u.searchParams.set('tab', tab);
+        history.replaceState(null, '', u.pathname + u.search);
+      }
+    }
+    document.querySelectorAll('.ya-tab').forEach((b) => b.addEventListener('click', () => show(b.dataset.tab, true)));
+    document.querySelectorAll('[data-go-tab]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); show(a.dataset.goTab, true); }));
+    const params = new URLSearchParams(location.search);
+    let startTab = params.get('tab');
+    try { const back = sessionStorage.getItem('ya-return-tab'); if (back && !startTab) startTab = back; sessionStorage.removeItem('ya-return-tab'); } catch (_) {}
+    show(startTab || 'account', !!startTab);
+
+    function flash(msg) { const f = $('ya-flash'); f.textContent = msg; f.hidden = !msg; }
+
+    /* ---------------- brief (the three boxes) ---------------- */
+    const IC = {
+      plan: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
+      pay: '<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
+      ord: '<svg viewBox="0 0 24 24"><path d="M6 2l-2 5v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7l-2-5z"/><path d="M4 7h16M16 11a4 4 0 0 1-8 0"/></svg>',
+    };
+    const brief = { plan: null, pay: null, ord: null };
+    function paintBrief() {
+      if (!brief.plan || !brief.pay || !brief.ord) return;
+      const box = (ic, [v, s], tab) => `<li><a class="ws-brief-slot" href="${HERE}?tab=${tab}" data-go-tab="${tab}"><span class="ws-brief-ic">${IC[ic]}</span><span class="ws-brief-tx"><strong>${esc(v)}</strong><span>${esc(s)}</span></span></a></li>`;
+      const ul = $('ya-brief');
+      ul.innerHTML = box('plan', brief.plan, 'plan') + box('pay', brief.pay, 'billing') + box('ord', brief.ord, 'orders');
+      ul.querySelectorAll('[data-go-tab]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); show(a.dataset.goTab, true); }));
+      ul.hidden = false;
+    }
+
+    /* ---------------- account ---------------- */
+    function paintAccount(user, access) {
+      const meta = user.user_metadata || {};
+      const name = meta.name || meta.full_name || '';
+      const brand = access && access.teg && EDITION_LABEL[access.edition] ? EDITION_LABEL[access.edition] : '';
+      const lock = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+      const cards = [];
+      if (name) cards.push(fact('Name', esc(name)));
+      if (brand) cards.push(fact('Brand', esc(brand)));
+      if (user.created_at) cards.push(fact('Member since', esc(monthY(user.created_at))));
+      cards.push(fact('Email', `${lock}<span>${esc(user.email || '')}</span>`, 'Need it changed? <a href="/account/contact">Message us</a> and we\'ll do it for you.', true));
+      $('ya-details').innerHTML = cards.join('');
+    }
+
+    $('ya-pw').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const a = $('ya-pw1').value, b = $('ya-pw2').value, msg = $('ya-pw-msg'), go = $('ya-pw-go');
+      msg.classList.remove('is-bad');
+      if (a.length < 8) { msg.textContent = 'Use at least 8 characters.'; msg.classList.add('is-bad'); return; }
+      if (a !== b) { msg.textContent = "The two passwords don't match."; msg.classList.add('is-bad'); return; }
+      go.disabled = true; msg.textContent = 'Updating…';
+      const { error } = await supabase.auth.updateUser({ password: a });
+      go.disabled = false;
+      if (error) { msg.textContent = `That didn't work: ${error.message}`; msg.classList.add('is-bad'); return; }
+      $('ya-pw1').value = ''; $('ya-pw2').value = '';
+      msg.textContent = 'Password updated. Use it next time you sign in.';
+    });
+
+    /* ---------------- plan ---------------- */
+    const LEVEL_NAME = { free: 'Free membership', calendar: 'Content Calendar', scheduling: 'Content Calendar + Scheduling', done_for_you: 'Done For You' };
+    function payer(access) {
+      if (access.source === 'teg') return EDITION_LABEL[access.edition] || 'Your brand';
+      if (access.source === 'staff') return 'TMKE (staff login)';
+      if (access.source === 'test') return 'Test login';
+      return '';
+    }
+    function monthsLine(access) {
+      const L = access.library;
+      if (!L) return 'None yet';
+      const now = new Date(); const ym = (d) => d.toISOString().slice(0, 7);
+      const thisM = ym(now); const nextM = ym(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)));
+      if (L.from === thisM && L.to === nextM) return 'This month and next';
+      if (L.from === thisM && L.to === thisM) return 'This month';
+      if (!L.from) return 'Every month';
+      return `${monthY(L.from + '-01')} to ${monthY(L.to + '-01')}`;
+    }
+
+    let bill = null, access = null;
+    function paintPlan() {
+      const up = bill && bill.upgrade;
+      const vat = bill && bill.vat_rate != null ? Number(bill.vat_rate) : 20;
+      const status = $('ya-plan-status');
+      const cards = [];
+      if (up) {
+        const monthly = Math.round(up.price_pence * (1 + vat / 100));
+        cards.push(fact('Plan', esc(LEVEL_NAME[up.level] || LEVEL_NAME.scheduling)));
+        cards.push(fact('Content Calendar', esc(payer(access) ? 'Paid by ' + payer(access) : 'Included')));
+        cards.push(fact('Scheduling', `${esc(gbpFromPence(up.price_pence))} a month + VAT`, up.launch_offer ? 'Launch offer, kept while you stay' : 'By card'));
+        cards.push(fact('Next payment', up.renews_on ? `${esc(gbp2(monthly))} on ${esc(day(up.renews_on))}` : 'None', up.ends_on ? `Scheduling ends on ${esc(lastDay(up.ends_on))}` : ''));
+        status.textContent = up.status === 'cancelling' ? `Ends ${lastDay(up.ends_on)}` : up.status === 'past_due' ? 'Payment due' : 'Active';
+        status.hidden = false;
+        brief.plan = ['+ Scheduling', up.status === 'cancelling' ? `ends ${lastDay(up.ends_on)}` : 'on your Content Calendar'];
+      } else {
+        const lvl = access ? access.level : 'free';
+        cards.push(fact('Plan', esc(LEVEL_NAME[lvl] || 'Free membership')));
+        const who = access ? payer(access) : '';
+        if (access && access.calendar) {
+          cards.push(fact('Paid by', esc(who || 'You')));
+          cards.push(fact('Months you can open', esc(monthsLine(access))));
+          cards.push(fact('Scheduling', access.scheduling ? 'Included' : 'Not included'));
+          status.textContent = 'Active'; status.hidden = false;
+        } else {
+          cards.push(fact('Includes', 'The Studio and Planner', 'Your packs, your designs, the Marketing Planner and training'));
+          status.hidden = true;
+        }
+        brief.plan = access && access.calendar ? [LEVEL_NAME[lvl], who ? `paid by ${who === 'Your brand' ? 'your brand' : who}` : 'your plan'] : ['Free membership', 'Studio and Planner'];
+      }
+      $('ya-plan').innerHTML = cards.join('');
+      paintUpgrade();
+      paintBrief();
+    }
+
+    function paintUpgrade() {
+      const block = $('ya-up-block'), box = $('ya-up'), up = bill && bill.upgrade, offer = bill && bill.offer;
+      if (up) {
+        $('ya-up-title').textContent = 'Change your plan';
+        if (up.status === 'cancelling') {
+          box.innerHTML = `<p class="ya-sum" style="margin:0">Scheduling ends on ${esc(lastDay(up.ends_on))}.</p>
+            <p class="ya-blurb">You won't be charged again. Changed your mind? You can keep it.</p>
+            <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-resume">Keep Scheduling</button></div>
+            <p class="ya-small" id="ya-up-msg" hidden></p>`;
+          $('ya-resume').addEventListener('click', () => change('resume'));
+        } else {
+          box.innerHTML = `<div id="ya-cx-idle"><p class="ya-sum" style="margin:0">Cancel Scheduling at any time.</p>
+              <p class="ya-blurb">You keep it to the end of the month you've paid for. Your designs and your Content Calendar stay as they are.</p>
+              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-go">Cancel Scheduling</button></div></div>
+            <div class="ya-confirm" id="ya-cx-confirm" hidden>
+              <span><strong>Cancel Scheduling?</strong> You'll keep it until ${esc(lastDay(up.renews_on))}. After that your Instagram and Facebook disconnect, so anything scheduled later won't post.</span>
+              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-cx-yes">Cancel Scheduling</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-cx-no">Keep it</button></div>
+            </div>
+            <p class="ya-small" id="ya-up-msg" hidden></p>`;
+          $('ya-cx-go').addEventListener('click', () => { $('ya-cx-idle').hidden = true; $('ya-cx-confirm').hidden = false; });
+          $('ya-cx-no').addEventListener('click', () => { $('ya-cx-idle').hidden = false; $('ya-cx-confirm').hidden = true; });
+          $('ya-cx-yes').addEventListener('click', () => change('cancel'));
+        }
+        block.hidden = false;
+        return;
+      }
+      if (!offer) { block.hidden = true; return; }
+      $('ya-up-title').textContent = 'Add to your plan';
+      const was = offer.launch_offer && offer.standard_pence && offer.standard_pence > offer.price_pence ? `<s>${esc(gbpFromPence(offer.standard_pence))}</s><span class="ya-tag">Launch offer</span>` : '';
+      const month = new Date().toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
+      box.innerHTML = `<div class="ya-up">
+          <div>
+            <p class="ya-strap">Post straight from the Studio</p>
+            <p class="ya-name">Scheduling</p>
+            <p class="ya-sum">Schedule your posts to Instagram and Facebook, and they go out on the day.</p>
+            <ul class="ya-inc"><li>Everything in your Content Calendar</li><li>Schedule from the Studio</li><li>Instagram and Facebook</li><li>Cancel at any time</li></ul>
+          </div>
+          <div>
+            <div class="ya-price"><b>+${esc(gbpFromPence(offer.price_pence))}</b><span>a month + VAT</span>${was}</div>
+            <p class="ya-small">${esc(gbp2(offer.total_pence))} a month with VAT. You pay on the 1st of each month, and your first month in full today.</p>
+            <div class="ya-acts" id="ya-up-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-up-go">Upgrade to Scheduling</button></div>
+            <div class="ya-confirm" id="ya-up-confirm" hidden>
+              <span><strong>${esc(gbp2(offer.total_pence))} today</strong> for ${esc(month)}, then ${esc(gbp2(offer.total_pence))} on the 1st of each month. You'll add your card on the next page.</span>
+              <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-up-yes">Continue to payment</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-up-no">Not now</button></div>
+            </div>
+            <p class="ya-small is-bad" id="ya-up-msg" hidden></p>
+          </div>
+        </div>`;
+      $('ya-up-go').addEventListener('click', () => { $('ya-up-acts').hidden = true; $('ya-up-confirm').hidden = false; });
+      $('ya-up-no').addEventListener('click', () => { $('ya-up-acts').hidden = false; $('ya-up-confirm').hidden = true; });
+      $('ya-up-yes').addEventListener('click', async () => {
+        const btn = $('ya-up-yes'); btn.disabled = true; btn.textContent = 'Opening payment…';
+        try {
+          const out = await api('upgrade', { body: { level: offer.level, return_to: location.origin + HERE } });
+          try { sessionStorage.setItem('ya-return-tab', 'plan'); } catch (_) {}
+          location.href = out.url;
+        } catch (e) {
+          btn.disabled = false; btn.textContent = 'Continue to payment';
+          const m = $('ya-up-msg'); m.textContent = e.message; m.hidden = false;
+        }
+      });
+      block.hidden = false;
+    }
+
+    async function change(what) {
+      const m = $('ya-up-msg');
+      document.querySelectorAll('#ya-up button').forEach((b) => { b.disabled = true; });
+      try {
+        await api(what, { body: {} });
+        await loadBilling();
+        flash(what === 'cancel' ? 'Scheduling is cancelled. It runs to the end of the month you\'ve paid for.' : 'Scheduling is staying on your plan.');
+      } catch (e) {
+        document.querySelectorAll('#ya-up button').forEach((b) => { b.disabled = false; });
+        if (m) { m.textContent = e.message; m.classList.add('is-bad'); m.hidden = false; }
+      }
+    }
+
+    /* ---------------- billing ---------------- */
+    const BRAND = { visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', discover: 'Discover', diners: 'Diners Club', jcb: 'JCB', unionpay: 'UnionPay' };
+    const INV_STATE = { paid: 'Paid', open: 'Due', void: 'Cancelled', uncollectible: 'Unpaid' };
+    function paintBilling(inv) {
+      const up = bill && bill.upgrade;
+      const vat = bill && bill.vat_rate != null ? Number(bill.vat_rate) : 20;
+      const card = inv && inv.card;
+      const cards = [];
+      cards.push(card
+        ? fact('Card on file', `${esc(BRAND[card.brand] || 'Card')} ending ${esc(card.last4)}`, card.exp_month ? `Expires ${String(card.exp_month).padStart(2, '0')}/${card.exp_year}` : '')
+        : fact('Card on file', 'None', 'You add one if you upgrade.'));
+      if (up && up.renews_on) {
+        const monthly = Math.round(up.price_pence * (1 + vat / 100));
+        cards.push(fact('Next payment', `${esc(gbp2(monthly))} on ${esc(day(up.renews_on))}`, `Scheduling ${esc(gbp2(up.price_pence))} + VAT ${esc(gbp2(monthly - up.price_pence))}`));
+        brief.pay = [`${gbp2(monthly)} on ${new Date(up.renews_on).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`, card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'by card'];
+      } else {
+        cards.push(fact('Next payment', 'Nothing due', up && up.ends_on ? `Scheduling ends on ${esc(lastDay(up.ends_on))}` : ''));
+        brief.pay = ['Nothing to pay', card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'no card on file'];
+      }
+      cards.push(access && access.source === 'teg'
+        ? fact('Content Calendar', 'Paid by your brand', esc(EDITION_LABEL[access.edition] || ''))
+        : fact('When you pay', 'The 1st of each month', 'For that calendar month'));
+      $('ya-pay').innerHTML = cards.join('');
+      $('ya-card-go').hidden = !card;
+
+      const list = (inv && inv.invoices) || [];
+      const st = $('ya-inv-status');
+      if (!list.length) {
+        $('ya-invoices').innerHTML = '<p class="ya-state">Your invoices will appear here once you pay for anything by card.</p>';
+        st.hidden = true;
+      } else {
+        st.textContent = list.some((i) => i.status === 'open') ? 'Payment due' : 'All paid'; st.hidden = false;
+        $('ya-invoices').innerHTML = `<div class="ya-tbl"><table>
+          <thead><tr><th>Invoice</th><th>For</th><th>Amount</th><th>Status</th><th class="r"></th></tr></thead>
+          <tbody>${list.map((i) => `<tr>
+            <td>${esc(i.number || '—')}</td>
+            <td>${esc(i.what || '')}</td>
+            <td>${esc(gbp2(i.total_pence))}</td>
+            <td class="is-muted">${esc(INV_STATE[i.status] || i.status)}${i.status === 'paid' && (i.paid_at || i.created) ? ' ' + esc(dayY(i.paid_at || i.created)) : ''}</td>
+            <td class="r">${i.pdf ? `<a class="ws-btn ws-btn--ghost" href="${esc(i.pdf)}" target="_blank" rel="noopener">Download</a>` : ''}</td>
+          </tr>`).join('')}</tbody></table></div>`;
+      }
+      paintBrief();
+    }
+    $('ya-card-go').addEventListener('click', async () => {
+      const b = $('ya-card-go'); b.disabled = true;
+      try {
+        const out = await api('card', { body: { return_to: location.origin + HERE } });
+        try { sessionStorage.setItem('ya-return-tab', 'billing'); } catch (_) {}
+        location.href = out.url;
+      } catch (e) { b.disabled = false; flash(e.message); }
+    });
+
+    async function loadBilling() {
+      let me = null, inv = null, failed = '';
+      try { me = await api('me'); } catch (e) { failed = e.message; }
+      bill = me;
+      try { inv = await api('invoices'); } catch (e) { failed = failed || e.message; }
+      paintPlan();
+      if (inv) paintBilling(inv);
+      else {
+        $('ya-pay').innerHTML = `<p class="ya-state">${esc(failed || "We couldn't load your billing.")}</p>`;
+        $('ya-invoices').innerHTML = '';
+        brief.pay = ['Billing', 'see the Billing tab']; paintBrief();
+      }
+      return me;
+    }
+
+    /* ---------------- orders (Your Orders, moved in) ---------------- */
+    const METHOD = { apple_pay: 'Apple Pay', google_pay: 'Google Pay', card: 'Card', bank_transfer: 'Bank transfer' };
+    const ORDER_STATE = { paid: 'Paid', due: 'Due', sent: 'Due', overdue: 'Overdue', pending: 'Pending', refunded: 'Refunded', cancelled: 'Cancelled' };
+    async function loadOrders(user) {
+      const { data, error } = await supabase.from('orders')
+        .select('id, pack_title, amount_pence, invoice_number, status, payment_method, created_at')
+        .or(`user_id.eq.${user.id},buyer_email.ilike.${user.email}`)
+        .order('created_at', { ascending: false });
+      if (error) {
+        $('ya-osum').innerHTML = `<p class="ya-state">Couldn't load your orders: ${esc(error.message)}</p>`;
+        brief.ord = ['Orders', 'see the Orders tab']; paintBrief();
+        return;
+      }
+      const list = data || [];
+      const spend = list.filter((o) => o.status === 'paid').reduce((t, o) => t + (o.amount_pence || 0), 0);
+      $('ya-osum').innerHTML = fact('Total orders', String(list.length)) + fact('Lifetime spend', esc(gbpFromPence(spend) || '£0')) + fact('Last purchase', list[0] ? esc(day(list[0].created_at)) : 'None yet');
+      brief.ord = list.length ? [`${list.length} order${list.length === 1 ? '' : 's'}`, `last on ${day(list[0].created_at)}`] : ['No orders', 'yet'];
+      paintBrief();
+      $('ya-orders').innerHTML = list.length
+        ? `<div class="ya-tbl"><table>
+            <thead><tr><th>Pack</th><th>Invoice</th><th>Bought</th><th>Amount</th><th>Status</th><th class="r"></th></tr></thead>
+            <tbody>${list.map((o) => `<tr>
+              <td>${esc(o.pack_title || 'Order')}</td>
+              <td class="is-muted">${esc(o.invoice_number || '—')}</td>
+              <td class="is-muted">${esc(dayY(o.created_at))}${o.payment_method ? ' · ' + esc(METHOD[o.payment_method] || o.payment_method) : ''}</td>
+              <td>${esc(gbpFromPence(o.amount_pence))}</td>
+              <td class="is-muted">${esc(ORDER_STATE[o.status] || o.status)}</td>
+              <td class="r"><a class="ws-btn ws-btn--ghost" href="/account/orders/receipt?order=${encodeURIComponent(o.id)}">Receipt</a></td>
+            </tr>`).join('')}</tbody></table></div>`
+        : '<p class="ya-state">No orders yet. When you buy a pack from The Edit, the receipt will live here.</p>';
+    }
+
+    /* ---------------- start ---------------- */
+    (async () => {
+      const isDemo = import.meta.env.DEV || isTrainingDemo();
+      ({ data: { session } } = await supabase.auth.getSession());
+      if (!session) { if (!isDemo) location.replace('/login?next=' + encodeURIComponent(HERE + location.search)); return; }
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (!user || error) { if (!isDemo) location.replace('/login?next=' + encodeURIComponent(HERE + location.search)); return; }
+      const email = $('footer-email'); if (email) email.textContent = user.email || '';
+
+      access = await memberAccess(supabase);
+      paintAccount(user, access);
+      loadOrders(user);
+      const me = await loadBilling();
+
+      // Back from Stripe.
+      const done = params.get('upgrade');
+      if (done) {
+        const u = new URL(location.href); u.searchParams.delete('upgrade'); u.searchParams.set('tab', 'plan');
+        history.replaceState(null, '', u.pathname + u.search);
+        show('plan');
+        if (done === 'cancelled') flash('No payment was taken. You can upgrade whenever you like.');
+        else if (me && me.upgrade) flash('Scheduling is on. Thank you.');
+        else {
+          // Stripe tells us a moment after it takes the payment.
+          flash('Payment received. Setting up Scheduling…');
+          for (let i = 0; i < 10; i++) {
+            await new Promise((r) => setTimeout(r, 2000));
+            const again = await loadBilling().catch(() => null);
+            if (again && again.upgrade) { flash('Scheduling is on. Thank you.'); return; }
+          }
+          flash("Payment received. Scheduling is still being set up: refresh in a minute, or message us if it doesn't show.");
+        }
+      }
+    })();
+  </script>
+</BaseLayout>
