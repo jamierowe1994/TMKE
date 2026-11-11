@@ -122,7 +122,7 @@ import "../../styles/account-sections.css";
              the way in (the plan's demo, Dani 21 Oct). -->
         <div class="cc-lock" id="cc-lock" hidden>
           <h3 class="cc-lock-h" id="cc-lock-h"></h3>
-          <p class="cc-lock-tx">A ready-made post for every weekday, on its day, to brand and post.</p>
+          <p class="cc-lock-tx">Get a month's worth of ready-made content, with a post for every weekday. Just add your branding and make it yours.</p>
         </div>
       </div>
       <button type="button" class="cc-tab" id="cc-tab" hidden></button>
@@ -228,7 +228,7 @@ import "../../styles/account-sections.css";
           </label>
           <!-- Post it for me (Phase 4, Danielle, 11 Nov): schedule this post to
                their linked Instagram and Facebook through Zernio. Filled by
-               paintSched(); locked below Content Calendar + Scheduling. -->
+               paintSched(); locked below Content Calendar Plus. -->
           <section class="sch" id="post-sched" hidden aria-labelledby="sch-h">
             <div class="sch-head"><span class="post-label" id="sch-h">Post it for me</span><span class="sch-state" id="sch-state" hidden></span></div>
             <div class="sch-body" id="sch-body"></div>
@@ -1903,10 +1903,12 @@ import "../../styles/account-sections.css";
       const lock = document.getElementById('cc-lock');
       if (lock) {
         lock.hidden = !m.preview;
-        document.getElementById('cc-lock-h').textContent = 'Subscribe to use ' + name;
+        // Danielle's wording (hub-wording doc, section 1, 11 Nov).
+        const mName = new Date(String(m.month.month).slice(0, 7) + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long' });
+        document.getElementById('cc-lock-h').textContent = `Unlock ${mName}'s Templates`;
       }
       document.getElementById('cc-ours-sub').textContent = m.preview
-        ? 'One for each weekday, ready to brand and post.'
+        ? 'A ready-made post for every weekday, ready to make your own.'
         : 'One for each weekday. Click a post to see it full size.';
       // Staff testing: a month published for more than one edition.
       const ed = document.getElementById('cc-ours-ed');
@@ -2297,7 +2299,7 @@ import "../../styles/account-sections.css";
       if (!access || (!access.calendar && !access.scheduling)) { sec.hidden = true; return; }
       // Row 6: on the calendar without Scheduling, locked, pointing to the upgrade.
       if (!access.scheduling) {
-        body.innerHTML = `<p class="sch-note">Schedule this post to go out on Instagram and Facebook by itself. Included in Content Calendar + Scheduling. <a href="${PLAN_LINK}">See your plan &rarr;</a></p>`;
+        body.innerHTML = `<p class="sch-note">Schedule this post to go out on Instagram and Facebook by itself. Included in Content Calendar Plus. <a href="${PLAN_LINK}">See your plan &rarr;</a></p>`;
         return;
       }
       if (!p.asset_url) {
@@ -2311,7 +2313,7 @@ import "../../styles/account-sections.css";
       const accs = (status.accounts || []).filter((a) => SCH_PLATS[a.platform]);
       schedAccsShown = accs;
       if (!status.open || !accs.length) {
-        body.innerHTML = `<p class="sch-note">Link Instagram or Facebook first, on Your Account. <a href="${PLAN_LINK}">Link your accounts &rarr;</a></p>`;
+        body.innerHTML = `<p class="sch-note">Connect Instagram or Facebook first, on Your Account. <a href="${PLAN_LINK}">Connect your accounts &rarr;</a></p>`;
         return;
       }
       const results = z && Array.isArray(z.results) ? z.results : [];
