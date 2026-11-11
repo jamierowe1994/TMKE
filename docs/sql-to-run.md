@@ -4,19 +4,12 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/content_calendar_launch.sql — the Content Calendar's launch switches: the December rule for TPE and PPE agents (off) and the list of test logins, both on Content calendar › Overview › Launch. Changes nobody's access until you use them. Sends nothing (11 Nov)
-
-- [ ] supabase/dfy_waitlist.sql — the Done For You waitlist: sign-ups from the waitlist page, 10 spaces, TEG agents only in December, listed in order on Content calendar › Overview. Run after content_calendar_launch.sql. Sends nothing (11 Nov)
-
 - [ ] supabase/content_calendar_images_required.sql — the "Images required" tick box at the end of each row on Content calendar › Creation, so Sam can see which designs need her pictures. Changes no post. Sends nothing (10 Nov)
-
-
-
-
-
 
 ## Done
 
+- [x] supabase/content_calendar_launch.sql — the Content Calendar's launch switches: the December rule for TPE and PPE agents (off) and the list of test logins, both on Content calendar › Overview › Launch. Changes nobody's access until you use them. Sends nothing (11 Nov; ran 11 Nov)
+- [x] supabase/dfy_waitlist.sql — the Done For You waitlist: sign-ups from the waitlist page, 10 spaces, TEG agents only in December, listed in order on Content calendar › Overview. Run after content_calendar_launch.sql. Sends nothing (11 Nov; ran 11 Nov)
 - [x] supabase/regular_invoices_tidy.sql — Regular invoices duplicates: Southam's monthly invoice tied to its card so it shows once, under Social media; PPE Monthly Assets, TLE Monthly Assets and TPE Marketing Hub stopped, leaving the proper ones that go out by themselves. Keeps a backup, deletes nothing and sends nothing. Lists what's left at the end (10 Nov; ran 10 Nov)
 - [x] supabase/content_calendar_dec_plan.sql — one-off: your December plan into The Property Experts' December, matched by date (title, type, pillar, tied day, note). Keeps a backup first and doesn't touch designs or captions. Sends nothing (9 Nov; ran 9 Nov)
 - [x] supabase/content_calendar_builder.sql — the new Content calendar page: adds empty fields for the month's stage, image, go-live date, shortlist and a note on each post. Doesn't change any post, so December stays as it is. Sends nothing (9 Nov; ran 9 Nov)
