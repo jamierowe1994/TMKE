@@ -6555,6 +6555,12 @@ function dfyWaitlistEmail(r, place, spaces, reserve) {
 // the launch offer is below. Change them here and on Overview, nowhere else.
 const CC_LAUNCH_OFFER = { level: "scheduling", pence: 1200, until: "2027-03-01" };   // £12 a month, kept while they stay, for upgrades before 1 March 2027
 const CC_LEVEL_NAME = { calendar: "Content Calendar", scheduling: "Content Calendar + Scheduling", done_for_you: "Done For You" };
+/* What every payment is called in Stripe (Danielle, 11 Nov: "if we're looking
+   at Stripe, we can clearly see what all of the payments relate to"). One
+   pattern, TMKE <area>: <what>, and Revenue reads it back. */
+function payLabel(area, what) { return `TMKE ${area}: ${what}`.slice(0, 990); }
+const CC_PAY_WHAT = { scheduling: "Scheduling upgrade", done_for_you: "Done For You upgrade", done_for_you_one_off: "Done For You one-off" };
+function ccPayLabel(level, monthLabel) { return payLabel("Content Calendar", `${CC_PAY_WHAT[level] || CC_LEVEL_NAME[level] || level}${monthLabel ? ", " + monthLabel : ""}`); }
 
 async function ccUserById(env, id) {
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(id)}`, {
@@ -6699,6 +6705,7 @@ async function ccBillingEvent(env, event, mode) {
         customer: o.customer, "items[0][price]": price, "default_tax_rates[0]": tax,
         default_payment_method: pm || undefined,
         billing_cycle_anchor: Math.floor(anchor / 1000), proration_behavior: "none",
+        description: ccPayLabel(row.level, "monthly"),
         "metadata[kind]": "cc_upgrade", "metadata[sub_row]": row.id, "metadata[user_id]": row.user_id, "metadata[level]": row.level,
       });
       await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { stripe_subscription_id: sub.id, ...ccSubFields(sub), current_period_end: new Date(anchor).toISOString() });
@@ -6755,6 +6762,27 @@ async function ccBillingEvent(env, event, mode) {
     if (!row) return false;
     if (event.type === "invoice.paid") {
       if (row.failed_attempts) await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { failed_attempts: 0, status: row.status === "past_due" ? "active" : row.status, updated_at: new Date().toISOString() });
+      // Name the payment for the month it pays for, so Stripe and Revenue say what it was.
+      if (Number(o.amount_paid) > 0) {
+        try {
+          const line = o.lines && o.lines.data && o.lines.data[0];
+          const start = (line && line.period && line.period.start) || o.period_end || o.created;
+          const month = new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+          const label = ccPayLabel(row.level, month);
+          let pi = typeof o.payment_intent === "string" ? o.payment_intent : o.payment_intent && o.payment_intent.id;
+          if (!pi) {
+            const ip = await ccStripe(env, mode, "GET", "invoice_payments", { invoice: o.id, limit: 1 });
+            const pay = ip.data && ip.data[0] && ip.data[0].payment;
+            pi = pay && (typeof pay.payment_intent === "string" ? pay.payment_intent : pay.payment_intent && pay.payment_intent.id);
+          }
+          if (pi) {
+            const meta = { description: label, "metadata[kind]": "cc_upgrade", "metadata[level]": row.level, "metadata[sub_row]": row.id };
+            const p2 = await ccStripe(env, mode, "POST", `payment_intents/${pi}`, meta);
+            const ch = typeof p2.latest_charge === "string" ? p2.latest_charge : p2.latest_charge && p2.latest_charge.id;
+            if (ch) await ccStripe(env, mode, "POST", `charges/${ch}`, meta);
+          }
+        } catch (e) { console.warn("cc label payment", e && e.message); }
+      }
       return true;
     }
     const attempts = Number(o.attempt_count) || (row.failed_attempts + 1);
@@ -6804,7 +6832,9 @@ async function ccStartUpgrade(env, user, mode, level, back) {
       "line_items[0][price_data][unit_amount]": price.pence,
       "line_items[0][quantity]": 1, "line_items[0][tax_rates][0]": tax,
       "payment_intent_data[setup_future_usage]": "off_session",
-      "payment_intent_data[metadata][kind]": "cc_upgrade", "payment_intent_data[metadata][sub_row]": row.id,
+      "payment_intent_data[description]": ccPayLabel(level, monthLabel),
+      "payment_intent_data[metadata][kind]": "cc_upgrade", "payment_intent_data[metadata][sub_row]": row.id, "payment_intent_data[metadata][level]": level,
+      "invoice_creation[invoice_data][description]": ccPayLabel(level, monthLabel),
       "invoice_creation[enabled]": "true",
       "invoice_creation[invoice_data][metadata][kind]": "cc_upgrade",
       "custom_text[submit][message]": `Then ${gbp(price.pence)} + VAT on the 1st of each month, from ${new Date(anchor).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" })}. Cancel any time: it runs to the end of the month you've paid for.`,
@@ -9127,6 +9157,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             "line_items[0][price_data][currency]": "gbp",
             "line_items[0][price_data][unit_amount]": amount,
             "line_items[0][price_data][product_data][name]": pack.title,
+            "payment_intent_data[description]": payLabel("Studio pack", pack.title),
+            "payment_intent_data[metadata][kind]": "pack", "payment_intent_data[metadata][order_id]": order.id,
           });
           await sbPatch(env, "orders", `id=eq.${order.id}`, { stripe_session_id: session.id });
           return json({ url: session.url }, 200, request, env);
@@ -9258,6 +9290,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             "line_items[0][price_data][currency]": "gbp",
             "line_items[0][price_data][unit_amount]": amount,
             "line_items[0][price_data][product_data][name]": `Invoice ${inv.number}${st.company_name ? " - " + st.company_name : ""}`,
+            "payment_intent_data[description]": payLabel(`invoice ${inv.number}`, inv.bill_to_name || inv.client_name || "card payment"),
+            "payment_intent_data[metadata][kind]": "invoice", "payment_intent_data[metadata][invoice_id]": inv.id,
           });
           // Stored for tracing a payment back, not for reuse - it expires.
           await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { stripe_session_id: session.id });
@@ -9811,6 +9845,9 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             if (md.edit_request_id) return { source: "videography", ref: String(md.edit_request_id), kind: md.upsell_type || null };
             if (md.invoice_id)      return { source: "invoice",     ref: String(md.invoice_id),     number: md.invoice_number || null };
             if (md.order_id)        return { source: "pack",        ref: String(md.order_id) };
+            // Content Calendar: the first month (its Checkout) and every renewal (labelled on invoice.paid).
+            const cm = c.metadata || {};
+            if (md.kind === "cc_upgrade" || cm.kind === "cc_upgrade" || /^TMKE Content Calendar:/.test(c.description || "")) return { source: "calendar", ref: md.sub_row || cm.sub_row || null };
             return { source: "external", ref: null };
           };
           const tagged = paid.map((c) => ({ charge: c, ...classify(c) }));
@@ -9871,6 +9908,10 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
               label = `Invoice ${(r && r.number) || number || ""}`.trim();
               emitSource = invoiceSource(r && r.booking_source);
               if (r && r.vat_pence != null) { net = Number(r.subtotal_pence) || 0; vat = Number(r.vat_pence) || 0; derived = false; }
+            } else if (source === "calendar") {
+              label = c.description || "Content Calendar subscription";
+              customer = (c.billing_details && (c.billing_details.name || c.billing_details.email)) || null;
+              net = Math.round(gross * 100 / (100 + vatRate)); vat = gross - net; derived = false;   // VAT added at this rate
             } else if (source === "videography") {
               const r = editById.get(ref);
               if (r) {
@@ -9967,7 +10008,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             for (const r of out) {
               const v = isInvoice(r) ? byInv.get(String(r.ref)) : null;
               if (v) { r.sector = v.sector; r.rule = v.rule; continue; }
-              r.rule = r.source === "pack" ? "packs" : r.source === "videography" ? "video-extras" : r.source === "external" ? "pixieset" : "other";
+              r.rule = r.source === "pack" ? "packs" : r.source === "calendar" ? "content-calendar" : r.source === "videography" ? "video-extras" : r.source === "external" ? "pixieset" : "other";
               r.sector = sectorForRule(r.rule, overrides);
             }
           } catch (e) { console.error("payments: sectors", String((e && e.message) || e).slice(0, 200)); }
@@ -18191,6 +18232,8 @@ async function sendGalleryPinEmail(env, bookingId) {
             "line_items[0][price_data][currency]": "gbp",
             "line_items[0][price_data][unit_amount]": totalPence,
             "line_items[0][price_data][product_data][name]": productName,
+            "payment_intent_data[description]": payLabel("Videography extra", productName),
+            "payment_intent_data[metadata][kind]": "videography_extra", "payment_intent_data[metadata][edit_request_id]": reqRow.id,
           });
           await sbPatch(env, "videography_edit_requests", `id=eq.${encodeURIComponent(reqRow.id)}`, { stripe_session_id: session.id });
           return json({ ok: true, checkout_url: session.url }, 200, request, env);
