@@ -9401,7 +9401,10 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const prof = await zernioProfile(env, user);
         if (!prof) return json({ error: "Couldn't open your scheduling profile just now." }, 502, request, env);
         const acc = await zernio(env, `/accounts?profileId=${prof._id}`);
-        const accounts = (acc.ok && acc.data.accounts || []).map((a) => ({ id: a._id || a.id, platform: a.platform, username: a.username || a.displayName || a.name || "", picture: a.profilePicture || a.avatar || "", connected_at: a.connectedAt || a.createdAt || null }));
+        // permissions = what Meta actually granted the link (Danielle, 11 Nov:
+        // check it at sign-in, not just what we ask for).
+        const accounts = (acc.ok && acc.data.accounts || []).map((a) => ({ id: a._id || a.id, platform: a.platform, username: a.username || a.displayName || a.name || "", picture: a.profilePicture || a.avatar || "", connected_at: a.connectedAt || a.createdAt || null, permissions: Array.isArray(a.permissions) ? a.permissions : null, scope_areas: Array.isArray(a.scopeAreas) ? a.scopeAreas : null }));
+        try { if ((await ccSettings(env)).test_user_ids.includes(user.id)) console.log("zernio-granted", JSON.stringify(accounts.map((x) => ({ platform: x.platform, permissions: x.permissions, scope_areas: x.scope_areas })))); } catch (_) {}
         return json({ ok: true, open: true, configured: true, accounts }, 200, request, env);
       }
       // Connect an account: Zernio's sign-in link for that platform, coming
