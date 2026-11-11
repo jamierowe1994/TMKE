@@ -720,13 +720,20 @@ import "../../styles/account-sections.css";
       const vat = bill && bill.vat_rate != null ? Number(bill.vat_rate) : 20;
       const card = inv && inv.card;
       const cards = [];
+      // Card on file (Danielle, 11 Nov): never "None". A brand-paid agent sees
+      // their brand account; an expired card says so; a subscription with no
+      // card (only if one were removed on Stripe's page) can add one.
+      const now = new Date();
+      const expired = !!(card && card.exp_year && card.exp_month && (card.exp_year < now.getFullYear() || (card.exp_year === now.getFullYear() && card.exp_month < now.getMonth() + 1)));
+      const brandPays = access && access.source !== 'staff' && access.calendar && !up ? payer(access).replace(/ \(test login\)$/, '') : '';
       cards.push(card
         // Update card lives in its box, not on the strip, so every strip is one height (Dani, 11 Nov).
-        ? fact('Card on file', `${esc(BRAND[card.brand] || 'Card')} ending ${esc(card.last4)}`, `${card.exp_month ? `Expires ${String(card.exp_month).padStart(2, '0')}/${card.exp_year} · ` : ''}<button type="button" class="ya-link" id="ya-card-go" data-card-go>Update card</button>`)
+        ? fact(expired ? 'Card expired' : 'Card on file', `${esc(BRAND[card.brand] || 'Card')} ending ${esc(card.last4)}`, `${card.exp_month ? `${expired ? 'Expired' : 'Expires'} ${String(card.exp_month).padStart(2, '0')}/${card.exp_year} · ` : ''}<button type="button" class="ya-link" id="ya-card-go" data-card-go>Update card</button>`)
         : up
-          // Subscribed with no card left (removed on Stripe's page): they must be able to add one.
-          ? fact('Card on file', 'None', '<button type="button" class="ya-link" id="ya-card-go" data-card-go>Add a card</button>')
-          : fact('Card on file', 'None', 'You add one if you upgrade.'));
+          ? fact('Card on file', 'Add a card', '<button type="button" class="ya-link" id="ya-card-go" data-card-go>Add a card</button>')
+          : brandPays
+            ? fact('Card on file', 'Brand account', `Your Content Calendar is paid for by ${esc(brandPays)}.`)
+            : fact('Card on file', 'No card needed', "You'll add one if you subscribe."));
       if (up && up.status === 'past_due') {
         const due = (bill && bill.due) || {};
         cards.push(fact('Payment failed', due.amount_pence != null ? esc(gbp2(due.amount_pence)) : 'Due', due.retry_on ? `We try again on ${esc(day(due.retry_on))}` : ''));
