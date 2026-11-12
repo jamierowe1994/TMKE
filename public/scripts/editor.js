@@ -474,6 +474,58 @@ import { createResizeEngine } from "./resize-engine.js";
     return typeof window.__TMKE_ADMIN_SAVE__ === "function";
   }
 
+  /* ---------- A Content Calendar design (Danielle, 12 Nov 2026) ----------
+     One of the month's posts, opened from the calendar or its pack, and the
+     member's saved copy of it, edits within the design: words, text colour
+     and size, any photo, moving and deleting. Elements, Text, Resize and
+     Templates leave the rail; no fonts, no bold or alignment, no new text
+     boxes by duplicate or paste. Images, Background, Layers, Brand kit, Pages
+     and Guides stay. The post's id rides on each page's canvas (ccLock) so a
+     saved copy reopens locked; duplicating the design in Your designs drops
+     it, and the duplicate is freeform. Admin mode is never locked. */
+  var _ccLock = null;
+  function ccLocked() { return !!_ccLock && !isAdminMode(); }
+  const CC_HIDDEN_TOOLS = ["elements", "text", "resize", "templates"];
+  function stampCcLock() {
+    (state.pages || []).forEach(function (pg) {
+      if (!pg || !pg.canvas) return;
+      if (_ccLock) pg.canvas.ccLock = _ccLock; else delete pg.canvas.ccLock;
+    });
+  }
+  function syncCcLock() {
+    const on = ccLocked();
+    const root = document.getElementById("editor") || document.documentElement;
+    root.classList.toggle("is-cclock", on);
+    if (!on) return;
+    // A hidden tool that was open: back to Start. (In a try: during boot the
+    // rail's own variables may not be set up yet.)
+    try {
+      if (CC_HIDDEN_TOOLS.indexOf(activeToolPane) !== -1 && activeToolPane !== "text") {
+        const start = document.querySelector('.ed-rail-btn[data-tool="start"]');
+        if (start) start.click();
+      }
+    } catch (_) {}
+    try { setTextTab("page"); } catch (_) {}
+  }
+  function setCcLock(id) {
+    _ccLock = id ? String(id) : null;
+    stampCcLock();
+    syncCcLock();
+  }
+  function ccLockOf(d) {
+    if (!d) return null;
+    if (d.canvas && d.canvas.ccLock) return d.canvas.ccLock;
+    const pg = (d.pages || []).find(function (p) { return p && p.canvas && p.canvas.ccLock; });
+    return pg ? pg.canvas.ccLock : null;
+  }
+  // editor.astro: a month's post was opened (its id), or something else was (null).
+  // Redrawn, so a text bar already on screen loses its font and style controls.
+  window.__TMKE_CC_LOCK__ = function (id) { setCcLock(id); try { fullRender(); } catch (_) {} };
+  function ccRefuse(what) {
+    toast(what + " can't be added to a Content Calendar design. Duplicate it in Your designs to make a version you can change freely.", 4200);
+    return true;
+  }
+
   /* ---------- Locks (docs/lock-states-brief.md) ----------
      Two kinds, set in the admin template builder:
        "dead"  - nothing about it can change: place, size, style, content.
@@ -2611,6 +2663,7 @@ import { createResizeEngine } from "./resize-engine.js";
         state.currentPage = 0;
         ({ thumb, render } = await _renderPreviewPair());
       } catch (_) {} finally { state.currentPage = _onPage; }
+      stampCcLock();
       const payload = {
         templateId: state.templateId,
         filename: filenameEl ? filenameEl.value : "",
@@ -2812,6 +2865,7 @@ import { createResizeEngine } from "./resize-engine.js";
     resetToSinglePage(tpl.canvas && tpl.canvas.background);
     state.templateId = draftRaw ? tplId : tpl.id;
     _templateOrigin = draftRaw ? null : tpl.id;
+    setCcLock(null);
     syncResetButton();
     /* A design belongs to the brand its pack was drawn for. Said on every
        route into a template — the chooser, a ?template= link, the Templates
@@ -2972,6 +3026,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (po && po[0] === d.id && typeof window.__TMKE_TEMPLATE_ORIGIN__ === "function") window.__TMKE_TEMPLATE_ORIGIN__(po[0], po[1]);
     if (d.pages && d.pages.length) { state.pages = d.pages; state.currentPage = 0; }
     else { if (d.canvas) state.canvas = d.canvas; state.elements = d.elements || []; }
+    setCcLock(ccLockOf(d));
     state.selectedIds = [];
     state.selectedGuideId = null;
     state.guides = [];
@@ -2995,6 +3050,7 @@ import { createResizeEngine } from "./resize-engine.js";
     resetToSinglePage("#ffffff", w, h);
     state.templateId = null;
     _templateOrigin = null;
+    setCcLock(null);
     syncResetButton();
     state.elements = [];
     state.selectedIds = [];
@@ -7809,6 +7865,7 @@ import { createResizeEngine } from "./resize-engine.js";
   function duplicateSelected() {
     if (!state.selectedIds.length) return;
     if (lockBlocks()) return;
+    if (ccLocked() && selectedElements().some((e) => e.type === "text")) { ccRefuse("New text boxes"); return; }
     const copies = selectedElements().map((e) => {
       const c = deep(e);
       c.id = uid(c.type);
@@ -7916,6 +7973,7 @@ import { createResizeEngine } from "./resize-engine.js";
   async function paste() {
     const clip = await readClipboard();
     if (!clip || !clip.length) return;
+    if (ccLocked() && clip.some((c) => c && c.type === "text")) { ccRefuse("New text boxes"); return; }
     /* Dani's rule (3 Nov): copied off a design the same size as this one,
        it goes back in exactly the same place, bleed and all; copied off a
        different size, it is centred on this page, keeping its own size and
@@ -10324,7 +10382,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // Mount the font picker into its placeholder (text elements only).
     // Inline mode: search + scrollable list always visible, no popover.
     const fontMount = body.querySelector('[data-mount="font-picker"]');
-    if (fontMount && el.type === "text") {
+    if (fontMount && el.type === "text" && !ccLocked()) {
       fontMount.appendChild(createFontPicker(el.font, function (name) {
         el.font = name;
         fullRender();
@@ -12613,7 +12671,7 @@ import { createResizeEngine } from "./resize-engine.js";
       // here gives these three controls space to breathe.
       const g1 = group();
       g1.style.gap = "10px";
-      g1.appendChild(createFontPicker(el.font, function (name) {
+      if (!ccLocked()) g1.appendChild(createFontPicker(el.font, function (name) {
         applyFontChoice(el, name);
       }, { onOpen: function () { openFontPanel(el); } }));
       g1.appendChild(createSizeControl(el.size, function (v) {
@@ -12699,7 +12757,7 @@ import { createResizeEngine } from "./resize-engine.js";
       }, "Underline");
       underlineBtn.addEventListener("mousedown", function (e) { if (editingInnerFor(el)) e.preventDefault(); });
       g2.appendChild(underlineBtn);
-      ctxEl.appendChild(g2);
+      if (!ccLocked()) ctxEl.appendChild(g2);
 
       // Align (bigger, no arrow — cycles) + Spacing (one popover: letter + line).
       const ALIGN_CYCLE = ["left", "center", "right", "justify"];
@@ -12717,7 +12775,7 @@ import { createResizeEngine } from "./resize-engine.js";
       });
       g3.appendChild(alignBtn);
       g3.appendChild(spacingPopover(el));
-      ctxEl.appendChild(g3);
+      if (!ccLocked()) ctxEl.appendChild(g3);
     } else if (el.type === "screen") {
       /* A screen's own controls live in the Selection panel on the left, not
          up here. There are enough of them - colour, fit, angle, zoom, position
@@ -13002,7 +13060,8 @@ import { createResizeEngine } from "./resize-engine.js";
     dupBtn.textContent = "Duplicate";
     dupBtn.title = "Duplicate (Ctrl+D)";
     dupBtn.addEventListener("click", duplicateSelected);
-    gA.appendChild(dupBtn);
+    // Not offered on text in a Content Calendar design: it would be a new text box.
+    if (!(ccLocked() && el.type === "text")) gA.appendChild(dupBtn);
 
     // Lock — admin only.
     if (isAdminMode()) {
@@ -14568,6 +14627,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // Text pane tabs — On this page / Add text / Brand kit / Fonts. Keeps the
   // pane short instead of stacking every section into one long scroll.
   function setTextTab(name) {
+    if (ccLocked() && name !== "page") name = "page";
     // The Text panel's own tabs only: Elements uses the same look (data-etab).
     document.querySelectorAll(".ed-ttab[data-ttab]").forEach((t) => t.classList.toggle("is-active", t.dataset.ttab === name));
     document.querySelectorAll(".ed-ttab-pane[data-ttab-pane]").forEach((p) => p.classList.toggle("is-active", p.dataset.ttabPane === name));
@@ -14595,6 +14655,7 @@ import { createResizeEngine } from "./resize-engine.js";
     });
   }
   function openFontPanel(el) {
+    if (ccLocked()) return;
     _fontTargetId = el ? el.id : null;
     holdSelectionFor(document.querySelector(".ed-font-browser"), el);
     activeToolPane = "text";
@@ -17156,6 +17217,7 @@ import { createResizeEngine } from "./resize-engine.js";
       if (texts.length) {
         e.preventDefault();
         if (lockBlocks(texts)) return;
+        if (ccLocked()) return;
         // Toggle off only if every selected text is already bold; otherwise bold all.
         const allBold = texts.every((el) => (el.weight || 400) >= 700);
         texts.forEach((el) => { el.weight = allBold ? 400 : 700; loadGoogleFont(el.font); });

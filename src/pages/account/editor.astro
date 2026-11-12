@@ -6035,7 +6035,26 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        controls stay on the desktop. Phones only: tablets keep the desktop
        layout. */
     .ed-m-only, .ed-sheet-bar { display: none; }
+    /* A Content Calendar design (Danielle, 12 Nov): editor.js puts
+       .is-cclock on #editor. Elements, Text, Resize and Templates leave the
+       rail and Start; Images, Background, Layers, Brand kit, Pages and Guides
+       stay. Picking text still opens its controls, on Text selection only. */
+    .editor.is-cclock .ed-rail-btn[data-tool="elements"],
+    .editor.is-cclock .ed-rail-btn[data-tool="text"],
+    .editor.is-cclock .ed-rail-btn[data-tool="resize"],
+    .editor.is-cclock .ed-rail-btn[data-tool="templates"],
+    .editor.is-cclock [data-start-tool="elements"],
+    .editor.is-cclock [data-start-tool="text"],
+    .editor.is-cclock [data-start-tool="resize"],
+    .editor.is-cclock [data-start-tool="templates"],
+    .editor.is-cclock [data-pane="text"] .ed-ttabs,
+    .editor.is-cclock [data-pane="text"] .ed-pane-header p,
+    .editor.is-cclock [data-mount="font-picker"],
+    .editor.is-cclock [data-fb="convert"] { display: none !important; }
     @media (max-width: 760px) {
+      /* On a phone Images is reached through Elements, which a calendar
+         design doesn't have: it takes its own place on the bar. */
+      .editor.is-cclock .ed-rail [data-tool="photos"] { display: flex !important; }
       .editor {
         --ed-bar-h: calc(58px + env(safe-area-inset-bottom, 0px));
         /* Half of what's left between the top bar and the tab bar. */
@@ -9606,10 +9625,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const picked = GAL.rows.filter((d) => GAL.picked.has(d.id));
       const store = await designStore();
       if (!store || store.blocked || !picked.length) return;
+      /* A duplicate of a Content Calendar design is freeform (Danielle,
+         12 Nov): the lock rides on each page's canvas as ccLock, so it's
+         left off the copy. */
+      const unlock = (c) => { if (!c || typeof c !== "object" || !("ccLock" in c)) return c; const { ccLock, ...rest } = c; return rest; };
       const copies = picked.map((d) => ({
         user_id: store.uid,
         name: `${d.name || "Untitled design"} (copy)`,
-        canvas: d.canvas, pages: d.pages, thumb_url: d.thumb_url, folder: d.folder,
+        canvas: unlock(d.canvas),
+        pages: Array.isArray(d.pages) ? d.pages.map((pg) => (pg && pg.canvas ? { ...pg, canvas: unlock(pg.canvas) } : pg)) : d.pages,
+        thumb_url: d.thumb_url, folder: d.folder,
       }));
       const { error } = await store.db.from(store.table).insert(copies);
       if (error) { alert("Couldn't duplicate that: " + error.message); return; }
@@ -10650,6 +10675,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       async function show(post) {
         // Whether this is a Content Calendar design, for the Edit pane's "good to go".
         (window as any).__TMKE_IS_CC_POST__ = !!post;
+        // And it edits within the design (Danielle, 12 Nov): editor.js locks it.
+        (window as any).__TMKE_CC_LOCK__?.(post && post.id ? post.id : null);
         // The post itself, for Plan It's caption choices and date.
         (window as any).__TMKE_CC_CURRENT__ = post || null;
         // What the AI helper reads about the post: its title, caption and how to edit it.
