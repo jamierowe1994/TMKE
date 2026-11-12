@@ -521,6 +521,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // editor.astro: a month's post was opened (its id), or something else was (null).
   // Redrawn, so a text bar already on screen loses its font and style controls.
   window.__TMKE_CC_LOCK__ = function (id) { setCcLock(id); try { fullRender(); } catch (_) {} };
+  window.__TMKE_CC_LOCK_ID__ = function () { return _ccLock; };
   function ccRefuse(what) {
     toast(what + " can't be added to a Content Calendar design. Duplicate it in Your designs to make a version you can change freely.", 4200);
     return true;
@@ -3027,6 +3028,11 @@ import { createResizeEngine } from "./resize-engine.js";
     if (d.pages && d.pages.length) { state.pages = d.pages; state.currentPage = 0; }
     else { if (d.canvas) state.canvas = d.canvas; state.elements = d.elements || []; }
     setCcLock(ccLockOf(d));
+    // Its post card, on Start (editor.astro), if the post can still be opened.
+    if (_ccLock) {
+      if (typeof window.__TMKE_CC_POST_BY_ID__ === "function") window.__TMKE_CC_POST_BY_ID__(_ccLock);
+      else window.__TMKE_CC_PENDING__ = _ccLock;
+    }
     state.selectedIds = [];
     state.selectedGuideId = null;
     state.guides = [];
