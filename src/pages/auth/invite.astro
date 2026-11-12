@@ -1,0 +1,216 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+/* A Studio invite (Danielle, 12 Nov 2026). Staff press Invite to the Studio on
+   a contact card; the Worker makes the account and emails a link here. Nothing
+   happens until they press the button, so a mail scanner opening the link
+   uses nothing up. Then they choose a password and land in their hub.
+   Worker: /auth/invite-accept, /auth/invite-done. Copy: tmke-copywriter. */
+---
+
+<BaseLayout
+  title="Your Studio invitation · TMKE"
+  description="Set up your TMKE Studio account."
+  hideFooter={true}
+>
+  <main class="login-shell">
+    <div class="login-art" aria-hidden="true">
+      <div class="login-art-overlay"></div>
+      <div class="login-art-quote">
+        <div class="chapter chapter--light">Members &middot; Invitation</div>
+        <p class="login-art-line">Welcome to<br /><em>the TMKE Studio.</em></p>
+      </div>
+    </div>
+
+    <section class="login-panel">
+      <a href="/" class="login-mark">TMKE</a>
+
+      <div class="login-card">
+        <!-- Step 1: confirm it's them -->
+        <div id="inv-start">
+          <div class="eyebrow">Your Studio invitation</div>
+          <h1 class="login-title">Welcome to the TMKE Studio.</h1>
+          <p class="login-sub">Confirm it's you, and then you'll choose a password and go straight to your hub.</p>
+          <button type="button" class="btn btn--solid login-submit" id="inv-go">
+            <span data-label>Confirm it's me</span> <span class="btn-arrow">&rarr;</span>
+          </button>
+          <p id="inv-start-error" class="login-error" hidden style="margin-top:18px"></p>
+        </div>
+
+        <!-- The link no longer works -->
+        <div id="inv-dead" hidden>
+          <div class="eyebrow">Your Studio invitation</div>
+          <h1 class="login-title">This link no longer works.</h1>
+          <p class="login-sub">Invite links last 14 days and can only be used once. Ask Danielle for a new invite, or if you've already set a password, use <a href="/forgot-password" class="login-inline-anchor">Forgot password</a> on the sign-in page.</p>
+        </div>
+
+        <!-- Step 2: choose a password -->
+        <form id="inv-form" class="login-form" novalidate hidden>
+          <div>
+            <div class="eyebrow">Your Studio invitation</div>
+            <h1 class="login-title">Choose your password.</h1>
+            <p class="login-sub" style="margin-bottom:12px">Use at least 8 characters. You'll sign in to the Studio with this and your email address<span id="inv-email"></span>.</p>
+          </div>
+          <label class="login-field">
+            <span>New password</span>
+            <input type="password" name="password" autocomplete="new-password" required minlength="8" />
+          </label>
+          <label class="login-field">
+            <span>Type it again</span>
+            <input type="password" name="confirm" autocomplete="new-password" required minlength="8" />
+          </label>
+          <button type="submit" class="btn btn--solid login-submit">
+            <span data-label>Save password</span> <span class="btn-arrow">&rarr;</span>
+          </button>
+          <p id="inv-error" class="login-error" hidden></p>
+        </form>
+      </div>
+
+      <p class="login-meta">© 2026 TMKE · The Marketing Experts</p>
+    </section>
+  </main>
+
+  <style>
+    main.login-shell {
+      display: grid; grid-template-columns: 1.05fr 1fr;
+      min-height: 100vh; background: var(--paper);
+    }
+    .login-art {
+      position: relative; overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(28,29,34,0.2), rgba(28,29,34,0.7)),
+        url("/assets/door-closed.png") center/cover no-repeat;
+      color: var(--paper);
+    }
+    .login-art-overlay {
+      position: absolute; inset: 0;
+      background: radial-gradient(80% 60% at 50% 40%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.35) 100%);
+      pointer-events: none;
+    }
+    .login-art-quote { position: absolute; inset: auto 0 0 0; padding: 0 56px 80px; }
+    .login-art-quote .chapter { margin-bottom: 48px; }
+    .login-art-line {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(40px, 4.4vw, 68px);
+      line-height: 1.05; letter-spacing: -0.05em;
+      margin: 0; color: var(--paper); max-width: 14ch;
+    }
+    .login-art-line em { font-style: italic; color: var(--french-grey); }
+    .login-panel {
+      position: relative; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 48px 36px;
+    }
+    .login-mark {
+      position: absolute; top: 32px; left: 36px;
+      font-family: var(--serif); font-size: 24px;
+      letter-spacing: 0.06em; color: var(--ink);
+    }
+    .login-card { width: 100%; max-width: 440px; }
+    .login-card .eyebrow { margin-bottom: 14px; }
+    .login-title {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(36px, 3.6vw, 52px);
+      line-height: 1.05; letter-spacing: -0.05em;
+      color: var(--ink); margin: 0 0 18px;
+    }
+    .login-sub { font-size: 15px; color: rgba(28, 29, 34, 0.62); margin: 0 0 36px; }
+    .login-form { display: flex; flex-direction: column; gap: 18px; }
+    .login-field { display: flex; flex-direction: column; gap: 8px; }
+    .login-field > span {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(28, 29, 34, 0.55);
+    }
+    .login-field input {
+      font-family: var(--sans); font-size: 16px;
+      padding: 14px 16px;
+      border: 1px solid rgba(28, 29, 34, 0.18);
+      border-radius: 2px; background: #fff; color: var(--ink);
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+    .login-field input:focus {
+      outline: none; border-color: var(--english-violet);
+      box-shadow: 0 0 0 3px rgba(var(--violet-rgb), 0.12);
+    }
+    .login-submit { width: 100%; justify-content: center; padding: 16px; margin-top: 8px; }
+    .login-error {
+      font-size: 13px; color: #a05a3c;
+      background: rgba(160, 90, 60, 0.08);
+      padding: 10px 14px; border-radius: 2px; margin: 0;
+    }
+    .login-inline-anchor {
+      color: var(--english-violet);
+      border-bottom: 1px solid currentColor; font-weight: 600;
+    }
+    .login-hint { font-size: 12px; color: rgba(28, 29, 34, 0.5); line-height: 1.5; }
+    .login-meta {
+      position: absolute; bottom: 32px;
+      font-size: 11px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: rgba(28, 29, 34, 0.35);
+    }
+    @media (max-width: 900px) {
+      main.login-shell { grid-template-columns: 1fr; }
+      .login-art { display: none; }
+    }
+  </style>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    import { clearDemoAtSignIn } from "../../lib/demo.js";
+
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+    const params = new URLSearchParams(location.search);
+    const u = params.get("u") || "", t = params.get("t") || "";
+    const $start = document.getElementById("inv-start");
+    const $dead = document.getElementById("inv-dead");
+    const $form = document.getElementById("inv-form");
+    const $go = document.getElementById("inv-go");
+    const $startErr = document.getElementById("inv-start-error");
+    const $err = document.getElementById("inv-error");
+    const dead = () => { $start.hidden = true; $form.hidden = true; $dead.hidden = false; };
+    if (!u || !t) dead();
+
+    $go.addEventListener("click", async () => {
+      const label = $go.querySelector("[data-label]");
+      $go.setAttribute("disabled", "true"); label.textContent = "One moment…"; $startErr.hidden = true;
+      const again = () => { $go.removeAttribute("disabled"); label.textContent = "Confirm it's me"; };
+      const r = await fetch(`${WORKER}/auth/invite-accept`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ u, t }),
+      }).then((x) => x.json()).catch(() => null);
+      if (r && r.expired) { dead(); return; }
+      if (!r || !r.ok || !r.token_hash) { again(); $startErr.textContent = (r && r.error) || "Something went wrong. Please try again."; $startErr.hidden = false; return; }
+      const { error } = await supabase.auth.verifyOtp({ type: "recovery", token_hash: r.token_hash });
+      if (error) { again(); $startErr.textContent = "Something went wrong. Please try again."; $startErr.hidden = false; return; }
+      if (r.email) document.getElementById("inv-email").textContent = ` (${r.email})`;
+      $start.hidden = true; $form.hidden = false;
+      $form.querySelector("input")?.focus();
+    });
+
+    $form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      $err.hidden = true;
+      const data = new FormData($form);
+      const password = String(data.get("password") || "");
+      const confirm = String(data.get("confirm") || "");
+      const say = (m) => { $err.textContent = m; $err.hidden = false; };
+      if (password.length < 8) { say("Your password needs at least 8 characters."); return; }
+      if (password !== confirm) { say("The two passwords don't match. Type the same one in both boxes."); return; }
+      const btn = $form.querySelector('button[type="submit"]');
+      const label = btn.querySelector("[data-label]");
+      btn.setAttribute("disabled", "true"); label.textContent = "Saving…";
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) { btn.removeAttribute("disabled"); label.textContent = "Save password"; say(error.message); return; }
+      // Retire the invite, then into the hub.
+      try {
+        const { data: s } = await supabase.auth.getSession();
+        await fetch(`${WORKER}/auth/invite-done`, { method: "POST", headers: { Authorization: "Bearer " + (s?.session?.access_token || "") } });
+      } catch (_) {}
+      clearDemoAtSignIn();
+      if (typeof window.tmkeSplash === "function") window.tmkeSplash("/account");
+      else location.href = "/account";
+    });
+  </script>
+  <script>
+    import { addPasswordEyes } from "../../lib/password-eye.js";
+    addPasswordEyes();
+  </script>
+</BaseLayout>

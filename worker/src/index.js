@@ -7009,6 +7009,20 @@ const ZERNIO_PLATFORMS = ["instagram", "facebook", "linkedin", "tiktok"];
 // asks Meta for every permission it supports. If we ever manage accounts
 // ourselves (our own social media management), those accounts link with a
 // wider list of their own; members' links stay this narrow.
+/* The Studio invite email (Danielle, 12 Nov 2026; tmke-copywriter). The
+   name is whoever pressed Invite to the Studio. */
+function studioInviteCopy(inviter) {
+  return {
+    subject: `${inviter} has invited you to the TMKE Studio.`,
+    heading: "You've Been Invited to the TMKE Studio.",
+    body: [
+      `${inviter} has set up a TMKE Studio account for you, so you can see it just as our members do. The Studio is where they design their content, see the Content Calendar and plan their marketing.`,
+      "Press the button below to confirm it's you and choose a password. You'll then go straight to your hub. The link works for 14 days.",
+    ],
+    button: "Verify your account",
+    small: "If you weren't expecting this invitation, you can ignore this email.",
+  };
+}
 const ZERNIO_MEMBER_SCOPES = "posting,analytics";
 async function scheduleAllowed(env, user) {
   // Staff, or a member whose plan includes it: zernioMemberMayPost is the one
@@ -13935,6 +13949,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       // proof, and Jack and Abbie shouldn't have to sign in (Danielle, 21 Oct).
       || path.endsWith("/invoicing/approval")
       || path.endsWith("/videography/fc-fee")
+      // A Studio invite: the token in the link is the proof (Danielle, 12 Nov).
+      || path.endsWith("/auth/invite-accept")
       || path.includes("/accounts-portal/")   // its own link and passcode, checked in the route
       || (path.endsWith("/download") && url.searchParams.get("sig"))    // proof is in the link
       || (path.endsWith("/preview") && url.searchParams.get("sig"));
@@ -19274,6 +19290,134 @@ async function sendGalleryPinEmail(env, bookingId) {
         // Log the invite on the contact card so it shows in Notes/Activity.
         try { await sbPost(env, "contact_notes", { contact_id: cid, body: `Invitation to create a member account sent to ${email}.`, author: "System" }); } catch (_) {}
         return json({ ok: true, invited: email }, 200, request, env);
+      }
+
+      // ---- Admin: invite a contact to the Studio (Danielle, 12 Nov 2026) ----
+      // For people we bring in ourselves, like Gareth and John: we make the
+      // account, link it to their card and set up their brand kit, then send
+      // ONE email. Its link opens /auth/invite, where they press a button (so a
+      // mail scanner opening the link uses nothing up), choose a password and
+      // land in their hub. The link carries a random token; only its SHA-256
+      // is kept, on the account's app_metadata, for 14 days. Pressing the
+      // button again re-sends with a fresh token (the old link stops working).
+      // Someone who already has an account of their own is linked, not sent
+      // anything.
+      if (path.endsWith("/contacts/invite-studio") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const b = await request.json().catch(() => ({}));
+        const cid = String((b && b.contact_id) || "").trim();
+        if (!cid) return json({ error: "Missing contact id." }, 400, request, env);
+        const rows = await sbGet(env, "contacts", `id=eq.${encodeURIComponent(cid)}&select=id,email,first_name,last_name,user_id`);
+        const contact = rows && rows[0];
+        if (!contact) return json({ error: "That contact no longer exists." }, 404, request, env);
+        const email = String(contact.email || "").trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "This contact has no email. Add one first." }, 400, request, env);
+        const fullName = `${contact.first_name || ""} ${contact.last_name || ""}`.trim();
+        const H = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" };
+        const linkCard = async (uid) => {
+          if (contact.user_id === uid) return true;
+          if (contact.user_id && contact.user_id !== uid) return false;
+          const r = await fetch(`${env.SUPABASE_URL}/rest/v1/contacts?id=eq.${encodeURIComponent(cid)}`, {
+            method: "PATCH", headers: { ...H, Prefer: "return=minimal" }, body: JSON.stringify({ user_id: uid }),
+          });
+          return r.ok;
+        };
+
+        let u = await findUserByEmail(env, email);
+        const ours = u && u.app_metadata && u.app_metadata.studio_invite;
+        // Their own account, or one they've already set up from an invite.
+        if (u && (!ours || u.last_sign_in_at)) {
+          const linked = await linkCard(u.id);
+          return json({ ok: true, alreadyHasAccount: true, linked, email }, 200, request, env);
+        }
+        if (!u) {
+          const cr = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users`, {
+            method: "POST", headers: H,
+            body: JSON.stringify({ email, password: genTempPassword() + genTempPassword(), email_confirm: true, user_metadata: { full_name: fullName || null } }),
+          });
+          if (!cr.ok) {
+            const t = await cr.text().catch(() => "");
+            console.error("invite-studio create", cr.status, t.slice(0, 200));
+            return json({ error: "Couldn't make their account. Please try again." }, 502, request, env);
+          }
+          u = await cr.json().catch(() => null);
+          if (!u || !u.id) u = await findUserByEmail(env, email);
+          if (!u || !u.id) return json({ error: "Couldn't make their account. Please try again." }, 502, request, env);
+        }
+        const tok = [...crypto.getRandomValues(new Uint8Array(24))].map((x) => x.toString(16).padStart(2, "0")).join("");
+        const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(tok)))].map((x) => x.toString(16).padStart(2, "0")).join("");
+        const expires = new Date(Date.now() + 14 * 86400000).toISOString();
+        const up = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${u.id}`, {
+          method: "PUT", headers: H,
+          body: JSON.stringify({ app_metadata: { studio_invite: { hash, expires, by: user.email || null, at: new Date().toISOString() } } }),
+        });
+        if (!up.ok) return json({ error: "Couldn't set up the invite. Please try again." }, 502, request, env);
+        const linked = await linkCard(u.id);
+        try { await seedBrandKit(env, { userId: u.id, email }); } catch (_) {}
+
+        const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        const link = `${site}/auth/invite?u=${encodeURIComponent(u.id)}&t=${tok}`;
+        const first = String(contact.first_name || "there").trim();
+        const inviter = String((user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || "").trim().split(/\s+/)[0] || "Danielle";
+        const C = studioInviteCopy(inviter);
+        const content = `
+          <h1 style="${EM_H1}">${esc(C.heading)}</h1>
+          <p style="${EM_P}">Hi ${esc(first)},</p>
+          ${C.body.map((p) => `<p style="${EM_P}">${esc(p)}</p>`).join("")}
+          <p style="margin:0 0 24px;"><a href="${esc(link)}" style="${EM_BTN}">${esc(C.button)}</a></p>
+          <p style="${EM_P}">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;word-break:break-all;">${esc(link)}</span></p>
+          <p style="${EM_SMALL}">${esc(C.small)}</p>`;
+        const html = await wrapInBrandedBase(env, content);
+        const sent = await sendEmail(env, { to: email, subject: C.subject, html });
+        await logAccountEmail(env, email, C.subject, sent);
+        try { await sbPost(env, "contact_notes", { contact_id: cid, body: sent.ok ? `Invited to the Studio (${email}). The link works until ${expires.slice(0, 10)}.` : `Invited to the Studio, but the email to ${email} didn't send. Send it again from the card.`, author: user.email || "System" }); } catch (_) {}
+        if (!sent.ok) return json({ ok: false, emailFailed: true, linked, error: "Their account is made and linked, but the invite email didn't send. Use Send the invite again on the card." }, 200, request, env);
+        return json({ ok: true, invited: email, linked, expires }, 200, request, env);
+      }
+
+      // ---- Public: open a Studio invite (the button on /auth/invite) ---------
+      // Checks the token against the hash on the account, then hands back a
+      // one-time recovery token_hash; the page signs in with it and asks for a
+      // password. The page calls /auth/invite-done once the password is saved,
+      // which retires the invite.
+      if (path.endsWith("/auth/invite-accept") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const uid = String((b && b.u) || "").trim(), tok = String((b && b.t) || "").trim();
+        const bad = () => json({ ok: false, expired: true }, 200, request, env);
+        if (!/^[0-9a-f-]{36}$/i.test(uid) || !/^[0-9a-f]{48}$/i.test(tok)) return bad();
+        const H = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" };
+        const ur = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${uid}`, { headers: H });
+        if (!ur.ok) return bad();
+        const u = await ur.json().catch(() => null);
+        const inv = u && u.app_metadata && u.app_metadata.studio_invite;
+        if (!inv || !inv.hash || inv.done || !inv.expires || new Date(inv.expires) < new Date()) return bad();
+        const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(tok)))].map((x) => x.toString(16).padStart(2, "0")).join("");
+        if (hash !== inv.hash) return bad();
+        const gl = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+          method: "POST", headers: H, body: JSON.stringify({ type: "recovery", email: u.email }),
+        });
+        const gj = gl.ok ? await gl.json().catch(() => ({})) : {};
+        const hashed = (gj && (gj.hashed_token || (gj.properties && gj.properties.hashed_token))) || "";
+        if (!hashed) { console.error("invite-accept generate_link", gl.status); return json({ ok: false, error: "Something went wrong. Please try again." }, 502, request, env); }
+        const name = (u.user_metadata && u.user_metadata.full_name) || "";
+        return json({ ok: true, token_hash: hashed, email: u.email, first: String(name).split(/\s+/)[0] || "" }, 200, request, env);
+      }
+      if (path.endsWith("/auth/invite-done") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !user.id) return json({ error: "Not signed in." }, 401, request, env);
+        const H = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" };
+        const ur = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${user.id}`, { headers: H });
+        const u = ur.ok ? await ur.json().catch(() => null) : null;
+        const inv = u && u.app_metadata && u.app_metadata.studio_invite;
+        if (inv && !inv.done) {
+          await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {
+            method: "PUT", headers: H,
+            body: JSON.stringify({ app_metadata: { studio_invite: { ...inv, hash: null, done: new Date().toISOString() } } }),
+          });
+        }
+        return json({ ok: true }, 200, request, env);
       }
 
       if (path.endsWith("/contacts/import") && request.method === "POST") {

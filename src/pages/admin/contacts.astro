@@ -794,7 +794,7 @@ import "../../styles/admin.css";
       // Empty until supabase/contact_consent_events.sql has been run.
       const crows = (consent && consent.data) || [];
       const mrows = (acctMail && acctMail.data) || [];
-      const acctWhat = (subj) => /confirm/i.test(subj || "") ? "Confirmation email" : /password/i.test(subj || "") ? "Password reset email" : "Account email";
+      const acctWhat = (subj) => /invited you to the TMKE Studio/i.test(subj || "") ? "Studio invite email" : /confirm/i.test(subj || "") ? "Confirmation email" : /password/i.test(subj || "") ? "Password reset email" : "Account email";
       // Booked = actual sessions + discovery calls (not enquiries/brochures).
       const bookings = [
         ...vrows.filter((b) => b.kind === "booking").map((b) => ({ label: b.service || b.service_type || "Videography session", when: b.shoot_date, stage: b.stage })),
@@ -964,6 +964,12 @@ import "../../styles/admin.css";
       const detectedBrand = detect ? detect.brand : null;      // brand name | "" (generic TEG) | null (not TEG)
       const isTegDetected = detectedBrand !== null && detectedBrand !== undefined;
       const isAgent = !!p || isTegDetected;
+      /* Management and support aren't agents, but they still work for brands,
+         and their hub follows those brands like anyone's (Danielle, 12 Nov:
+         Gareth and John). So ticking either box opens the brand fields; the
+         new-starter part is for agents only. */
+      const isSupport = !!(c && (c.tags || []).includes(TEG_SUPPORT_TAG));
+      const showFields = isAgent || isSupport;
       const val = (x) => esc(x == null ? "" : x);
       const brandVal = (p && p.brand) || (detectedBrand || "");
       /* An agent can work for two brands — a Property Expert who is also a
@@ -989,12 +995,12 @@ import "../../styles/admin.css";
           <label class="ct-toggle" style="display:flex;margin-top:8px"><input type="checkbox" id="teg-support" ${(c && (c.tags || []).includes(TEG_SUPPORT_TAG)) ? "checked" : ""}/> Management or support, not an agent</label>
           <p class="ct-teg-msg" id="teg-support-msg" hidden></p>
           ${!p && isTegDetected ? `<p class="ct-teg-detect">Auto-detected as TEG from their email${detectedBrand ? ` (${esc(detectedBrand)})` : ""} — add any details and Save to confirm.</p>` : ""}
-          <p class="ct-meta" id="teg-empty" ${isAgent ? "hidden" : ""} style="margin-top:8px">Turn this on to record their agent details and (for new starters) generate their free videography code.</p>
+          <p class="ct-meta" id="teg-empty" ${showFields ? "hidden" : ""} style="margin-top:8px">Tick either box to choose the brands they work for. For agents, this also records their details and (for new starters) generates their free videography code.</p>
         </div>
-        <div id="teg-fields" ${isAgent ? "" : "hidden"}>
+        <div id="teg-fields" ${showFields ? "" : "hidden"}>
           ${brandTabs}
           <div class="ct-sec">
-            <h3>Agent details${all.length > 1 ? ` <span class="ct-brand-of">at ${esc((p && p.brand) || "this brand")}</span>` : ""}</h3>
+            <h3>${isSupport ? "Brand details" : "Agent details"}${all.length > 1 ? ` <span class="ct-brand-of">at ${esc((p && p.brand) || "this brand")}</span>` : ""}</h3>
             <div class="ct-field"><label>Brand</label><input id="teg-brand" list="teg-brand-list" value="${val(brandVal)}" placeholder="Select or type…" /><datalist id="teg-brand-list">${TEG_BRANDS.map((b) => `<option value="${esc(b)}"></option>`).join("")}</datalist></div>
             <div class="ct-field"><label>Date joined</label><input type="date" id="teg-joined" value="${val(p && p.date_joined)}" /></div>
             <div class="ct-field"><label>Postcode</label><input id="teg-postcode" value="${val(p && p.postcode)}" placeholder="e.g. NN14 1AA" /></div>
@@ -1019,7 +1025,7 @@ import "../../styles/admin.css";
             ${all.length > 1 ? `<label class="ct-toggle"><input type="checkbox" id="teg-primary" ${p && p.is_primary ? "checked" : ""} ${p && p.is_primary ? "disabled" : ""}/> Their Studio opens in this brand</label>` : ""}
             ${p && p.id && p.id !== "new" ? `<button type="button" class="ct-linkbtn" id="teg-remove-brand">Remove this brand</button>` : ""}
           </div>
-          <div class="ct-sec">
+          ${isSupport ? "" : `<div class="ct-sec">
             <h3>New starter</h3>
             <label class="ct-toggle"><input type="checkbox" id="teg-newstarter" ${p && p.is_new_starter ? "checked" : ""}/> New-starter onboarding (free videography shoot)</label>
             <div id="teg-ns-fields" ${p && p.is_new_starter ? "" : "hidden"} style="margin-top:12px">
@@ -1033,8 +1039,8 @@ import "../../styles/admin.css";
                   <button type="button" class="ct-mini" id="teg-link-copy">Copy</button>
                   <a class="ct-mini" href="${esc(newStarterLink(p, c))}" target="_blank" rel="noopener">Open</a></div></div>` : ""}
             </div>
-          </div>
-          <button type="button" class="ct-mini" id="teg-save">Save agent details</button>
+          </div>`}
+          <button type="button" class="ct-mini" id="teg-save">${isSupport ? "Save brand details" : "Save agent details"}</button>
           <p class="ct-teg-msg" id="teg-msg" hidden></p>
         </div>`;
     }
@@ -1071,8 +1077,9 @@ import "../../styles/admin.css";
       const isAgentCb = document.getElementById("teg-is-agent");
       if (!isAgentCb) return;
       isAgentCb.addEventListener("change", () => {
-        document.getElementById("teg-fields").hidden = !isAgentCb.checked;
-        const em = document.getElementById("teg-empty"); if (em) em.hidden = isAgentCb.checked;
+        const on = isAgentCb.checked || !!document.getElementById("teg-support")?.checked;
+        document.getElementById("teg-fields").hidden = !on;
+        const em = document.getElementById("teg-empty"); if (em) em.hidden = on;
       });
       /* Switching between someone's brands, and adding another. Each brand is
          its own row with its own details, so this redraws the panel from the
@@ -1230,6 +1237,7 @@ import "../../styles/admin.css";
           trainer_name: document.getElementById("teg-newstarter")?.checked ? tegVal("teg-trainer-name") : null,
           trainer_email: document.getElementById("teg-newstarter")?.checked ? tegVal("teg-trainer-email") : null,
         };
+        const btnLabel = btn.textContent;
         btn.disabled = true; btn.textContent = "Saving…";
         try {
           const { data } = await supabase.auth.getSession();
@@ -1254,7 +1262,7 @@ import "../../styles/admin.css";
           wireTeg();
           tegMsg(c.agentProfile && c.agentProfile.promo_code ? `Saved. Their free code is ${c.agentProfile.promo_code}.` : "Saved.", true);
         } catch (err) { tegMsg(err.message || "Couldn't save agent details.", false); }
-        finally { btn.disabled = false; btn.textContent = "Save agent details"; }
+        finally { btn.disabled = false; btn.textContent = btnLabel; }
       });
     }
 
@@ -1313,9 +1321,13 @@ import "../../styles/admin.css";
               ${!c.suppressed_at && softBounces ? '<span class="ct-badge is-warn">Bouncing</span>' : ""}
             </div>
             ${emailHealth.length ? `<div class="ct-emailhealth">${emailHealth.map((l) => `<p>${esc(l)}</p>`).join("")}</div>` : ""}
-            ${c.user_id ? "" : `
+            ${c.user_id ? ((notes || []).some((n) => /^Invited to the Studio/.test(n.body || "")) ? `
+            <div class="ct-acct" id="ct-acct">
+              <p class="ct-meta" style="margin:12px 0 0">Invited to the Studio. <button type="button" class="ct-linkbtn" id="ct-studio-invite">Send the invite again &rarr;</button></p>
+            </div>` : "") : `
             <div class="ct-acct" id="ct-acct">
               <p class="ct-meta" style="margin:12px 0 0">Not linked to a member account yet. <button type="button" class="ct-linkbtn" id="ct-acct-check">Check for a member account &rarr;</button></p>
+              <button type="button" class="ct-mini" id="ct-studio-invite" style="margin-top:10px">Invite to the Studio</button>
             </div>`}
           </div>
           <div class="ct-sec">
@@ -1503,9 +1515,38 @@ import "../../styles/admin.css";
       document.getElementById("ct-acct-invite").addEventListener("click", () => inviteAccount(c));
     }
 
+    /* Invite to the Studio (Danielle, 12 Nov 2026): the Worker makes their
+       account, links it to this card and emails them a link to choose a
+       password. Someone with an account already is just linked. */
+    async function studioInvite(c) {
+      const btn = document.getElementById("ct-studio-invite");
+      const name = fullName(c) || c.email;
+      if (!c.email) { alert("Add an email to this card first."); return; }
+      if (!confirm(`Send ${name} an invite to the Studio at ${c.email}?`)) return;
+      if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+      const r = await acctApi("/contacts/invite-studio", { contact_id: c.id });
+      const box = document.getElementById("ct-acct");
+      const say = (html) => { if (box) box.innerHTML = `<p class="ct-meta" style="margin:12px 0">${html}</p>`; };
+      if (r.ok && r.alreadyHasAccount) {
+        say(r.linked ? `${esc(name)} already has a Studio account, so we've linked it to this card. No invite was sent.`
+                     : `${esc(name)} already has a Studio account, but this card is linked to a different one. No invite was sent.`);
+        if (r.linked) setTimeout(async () => { await load(); openDrawer(c.id); }, 1600);
+        return;
+      }
+      if (r.ok && r.invited) {
+        say(`Invite sent to ${esc(r.invited)}. The link works for 14 days.`);
+        setTimeout(async () => { await load(); openDrawer(c.id); }, 1600);
+        return;
+      }
+      if (r.emailFailed) { alert(r.error); await load(); openDrawer(c.id); return; }
+      if (btn) { btn.disabled = false; btn.textContent = btn.classList.contains("ct-mini") ? "Invite to the Studio" : "Send the invite again →"; }
+      alert(r.error || "The invite didn't send. Please try again.");
+    }
+
     function wireDrawer(notes, tasks) {
       const c = current;
       wireTeg();
+      document.getElementById("ct-studio-invite")?.addEventListener("click", () => studioInvite(c));
       const acctChk = document.getElementById("ct-acct-check");
       if (acctChk) acctChk.addEventListener("click", () => checkAccount(c));
       // Possible-duplicate review: merge a sibling in, or clear the flag.
