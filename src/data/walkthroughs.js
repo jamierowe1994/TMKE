@@ -443,7 +443,7 @@ export const WALKS = {
          so this one opens that panel first (the same calendar button the step
          above points at) and then points at the reminder itself. */
       { shot: "/images/learn/demo/shots/studio-finish--3-reminder@2x.webp",
-        target: ".ed-sched-remind", placement: "left", padding: 8, open: "#ed-schedule",
+        target: "#ed-sched-remind-row", placement: "left", padding: 8, open: "#ed-schedule",
         eyebrow: "Remind", title: "Set a Posting Reminder",
         body: "Arrange for your finished content to be sent to your chosen device when it's time to post, making publishing easier." },
       /* Closes the scheduling panel again, so the step about saving is not

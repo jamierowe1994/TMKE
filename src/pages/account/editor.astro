@@ -1453,7 +1453,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           <label class="ed-sched-field">
             <span class="ed-sched-label">Title</span>
             <input type="text" id="ed-sched-title" required maxlength="120" placeholder="Mid-week new build reveal" />
-            <span class="ed-sched-hint" id="ed-sched-title-hint">Shown on your calendar.</span>
+            <span class="ed-sched-hint" id="ed-sched-title-hint">How this post appears in your calendar.</span>
           </label>
 
           <!-- Date and time: buttons that open their picker underneath. The
@@ -1506,10 +1506,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             </div>
           </fieldset>
 
-          <label class="ed-sched-remind" id="ed-sched-remind-row">
-            <input type="checkbox" id="ed-sched-remind" checked />
-            <span>Remind me on the day <span class="ed-sched-optional">(we'll email the caption and image at 8am that morning)</span></span>
-          </label>
+          <!-- The reminder (Danielle, 12 Nov): the tick first; its time and line
+               only while it's ticked. The time field moves in here to plan. -->
+          <div class="ed-remind" id="ed-sched-remind-row">
+            <label class="ed-remind-tick"><input type="checkbox" id="ed-sched-remind" checked /><span>Send me an email reminder</span></label>
+            <div class="ed-remind-time" id="ed-remind-time"></div>
+            <p class="ed-sched-hint" id="ed-remind-hint">We'll email you the image and caption at your chosen time.</p>
+          </div>
 
           <!-- Plan: what it doesn't do; for anyone on the calendar without
                Scheduling, where to get it. -->
@@ -5786,6 +5789,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-plan-upsell span { color: rgba(255,255,255,0.82); }
     .ed-plan-upsell a { color: #fff; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; align-self: flex-start; margin-top: 2px; }
     #ed-plan-note[hidden] { display: none; }
+    .ed-remind { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid #e2d9d4; border-radius: 6px; background: #fff; font-family: var(--sans); }
+    .ed-remind[hidden], .ed-remind-time[hidden], .ed-remind .ed-sched-hint[hidden] { display: none; }
+    .ed-remind-tick { display: flex; align-items: center; gap: 12px; font-size: var(--ws-t-body); font-weight: 500; color: var(--ink); cursor: pointer; }
+    .ed-remind-tick input { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; margin: 0; flex: none; border: 1.5px solid #c9bcb7; border-radius: 50%; background: #fff; display: grid; place-items: center; cursor: pointer; }
+    .ed-remind-tick input:checked { background: var(--english-violet); border-color: var(--english-violet); }
+    .ed-remind-tick input:checked::after { content: ""; width: 6px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+    .ed-remind-tick input:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    .ed-remind .ed-sched-hint { margin: 0; }
+    .ed-sched-row.is-one { grid-template-columns: 1fr; }
+    .ed-sched-hint[hidden] { display: none; }
 
     .ed-share-who { display: flex; flex-direction: column; gap: 8px; }
     .ed-share-who[hidden] { display: none; }
@@ -8359,8 +8372,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           if (it.scheduled_time) $time.value = String(it.scheduled_time).slice(0, 5);
         }).catch(() => {});
       }
-      // Don't clobber a time the user may have set on a previous open.
-      if (!$time.value) $time.value = "09:00";
+      // 8am for the reminder (Danielle, 12 Nov); 9am to share.
+      $time.value = how === "share" ? "09:00" : "08:00";
       clearWarn();
       $caps.hidden = true;
       ccPlanPost = null;
@@ -8669,6 +8682,15 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     const $capOpt    = document.getElementById("ed-sched-cap-opt");
     const $ai        = document.getElementById("ed-sched-ai");
     const $titleField = $title.closest(".ed-sched-field");
+    const $dateField = document.getElementById("ed-sched-date-b").closest(".ed-sched-field");
+    // Unticked, the reminder has no time to set.
+    function paintRemind() {
+      const on = !!($remind && $remind.checked);
+      document.getElementById("ed-remind-time").hidden = !on || mode === "share";
+      document.getElementById("ed-remind-hint").hidden = !on;
+      if (!on && pickOpen === "time" && mode !== "share") { pickOpen = null; paintPickers(); }
+    }
+    $remind?.addEventListener("change", paintRemind);
 
     const PLAT = { instagram: "Instagram", facebook: "Facebook" };
     const OTHER = { instagram: "facebook", facebook: "instagram" };
@@ -8776,9 +8798,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       // The date and time sit under the title to plan; under "When should it
       // go out?" to share, and only when scheduling.
       if (share) $go.after($when); else $titleField.after($when);
+      const $timeField = $timeL.closest(".ed-sched-field");
+      if (share) $dateField.after($timeField); else document.getElementById("ed-remind-time").appendChild($timeField);
+      $when.querySelector(".ed-sched-row").classList.toggle("is-one", !share);
       $timeL.textContent = share ? "Time" : "Reminder time";
-      $timeHint.textContent = share ? "Schedule posts at least 10 minutes in advance" : "When we'll email you.";
-      document.getElementById("ed-sched-title-hint").textContent = share ? "How this post appears in your calendar." : "Shown on your calendar.";
+      $timeHint.textContent = share ? "Schedule posts at least 10 minutes in advance" : "";
+      $timeHint.hidden = !share;
+      paintRemind();
+
       // A calendar post's caption is written for it: no AI. A duplicate is
       // a design of their own and gets it back.
       const cal = isCalendarPost();
@@ -8837,12 +8864,10 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       $flag.hidden = !wrong;
       $foot.hidden = !!wrong;
       if (!wrong) return;
-      const d = Number(post.post_date.slice(8, 10));
-      $flag.innerHTML = wrongNow
-        ? `<p><b>This post is meant for ${esc(dayLong(post.post_date))}.</b> Posting it today would put it out on the wrong day. Schedule it for the ${nth(d)} instead.</p>
-          <div class="ed-share-acts"><button type="button" class="ed-sched-submit" id="ed-flag-sched">Schedule it for the ${nth(d)}</button><button type="button" class="ed-sched-cancel" id="ed-flag-anyway">Post now anyway</button></div>`
-        : `<p><b>This post is meant for ${esc(dayLong(post.post_date))}.</b> Scheduling it for ${esc(dayLong($date.value))} would put it out on the wrong day.</p>
-          <div class="ed-share-acts"><button type="button" class="ed-sched-submit" id="ed-flag-sched">Schedule it for the ${nth(d)}</button><button type="button" class="ed-sched-cancel" id="ed-flag-anyway">Keep ${esc(dayLong($date.value))}</button></div>`;
+      const dm = (v) => new Date(v + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+      // Danielle's words (12 Nov); the second button says what they keep.
+      $flag.innerHTML = `<p><b>This post is intended for ${esc(dayLong(post.post_date))}.</b><br>It's been designed for a specific date, so we'd recommend scheduling it for then instead.</p>
+        <div class="ed-share-acts"><button type="button" class="ed-sched-submit" id="ed-flag-sched">Schedule for ${esc(dm(post.post_date))}</button><button type="button" class="ed-sched-cancel" id="ed-flag-anyway">${wrongNow ? "Post now anyway" : `Keep ${esc(dm($date.value))}`}</button></div>`;
       document.getElementById("ed-flag-sched").addEventListener("click", () => { shareWay = "schedule"; flagOk = false; setDate(post.post_date); paintWays(); });
       document.getElementById("ed-flag-anyway").addEventListener("click", () => { flagOk = true; paintFlag(); });
     }
@@ -8879,7 +8904,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       $check.classList.toggle("is-ok", !probs.length);
       $check.innerHTML = probs.length
         ? `<ul>${probs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`
-        : `<span>Checked against ${esc(both(names))}'s rules: the picture, its shape and the caption are all fine.</span>`;
+        : `<span>Your image and caption meet ${esc(both(names))}'s posting requirements.</span>`;
     }
     $caption.addEventListener("input", preCheck);
 
@@ -8888,8 +8913,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const access = shareInfo && shareInfo.access;
       if (!shareInfo) { loadShareInfo().then(() => { if (mode === "plan" && !$modal.hidden) paintPlanNote(); }); }
       let html = "";
-      if (access && access.scheduling) html = `<p class="ed-plan-note">This puts it on your calendar only. It won't post to Instagram or Facebook. To do that, choose Share to Instagram or Facebook instead.</p>`;
-      else if (access && access.calendar) html = `<div class="ed-plan-upsell"><b>This won't post to your social media.</b><span>With Content Calendar Plus, your posts go out to Instagram and Facebook by themselves, at the time you choose.</span><a href="${PLAN_LINK}">See your plan &rarr;</a></div>`;
+      if (access && access.scheduling) html = `<p class="ed-plan-note">This saves your post to your Studio Planner without publishing it. To post directly to Instagram or Facebook, choose one of the sharing options instead.</p>`;
+      else if (access && access.calendar) html = `<div class="ed-plan-upsell"><b>Adding this post to your Planner won't publish it to social media.</b><span>You'll receive a reminder to post it yourself if you've enabled email reminders.</span><span>Want to post directly from the Studio instead? Content Calendar Plus lets you publish immediately or schedule posts for later.</span><a href="${PLAN_LINK}">Explore Content Calendar Plus &rarr;</a></div>`;
       $planNote.innerHTML = html;
       $planNote.hidden = !html;
     }
@@ -8907,6 +8932,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       document.getElementById("ed-sched-date-b").setAttribute("aria-expanded", String(pickOpen === "date"));
       document.getElementById("ed-sched-time-b").setAttribute("aria-expanded", String(pickOpen === "time"));
       if (!pickOpen) { $pick.hidden = true; $pick.innerHTML = ""; return; }
+      if (pickOpen === "time" && mode !== "share") document.getElementById("ed-remind-time").after($pick);
+      else $when.appendChild($pick);
       $pick.hidden = false;
       if (pickOpen === "time") {
         const [hh, mm] = t.split(":");
@@ -8933,7 +8960,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const thisMonth = new Date().getFullYear() * 12 + new Date().getMonth();
       $pick.innerHTML = `<div class="ed-pick-head"><button type="button" class="ed-pick-nav" data-mon="-1" aria-label="Previous month"${y * 12 + mo <= thisMonth ? " disabled" : ""}>&lsaquo;</button><b>${pickMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</b><button type="button" class="ed-pick-nav" data-mon="1" aria-label="Next month">&rsaquo;</button></div>
         <div class="ed-pick-grid ed-pick-grid--d">${["M", "T", "W", "T", "F", "S", "S"].map((w) => `<span class="ed-pick-w">${w}</span>`).join("")}${cells.join("")}</div>
-        ${meant ? '<p class="ed-pick-key"><span></span>The day this post is meant for</p>' : ""}`;
+        ${meant ? '<p class="ed-pick-key"><span></span>Recommended posting date</p>' : ""}`;
       $pick.querySelectorAll("[data-d]").forEach((b) => b.addEventListener("click", () => { pickOpen = null; clearError(); flagOk = false; setDate(b.getAttribute("data-d")); paintFlag(); }));
       $pick.querySelectorAll("[data-mon]").forEach((b) => b.addEventListener("click", () => { pickMonth = new Date(y, mo + Number(b.getAttribute("data-mon")), 1); paintPickers(); }));
     }
@@ -8997,7 +9024,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       paintFlag();
       if (!$flag.hidden) return;
       if (now && !confirmed) {
-        $confirmQ.innerHTML = `<b>Post this now to ${esc(both(names))}?</b> It goes out straight away.`;
+        $confirmQ.innerHTML = names.length > 1 ? "Your post will be shared immediately to both accounts." : "Your post will be shared immediately.";
         $confirm.hidden = false; $foot.hidden = true;
         return;
       }
