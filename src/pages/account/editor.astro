@@ -9236,14 +9236,35 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     const dayOf = (iso) => { try { return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" }); } catch (_) { return ""; } };
     const soon = (z) => z && z.scheduled_for && new Date(z.scheduled_for).getTime() - Date.now() < MIN10;
 
+    /* The banner sits above the design, not over it (Danielle, 12 Nov): the
+       stage's top padding grows by the banner's height and the design refits
+       into the room left (fitZoom reads the padding; on a phone it reads
+       data-bar-room). The room stays while the Share pop-out is open, so the
+       design doesn't jump when it closes. */
+    function barRoom(px) {
+      const st = document.getElementById("ed-stage");
+      if (!st) return;
+      const was = st.dataset.barRoom || "";
+      if (px > 0) {
+        st.style.paddingTop = "";
+        const base = parseFloat(getComputedStyle(st).paddingTop) || 0;
+        st.style.paddingTop = (base + px) + "px";
+        st.dataset.barRoom = String(px);
+      } else {
+        st.style.paddingTop = "";
+        delete st.dataset.barRoom;
+      }
+      if ((st.dataset.barRoom || "") !== was) (window as any).__TMKE_REFIT__?.();
+    }
     function placeBar() {
-      if (!shareBar || shareBar.hidden) return;
+      if (!shareBar || shareBar.hidden) { if ($modal.hidden) barRoom(0); return; }
       const st = document.getElementById("ed-stage");
       if (!st) return;
       const r = st.getBoundingClientRect();
       shareBar.style.top = Math.round(r.top + 12) + "px";
       shareBar.style.left = Math.round(r.left + r.width / 2) + "px";
       shareBar.style.maxWidth = Math.max(260, Math.round(r.width - 32)) + "px";
+      barRoom(shareBar.offsetHeight + 12);
     }
     addEventListener("resize", placeBar);
 
@@ -9252,7 +9273,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const it = shareItem, z = zOf(it);
       const scheduled = !!(z && z.status === "scheduled");
       (window as any).__TMKE_HOLD_AUTOSAVE__?.(scheduled);
-      if (!it || !z || !$modal.hidden) { if (shareBar) shareBar.hidden = true; return; }
+      if (!it || !z || !$modal.hidden) { if (shareBar) shareBar.hidden = true; placeBar(); return; }
       if (!shareBar) {
         shareBar = document.createElement("div");
         shareBar.className = "ed-sharebar";
@@ -9276,7 +9297,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         cls = "is-bad";
         const bad = (z.results || []).filter((r) => r.status === "failed").map((r) => PLAT[r.platform] || r.platform);
         html = `<p><b>Your post couldn't be published to ${esc(both(bad.length ? bad : namesOf(it)))}.</b><br>Open Share to see what went wrong and try again.</p>`;
-      } else { shareBar.hidden = true; return; }
+      } else { shareBar.hidden = true; placeBar(); return; }
       if (scheduled || z.status === "posting" || z.status === "partial" || z.status === "failed") html += `<button type="button" data-bar="view">Post details</button>`; // not View post: nothing is live yet (Danielle, 12 Nov)
       shareBar.className = "ed-sharebar " + cls;
       shareBar.innerHTML = html;

@@ -8140,7 +8140,8 @@ import { createResizeEngine } from "./resize-engine.js";
     // design.
     const cs = getComputedStyle(stageEl);
     const padX = window.innerWidth <= 760 ? 28 : parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-    const padY = window.innerWidth <= 760 ? 28 : parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    // A Share banner above the design adds its height to the top (data-bar-room).
+    const padY = window.innerWidth <= 760 ? 28 + (parseFloat(stageEl.dataset.barRoom) || 0) : parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     // Not laid out yet: the observer below fits it once it is.
     if (stageRect.width <= padX + 40 || stageRect.height <= padY + 40) { _zoomFitted = true; return; }
     const zw = (stageRect.width - padX) / state.canvas.width;
@@ -8148,6 +8149,9 @@ import { createResizeEngine } from "./resize-engine.js";
     setZoom(Math.min(zw, zh, 1));
     _zoomFitted = true;
   }
+  // The Share banner made or gave back room above the design: refit, unless
+  // the member has zoomed in themselves.
+  window.__TMKE_REFIT__ = () => { if (_zoomFitted) requestAnimationFrame(fitZoom); };
   if (typeof ResizeObserver === "function") {
     let _fitRaf = 0;
     new ResizeObserver(function () {
