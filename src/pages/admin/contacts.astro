@@ -1776,9 +1776,13 @@ import "../../styles/contacts-os.css";
     function exportCsv(rows, opts = {}) {
       // One column per tag present (Yes / blank), so tags can be filtered in a spreadsheet.
       const allTags = Array.from(new Set(rows.flatMap((c) => c.tags || []))).sort();
-      const base = ["First name", "Last name", "Email", "Phone", "Company", "Type", "Main brand", "All brands", "Stage", "Lifecycle", "Studio account", "Signed in", "Studio member since", "Last in the Studio", "Added to Contacts", "Last contact with us", "Marketing opt-in", "Do-not-contact", "Source"];
+      const base = EX_COLS;
       const lines = opts.summary ? summaryLines(rows, opts.filtersText).map((r) => r.map(csvCell).join(",")) : [];
-      lines.push(base.concat(allTags).map(csvCell).join(","));
+      // Columns they untick in the pop-out's "Choose the columns" are left out.
+      const skip = opts.skip || new Set();
+      const keepIdx = base.map((h, i) => skip.has(h) ? -1 : i).filter((i) => i >= 0);
+      const tagsOn = !skip.has(EX_TAGS_COL);
+      lines.push(keepIdx.map((i) => base[i]).concat(tagsOn ? allTags : []).map(csvCell).join(","));
       rows.forEach((c) => {
         const main = mainOf(profilesOf(c));
         const brands = profilesOf(c).filter((p) => p.brand).map((p) => p.brand + (p.left_at ? " (left)" : "")).join("; ");
@@ -1789,8 +1793,9 @@ import "../../styles/contacts-os.css";
           isoDay(memberSince(c)), isoDay(lastSignIn(c)), isoDay(c.created_at), isoDay(c.last_seen_at),
           c.marketing_opt_in ? "Yes" : "No", c.dnd ? "Yes" : "No", humanizeSource(c.source),
         ];
-        allTags.forEach((t) => row.push((c.tags || []).includes(t) ? "Yes" : ""));
-        lines.push(row.map(csvCell).join(","));
+        const out = keepIdx.map((i) => row[i]);
+        if (tagsOn) allTags.forEach((t) => out.push((c.tags || []).includes(t) ? "Yes" : ""));
+        lines.push(out.map(csvCell).join(","));
       });
       const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
@@ -1801,7 +1806,13 @@ import "../../styles/contacts-os.css";
     }
 
     // ---- The Export pop-out: pick who, then download ----
-    const EX = { brands: [], types: [], stages: [], studio: "", mkt: "", summary: true };
+    const EX_COLS = ["First name", "Last name", "Email", "Phone", "Company", "Type", "Main brand", "All brands", "Stage", "Lifecycle", "Studio account", "Signed in", "Studio member since", "Last in the Studio", "Added to Contacts", "Last contact with us", "Marketing opt-in", "Do-not-contact", "Source"];
+    const EX_TAGS_COL = "Tags (a Yes column for each)";
+    const EX = { brands: [], types: [], stages: [], services: [], studio: "", mkt: "", summary: true, skip: new Set() };
+    // Services they've had from us (Danielle, 12 Nov): social media management
+    // (an SMM-Status tag, now or before) and videography (a booked session).
+    const SERVICES = { smm: "Social media management", video: "Videography" };
+    const hasService = (c, k) => k === "smm" ? (c.tags || []).some((t) => t.startsWith("SMM-Status:")) : k === "video" ? isSession(c) : false;
     const EX_STUDIO = [["", "Anyone"], ["linked", "Has an account"], ["signed", "Has signed in"], ["never", "Has an account, never signed in"], ["invited", "Invited, not set up yet"], ["none", "No account"]];
     const EX_MKT = [["", "Anyone"], ["in", "Opted in"], ["out", "Not opted in"], ["unsub", "Unsubscribed"]];
     function exMatch(c) {
@@ -1810,6 +1821,7 @@ import "../../styles/contacts-os.css";
         if (!EX.brands.some((b) => b === "__none" ? !live.length : live.includes(b))) return false;
       }
       if (EX.types.length && !EX.types.includes(typeOf(c))) return false;
+      if (EX.services.length && !EX.services.some((k) => hasService(c, k))) return false;
       if (EX.stages.length && !EX.stages.includes(stageOf(c))) return false;
       if (EX.studio && !studioMatch(c, EX.studio)) return false;
       if (EX.mkt && mktOf(c) !== EX.mkt) return false;
@@ -1819,6 +1831,7 @@ import "../../styles/contacts-os.css";
       const parts = [];
       if (EX.brands.length) parts.push("Brand: " + EX.brands.map((b) => b === "__none" ? "No brand" : shortBrand(b)).join(", "));
       if (EX.types.length) parts.push("Type: " + EX.types.map((t) => TYPES[t]).join(", "));
+      if (EX.services.length) parts.push("Service: " + EX.services.map((k) => SERVICES[k]).join(", "));
       if (EX.stages.length) parts.push("Stage: " + EX.stages.map((t) => STAGES[t]).join(", "));
       if (EX.studio) parts.push("Studio: " + EX_STUDIO.find((x) => x[0] === EX.studio)[1]);
       if (EX.mkt) parts.push("Marketing: " + EX_MKT.find((x) => x[0] === EX.mkt)[1]);
@@ -1831,9 +1844,11 @@ import "../../styles/contacts-os.css";
         <p>Pick who to include. Leave a section empty to include everyone. <button type="button" class="lnk" id="ct-exp-fromlist">Start from the list on screen</button></p>
         <div class="exgrp"><span class="exh">Brand</span><div class="exopts">${TEG_BRANDS.map((b) => cb("brands", b, b)).join("")}${cb("brands", "__none", "No brand (external)")}</div></div>
         <div class="exgrp"><span class="exh">Type</span><div class="exopts">${Object.entries(TYPES).map(([k, l]) => cb("types", k, l)).join("")}</div></div>
+        <div class="exgrp"><span class="exh">Service</span><div class="exopts">${Object.entries(SERVICES).map(([k, l]) => cb("services", k, l)).join("")}</div></div>
         <div class="exgrp"><span class="exh">Studio account</span><div class="exopts">${EX_STUDIO.map(([k, l]) => rd("studio", k, l)).join("")}</div></div>
         <div class="exgrp"><span class="exh">Stage</span><div class="exopts">${Object.entries(STAGES).map(([k, l]) => cb("stages", k, l)).join("")}</div></div>
         <div class="exgrp"><span class="exh">Marketing</span><div class="exopts">${EX_MKT.map(([k, l]) => rd("mkt", k, l)).join("")}</div></div>
+        <details class="exgrp excols"${EX.skip.size ? " open" : ""}><summary class="exh">Choose the columns <span class="exn">${EX.skip.size ? (EX_COLS.length + 1 - EX.skip.size) + " of " + (EX_COLS.length + 1) : "All " + (EX_COLS.length + 1)}</span></summary><div class="exopts">${EX_COLS.concat(EX_TAGS_COL).map((h) => `<label class="chk"><input type="checkbox" data-excol="${esc(h)}" ${EX.skip.has(h) ? "" : "checked"}> ${esc(h)}</label>`).join("")}</div></details>
         <label class="chk"><input type="checkbox" id="ct-exp-summary" ${EX.summary ? "checked" : ""}> Add a summary at the top: totals, and how many have an account, have signed in and were in the Studio in the last 30 days, for each brand</label>`;
       exCount();
     }
@@ -1857,6 +1872,11 @@ import "../../styles/contacts-os.css";
     $("ct-exp").addEventListener("change", (e) => {
       const t = e.target;
       if (t.id === "ct-exp-summary") { EX.summary = t.checked; return; }
+      if (t.dataset && t.dataset.excol) {
+        if (t.checked) EX.skip.delete(t.dataset.excol); else EX.skip.add(t.dataset.excol);
+        const n = document.querySelector("#ct-exp .exn"); if (n) n.textContent = EX.skip.size ? (EX_COLS.length + 1 - EX.skip.size) + " of " + (EX_COLS.length + 1) : "All " + (EX_COLS.length + 1);
+        return;
+      }
       const g = t.dataset && t.dataset.ex; if (!g) return;
       if (t.type === "radio") EX[g] = t.value;
       else EX[g] = t.checked ? EX[g].concat(t.value) : EX[g].filter((x) => x !== t.value);
@@ -1864,7 +1884,8 @@ import "../../styles/contacts-os.css";
     });
     $("ct-exp-go").addEventListener("click", () => {
       const rows = sorted(ALL.filter(exMatch));
-      exportCsv(rows, { summary: EX.summary, filtersText: exFiltersText() });
+      if (EX.skip.size >= EX_COLS.length + 1) { toast("Tick at least one column."); return; }
+      exportCsv(rows, { summary: EX.summary, filtersText: exFiltersText(), skip: EX.skip });
       closeExport();
     });
 
