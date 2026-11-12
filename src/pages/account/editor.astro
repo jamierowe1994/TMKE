@@ -7382,6 +7382,17 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (cached) { sessionStorage.setItem('tmke.brand.stash', cached); localStorage.removeItem('tmke.brand'); }
       }
     } catch (_) {}
+    /* A brand's agent who comes straight to the Studio, before ever opening
+       the dashboard (an email link, a bookmark), has no kit yet: the
+       dashboard is where their brand's kit used to be handed over. Asked here
+       too, only while this browser holds no kit, so it costs nothing after
+       the first time (Danielle, 12 Nov: "it just automatically appears"). */
+    try {
+      if (!wantAdmin && !localStorage.getItem('tmke.brand') && !localStorage.getItem('tmke_demo')) {
+        const { syncBrandKit } = await import('../../lib/brand-sync.js');
+        await syncBrandKit(supabase);
+      }
+    } catch (_) {}
     // Only this login's kit may stay cached, and the server's copy wins unless
     // this browser's is newer (src/lib/brand-cache.js).
     await syncBrandCache(supabase);
