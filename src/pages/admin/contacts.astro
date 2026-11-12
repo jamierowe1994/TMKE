@@ -251,11 +251,19 @@ import "../../styles/contacts-os.css";
 
     const TEG_SUPPORT_TAG = "TEG-Role: Management-or-Support";
     const TEG_BRANDS = ["The Property Experts", "Prestige Property Experts", "The Letting Experts", "The Letting Experts Scotland", "Fine & Country", "The Mortgage Experts", "The Recruitment Experts", "The Marketing Experts"];
-    const BSHORT = { "The Property Experts": "TPE", "Prestige Property Experts": "PPE", "The Letting Experts": "TLE", "The Letting Experts Scotland": "TLE Scotland", "Fine & Country": "F&C", "The Mortgage Experts": "TME", "The Recruitment Experts": "TRE", "The Marketing Experts": "TMKE" };
+    const BSHORT = { "The Property Experts": "TPE", "Prestige Property Experts": "PPE", "The Letting Experts": "TLE", "The Letting Experts Scotland": "TLE Scotland", "Fine & Country": "F&C", "The Mortgage Experts": "TMGE", "The Recruitment Experts": "TRE", "The Marketing Experts": "TMKE", "The Experts Group": "TEG" };
     // Used only when a brand's kit has no colour yet.
     const FALLBACK_COL = { "the property experts": ["#c8102e"], "prestige property experts": ["#1f2a3a"], "the letting experts": ["#0f6e6a"], "the letting experts scotland": ["#0f6e6a"], "fine & country": ["#1a1a1a", "#d9c389"], "the mortgage experts": ["#15406b"], "the recruitment experts": ["#5a2d7a"], "the marketing experts": ["#371e28"] };
     const WINE = "#371e28";
-    const shortBrand = (b) => BSHORT[b] || b || "";
+    // Short names so every brand fits its block (Danielle, 12 Nov: TEG, TMGE).
+    // A brand not listed is matched case-blind, then shortened to its initials.
+    const BSHORT_LC = Object.fromEntries(Object.entries(BSHORT).map(([k, v]) => [k.toLowerCase(), v]));
+    const shortBrand = (b) => {
+      const t = String(b || "").trim();
+      const hit = BSHORT[t] || BSHORT_LC[t.toLowerCase()];
+      if (hit) return hit;
+      return t.length > 12 ? t.split(/\s+/).filter((w) => /^[A-Za-z]/.test(w)).map((w) => w[0].toUpperCase()).join("") : t;
+    };
     function firstColour(colors) {
       for (const x of (Array.isArray(colors) ? colors : [])) {
         const h = String(x && typeof x === "object" ? (x.hex || x.value || "") : (x || "")).trim();
