@@ -9,6 +9,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Done
 
+- [x] supabase/contact_tasks_assignee.sql — Contacts: a task on a contact card says who it's for (Danielle, Sam, Abigail, Jack, Angel) as well as its due date. Until it runs, tasks save without the person. Changes no contact. Sends nothing (12 Nov; ran 12 Nov)
 - [x] supabase/member_subscriptions.sql — card subscriptions for the Scheduling upgrade: each member's Stripe customer, their subscription and price, and a log of every change of level. Test logins use Stripe's test mode. Changes nobody's access. Sends nothing (11 Nov; ran 11 Nov)
 - [x] supabase/content_calendar_launch.sql — the Content Calendar's launch switches: the December rule for TPE and PPE agents (off) and the list of test logins, both on Content calendar › Overview › Launch. Changes nobody's access until you use them. Sends nothing (11 Nov; ran 11 Nov)
 - [x] supabase/dfy_waitlist.sql — the Done For You waitlist: sign-ups from the waitlist page, 10 spaces, TEG agents only in December, listed in order on Content calendar › Overview. Run after content_calendar_launch.sql. Sends nothing (11 Nov; ran 11 Nov)

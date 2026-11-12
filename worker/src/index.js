@@ -15851,6 +15851,19 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
            primary has to clear the old one first — the index would refuse a
            second, and the refusal would land as an unexplained save failure. */
         const wantPrimary = String((b && b.brand) || "").trim();
+        /* Mark as left / They're back, from the contact card (Danielle, 12 Nov):
+           left_at a date sets it, null clears it, absent leaves it. A brand
+           they've left can't be the one their Studio opens in, so the newest
+           brand they're still at takes over. */
+        if (b && Object.prototype.hasOwnProperty.call(b, "left_at") && wantPrimary) {
+          const leftAt = b.left_at ? String(b.left_at).slice(0, 10) : null;
+          await sbPatch(env, "agent_profiles",
+            `contact_id=eq.${encodeURIComponent(contactId)}&brand=eq.${encodeURIComponent(wantPrimary)}`, leftAt ? { left_at: leftAt, is_primary: false } : { left_at: null });
+          if (leftAt) {
+            const rest = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&left_at=is.null&select=id,is_primary&order=created_at.desc`) || [];
+            if (rest.length && !rest.some((r) => r.is_primary)) await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(rest[0].id)}`, { is_primary: true });
+          }
+        }
         if (b && b.make_primary && wantPrimary) {
           await sbPatch(env, "agent_profiles",
             `contact_id=eq.${encodeURIComponent(contactId)}&is_primary=is.true`, { is_primary: false });
@@ -19210,6 +19223,36 @@ async function sendGalleryPinEmail(env, bookingId) {
         if (!res.ok) return json({ last_sign_in_at: null }, 200, request, env);
         const u = await res.json().catch(() => ({}));
         return json({ last_sign_in_at: (u && u.last_sign_in_at) || null }, 200, request, env);
+      }
+
+      // ---- Admin: Studio account facts for the Contacts list (12 Nov 2026) ----
+      // One read of every auth user: when they made their account (member
+      // since), when they last signed in, and whether a Studio invite is still
+      // waiting. Keyed by user id, so the list can sort by newest member and
+      // show Invited without a call per row.
+      if (path.endsWith("/contacts/members-meta") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const out = {};
+        for (let page = 1; page <= 50; page++) {
+          const r = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?page=${page}&per_page=1000`, {
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+          });
+          if (!r.ok) break;
+          const d = await r.json().catch(() => ({}));
+          const list = (d && d.users) || [];
+          list.forEach((u) => {
+            const inv = u.app_metadata && u.app_metadata.studio_invite;
+            out[u.id] = {
+              member_since: u.created_at || null,
+              last_sign_in_at: u.last_sign_in_at || null,
+              invited: !!(inv && !inv.done && !u.last_sign_in_at),
+              invite_expires: inv && !inv.done ? inv.expires || null : null,
+            };
+          });
+          if (list.length < 1000) break;
+        }
+        return json({ ok: true, users: out }, 200, request, env);
       }
 
       // ---- Admin: link a contact card to a member's hub account --------------
