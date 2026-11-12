@@ -102,7 +102,49 @@ export function writeBrandCache(kit, uid) {
      kept putting her own brand back. Dani, 11 Oct. */
   if (demoRunning()) return;
   kit = normaliseKit(kit);
-  try { localStorage.setItem(KEY, JSON.stringify({ ...kit, owner: uid || kit.owner || null })); } catch (_) {}
+  const raw = JSON.stringify({ ...kit, owner: uid || kit.owner || null });
+  try { localStorage.setItem(KEY, raw); return; } catch (_) {}
+  /* The browser's storage is full (Danielle, 12 Nov: 143 Studio drafts, one
+     of 3.7MB from August, left no room, so the kit never saved and the Studio
+     said "Set up your brand kit" with a kit on the server). The Studio's own
+     local copies of designs go first, oldest first, but never one touched in
+     the last week: those are back-up copies of what is saved on the server. */
+  const freed = freeStudioDrafts(raw.length * 2);
+  try { localStorage.setItem(KEY, raw); } catch (e) {
+    import("./track.js").then((t) => t.reportStudioFault({ kind: "brand_cache_full", detail: String((e && e.name) || e) + "; freed " + freed })).catch(() => {});
+  }
+}
+
+/* Room in localStorage, made by removing the Studio's local design copies
+   ("tmke.editor.<id>") saved more than a week ago, oldest first, until about
+   `need` bytes are free. Never a "draft-" one, which isn't on the server.
+   Returns how many it removed. */
+const DRAFT_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
+export function freeStudioDrafts(need) {
+  let removed = 0;
+  try {
+    const now = Date.now();
+    const old = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || k.indexOf("tmke.editor.") !== 0) continue;
+      // A scratch draft (an import not yet made a template) lives only here.
+      if (k.indexOf("tmke.editor.draft-") === 0) continue;
+      const v = localStorage.getItem(k) || "";
+      let at = 0;
+      try { at = Number(JSON.parse(v).savedAt) || 0; } catch (_) {}
+      if (at && now - at < DRAFT_KEEP_MS) continue;
+      old.push({ k, at, size: (k.length + v.length) * 2 });
+    }
+    old.sort((a, b) => a.at - b.at);
+    let freed = 0;
+    for (const d of old) {
+      if (freed >= need + 200000) break;   // and some spare
+      localStorage.removeItem(d.k);
+      freed += d.size; removed++;
+    }
+  } catch (_) {}
+  return removed;
 }
 
 export function clearBrandCache() {
