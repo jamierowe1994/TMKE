@@ -10337,8 +10337,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
          month's and any published ahead. Only staff can read a month for now
          (the database decides), so members see their packs as before. */
       try {
-        const { loadPublishedMonths, monthPostsName, monthKey } = await import("../../lib/calendar-month.js");
-        const months = await loadPublishedMonths(supabase, monthKey(new Date()));
+        const { loadPublishedMonths, monthPostsName, monthKey, memberAccess } = await import("../../lib/calendar-month.js");
+        /* From the first month their level opens (/access/me library.from:
+           last month, three back, or every month; null = every month), never
+           a month hard-coded here (Danielle, 12 Nov). The Worker clamps it. */
+        const acc = await memberAccess(supabase);
+        const lib = acc && acc.library;
+        const from = lib ? (lib.from || "2026-01-01") : monthKey(new Date());
+        const months = await loadPublishedMonths(supabase, from);
         owned.unshift(...months.map((m) => ({ id: "cc-" + m.id, ccMonth: m.id, title: monthPostsName(m.month), category: "Content Calendar", cover_image_url: m.cover || null, kind: "social" })));
       } catch (_) {}
 

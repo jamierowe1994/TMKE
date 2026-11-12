@@ -32,6 +32,9 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Darker+Grotesque:wght@400;500;600;700;800&display=swap" />
 </head>
 <body class="pm-wait" data-brand={G.brand} data-cover={G.cover}>
+  <!-- A way out (Danielle, 12 Nov): back to Learn, where the guide opens from.
+       Fixed, so it's there on every page; never printed. -->
+  <a class="pm-exit" href="/account/guides"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Back to the Training Studio</a>
   <p class="pm-gate" id="pm-gate">Loading your print materials&hellip;</p>
   <main class="pm" id="pm"></main>
   <script type="application/json" id="pm-config" set:html={JSON.stringify({ types: PRINT_TYPES, sizes: printSizes })}></script>
@@ -245,6 +248,18 @@ const printSizes = (STUDIO_SIZES.find((g) => g.family === "print") || { sizes: [
     html, body { margin: 0; background: #d9d5d3; }
     body { font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
     .pm { display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 32px 16px 64px; }
+
+    /* The exit, in the admin button format (30px, 11px/600, 0.08em). */
+    .pm-exit {
+      position: fixed; top: 16px; left: 16px; z-index: 10;
+      display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px 0 10px;
+      border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; color: #2b2226;
+      font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none;
+      box-shadow: 0 6px 18px -10px rgba(0,0,0,0.35); transition: border-color 0.2s, color 0.2s;
+    }
+    .pm-exit:hover { border-color: #371e28; color: #371e28; }
+    .pm-exit svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    @media print { .pm-exit { display: none; } }
 
     /* An A4 page: 210 x 297mm. */
     .pm-sheet {
