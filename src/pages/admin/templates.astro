@@ -475,6 +475,10 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
     let PACK_TITLES = {};
     // Content Calendar templates live on their own tab (Danielle, 27 Oct).
     let CALENDAR_IDS = new Set();
+    // Published Content Calendar months, listed in the pack menu as packs
+    // (Danielle, 12 Nov): 'cc:<month id>' -> the month's design ids in post order.
+    let CC_MONTHS = new Map();
+    let CAL_TPLS = [];
     const VIEW_Q = new URLSearchParams(location.search).get('view');
     const VIEW = VIEW_Q === 'print' ? 'print' : VIEW_Q === 'mockups' ? 'mockups' : 'social';
     // A mockup is a design marked canvas.mockup: it lives on the Mockups tab only.
@@ -612,6 +616,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
 
       CALENDAR_IDS = await calendarTemplateIds(supabase);
       ALL = tpls.filter((t) => !CALENDAR_IDS.has(t.id));
+      CAL_TPLS = tpls.filter((t) => CALENDAR_IDS.has(t.id));
       tpls = ALL;
       const active = tpls.filter((t) => t.status === 'active').length;
       els.count.textContent = `${active} active · ${tpls.length} total`;
@@ -679,7 +684,31 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       PACK_TITLES = Object.fromEntries(packs.map((p) => [p.id, p.title || 'Untitled pack']));
       const frag = packs.map((p) =>
         `<option value="${escapeHtml(p.id)}">${escapeHtml(p.title || 'Untitled pack')}</option>`).join('');
-      els.pack.innerHTML = '<option value="">All packs</option>' + frag +
+      // Each published Content Calendar month is a pack here too, newest first.
+      CC_MONTHS = new Map();
+      try {
+        const { data: months } = await supabase.from('content_months')
+          .select('id, month, edition').eq('status', 'published').order('month', { ascending: false });
+        if (months && months.length) {
+          const { data: posts } = await supabase.from('content_month_posts')
+            .select('month_id, template_id, post_date, sort_order')
+            .in('month_id', months.map((m) => m.id))
+            .order('post_date', { ascending: true }).order('sort_order', { ascending: true });
+          const ED = { property: 'The Property Experts', prestige: 'Prestige Property Experts', independent: 'Independent agents', lettings: 'The Lettings Experts' };
+          const multi = new Set(months.map((m) => m.edition)).size > 1;
+          for (const m of months) {
+            const ids = [];
+            for (const p of posts || []) if (p.month_id === m.id && p.template_id && !ids.includes(p.template_id)) ids.push(p.template_id);
+            const name = new Date(m.month + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+            CC_MONTHS.set('cc:' + m.id, { label: multi ? `${name} · ${ED[m.edition] || m.edition}` : name, ids });
+          }
+        }
+      } catch (_) { }
+      const ccFrag = CC_MONTHS.size
+        ? '<optgroup label="Content Calendar">' + [...CC_MONTHS].map(([v, m]) =>
+            `<option value="${escapeHtml(v)}">${escapeHtml(m.label)}</option>`).join('') + '</optgroup>'
+        : '';
+      els.pack.innerHTML = '<option value="">All packs</option>' + frag + ccFrag +
         '<option value="__none__">Not in a pack</option>';
     }
 
@@ -688,13 +717,14 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       const f = els.filter?.value || 'recent';
       const packId = els.pack?.value || '';
       saveView();
-      let list = ALL.slice();
+      const ccMonth = CC_MONTHS.get(packId);
+      let list = ccMonth ? CAL_TPLS.filter((t) => ccMonth.ids.includes(t.id)) : ALL.slice();
 
       // Pack filter. "Loose" is everything not in a pack yet — the state a
       // template is in between being drawn and being sold, and the one you
       // most often want to go looking for.
       if (packId === '__none__') list = list.filter((t) => !t.pack_id);
-      else if (packId) list = list.filter((t) => t.pack_id === packId);
+      else if (packId && !ccMonth) list = list.filter((t) => t.pack_id === packId);
 
       // Contact blocks have their own tab: they are not designs anyone opens,
       // so they'd only be noise here.
@@ -716,6 +746,8 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       // Sort: oldest = updated_at ascending; everything else = most recent first.
       const ts = (t) => new Date(t.updated_at || 0).getTime();
       list.sort((a, b) => (f === 'oldest' ? ts(a) - ts(b) : ts(b) - ts(a)));
+      // A Content Calendar month keeps the order of its posts.
+      if (ccMonth) list.sort((a, b) => ccMonth.ids.indexOf(a.id) - ccMonth.ids.indexOf(b.id));
 
       els.empty.hidden = ALL.length !== 0;
       const noMockups = VIEW === 'mockups' && !ALL.some(isMockup);
