@@ -7259,6 +7259,34 @@ const ZERNIO_FAIL_COPY = {
   },
 };
 function zernioWhatToDo(cat) { return ZERNIO_WHAT_TO_DO[cat] || ZERNIO_WHAT_TO_DO.other; }
+/* A failed post's reason and what to do, in the Studio's style: short, starting
+   "Your image…" or "Your caption…" (Design Studio for Danielle, 12 Nov). Read
+   from the platform's own error where it says what was wrong, otherwise from
+   Zernio's category. `category` keeps the code. */
+function zernioFailWords(platform, error, cat) {
+  const name = ZERNIO_NAMES[platform] || "the platform";
+  const e = String(error || "").toLowerCase();
+  const shapes = platform === "facebook" ? "a square or 4:5" : "a 4:5 or 3:4";
+  const fix = (what) => `${what}, save your changes, then try again.`;
+  if (/aspect ratio|aspect_ratio|ratio/.test(e)) {
+    const how = /wide|landscape|horizontal/.test(e) ? "wider than" : /tall|portrait|vertical/.test(e) ? "taller than" : "a shape";
+    return { reason: how === "a shape" ? `Your image is a shape ${name} doesn't allow.` : `Your image is ${how} ${name} allows.`, what: fix(`Change your design to ${shapes} format in the Studio`) };
+  }
+  if (/file size|too large|too big|exceeds.*(size|mb)|maximum size/.test(e)) return { reason: `Your image is too large for ${name}.`, what: fix("Download your design as a JPEG in the Studio, or make it simpler") };
+  if (/unsupported (media|image|file)|format|mime|file type/.test(e)) return { reason: `Your image is a file type ${name} doesn't take.`, what: fix("Save your design as a JPEG or PNG in the Studio") };
+  if (/(download|fetch|retriev|access).*(media|image|url)|(media|image).*(download|fetch|retriev)/.test(e)) return { reason: `Your image couldn't be opened by ${name}.`, what: fix("Open your design in the Studio") };
+  if (/hashtag/.test(e)) return { reason: `Your caption has more hashtags than ${name} allows.`, what: fix(`Take some hashtags out of your caption${platform === "instagram" ? " (Instagram takes up to 30)" : ""}`) };
+  if (/caption|text|message/.test(e) && /long|length|characters|limit/.test(e)) return { reason: `Your caption is longer than ${name} allows.`, what: fix("Shorten your caption") };
+  const byCat = {
+    auth_expired: `Your ${name} link has expired.`,
+    account_issue: `Your ${name} account needs checking.`,
+    user_content: `Your image or caption was turned down by ${name}.`,
+    user_abuse: `Your post was treated as automated or spam by ${name}.`,
+    quota_exhausted: `Your ${name} account has reached its posting limit for now.`,
+    platform_rate_limit: `Your ${name} account has reached its posting limit for now.`,
+  };
+  return { reason: byCat[cat] || `Your post couldn't be sent to ${name}.`, what: zernioWhatToDo(cat) };
+}
 function zernioNames(list) {
   const n = [...new Set(list.map((p) => ZERNIO_NAMES[p] || p))];
   return n.length <= 1 ? (n[0] || "") : `${n.slice(0, -1).join(", ")} and ${n[n.length - 1]}`;
@@ -7270,14 +7298,16 @@ function zernioResults(post) {
     const ok = st === "published";
     const failed = st === "failed";
     const cat = p.errorCategory || (failed ? "unknown" : null);
+    const words = failed ? zernioFailWords(p.platform, p.error || p.errorMessage, cat) : null;
     return {
       platform: p.platform,
       account_id: (p.accountId && (p.accountId._id || p.accountId)) || null,
       status: ok ? "posted" : failed ? "failed" : st === "cancelled" ? "cancelled" : "pending",
       url: p.publishedUrl || p.platformPostUrl || null,
       error: failed ? String(p.error || p.errorMessage || "").slice(0, 400) || null : null,
-      reason: failed ? cat : null,
-      what_to_do: failed ? zernioWhatToDo(cat) : null,
+      category: failed ? cat : null,
+      reason: words ? words.reason : null,
+      what_to_do: words ? words.what : null,
     };
   });
 }
@@ -7371,7 +7401,7 @@ async function runZernioStuckCheck(env) {
       const z = row.details.zernio;
       const r = await zernio(env, `/posts/${z.post_id}`);
       if (r.status === 404) {
-        await sbPatch(env, "calendar_items", `id=eq.${row.id}`, { details: { ...row.details, zernio: { ...z, status: "failed", checked_at: new Date().toISOString(), results: (z.accounts || []).map((a) => ({ platform: null, account_id: a, status: "failed", url: null, error: "The scheduler has no record of this post.", reason: "unknown", what_to_do: zernioWhatToDo("unknown") })) } } });
+        await sbPatch(env, "calendar_items", `id=eq.${row.id}`, { details: { ...row.details, zernio: { ...z, status: "failed", checked_at: new Date().toISOString(), results: (z.accounts || []).map((a) => ({ platform: null, account_id: a, status: "failed", url: null, error: "The scheduler has no record of this post.", category: "unknown", reason: "Your post couldn't be found by the scheduler.", what_to_do: zernioWhatToDo("unknown") })) } } });
         continue;
       }
       if (!r.ok) continue;
@@ -7399,8 +7429,13 @@ async function runZernioStuckCheck(env) {
      compresses for Facebook). Text 63,206 characters.
    One picture per post for now; carousels and Reels later. */
 const SCHEDULE_RULES = {
-  instagram: { name: "Instagram", ratio_min: 0.8, ratio_max: 1.91, min_width: 320, max_bytes: 8 * 1024 * 1024, types: ["image/jpeg", "image/png"], caption_max: 2200, hashtags_max: 30, mentions_max: 20 },
-  facebook: { name: "Facebook", max_bytes: 4 * 1024 * 1024, types: ["image/jpeg", "image/png", "image/gif", "image/webp"], caption_max: 63206 },
+  // 3:4 for Instagram and square-to-4:5 for Facebook (Danielle, 12 Nov: 1080 x 1440
+  // posts fine). Meta's API may still crop a 3:4 feed post to 4:5, so watch the first.
+  instagram: { name: "Instagram", ratio_min: 0.75, ratio_max: 1.91, min_width: 320, max_bytes: 8 * 1024 * 1024, types: ["image/jpeg", "image/png"], caption_max: 2200, hashtags_max: 30, mentions_max: 20,
+    tall: "The picture is too tall for an Instagram post. The tallest it takes is 3:4, like 1080 × 1440.",
+    wide: "The picture is too wide for an Instagram post. The widest it takes is 1.91:1, like 1080 × 566." },
+  facebook: { name: "Facebook", ratio_min: 0.8, max_bytes: 4 * 1024 * 1024, types: ["image/jpeg", "image/png", "image/gif", "image/webp"], caption_max: 63206,
+    tall: "The picture is too tall for a Facebook post. Use a square or 4:5 design, like 1080 × 1350." },
 };
 // Width, height and type from the first bytes of a PNG, JPEG, GIF or WebP.
 function imageSize(u8) {
@@ -7454,8 +7489,8 @@ function scheduleProblems(pic, caption, platforms) {
       if (R.max_bytes && pic.bytes && pic.bytes > R.max_bytes && p !== "instagram") add("picture", `The picture is ${mb(pic.bytes)} and ${R.name} takes up to ${mb(R.max_bytes)}.`);
       if (R.ratio_min && pic.width && pic.height) {
         const r = pic.width / pic.height;
-        if (r < R.ratio_min - 0.005) add("picture", `The picture is too tall for an ${R.name} post. The tallest it takes is 4:5, like 1080 × 1350.`);
-        else if (r > R.ratio_max + 0.005) add("picture", `The picture is too wide for an ${R.name} post. The widest it takes is 1.91:1, like 1080 × 566.`);
+        if (r < R.ratio_min - 0.005) add("picture", R.tall);
+        else if (R.ratio_max && r > R.ratio_max + 0.005) add("picture", R.wide);
       }
       if (R.min_width && pic.width && pic.width < R.min_width) add("picture", `The picture is only ${pic.width} pixels wide, so it will look blurry on ${R.name}.`);
     } else if (pic && pic.error) add("picture", pic.error);
