@@ -585,17 +585,18 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           <div class="ed-prompt-body" id="ed-ccpost-body"><div class="ed-prompt-inner">
             <span class="ed-ccpost-meta" id="ed-ccpost-meta"></span>
             <span class="ed-prompt-part" id="ed-ccpost-howto" hidden><b>How to edit</b><i></i></span>
-            <!-- Straight after How to edit, so reading what to change leads to
-                 changing it (Danielle, 12 Nov). Opens the Edit list. -->
-            <button type="button" class="ed-ccpost-edit" data-start-tool="fields">
-              <span class="ed-ccpost-edit-tx"><b>Edit</b><i>Change the words and pictures</i></span>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </button>
-            <span class="ed-prompt-part" id="ed-ccpost-cap" hidden><b>Caption</b><i></i>
-              <button type="button" class="ed-ccpost-copy" id="ed-ccpost-copy">Copy caption</button>
-            </span>
             <span class="ed-prompt-part" id="ed-ccpost-reel" hidden><b>For the Reel</b><i></i></span>
           </div></div>
+        </div>
+        <!-- Three boxes rather than one long card (Danielle, 12 Nov): the post,
+             then Edit straight after How to edit so reading what to change
+             leads to changing it, then the caption. Shown with the card. -->
+        <button type="button" class="ed-ccpost-edit" id="ed-ccpost-edit" data-start-tool="fields" hidden>
+          <span class="ed-ccpost-edit-tx"><b>Edit</b><i>Change the words and pictures</i></span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+        <div class="ed-ccpost-capbox" id="ed-ccpost-cap" hidden><b>Caption</b><i></i>
+          <button type="button" class="ed-ccpost-copy" id="ed-ccpost-copy">Copy caption</button>
         </div>
         <!-- Only when arriving from a prompt (?prompt=<key>). Closed to start:
              on a laptop the panel has little room, and the brief is a reminder
@@ -1554,20 +1555,25 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-ccpost-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.22); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(255,255,255,0.76); }
     .ed-ccpost-chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 99px; background: rgba(255,255,255,0.14); color: #fff; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
     .ed-ccpost .ed-prompt-part i { white-space: pre-line; }
-    .ed-ccpost-edit { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; margin-top: 16px; padding: 12px 14px; border: 0; border-radius: 4px; background: #fff; color: #371e28; font-family: var(--sans); text-align: left; cursor: pointer; transition: background 0.18s; }
-    .ed-ccpost-edit:hover { background: #eae5e1; }
+    .ed-ccpost-edit { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; margin: 0 0 10px; padding: 14px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; color: #371e28; font-family: var(--sans); text-align: left; cursor: pointer; transition: border-color 0.18s, background 0.18s; }
+    .ed-ccpost-edit:hover { border-color: #371e28; }
+    .ed-ccpost-edit[hidden], .ed-ccpost-capbox[hidden] { display: none; }
+    .ed-ccpost-capbox { margin: 0 0 10px; padding: 14px; border-radius: 4px; background: #eae5e1; font-family: var(--sans); }
+    .ed-ccpost-capbox > b { display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #7e6765; }
+    .ed-ccpost-capbox > i { display: block; margin-top: 6px; font-style: normal; font-size: var(--ws-t-meta); line-height: 1.55; color: #2b2226; white-space: pre-line; }
+    .ed-ccpost-capbox .ed-ccpost-copy { border-color: #c9bcb7; color: #371e28; }
+    .ed-ccpost-capbox .ed-ccpost-copy:hover { background: #fff; border-color: #371e28; }
     .ed-ccpost-edit-tx { display: flex; flex-direction: column; gap: 2px; }
     .ed-ccpost-edit-tx b { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
     .ed-ccpost-edit-tx i { font-style: normal; font-size: var(--ws-t-meta); color: #7e6765; }
     .ed-ccpost-edit svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     /* A Content Calendar design's Start (Danielle, 12 Nov): the post card and
-       nothing else. No "Choose something to edit", What to post, Make it
-       yours or reset: the post is already in their brand, and Brand kit is on
+       nothing else. No "Choose something to edit", What to post or Make it
+       yours: the post is already in their brand, and Brand kit is on
        the rail if they want it. With no card (a post they can no longer
-       open), Edit alone. */
+       open), Edit alone. Reset stays (Danielle, 12 Nov). */
     .editor.is-cclock [data-pane="start"] > .ed-pane-header,
     .editor.is-cclock .ed-start-ask,
-    .editor.is-cclock #ed-start-reset,
     .editor.is-cclock #ed-start-grid > :not([data-start-tool="fields"]),
     .editor.is-cclock [data-pane="start"]:has(#ed-ccpost:not([hidden])) #ed-start-grid { display: none !important; }
     .ed-ccpost-copy { display: inline-flex; align-items: center; height: 26px; margin-top: 10px; padding: 0 10px; border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; background: transparent; color: #fff; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: background 0.18s, border-color 0.18s; }
@@ -10732,7 +10738,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         // What the AI helper reads about the post: its title, caption and how to edit it.
         (window as any).__TMKE_CC_CONTEXT__ = post ? { title: post.title || "", caption: ((post.captions || []).find((c) => c && c.trim())) || "", how_to_edit: post.how_to_edit || "" } : null;
         (window as any).__TMKE_RENDER_FIELDS__?.();
-        if (!post) { box.hidden = true; return; }
+        const editBox = document.getElementById("ed-ccpost-edit");
+        if (!post) { box.hidden = true; if (editBox) editBox.hidden = true; part("ed-ccpost-cap", ""); return; }
         const { monthPostsName, fmtPostDate, POST_TYPE_LABEL } = await import("../../lib/calendar-month.js");
         const month = (post.month && post.month.month) || (post.post_date ? post.post_date.slice(0, 7) + "-01" : "");
         document.getElementById("ed-ccpost-k").textContent = month ? monthPostsName(month).replace(/s$/, "") : "This month's post";
@@ -10748,6 +10755,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         part("ed-ccpost-cap", caption);
         part("ed-ccpost-reel", post.post_type === "reel" ? post.reel_prompt : "");
         box.hidden = false;
+        if (editBox) editBox.hidden = false;
         // The month's post takes the Prompt's place.
         const prompt = document.getElementById("ed-prompt");
         if (prompt) prompt.hidden = true;
