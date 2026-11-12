@@ -112,6 +112,15 @@ import "../../styles/contacts-os.css";
     </div>
   </div>
 
+  <!-- Export, chosen here rather than in the spreadsheet (Danielle, 12 Nov). -->
+  <div class="cx cx-popscrim" id="ct-exp" hidden>
+    <div class="pop" role="dialog" aria-modal="true" aria-label="Export contacts">
+      <div class="pop-h"><div><p class="mo-eye" style="margin:0">Contacts</p><div class="pop-title">Export</div></div><button type="button" class="x" id="ct-exp-close" aria-label="Close">&times;</button></div>
+      <div class="pop-b" data-lenis-prevent id="ct-exp-body"></div>
+      <div class="pop-f"><span class="msg" id="ct-exp-count"></span><button type="button" class="mbtn" id="ct-exp-cancel">Cancel</button><button type="button" class="mbtn primary" id="ct-exp-go">Download CSV</button></div>
+    </div>
+  </div>
+
   <div class="cx cx-toast" id="ct-toast" role="status" aria-live="polite"></div>
 
   <script>
@@ -244,6 +253,7 @@ import "../../styles/contacts-os.css";
     let PROFILES = new Map();     // contact_id -> agent_profiles rows (slim)
     let PROFILES_OK = true;
     let META = null;              // user_id -> { member_since, last_sign_in_at, invited, invite_expires }, or null if the Worker didn't answer
+    let AUTOS = [];
     let BRAND_COL = new Map();    // lower-case brand -> first kit colour
     let PURCHASER_EMAILS = new Set(), SESSION_EMAILS = new Set(), CALL_EMAILS = new Set();
     const isPurchaser = (c) => PURCHASER_EMAILS.has(lc(c.email)) || (c.tags || []).includes("Pack-Purchased");
@@ -305,6 +315,14 @@ import "../../styles/contacts-os.css";
     const studioOf = (c) => !c.user_id ? "none" : (meta(c) && meta(c).invited ? "invited" : "linked");
     const memberSince = (c) => (meta(c) && meta(c).member_since) || null;
     const lastSignIn = (c) => (meta(c) && meta(c).last_sign_in_at) || null;
+    /* Studio filter values (Danielle, 12 Nov): has an account, signed in at
+       least once, account but never signed in, invited, none. Signing in is
+       read from the account itself, so it needs the Worker's answer (META). */
+    function studioMatch(c, v) {
+      if (v === "signed") return !!c.user_id && !!lastSignIn(c);
+      if (v === "never") return !!c.user_id && !!META && !lastSignIn(c) && studioOf(c) !== "invited";
+      return studioOf(c) === v;
+    }
     const isBouncing = (c) => !!c.suppressed_at || (Number(c.soft_bounce_count) || 0) > 0;
     function attnOf(c) {
       const a = [];
@@ -364,9 +382,9 @@ import "../../styles/contacts-os.css";
       ["leads", "Leads", (c) => stageOf(c) === "lead"],
       ["attention", "Needs attention", (c) => attnOf(c).length > 0],
     ];
-    const SORTS = { added: "Newest added", seen: "Recently active", member: "Newest member", name: "Name A to Z", brand: "Brand A to Z", type: "Type" };
+    const SORTS = { added: "Newest added", seen: "Last in the Studio", member: "Newest member", name: "Name A to Z", brand: "Brand A to Z", type: "Type" };
     const MKT = { in: "Opted in", out: "Not opted in", unsub: "Unsubscribed" };
-    const STUDIO = { linked: "Has an account", invited: "Invited", none: "No account" };
+    const STUDIO = { linked: "Has an account", signed: "Has signed in", never: "Never signed in", invited: "Invited", none: "No account" };
     const S = { view: "all", q: "", brands: [], stages: [], tags: [], tagMode: "all", mkt: "", studio: "", sort: "added", page: 1, per: 25, sel: new Set(), allMatching: false, menu: null, step: null };
 
     function brandList() {
@@ -392,7 +410,7 @@ import "../../styles/contacts-os.css";
         if (S.tagMode === "all" ? !S.tags.every(has) : !S.tags.some(has)) return false;
       }
       if (S.mkt && mktOf(c) !== S.mkt) return false;
-      if (S.studio && studioOf(c) !== S.studio) return false;
+      if (S.studio && !studioMatch(c, S.studio)) return false;
       return true;
     }
     const ts = (d) => { const t = d ? new Date(d).getTime() : NaN; return isNaN(t) ? null : t; };
@@ -401,7 +419,8 @@ import "../../styles/contacts-os.css";
     function sorted(list) {
       const by = {
         added: (a, b) => desc(ts(a.created_at), ts(b.created_at)),
-        seen: (a, b) => desc(ts(a.last_seen_at), ts(b.last_seen_at)),
+        // Last in the Studio: their last sign-in, not any touchpoint.
+        seen: (a, b) => desc(ts(lastSignIn(a)), ts(lastSignIn(b))),
         // Newest member: when they made their account. Without the Worker's
         // answer, a member's card age stands in.
         member: (a, b) => {
@@ -454,7 +473,7 @@ import "../../styles/contacts-os.css";
         return wrap(`<div class="seg"><button type="button" data-tagmode="all" aria-pressed="${S.tagMode === "all"}">Has all of these</button><button type="button" data-tagmode="any" aria-pressed="${S.tagMode === "any"}">Has any</button></div>`
           + groups.map(([g, t]) => `<div class="grp">${esc(g)}</div>${t.map((x) => cb("tags", x, S.tags.includes(x), x)).join("")}`).join(""));
       }
-      if (key === "more") return wrap(`<div class="grp">Marketing</div>${rd("mkt", "", !S.mkt, "Anyone")}${rd("mkt", "in", S.mkt === "in", "Opted in")}${rd("mkt", "out", S.mkt === "out", "Not opted in")}${rd("mkt", "unsub", S.mkt === "unsub", "Unsubscribed")}<div class="grp">Studio account</div>${rd("studio", "", !S.studio, "Anyone")}${rd("studio", "linked", S.studio === "linked", "Has an account")}${rd("studio", "invited", S.studio === "invited", "Invited, not set up yet")}${rd("studio", "none", S.studio === "none", "No account")}`);
+      if (key === "more") return wrap(`<div class="grp">Marketing</div>${rd("mkt", "", !S.mkt, "Anyone")}${rd("mkt", "in", S.mkt === "in", "Opted in")}${rd("mkt", "out", S.mkt === "out", "Not opted in")}${rd("mkt", "unsub", S.mkt === "unsub", "Unsubscribed")}<div class="grp">Studio account</div>${rd("studio", "", !S.studio, "Anyone")}${rd("studio", "linked", S.studio === "linked", "Has an account")}${rd("studio", "signed", S.studio === "signed", "Has signed in")}${rd("studio", "never", S.studio === "never", "Has an account, never signed in")}${rd("studio", "invited", S.studio === "invited", "Invited, not set up yet")}${rd("studio", "none", S.studio === "none", "No account")}`);
       if (key === "sort") return wrap(Object.entries(SORTS).map(([k, l]) => `<label><input type="radio" name="ct-sort" data-f="sort" value="${k}" ${S.sort === k ? "checked" : ""}> ${l}</label>`).join(""), true);
       return "";
     }
@@ -528,6 +547,16 @@ import "../../styles/contacts-os.css";
       const all = live.map((y) => y.brand).join(", ");
       return `<span class="blk br" style="background:color-mix(in srgb, ${x} 50%, #fff);color:color-mix(in srgb, ${x} 55%, #000)" title="${esc(all)}">${esc(shortBrand(p.brand))}</span>`;
     }
+    /* "Last active" used to be last_seen_at, which moves on any touchpoint
+       (a form, an import, a booking), so people with no account showed
+       activity. Now it's only signing in to the Studio (Danielle, 12 Nov). */
+    function lastInCell(c) {
+      if (!c.user_id) return "No account";
+      const t = lastSignIn(c);
+      if (t) return esc(ago(t));
+      if (!META) return "";
+      return studioOf(c) === "invited" ? "Invited" : "Never";
+    }
     function renderTable() {
       const L = currentList();
       // Selections only ever cover people still in the list.
@@ -545,7 +574,7 @@ import "../../styles/contacts-os.css";
           : `<div class="cx-empty">No contacts yet. They appear here as people enquire, book, sign up or buy.</div>`;
         return;
       }
-      $("ct-table").innerHTML = `<thead><tr><th class="ck"><input type="checkbox" id="ct-ck-all" ${allOn ? "checked" : ""} aria-label="Select this page"></th>${th("name", "Name")}${th("type", "Type")}${th("brand", "Brand")}${th("", "Studio")}${th("", "Marketing")}${th("seen", "Last active")}${th("added", "Added")}${th("", "Stage")}</tr></thead><tbody>${rows.map((c) => {
+      $("ct-table").innerHTML = `<thead><tr><th class="ck"><input type="checkbox" id="ct-ck-all" ${allOn ? "checked" : ""} aria-label="Select this page"></th>${th("name", "Name")}${th("type", "Type")}${th("brand", "Brand")}${th("", "Studio")}${th("", "Marketing")}${th("seen", "Last in Studio")}${th("added", "Added")}${th("", "Stage")}</tr></thead><tbody>${rows.map((c) => {
         const on = S.allMatching || S.sel.has(c.id);
         const a = attnOf(c);
         const ty = typeOf(c);
@@ -557,7 +586,7 @@ import "../../styles/contacts-os.css";
           <td>${brandBlocks(c)}</td>
           <td>${st === "linked" ? `<span class="blk yes">Has account</span>` : st === "invited" ? `<span class="blk wait">Invited</span>` : `<span class="blk no">None</span>`}</td>
           <td>${mk === "unsub" ? `<span class="blk bad">Unsubscribed</span>` : mk === "in" ? `<span class="blk yes">Opted in</span>` : `<span class="blk no">Not opted in</span>`}</td>
-          <td class="tx">${ago(c.last_seen_at)}</td>
+          <td class="tx">${lastInCell(c)}</td>
           <td class="tx">${short(c.created_at)}</td>
           <td><span class="blk ${STAGE_BLK[sg]}">${STAGES[sg]}</span></td></tr>`;
       }).join("")}</tbody>`;
@@ -622,12 +651,38 @@ import "../../styles/contacts-os.css";
       if (k === "email") { toast("One-off emails to a group come with the Email suite. For now, send from each card.", 4000); return; }
       if (k === "export") { exportCsv(selectedRows()); return; }
       if (k === "merge") { const r = selectedRows(); if (r.length === 2) openMerge(r[0], r[1]); return; }
-      if (k === "tag-go") { const tag = $("ct-bulk-tag")?.value; if (!tag) { toast("Pick a tag first."); return; } await bulkTag(S.step, tag); return; }
+      if (k === "tag-go") {
+        const tag = $("ct-bulk-tag")?.value; if (!tag) { toast("Pick a tag first."); return; }
+        /* A tag that starts an automation starts it for everyone tagged, so
+           say which first and wait for a second press (Danielle, 12 Nov). */
+        if (S.step === "add" && S.armed !== tag) {
+          const fs = funnelsFor(tag);
+          if (fs.length) {
+            const n = selectedRows().filter((c) => !(c.tags || []).includes(tag)).length;
+            S.armed = tag;
+            const m = $("ct-bulk-msg");
+            if (m) { m.className = "note warn"; m.textContent = `This starts ${fs.map((a) => a.name || "an automation").join(" and ")} for ${n === 1 ? "this person" : "all " + n.toLocaleString("en-GB") + " of them"}, and its emails will go out. Press Add tag again to go ahead.`; }
+            return;
+          }
+        }
+        S.armed = null;
+        await bulkTag(S.step, tag); return;
+      }
       if (k === "delete-go") { await bulkDelete(); return; }
     }
     /* Add or take off one tag across everyone selected, through the same rules
        as the card. Each person's row is written and read back; the count says
        only what the database confirmed. */
+    // Live automations a tag starts: "tag added" ones for that tag, and
+    // audience funnels that include it (the same rule fireTrigger uses).
+    function funnelsFor(tag) {
+      return AUTOS.filter((a) => {
+        const tc = a.trigger_config || {};
+        if (a.trigger_type === "tag_added") return !tc.tag || tc.tag === tag;
+        if (a.trigger_type === "audience") return Array.isArray(tc.tags) && tc.tags.includes(tag);
+        return false;
+      });
+    }
     async function bulkTag(mode, tag) {
       const rows = selectedRows();
       const work = rows.filter((c) => mode === "add" ? !(c.tags || []).includes(tag) : (c.tags || []).includes(tag));
@@ -1689,19 +1744,50 @@ import "../../styles/contacts-os.css";
     // Export, as a CSV
     // =========================================================================
     const csvCell = (v) => { const s = String(v ?? ""); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-    function exportCsv(rows) {
-      const iso = (d) => { try { return d ? new Date(d).toISOString().slice(0, 10) : ""; } catch (_) { return ""; } };
+    const isoDay = (d) => { try { return d ? new Date(d).toISOString().slice(0, 10) : ""; } catch (_) { return ""; } };
+    const signedIn = (c) => !!(c.user_id && lastSignIn(c));
+    const studioWord = (c) => !c.user_id ? "No" : studioOf(c) === "invited" ? "Invited" : "Yes";
+    /* The summary block at the top of an export: totals, then one row per
+       brand (someone at two brands counts under each), then External. */
+    function summaryLines(rows, filtersText) {
+      const L = [];
+      const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+      L.push(["TMKE contacts export", today]);
+      L.push(["Filters", filtersText || "Everyone"]);
+      if (!META) L.push(["Note", "Sign-in details weren't available when this was made, so Signed in and Never signed in are blank."]);
+      L.push([]);
+      const month = Date.now() - 30 * 86400000;
+      const counts = (list) => {
+        const acc = list.filter((c) => !!c.user_id);
+        const signed = acc.filter(signedIn);
+        const recent = signed.filter((c) => new Date(lastSignIn(c)).getTime() >= month);
+        return [list.length, acc.length, META ? signed.length : "", META ? acc.length - signed.length : "", META ? recent.length : ""];
+      };
+      L.push(["", "Contacts", "With a Studio account", "Signed in at least once", "Never signed in", "In the Studio in the last 30 days"]);
+      L.push(["All"].concat(counts(rows)));
+      const brands = Array.from(new Set(rows.flatMap((c) => liveBrands(c).map((p) => p.brand)))).sort((a, b) => a.localeCompare(b));
+      brands.forEach((b) => L.push([b].concat(counts(rows.filter((c) => liveBrands(c).some((p) => p.brand === b))))));
+      const ext = rows.filter((c) => !liveBrands(c).length);
+      if (ext.length && brands.length) L.push(["No brand (external)"].concat(counts(ext)));
+      if (brands.length > 1) L.push(["", "Someone at two brands counts under each, so the brand rows can add up to more than All."]);
+      L.push([]);
+      return L;
+    }
+    function exportCsv(rows, opts = {}) {
       // One column per tag present (Yes / blank), so tags can be filtered in a spreadsheet.
       const allTags = Array.from(new Set(rows.flatMap((c) => c.tags || []))).sort();
-      const base = ["First name", "Last name", "Email", "Phone", "Company", "Type", "Brands", "Stage", "Lifecycle", "Member", "Marketing opt-in", "Do-not-contact", "Source", "Added to Contacts", "Studio member since", "Last sign-in", "Last seen"];
-      const lines = [base.concat(allTags).map(csvCell).join(",")];
+      const base = ["First name", "Last name", "Email", "Phone", "Company", "Type", "Main brand", "All brands", "Stage", "Lifecycle", "Studio account", "Signed in", "Studio member since", "Last in the Studio", "Added to Contacts", "Last contact with us", "Marketing opt-in", "Do-not-contact", "Source"];
+      const lines = opts.summary ? summaryLines(rows, opts.filtersText).map((r) => r.map(csvCell).join(",")) : [];
+      lines.push(base.concat(allTags).map(csvCell).join(","));
       rows.forEach((c) => {
+        const main = mainOf(profilesOf(c));
         const brands = profilesOf(c).filter((p) => p.brand).map((p) => p.brand + (p.left_at ? " (left)" : "")).join("; ");
         const row = [
           c.first_name || "", c.last_name || "", c.email || "", c.phone || "", c.company || "",
-          TYPES[typeOf(c)], brands, STAGES[stageOf(c)], lifecycleLabel(deriveLifecycle(c)),
-          c.user_id ? "Yes" : "No", c.marketing_opt_in ? "Yes" : "No", c.dnd ? "Yes" : "No",
-          humanizeSource(c.source), iso(c.created_at), iso(memberSince(c)), iso(lastSignIn(c)), iso(c.last_seen_at),
+          TYPES[typeOf(c)], main ? main.brand : "", brands, STAGES[stageOf(c)], lifecycleLabel(deriveLifecycle(c)),
+          studioWord(c), c.user_id ? (META ? (signedIn(c) ? "Yes" : "No") : "") : "",
+          isoDay(memberSince(c)), isoDay(lastSignIn(c)), isoDay(c.created_at), isoDay(c.last_seen_at),
+          c.marketing_opt_in ? "Yes" : "No", c.dnd ? "Yes" : "No", humanizeSource(c.source),
         ];
         allTags.forEach((t) => row.push((c.tags || []).includes(t) ? "Yes" : ""));
         lines.push(row.map(csvCell).join(","));
@@ -1709,11 +1795,78 @@ import "../../styles/contacts-os.css";
       const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `tmke-contacts-${iso(Date.now())}.csv`;
+      a.href = url; a.download = `tmke-contacts-${isoDay(Date.now())}.csv`;
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
       toast(`Downloaded ${rows.length.toLocaleString("en-GB")} ${rows.length === 1 ? "contact" : "contacts"}.`);
     }
-    $("ct-export").addEventListener("click", () => exportCsv(currentList()));
+
+    // ---- The Export pop-out: pick who, then download ----
+    const EX = { brands: [], types: [], stages: [], studio: "", mkt: "", summary: true };
+    const EX_STUDIO = [["", "Anyone"], ["linked", "Has an account"], ["signed", "Has signed in"], ["never", "Has an account, never signed in"], ["invited", "Invited, not set up yet"], ["none", "No account"]];
+    const EX_MKT = [["", "Anyone"], ["in", "Opted in"], ["out", "Not opted in"], ["unsub", "Unsubscribed"]];
+    function exMatch(c) {
+      if (EX.brands.length) {
+        const live = liveBrands(c).map((p) => p.brand);
+        if (!EX.brands.some((b) => b === "__none" ? !live.length : live.includes(b))) return false;
+      }
+      if (EX.types.length && !EX.types.includes(typeOf(c))) return false;
+      if (EX.stages.length && !EX.stages.includes(stageOf(c))) return false;
+      if (EX.studio && !studioMatch(c, EX.studio)) return false;
+      if (EX.mkt && mktOf(c) !== EX.mkt) return false;
+      return true;
+    }
+    function exFiltersText() {
+      const parts = [];
+      if (EX.brands.length) parts.push("Brand: " + EX.brands.map((b) => b === "__none" ? "No brand" : shortBrand(b)).join(", "));
+      if (EX.types.length) parts.push("Type: " + EX.types.map((t) => TYPES[t]).join(", "));
+      if (EX.stages.length) parts.push("Stage: " + EX.stages.map((t) => STAGES[t]).join(", "));
+      if (EX.studio) parts.push("Studio: " + EX_STUDIO.find((x) => x[0] === EX.studio)[1]);
+      if (EX.mkt) parts.push("Marketing: " + EX_MKT.find((x) => x[0] === EX.mkt)[1]);
+      return parts.join("; ");
+    }
+    function paintExport() {
+      const cb = (grp, val, label) => `<label class="chk"><input type="checkbox" data-ex="${grp}" value="${esc(val)}" ${EX[grp].includes(val) ? "checked" : ""}> ${esc(label)}</label>`;
+      const rd = (grp, val, label) => `<label class="chk"><input type="radio" name="ex-${grp}" data-ex="${grp}" value="${esc(val)}" ${EX[grp] === val ? "checked" : ""}> ${esc(label)}</label>`;
+      $("ct-exp-body").innerHTML = `
+        <p>Pick who to include. Leave a section empty to include everyone. <button type="button" class="lnk" id="ct-exp-fromlist">Start from the list on screen</button></p>
+        <div class="exgrp"><span class="exh">Brand</span><div class="exopts">${TEG_BRANDS.map((b) => cb("brands", b, b)).join("")}${cb("brands", "__none", "No brand (external)")}</div></div>
+        <div class="exgrp"><span class="exh">Type</span><div class="exopts">${Object.entries(TYPES).map(([k, l]) => cb("types", k, l)).join("")}</div></div>
+        <div class="exgrp"><span class="exh">Studio account</span><div class="exopts">${EX_STUDIO.map(([k, l]) => rd("studio", k, l)).join("")}</div></div>
+        <div class="exgrp"><span class="exh">Stage</span><div class="exopts">${Object.entries(STAGES).map(([k, l]) => cb("stages", k, l)).join("")}</div></div>
+        <div class="exgrp"><span class="exh">Marketing</span><div class="exopts">${EX_MKT.map(([k, l]) => rd("mkt", k, l)).join("")}</div></div>
+        <label class="chk"><input type="checkbox" id="ct-exp-summary" ${EX.summary ? "checked" : ""}> Add a summary at the top: totals, and how many have an account, have signed in and were in the Studio in the last 30 days, for each brand</label>`;
+      exCount();
+    }
+    function exCount() {
+      const n = ALL.filter(exMatch).length;
+      $("ct-exp-count").textContent = `${n.toLocaleString("en-GB")} ${n === 1 ? "contact" : "contacts"}`;
+      $("ct-exp-go").disabled = !n;
+    }
+    function closeExport() { $("ct-exp").hidden = true; }
+    $("ct-export").addEventListener("click", () => { paintExport(); $("ct-exp").hidden = false; });
+    $("ct-exp-close").addEventListener("click", closeExport);
+    $("ct-exp-cancel").addEventListener("click", closeExport);
+    $("ct-exp").addEventListener("click", (e) => {
+      if (e.target === $("ct-exp")) { closeExport(); return; }
+      if (e.target.id === "ct-exp-fromlist") {
+        Object.assign(EX, { brands: S.brands.slice(), stages: S.stages.slice(), studio: S.studio || "", mkt: S.mkt || "",
+          types: S.view === "teg" ? ["agent"] : S.view === "support" ? ["support"] : S.view === "external" ? ["external"] : [] });
+        paintExport();
+      }
+    });
+    $("ct-exp").addEventListener("change", (e) => {
+      const t = e.target;
+      if (t.id === "ct-exp-summary") { EX.summary = t.checked; return; }
+      const g = t.dataset && t.dataset.ex; if (!g) return;
+      if (t.type === "radio") EX[g] = t.value;
+      else EX[g] = t.checked ? EX[g].concat(t.value) : EX[g].filter((x) => x !== t.value);
+      exCount();
+    });
+    $("ct-exp-go").addEventListener("click", () => {
+      const rows = sorted(ALL.filter(exMatch));
+      exportCsv(rows, { summary: EX.summary, filtersText: exFiltersText() });
+      closeExport();
+    });
 
     // =========================================================================
     // Import a CSV
@@ -1876,6 +2029,10 @@ import "../../styles/contacts-os.css";
         supabase.from("brand_profiles").select("brand, colors"),
         loadMeta(),
       ]);
+      try {
+        const { data: au } = await supabase.from("automations").select("id, name, trigger_type, trigger_config").eq("status", "active").in("trigger_type", ["tag_added", "audience"]);
+        AUTOS = au || [];
+      } catch (_) { AUTOS = []; }
       if (cRes.error) { $("ct-loading").hidden = false; $("ct-loading").className = "state bad"; $("ct-loading").textContent = "Couldn't load contacts: " + cRes.error.message; return; }
       PURCHASER_EMAILS = new Set(oRes.data.map((o) => lc(o.buyer_email)).filter(Boolean));
       const vb = vRes.data;
