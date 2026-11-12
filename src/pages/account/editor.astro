@@ -5741,8 +5741,10 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        date and time pickers, and what it says once sent. Palette only. */
     .ed-sched-card h3 { font-family: "TMKE Serif", Georgia, serif; font-weight: 300; }   /* h3 turns --serif into The Seasons */
     .ed-share { position: relative; }
-    .ed-share-btn { border-color: var(--english-violet); color: var(--english-violet); }
-    .ed-share-btn[aria-expanded="true"] { background: rgba(var(--violet-rgb), 0.06); }
+    /* Filled, like Download beside it (Danielle, 12 Nov). */
+    .ed-share-btn, html.editor-light .ed-topbar-right .ed-share-btn { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
+    .ed-share-btn:hover, .ed-share-btn[aria-expanded="true"],
+    html.editor-light .ed-topbar-right .ed-share-btn:hover, html.editor-light .ed-topbar-right .ed-share-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
     .ed-share-btn svg { flex: none; }
     .ed-share-menu {
       position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 300px; max-width: calc(100vw - 24px);
@@ -8824,14 +8826,21 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     function paintFlag() {
       const post = ccPlanPost;
       const today = ymd(new Date());
-      const wrong = mode === "share" && shareWay === "now" && !flagOk && post && post.date_tied && post.post_date && post.post_date !== today && post.post_date > today;
+      const tied = !!(post && post.date_tied && post.post_date && post.post_date >= today);
+      // Post now on another day, or Schedule it for another day (Danielle, 12 Nov).
+      const wrongNow = mode === "share" && shareWay === "now" && tied && post.post_date !== today;
+      const wrongDay = mode === "share" && shareWay === "schedule" && tied && !!$date.value && $date.value !== post.post_date;
+      const wrong = !flagOk && (wrongNow || wrongDay);
       $flag.hidden = !wrong;
       $foot.hidden = !!wrong;
       if (!wrong) return;
       const d = Number(post.post_date.slice(8, 10));
-      $flag.innerHTML = `<p><b>This post is meant for ${esc(dayLong(post.post_date))}.</b> Posting it today would put it out on the wrong day. Schedule it for the ${nth(d)} instead.</p>
-        <div class="ed-share-acts"><button type="button" class="ed-sched-submit" id="ed-flag-sched">Schedule it for the ${nth(d)}</button><button type="button" class="ed-sched-cancel" id="ed-flag-anyway">Post now anyway</button></div>`;
-      document.getElementById("ed-flag-sched").addEventListener("click", () => { shareWay = "schedule"; setDate(post.post_date); paintWays(); });
+      $flag.innerHTML = wrongNow
+        ? `<p><b>This post is meant for ${esc(dayLong(post.post_date))}.</b> Posting it today would put it out on the wrong day. Schedule it for the ${nth(d)} instead.</p>
+          <div class="ed-share-acts"><button type="button" class="ed-sched-submit" id="ed-flag-sched">Schedule it for the ${nth(d)}</button><button type="button" class="ed-sched-cancel" id="ed-flag-anyway">Post now anyway</button></div>`
+        : `<p><b>This post is meant for ${esc(dayLong(post.post_date))}.</b> Scheduling it for ${esc(dayLong($date.value))} would put it out on the wrong day.</p>
+          <div class="ed-share-acts"><button type="button" class="ed-sched-submit" id="ed-flag-sched">Schedule it for the ${nth(d)}</button><button type="button" class="ed-sched-cancel" id="ed-flag-anyway">Keep ${esc(dayLong($date.value))}</button></div>`;
+      document.getElementById("ed-flag-sched").addEventListener("click", () => { shareWay = "schedule"; flagOk = false; setDate(post.post_date); paintWays(); });
       document.getElementById("ed-flag-anyway").addEventListener("click", () => { flagOk = true; paintFlag(); });
     }
 
@@ -8922,7 +8931,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       $pick.innerHTML = `<div class="ed-pick-head"><button type="button" class="ed-pick-nav" data-mon="-1" aria-label="Previous month"${y * 12 + mo <= thisMonth ? " disabled" : ""}>&lsaquo;</button><b>${pickMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</b><button type="button" class="ed-pick-nav" data-mon="1" aria-label="Next month">&rsaquo;</button></div>
         <div class="ed-pick-grid ed-pick-grid--d">${["M", "T", "W", "T", "F", "S", "S"].map((w) => `<span class="ed-pick-w">${w}</span>`).join("")}${cells.join("")}</div>
         ${meant ? '<p class="ed-pick-key"><span></span>The day this post is meant for</p>' : ""}`;
-      $pick.querySelectorAll("[data-d]").forEach((b) => b.addEventListener("click", () => { pickOpen = null; clearError(); setDate(b.getAttribute("data-d")); }));
+      $pick.querySelectorAll("[data-d]").forEach((b) => b.addEventListener("click", () => { pickOpen = null; clearError(); flagOk = false; setDate(b.getAttribute("data-d")); paintFlag(); }));
       $pick.querySelectorAll("[data-mon]").forEach((b) => b.addEventListener("click", () => { pickMonth = new Date(y, mo + Number(b.getAttribute("data-mon")), 1); paintPickers(); }));
     }
     document.querySelectorAll("#ed-schedule-modal [data-pick]").forEach((b) => b.addEventListener("click", () => {
@@ -8982,6 +8991,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (!dateStr) return showError("Pick a date for the post.");
         if (new Date(`${dateStr}T${timeStr}:00`).getTime() < Date.now() + 10 * 60000) return showError("Pick a time at least 10 minutes from now.");
       }
+      paintFlag();
+      if (!$flag.hidden) return;
       if (now && !confirmed) {
         $confirmQ.innerHTML = `<b>Post this now to ${esc(both(names))}?</b> It goes out straight away.`;
         $confirm.hidden = false; $foot.hidden = true;
