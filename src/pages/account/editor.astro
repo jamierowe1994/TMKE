@@ -1424,14 +1424,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         <header>
           <div>
             <p class="ed-sched-eyebrow">Scheduled post</p>
-            <h3 id="ed-savecheck-h">Save Your Changes?</h3>
+            <h3 id="ed-savecheck-h">Update your scheduled post?</h3>
           </div>
           <button class="ed-modal-close" id="ed-savecheck-x" aria-label="Close">×</button>
         </header>
         <p class="ed-savecheck-p" id="ed-savecheck-p"></p>
         <footer class="ed-sched-foot">
           <button type="button" class="ed-sched-cancel" id="ed-savecheck-no">Cancel</button>
-          <button type="button" class="ed-sched-submit" id="ed-savecheck-yes">Save and update the post</button>
+          <button type="button" class="ed-sched-submit" id="ed-savecheck-yes">Save and update post</button>
         </footer>
       </div>
     </div>
@@ -9178,7 +9178,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const z = await freshDetails(acct, shareItem);
         if (!z || z.status !== "scheduled") {
           if (z && (z.status === "posted" || z.status === "posting" || z.status === "partial")) {
-            (window as any).__TMKE_TOAST__?.("Saved. This post has already gone out, so your changes won't change it.", 4200);
+            (window as any).__TMKE_TOAST__?.("Your changes have been saved, but your post has already been published. The published version won't be affected.", 5000);
           }
           return;
         }
@@ -9193,9 +9193,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const out = await schedulePost(acct.token, shareItem.id, z.accounts || []);
         shareItem.details = { ...(shareItem.details || {}), zernio: out.zernio };
         paintBar();
-        (window as any).__TMKE_TOAST__?.(`Saved. Your scheduled post (${dayOfIso(out.zernio.scheduled_for)} at ${amIso(out.zernio.scheduled_for)}) now uses this version.`, 4200);
+        (window as any).__TMKE_TOAST__?.("Saved. Your scheduled post has been updated with the latest version of your design.", 4200);
       } catch (e) {
-        (window as any).__TMKE_TOAST__?.(`Saved, but your scheduled post didn't change: ${(e && e.message) || "try again in a moment."} It will go out as it was.`, 6000);
+        // Not only the 10-minute rule (the Save confirm stops that one): a lost
+        // connection or the scheduler saying no. So no "choose a new time".
+        (window as any).__TMKE_TOAST__?.("Your design has been saved, but we couldn't update your scheduled post, so it will still use the previous version. Open Share and press Change to try again.", 7000);
       }
     }
 
@@ -9311,12 +9313,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       if (!z || z.status !== "scheduled") { saveUpdatesPost = false; return Promise.resolve(true); }
       const late = soon(z);
       const box = document.getElementById("ed-savecheck");
-      document.getElementById("ed-savecheck-h").textContent = late ? "Too Late to Change This Post." : "Save Your Changes?";
+      // Danielle's words (12 Nov).
+      document.getElementById("ed-savecheck-h").textContent = late ? "Too late to update your scheduled post." : "Update your scheduled post?";
       document.getElementById("ed-savecheck-p").innerHTML = late
-        ? `It goes out at ${esc(amIso(z.scheduled_for))}, in under 10 minutes, so your changes won't be in it. To change it, take the post back with Don't post it, then schedule it again.`
-        : `This post is scheduled, so your changes will go into the post going to ${esc(both(namesOf(shareItem)))} on ${esc(dayOf(z.scheduled_for))} at ${esc(amIso(z.scheduled_for))}.`;
+        ? `Your post is due to be published at ${esc(amIso(z.scheduled_for))}, so it's too late to update it. You can still save your design, but the scheduled post won't change.<br><br>To include your changes, cancel the scheduled post and schedule it again.`
+        : `Your post is scheduled for ${esc(dayOf(z.scheduled_for))} at ${esc(amIso(z.scheduled_for))}. Saving your changes will also update the version scheduled for ${esc(both(namesOf(shareItem)))}.`;
       const yes = document.getElementById("ed-savecheck-yes");
-      yes.textContent = late ? "Save the design only" : "Save and update the post";
+      yes.textContent = late ? "Save design only" : "Save and update post";
       box.hidden = false;
       return new Promise((resolve) => {
         const done = (go) => { box.hidden = true; yes.onclick = null; no.onclick = null; x.onclick = null; resolve(go); };
