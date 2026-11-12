@@ -75,12 +75,20 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
       <nav class="ws-tabs" aria-label="Sections">
         <a class="ws-tab is-active" href="/account" aria-current="page">Dashboard</a>
         <a class="ws-tab" href="/account/studio">Studio</a>
-        <a class="ws-tab" href="/account/schedule">Plan</a>
+        <a class="ws-tab" href="/account/schedule" data-plan-tab>Plan</a>
         <a class="ws-tab" href="/account/bookings">Bookings</a>
         <a class="ws-tab" href="/account/social">Your SMM</a>
         <a class="ws-tab" href="/account/community">Community</a>
         <a class="ws-tab" href="/edit">Shop</a>
       </nav>
+      <script is:inline>
+        /* Plan reads Calendar for a Content Calendar subscriber, before paint
+           (src/lib/plan-tab.js keeps the answer up to date). */
+        (function () { try {
+          var a = JSON.parse(localStorage.getItem("tmke-member-auth") || "null"), c = JSON.parse(localStorage.getItem("tmke.navCalendar") || "null");
+          if (c && c.v && a && a.user && c.uid === a.user.id) document.querySelectorAll("[data-plan-tab]").forEach(function (x) { x.textContent = "Calendar"; });
+        } catch (e) {} })();
+      </script>
 
       <!-- RIGHT: notifications, log out, you -->
       <div class="ws-nav-right">
@@ -1109,6 +1117,8 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
       lockClicks('[data-demo-lock]', 'That one is for members.', 'Reels guides and scheduling come with membership. In the demo, try the Studio, the Marketing Planner and the Getting Started guides.');
     }
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
+    import { initPlanTab } from '../../lib/plan-tab.js';
+    initPlanTab(supabase);
     import { fitNavRow } from '../../lib/nav-fit.js';
     fitNavRow(document.querySelector('.ws-nav'));
     import { designStore, plannerStore } from '../../lib/design-store.js';
