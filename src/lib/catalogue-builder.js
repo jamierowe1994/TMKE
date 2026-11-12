@@ -402,26 +402,40 @@ export function initBuilder(ctx) {
   async function openCopy(forRow) {
     showPop("Copy designs from", esc(P.title), '<p class="pb-hint">Loading…</p>', '<button type="button" class="mbtn" data-tickall>Tick all</button><button type="button" class="mbtn primary" data-docopy>Copy designs</button>', true);
     pop.dataset.row = forRow ? forRow.id : "";
-    const packs = PACKS.filter((p) => p.id !== P.id && (COUNTS.get(p.id) || 0) > 0).map((p) => ({ id: p.id, title: p.title, group: "Packs" }));
+    // The same sections as the Design studio's pack menu (Danielle, 12 Nov).
+    let demo = [];
+    try { const { data } = await supabase.from("packs").select("id, title").eq("demo", true); demo = data || []; } catch (_) {}
+    const has = (p) => p.id !== P.id && (COUNTS.get(p.id) || 0) > 0;
+    const byTitle = (a, b) => String(a.title).localeCompare(String(b.title));
+    const packs = [
+      ...demo.filter(has).map((p) => ({ id: p.id, title: p.title, group: "" })),
+      { id: "loose", title: "Not in a pack", group: "", loose: true },
+      ...PACKS.filter((p) => has(p) && p.kind !== "print").sort(byTitle).map((p) => ({ id: p.id, title: p.title, group: "The Edit packs" })),
+      ...PACKS.filter((p) => has(p) && p.kind === "print").sort(byTitle).map((p) => ({ id: p.id, title: p.title, group: "Print packs" })),
+    ];
     let months = [];
     try {
-      const { data } = await supabase.from("content_months").select("id, month, edition").eq("status", "published").order("month", { ascending: false });
+      const { data } = await supabase.from("content_months").select("id, month, edition, status").order("month", { ascending: false });
       const multi = new Set((data || []).map((m) => m.edition)).size > 1;
       const ED = { property: "TPE", prestige: "PPE", independent: "Independent", lettings: "TLE" };
       months = (data || []).map((m) => ({ id: "cc:" + m.id, month: m.id, group: "Content Calendar",
-        title: new Date(m.month + "T12:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" }) + (multi ? " · " + (ED[m.edition] || m.edition) : "") }));
+        title: new Date(m.month + "T12:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" }) + (multi ? " · " + (ED[m.edition] || m.edition) : "") + (m.status === "published" ? "" : " (draft)") }));
     } catch (_) {}
     COPY_SRC = [...packs, ...months];
     if (!COPY_SRC.length) { pop.querySelector(".pb-pop-b").innerHTML = '<p class="pb-hint">No other packs or months with designs yet.</p>'; return; }
-    drawCopy(COPY_SRC[0].id);
+    drawCopy((COPY_SRC.find((x) => x.group === "The Edit packs") || COPY_SRC[0]).id);
   }
   async function drawCopy(srcId) {
     const src = COPY_SRC.find((s) => s.id === srcId) || COPY_SRC[0];
     const body = pop.querySelector(".pb-pop-b");
-    const groups = ["Packs", "Content Calendar"].map((g) => { const o = COPY_SRC.filter((s) => s.group === g); return o.length ? `<optgroup label="${g}">${o.map((s) => `<option value="${esc(s.id)}"${s === src ? " selected" : ""}>${esc(s.title)}</option>`).join("")}</optgroup>` : ""; }).join("");
-    body.innerHTML = `<label class="pb-field"><span>From</span><select id="pb-copy-from">${groups}</select></label><p class="pb-hint">Each one comes in as a copy, with its editing fields and caption prompt, so the original stays as it is in ${esc(src.title)}.</p><div class="pb-pick" id="pb-copy-grid"><p class="pb-hint">Loading…</p></div>`;
+    const o = (s) => `<option value="${esc(s.id)}"${s === src ? " selected" : ""}>${esc(s.title)}</option>`;
+    const groups = COPY_SRC.filter((s) => !s.group).map(o).join("") + ["The Edit packs", "Print packs", "Content Calendar"].map((g) => { const l = COPY_SRC.filter((s) => s.group === g); return l.length ? `<optgroup label="${g}">${l.map(o).join("")}</optgroup>` : ""; }).join("");
+    body.innerHTML = `<label class="pb-field"><span>From</span><select id="pb-copy-from">${groups}</select></label><p class="pb-hint">Each one comes in as a copy, with its editing fields and caption prompt, so the original stays as it is${src.loose ? "" : " in " + esc(src.title)}.</p><div class="pb-pick" id="pb-copy-grid"><p class="pb-hint">Loading…</p></div>`;
     let list = [];
-    if (src.month) {
+    if (src.loose) {
+      const { data } = await supabase.from("templates").select("id, name, thumb_url, collection").is("pack_id", null).neq("status", "archived").order("updated_at", { ascending: false }).limit(300);
+      list = (data || []).filter((t) => t.collection !== "calendar");
+    } else if (src.month) {
       const { data: posts } = await supabase.from("content_month_posts").select("template_id, post_date, sort_order").eq("month_id", src.month).order("post_date").order("sort_order");
       const ids = [...new Set((posts || []).map((p) => p.template_id).filter(Boolean))];
       if (ids.length) { const { data } = await supabase.from("templates").select("id, name, thumb_url").in("id", ids); list = ids.map((id) => (data || []).find((t) => t.id === id)).filter(Boolean); }

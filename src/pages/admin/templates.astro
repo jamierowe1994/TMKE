@@ -670,11 +670,14 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
 
     // Fill the pack menu from the packs themselves, so it can't drift out of
     // step with what exists.
+    /* The pack menu in sections (Danielle, 12 Nov): All packs, Demo pack and
+       Not in a pack first, then The Edit packs (social, sold), Print packs and
+       the Content Calendar's months, newest first, drafts marked. */
     async function loadPackFilter() {
       if (!els.pack) return;
       let packs = [];
       try {
-        let { data, error } = await supabase.from('packs').select('id, title, kind').order('title');
+        let { data, error } = await supabase.from('packs').select('id, title, kind, demo').order('title');
         // Before print_packs.sql has run there is no kind column.
         if (error) ({ data } = await supabase.from('packs').select('id, title').order('title'));
         packs = data || [];
@@ -682,34 +685,45 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       // Which packs are print, so the Print tab knows what belongs to it.
       PRINT_PACKS = new Set(packs.filter((p) => p.kind === 'print').map((p) => p.id));
       PACK_TITLES = Object.fromEntries(packs.map((p) => [p.id, p.title || 'Untitled pack']));
-      const frag = packs.map((p) =>
-        `<option value="${escapeHtml(p.id)}">${escapeHtml(p.title || 'Untitled pack')}</option>`).join('');
-      // Each published Content Calendar month is a pack here too, newest first.
+      const opt = (p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.title || 'Untitled pack')}</option>`;
+      const group = (label, list) => list.length ? `<optgroup label="${escapeHtml(label)}">${list.join('')}</optgroup>` : '';
+      const demo = packs.filter((p) => p.demo === true);
+      const edit = packs.filter((p) => p.demo !== true && p.kind !== 'print');
+      const print = packs.filter((p) => p.demo !== true && p.kind === 'print');
+      // Every Content Calendar month is a pack here too, newest first.
       CC_MONTHS = new Map();
       try {
         const { data: months } = await supabase.from('content_months')
-          .select('id, month, edition').eq('status', 'published').order('month', { ascending: false });
+          .select('id, month, edition, status').order('month', { ascending: false });
         if (months && months.length) {
-          const { data: posts } = await supabase.from('content_month_posts')
-            .select('month_id, template_id, post_date, sort_order')
-            .in('month_id', months.map((m) => m.id))
-            .order('post_date', { ascending: true }).order('sort_order', { ascending: true });
+          // Paged: every read stops at 1,000 rows.
+          const posts = [];
+          for (let from = 0; ; from += 1000) {
+            const { data, error } = await supabase.from('content_month_posts')
+              .select('month_id, template_id, post_date, sort_order')
+              .in('month_id', months.map((m) => m.id))
+              .order('post_date', { ascending: true }).order('sort_order', { ascending: true }).range(from, from + 999);
+            if (error || !data) break;
+            posts.push(...data);
+            if (data.length < 1000) break;
+          }
           const ED = { property: 'The Property Experts', prestige: 'Prestige Property Experts', independent: 'Independent agents', lettings: 'The Lettings Experts' };
           const multi = new Set(months.map((m) => m.edition)).size > 1;
           for (const m of months) {
             const ids = [];
-            for (const p of posts || []) if (p.month_id === m.id && p.template_id && !ids.includes(p.template_id)) ids.push(p.template_id);
+            for (const p of posts) if (p.month_id === m.id && p.template_id && !ids.includes(p.template_id)) ids.push(p.template_id);
             const name = new Date(m.month + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-            CC_MONTHS.set('cc:' + m.id, { label: multi ? `${name} · ${ED[m.edition] || m.edition}` : name, ids });
+            const label = (multi ? `${name} · ${ED[m.edition] || m.edition}` : name) + (m.status === 'published' ? '' : ' (draft)');
+            CC_MONTHS.set('cc:' + m.id, { label, ids });
           }
         }
       } catch (_) { }
-      const ccFrag = CC_MONTHS.size
-        ? '<optgroup label="Content Calendar">' + [...CC_MONTHS].map(([v, m]) =>
-            `<option value="${escapeHtml(v)}">${escapeHtml(m.label)}</option>`).join('') + '</optgroup>'
-        : '';
-      els.pack.innerHTML = '<option value="">All packs</option>' + frag + ccFrag +
-        '<option value="__none__">Not in a pack</option>';
+      els.pack.innerHTML = '<option value="">All packs</option>'
+        + demo.map(opt).join('')
+        + '<option value="__none__">Not in a pack</option>'
+        + group('The Edit packs', edit.map(opt))
+        + group('Print packs', print.map(opt))
+        + group('Content Calendar', [...CC_MONTHS].map(([v, m]) => `<option value="${escapeHtml(v)}">${escapeHtml(m.label)}</option>`));
     }
 
     function applyView() {
