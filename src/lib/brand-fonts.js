@@ -27,25 +27,6 @@
    same or slightly narrower, so nothing grows. */
 const isDemoSeasons = (f) => /^the seasons$/i.test(String((f && f.family) || '').trim());
 
-/* Fonts whose own line metrics sit the letters off-centre in a box, and the
-   correction, applied wherever an uploaded font is registered (here and
-   /admin/fonts) so the Studio, previews and downloads all agree.
-
-   Chunk Five, Regular and Print (The Mortgage Experts, tested 12 Nov): its
-   ascent is 750 and descent 250 on a 1000 em, but capitals are only 699 tall,
-   so words centred in a box or strip sat about a tenth of their height high
-   (29px above vs 40px below a 56px SOLD). 82 / 18 brings capitals within
-   0.03em of centre and leaves room for g, p and y below. Nothing else
-   changes: the letters themselves, their width and spacing are untouched. */
-const FONT_METRICS = {
-  chunkfive: { ascentOverride: '82%', descentOverride: '18%', lineGapOverride: '0%' },
-  chunkfiveprint: { ascentOverride: '82%', descentOverride: '18%', lineGapOverride: '0%' },
-};
-export function fontFaceDescriptors(family, base) {
-  const key = String(family || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  return Object.assign({}, base || {}, FONT_METRICS[key] || {});
-}
-
 function readyPromise() {
   if (typeof window === 'undefined') return Promise.resolve();
   if (!window.__TMKE_BRAND_FONTS_READY__) {
@@ -80,9 +61,9 @@ export function loadBrandFonts(supabase, { timeout = 10000 } = {}) {
         seen.add(key);
         if (isDemoSeasons(f)) continue;
         try {
-          const face = new FontFace(f.family, `url("${f.file_url}")`, fontFaceDescriptors(f.family, {
+          const face = new FontFace(f.family, `url("${f.file_url}")`, {
             weight: String(f.weight || 400), style: f.style || 'normal', display: 'swap',
-          }));
+          });
           loads.push(face.load().then((l) => { document.fonts.add(l); }).catch(() => {}));
         } catch (_) { /* one bad file doesn't stop the rest */ }
       }
