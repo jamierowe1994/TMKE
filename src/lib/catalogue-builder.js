@@ -14,6 +14,7 @@
  * notifications, Insights and Gift and hands them in through ctx.
  */
 import { BRAND_ORDER, brandRank } from "../data/brands.js";
+import { PILLARS } from "./content-months.js";
 
 const PACK_IMAGES_BUCKET = "pack-images";
 const STAGES = [[1, "Initial planning"], [2, "Creation"], [3, "Prompts and guidance"], [4, "Final checks"], [5, "Shop listing"]];
@@ -198,7 +199,7 @@ export function initBuilder(ctx) {
     const set = '<button type="button" class="mbtn" data-set>See them together</button>';
     if (st === 1) {
       const planned = cnt((r) => (r.idea || "").trim());
-      return box("Initial planning", [item(!!(PLAN && PLAN.about), "What the pack is about"), item(n > 0 && planned === n, `${planned} of ${n} designs planned`)], add + copy, "A row for each design the pack will have: what it is, its type and a note for whoever makes it.");
+      return box("Initial planning", [item(!!(PLAN && PLAN.about), "What the pack is about"), item(n > 0 && planned === n, `${planned} of ${n} designs planned`)], add + copy, "A row for each design the pack will have: its name, content pillar, format and a note for whoever makes it.");
     }
     if (st === 2) {
       const made = cnt((r) => r.template_id);
@@ -230,10 +231,10 @@ export function initBuilder(ctx) {
     const grip = '<td class="pb-grip-cell"><span class="pb-grip" title="Drag to change the order">' + GRIP + "</span></td>";
     let head, body;
     if (st === 1) {
-      head = "<th></th><th>#</th><th>Design</th><th>Type</th><th>Note</th>";
-      body = ROWS.map((r, i) => `<tr data-row="${esc(r.id)}">${grip}<td class="pb-num">${i + 1}</td><td>${esc(r.idea) || '<span class="pb-tx">Untitled</span>'}</td><td>${TYPES[r.post_type] || "Single image"}</td><td class="pb-note">${esc(r.note) || '<span class="pb-tx">None</span>'}</td></tr>`);
+      head = "<th></th><th>#</th><th>Design</th><th>Content pillar</th><th>Format</th><th>Note</th>";
+      body = ROWS.map((r, i) => `<tr data-row="${esc(r.id)}">${grip}<td class="pb-num">${i + 1}</td><td>${esc(r.idea) || '<span class="pb-tx">Untitled</span>'}</td><td>${esc(r.pillar) || '<span class="pb-tx">None</span>'}</td><td>${TYPES[r.post_type] || "Single image"}</td><td class="pb-note">${esc(r.note) || '<span class="pb-tx">None</span>'}</td></tr>`);
     } else if (st === 2) {
-      head = "<th></th><th>#</th><th></th><th>Design</th><th>Type</th><th>Made</th>";
+      head = "<th></th><th>#</th><th></th><th>Design</th><th>Format</th><th>Made</th>";
       body = ROWS.map((r, i) => `<tr data-row="${esc(r.id)}">${grip}<td class="pb-num">${i + 1}</td><td>${thumb(r)}</td><td>${esc(r.idea) || '<span class="pb-tx">Untitled</span>'}${r.copied_from ? `<small>Copied from ${esc(r.copied_from)}</small>` : ""}</td><td>${TYPES[r.post_type] || "Single image"}</td><td>${r.template_id ? '<span class="chip good">Made</span>' : '<span class="chip wait">To make</span>'}</td></tr>`);
     } else if (st === 3) {
       head = "<th>#</th><th></th><th>Design</th><th>Editing fields</th><th>Caption prompt <span class='pb-tx'>(optional)</span></th><th>AI helper</th>";
@@ -296,23 +297,38 @@ export function initBuilder(ctx) {
     drawPack();
     return data;
   }
-  const saveTimers = new Map();
+  /* Edits to a row wait half a second and go together, so typing the name
+     then the note saves both (it used to save only the last one). */
+  const saveTimers = new Map(), pending = new Map();
+  async function flushRow(id) {
+    clearTimeout(saveTimers.get(id)); saveTimers.delete(id);
+    let patch = pending.get(id); pending.delete(id);
+    if (!patch) return;
+    let { error } = await supabase.from("pack_plan_rows").update(patch).eq("id", id);
+    // Before supabase/catalogue_builder_pillar.sql has run there's no pillar.
+    if (error && /pillar/.test(error.message || "") && "pillar" in patch) {
+      const { pillar, ...rest } = patch; patch = rest;
+      if (Object.keys(rest).length) ({ error } = await supabase.from("pack_plan_rows").update(rest).eq("id", id));
+      else error = null;
+      toast("The pillar can't be saved until supabase/catalogue_builder_pillar.sql has run.");
+    }
+    if (error) toast("Couldn't save: " + error.message);
+  }
   function patchRow(r, patch, now) {
     Object.assign(r, patch);
+    pending.set(r.id, { ...(pending.get(r.id) || {}), ...patch });
     clearTimeout(saveTimers.get(r.id));
-    const go = async () => {
-      const { error } = await supabase.from("pack_plan_rows").update(patch).eq("id", r.id);
-      if (error) toast("Couldn't save: " + error.message);
-    };
-    if (now) go(); else saveTimers.set(r.id, setTimeout(go, 500));
+    if (now) flushRow(r.id); else saveTimers.set(r.id, setTimeout(() => flushRow(r.id), 500));
   }
+  const flushAll = () => Promise.all([...pending.keys()].map(flushRow));
 
   function openRow(id) {
     const i = ROWS.findIndex((r) => r.id === id);
     if (i < 0 || MISSING) return;
     const r = ROWS[i], st = stage(), t = tplFor(r);
     let b = "";
-    if (st <= 2) b += `<div class="pb-two"><label class="pb-field"><span>Design</span><input data-f="idea" value="${esc(r.idea)}" placeholder="e.g. Christmas countdown"></label><label class="pb-field"><span>Type</span><select data-f="post_type">${Object.entries(TYPES).map(([k, l]) => `<option value="${k}"${k === r.post_type ? " selected" : ""}>${l}</option>`).join("")}</select></label></div>`;
+    if (st <= 2) b += `<label class="pb-field"><span>Design name</span><input data-f="idea" value="${esc(r.idea)}" placeholder="e.g. Christmas countdown"></label>
+      <div class="pb-two"><label class="pb-field"><span>Content pillar</span><select data-f="pillar"><option value="">Choose a pillar</option>${PILLARS.map((x) => `<option${x === r.pillar ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></label><label class="pb-field"><span>Format</span><select data-f="post_type">${Object.entries(TYPES).map(([k, l]) => `<option value="${k}"${k === r.post_type ? " selected" : ""}>${l}</option>`).join("")}</select></label></div>`;
     if (st >= 2) {
       b += `<div class="pb-dz">${t && t.thumb_url ? `<div class="pb-dz-pic" style="background-image:url('${esc(t.thumb_url)}')"></div>` : `<div class="pb-dz-pic none">${t ? esc(t.name) : "No design yet"}</div>`}
         <div class="pb-dz-r"><p class="pb-hint">${!t ? "Make it in the Studio, choose one you already have, or copy one from another pack." : r.copied_from ? `${esc(t.name)}. Copied from ${esc(r.copied_from)}; changes here don't touch the original.` : esc(t.name)}</p>
@@ -505,10 +521,10 @@ export function initBuilder(ctx) {
     await supabase.from("pack_plans").insert({ pack_id: pack.id, stage: 1 });
     if (fromId) {
       let src = [];
-      const { data: rows } = await supabase.from("pack_plan_rows").select("idea, post_type, note").eq("pack_id", fromId).order("sort_order");
+      const { data: rows } = await supabase.from("pack_plan_rows").select("*").eq("pack_id", fromId).order("sort_order");
       if (rows && rows.length) src = rows;
       else { const { data: t } = await supabase.from("templates").select("name").eq("pack_id", fromId).order("sort_order"); src = (t || []).map((x) => ({ idea: x.name, post_type: "single", note: null })); }
-      if (src.length) await supabase.from("pack_plan_rows").insert(src.map((r, i) => ({ pack_id: pack.id, sort_order: i, idea: r.idea, post_type: r.post_type || "single", note: r.note })));
+      if (src.length) await supabase.from("pack_plan_rows").insert(src.map((r, i) => ({ pack_id: pack.id, sort_order: i, idea: r.idea, post_type: r.post_type || "single", note: r.note, ...(r.pillar ? { pillar: r.pillar } : {}) })));
     }
     PACKS.unshift(pack); PLANS.set(pack.id, { pack_id: pack.id, stage: 1, about: null });
     S.kind = kind; closePop(); openPack(pack.id);
@@ -687,7 +703,7 @@ export function initBuilder(ctx) {
     pop.dataset.mode = ""; pop.dataset.row = "";
     document.documentElement.style.overflow = "hidden";
   }
-  function closePop() { pop.innerHTML = ""; document.documentElement.style.overflow = ""; }
+  function closePop() { flushAll(); pop.innerHTML = ""; document.documentElement.style.overflow = ""; }
 
   /* ---------------- Events ---------------- */
   main.addEventListener("click", async (e) => {
