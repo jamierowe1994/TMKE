@@ -507,7 +507,12 @@ import "../../styles/contacts-os.css";
     function brandBlocks(c) {
       const live = liveBrands(c);
       if (!live.length) return `<span class="blk ext" title="${esc(c.company || "External")}">${esc(c.company || "External")}</span>`;
-      return `<div class="chips2">${live.map((p) => { const x = brandHex(p.brand); return `<span class="blk br" style="background:color-mix(in srgb, ${x} 50%, #fff);color:color-mix(in srgb, ${x} 55%, #000)" title="${esc(p.brand)}">${esc(shortBrand(p.brand))}</span>`; }).join("")}</div>`;
+      // Their main brand only (Danielle, 12 Nov: most TPE agents are PPE too);
+      // the others are in the tooltip and on the card.
+      const p = live.find((x) => x.is_primary) || live[0];
+      const x = brandHex(p.brand);
+      const all = live.map((y) => y.brand).join(", ");
+      return `<span class="blk br" style="background:color-mix(in srgb, ${x} 50%, #fff);color:color-mix(in srgb, ${x} 55%, #000)" title="${esc(all)}">${esc(shortBrand(p.brand))}</span>`;
     }
     function renderTable() {
       const L = currentList();
