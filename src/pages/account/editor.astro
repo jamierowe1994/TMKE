@@ -1417,6 +1417,25 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
          through the same Worker routes as the Planner's Post it for me. The
          date and time are chosen, never typed. Wording: the Share from the
          Studio doc (claude.ai/artifact/FP7Yv2rAeJUJZNxtsU81FT). -->
+    <!-- Save on a design whose post is scheduled (Danielle, 12 Nov): what
+         saving will do to the post, before it does it. -->
+    <div class="ed-modal" id="ed-savecheck" hidden>
+      <div class="ed-modal-card ed-sched-card">
+        <header>
+          <div>
+            <p class="ed-sched-eyebrow">Scheduled post</p>
+            <h3 id="ed-savecheck-h">Save Your Changes?</h3>
+          </div>
+          <button class="ed-modal-close" id="ed-savecheck-x" aria-label="Close">×</button>
+        </header>
+        <p class="ed-savecheck-p" id="ed-savecheck-p"></p>
+        <footer class="ed-sched-foot">
+          <button type="button" class="ed-sched-cancel" id="ed-savecheck-no">Cancel</button>
+          <button type="button" class="ed-sched-submit" id="ed-savecheck-yes">Save and update the post</button>
+        </footer>
+      </div>
+    </div>
+
     <div class="ed-modal" id="ed-schedule-modal" hidden>
       <div class="ed-modal-card ed-sched-card">
         <header>
@@ -5834,6 +5853,24 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-pick-key span { width: 12px; height: 12px; border: 1px solid var(--english-violet); border-radius: 2px; background: rgba(var(--violet-rgb), 0.14); }
     @media (max-width: 520px) { .ed-pick-grid--h { grid-template-columns: repeat(6, minmax(0, 1fr)); } .ed-pick-row { grid-template-columns: 1fr; } .ed-share-ways { grid-template-columns: 1fr; } }
 
+    /* A shared design's banner over the canvas, and the Save confirm. */
+    .ed-sharebar {
+      position: fixed; z-index: 55; transform: translateX(-50%); width: max-content;
+      display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-radius: 6px;
+      background: #fff; box-shadow: inset 0 0 0 1px var(--english-violet), 0 12px 30px -18px rgba(28,29,34,0.45);
+      font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45; color: #2b2226;
+    }
+    .ed-sharebar[hidden] { display: none; }
+    .ed-sharebar p { margin: 0; }
+    .ed-sharebar b { color: var(--english-violet); }
+    .ed-sharebar.is-soon, .ed-sharebar.is-bad { box-shadow: inset 0 0 0 1px #8a3f3f, 0 12px 30px -18px rgba(28,29,34,0.45); }
+    .ed-sharebar.is-soon b, .ed-sharebar.is-bad b { color: #8a3f3f; }
+    .ed-sharebar.is-done { background: #eae5e1; box-shadow: 0 12px 30px -18px rgba(28,29,34,0.45); }
+    .ed-sharebar button { flex: none; height: 30px; padding: 0 12px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #2b2226; cursor: pointer; }
+    .ed-sharebar button:hover { border-color: var(--english-violet); }
+    .ed-sharebar a { flex: none; color: var(--english-violet); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+    .ed-savecheck-p { margin: 4px 0 6px; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.5; color: #2b2226; }
+
     /* Once sent. */
     .ed-share-done { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; font-family: var(--sans); }
     .ed-share-done[hidden] { display: none; }
@@ -8982,6 +9019,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         item.details = { ...(item.details || {}), zernio: z };
         reset();
         showDone(z && z.status === "scheduled" ? "scheduled" : "sent", { item, names });
+        // The design remembers the post it went out as, and says so on the canvas.
+        try { await (window as any).__TMKE_SET_SHARE_ITEM__?.(item.id); } catch (_) {}
+        paintBar();
         if (z && z.status === "posting") pollShare(item, names);
       } catch (e) {
         reset();
@@ -9001,6 +9041,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (z && z.status !== "posting") {
           item.details = data.details;
           if (!$modal.hidden && !$done.hidden) showDone("sent", { item, names });
+          if (shareItem === item) paintBar();
           return;
         }
       }
@@ -9058,7 +9099,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           await cancelPost(acct.token, ctx.item.id);
           const { zernio, ...rest } = ctx.item.details || {};
           ctx.item.details = rest;
-          shareItem = null;
+          paintBar();
           closeModal();
           (window as any).__TMKE_TOAST__?.("Taken back. It won't go out, and it's still on your calendar as Planned.", 4200);
         } catch (err) { b.disabled = false; b.textContent = "Don't post it"; showError(err.message); $form.hidden = false; }
@@ -9091,15 +9132,141 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const { schedulePost } = await import("../../lib/schedule-sync.js");
         const out = await schedulePost(acct.token, shareItem.id, z.accounts || []);
         shareItem.details = { ...(shareItem.details || {}), zernio: out.zernio };
+        paintBar();
         (window as any).__TMKE_TOAST__?.(`Saved. Your scheduled post (${whenOf(out.zernio.scheduled_for)}) now uses this version.`, 4200);
       } catch (e) {
         (window as any).__TMKE_TOAST__?.(`Saved, but your scheduled post didn't change: ${(e && e.message) || "try again in a moment."} It will go out as it was.`, 6000);
       }
     }
-    document.getElementById("ed-save")?.addEventListener("click", () => setTimeout(resendOnSave, 600));
-    document.addEventListener("keydown", (e) => {
-      if ((e.metaKey || e.ctrlKey) && String(e.key).toLowerCase() === "s") setTimeout(resendOnSave, 600);
-    });
+
+    /* ===== A shared design, open again (Danielle, 12 Nov) =====
+       A design carries the calendar row it was shared as (canvas.shareItem,
+       editor.js). While it's open, a banner over the canvas says what has
+       happened to that post and what changing the design will do:
+         scheduled   changes you save go into the post; autosave is off, so
+                     only Save changes it, after a confirm
+         < 10 mins   changes won't reach it: Don't post it, then schedule again
+         posted      when and where it went out; changes here don't touch it
+       Words: the Share from the Studio doc. */
+    let shareBar = null, barTimer = 0, saveUpdatesPost = false;
+    const MIN10 = 10 * 60000;
+    const zOf = (it) => (it && it.details && it.details.zernio) || null;
+    function namesOf(it) {
+      const z = zOf(it) || {};
+      const res = Array.isArray(z.results) ? z.results : [];
+      let plats = res.map((r) => r.platform).filter(Boolean);
+      if (!plats.length && Array.isArray(z.accounts) && shareInfo) plats = shareInfo.accounts.filter((a) => z.accounts.map(String).includes(String(a.id))).map((a) => a.platform);
+      if (!plats.length && it.platform_hint) plats = [it.platform_hint];
+      return [...new Set(plats)].map((p) => PLAT[p] || p);
+    }
+    const timeOf = (iso) => { try { return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }); } catch (_) { return ""; } };
+    const dayOf = (iso) => { try { return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" }); } catch (_) { return ""; } };
+    const soon = (z) => z && z.scheduled_for && new Date(z.scheduled_for).getTime() - Date.now() < MIN10;
+
+    function placeBar() {
+      if (!shareBar || shareBar.hidden) return;
+      const st = document.getElementById("ed-stage");
+      if (!st) return;
+      const r = st.getBoundingClientRect();
+      shareBar.style.top = Math.round(r.top + 12) + "px";
+      shareBar.style.left = Math.round(r.left + r.width / 2) + "px";
+      shareBar.style.maxWidth = Math.max(260, Math.round(r.width - 32)) + "px";
+    }
+    addEventListener("resize", placeBar);
+
+    function paintBar() {
+      clearTimeout(barTimer);
+      const it = shareItem, z = zOf(it);
+      const scheduled = !!(z && z.status === "scheduled");
+      (window as any).__TMKE_HOLD_AUTOSAVE__?.(scheduled);
+      if (!it || !z) { if (shareBar) shareBar.hidden = true; return; }
+      if (!shareBar) {
+        shareBar = document.createElement("div");
+        shareBar.className = "ed-sharebar";
+        shareBar.setAttribute("role", "status");
+        document.body.appendChild(shareBar);
+      }
+      const names = esc(both(namesOf(it)));
+      let html = "", cls = "";
+      if (scheduled && soon(z)) {
+        cls = "is-soon";
+        html = `<p><b>Going out at ${esc(timeOf(z.scheduled_for))}, in under 10 minutes.</b> Changes you make now won't be in the post. To change it, take it back with Don't post it and schedule it again.</p>`;
+      } else if (scheduled) {
+        html = `<p><b>Scheduled for ${esc(whenOf(z.scheduled_for))} on ${names}.</b> Changes you save here go into the post. Auto-save is off for this design, so press Save when you're happy.</p>`;
+      } else if (z.status === "posting") {
+        html = `<p><b>Going out to ${names} now.</b></p>`;
+      } else if (z.status === "posted") {
+        cls = "is-done";
+        const url = ((z.results || []).find((r) => r.url) || {}).url;
+        html = `<p><b>This design was posted to ${names} on ${esc(dayOf(z.posted_at || z.scheduled_for))}.</b> Changes you make here won't change that post.</p>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">View the post &rarr;</a>` : ""}`;
+      } else if (z.status === "partial" || z.status === "failed") {
+        cls = "is-bad";
+        const bad = (z.results || []).filter((r) => r.status === "failed").map((r) => PLAT[r.platform] || r.platform);
+        html = `<p><b>This design didn't post to ${esc(both(bad.length ? bad : namesOf(it)))}.</b> Open Share to try again.</p>`;
+      } else { shareBar.hidden = true; return; }
+      if (scheduled || z.status === "posting" || z.status === "partial" || z.status === "failed") html += `<button type="button" data-bar="view">View post</button>`;
+      shareBar.className = "ed-sharebar " + cls;
+      shareBar.innerHTML = html;
+      shareBar.hidden = false;
+      placeBar();
+      shareBar.querySelector('[data-bar="view"]')?.addEventListener("click", () => {
+        $modal.hidden = false;
+        mode = "share";
+        sharePlat = (it.platform_hint && PLAT[it.platform_hint]) ? it.platform_hint : sharePlat;
+        showDone(scheduled ? "scheduled" : "sent", { item: it, names: namesOf(it) });
+      });
+      // Read again as its time comes: into the last 10 minutes, then gone out.
+      const left = z.scheduled_for ? new Date(z.scheduled_for).getTime() - Date.now() : 0;
+      barTimer = setTimeout(async () => {
+        if (scheduled && left < 60000 || z.status === "posting") {
+          const acct = await plannerStore().catch(() => null);
+          if (acct && !acct.blocked) await freshDetails(acct, it).catch(() => null);
+        }
+        if (shareItem === it) paintBar();
+      }, scheduled && left > MIN10 + 30000 ? Math.min(left - MIN10, 30 * 60000) : 30000);
+    }
+
+    // The design open now was shared as this row (or none).
+    async function openShareItem(id) {
+      if (!id) { shareItem = null; paintBar(); return; }
+      if (shareItem && String(shareItem.id) === String(id)) { paintBar(); return; }
+      try {
+        const acct = await plannerStore();
+        if (!acct || acct.blocked) return;
+        const { data } = await acct.db.from(acct.table).select("id, details, platform_hint, scheduled_date, scheduled_time, title, caption, asset_url").eq("id", id).eq("user_id", acct.uid).maybeSingle();
+        shareItem = data || null;
+        loadShareInfo().then(() => paintBar());
+        paintBar();
+      } catch (_) {}
+    }
+    (window as any).__TMKE_SHARE_ITEM_OPENED__ = openShareItem;
+    if ((window as any).__TMKE_SHARE_PENDING__ !== undefined) { const id = (window as any).__TMKE_SHARE_PENDING__; delete (window as any).__TMKE_SHARE_PENDING__; openShareItem(id); }
+
+    /* Save on a design whose post is waiting: say what saving will do, first.
+       More than 10 minutes to go: the post takes the change. Less: it can't,
+       so it's the design only, or cancel. */
+    function askBeforeSave() {
+      const z = zOf(shareItem);
+      if (!z || z.status !== "scheduled") { saveUpdatesPost = false; return Promise.resolve(true); }
+      const late = soon(z);
+      const box = document.getElementById("ed-savecheck");
+      document.getElementById("ed-savecheck-h").textContent = late ? "Too Late to Change This Post." : "Save Your Changes?";
+      document.getElementById("ed-savecheck-p").innerHTML = late
+        ? `It goes out at ${esc(timeOf(z.scheduled_for))}, in under 10 minutes, so your changes won't be in it. To change it, take the post back with Don't post it, then schedule it again.`
+        : `This post is scheduled, so your changes will go into the post going to ${esc(both(namesOf(shareItem)))} on ${esc(whenOf(z.scheduled_for))}.`;
+      const yes = document.getElementById("ed-savecheck-yes");
+      yes.textContent = late ? "Save the design only" : "Save and update the post";
+      box.hidden = false;
+      return new Promise((resolve) => {
+        const done = (go) => { box.hidden = true; yes.onclick = null; no.onclick = null; x.onclick = null; resolve(go); };
+        const no = document.getElementById("ed-savecheck-no"), x = document.getElementById("ed-savecheck-x");
+        yes.onclick = () => { saveUpdatesPost = !late; done(true); };
+        no.onclick = () => done(false);
+        x.onclick = () => done(false);
+      });
+    }
+    (window as any).__TMKE_BEFORE_SAVE__ = askBeforeSave;
+    (window as any).__TMKE_AFTER_SAVE__ = (ok) => { if (ok && saveUpdatesPost) resendOnSave(); saveUpdatesPost = false; };
 
     } // end wireSchedule
   </script>
@@ -10397,7 +10564,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       /* A duplicate of a Content Calendar design is freeform (Danielle,
          12 Nov): the lock rides on each page's canvas as ccLock, so it's
          left off the copy. */
-      const unlock = (c) => { if (!c || typeof c !== "object" || !("ccLock" in c || "ccPost" in c || "calendar" in c)) return c; const { ccLock, ccPost, calendar, ...rest } = c; return rest; };
+      const unlock = (c) => { if (!c || typeof c !== "object" || !("ccLock" in c || "ccPost" in c || "calendar" in c || "shareItem" in c)) return c; const { ccLock, ccPost, calendar, shareItem, ...rest } = c; return rest; };
       const copies = picked.map((d) => ({
         user_id: store.uid,
         name: `${d.name || "Untitled design"} (copy)`,

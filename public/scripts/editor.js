@@ -484,6 +484,35 @@ import { createResizeEngine } from "./resize-engine.js";
      saved copy reopens locked; duplicating the design in Your designs drops
      it, and the duplicate is freeform. Admin mode is never locked. */
   var _ccLock = null;
+  /* A design shared from the Studio (Danielle, 12 Nov) carries the calendar
+     row it went out as (canvas.shareItem), so reopening it says what's
+     happened to that post. While the post is waiting to go out, autosave is
+     held: only Save changes it, after a confirm (editor.astro). */
+  var _shareItem = null, _holdAutosave = false, _heldDirty = false;
+  function stampShareItem() {
+    (state.pages || []).forEach(function (pg) {
+      if (!pg || !pg.canvas) return;
+      if (_shareItem) pg.canvas.shareItem = _shareItem; else delete pg.canvas.shareItem;
+    });
+  }
+  function shareItemOf(d) {
+    if (!d) return null;
+    const c = [d.canvas].concat((d.pages || []).map(function (p) { return p && p.canvas; })).filter(Boolean).find(function (x) { return x.shareItem; });
+    return c ? String(c.shareItem) : null;
+  }
+  function tellShareItem() {
+    if (typeof window.__TMKE_SHARE_ITEM_OPENED__ === "function") { try { window.__TMKE_SHARE_ITEM_OPENED__(_shareItem); } catch (_) {} }
+    else window.__TMKE_SHARE_PENDING__ = _shareItem;
+  }
+  window.__TMKE_SET_SHARE_ITEM__ = function (id) { _shareItem = id ? String(id) : null; stampShareItem(); return save(); };
+  window.__TMKE_HOLD_AUTOSAVE__ = function (on) {
+    _holdAutosave = !!on && !ADMIN_MODE_URL;
+    if (!_holdAutosave && _heldDirty) { _heldDirty = false; scheduleAutosave(); }
+    else if (_holdAutosave && _heldDirty) setSaveStatus("held");
+  };
+  window.addEventListener("beforeunload", function (e) {
+    if (_holdAutosave && _heldDirty) { e.preventDefault(); e.returnValue = ""; }
+  });
   function ccLocked() { return !!_ccLock && !isAdminMode(); }
   const CC_HIDDEN_TOOLS = ["elements", "text", "resize", "templates"];
   function stampCcLock() {
@@ -2554,6 +2583,7 @@ import { createResizeEngine } from "./resize-engine.js";
     el.style.opacity = "1";
     if (kind === "saving") { el.textContent = "Saving…"; el.style.background = "#fff"; el.style.color = "rgba(28,29,34,0.7)"; }
     else if (kind === "saved") { el.textContent = "All changes saved ✓"; el.style.background = "#e7f3ea"; el.style.color = "#2d6a44"; el._hideT = setTimeout(function () { el.style.opacity = "0"; }, 1800); }
+    else if (kind === "held") { el.textContent = "Not saved yet: press Save when you're happy"; el.style.background = "#eae5e1"; el.style.color = "#371e28"; el.title = "This design's post is scheduled, so it only saves when you press Save."; }
     else if (kind === "local") { el.textContent = "⚠ Saved on this device — not yet in the cloud"; el.style.background = "#fcefe6"; el.style.color = "#a05a3c"; el.title = (_lastSaveWhy ? "Why: " + _lastSaveWhy + "\n\n" : "") + "Your work is safe in this browser. The message that appeared says why the cloud save failed."; }
   }
 
@@ -2670,7 +2700,7 @@ import { createResizeEngine } from "./resize-engine.js";
         state.currentPage = 0;
         ({ thumb, render } = await _renderPreviewPair());
       } catch (_) {} finally { state.currentPage = _onPage; }
-      stampCcLock();
+      stampCcLock(); stampShareItem();
       const payload = {
         templateId: state.templateId,
         filename: filenameEl ? filenameEl.value : "",
@@ -2727,6 +2757,7 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     const customer = !ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ === "function";
     if (!ADMIN_MODE_URL && !customer) return;
+    if (_holdAutosave) { _heldDirty = true; setSaveStatus("held"); return; }
     if (ADMIN_MODE_URL) {   // admin also keeps a local draft; customers save to their copy only
       clearTimeout(_autosaveTimer);
       _autosaveTimer = setTimeout(autosaveDraft, 1200);
@@ -2872,6 +2903,7 @@ import { createResizeEngine } from "./resize-engine.js";
     resetToSinglePage(tpl.canvas && tpl.canvas.background);
     state.templateId = draftRaw ? tplId : tpl.id;
     _templateOrigin = draftRaw ? null : tpl.id;
+    _shareItem = null; _heldDirty = false; tellShareItem();
     // A calendar template keeps the calendar's rules wherever it's opened
     // from (its canvas carries calendar: true once saved from the calendar).
     setCcLock(draftRaw ? null : ccLockOf(tpl));
@@ -3036,6 +3068,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (d.pages && d.pages.length) { state.pages = d.pages; state.currentPage = 0; }
     else { if (d.canvas) state.canvas = d.canvas; state.elements = d.elements || []; }
     setCcLock(ccLockOf(d));
+    _shareItem = shareItemOf(d); _heldDirty = false; tellShareItem();
     // Its post card, on Start (editor.astro), if the post can still be opened.
     if (_ccLock && _ccLock !== "calendar") {
       if (typeof window.__TMKE_CC_POST_BY_ID__ === "function") window.__TMKE_CC_POST_BY_ID__(_ccLock);
@@ -3065,6 +3098,7 @@ import { createResizeEngine } from "./resize-engine.js";
     state.templateId = null;
     _templateOrigin = null;
     setCcLock(null);
+    _shareItem = null; _heldDirty = false; tellShareItem();
     syncResetButton();
     state.elements = [];
     state.selectedIds = [];
@@ -8220,6 +8254,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
   async function save() {
     if (!state.templateId) { toast("Open a template to save into"); return false; }
+    stampCcLock(); stampShareItem();
     // Page one is the cover here too — see autosaveToDb.
     const _onPage = state.currentPage;
     let thumb, render;
@@ -17018,14 +17053,27 @@ import { createResizeEngine } from "./resize-engine.js";
     const ah = $("ed-guide-add-h"); if (ah) ah.addEventListener("click", function () { addGuide("h"); });
     const clr = $("ed-guides-clear"); if (clr) clr.addEventListener("click", clearAllGuides);
   })();
+  // The page may ask before a save (a scheduled post) and act after it.
+  async function guardedSave() {
+    if (typeof window.__TMKE_BEFORE_SAVE__ === "function") {
+      let go = true;
+      try { go = await window.__TMKE_BEFORE_SAVE__(); } catch (_) { go = true; }
+      if (!go) return null;
+    }
+    let ok = false;
+    try { ok = await save(); } catch (_) { ok = false; }
+    if (ok) { _heldDirty = false; setSaveStatus("saved"); }
+    if (typeof window.__TMKE_AFTER_SAVE__ === "function") { try { window.__TMKE_AFTER_SAVE__(ok); } catch (_) {} }
+    return ok;
+  }
   $("ed-save").addEventListener("click", async function () {
     // Showing a size other than the saved one: ask before anything is saved.
     if (sizePreviewPending()) { syncSizeDecision(); $("ed-size-modal").hidden = false; return; }
     const btn = $("ed-save");
     const label = btn.innerHTML;
     btn.disabled = true; btn.textContent = "Saving…";
-    let ok = false;
-    try { ok = await save(); } catch (_) { ok = false; }
+    const ok = await guardedSave();
+    if (ok === null) { btn.innerHTML = label; btn.disabled = false; return; }
     btn.innerHTML = ok ? "✓ Saved" : "Save failed";
     if (ok) { btn.style.background = "#2d6a44"; btn.style.color = "#fff"; btn.style.borderColor = "#2d6a44"; }
     setTimeout(function () {
@@ -17247,7 +17295,7 @@ import { createResizeEngine } from "./resize-engine.js";
       return;
     }
     if (ctrl && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
-    if (ctrl && e.key.toLowerCase() === "s") { e.preventDefault(); save(); return; }
+    if (ctrl && e.key.toLowerCase() === "s") { e.preventDefault(); guardedSave(); return; }
     if (ctrl && e.key.toLowerCase() === "d") { e.preventDefault(); duplicateSelected(); return; }
     if (ctrl && e.key.toLowerCase() === "c") { e.preventDefault(); copySelected(); return; }
     if (ctrl && e.key.toLowerCase() === "v") { e.preventDefault(); paste(); return; }
