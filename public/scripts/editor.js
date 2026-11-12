@@ -512,11 +512,17 @@ import { createResizeEngine } from "./resize-engine.js";
     stampCcLock();
     syncCcLock();
   }
+  /* The post's id, from this lock's own mark (ccLock, 12 Nov) or the
+     calendar mark kept since 10 Nov (ccPost, calendar: isCalendarDesign), so
+     calendar designs saved before the lock came in are locked too. */
   function ccLockOf(d) {
     if (!d) return null;
-    if (d.canvas && d.canvas.ccLock) return d.canvas.ccLock;
-    const pg = (d.pages || []).find(function (p) { return p && p.canvas && p.canvas.ccLock; });
-    return pg ? pg.canvas.ccLock : null;
+    const canvases = [d.canvas].concat((d.pages || []).map(function (p) { return p && p.canvas; })).filter(Boolean);
+    for (const k of ["ccLock", "ccPost"]) {
+      const c = canvases.find(function (x) { return x[k]; });
+      if (c) return String(c[k]);
+    }
+    return canvases.some(function (x) { return x.calendar; }) ? "calendar" : null;
   }
   // editor.astro: a month's post was opened (its id), or something else was (null).
   // Redrawn, so a text bar already on screen loses its font and style controls.
@@ -2866,7 +2872,9 @@ import { createResizeEngine } from "./resize-engine.js";
     resetToSinglePage(tpl.canvas && tpl.canvas.background);
     state.templateId = draftRaw ? tplId : tpl.id;
     _templateOrigin = draftRaw ? null : tpl.id;
-    setCcLock(null);
+    // A calendar template keeps the calendar's rules wherever it's opened
+    // from (its canvas carries calendar: true once saved from the calendar).
+    setCcLock(draftRaw ? null : ccLockOf(tpl));
     syncResetButton();
     /* A design belongs to the brand its pack was drawn for. Said on every
        route into a template — the chooser, a ?template= link, the Templates
@@ -3029,7 +3037,7 @@ import { createResizeEngine } from "./resize-engine.js";
     else { if (d.canvas) state.canvas = d.canvas; state.elements = d.elements || []; }
     setCcLock(ccLockOf(d));
     // Its post card, on Start (editor.astro), if the post can still be opened.
-    if (_ccLock) {
+    if (_ccLock && _ccLock !== "calendar") {
       if (typeof window.__TMKE_CC_POST_BY_ID__ === "function") window.__TMKE_CC_POST_BY_ID__(_ccLock);
       else window.__TMKE_CC_PENDING__ = _ccLock;
     }

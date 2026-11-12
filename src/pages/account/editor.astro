@@ -591,10 +591,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         <!-- Three boxes rather than one long card (Danielle, 12 Nov): the post,
              then Edit straight after How to edit so reading what to change
              leads to changing it, then the caption. Shown with the card. -->
-        <button type="button" class="ed-ccpost-edit" id="ed-ccpost-edit" data-start-tool="fields" hidden>
-          <span class="ed-ccpost-edit-tx"><b>Edit</b><i>Change the words and pictures</i></span>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </button>
+        <!-- Edit opens the list here, under itself, rather than switching
+             panel (Danielle, 12 Nov): How to edit stays in view above it. The
+             list is the Edit pane's own node (#ed-fields), moved in and out. -->
+        <div class="ed-ccpost-editbox" id="ed-ccpost-edit" hidden>
+          <button type="button" class="ed-ccpost-edit" id="ed-ccpost-edit-go" aria-expanded="false" aria-controls="ed-ccpost-fields">
+            <span class="ed-ccpost-edit-tx"><b>Edit</b><i>Change the words and pictures</i></span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="ed-ccpost-fields" id="ed-ccpost-fields" hidden></div>
+        </div>
         <div class="ed-ccpost-capbox" id="ed-ccpost-cap" hidden><b>Caption</b><i></i>
           <button type="button" class="ed-ccpost-copy" id="ed-ccpost-copy">Copy caption</button>
         </div>
@@ -1555,9 +1561,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-ccpost-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.22); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(255,255,255,0.76); }
     .ed-ccpost-chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 99px; background: rgba(255,255,255,0.14); color: #fff; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
     .ed-ccpost .ed-prompt-part i { white-space: pre-line; }
-    .ed-ccpost-edit { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; margin: 0 0 10px; padding: 14px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; color: #371e28; font-family: var(--sans); text-align: left; cursor: pointer; transition: border-color 0.18s, background 0.18s; }
-    .ed-ccpost-edit:hover { border-color: #371e28; }
-    .ed-ccpost-edit[hidden], .ed-ccpost-capbox[hidden] { display: none; }
+    .ed-ccpost-editbox { margin: 0 0 10px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; transition: border-color 0.18s; }
+    .ed-ccpost-editbox:hover, .ed-ccpost-editbox.is-open { border-color: #371e28; }
+    .ed-ccpost-edit { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 14px; border: 0; border-radius: 4px; background: transparent; color: #371e28; font-family: var(--sans); text-align: left; cursor: pointer; }
+    .ed-ccpost-editbox.is-open .ed-ccpost-edit svg { transform: rotate(180deg); }
+    .ed-ccpost-edit svg { transition: transform 0.2s; }
+    .ed-ccpost-fields { padding: 0 14px 14px; border-top: 1px solid #eae5e1; }
+    .ed-ccpost-fields[hidden], .ed-ccpost-editbox[hidden], .ed-ccpost-capbox[hidden] { display: none; }
+    .ed-ccpost-fields .ed-fields { padding-top: 12px; }
     .ed-ccpost-capbox { margin: 0 0 10px; padding: 14px; border-radius: 4px; background: #eae5e1; font-family: var(--sans); }
     .ed-ccpost-capbox > b { display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #7e6765; }
     .ed-ccpost-capbox > i { display: block; margin-top: 6px; font-style: normal; font-size: var(--ws-t-meta); line-height: 1.55; color: #2b2226; white-space: pre-line; }
@@ -9684,7 +9695,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       /* A duplicate of a Content Calendar design is freeform (Danielle,
          12 Nov): the lock rides on each page's canvas as ccLock, so it's
          left off the copy. */
-      const unlock = (c) => { if (!c || typeof c !== "object" || !("ccLock" in c)) return c; const { ccLock, ...rest } = c; return rest; };
+      const unlock = (c) => { if (!c || typeof c !== "object" || !("ccLock" in c || "ccPost" in c || "calendar" in c)) return c; const { ccLock, ccPost, calendar, ...rest } = c; return rest; };
       const copies = picked.map((d) => ({
         user_id: store.uid,
         name: `${d.name || "Untitled design"} (copy)`,
@@ -10739,7 +10750,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         (window as any).__TMKE_CC_CONTEXT__ = post ? { title: post.title || "", caption: ((post.captions || []).find((c) => c && c.trim())) || "", how_to_edit: post.how_to_edit || "" } : null;
         (window as any).__TMKE_RENDER_FIELDS__?.();
         const editBox = document.getElementById("ed-ccpost-edit");
-        if (!post) { box.hidden = true; if (editBox) editBox.hidden = true; part("ed-ccpost-cap", ""); return; }
+        if (!post) { box.hidden = true; if (editBox) editBox.hidden = true; editList(false); part("ed-ccpost-cap", ""); return; }
         const { monthPostsName, fmtPostDate, POST_TYPE_LABEL } = await import("../../lib/calendar-month.js");
         const month = (post.month && post.month.month) || (post.post_date ? post.post_date.slice(0, 7) + "-01" : "");
         document.getElementById("ed-ccpost-k").textContent = month ? monthPostsName(month).replace(/s$/, "") : "This month's post";
@@ -10761,6 +10772,29 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (prompt) prompt.hidden = true;
       }
       (window as any).__TMKE_CC_POST__ = show;
+
+      /* Edit, opened in place: the Edit pane's list and its empty line move
+         under the button, and go home to the Edit pane when it closes. */
+      const fieldsPane = document.querySelector('[data-pane="fields"]');
+      const fieldsHost = document.getElementById("ed-ccpost-fields");
+      const editWrap = document.getElementById("ed-ccpost-edit");
+      const editGo = document.getElementById("ed-ccpost-edit-go");
+      function editList(open) {
+        const list = document.getElementById("ed-fields"), empty = document.getElementById("ed-fields-empty");
+        if (!fieldsHost || !fieldsPane || !list) return;
+        if (open) {
+          fieldsHost.appendChild(list);
+          if (empty) fieldsHost.appendChild(empty);
+          (window as any).__TMKE_RENDER_FIELDS__?.();
+        } else {
+          fieldsPane.appendChild(list);
+          if (empty) fieldsPane.appendChild(empty);
+        }
+        fieldsHost.hidden = !open;
+        editWrap?.classList.toggle("is-open", open);
+        editGo?.setAttribute("aria-expanded", String(open));
+      }
+      editGo?.addEventListener("click", () => editList(fieldsHost ? fieldsHost.hidden : false));
       /* A saved copy of a calendar post, reopened: editor.js reads the post's
          id off the design (ccLock) and asks for its card. Shown only if that
          design is still the one open when the post arrives. */
