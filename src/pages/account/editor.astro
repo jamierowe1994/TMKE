@@ -432,7 +432,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             <hr class="ed-share-hr" />
             <button type="button" class="ed-share-mi" role="menuitem" data-share="plan">
               <span class="ed-share-ic ed-share-ic--plan"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>
-              <span class="ed-share-mt"><b>Add to your Studio Planner</b><i>On your calendar, with a reminder</i></span>
+              <span class="ed-share-mt"><b>Save to your Studio Planner</b><i>Save your design to your Studio Planner, ready to post when you choose.</i></span>
             </button>
           </div>
         </div>
@@ -1453,7 +1453,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           <label class="ed-sched-field">
             <span class="ed-sched-label">Title</span>
             <input type="text" id="ed-sched-title" required maxlength="120" placeholder="Mid-week new build reveal" />
-            <span class="ed-sched-hint">Shown on your calendar.</span>
+            <span class="ed-sched-hint" id="ed-sched-title-hint">Shown on your calendar.</span>
           </label>
 
           <!-- Date and time: buttons that open their picker underneath. The
@@ -1490,7 +1490,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             <span class="ed-sched-label">When should it go out?</span>
             <div class="ed-share-ways" role="radiogroup" aria-label="When it goes out">
               <button type="button" class="ed-share-way is-on" data-way="schedule" role="radio" aria-checked="true"><b>Schedule it</b><i>Pick a date and time</i></button>
-              <button type="button" class="ed-share-way" data-way="now" role="radio" aria-checked="false"><b>Post now</b><i>Straight away</i></button>
+              <button type="button" class="ed-share-way" data-way="now" role="radio" aria-checked="false"><b>Post now</b><i>Publish immediately</i></button>
             </div>
           </div>
           <div class="ed-share-flag" id="ed-share-flag" hidden></div>
@@ -5777,6 +5777,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45;
     }
     .ed-share-note[hidden] { display: none; }
+    .ed-share-note .ed-share-up { display: block; width: fit-content; margin-top: 8px; padding: 7px 12px; border-radius: 4px; background: var(--english-violet); color: #fff; text-decoration: none; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .ed-share-note .ed-share-up:hover { background: var(--ink); }
     .ed-share-note a, .ed-plan-note a, .ed-share-done a, .ed-share-check a { color: var(--english-violet); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
     .ed-plan-note { margin: 0; }
     .ed-plan-upsell { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 4px; background: var(--english-violet); color: #fff; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45; }
@@ -8730,9 +8732,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       let note = "";
       if (info && info.ready && onCal) {
         const missing = ["instagram", "facebook"].filter((p) => !accsFor(p).length).map((p) => PLAT[p]);
-        if (!can) note = `Sharing straight to Instagram and Facebook is included in Content Calendar Plus. <a href="${PLAN_LINK}">See your plan &rarr;</a>`;
-        else if (missing.length === 2) note = `Connect Instagram or Facebook on Your Account to share there. <a href="${PLAN_LINK}">Connect your accounts &rarr;</a>`;
-        else if (missing.length === 1) note = `Connect ${missing[0]} on Your Account to share there. <a href="${PLAN_LINK}">Connect your accounts &rarr;</a>`;
+        if (!can) note = `Sharing directly to Instagram and Facebook isn't included in your current plan.<a class="ed-share-up" href="${PLAN_LINK}">Upgrade to Content Calendar Plus</a>`;
+        else if (missing.length === 2) note = `Connect your Instagram or Facebook account to share directly from the Studio.<br><a href="${PLAN_LINK}">Connect your accounts &rarr;</a>`;
+        else if (missing.length === 1) note = `Connect your ${missing[0]} account to share directly from the Studio.<br><a href="${PLAN_LINK}">Connect your accounts &rarr;</a>`;
       }
       $shareNote.innerHTML = note;
       $shareNote.hidden = !note;
@@ -8775,12 +8777,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       // go out?" to share, and only when scheduling.
       if (share) $go.after($when); else $titleField.after($when);
       $timeL.textContent = share ? "Time" : "Reminder time";
-      $timeHint.textContent = share ? "When it goes out. At least 10 minutes from now." : "When we'll email you.";
+      $timeHint.textContent = share ? "Schedule posts at least 10 minutes in advance" : "When we'll email you.";
+      document.getElementById("ed-sched-title-hint").textContent = share ? "How this post appears in your calendar." : "Shown on your calendar.";
       // A calendar post's caption is written for it: no AI. A duplicate is
       // a design of their own and gets it back.
       const cal = isCalendarPost();
       if ($ai) $ai.hidden = cal;
-      $capOpt.textContent = cal ? "(written for this post)" : share ? "" : "— optional";
+      $capOpt.textContent = cal || share ? "" : "— optional";
       if (share) { paintWho(); paintWays(); } else { $flag.hidden = true; $check.hidden = true; paintPlanNote(); }
       $submit.textContent = share ? (shareWay === "now" ? "Post now" : "Schedule it") : "Plan post";
       $pick.hidden = true; pickOpen = null;
@@ -8792,7 +8795,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const other = OTHER[sharePlat];
       const card = (a, tick) => `<label class="ed-share-acc">${a.picture ? `<img src="${esc(a.picture)}" alt="">` : iconOf(a.platform)}<span class="ed-share-mt"><b>${esc(a.username || a.name || PLAT[a.platform])}</b><i>${PLAT[a.platform]}</i></span>${tick ? `<input type="checkbox" data-share-acc value="${esc(String(a.id))}" checked>` : ""}</label>`;
       $who.innerHTML = accs.map((a) => card(a, accs.length > 1)).join("")
-        + (accsFor(other).length ? `<label class="ed-share-also"><input type="checkbox" id="ed-share-also"${shareAlso ? " checked" : ""}> Share to ${PLAT[other]} as well</label>` : "");
+        + (accsFor(other).length ? `<label class="ed-share-also"><input type="checkbox" id="ed-share-also"${shareAlso ? " checked" : ""}> Also share to ${PLAT[other]}</label>` : "");
       document.getElementById("ed-share-also")?.addEventListener("change", (e) => { shareAlso = (e.target as HTMLInputElement).checked; preCheck(); });
       $who.querySelectorAll("[data-share-acc]").forEach((i) => i.addEventListener("change", preCheck));
     }
