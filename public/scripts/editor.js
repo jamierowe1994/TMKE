@@ -505,8 +505,19 @@ import { createResizeEngine } from "./resize-engine.js";
     else window.__TMKE_SHARE_PENDING__ = _shareItem;
   }
   window.__TMKE_SET_SHARE_ITEM__ = function (id) { _shareItem = id ? String(id) : null; stampShareItem(); return save(); };
+  /* "Unsaved changes" only when the design really differs from what was last
+     saved (Danielle, 12 Nov: it showed on a design only opened). Opening
+     settles things - fonts, measured text, images - that call for a save
+     without changing the design. */
+  var _heldSig = null, _heldAt = 0;
+  function designSig() {
+    try { return JSON.stringify([state.pages, state.canvas, state.elements]); } catch (_) { return String(Math.random()); }
+  }
+  function heldClean() { _heldSig = designSig(); _heldDirty = false; }
   window.__TMKE_HOLD_AUTOSAVE__ = function (on) {
+    const was = _holdAutosave;
     _holdAutosave = !!on && !ADMIN_MODE_URL;
+    if (_holdAutosave && _heldSig === null && !_heldDirty) { _heldSig = designSig(); _heldAt = Date.now(); }
     if (!_holdAutosave && _heldDirty) { _heldDirty = false; scheduleAutosave(); }
     else if (_holdAutosave && _heldDirty) setSaveStatus("held");
   };
@@ -2757,7 +2768,13 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     const customer = !ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ === "function";
     if (!ADMIN_MODE_URL && !customer) return;
-    if (_holdAutosave) { _heldDirty = true; setSaveStatus("held"); return; }
+    if (_holdAutosave) {
+      if (_heldSig !== null && designSig() === _heldSig) { _heldDirty = false; return; }
+      // Still settling from opening (images, fonts, measured text): the new
+      // state is the saved one, not a change.
+      if (_heldSig !== null && !_heldDirty && Date.now() - _heldAt < 5000) { _heldSig = designSig(); return; }
+      _heldDirty = true; setSaveStatus("held"); return;
+    }
     if (ADMIN_MODE_URL) {   // admin also keeps a local draft; customers save to their copy only
       clearTimeout(_autosaveTimer);
       _autosaveTimer = setTimeout(autosaveDraft, 1200);
@@ -2903,7 +2920,7 @@ import { createResizeEngine } from "./resize-engine.js";
     resetToSinglePage(tpl.canvas && tpl.canvas.background);
     state.templateId = draftRaw ? tplId : tpl.id;
     _templateOrigin = draftRaw ? null : tpl.id;
-    _shareItem = null; _heldDirty = false; tellShareItem();
+    _shareItem = null; _heldDirty = false; _heldSig = null; tellShareItem();
     // A calendar template keeps the calendar's rules wherever it's opened
     // from (its canvas carries calendar: true once saved from the calendar).
     setCcLock(draftRaw ? null : ccLockOf(tpl));
@@ -3068,7 +3085,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (d.pages && d.pages.length) { state.pages = d.pages; state.currentPage = 0; }
     else { if (d.canvas) state.canvas = d.canvas; state.elements = d.elements || []; }
     setCcLock(ccLockOf(d));
-    _shareItem = shareItemOf(d); _heldDirty = false; tellShareItem();
+    _shareItem = shareItemOf(d); _heldDirty = false; _heldSig = null; tellShareItem();
     // Its post card, on Start (editor.astro), if the post can still be opened.
     if (_ccLock && _ccLock !== "calendar") {
       if (typeof window.__TMKE_CC_POST_BY_ID__ === "function") window.__TMKE_CC_POST_BY_ID__(_ccLock);
@@ -3098,7 +3115,7 @@ import { createResizeEngine } from "./resize-engine.js";
     state.templateId = null;
     _templateOrigin = null;
     setCcLock(null);
-    _shareItem = null; _heldDirty = false; tellShareItem();
+    _shareItem = null; _heldDirty = false; _heldSig = null; tellShareItem();
     syncResetButton();
     state.elements = [];
     state.selectedIds = [];
@@ -17066,7 +17083,7 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     let ok = false;
     try { ok = await save(); } catch (_) { ok = false; }
-    if (ok) { _heldDirty = false; setSaveStatus("saved"); }
+    if (ok) { heldClean(); setSaveStatus("saved"); }
     if (typeof window.__TMKE_AFTER_SAVE__ === "function") { try { window.__TMKE_AFTER_SAVE__(ok); } catch (_) {} }
     return ok;
   }
