@@ -1535,6 +1535,10 @@ import "../../styles/account-sections.css";
         try { kit = JSON.parse(localStorage.getItem("tmke.brand") || "{}") || {}; } catch (_) {}
         const active = (kit.activeBrand && brands.includes(kit.activeBrand)) ? kit.activeBrand : (first.brand || brands[0]);
 
+        // However many brands they're in, not always "two" (Danielle, 12 Nov).
+        const WORDS = ["", "one", "two", "three", "four", "five", "six"];
+        const nEl = card.querySelector(".bk-brands-n");
+        if (nEl) nEl.textContent = `You work for ${WORDS[brands.length] || brands.length} brands, so you have a kit for each. Pick one to see and edit it.`;
         pills.innerHTML = brands.map((b) =>
           '<button type="button" class="bk-brand-pill' + (b === active ? " is-on" : "") + '" data-brand="' + b.replace(/"/g, "&quot;") + '">' + b.replace(/</g, "&lt;") + "</button>").join("");
         card.hidden = false;
@@ -1777,10 +1781,23 @@ import "../../styles/account-sections.css";
         const box = document.getElementById("brand-switch");
         window.__BK_BRAND__ = null;
         if (WORKER && token && uid && box) {
-          const res = await fetch(WORKER + "/member/brand-prefill", {
+          /* Asked about the brand whose kit is on screen (Danielle, 12 Nov: on
+             The Letting Experts it still talked about The Property Experts).
+             Someone in several brands has one kit per brand, and the one
+             showing is activeBrand; with one brand there's nothing to name. */
+          let shown = null;
+          try { shown = (JSON.parse(localStorage.getItem("tmke.brand") || "null") || {}).activeBrand || null; } catch (_) {}
+          let res = await fetch(WORKER + "/member/brand-prefill" + (shown ? "?brand=" + encodeURIComponent(shown) : ""), {
             headers: { Authorization: "Bearer " + token },
           });
-          const out = await res.json().catch(() => null);
+          let out = await res.json().catch(() => null);
+          const several = !!(out && Array.isArray(out.brands) && out.brands.length > 1);
+          // A brand they're no longer in: about their main one instead.
+          if (shown && out && (!out.ok || (several && !out.brands.includes(shown)))) {
+            shown = null;
+            res = await fetch(WORKER + "/member/brand-prefill", { headers: { Authorization: "Bearer " + token } });
+            out = await res.json().catch(() => null);
+          }
 
           /* Only when we have a kit to offer them AND they are not already on
              it. The Worker's own comparison reads a kit filled from the brand
@@ -1826,6 +1843,33 @@ import "../../styles/account-sections.css";
               }
               go.disabled = true;
               go.textContent = "Switching\u2026";
+              if (several) {
+                try {
+                  let cur = {};
+                  try { cur = JSON.parse(localStorage.getItem("tmke.brand") || "{}") || {}; } catch (_) {}
+                  const { normaliseKit } = await import("../../lib/brand-cache.js");
+                  const fresh = normaliseKit(out.kit);
+                  // Their headshot is theirs at any brand.
+                  if (cur.headshot && !fresh.headshot) fresh.headshot = cur.headshot;
+                  const byBrand = Object.assign({}, cur.byBrand || {});
+                  delete byBrand[out.brand];
+                  const saved = Object.assign({}, fresh, { byBrand, activeBrand: out.brand, updatedAt: Date.now() });
+                  const { error } = await supabase.from("member_brand_kits").upsert(
+                    { user_id: uid, kit: saved, updated_at: new Date().toISOString() },
+                    { onConflict: "user_id" }
+                  );
+                  if (error) throw error;
+                  const { writeBrandCache } = await import("../../lib/brand-cache.js");
+                  writeBrandCache(saved, uid);
+                  location.reload();
+                  return;
+                } catch (_) {
+                  copy.textContent = "That didn't switch. Try again in a minute.";
+                  go.disabled = false;
+                  setTimeout(rest, 2500);
+                  return;
+                }
+              }
               try {
                 const r = await fetch(WORKER + "/member/brand-adopt", {
                   method: "POST",
