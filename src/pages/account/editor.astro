@@ -338,7 +338,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           <span id="ed-canvas-size">1080 × 1440</span>
         </button>
         <button class="ed-btn-ghost" id="ed-save">Save</button>
-        <button class="ed-btn-ghost" id="ed-schedule" title="Add this post to your content planner">
+        <!-- Kept, hidden (Danielle, 12 Nov): Share > Add to your planner opens the
+             same pop-out, and the Finishing walkthrough still opens it from here. -->
+        <button class="ed-btn-ghost" id="ed-schedule" title="Add this post to your content planner" hidden>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/>
@@ -405,6 +407,33 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
               <input type="text" class="ed-dl-custom" id="ed-dl-custom" placeholder="e.g. 1-3, 5" hidden autocomplete="off" />
             </div>
             <button type="button" class="ed-dl-go" id="ed-dl-go">Download</button>
+          </div>
+        </div>
+        <!-- Share (Danielle, 12 Nov), after Download: Share to Instagram, Share
+             to Facebook, or Add to your planner. Each opens the pop-out below
+             in its own mode. Filled in by the schedule script. -->
+        <div class="ed-share" id="ed-share-wrap">
+          <button type="button" class="ed-btn-ghost ed-share-btn" id="ed-share" aria-haspopup="menu" aria-expanded="false" title="Share to Instagram or Facebook, or add it to your planner">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>
+            <span class="ed-share-tx">Share</span>
+          </button>
+          <div class="ed-share-menu" id="ed-share-menu" role="menu" hidden>
+            <button type="button" class="ed-share-mi" role="menuitem" data-share="instagram">
+              <span class="ed-share-ic ed-share-ic--ig"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/></svg></span>
+              <span class="ed-share-mt"><b>Share to Instagram</b><i data-share-sub="instagram"></i></span>
+              <svg class="ed-share-lock" viewBox="0 0 24 24" aria-hidden="true" hidden><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            </button>
+            <button type="button" class="ed-share-mi" role="menuitem" data-share="facebook">
+              <span class="ed-share-ic ed-share-ic--fb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8.5h2.5V5H14a3.5 3.5 0 0 0-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.5L17 11h-3V9a.5.5 0 0 1 .5-.5z"/></svg></span>
+              <span class="ed-share-mt"><b>Share to Facebook</b><i data-share-sub="facebook"></i></span>
+              <svg class="ed-share-lock" viewBox="0 0 24 24" aria-hidden="true" hidden><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+            </button>
+            <p class="ed-share-note" id="ed-share-note" hidden></p>
+            <hr class="ed-share-hr" />
+            <button type="button" class="ed-share-mi" role="menuitem" data-share="plan">
+              <span class="ed-share-ic ed-share-ic--plan"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>
+              <span class="ed-share-mt"><b>Add to your planner</b><i>On your calendar, with a reminder</i></span>
+            </button>
           </div>
         </div>
       </div>
@@ -1382,44 +1411,71 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
          to PNG, uploads to Supabase Storage, then writes a calendar_items
          row so the post lands on /account/schedule. v1 just plans + emails
          a reminder on the day; v2 (post-App-Review) will auto-publish to IG. -->
+    <!-- Share and plan pop-out (Danielle, 12 Nov). One pop-out, two modes:
+         "plan" is Plan It, unchanged, opened by Share > Add to your planner;
+         "share" is Share to Instagram or Facebook: Schedule it or Post now,
+         through the same Worker routes as the Planner's Post it for me. The
+         date and time are chosen, never typed. Wording: the Share from the
+         Studio doc (claude.ai/artifact/FP7Yv2rAeJUJZNxtsU81FT). -->
     <div class="ed-modal" id="ed-schedule-modal" hidden>
       <div class="ed-modal-card ed-sched-card">
         <header>
           <div>
-            <p class="ed-sched-eyebrow">Schedule</p>
-            <h3>Plan this Post.</h3>
+            <p class="ed-sched-eyebrow" id="ed-sched-k">Planner</p>
+            <h3 id="ed-sched-h">Add to Your Planner.</h3>
           </div>
           <button class="ed-modal-close" id="ed-schedule-close" aria-label="Close">×</button>
         </header>
 
         <form class="ed-sched-form" id="ed-schedule-form" novalidate>
+          <!-- Share: the account it goes to, and the other one as well. -->
+          <div class="ed-share-who" id="ed-share-who" hidden></div>
+
           <label class="ed-sched-field">
             <span class="ed-sched-label">Title</span>
             <input type="text" id="ed-sched-title" required maxlength="120" placeholder="Mid-week new build reveal" />
-            <span class="ed-sched-hint">Shown on the calendar day cell.</span>
+            <span class="ed-sched-hint">Shown on your calendar.</span>
           </label>
 
-          <div class="ed-sched-row">
-            <label class="ed-sched-field">
-              <span class="ed-sched-label">Date</span>
-              <input type="date" id="ed-sched-date" required />
-            </label>
-            <label class="ed-sched-field">
-              <span class="ed-sched-label">Reminder time</span>
-              <input type="text" readonly data-time id="ed-sched-time" value="09:00" placeholder="Choose a time" />
-              <span class="ed-sched-hint">When we'll email you.</span>
-            </label>
+          <!-- Date and time: buttons that open their picker underneath. The
+               values live in the two hidden inputs. -->
+          <div class="ed-sched-when" id="ed-sched-when">
+            <div class="ed-sched-row">
+              <div class="ed-sched-field">
+                <span class="ed-sched-label">Date</span>
+                <button type="button" class="ed-pick-b" id="ed-sched-date-b" data-pick="date" aria-expanded="false"><span id="ed-sched-date-v"></span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button>
+                <input type="hidden" id="ed-sched-date" />
+              </div>
+              <div class="ed-sched-field">
+                <span class="ed-sched-label" id="ed-sched-time-l">Reminder time</span>
+                <button type="button" class="ed-pick-b" id="ed-sched-time-b" data-pick="time" aria-expanded="false"><span id="ed-sched-time-v">09:00</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
+                <input type="hidden" id="ed-sched-time" value="09:00" />
+                <span class="ed-sched-hint" id="ed-sched-time-hint">When we'll email you.</span>
+              </div>
+            </div>
+            <div class="ed-pick" id="ed-sched-pick" hidden></div>
           </div>
 
-          <label class="ed-sched-field">
+          <label class="ed-sched-field" id="ed-sched-cap-field">
             <span class="ed-sched-label ed-sched-label--row">
-              <span>Caption <span class="ed-sched-optional">— optional</span></span>
+              <span>Caption <span class="ed-sched-optional" id="ed-sched-cap-opt">— optional</span></span>
               <button type="button" class="ed-sched-ai" id="ed-sched-ai"><span aria-hidden="true">✨</span> Generate with AI</button>
             </span>
             <!-- A Content Calendar post's captions, to choose from (Plan It). -->
             <span class="ed-sched-caps" id="ed-sched-caps" hidden></span>
             <textarea id="ed-sched-caption" rows="4" maxlength="2200" placeholder="The copy you'll post alongside the image. Or generate one with AI — hashtags, mentions and calls to action, ready to go."></textarea>
           </label>
+
+          <!-- Share: when it goes out. The date and time move in under this. -->
+          <div class="ed-share-go" id="ed-share-go" hidden>
+            <span class="ed-sched-label">When should it go out?</span>
+            <div class="ed-share-ways" role="radiogroup" aria-label="When it goes out">
+              <button type="button" class="ed-share-way is-on" data-way="schedule" role="radio" aria-checked="true"><b>Schedule it</b><i>Pick a date and time</i></button>
+              <button type="button" class="ed-share-way" data-way="now" role="radio" aria-checked="false"><b>Post now</b><i>Straight away</i></button>
+            </div>
+          </div>
+          <div class="ed-share-flag" id="ed-share-flag" hidden></div>
+          <div class="ed-share-check" id="ed-share-check" hidden></div>
 
           <fieldset class="ed-sched-field ed-sched-platform" hidden>
             <span class="ed-sched-label">Platform</span>
@@ -1428,36 +1484,37 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
                 <input type="radio" name="ed-sched-platform" value="instagram" checked />
                 <span>Instagram</span>
               </label>
-              <label class="ed-sched-platform-opt is-soon">
-                <input type="radio" name="ed-sched-platform" value="facebook" disabled />
-                <span>Facebook · soon</span>
-              </label>
-              <label class="ed-sched-platform-opt is-soon">
-                <input type="radio" name="ed-sched-platform" value="linkedin" disabled />
-                <span>LinkedIn · soon</span>
-              </label>
-              <label class="ed-sched-platform-opt is-soon">
-                <input type="radio" name="ed-sched-platform" value="tiktok" disabled />
-                <span>TikTok · soon</span>
-              </label>
             </div>
-            <span class="ed-sched-hint">We'll auto-post once Meta App Review lands. Until then, use the options below.</span>
           </fieldset>
 
-          <label class="ed-sched-remind">
+          <label class="ed-sched-remind" id="ed-sched-remind-row">
             <input type="checkbox" id="ed-sched-remind" checked />
-            <span>Remind me on the day <span class="ed-sched-optional">— we'll email the caption &amp; image at 8am on the morning of this post</span></span>
+            <span>Remind me on the day <span class="ed-sched-optional">(we'll email the caption and image at 8am that morning)</span></span>
           </label>
+
+          <!-- Plan: what it doesn't do; for anyone on the calendar without
+               Scheduling, where to get it. -->
+          <div id="ed-plan-note" hidden></div>
 
           <div class="ed-sched-error" id="ed-schedule-error" hidden></div>
           <div class="ed-sched-warn" id="ed-schedule-warn" hidden></div>
+          <div class="ed-share-confirm" id="ed-share-confirm" hidden>
+            <p id="ed-share-confirm-q"></p>
+            <div class="ed-share-acts">
+              <button type="button" class="ed-sched-submit" id="ed-share-confirm-yes">Post now</button>
+              <button type="button" class="ed-sched-cancel" id="ed-share-confirm-no">Not now</button>
+            </div>
+          </div>
 
-          <footer class="ed-sched-foot">
-            <button type="button" class="ed-sched-cancel" id="ed-schedule-cancel">Cancel</button>
+          <footer class="ed-sched-foot" id="ed-sched-foot">
             <button type="button" class="ed-sched-emailnow" id="ed-schedule-emailnow">Email it to me now</button>
+            <button type="button" class="ed-sched-cancel" id="ed-schedule-cancel">Cancel</button>
             <button type="submit" class="ed-sched-submit" id="ed-schedule-submit">Plan post</button>
           </footer>
         </form>
+
+        <!-- After sending: Planned, Scheduled, Posting, Posted, Failed. -->
+        <div class="ed-share-done" id="ed-share-done" hidden></div>
       </div>
     </div>
   </div>
@@ -1743,6 +1800,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     @media (max-width: 1060px) {
       #ed-schedule, #ed-review-btn { font-size: 0; gap: 0; padding-left: 10px; padding-right: 10px; }
       #ed-schedule svg, #ed-review-btn svg { margin: 0; }
+      .ed-share-tx { display: none; }
+      #ed-share { padding-left: 10px; padding-right: 10px; }
     }
     /* 3. The zoom cluster. Undo and redo stay; zoom has its keys and a pinch. */
     @media (max-width: 980px) {
@@ -5658,6 +5717,136 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     }
     .ed-sched-submit:disabled { opacity: 0.65; cursor: progress; transform: none; box-shadow: none; }
 
+    /* ============ Share (Danielle, 12 Nov) ============
+       The button after Download and its menu; the pop-out's share mode, the
+       date and time pickers, and what it says once sent. Palette only. */
+    .ed-sched-card h3 { font-family: "TMKE Serif", Georgia, serif; font-weight: 300; }   /* h3 turns --serif into The Seasons */
+    .ed-share { position: relative; }
+    .ed-share-btn { border-color: var(--english-violet); color: var(--english-violet); }
+    .ed-share-btn[aria-expanded="true"] { background: rgba(var(--violet-rgb), 0.06); }
+    .ed-share-btn svg { flex: none; }
+    .ed-share-menu {
+      position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 300px; max-width: calc(100vw - 24px);
+      padding: 6px; background: #fff; border: 1px solid #e2d9d4; border-radius: 6px;
+      box-shadow: 0 24px 50px -20px rgba(28,29,34,0.45);
+    }
+    .ed-share-menu[hidden] { display: none; }
+    .ed-share-mi {
+      display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px; border: 0; border-radius: 4px;
+      background: none; text-align: left; cursor: pointer; color: var(--ink); font-family: var(--sans);
+    }
+    .ed-share-mi[hidden] { display: none; }
+    .ed-share-mi:hover:not([disabled]) { background: #f4f2f1; }
+    .ed-share-mi[disabled] { cursor: not-allowed; }
+    .ed-share-mi[disabled] .ed-share-ic, .ed-share-mi[disabled] .ed-share-mt { opacity: 0.5; }
+    .ed-share-ic { width: 30px; height: 30px; border-radius: 6px; display: grid; place-items: center; flex: none; color: #fff; }
+    .ed-share-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .ed-share-ic--ig { background: linear-gradient(45deg, #f58529, #dd2a7b 55%, #8134af); }
+    .ed-share-ic--fb { background: #1877f2; }
+    .ed-share-ic--plan { background: #eae5e1; color: var(--english-violet); }
+    .ed-share-mt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .ed-share-mt b { font-size: var(--ws-t-body); font-weight: 700; }
+    .ed-share-mt i { font-style: normal; font-size: var(--ws-t-meta); color: #7e6765; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ed-share-lock { margin-left: auto; width: 13px; height: 13px; fill: none; stroke: #7e6765; stroke-width: 2; flex: none; }
+    .ed-share-lock[hidden] { display: none; }
+    .ed-share-hr { border: 0; border-top: 1px solid #eae5e1; margin: 4px 6px; }
+    .ed-share-hr[hidden] { display: none; }
+    .ed-share-note, .ed-plan-note {
+      margin: 4px; padding: 10px 12px; border-radius: 4px; background: #eae5e1; color: #2b2226;
+      font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45;
+    }
+    .ed-share-note[hidden] { display: none; }
+    .ed-share-note a, .ed-plan-note a, .ed-share-done a, .ed-share-check a { color: var(--english-violet); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+    .ed-plan-note { margin: 0; }
+    .ed-plan-upsell { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 4px; background: var(--english-violet); color: #fff; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45; }
+    .ed-plan-upsell b { font-size: var(--ws-t-body); }
+    .ed-plan-upsell span { color: rgba(255,255,255,0.82); }
+    .ed-plan-upsell a { color: #fff; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; align-self: flex-start; margin-top: 2px; }
+    #ed-plan-note[hidden] { display: none; }
+
+    .ed-share-who { display: flex; flex-direction: column; gap: 8px; }
+    .ed-share-who[hidden] { display: none; }
+    .ed-share-acc { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e2d9d4; border-radius: 4px; font-family: var(--sans); }
+    .ed-share-acc .ed-share-ic { width: 26px; height: 26px; }
+    .ed-share-acc img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none; }
+    .ed-share-acc b { font-size: var(--ws-t-body); }
+    .ed-share-acc i { font-style: normal; font-size: var(--ws-t-meta); color: #7e6765; }
+    .ed-share-acc input, .ed-share-also input { accent-color: var(--english-violet); margin: 0; }
+    .ed-share-acc input { margin-left: auto; }
+    .ed-share-also { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: var(--ws-t-body); cursor: pointer; align-self: flex-start; }
+    .ed-share-go { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid #eae5e1; }
+    .ed-share-go[hidden] { display: none; }
+    .ed-share-ways { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .ed-share-way { display: flex; flex-direction: column; gap: 3px; padding: 11px 12px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; text-align: left; cursor: pointer; font-family: var(--sans); }
+    .ed-share-way b { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); }
+    .ed-share-way i { font-style: normal; font-size: var(--ws-t-meta); color: #7e6765; }
+    .ed-share-way.is-on { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
+    .ed-sched-when[hidden] { display: none; }
+    .ed-sched-when { display: flex; flex-direction: column; gap: 10px; }
+    .ed-share-flag { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 4px; background: #fff; box-shadow: inset 0 0 0 1px #8a3f3f; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.45; color: #2b2226; }
+    .ed-share-flag[hidden] { display: none; }
+    .ed-share-flag p { margin: 0; }
+    .ed-share-flag b { color: #8a3f3f; }
+    .ed-share-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ed-share-check { display: flex; gap: 8px; align-items: baseline; font-family: var(--sans); font-size: var(--ws-t-meta); color: #7e6765; }
+    .ed-share-check[hidden] { display: none; }
+    .ed-share-check.is-ok::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #5b7a5a; flex: none; transform: translateY(-1px); }
+    .ed-share-check ul { margin: 0; padding: 10px 12px 10px 28px; background: #eae5e1; border-radius: 4px; color: var(--english-violet); width: 100%; font-size: var(--ws-t-body); }
+    .ed-share-check li + li { margin-top: 4px; }
+    .ed-share-confirm { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 4px; background: #eae5e1; font-family: var(--sans); font-size: var(--ws-t-body); color: #2b2226; }
+    .ed-share-confirm[hidden] { display: none; }
+    .ed-share-confirm p { margin: 0; }
+    #ed-sched-remind-row[hidden], #ed-sched-cap-field .ed-sched-ai[hidden], .ed-sched-foot[hidden], .ed-sched-emailnow[hidden] { display: none; }
+
+    /* The pickers: a button like an input, its choices right under the row. */
+    .ed-pick-b {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; height: 41px; padding: 0 12px;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 3px; background: #fff; text-align: left; cursor: pointer;
+      font-family: var(--sans); font-size: 14px; font-weight: 400; color: var(--ink); font-variant-numeric: tabular-nums;
+    }
+    .ed-pick-b svg { width: 15px; height: 15px; flex: none; fill: none; stroke: #7e6765; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .ed-pick-b:hover, .ed-pick-b[aria-expanded="true"] { border-color: var(--english-violet); }
+    .ed-pick-b[aria-expanded="true"] { box-shadow: 0 0 0 3px rgba(var(--violet-rgb), 0.1); }
+    .ed-pick { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #e2d9d4; border-radius: 4px; background: #f4f2f1; font-family: var(--sans); }
+    .ed-pick[hidden] { display: none; }
+    .ed-pick-row { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: start; }
+    .ed-pick-row + .ed-pick-row { padding-top: 10px; border-top: 1px solid #e2d9d4; }
+    .ed-pick-l { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #7e6765; padding-top: 7px; }
+    .ed-pick-grid { display: grid; gap: 5px; }
+    .ed-pick-grid--h { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+    .ed-pick-grid--m { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .ed-pick-grid--d { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .ed-pick-o {
+      height: 28px; border: 1px solid #e2d9d4; border-radius: 3px; background: #fff; cursor: pointer;
+      font-family: var(--sans); font-size: 13px; font-weight: 500; color: #2b2226; font-variant-numeric: tabular-nums;
+    }
+    .ed-pick-o:hover:not([disabled]) { border-color: var(--english-violet); }
+    .ed-pick-o.is-on { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .ed-pick-o[disabled] { background: transparent; border-color: transparent; color: rgba(28,29,34,0.3); cursor: default; }
+    .ed-pick-o.is-today { box-shadow: inset 0 -2px 0 #c9bcb7; }
+    .ed-pick-o.is-meant:not(.is-on) { border-color: var(--english-violet); background: rgba(var(--violet-rgb), 0.14); color: var(--english-violet); font-weight: 700; }
+    .ed-pick-head { display: flex; align-items: center; justify-content: space-between; }
+    .ed-pick-head b { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #7e6765; }
+    .ed-pick-nav { width: 28px; height: 28px; border: 1px solid #e2d9d4; border-radius: 3px; background: #fff; font-size: 16px; color: var(--english-violet); cursor: pointer; }
+    .ed-pick-nav[disabled] { opacity: 0.35; cursor: default; }
+    .ed-pick-w { text-align: center; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.1em; color: #7e6765; }
+    .ed-pick-key { margin: 0; display: flex; align-items: center; gap: 6px; font-size: var(--ws-t-meta); color: #7e6765; }
+    .ed-pick-key span { width: 12px; height: 12px; border: 1px solid var(--english-violet); border-radius: 2px; background: rgba(var(--violet-rgb), 0.14); }
+    @media (max-width: 520px) { .ed-pick-grid--h { grid-template-columns: repeat(6, minmax(0, 1fr)); } .ed-pick-row { grid-template-columns: 1fr; } .ed-share-ways { grid-template-columns: 1fr; } }
+
+    /* Once sent. */
+    .ed-share-done { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; font-family: var(--sans); }
+    .ed-share-done[hidden] { display: none; }
+    .ed-share-state { align-self: flex-start; display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 4px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; background: #eae5e1; color: var(--english-violet); }
+    .ed-share-state.is-sched { background: var(--english-violet); color: #fff; }
+    .ed-share-state.is-posted { background: #c9bcb7; color: var(--english-violet); }
+    .ed-share-state.is-failed { background: #fff; color: #8a3f3f; box-shadow: inset 0 0 0 1px #8a3f3f; }
+    .ed-share-done h4 { margin: 0; font-family: "TMKE Serif", Georgia, serif; font-weight: 300; font-size: 21px; letter-spacing: -0.03em; line-height: 1.15; color: var(--ink); }
+    .ed-share-done p { margin: 0; font-size: var(--ws-t-body); line-height: 1.5; color: #2b2226; }
+    .ed-share-done ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: var(--ws-t-body); }
+    .ed-share-done li.is-bad { color: #8a3f3f; }
+    .ed-share-done .ed-sched-foot { margin-top: 0; }
+
     /* ============ Studio entry: staged build-in ============
        On first load the editor parts are off-screen. As the user picks a pack
        (or skips), each part slides into place in sequence — left rail, then
@@ -8107,8 +8296,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       return ymd(d);
     }
 
-    function openModal() {
+    function openModal(how) {
       clearError();
+      mode = how === "share" ? "share" : "plan";
       // Pull current editor state for sensible defaults.
       const summary = (typeof window.__TMKE_EDITOR_SUMMARY__ === "function")
         ? window.__TMKE_EDITOR_SUMMARY__()
@@ -8141,12 +8331,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const todayStr = ymd(new Date());
         if (!q.get("schedule") && !q.get("for") && post.post_date && post.post_date >= todayStr) $date.value = post.post_date;
         showCaptionChoices(post);
+        paintPickers(); paintFlag(); preCheck();
       }).catch(() => {});
 
       const today = new Date();
       const todayYmd = ymd(today);
       $date.min = todayYmd; // can't schedule in the past
 
+      setMode();
       $modal.hidden = false;
       // Stash templateId for the submit handler to pick up.
       $form.dataset.designRef = summary.templateId || "";
@@ -8154,6 +8346,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     }
     function closeModal() {
       $modal.hidden = true;
+      $pick.hidden = true; pickOpen = null;
       $submit.disabled = false;
       $submit.textContent = "Plan post";
       if ($emailNow) { $emailNow.disabled = false; $emailNow.textContent = "Email it to me now"; }
@@ -8190,7 +8383,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     $date.addEventListener("change", () => { if ($form.dataset.warned) clearWarn(); });
 
     // ----- open / close wiring -----
-    $btn.addEventListener("click", openModal);
+    $btn.addEventListener("click", () => openModal("plan"));
     $close.addEventListener("click", closeModal);
     $cancel.addEventListener("click", closeModal);
     $modal.addEventListener("click", (e) => { if (e.target === $modal) closeModal(); });
@@ -8208,7 +8401,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const tryOpen = () => {
         const overlay = document.getElementById("ed-onboard");
         if (!overlay || overlay.classList.contains("is-gone") || overlay.hidden) {
-          openModal();
+          openModal("plan");
         } else {
           setTimeout(tryOpen, 300);
         }
@@ -8220,6 +8413,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     $form.addEventListener("submit", async (ev) => {
       ev.preventDefault();
       clearError();
+      if (mode === "share") return shareSubmit();
 
       const title    = ($title.value || "").trim();
       const dateStr  = $date.value;
@@ -8315,10 +8509,12 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           }
         }
 
-        // 4. Done — close modal and bounce to the calendar so the user
-        //    sees their new entry in context.
-        closeModal();
-        location.href = `/account/schedule?scheduled=${encodeURIComponent(dateStr)}`;
+        // 4. Done: said in the pop-out, in the Studio (Danielle, 12 Nov), with
+        //    the way to share it from here or the calendar.
+        $submit.disabled = false;
+        if ($emailNow) $emailNow.disabled = false;
+        $submit.textContent = "Plan post";
+        showDone("planned", { date: dateStr });
       } catch (err) {
         console.error("[schedule]", err);
         showError(err.message || "Something went wrong planning that post.");
@@ -8397,6 +8593,492 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         $form.querySelectorAll(".ed-sched-platform-opt").forEach((opt) => opt.classList.remove("is-active"));
         r.closest(".ed-sched-platform-opt")?.classList.add("is-active");
       });
+    });
+
+
+    /* ================= Share (Danielle, 12 Nov) =================
+       Share, after Download: Share to Instagram, Share to Facebook, Add to
+       your planner. The pop-out above in "share" mode: Schedule it or Post
+       now, through the Worker's /schedule routes (the Planner's Post it for
+       me uses the same ones). The design goes on the calendar as it's shared,
+       so Planned, Scheduled and Posted show there too. Wording: the Share from
+       the Studio doc. */
+    const $shareBtn  = document.getElementById("ed-share");
+    const $shareMenu = document.getElementById("ed-share-menu");
+    const $shareNote = document.getElementById("ed-share-note");
+    const $k         = document.getElementById("ed-sched-k");
+    const $h         = document.getElementById("ed-sched-h");
+    const $who       = document.getElementById("ed-share-who");
+    const $go        = document.getElementById("ed-share-go");
+    const $flag      = document.getElementById("ed-share-flag");
+    const $check     = document.getElementById("ed-share-check");
+    const $remindRow = document.getElementById("ed-sched-remind-row");
+    const $planNote  = document.getElementById("ed-plan-note");
+    const $confirm   = document.getElementById("ed-share-confirm");
+    const $confirmQ  = document.getElementById("ed-share-confirm-q");
+    const $foot      = document.getElementById("ed-sched-foot");
+    const $done      = document.getElementById("ed-share-done");
+    const $when      = document.getElementById("ed-sched-when");
+    const $pick      = document.getElementById("ed-sched-pick");
+    const $dateV     = document.getElementById("ed-sched-date-v");
+    const $timeV     = document.getElementById("ed-sched-time-v");
+    const $timeL     = document.getElementById("ed-sched-time-l");
+    const $timeHint  = document.getElementById("ed-sched-time-hint");
+    const $capField  = document.getElementById("ed-sched-cap-field");
+    const $capOpt    = document.getElementById("ed-sched-cap-opt");
+    const $ai        = document.getElementById("ed-sched-ai");
+    const $titleField = $title.closest(".ed-sched-field");
+
+    const PLAT = { instagram: "Instagram", facebook: "Facebook" };
+    const OTHER = { instagram: "facebook", facebook: "instagram" };
+    const PLAN_LINK = "/account/settings?tab=plan";
+    const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const iconOf = (p) => $shareMenu?.querySelector(`[data-share="${p}"] .ed-share-ic`)?.outerHTML || "";
+    const both = (l) => (l.length > 1 ? l.slice(0, -1).join(", ") + " and " + l[l.length - 1] : l[0] || "");
+    const dayLong = (s) => new Date(s + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+    const nth = (n) => n + (n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th");
+    const isCalendarPost = () => !!(window as any).__TMKE_CC_LOCK_ID__?.();
+
+    let mode = "plan", sharePlat = "instagram", shareWay = "schedule", shareAlso = false, flagOk = false, pickOpen = null;
+    let shareInfo = null, shareInfoP = null;
+    let shareItem = null;   // the calendar row this design was shared through, this visit
+
+    // Who may share, and to which accounts. Asked once per visit.
+    function loadShareInfo() {
+      if (shareInfoP) return shareInfoP;
+      shareInfoP = (async () => {
+        const info = { acct: null, access: null, open: false, accounts: [], ready: false };
+        try {
+          const acct = await plannerStore();
+          info.acct = acct;
+          if (acct && !acct.blocked && !acct.training && API_BASE) {
+            const { memberAccess } = await import("../../lib/calendar-month.js");
+            info.access = await memberAccess(supabase).catch(() => null);
+            if (info.access && info.access.scheduling) {
+              const res = await fetch(`${API_BASE}/schedule/status`, { headers: { Authorization: `Bearer ${acct.token}` } }).catch(() => null);
+              const out = res ? await res.json().catch(() => null) : null;
+              if (res && res.ok && out && out.ok) { info.open = !!out.open; info.accounts = (out.accounts || []).filter((a) => PLAT[a.platform]); }
+            }
+          }
+        } catch (_) {}
+        info.ready = true;
+        shareInfo = info;
+        return info;
+      })();
+      return shareInfoP;
+    }
+    const accsFor = (p) => (shareInfo && shareInfo.open ? shareInfo.accounts.filter((a) => a.platform === p) : []);
+
+    // ----- the menu -----
+    function paintMenu() {
+      const info = shareInfo;
+      const access = info && info.access;
+      // Members with no calendar (no upgrade to buy yet) and the training
+      // account see Add to your planner only, as the Planner does.
+      const onCal = !!(access && (access.calendar || access.scheduling));
+      const can = !!(access && access.scheduling);
+      ["instagram", "facebook"].forEach((p) => {
+        const b = $shareMenu.querySelector(`[data-share="${p}"]`);
+        b.hidden = !onCal;
+        const accs = accsFor(p);
+        const sub = b.querySelector(`[data-share-sub="${p}"]`);
+        const off = !info || !info.ready || !can || !accs.length;
+        b.disabled = off;
+        sub.textContent = !info || !info.ready ? "Checking…" : !can ? "Content Calendar Plus" : !accs.length ? "Not connected yet" : (accs[0].username || accs[0].name || PLAT[p]);
+        b.querySelector(".ed-share-lock").hidden = !info || !info.ready || !off;
+      });
+      $shareMenu.querySelector(".ed-share-hr").hidden = !onCal;
+      let note = "";
+      if (info && info.ready && onCal) {
+        const missing = ["instagram", "facebook"].filter((p) => !accsFor(p).length).map((p) => PLAT[p]);
+        if (!can) note = `Sharing straight to Instagram and Facebook is included in Content Calendar Plus. <a href="${PLAN_LINK}">See your plan &rarr;</a>`;
+        else if (missing.length === 2) note = `Connect Instagram or Facebook on Your Account to share there. <a href="${PLAN_LINK}">Connect your accounts &rarr;</a>`;
+        else if (missing.length === 1) note = `Connect ${missing[0]} on Your Account to share there. <a href="${PLAN_LINK}">Connect your accounts &rarr;</a>`;
+      }
+      $shareNote.innerHTML = note;
+      $shareNote.hidden = !note;
+    }
+    function setMenu(open) {
+      $shareMenu.hidden = !open;
+      $shareBtn.setAttribute("aria-expanded", String(open));
+      if (!open) return;
+      paintMenu();
+      loadShareInfo().then(() => { if (!$shareMenu.hidden) paintMenu(); });
+    }
+    if ($shareBtn && $shareMenu) {
+      if (new URLSearchParams(location.search).get("mode") === "admin") document.getElementById("ed-share-wrap").hidden = true;
+      $shareBtn.addEventListener("click", (e) => { e.stopPropagation(); setMenu($shareMenu.hidden); });
+      document.addEventListener("click", (e) => { if (!$shareMenu.hidden && !(e.target as Element).closest?.("#ed-share-wrap")) setMenu(false); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$shareMenu.hidden) setMenu(false); });
+      $shareMenu.querySelectorAll("[data-share]").forEach((b) => b.addEventListener("click", () => {
+        if ((b as HTMLButtonElement).disabled) return;
+        const what = b.getAttribute("data-share");
+        setMenu(false);
+        if (what === "plan") return openModal("plan");
+        sharePlat = what; shareWay = "schedule"; shareAlso = false; flagOk = false;
+        openModal("share");
+      }));
+      loadShareInfo();   // ready before they reach for it
+    }
+
+    // ----- the pop-out's two modes -----
+    function setMode() {
+      const share = mode === "share";
+      $done.hidden = true; $form.hidden = false;
+      $k.textContent = share ? "Share" : "Planner";
+      $h.textContent = share ? `Share to ${PLAT[sharePlat]}.` : "Add to Your Planner.";
+      $who.hidden = !share;
+      $go.hidden = !share;
+      $remindRow.hidden = share;
+      if ($emailNow) $emailNow.hidden = share;
+      $confirm.hidden = true;
+      // The date and time sit under the title to plan; under "When should it
+      // go out?" to share, and only when scheduling.
+      if (share) $go.after($when); else $titleField.after($when);
+      $timeL.textContent = share ? "Time" : "Reminder time";
+      $timeHint.textContent = share ? "When it goes out. At least 10 minutes from now." : "When we'll email you.";
+      // A calendar post's caption is written for it: no AI. A duplicate is
+      // a design of their own and gets it back.
+      const cal = isCalendarPost();
+      if ($ai) $ai.hidden = cal;
+      $capOpt.textContent = cal ? "(written for this post)" : share ? "" : "— optional";
+      if (share) { paintWho(); paintWays(); } else { $flag.hidden = true; $check.hidden = true; paintPlanNote(); }
+      $submit.textContent = share ? (shareWay === "now" ? "Post now" : "Schedule it") : "Plan post";
+      $pick.hidden = true; pickOpen = null;
+      paintPickers();
+    }
+
+    function paintWho() {
+      const accs = accsFor(sharePlat);
+      const other = OTHER[sharePlat];
+      const card = (a, tick) => `<label class="ed-share-acc">${a.picture ? `<img src="${esc(a.picture)}" alt="">` : iconOf(a.platform)}<span class="ed-share-mt"><b>${esc(a.username || a.name || PLAT[a.platform])}</b><i>${PLAT[a.platform]}</i></span>${tick ? `<input type="checkbox" data-share-acc value="${esc(String(a.id))}" checked>` : ""}</label>`;
+      $who.innerHTML = accs.map((a) => card(a, accs.length > 1)).join("")
+        + (accsFor(other).length ? `<label class="ed-share-also"><input type="checkbox" id="ed-share-also"${shareAlso ? " checked" : ""}> Share to ${PLAT[other]} as well</label>` : "");
+      document.getElementById("ed-share-also")?.addEventListener("change", (e) => { shareAlso = (e.target as HTMLInputElement).checked; preCheck(); });
+      $who.querySelectorAll("[data-share-acc]").forEach((i) => i.addEventListener("change", preCheck));
+    }
+    // The accounts it goes to, and their platforms.
+    function shareTargets() {
+      const accs = accsFor(sharePlat);
+      const picked = accs.length > 1 ? [...$who.querySelectorAll("[data-share-acc]:checked")].map((i) => (i as HTMLInputElement).value) : accs.map((a) => String(a.id));
+      const ids = picked.concat(shareAlso ? accsFor(OTHER[sharePlat]).map((a) => String(a.id)) : []);
+      const platforms = [...new Set((shareInfo ? shareInfo.accounts : []).filter((a) => ids.includes(String(a.id))).map((a) => a.platform))];
+      return { ids, platforms, names: platforms.map((p) => PLAT[p]) };
+    }
+
+    function paintWays() {
+      $go.querySelectorAll("[data-way]").forEach((b) => {
+        const on = b.getAttribute("data-way") === shareWay;
+        b.classList.toggle("is-on", on);
+        b.setAttribute("aria-checked", String(on));
+      });
+      $when.hidden = mode === "share" && shareWay === "now";
+      $submit.textContent = shareWay === "now" ? "Post now" : "Schedule it";
+      $confirm.hidden = true;
+      paintFlag(); preCheck();
+    }
+    $go.querySelectorAll("[data-way]").forEach((b) => b.addEventListener("click", () => {
+      shareWay = b.getAttribute("data-way"); flagOk = false; clearError(); paintWays();
+    }));
+
+    /* A post made for a particular day, sent with Post now on any other
+       (Danielle, 12 Nov): flagged, with Schedule it for that day as the way
+       out. Post now anyway is still there for the rare case it's meant. */
+    function paintFlag() {
+      const post = ccPlanPost;
+      const today = ymd(new Date());
+      const wrong = mode === "share" && shareWay === "now" && !flagOk && post && post.date_tied && post.post_date && post.post_date !== today && post.post_date > today;
+      $flag.hidden = !wrong;
+      $foot.hidden = !!wrong;
+      if (!wrong) return;
+      const d = Number(post.post_date.slice(8, 10));
+      $flag.innerHTML = `<p><b>This post is meant for ${esc(dayLong(post.post_date))}.</b> Posting it today would put it out on the wrong day. Schedule it for the ${nth(d)} instead.</p>
+        <div class="ed-share-acts"><button type="button" class="ed-sched-submit" id="ed-flag-sched">Schedule it for the ${nth(d)}</button><button type="button" class="ed-sched-cancel" id="ed-flag-anyway">Post now anyway</button></div>`;
+      document.getElementById("ed-flag-sched").addEventListener("click", () => { shareWay = "schedule"; setDate(post.post_date); paintWays(); });
+      document.getElementById("ed-flag-anyway").addEventListener("click", () => { flagOk = true; paintFlag(); });
+    }
+
+    /* What Instagram won't take, said before sending: the design's shape and
+       the caption, in the Worker's own words (scheduleProblems). The Worker
+       checks the uploaded picture again when it's sent. */
+    let preTimer = 0;
+    function preCheck() {
+      clearTimeout(preTimer);
+      preTimer = setTimeout(() => {
+        if (mode !== "share") { $check.hidden = true; return; }
+        const { names, platforms } = shareTargets();
+        if (!platforms.length) { $check.hidden = true; return; }
+        const probs = [];
+        if (platforms.includes("instagram")) {
+          const sz = (typeof window.__TMKE_EDITOR_SUMMARY__ === "function") ? window.__TMKE_EDITOR_SUMMARY__() : {};
+          const r = sz.width && sz.height ? sz.width / sz.height : 0;
+          if (r && r < 0.8 - 0.005) probs.push("The picture is too tall for an Instagram post. The tallest it takes is 4:5, like 1080 × 1350.");
+          else if (r > 1.91 + 0.005) probs.push("The picture is too wide for an Instagram post. The widest it takes is 1.91:1, like 1080 × 566.");
+          const text = String($caption.value || "");
+          const chars = [...text].length;
+          const tags = (text.match(/(^|\s)#[\p{L}\p{N}_]+/gu) || []).length;
+          const ats = (text.match(/(^|\s)@[\w.]+/g) || []).length;
+          if (chars > 2200) probs.push(`The caption is ${chars.toLocaleString("en-GB")} characters and Instagram takes up to 2,200.`);
+          if (tags > 30) probs.push(`The caption has ${tags} hashtags and Instagram takes up to 30.`);
+          if (ats > 20) probs.push(`The caption tags ${ats} accounts with @ and Instagram takes up to 20.`);
+        }
+        showProblems(probs, names);
+      }, 300);
+    }
+    function showProblems(probs, names) {
+      $check.hidden = false;
+      $check.classList.toggle("is-ok", !probs.length);
+      $check.innerHTML = probs.length
+        ? `<ul>${probs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`
+        : `<span>Checked against ${esc(both(names))}'s rules: the picture, its shape and the caption are all fine.</span>`;
+    }
+    $caption.addEventListener("input", preCheck);
+
+    // ----- Add to your planner: what it doesn't do -----
+    function paintPlanNote() {
+      const access = shareInfo && shareInfo.access;
+      if (!shareInfo) { loadShareInfo().then(() => { if (mode === "plan" && !$modal.hidden) paintPlanNote(); }); }
+      let html = "";
+      if (access && access.scheduling) html = `<p class="ed-plan-note">This puts it on your calendar only. It won't post to Instagram or Facebook. To do that, choose Share to Instagram or Facebook instead.</p>`;
+      else if (access && access.calendar) html = `<div class="ed-plan-upsell"><b>This won't post to your social media.</b><span>With Content Calendar Plus, your posts go out to Instagram and Facebook by themselves, at the time you choose.</span><a href="${PLAN_LINK}">See your plan &rarr;</a></div>`;
+      $planNote.innerHTML = html;
+      $planNote.hidden = !html;
+    }
+
+    // ----- the date and time pickers -----
+    /* Chosen, never typed (Danielle, 12 Nov). Each opens right under the row,
+       pushing the form down: the month for the date; the hours, then the four
+       quarter hours, for the time. */
+    let pickMonth = null;
+    function setDate(v) { $date.value = v; $date.dispatchEvent(new Event("change")); paintPickers(); }
+    function paintPickers() {
+      $dateV.textContent = $date.value ? dayLong($date.value) : "Choose a day";
+      const t = String($time.value || "09:00").slice(0, 5);
+      $timeV.textContent = t;
+      document.getElementById("ed-sched-date-b").setAttribute("aria-expanded", String(pickOpen === "date"));
+      document.getElementById("ed-sched-time-b").setAttribute("aria-expanded", String(pickOpen === "time"));
+      if (!pickOpen) { $pick.hidden = true; $pick.innerHTML = ""; return; }
+      $pick.hidden = false;
+      if (pickOpen === "time") {
+        const [hh, mm] = t.split(":");
+        const o = (v, on, a) => `<button type="button" class="ed-pick-o${on ? " is-on" : ""}" ${a}="${v}">${v}</button>`;
+        $pick.innerHTML = `<div class="ed-pick-row"><span class="ed-pick-l">Hour</span><div class="ed-pick-grid ed-pick-grid--h">${Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map((v) => o(v, v === hh, "data-h")).join("")}</div></div>
+          <div class="ed-pick-row"><span class="ed-pick-l">Minutes</span><div class="ed-pick-grid ed-pick-grid--m">${["00", "15", "30", "45"].map((v) => o(v, v === mm, "data-m")).join("")}</div></div>`;
+        $pick.querySelectorAll("[data-h]").forEach((b) => b.addEventListener("click", () => { $time.value = `${b.getAttribute("data-h")}:${String($time.value || "09:00").slice(3, 5)}`; clearError(); paintPickers(); }));
+        $pick.querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => { $time.value = `${String($time.value || "09:00").slice(0, 2)}:${b.getAttribute("data-m")}`; pickOpen = null; clearError(); paintPickers(); }));
+        return;
+      }
+      const sel = $date.value ? new Date($date.value + "T12:00:00") : new Date();
+      if (!pickMonth) pickMonth = new Date(sel.getFullYear(), sel.getMonth(), 1);
+      const y = pickMonth.getFullYear(), mo = pickMonth.getMonth();
+      const today = ymd(new Date());
+      const meant = ccPlanPost && ccPlanPost.date_tied ? ccPlanPost.post_date : null;
+      const lead = (new Date(y, mo, 1).getDay() + 6) % 7;
+      const days = new Date(y, mo + 1, 0).getDate();
+      const cells = [];
+      for (let i = 0; i < lead; i++) cells.push("<span></span>");
+      for (let d = 1; d <= days; d++) {
+        const v = `${y}-${String(mo + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        cells.push(`<button type="button" class="ed-pick-o${v === $date.value ? " is-on" : ""}${v === meant ? " is-meant" : ""}${v === today ? " is-today" : ""}" data-d="${v}"${v < today ? " disabled" : ""}>${d}</button>`);
+      }
+      const thisMonth = new Date().getFullYear() * 12 + new Date().getMonth();
+      $pick.innerHTML = `<div class="ed-pick-head"><button type="button" class="ed-pick-nav" data-mon="-1" aria-label="Previous month"${y * 12 + mo <= thisMonth ? " disabled" : ""}>&lsaquo;</button><b>${pickMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</b><button type="button" class="ed-pick-nav" data-mon="1" aria-label="Next month">&rsaquo;</button></div>
+        <div class="ed-pick-grid ed-pick-grid--d">${["M", "T", "W", "T", "F", "S", "S"].map((w) => `<span class="ed-pick-w">${w}</span>`).join("")}${cells.join("")}</div>
+        ${meant ? '<p class="ed-pick-key"><span></span>The day this post is meant for</p>' : ""}`;
+      $pick.querySelectorAll("[data-d]").forEach((b) => b.addEventListener("click", () => { pickOpen = null; clearError(); setDate(b.getAttribute("data-d")); }));
+      $pick.querySelectorAll("[data-mon]").forEach((b) => b.addEventListener("click", () => { pickMonth = new Date(y, mo + Number(b.getAttribute("data-mon")), 1); paintPickers(); }));
+    }
+    document.querySelectorAll("#ed-schedule-modal [data-pick]").forEach((b) => b.addEventListener("click", () => {
+      const which = b.getAttribute("data-pick");
+      pickOpen = pickOpen === which ? null : which;
+      if (pickOpen === "date") pickMonth = null;
+      paintPickers();
+    }));
+
+    // ----- sending -----
+    // The calendar row it goes out from: the one this visit already shared
+    // and still waiting, or a new one.
+    async function shareRow(acct, fields) {
+      if (shareItem && shareItem.details && shareItem.details.zernio && shareItem.details.zernio.status === "scheduled") {
+        const { error } = await acct.db.from(acct.table).update(fields).eq("id", shareItem.id).eq("user_id", acct.uid);
+        if (error) throw new Error(error.message || "Couldn't save it to your calendar.");
+        Object.assign(shareItem, fields);
+        return shareItem;
+      }
+      const row = {
+        user_id: acct.uid, status: "scheduled", reminder: false, ...fields,
+        ...(ccPlanPost ? { details: { cc_post_id: String(ccPlanPost.id), cc_month: (ccPlanPost.month && ccPlanPost.month.month) || null } } : {}),
+      };
+      let { data, error } = await acct.db.from(acct.table).insert(row).select("id, details").single();
+      // Before the reminder column is migrated, as Plan It does: without it.
+      if (error && /reminder/i.test(error.message || "") && /column/i.test(error.message || "")) {
+        const { reminder, ...rest } = row;
+        ({ data, error } = await acct.db.from(acct.table).insert(rest).select("id, details").single());
+      }
+      if (error || !data) throw new Error((error && error.message) || "Couldn't save it to your calendar.");
+      shareItem = { ...row, ...data };
+      return shareItem;
+    }
+
+    let shareBusy = false;
+    async function shareSubmit(confirmed) {
+      if (shareBusy) return;
+      clearError();
+      const title = ($title.value || "").trim();
+      const caption = ($caption.value || "").trim();
+      const { ids, platforms, names } = shareTargets();
+      if (!ids.length) return showError("Tick at least one account to post to.");
+      if (!title) return showError("Give the post a short title. It shows on your calendar.");
+      if (!caption) return showError("Add a caption first.");
+      const now = shareWay === "now";
+      const dateStr = now ? ymd(new Date()) : $date.value;
+      const timeStr = now ? new Date().toTimeString().slice(0, 5) : String($time.value || "09:00").slice(0, 5);
+      if (!now) {
+        if (!dateStr) return showError("Pick a date for the post.");
+        if (new Date(`${dateStr}T${timeStr}:00`).getTime() < Date.now() + 10 * 60000) return showError("Pick a time at least 10 minutes from now.");
+      }
+      if (now && !confirmed) {
+        $confirmQ.innerHTML = `<b>Post this now to ${esc(both(names))}?</b> It goes out straight away.`;
+        $confirm.hidden = false; $foot.hidden = true;
+        return;
+      }
+      const acct = await plannerStore();
+      if (!acct) return showError("You're signed out. Sign in again, then share it.");
+      if (acct.blocked) return showError(acct.reason);
+      shareBusy = true;
+      $submit.disabled = true; $submit.textContent = "Checking…";
+      $confirm.hidden = true; $foot.hidden = false;
+      const reset = () => { shareBusy = false; $submit.disabled = false; $submit.textContent = now ? "Post now" : "Schedule it"; };
+      try {
+        const { schedulePost, checkPost } = await import("../../lib/schedule-sync.js");
+        const assetUrl = await renderAndUpload(acct);
+        const item = await shareRow(acct, {
+          scheduled_date: dateStr, scheduled_time: timeStr, has_time: true, title, caption,
+          asset_url: assetUrl, thumbnail_url: assetUrl, design_ref: $form.dataset.designRef || null, platform_hint: sharePlat,
+        });
+        const chk = await checkPost(acct.token, item.id, caption, platforms);
+        if ((chk.problems || []).length) { showProblems(chk.problems.map((x) => x.message), names); reset(); return; }
+        $submit.textContent = now ? "Posting…" : "Scheduling…";
+        let z;
+        if (now) {
+          const res = await fetch(`${API_BASE}/schedule/post`, {
+            method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${acct.token}` },
+            body: JSON.stringify({ item_id: item.id, accountIds: ids, now: true }),
+          });
+          const out = await res.json().catch(() => ({}));
+          if (!res.ok || !out.ok) throw new Error(out.error || "It didn't post. Try again in a moment.");
+          z = out.zernio;
+        } else {
+          z = (await schedulePost(acct.token, item.id, ids)).zernio;
+        }
+        item.details = { ...(item.details || {}), zernio: z };
+        reset();
+        showDone(z && z.status === "scheduled" ? "scheduled" : "sent", { item, names });
+        if (z && z.status === "posting") pollShare(item, names);
+      } catch (e) {
+        reset();
+        showError((e && e.message) || "Something went wrong sharing that post.");
+      }
+    }
+    document.getElementById("ed-share-confirm-yes")?.addEventListener("click", () => shareSubmit(true));
+    document.getElementById("ed-share-confirm-no")?.addEventListener("click", () => { $confirm.hidden = true; $foot.hidden = false; });
+
+    // "posting" in the answer: the webhook finishes it; read the row again.
+    async function pollShare(item, names) {
+      const acct = await plannerStore();
+      for (let i = 0; i < 12; i++) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const { data } = await acct.db.from(acct.table).select("details").eq("id", item.id).maybeSingle();
+        const z = data && data.details && data.details.zernio;
+        if (z && z.status !== "posting") {
+          item.details = data.details;
+          if (!$modal.hidden && !$done.hidden) showDone("sent", { item, names });
+          return;
+        }
+      }
+    }
+
+    const whenOf = (iso) => {
+      try {
+        const d = new Date(iso);
+        return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" })
+          + " at " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
+      } catch (_) { return ""; }
+    };
+
+    // What it says once sent.
+    function showDone(kind, ctx) {
+      $form.hidden = true; $done.hidden = false;
+      $k.textContent = "Your post";
+      $h.textContent = (($title.value || "").trim() || "Your post").replace(/\.?$/, ".");
+      let html = "", acts = `<button type="button" class="ed-sched-submit" data-done="close">Done</button>`;
+      if (kind === "planned") {
+        html = `<span class="ed-share-state">Planned</span><h4>On your calendar for ${esc(dayLong(ctx.date))}.</h4><p>We'll email you the caption and picture at 8am that morning. You can share it from here or from your calendar whenever you're ready.</p>`;
+      } else {
+        const z = (ctx.item.details && ctx.item.details.zernio) || {};
+        const res = Array.isArray(z.results) ? z.results : [];
+        if (kind === "scheduled" || z.status === "scheduled") {
+          html = `<span class="ed-share-state is-sched">Scheduled</span><h4>Going out ${esc(whenOf(z.scheduled_for))} on ${esc(both(ctx.names))}.</h4><p>It's on your calendar too. If you change the design and press Save, the scheduled post is updated with the new version.</p>`;
+          acts = `<button type="button" class="ed-sched-cancel" data-done="stop">Don't post it</button><button type="button" class="ed-sched-emailnow" data-done="change">Change</button><button type="button" class="ed-sched-submit" data-done="close">Done</button>`;
+        } else if (z.status === "posting") {
+          html = `<span class="ed-share-state">Posting</span><h4>Sending it to ${esc(both(ctx.names))}&hellip;</h4><p>This usually takes a few seconds. You can close this; your calendar shows when it's gone out.</p>`;
+        } else if (z.status === "posted") {
+          html = `<span class="ed-share-state is-posted">Posted</span><h4>It's live on ${esc(both(ctx.names))}.</h4><ul>${res.map((r) => `<li><b>${esc(PLAT[r.platform] || "")}</b> Posted.${r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener">View the post &rarr;</a>` : ""}</li>`).join("")}</ul>`;
+        } else {
+          const ok = res.filter((r) => r.status === "posted"), bad = res.filter((r) => r.status === "failed");
+          const head = ok.length && bad.length
+            ? `It went out on ${esc(both(ok.map((r) => PLAT[r.platform])))}. ${esc(both(bad.map((r) => PLAT[r.platform])))} didn't take it.`
+            : `${esc(both((bad.length ? bad : res).map((r) => PLAT[r.platform]).filter(Boolean)) || "It")} didn't take it.`;
+          html = `<span class="ed-share-state is-failed">${ok.length ? "Partly posted" : "Not posted"}</span><h4>${head}</h4>
+            <ul>${res.map((r) => r.status === "posted"
+              ? `<li><b>${esc(PLAT[r.platform] || "")}</b> Posted.${r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener">View the post &rarr;</a>` : ""}</li>`
+              : `<li class="is-bad"><b>${esc(PLAT[r.platform] || "")}</b> ${esc(r.reason || r.error || "It didn't go out.")}</li>`).join("")}</ul>
+            ${bad.some((r) => r.what_to_do) ? `<p class="ed-plan-note">What to do: ${esc(bad.map((r) => r.what_to_do).filter(Boolean)[0])}</p>` : ""}`;
+          acts = `<button type="button" class="ed-sched-cancel" data-done="close">Close</button><button type="button" class="ed-sched-submit" data-done="retry">Try again</button>`;
+        }
+      }
+      $done.innerHTML = `${html}<footer class="ed-sched-foot">${acts}</footer>`;
+      $done.querySelector('[data-done="close"]')?.addEventListener("click", closeModal);
+      $done.querySelector('[data-done="change"]')?.addEventListener("click", () => { mode = "share"; shareWay = "schedule"; setMode(); });
+      $done.querySelector('[data-done="retry"]')?.addEventListener("click", () => { mode = "share"; shareWay = "now"; flagOk = true; setMode(); shareSubmit(true); });
+      $done.querySelector('[data-done="stop"]')?.addEventListener("click", async (e) => {
+        const b = e.currentTarget as HTMLButtonElement;
+        b.disabled = true; b.textContent = "Taking it back…";
+        try {
+          const acct = await plannerStore();
+          const { cancelPost } = await import("../../lib/schedule-sync.js");
+          await cancelPost(acct.token, ctx.item.id);
+          const { zernio, ...rest } = ctx.item.details || {};
+          ctx.item.details = rest;
+          shareItem = null;
+          closeModal();
+          (window as any).__TMKE_TOAST__?.("Taken back. It won't go out, and it's still on your calendar as Planned.", 4200);
+        } catch (err) { b.disabled = false; b.textContent = "Don't post it"; showError(err.message); $form.hidden = false; }
+      });
+    }
+
+    /* Save while a share is waiting to go out: the scheduled post takes the
+       new version (Danielle, 12 Nov), so the old one never goes out. The
+       picture is drawn again, uploaded, and the post sent again. */
+    async function resendOnSave() {
+      if (!shareItem || !shareItem.details || !shareItem.details.zernio || shareItem.details.zernio.status !== "scheduled") return;
+      try {
+        const acct = await plannerStore();
+        if (!acct || acct.blocked) return;
+        const assetUrl = await renderAndUpload(acct);
+        const { error } = await acct.db.from(acct.table).update({ asset_url: assetUrl, thumbnail_url: assetUrl }).eq("id", shareItem.id).eq("user_id", acct.uid);
+        if (error) throw error;
+        shareItem.asset_url = assetUrl;
+        const { resendIfScheduled } = await import("../../lib/schedule-sync.js");
+        await resendIfScheduled({ token: acct.token, training: false }, shareItem, ["asset_url"]);
+        (window as any).__TMKE_TOAST__?.(`Saved. Your scheduled post (${whenOf(shareItem.details.zernio.scheduled_for)}) now uses this version.`, 4200);
+      } catch (e) {
+        (window as any).__TMKE_TOAST__?.(`Saved, but your scheduled post didn't update: ${(e && e.message) || "try again"}. Open Share and press Change, or Don't post it.`, 6000);
+      }
+    }
+    document.getElementById("ed-save")?.addEventListener("click", () => setTimeout(resendOnSave, 600));
+    document.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && String(e.key).toLowerCase() === "s") setTimeout(resendOnSave, 600);
     });
 
     } // end wireSchedule
@@ -9302,7 +9984,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     // themselves (download, resize, pages, screen mockups) with the same note.
     if (demoOn()) {
       (window as any).__TMKE_DEMO_LOCK__ = lock;
-      lockClicks("#ed-save, #ed-schedule, #ed-download-trigger, #ed-download-menu button, #ed-review-btn", "Create an account to download your design.", "Everything you make here can be yours: join the Member Hub to save it, download it in any format and send it to your planner.");
+      lockClicks("#ed-save, #ed-schedule, #ed-share, #ed-download-trigger, #ed-download-menu button, #ed-review-btn", "Create an account to download your design.", "Everything you make here can be yours: join the Member Hub to save it, download it in any format and send it to your planner.");
       lockClicks('.ed-rail-btn[data-tool="resize"], #ed-pages-toggle, .ed-shape[data-screen]', "Resizing, pages and screen mockups are for members.", "In the demo, open a template, change its words, pictures and colours, and see how the Studio feels.");
     }
     import { supabase } from "../../lib/supabase.js";

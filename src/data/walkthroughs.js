@@ -436,9 +436,9 @@ export const WALKS = {
         eyebrow: "Download", title: "Download Your Design",
         body: "Choose how you'd like to download your finished design. For social media graphics, we generally recommend PNG." },
       { shot: "/images/learn/demo/shots/studio-finish--2-planner@2x.webp",
-        target: "#ed-schedule", placement: "bottom", padding: 8,
+        target: "#ed-share", placement: "bottom", padding: 8,
         eyebrow: "Plan", title: "Add It to Your Marketing Planner",
-        body: "Select the calendar button to choose a publishing date, platform and caption, then add your design to your content calendar." },
+        body: "Select Share, then Add to your planner, to choose a date and caption and add your design to your content calendar." },
       /* Dani's step, 12 Oct. The reminder lives inside the scheduling panel,
          so this one opens that panel first (the same calendar button the step
          above points at) and then points at the reminder itself. */

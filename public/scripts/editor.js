@@ -17332,6 +17332,8 @@ import { createResizeEngine } from "./resize-engine.js";
   // schedule modal reads this for the default title (= filename) and
   // for the design_ref (= templateId) it stores against the calendar
   // row so "Edit" can later reopen the source design.
+  // The page's own scripts say things the same way (Share, editor.astro).
+  window.__TMKE_TOAST__ = function (msg, ms) { try { toast(msg, ms); } catch (_) {} };
   window.__TMKE_EDITOR_SUMMARY__ = function () {
     return {
       filename: (filenameEl && filenameEl.value) || "design",
