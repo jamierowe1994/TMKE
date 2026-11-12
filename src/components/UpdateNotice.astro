@@ -76,6 +76,9 @@ const sbKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || "";
     }
     function log(u) {
       try { if (localStorage.getItem("tmke-notrack") === "1") return; } catch (_) {}
+      // A test copy on this computer rebuilds its code all the time, so its
+      // "old page" moments are its own and never logged (Danielle, 12 Nov).
+      if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return;
       if (!sbUrl || !sbKey) return;
       try {
         fetch(sbUrl + "/rest/v1/site_events", {

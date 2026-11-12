@@ -33,18 +33,29 @@ const sbKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || "";
       if (!isSmall(u)) return u;
       return u.replace(MARK, "/storage/v1/object/public/").split("?")[0];
     }
-    function report(u) {
-      var o = original(u);
-      if (told.has(o) || told.size >= 25 || !sbUrl || !sbKey) return;
-      told.add(o);
+    // A test copy on this computer shares the real pictures and the real
+    // resizing, so a failure there is real for members too, but only if the
+    // picture itself exists: a made-up one is the test's own doing
+    // (Danielle, 12 Nov). Those are sent marked test: true.
+    var onTest = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    function send(o, extra) {
       try {
         fetch(sbUrl + "/rest/v1/site_events", {
           method: "POST", keepalive: true,
           headers: { apikey: sbKey, Authorization: "Bearer " + sbKey, "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify({ name: "resize_fallback", path: location.pathname,
-            props: { piece: o.split("/").pop(), anonymous: true } }),
+            props: Object.assign({ piece: o.split("/").pop(), anonymous: true }, extra || {}) }),
         }).catch(function () {});
       } catch (_) {}
+    }
+    function report(u) {
+      var o = original(u);
+      if (told.has(o) || told.size >= 25 || !sbUrl || !sbKey) return;
+      told.add(o);
+      if (!onTest) return send(o);
+      fetch(o, { method: "HEAD", cache: "no-store" })
+        .then(function (r) { if (r.ok) send(o, { test: true }); })
+        .catch(function () {});
     }
     // Background pictures that used the failed small copy get the original.
     function swapBackgrounds(u) {

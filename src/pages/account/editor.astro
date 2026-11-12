@@ -6703,6 +6703,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           template: f.template || q.get('template') || null,
           design: q.get('design') || null,
           admin: q.get('mode') === 'admin',
+          missing: !!f.missing,
         });
       };
       (window as any).__TMKE_REPORT_FALLBACK__ = onFallback;
@@ -7495,7 +7496,10 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           if (!design) {
             (window as any).__TMKE_DESIGN_OPEN_FAILED__ = true;
             try {
-              const f = { kind: 'design_open', detail: String((openErr && openErr.message) || 'no row'), template: null };
+              // missing: asked and answered, there's simply no such design for
+              // this account (no error, or PostgREST's "no rows" PGRST116).
+              const missing = !openErr || (openErr as any).code === 'PGRST116';
+              const f = { kind: 'design_open', detail: String((openErr && openErr.message) || 'no row'), template: null, missing };
               const w = window as any;
               if (w.__TMKE_REPORT_FALLBACK__) w.__TMKE_REPORT_FALLBACK__(f); else (w.__TMKE_FALLBACK_Q__ = w.__TMKE_FALLBACK_Q__ || []).push(f);
             } catch (_) {}
@@ -11813,14 +11817,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     /* One template row, whole: every page and size with it. Asked twice; it
        used to ask again WITHOUT pages on any error, so a slow moment opened a
        postcard as its front alone (found 28 Oct). Null if it won't come. */
+    let templateMissing = false;   // the last null was "no such template", not a failure
     async function fetchTemplateRow(id) {
       const cols = "id, name, category, thumb_url, canvas, elements, pages, size_variants";
+      templateMissing = false;
       for (let attempt = 0; attempt < 2; attempt++) {
         if (attempt) await new Promise((r) => setTimeout(r, 1200));
         try {
           const { data, error } = await supabase.from("templates").select(cols).eq("id", id).maybeSingle();
           if (data) return data;
-          if (!error) return null;          // asked and answered: there's no such template
+          if (!error) { templateMissing = true; return null; }   // asked and answered: there's no such template
         } catch (_) {}
       }
       return null;
@@ -11842,7 +11848,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       (async () => {
         const row = await fetchTemplateRow(id);
         if (!row) {
-          const f = { kind: "template_open", detail: id, template: id };
+          const f = { kind: "template_open", detail: id, template: id, missing: templateMissing };
           const w = window as any;
           if (w.__TMKE_REPORT_FALLBACK__) w.__TMKE_REPORT_FALLBACK__(f); else (w.__TMKE_FALLBACK_Q__ = w.__TMKE_FALLBACK_Q__ || []).push(f);
           const h = document.querySelector("#ed-open-fail h3");

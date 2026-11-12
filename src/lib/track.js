@@ -115,6 +115,19 @@ export async function track(name, props = {}) {
   }
 }
 
+/** This page is a test copy of the site running on this computer, not tmke.co.uk. */
+export function onTestCopy() {
+  return typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+}
+/* Fallbacks a test copy causes by itself, so never worth an alert from one:
+   - design_slow: a test copy builds each page on first visit, so it's always slow;
+   - brand_cache_full: the test browser's own storage filling up.
+   Anything flagged `missing` (a template or design that simply doesn't exist,
+   like a made-up "demo") is the test's own doing too. Everything else, such as
+   the database refusing or a real design failing to draw, would hit members
+   as well, so it is still reported, marked "Found while testing". */
+const TEST_COPY_QUIET = new Set(['design_slow', 'brand_cache_full']);
+
 /**
  * Report that the Studio fell back to something lesser (Danielle, 28-29 Oct).
  * A visitor who allowed analytics is recorded as usual, so the team can see
@@ -127,6 +140,14 @@ export async function track(name, props = {}) {
  */
 export async function reportStudioFault(props = {}) {
   if (!isConfigured || !props || !props.kind) return;
+  // A test copy of the site (a chat's own preview on this computer) shares the
+  // real database, so its alerts land in the real list (Danielle, 12 Nov). It
+  // reports only what would be broken for everyone, marked test: true; what
+  // the test caused itself stays quiet. See TEST_COPY_QUIET.
+  if (onTestCopy()) {
+    if (TEST_COPY_QUIET.has(props.kind) || props.missing) return;
+    props = { ...props, test: true };
+  }
   if (analyticsAllowed() && !trackingOff()) return track('studio_fallback', props);
   try {
     const scrub = (v) => v == null ? null : String(v)
@@ -141,6 +162,8 @@ export async function reportStudioFault(props = {}) {
         detail: scrub(props.detail),
         template: props.template ? String(props.template).slice(0, 80) : null,
         admin: !!props.admin,
+        ...(props.test ? { test: true } : {}),
+        ...(props.missing ? { missing: true } : {}),
         anonymous: true,
       },
     });
