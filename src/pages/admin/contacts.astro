@@ -364,7 +364,7 @@ import "../../styles/contacts-os.css";
       ["leads", "Leads", (c) => stageOf(c) === "lead"],
       ["attention", "Needs attention", (c) => attnOf(c).length > 0],
     ];
-    const SORTS = { added: "Newest added", seen: "Recently active", member: "Newest member", name: "Name A to Z", brand: "Brand A to Z" };
+    const SORTS = { added: "Newest added", seen: "Recently active", member: "Newest member", name: "Name A to Z", brand: "Brand A to Z", type: "Type" };
     const MKT = { in: "Opted in", out: "Not opted in", unsub: "Unsubscribed" };
     const STUDIO = { linked: "Has an account", invited: "Invited", none: "No account" };
     const S = { view: "all", q: "", brands: [], stages: [], tags: [], tagMode: "all", mkt: "", studio: "", sort: "added", page: 1, per: 25, sel: new Set(), allMatching: false, menu: null, step: null };
@@ -413,6 +413,12 @@ import "../../styles/contacts-os.css";
         brand: (a, b) => {
           const k = (c) => { const m = mainOf(profilesOf(c)); return m ? "0" + lc(m.brand) : "1" + (lc(c.company) || "~"); };
           return k(a).localeCompare(k(b)) || nameKey(a).localeCompare(nameKey(b));
+        },
+        // Type (Danielle, 12 Nov): External, then Agent, then Management or
+        // support; A to Z by name within each.
+        type: (a, b) => {
+          const r = { external: 0, agent: 1, support: 2 };
+          return (r[typeOf(a)] - r[typeOf(b)]) || nameKey(a).localeCompare(nameKey(b));
         },
       };
       return list.slice().sort(by[S.sort] || by.added);
@@ -539,7 +545,7 @@ import "../../styles/contacts-os.css";
           : `<div class="cx-empty">No contacts yet. They appear here as people enquire, book, sign up or buy.</div>`;
         return;
       }
-      $("ct-table").innerHTML = `<thead><tr><th class="ck"><input type="checkbox" id="ct-ck-all" ${allOn ? "checked" : ""} aria-label="Select this page"></th>${th("name", "Name")}${th("", "Type")}${th("", "Brand")}${th("", "Studio")}${th("", "Marketing")}${th("seen", "Last active")}${th("added", "Added")}${th("", "Stage")}</tr></thead><tbody>${rows.map((c) => {
+      $("ct-table").innerHTML = `<thead><tr><th class="ck"><input type="checkbox" id="ct-ck-all" ${allOn ? "checked" : ""} aria-label="Select this page"></th>${th("name", "Name")}${th("type", "Type")}${th("brand", "Brand")}${th("", "Studio")}${th("", "Marketing")}${th("seen", "Last active")}${th("added", "Added")}${th("", "Stage")}</tr></thead><tbody>${rows.map((c) => {
         const on = S.allMatching || S.sel.has(c.id);
         const a = attnOf(c);
         const ty = typeOf(c);
