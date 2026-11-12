@@ -3508,6 +3508,16 @@ async function sbPatch(env, table, qs, body) {
     body: JSON.stringify(body),
   });
 }
+// PATCH that hands back the rows it changed ([] when the filter matched none).
+async function sbPatchReturn(env, table, qs, body) {
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${qs}`, {
+    method: "PATCH",
+    headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=representation" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) return null;
+  return r.json().catch(() => null);
+}
 async function sbAdminUserEmail(env, userId) {
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
     headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
@@ -4774,6 +4784,33 @@ function ukHourNow() {
   return parseInt(new Date().toLocaleString("en-GB", { timeZone: "Europe/London", hour: "2-digit", hourCycle: "h23" }), 10);
 }
 
+/* Planner reminders (Danielle, 12 Nov 2026, Studio's Reminder time).
+   A reminder made from now on with a time goes when that time comes round,
+   checked on every 5-minute tick (runTimedReminders). Everything else (no
+   time, an all-day item, or a row from before this) still goes at 8am UK
+   (runReminders, on the daily crons). Shared posts are saved with reminder
+   false and never come here. Neither is behind morning_jobs_on. */
+const TIMED_REMINDERS_FROM = "2026-11-12T16:45:00Z";
+const isTimedReminder = (item) => !!item.scheduled_time && item.has_time !== false && String(item.created_at || "") >= TIMED_REMINDERS_FROM;
+async function sendOneReminder(env, item) {
+  if (item.reminder === false) return;   // they opted out of the reminder
+  // Claim it first, so two runs can't both send it.
+  const claimed = await sbPatchReturn(env, "calendar_items", `id=eq.${item.id}&status=eq.scheduled`,
+    { status: "reminder_sent", reminder_sent_at: new Date().toISOString() });
+  if (!claimed || !claimed.length) return;
+  let ok = false;
+  try {
+    const email = await sbAdminUserEmail(env, item.user_id);
+    if (email) {
+      const platform = item.platform_hint || "instagram";
+      // A post brings its design and caption; any other activity, its plan.
+      ok = (item.activity && item.activity !== "social_post")
+        ? await sendActivityEmail(env, { email, item })
+        : await sendPostEmail(env, { email, item, subject: `Your ${platform} post is planned for today` });
+    }
+  } catch (_) { ok = false; }
+  if (!ok) await sbPatch(env, "calendar_items", `id=eq.${item.id}`, { status: "scheduled", reminder_sent_at: null });
+}
 async function runReminders(env) {
   if (!env.RESEND_API_KEY || !env.SUPABASE_SERVICE_ROLE) return;
   // Fired by both the 07:00 and 08:00 UTC crons; only actually send at 8am UK,
@@ -4784,20 +4821,20 @@ async function runReminders(env) {
   const due = (await sbGet(env, "calendar_items",
     `status=eq.scheduled&scheduled_date=eq.${today}&select=*`)) || [];
   for (const item of due) {
-    try {
-      if (item.reminder === false) continue; // they opted out of the reminder
-      const email = await sbAdminUserEmail(env, item.user_id);
-      if (!email) continue;
-      const platform = item.platform_hint || "instagram";
-      // A post brings its design and caption; any other activity, its plan.
-      const ok = (item.activity && item.activity !== "social_post")
-        ? await sendActivityEmail(env, { email, item })
-        : await sendPostEmail(env, { email, item, subject: `Your ${platform} post is planned for today` });
-      if (ok) {
-        await sbPatch(env, "calendar_items", `id=eq.${item.id}`,
-          { status: "reminder_sent", reminder_sent_at: new Date().toISOString() });
-      }
-    } catch (_) { /* skip this item, keep going */ }
+    if (isTimedReminder(item)) continue;   // goes at its own time
+    try { await sendOneReminder(env, item); } catch (_) { /* skip this item, keep going */ }
+  }
+}
+async function runTimedReminders(env) {
+  if (!env.RESEND_API_KEY || !env.SUPABASE_SERVICE_ROLE) return;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+  const nowHm = new Date().toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hour12: false });
+  const due = (await sbGet(env, "calendar_items",
+    `status=eq.scheduled&scheduled_date=eq.${today}&scheduled_time=not.is.null&created_at=gte.${TIMED_REMINDERS_FROM}&select=*`)) || [];
+  for (const item of due) {
+    if (!isTimedReminder(item)) continue;
+    if (String(item.scheduled_time).slice(0, 5) > nowHm) continue;   // not yet
+    try { await sendOneReminder(env, item); } catch (_) { /* keep going */ }
   }
 }
 
@@ -8525,6 +8562,7 @@ export default {
     }
     else {
       ctx.waitUntil(runAutomationsTick(env));
+      ctx.waitUntil(runTimedReminders(env).catch((e) => console.error("timed reminders", e && e.message)));
       ctx.waitUntil(runSetupReminders(env));
       ctx.waitUntil(runMemberBroadcasts(env));
       ctx.waitUntil(runContactReviewAlerts(env));
