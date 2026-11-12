@@ -298,6 +298,7 @@ import "../../styles/admin.css";
   <script>
     import { requireAdmin } from '../../lib/admin-gate.js';
     import { supabase } from '../../lib/supabase.js';
+    import { fontFaceDescriptors } from '../../lib/brand-fonts.js';
 
     const BUCKET = 'brand-fonts';
 
@@ -370,11 +371,12 @@ import "../../styles/admin.css";
       if (_registered.has(f.id)) return;
       _registered.add(f.id);
       try {
-        const face = new FontFace(f.family, `url("${f.file_url}")`, {
+        // The same spacing corrections as the Studio (brand-fonts.js).
+        const face = new FontFace(f.family, `url("${f.file_url}")`, fontFaceDescriptors(f.family, {
           weight: String(f.weight || 400),
           style: f.style || 'normal',
           display: 'swap',
-        });
+        }));
         face.load().then((loaded) => document.fonts.add(loaded)).catch(() => { _broken.add(f.id); markBroken(f.id); });
       } catch (_) { _broken.add(f.id); }
     }
