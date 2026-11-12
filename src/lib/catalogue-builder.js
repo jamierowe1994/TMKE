@@ -260,7 +260,7 @@ export function initBuilder(ctx) {
           : `<button type="button" class="pb-vbtn" data-delete>Delete pack</button>${back}${next}`}</div></div>
     </div>
     <div class="pb-prog">${timeline()}${callout()}</div>
-    ${st === 1 ? `<label class="pb-about"><span>About this pack</span><input id="pb-about" value="${esc(PLAN && PLAN.about)}" placeholder="A line about the pack: what it's for and when."></label>` : ""}
+    ${st === 1 ? `<label class="pb-about"><span>About this pack</span><textarea id="pb-about" rows="2" placeholder="A line or two about the pack: what it's for and when.">${esc(PLAN && PLAN.about)}</textarea></label>` : ""}
     ${st === 5 ? listing() : table()}`;
     wireRows();
     if (st === 5) wireListing();
