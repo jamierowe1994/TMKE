@@ -6355,9 +6355,15 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     `__TMKE_BOOT_ADMIN__` handshake makes ordering robust regardless.
   -->
   <script>
-    import { syncBrandCache } from '../../lib/brand-cache.js';
+    import { syncBrandCache, freeStudioDrafts } from '../../lib/brand-cache.js';
     import { supabase } from '../../lib/supabase.js';
     import { loadBrandFonts } from '../../lib/brand-fonts.js';
+    /* Housekeeping (Danielle, 12 Nov): the Studio's own back-up copies of
+       designs saved over a week ago are cleared each time it opens, so they
+       never fill the browser's storage again (143 had, and the brand kit
+       couldn't save). Never a draft- one; the fonts lists stay. After the
+       page has settled, so opening the Studio is no slower. */
+    setTimeout(() => { try { freeStudioDrafts(Infinity); } catch (_) {} }, 4000);
     // Uploaded brand fonts, from the start, before any design is drawn.
     loadBrandFonts(supabase);
     import { track, reportStudioFault } from '../../lib/track.js';

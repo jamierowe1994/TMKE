@@ -131,8 +131,12 @@ export function freeStudioDrafts(need) {
       // A scratch draft (an import not yet made a template) lives only here.
       if (k.indexOf("tmke.editor.draft-") === 0) continue;
       const v = localStorage.getItem(k) || "";
-      let at = 0;
-      try { at = Number(JSON.parse(v).savedAt) || 0; } catch (_) {}
+      /* Only a design copy: favourite and recent fonts share the prefix
+         (tmke.editor.favFonts, tmke.editor.recentFonts) and must stay. */
+      let o = null;
+      try { o = JSON.parse(v); } catch (_) {}
+      if (!o || typeof o !== "object" || Array.isArray(o) || !(o.canvas || o.pages || o.elements)) continue;
+      const at = Number(o.savedAt) || 0;
       if (at && now - at < DRAFT_KEEP_MS) continue;
       old.push({ k, at, size: (k.length + v.length) * 2 });
     }
