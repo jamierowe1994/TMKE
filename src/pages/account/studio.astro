@@ -596,17 +596,21 @@ const inspo = [
     /* The tab you were on, remembered for this browser tab: back from a print
        pack or template lands on Print again, not Social (Dani, 13 Oct). */
     const kindKey = (name) => 'tmke.studio.kind.' + name;
-    function rememberedKind(name) {
-      try { return sessionStorage.getItem(kindKey(name)) === 'print' ? 'print' : 'social'; } catch (_) { return 'social'; }
+    function rememberedKind(name, allowed) {
+      allowed = allowed || ['social', 'print'];
+      try { const k = sessionStorage.getItem(kindKey(name)); return allowed.includes(k) ? k : allowed[0]; } catch (_) { return allowed[0]; }
     }
-    function mountKindToggle(rail, name, onChange) {
-      const start = rememberedKind(name);
+    /* kinds: the tabs, [key, label]; Social / Print unless told otherwise.
+       The packs shelf adds Content Calendar (Danielle, 12 Nov). */
+    function mountKindToggle(rail, name, onChange, kinds) {
+      kinds = kinds || [['social', 'Social'], ['print', 'Print']];
+      const start = rememberedKind(name, kinds.map((k) => k[0]));
       if (!rail || rail.previousElementSibling?.classList.contains('st-kinds')) return start;
       const wrap = document.createElement('div');
       wrap.className = 'st-kinds';
       wrap.setAttribute('role', 'tablist');
-      wrap.setAttribute('aria-label', 'Social or print');
-      [['social', 'Social'], ['print', 'Print']].forEach(([k, label], i) => {
+      wrap.setAttribute('aria-label', 'Kind of design');
+      kinds.forEach(([k, label], i) => {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'st-kind' + (k === start ? ' is-on' : '');
@@ -922,9 +926,29 @@ const inspo = [
            row they did not want. No print packs, no toggle. */
         const printPacks  = owned.filter((p) => p.kind === 'print');
         const socialPacks = owned.filter((p) => p.kind !== 'print');
-        /* The Print tab has no "Shop more packs" card (Dani, 13 Oct). */
-        const draw = (list, print) => {
-          row.innerHTML = list.map(tile).join('') + (print ? '' : shopTile);
+        /* The Content Calendar tab (Danielle, 12 Nov): the calendar's months
+           as packs, the ones their level opens. /access/me's library says
+           how far back (last month and this; four months; every month) and
+           the Worker clamps it; months published ahead come too. Newest
+           first. Each opens in the editor like a pack (?pack=cc-<id>). */
+        let calPacks = [];
+        if (!training) {
+          try {
+            const cm = await import('../../lib/calendar-month.js');
+            const acc = await cm.memberAccess(supabase);
+            if (acc && acc.calendar) {
+              const from = acc.library ? (acc.library.from || '2026-01-01') : cm.monthKey(new Date());
+              const months = await cm.loadPublishedMonths(supabase, from);
+              calPacks = months
+                .slice().sort((a, b) => String(b.month).localeCompare(String(a.month)))
+                .map((m) => ({ id: 'cc-' + m.id, title: cm.monthPostsName(m.month), cover_image_url: m.cover || null, kind: 'calendar' }));
+            }
+          } catch (_) { calPacks = []; }
+        }
+        /* The Print and Content Calendar tabs have no "Shop more packs" card
+           (Dani, 13 Oct). */
+        const draw = (list, print, noShop) => {
+          row.innerHTML = list.map(tile).join('') + (print || noShop ? '' : shopTile);
           const shaped = window.__ST_FIT_PRINT__?.(row, print);
           window.__ST_REWIRE_RAILS__?.();
           return shaped;
@@ -993,14 +1017,21 @@ const inspo = [
           brandBox.hidden = kind !== 'print';
           bar.appendChild(brandBox);
         };
-        if (printPacks.length && socialPacks.length) {
+        const kinds = [];
+        if (socialPacks.length) kinds.push(['social', 'Social']);
+        if (printPacks.length) kinds.push(['print', 'Print']);
+        if (calPacks.length) kinds.push(['calendar', 'Content Calendar']);
+        const drawKind = (kind) => kind === 'print' ? draw(forBrand(printPacks), true)
+          : kind === 'calendar' ? draw(calPacks, false, true)
+          : draw(socialPacks, false);
+        if (kinds.length > 1) {
           const rail = row.closest('.st-rail');
           const startKind = window.__ST_KIND_TOGGLE__?.(rail, 'packs', (kind) => {
             if (brandBox) { brandBox.hidden = kind !== 'print'; syncBrands(); }
-            draw(kind === 'print' ? forBrand(printPacks) : socialPacks, kind === 'print');
-          }) || 'social';
-          mountBrands(rail && rail.parentNode.querySelector('.st-kinds'), startKind);
-          await draw(startKind === 'print' ? forBrand(printPacks) : socialPacks, startKind === 'print');
+            drawKind(kind);
+          }, kinds) || kinds[0][0];
+          if (printPacks.length) mountBrands(rail && rail.parentNode.querySelector('.st-kinds'), startKind);
+          await drawKind(startKind);
         } else if (printPacks.length && printBrands.length > 1) {
           // Print packs only: the bar carries just the brands.
           const rail = row.closest('.st-rail');
