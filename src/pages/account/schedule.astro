@@ -244,6 +244,7 @@ import "../../styles/account-sections.css";
         <button type="button" class="post-btn post-btn--danger" id="post-delete">Remove</button>
         <button type="button" class="post-btn post-btn--ghost" id="post-email">Email it to me now</button>
         <button type="button" class="post-btn post-btn--ghost" id="post-mycal" data-mycal>Add to my calendar</button>
+        <a class="post-btn post-btn--ghost" id="post-edit" href="#" hidden>Edit design</a>
         <button type="button" class="post-btn post-btn--primary" id="post-save">Save changes</button>
       </footer>
     </aside>
@@ -1341,43 +1342,28 @@ import "../../styles/account-sections.css";
     }
     .post-error[hidden] { display: none; }
     .post-error.is-ok { background: rgba(46, 125, 80, 0.08); color: #2e7d50; border-color: rgba(46, 125, 80, 0.28); }
-    .post-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    /* The house button (ws-system .ws-btn): one 30px height for every
+       button in the row (Danielle, 12 Nov: they were all different heights). */
+    .post-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
     .post-btn {
-      appearance: none;
-      border-radius: 4px;
-      padding: 11px 18px;
-      font-family: var(--sans);
-      font-size: var(--ws-t-label);
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.2s, opacity 0.2s;
+      appearance: none; box-sizing: border-box;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      height: var(--ws-btn-h, 30px); padding: 0 14px; margin: 0;
+      border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; color: #2b2226;
+      font-family: var(--sans); font-size: 11px; font-weight: 600; line-height: 1;
+      letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; white-space: nowrap;
+      cursor: pointer; transition: background 0.18s, border-color 0.18s, color 0.18s, opacity 0.18s;
     }
+    .post-btn[hidden] { display: none; }
     .post-btn:disabled { opacity: 0.6; cursor: progress; }
-    .post-btn--primary {
-      margin-left: auto;
-      background: var(--violet-deep);
-      color: var(--paper);
-      border: 0;
-      box-shadow: 0 10px 22px -10px rgba(var(--violet-rgb), 0.55);
-    }
-    .post-btn--primary:hover:not(:disabled) { transform: translateY(-1px); background: var(--ink); }
-    .post-btn--ghost {
-      background: transparent;
-      border: 1px solid rgba(var(--violet-rgb), 0.4);
-      color: var(--violet-deep);
-    }
-    .post-btn--ghost:hover:not(:disabled) { background: rgba(var(--violet-rgb), 0.08); border-color: var(--violet-deep); }
-    .post-btn--danger {
-      background: transparent;
-      border: 1px solid rgba(195, 65, 50, 0.3);
-      color: #a23023;
-    }
-    .post-btn--danger:hover:not(:disabled) { background: rgba(195, 65, 50, 0.08); border-color: #a23023; }
+    .post-btn--primary { margin-left: auto; background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
+    .post-btn--primary:hover:not(:disabled) { background: #2a1620; border-color: #2a1620; }
+    .post-btn--ghost:hover:not(:disabled) { border-color: var(--violet-deep); color: var(--violet-deep); }
+    .post-btn--danger { color: #8a3f3f; }
+    .post-btn--danger:hover:not(:disabled) { border-color: #8a3f3f; }
     @media (max-width: 520px) {
       .post-btn--primary { margin-left: 0; }
-      .post-foot .post-btn { flex: 1 1 auto; text-align: center; }
+      .post-foot .post-btn { flex: 1 1 auto; }
     }
 
     /* ---- The month's posts (Content Calendar subscription) ----
@@ -2232,12 +2218,33 @@ import "../../styles/account-sections.css";
       $postEmail.disabled = false; $postEmail.textContent = 'Email it to me now';
       $postDelete.disabled = false; $postDelete.textContent = 'Remove';
       $postMycal.hidden = (demoOn() && !isTrainingDemo()) || calSynced;
+      paintPostEdit(p);
       schedWarned = false;
       paintSched(p);
       $postModal.hidden = false;
       document.body.style.overflow = 'hidden';
       requestAnimationFrame(() => requestAnimationFrame(() => $postModal.classList.add('is-open')));
       setTimeout(() => $postTitle.focus(), 60);
+    }
+
+    /* Edit design (Danielle, 12 Nov): opens the saved design this post was
+       planned from. ?post= makes the editor's Plan post update this post
+       rather than add a second one. Shown only when that design is still in
+       their saved designs, so it never opens a blank page. */
+    async function paintPostEdit(p) {
+      const a = document.getElementById('post-edit');
+      if (!a) return;
+      a.hidden = true;
+      const ref = p && p.design_ref ? String(p.design_ref) : '';
+      if (!ref || /^draft-/.test(ref) || (demoOn() && !isTrainingDemo())) return;
+      try {
+        const store = await designStore();
+        if (!store || store.blocked) return;
+        const { data } = await store.db.from(store.table).select('id').eq('id', ref).eq('user_id', store.uid).maybeSingle();
+        if (!data || String(openPostId) !== String(p.id)) return;
+        a.href = `/account/editor?design=${encodeURIComponent(ref)}&post=${encodeURIComponent(p.id)}`;
+        a.hidden = false;
+      } catch (_) { }
     }
 
     let postCloseTimer;
