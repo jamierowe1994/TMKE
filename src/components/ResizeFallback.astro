@@ -1,0 +1,89 @@
+---
+// The shop's pictures: full size only when the small one won't come (Danielle, 12 Nov 2026).
+//
+// The shop and pack pages ask Supabase for a smaller copy of each picture
+// (/storage/v1/render/image/…). If Supabase ever refuses (a plan lapse, a
+// limit reached, an outage), the picture would be a blank square, as on 11 Nov.
+// This swaps in the full-size original instead, but ONLY when the small copy
+// has actually failed: a slow picture is left alone, because full size is
+// nearly as bad as blank on most people's connections.
+//
+// Every swap is logged to site_events as `resize_fallback` (page + picture
+// file name, nothing about the person), so the daily Site Health check reports
+// it the next morning. Logged whatever the visitor's cookie choice: it's a
+// fault report, like reportStudioFault, and carries nothing that points to them.
+//
+// <img> pictures are caught by their own error event. Pictures painted as CSS
+// backgrounds (the shop page) raise none, so the shop calls
+// window.__tmkeResize.watch(url) for each one and this checks it.
+//
+// Inline on purpose, at the top of <head>, so it's listening before the first
+// picture loads.
+const sbUrl = import.meta.env.PUBLIC_SUPABASE_URL || "";
+const sbKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || "";
+---
+<script is:inline define:vars={{ sbUrl, sbKey }}>
+  (function () {
+    if (window.__tmkeResize) return;
+    var MARK = "/storage/v1/render/image/public/";
+    var failed = new Set(), watched = new Set(), told = new Set();
+
+    function isSmall(u) { return typeof u === "string" && u.indexOf(MARK) !== -1; }
+    function original(u) {
+      if (!isSmall(u)) return u;
+      return u.replace(MARK, "/storage/v1/object/public/").split("?")[0];
+    }
+    function report(u) {
+      var o = original(u);
+      if (told.has(o) || told.size >= 25 || !sbUrl || !sbKey) return;
+      told.add(o);
+      try {
+        fetch(sbUrl + "/rest/v1/site_events", {
+          method: "POST", keepalive: true,
+          headers: { apikey: sbKey, Authorization: "Bearer " + sbKey, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ name: "resize_fallback", path: location.pathname,
+            props: { piece: o.split("/").pop(), anonymous: true } }),
+        }).catch(function () {});
+      } catch (_) {}
+    }
+    // Background pictures that used the failed small copy get the original.
+    function swapBackgrounds(u) {
+      var o = original(u);
+      [].slice.call(document.querySelectorAll('[style*="render/image"]')).forEach(function (el) {
+        if (el.style.backgroundImage.indexOf(u) !== -1) el.style.backgroundImage = 'url("' + o + '")';
+      });
+    }
+    function fail(u) {
+      if (failed.has(u)) return;
+      failed.add(u);
+      swapBackgrounds(u);
+      report(u);
+    }
+    // For pictures painted as backgrounds: load the same small copy once to
+    // see whether it comes (the browser shares the one download).
+    function watch(u) {
+      if (!isSmall(u) || watched.has(u)) return;
+      watched.add(u);
+      var im = new Image();
+      im.onerror = function () { fail(u); };
+      im.src = u;
+    }
+
+    window.__tmkeResize = {
+      watch: watch,
+      // The address to use now: the original once the small copy has failed.
+      src: function (u) { return failed.has(u) ? original(u) : u; },
+    };
+
+    // <img> pictures: their own error event, caught on the way down.
+    window.addEventListener("error", function (e) {
+      var t = e && e.target;
+      if (!t || t.tagName !== "IMG") return;
+      var u = t.currentSrc || t.src;
+      if (!isSmall(u)) return;
+      if (t.hasAttribute("srcset")) t.removeAttribute("srcset");
+      t.src = original(u);
+      fail(u);
+    }, true);
+  })();
+</script>
