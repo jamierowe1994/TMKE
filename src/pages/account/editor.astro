@@ -1475,7 +1475,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             <div class="ed-pick" id="ed-sched-pick" hidden></div>
           </div>
 
-          <label class="ed-sched-field" id="ed-sched-cap-field">
+          <!-- for= the caption: without it, a click on the label's blank space
+               pressed its first button, the hidden Generate with AI (Danielle, 12 Nov). -->
+          <label class="ed-sched-field" id="ed-sched-cap-field" for="ed-sched-caption">
             <span class="ed-sched-label ed-sched-label--row">
               <span>Caption <span class="ed-sched-optional" id="ed-sched-cap-opt">— optional</span></span>
               <button type="button" class="ed-sched-ai" id="ed-sched-ai"><span aria-hidden="true">✨</span> Generate with AI</button>
@@ -8262,7 +8264,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     if ($btn && $modal && $form) wireSchedule();
 
     // AI caption → drop the generated copy straight into the caption box.
-    document.getElementById("ed-sched-ai")?.addEventListener("click", () => {
+    document.getElementById("ed-sched-ai")?.addEventListener("click", (e) => {
+      if (e.currentTarget.hidden) return;   // calendar posts: no AI
       window.tmkeCaption?.open({
         output: "use",
         topic: window.__TMKE_CAPTION_PROMPT__?.() || "",
