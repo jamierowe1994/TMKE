@@ -9137,8 +9137,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         } else {
           const bad = res.filter((r) => r.status !== "posted");
           const badNames = both(bad.map((r) => PLAT[r.platform]).filter(Boolean)) || both(ctx.names);
-          const reason = (r) => esc(r.reason || r.error || "It couldn't be published.");
-          const todo = bad.map((r) => r.what_to_do).filter(Boolean)[0];
+          // A proper reason starts "Your…" (Admin, 12 Nov); older rows hold a
+          // code there, so their what-to-do line stands in for it.
+          const good = (r) => /^Your\b/.test(String(r.reason || ""));
+          const reason = (r) => esc(good(r) ? r.reason : (r.what_to_do || r.error || "It couldn't be published."));
+          const todo = bad.filter(good).map((r) => r.what_to_do).filter(Boolean)[0];
           html = posted.length && bad.length
             ? `<span class="ed-share-state is-failed">Partly posted</span><h4>We couldn't share your post to ${esc(badNames)}.</h4><p>Your post was successfully shared to ${esc(both(posted.map((r) => PLAT[r.platform])))}, but ${esc(badNames)} couldn't accept it.</p>
               <ul>${posted.map((r) => `<li><b>${esc(PLAT[r.platform] || "")}:</b> Posted.${r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener">View post</a>` : ""}</li>`).join("")}${bad.map((r) => `<li class="is-bad"><b>${esc(PLAT[r.platform] || "")}:</b> ${reason(r)}</li>`).join("")}</ul>`
