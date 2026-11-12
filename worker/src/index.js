@@ -15859,10 +15859,10 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           const leftAt = b.left_at ? String(b.left_at).slice(0, 10) : null;
           await sbPatch(env, "agent_profiles",
             `contact_id=eq.${encodeURIComponent(contactId)}&brand=eq.${encodeURIComponent(wantPrimary)}`, leftAt ? { left_at: leftAt, is_primary: false } : { left_at: null });
-          if (leftAt) {
-            const rest = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&left_at=is.null&select=id,is_primary&order=created_at.desc`) || [];
-            if (rest.length && !rest.some((r) => r.is_primary)) await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(rest[0].id)}`, { is_primary: true });
-          }
+          // Either way, someone at a brand has a Studio brand: after leaving, the
+          // newest brand they're still at; after coming back, this one if none.
+          const rest = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&left_at=is.null&select=id,is_primary&order=created_at.desc`) || [];
+          if (rest.length && !rest.some((r) => r.is_primary)) await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(rest[0].id)}`, { is_primary: true });
         }
         if (b && b.make_primary && wantPrimary) {
           await sbPatch(env, "agent_profiles",
