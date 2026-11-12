@@ -736,6 +736,8 @@ export function initBuilder(ctx) {
     const t = e.target;
     if (t.id === "pb-about") {
       PLAN = { ...(PLAN || { pack_id: P.id, stage: 1 }), about: t.value }; PLANS.set(P.id, PLAN);
+      // Tick "What the pack is about" as you type; only the box above redraws, so the field keeps focus.
+      const call = main.querySelector(".pb-call"); if (call) call.outerHTML = callout();
       clearTimeout(t._tm); t._tm = setTimeout(() => supabase.from("pack_plans").upsert({ pack_id: P.id, stage: PLAN.stage, about: t.value.trim() || null, updated_at: new Date().toISOString() }).then(({ error }) => { if (error) toast("Couldn't save: " + error.message); }), 600);
       return;
     }
