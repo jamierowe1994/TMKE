@@ -8898,8 +8898,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     // ----- sending -----
     // The calendar row it goes out from: the one this visit already shared
     // and still waiting, or a new one.
+    /* The row's status as it is now, not as it was when it was shared (Admin,
+       12 Nov): a post that has since gone out, or is going out, must never be
+       sent again from here, or Zernio posts it a second time. */
+    async function freshDetails(acct, item) {
+      const { data } = await acct.db.from(acct.table).select("details").eq("id", item.id).eq("user_id", acct.uid).maybeSingle();
+      if (data) item.details = data.details || {};
+      return (item.details && item.details.zernio) || null;
+    }
     async function shareRow(acct, fields) {
-      if (shareItem && shareItem.details && shareItem.details.zernio && shareItem.details.zernio.status === "scheduled") {
+      if (shareItem && (await freshDetails(acct, shareItem).catch(() => null))?.status === "scheduled") {
         const { error } = await acct.db.from(acct.table).update(fields).eq("id", shareItem.id).eq("user_id", acct.uid);
         if (error) throw new Error(error.message || "Couldn't save it to your calendar.");
         Object.assign(shareItem, fields);
@@ -9061,19 +9069,31 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        new version (Danielle, 12 Nov), so the old one never goes out. The
        picture is drawn again, uploaded, and the post sent again. */
     async function resendOnSave() {
-      if (!shareItem || !shareItem.details || !shareItem.details.zernio || shareItem.details.zernio.status !== "scheduled") return;
+      if (!shareItem || !shareItem.details || !shareItem.details.zernio) return;
       try {
         const acct = await plannerStore();
         if (!acct || acct.blocked) return;
+        // Only a post still waiting is changed: Admin, 12 Nov.
+        const z = await freshDetails(acct, shareItem);
+        if (!z || z.status !== "scheduled") {
+          if (z && (z.status === "posted" || z.status === "posting" || z.status === "partial")) {
+            (window as any).__TMKE_TOAST__?.("Saved. This post has already gone out, so your changes won't change it.", 4200);
+          }
+          return;
+        }
+        // The new picture goes on the row first: the Worker posts what's there.
         const assetUrl = await renderAndUpload(acct);
         const { error } = await acct.db.from(acct.table).update({ asset_url: assetUrl, thumbnail_url: assetUrl }).eq("id", shareItem.id).eq("user_id", acct.uid);
         if (error) throw error;
         shareItem.asset_url = assetUrl;
-        const { resendIfScheduled } = await import("../../lib/schedule-sync.js");
-        await resendIfScheduled({ token: acct.token, training: false }, shareItem, ["asset_url"]);
-        (window as any).__TMKE_TOAST__?.(`Saved. Your scheduled post (${whenOf(shareItem.details.zernio.scheduled_for)}) now uses this version.`, 4200);
+        // Same row, same Zernio post: a Change. Within 10 minutes of going
+        // out the Worker refuses it and the post stays as it was.
+        const { schedulePost } = await import("../../lib/schedule-sync.js");
+        const out = await schedulePost(acct.token, shareItem.id, z.accounts || []);
+        shareItem.details = { ...(shareItem.details || {}), zernio: out.zernio };
+        (window as any).__TMKE_TOAST__?.(`Saved. Your scheduled post (${whenOf(out.zernio.scheduled_for)}) now uses this version.`, 4200);
       } catch (e) {
-        (window as any).__TMKE_TOAST__?.(`Saved, but your scheduled post didn't update: ${(e && e.message) || "try again"}. Open Share and press Change, or Don't post it.`, 6000);
+        (window as any).__TMKE_TOAST__?.(`Saved, but your scheduled post didn't change: ${(e && e.message) || "try again in a moment."} It will go out as it was.`, 6000);
       }
     }
     document.getElementById("ed-save")?.addEventListener("click", () => setTimeout(resendOnSave, 600));
