@@ -9191,7 +9191,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const out = await schedulePost(acct.token, shareItem.id, z.accounts || []);
         shareItem.details = { ...(shareItem.details || {}), zernio: out.zernio };
         paintBar();
-        (window as any).__TMKE_TOAST__?.(`Saved. Your scheduled post (${whenOf(out.zernio.scheduled_for)}) now uses this version.`, 4200);
+        const t12 = (() => { try { const [h, m] = new Date(out.zernio.scheduled_for).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }).split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")}${h < 12 ? "am" : "pm"}`; } catch (_) { return ""; } })();
+        (window as any).__TMKE_TOAST__?.(`Saved. Your scheduled post (${dayOfIso(out.zernio.scheduled_for)} at ${t12}) now uses this version.`, 4200);
       } catch (e) {
         (window as any).__TMKE_TOAST__?.(`Saved, but your scheduled post didn't change: ${(e && e.message) || "try again in a moment."} It will go out as it was.`, 6000);
       }
