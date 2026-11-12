@@ -8884,10 +8884,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const { names, platforms } = shareTargets();
         if (!platforms.length) { $check.hidden = true; return; }
         const probs = [];
+        const sz = (typeof window.__TMKE_EDITOR_SUMMARY__ === "function") ? window.__TMKE_EDITOR_SUMMARY__() : {};
+        const r = sz.width && sz.height ? sz.width / sz.height : 0;
+        if (platforms.includes("facebook") && r && r < 0.8 - 0.005) probs.push("The picture is too tall for a Facebook post. Use a square or 4:5 design, like 1080 × 1350.");
         if (platforms.includes("instagram")) {
-          const sz = (typeof window.__TMKE_EDITOR_SUMMARY__ === "function") ? window.__TMKE_EDITOR_SUMMARY__() : {};
-          const r = sz.width && sz.height ? sz.width / sz.height : 0;
-          if (r && r < 0.8 - 0.005) probs.push("The picture is too tall for an Instagram post. The tallest it takes is 4:5, like 1080 × 1350.");
+          if (r && r < 0.75 - 0.005) probs.push("The picture is too tall for an Instagram post. The tallest it takes is 3:4, like 1080 × 1440.");
           else if (r > 1.91 + 0.005) probs.push("The picture is too wide for an Instagram post. The widest it takes is 1.91:1, like 1080 × 566.");
           const text = String($caption.value || "");
           const chars = [...text].length;
@@ -9096,6 +9097,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       }
     }
 
+    const am = (hhmm) => { const [h, m] = String(hhmm || "08:00").slice(0, 5).split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`; };
+    const amIso = (iso) => { try { return am(new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })); } catch (_) { return ""; } };
     const whenOf = (iso) => {
       try {
         const d = new Date(iso);
@@ -9110,8 +9113,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       $k.textContent = "Your post";
       $h.textContent = (($title.value || "").trim() || "Your post").replace(/\.?$/, ".");
       // Danielle's words (12 Nov). Times as 9:00am.
-      const ampm = (hhmm) => { const [h, m] = String(hhmm || "08:00").slice(0, 5).split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")}${h < 12 ? "am" : "pm"}`; };
-      const ampmIso = (iso) => { try { return ampm(new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })); } catch (_) { return ""; } };
+      const ampm = am, ampmIso = amIso;
       const viewBtn = (r, label) => r && r.url ? `<a class="ed-sched-emailnow ed-done-view" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(label)}</a>` : "";
       let html = "", acts = `<button type="button" class="ed-sched-submit" data-done="close">Done</button>`;
       if (kind === "planned") {
@@ -9191,8 +9193,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const out = await schedulePost(acct.token, shareItem.id, z.accounts || []);
         shareItem.details = { ...(shareItem.details || {}), zernio: out.zernio };
         paintBar();
-        const t12 = (() => { try { const [h, m] = new Date(out.zernio.scheduled_for).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }).split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")}${h < 12 ? "am" : "pm"}`; } catch (_) { return ""; } })();
-        (window as any).__TMKE_TOAST__?.(`Saved. Your scheduled post (${dayOfIso(out.zernio.scheduled_for)} at ${t12}) now uses this version.`, 4200);
+        (window as any).__TMKE_TOAST__?.(`Saved. Your scheduled post (${dayOfIso(out.zernio.scheduled_for)} at ${amIso(out.zernio.scheduled_for)}) now uses this version.`, 4200);
       } catch (e) {
         (window as any).__TMKE_TOAST__?.(`Saved, but your scheduled post didn't change: ${(e && e.message) || "try again in a moment."} It will go out as it was.`, 6000);
       }
@@ -9250,19 +9251,19 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       let html = "", cls = "";
       if (scheduled && soon(z)) {
         cls = "is-soon";
-        html = `<p><b>Going out at ${esc(timeOf(z.scheduled_for))}, in under 10 minutes.</b> Changes you make now won't be in the post. To change it, take it back with Don't post it and schedule it again.</p>`;
+        html = `<p><b>Your post is scheduled for ${esc(amIso(z.scheduled_for))}.</b><br>There are less than 10 minutes to go, so any changes you make now won't be included. To update the post, you'll need to cancel it and schedule it again.</p>`;
       } else if (scheduled) {
-        html = `<p><b>Scheduled for ${esc(whenOf(z.scheduled_for))} on ${names}.</b> Changes you save here go into the post. Auto-save is off for this design, so press Save when you're happy.</p>`;
+        html = `<p><b>Scheduled for ${esc(dayOf(z.scheduled_for))} at ${esc(amIso(z.scheduled_for))} on ${names}.</b><br>Any changes you save to this design will automatically update your scheduled post. Auto-save is turned off, so remember to save your changes.</p>`;
       } else if (z.status === "posting") {
-        html = `<p><b>Going out to ${names} now.</b></p>`;
+        html = `<p><b>Publishing to ${names}&hellip;</b><br>Your post is being published. You can check its status in your Studio Planner.</p>`;
       } else if (z.status === "posted") {
         cls = "is-done";
         const url = ((z.results || []).find((r) => r.url) || {}).url;
-        html = `<p><b>This design was posted to ${names} on ${esc(dayOf(z.posted_at || z.scheduled_for))}.</b> Changes you make here won't change that post.</p>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">View the post &rarr;</a>` : ""}`;
+        html = `<p><b>Your design was published to ${names} on ${esc(dayOf(z.posted_at || z.scheduled_for))}.</b><br>Any changes you make now won't affect the published post.</p>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">View post</a>` : ""}`;
       } else if (z.status === "partial" || z.status === "failed") {
         cls = "is-bad";
         const bad = (z.results || []).filter((r) => r.status === "failed").map((r) => PLAT[r.platform] || r.platform);
-        html = `<p><b>This design didn't post to ${esc(both(bad.length ? bad : namesOf(it)))}.</b> Open Share to try again.</p>`;
+        html = `<p><b>Your post couldn't be published to ${esc(both(bad.length ? bad : namesOf(it)))}.</b><br>Open Share to see what went wrong and try again.</p>`;
       } else { shareBar.hidden = true; return; }
       if (scheduled || z.status === "posting" || z.status === "partial" || z.status === "failed") html += `<button type="button" data-bar="view">View post</button>`;
       shareBar.className = "ed-sharebar " + cls;
@@ -9312,8 +9313,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const box = document.getElementById("ed-savecheck");
       document.getElementById("ed-savecheck-h").textContent = late ? "Too Late to Change This Post." : "Save Your Changes?";
       document.getElementById("ed-savecheck-p").innerHTML = late
-        ? `It goes out at ${esc(timeOf(z.scheduled_for))}, in under 10 minutes, so your changes won't be in it. To change it, take the post back with Don't post it, then schedule it again.`
-        : `This post is scheduled, so your changes will go into the post going to ${esc(both(namesOf(shareItem)))} on ${esc(whenOf(z.scheduled_for))}.`;
+        ? `It goes out at ${esc(amIso(z.scheduled_for))}, in under 10 minutes, so your changes won't be in it. To change it, take the post back with Don't post it, then schedule it again.`
+        : `This post is scheduled, so your changes will go into the post going to ${esc(both(namesOf(shareItem)))} on ${esc(dayOf(z.scheduled_for))} at ${esc(amIso(z.scheduled_for))}.`;
       const yes = document.getElementById("ed-savecheck-yes");
       yes.textContent = late ? "Save the design only" : "Save and update the post";
       box.hidden = false;

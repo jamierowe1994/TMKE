@@ -2583,7 +2583,7 @@ import { createResizeEngine } from "./resize-engine.js";
     el.style.opacity = "1";
     if (kind === "saving") { el.textContent = "Saving…"; el.style.background = "#fff"; el.style.color = "rgba(28,29,34,0.7)"; }
     else if (kind === "saved") { el.textContent = "All changes saved ✓"; el.style.background = "#e7f3ea"; el.style.color = "#2d6a44"; el._hideT = setTimeout(function () { el.style.opacity = "0"; }, 1800); }
-    else if (kind === "held") { el.textContent = "Not saved yet: press Save when you're happy"; el.style.background = "#eae5e1"; el.style.color = "#371e28"; el.title = "This design's post is scheduled, so it only saves when you press Save."; }
+    else if (kind === "held") { el.textContent = "You have unsaved changes. Remember to save your design before leaving the Studio."; el.style.background = "#eae5e1"; el.style.color = "#371e28"; el.title = "This design's post is scheduled, so it only saves when you press Save."; }
     else if (kind === "local") { el.textContent = "⚠ Saved on this device — not yet in the cloud"; el.style.background = "#fcefe6"; el.style.color = "#a05a3c"; el.title = (_lastSaveWhy ? "Why: " + _lastSaveWhy + "\n\n" : "") + "Your work is safe in this browser. The message that appeared says why the cloud save failed."; }
   }
 
