@@ -4,12 +4,12 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/catalogue_builder_pillar.sql — Catalogue: a Content pillar on each planned design, the same pillars as the Content Calendar. Until it runs, the pillar can be chosen but won't save. Sends nothing (12 Nov)
 - [ ] supabase/content_calendar_plus_rename.sql — renames the Scheduling tier to Content Calendar Plus on Content calendar › Overview, and in Done For You's "everything included" line. Changes no price or access (11 Nov)
 - [ ] supabase/content_calendar_images_required.sql — the "Images required" tick box at the end of each row on Content calendar › Creation, so Sam can see which designs need her pictures. Changes no post. Sends nothing (10 Nov)
 
 ## Done
 
+- [x] supabase/catalogue_builder_pillar.sql — Catalogue: a Content pillar on each planned design, the same pillars as the Content Calendar. Until it runs, the pillar can be chosen but won't save. Sends nothing (12 Nov; ran 12 Nov)
 - [x] supabase/catalogue_builder.sql — the new Catalogue: each pack's step, its plan rows (idea, type, note, design, the ticks) and the test pack for your test login. Team only. Changes no pack or design and sends nothing. Until it runs, packs open on their Shop listing (12 Nov; ran 12 Nov)
 - [x] supabase/contact_tasks_assignee.sql — Contacts: a task on a contact card says who it's for (Danielle, Sam, Abigail, Jack, Angel) as well as its due date. Until it runs, tasks save without the person. Changes no contact. Sends nothing (12 Nov; ran 12 Nov)
 - [x] supabase/member_subscriptions.sql — card subscriptions for the Scheduling upgrade: each member's Stripe customer, their subscription and price, and a log of every change of level. Test logins use Stripe's test mode. Changes nobody's access. Sends nothing (11 Nov; ran 11 Nov)
