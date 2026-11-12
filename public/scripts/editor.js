@@ -6664,6 +6664,8 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   async function addImage(src) {
+    // Choosing a background from the Images panel (Background › Search the gallery).
+    if (_bgPick) { setCanvasBackgroundImage(src); return; }
     // If exactly one frame is selected, treat this as a "fill the frame"
     // action rather than adding a new floating image. This matches the
     // user's mental model: pick a frame, then pick a photo.
@@ -13599,6 +13601,7 @@ import { createResizeEngine } from "./resize-engine.js";
      at the top. */
   const _paneScroll = {};
   function showPane(name) {
+    if (name !== "photos" && _bgPick) showBgPick(false);
     const scroller = document.querySelector(".ed-panel");
     const was = document.querySelector(".ed-panel-pane.is-active");
     const wasName = was && was.dataset.pane;
@@ -15055,6 +15058,30 @@ import { createResizeEngine } from "./resize-engine.js";
     if (_gallery && _gallery.key === opts.galleryKey) open(true);
   }
 
+  /* Background › Search the gallery opens the Images panel (Danielle, 12 Nov):
+     the full search and the uploads, rather than a cramped search inside the
+     Background panel. While the note at the top of Images shows, any photo
+     picked there (a search result or an upload) becomes the background, so
+     several can be tried. Leaving Images, or Back to Background, ends it. */
+  var _bgPick = false;
+  function showBgPick(on) {
+    _bgPick = !!on;
+    const note = $("ed-bgpick");
+    if (note) note.hidden = !on;
+  }
+  function startBgPick() {
+    openTool("photos");
+    showBgPick(true);
+    const tab = document.querySelector('[data-itab="search"]');
+    if (tab) tab.click();
+    const input = $("ed-stock-input");
+    if (input) { try { input.focus({ preventScroll: true }); } catch (_) { input.focus(); } }
+  }
+  (function () {
+    const back = $("ed-bgpick-done");
+    if (back) back.addEventListener("click", function () { showBgPick(false); openTool("background"); });
+  })();
+
   // ---------- Background pane: change/upload image, fade tint, gradient menu, reposition ----------
   (function () {
     const changeBtn = $("ed-bg-change");
@@ -15113,7 +15140,10 @@ import { createResizeEngine } from "./resize-engine.js";
       });
       const up = menu.querySelector("[data-upload]");
       if (up) up.addEventListener("click", () => { setImgMenu(false); if (fileInput) fileInput.click(); });
-      menu.appendChild(galleryBlock((src) => { setCanvasBackgroundImage(src); }, "background"));
+      const search = document.createElement("button");
+      search.type = "button"; search.className = "ed-bg-imgmenu-search"; search.textContent = "Search the gallery";
+      search.addEventListener("click", (e) => { e.stopPropagation(); setImgMenu(false); startBgPick(); });
+      menu.appendChild(search);
     }
     // The chooser opens in the panel under the row, so the chevron says which
     // way it is and the button's aria-expanded goes with it.
