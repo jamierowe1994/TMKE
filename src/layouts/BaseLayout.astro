@@ -851,6 +851,29 @@ const hideFromSearch = noindex || privateArea;
       window.dispatchEvent(new Event("tmke:store-ready"));
     </script>
 
+    <!-- "Last in the Studio" (Admin, 12 Nov 2026): a signed-in member on any
+         /account page tells the Worker they're here, at most every 30 minutes.
+         It stamps only the time on their own account, for Contacts. Not
+         analytics: no page, no device, nothing about what they did. -->
+    <script>
+      import { supabase as sbSeen, isConfigured as sbSeenOn } from "../lib/supabase.js";
+      (async () => {
+        try {
+          if (!sbSeenOn || !/^\/account(\/|$)/.test(location.pathname)) return;
+          const W = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+          if (!W) return;
+          let last = 0;
+          try { last = Number(sessionStorage.getItem("tmke-seen-at")) || 0; } catch (_) {}
+          if (Date.now() - last < 30 * 60000) return;
+          const { data } = await sbSeen.auth.getSession();
+          const tok = data && data.session && data.session.access_token;
+          if (!tok) return;
+          try { sessionStorage.setItem("tmke-seen-at", String(Date.now())); } catch (_) {}
+          fetch(`${W}/me/seen`, { method: "POST", headers: { Authorization: "Bearer " + tok } }).catch(() => {});
+        } catch (_) {}
+      })();
+    </script>
+
     <!-- Website Editor — RE-ENABLED for client editing across every page.
          Because this loader lives in BaseLayout, it applies to all pages (home,
          about, services, contact, ...) — not just the home page. Edit mode is

@@ -19298,6 +19298,24 @@ async function sendGalleryPinEmail(env, bookingId) {
         return json({ last_sign_in_at: (u && u.last_sign_in_at) || null }, 200, request, env);
       }
 
+      // ---- Member: "I'm here" from the hub (Danielle, 12 Nov 2026) ----------
+      // The account pages call this at most every 30 minutes; it stamps the
+      // time on the account itself (app_metadata.last_active_at, merged, so
+      // nothing else there changes). Contacts' Last in Studio reads it. Not
+      // analytics: no page, no device, just when they last used their account.
+      if (path.endsWith("/me/seen") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !user.id) return json({ ok: false }, 200, request, env);
+        const last = (user.app_metadata && user.app_metadata.last_active_at) || "";
+        if (last && Date.now() - new Date(last).getTime() < 25 * 60000) return json({ ok: true, skipped: true }, 200, request, env);
+        await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {
+          method: "PUT",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ app_metadata: { last_active_at: new Date().toISOString() } }),
+        }).catch(() => {});
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Admin: Studio account facts for the Contacts list (12 Nov 2026) ----
       // One read of every auth user: when they made their account (member
       // since), when they last signed in, and whether a Studio invite is still
@@ -19316,9 +19334,16 @@ async function sendGalleryPinEmail(env, bookingId) {
           const list = (d && d.users) || [];
           list.forEach((u) => {
             const inv = u.app_metadata && u.app_metadata.studio_invite;
+            // "Last in the Studio" is the later of signing in and using the
+            // hub (app_metadata.last_active_at, stamped by /me/seen): a member
+            // stays signed in for weeks, so last_sign_in_at alone goes stale
+            // (Danielle saw 5 Nov while using it on 12 Nov).
+            const seenAt = (u.app_metadata && u.app_metadata.last_active_at) || null;
+            const lastIn = [u.last_sign_in_at, seenAt].filter(Boolean).sort().pop() || null;
             out[u.id] = {
               member_since: u.created_at || null,
-              last_sign_in_at: u.last_sign_in_at || null,
+              last_sign_in_at: lastIn,
+              signed_in_at: u.last_sign_in_at || null,
               invited: !!(inv && !inv.done && !u.last_sign_in_at),
               invite_expires: inv && !inv.done ? inv.expires || null : null,
             };
