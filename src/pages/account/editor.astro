@@ -5900,6 +5900,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-share-done ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: var(--ws-t-body); }
     .ed-share-done li.is-bad { color: #8a3f3f; }
     .ed-share-done .ed-sched-foot { margin-top: 0; }
+    .ed-done-view { text-decoration: none; display: inline-flex; align-items: center; margin-right: 0; }
 
     /* ============ Studio entry: staged build-in ============
        On first load the editor parts are off-screen. As the user picks a pack
@@ -9108,31 +9109,40 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       $form.hidden = true; $done.hidden = false;
       $k.textContent = "Your post";
       $h.textContent = (($title.value || "").trim() || "Your post").replace(/\.?$/, ".");
+      // Danielle's words (12 Nov). Times as 9:00am.
+      const ampm = (hhmm) => { const [h, m] = String(hhmm || "08:00").slice(0, 5).split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")}${h < 12 ? "am" : "pm"}`; };
+      const ampmIso = (iso) => { try { return ampm(new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })); } catch (_) { return ""; } };
+      const viewBtn = (r, label) => r && r.url ? `<a class="ed-sched-emailnow ed-done-view" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(label)}</a>` : "";
       let html = "", acts = `<button type="button" class="ed-sched-submit" data-done="close">Done</button>`;
       if (kind === "planned") {
-        // Says what the reminder will do, as chosen (12 Nov).
-        html = `<span class="ed-share-state">Planned</span><h4>On your calendar for ${esc(dayLong(ctx.date))}.</h4><p>${ctx.remind ? `We'll email you the image and caption at ${esc(String(ctx.time || "08:00").slice(0, 5))} on the day. ` : ""}You can share it from here or from your calendar whenever you're ready.</p>`;
+        html = ctx.remind
+          ? `<span class="ed-share-state">Planned</span><h4>Added to your calendar for ${esc(dayLong(ctx.date))}.</h4><p>We'll email you the image and caption at ${esc(ampm(ctx.time))} on the day. You can also find your post in your Studio Planner, ready to share whenever you choose.</p>`
+          : `<span class="ed-share-state">Planned</span><h4>Added to your calendar for ${esc(dayLong(ctx.date))}.</h4><p>Your post has been added to your Studio Planner for ${esc(dayLong(ctx.date))}, ready to share whenever you choose.</p>`;
+      } else if (kind === "removed") {
+        html = `<span class="ed-share-state">Removed</span><h4>Your post has been removed from the schedule.</h4><p>It won't be published to Instagram or Facebook, but your design is still saved in your Studio Planner.</p>`;
       } else {
         const z = (ctx.item.details && ctx.item.details.zernio) || {};
         const res = Array.isArray(z.results) ? z.results : [];
+        const posted = res.filter((r) => r.status === "posted");
         if (kind === "scheduled" || z.status === "scheduled") {
-          html = `<span class="ed-share-state is-sched">Scheduled</span><h4>Going out ${esc(whenOf(z.scheduled_for))} on ${esc(both(ctx.names))}.</h4><p>It's on your calendar too. If you change the design and press Save, the scheduled post is updated with the new version.</p>`;
+          html = `<span class="ed-share-state is-sched">Scheduled</span><h4>Scheduled for ${esc(dayOfIso(z.scheduled_for))} at ${esc(ampmIso(z.scheduled_for))} on ${esc(both(ctx.names))}.</h4><p>Your post has also been saved in your Studio Planner. Any changes you make to the design will automatically update the scheduled post when you save them.</p>`;
           acts = `<button type="button" class="ed-sched-cancel" data-done="stop">Don't post it</button><button type="button" class="ed-sched-emailnow" data-done="change">Change</button><button type="button" class="ed-sched-submit" data-done="close">Done</button>`;
         } else if (z.status === "posting") {
-          html = `<span class="ed-share-state">Posting</span><h4>Sending it to ${esc(both(ctx.names))}&hellip;</h4><p>This usually takes a few seconds. You can close this; your calendar shows when it's gone out.</p>`;
+          html = `<span class="ed-share-state">Posting</span><h4>Publishing to ${esc(both(ctx.names))}&hellip;</h4><p>Sharing usually takes a few seconds. You can close this window and check the status in your Studio Planner.</p>`;
         } else if (z.status === "posted") {
-          html = `<span class="ed-share-state is-posted">Posted</span><h4>It's live on ${esc(both(ctx.names))}.</h4><ul>${res.map((r) => `<li><b>${esc(PLAT[r.platform] || "")}</b> Posted.${r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener">View the post &rarr;</a>` : ""}</li>`).join("")}</ul>`;
+          html = `<span class="ed-share-state is-posted">Posted</span><h4>Your post is now live on ${esc(both(ctx.names))}.</h4>`;
+          acts = (posted.length > 1 ? posted.map((r) => viewBtn(r, `View on ${PLAT[r.platform] || "the site"}`)).join("") : viewBtn(posted[0], "View post")) + `<button type="button" class="ed-sched-submit" data-done="close">Done</button>`;
         } else {
-          const ok = res.filter((r) => r.status === "posted"), bad = res.filter((r) => r.status === "failed");
-          const head = ok.length && bad.length
-            ? `It went out on ${esc(both(ok.map((r) => PLAT[r.platform])))}. ${esc(both(bad.map((r) => PLAT[r.platform])))} didn't take it.`
-            : `${esc(both((bad.length ? bad : res).map((r) => PLAT[r.platform]).filter(Boolean)) || "It")} didn't take it.`;
-          html = `<span class="ed-share-state is-failed">${ok.length ? "Partly posted" : "Not posted"}</span><h4>${head}</h4>
-            <ul>${res.map((r) => r.status === "posted"
-              ? `<li><b>${esc(PLAT[r.platform] || "")}</b> Posted.${r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener">View the post &rarr;</a>` : ""}</li>`
-              : `<li class="is-bad"><b>${esc(PLAT[r.platform] || "")}</b> ${esc(r.reason || r.error || "It didn't go out.")}</li>`).join("")}</ul>
-            ${bad.some((r) => r.what_to_do) ? `<p class="ed-plan-note">What to do: ${esc(bad.map((r) => r.what_to_do).filter(Boolean)[0])}</p>` : ""}`;
-          acts = `<button type="button" class="ed-sched-cancel" data-done="close">Close</button><button type="button" class="ed-sched-submit" data-done="retry">Try again</button>`;
+          const bad = res.filter((r) => r.status !== "posted");
+          const badNames = both(bad.map((r) => PLAT[r.platform]).filter(Boolean)) || both(ctx.names);
+          const reason = (r) => esc(r.reason || r.error || "It couldn't be published.");
+          const todo = bad.map((r) => r.what_to_do).filter(Boolean)[0];
+          html = posted.length && bad.length
+            ? `<span class="ed-share-state is-failed">Partly posted</span><h4>We couldn't share your post to ${esc(badNames)}.</h4><p>Your post was successfully shared to ${esc(both(posted.map((r) => PLAT[r.platform])))}, but ${esc(badNames)} couldn't accept it.</p>
+              <ul>${posted.map((r) => `<li><b>${esc(PLAT[r.platform] || "")}:</b> Posted.${r.url ? ` <a href="${esc(r.url)}" target="_blank" rel="noopener">View post</a>` : ""}</li>`).join("")}${bad.map((r) => `<li class="is-bad"><b>${esc(PLAT[r.platform] || "")}:</b> ${reason(r)}</li>`).join("")}</ul>`
+            : `<span class="ed-share-state is-failed">Not posted</span><h4>${esc(badNames)} couldn't publish your post.</h4>${bad.map((r) => `<p>${reason(r)}</p>`).join("")}`;
+          if (todo) html += `<p class="ed-plan-note">What to do: ${esc(todo)}</p>`;
+          acts = `<button type="button" class="ed-sched-cancel" data-done="close">Close</button>`;
         }
       }
       $done.innerHTML = `${html}<footer class="ed-sched-foot">${acts}</footer>`;
@@ -9149,8 +9159,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           const { zernio, ...rest } = ctx.item.details || {};
           ctx.item.details = rest;
           paintBar();
-          closeModal();
-          (window as any).__TMKE_TOAST__?.("Taken back. It won't go out, and it's still on your calendar as Planned.", 4200);
+          showDone("removed", ctx);
         } catch (err) { b.disabled = false; b.textContent = "Don't post it"; showError(err.message); $form.hidden = false; }
       });
     }
@@ -9208,6 +9217,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       if (!plats.length && it.platform_hint) plats = [it.platform_hint];
       return [...new Set(plats)].map((p) => PLAT[p] || p);
     }
+    const dayOfIso = (iso) => { try { return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" }); } catch (_) { return ""; } };
     const timeOf = (iso) => { try { return new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }); } catch (_) { return ""; } };
     const dayOf = (iso) => { try { return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" }); } catch (_) { return ""; } };
     const soon = (z) => z && z.scheduled_for && new Date(z.scheduled_for).getTime() - Date.now() < MIN10;
