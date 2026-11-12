@@ -8568,7 +8568,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         $submit.disabled = false;
         if ($emailNow) $emailNow.disabled = false;
         $submit.textContent = "Plan post";
-        showDone("planned", { date: dateStr });
+        showDone("planned", { date: dateStr, remind: wantsReminder, time: timeStr });
       } catch (err) {
         console.error("[schedule]", err);
         showError(err.message || "Something went wrong planning that post.");
@@ -8937,9 +8937,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       $pick.hidden = false;
       if (pickOpen === "time") {
         const [hh, mm] = t.split(":");
-        const o = (v, on, a) => `<button type="button" class="ed-pick-o${on ? " is-on" : ""}" ${a}="${v}">${v}</button>`;
-        $pick.innerHTML = `<div class="ed-pick-row"><span class="ed-pick-l">Hour</span><div class="ed-pick-grid ed-pick-grid--h">${Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map((v) => o(v, v === hh, "data-h")).join("")}</div></div>
-          <div class="ed-pick-row"><span class="ed-pick-l">Minutes</span><div class="ed-pick-grid ed-pick-grid--m">${["00", "15", "30", "45"].map((v) => o(v, v === mm, "data-m")).join("")}</div></div>`;
+        // Today, a time already gone can't be picked (Admin, 12 Nov: a past
+        // reminder time would send within five minutes).
+        const nowD = new Date();
+        const isToday = $date.value === ymd(nowD);
+        const nowH = nowD.getHours(), nowM = nowD.getMinutes();
+        const pastH = (v) => isToday && Number(v) < nowH;
+        const pastM = (v) => isToday && (Number(hh) < nowH || (Number(hh) === nowH && Number(v) <= nowM));
+        const o = (v, on, a, off) => `<button type="button" class="ed-pick-o${on ? " is-on" : ""}" ${a}="${v}"${off ? " disabled" : ""}>${v}</button>`;
+        $pick.innerHTML = `<div class="ed-pick-row"><span class="ed-pick-l">Hour</span><div class="ed-pick-grid ed-pick-grid--h">${Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map((v) => o(v, v === hh, "data-h", pastH(v))).join("")}</div></div>
+          <div class="ed-pick-row"><span class="ed-pick-l">Minutes</span><div class="ed-pick-grid ed-pick-grid--m">${["00", "15", "30", "45"].map((v) => o(v, v === mm, "data-m", pastM(v))).join("")}</div></div>`;
         $pick.querySelectorAll("[data-h]").forEach((b) => b.addEventListener("click", () => { $time.value = `${b.getAttribute("data-h")}:${String($time.value || "09:00").slice(3, 5)}`; clearError(); paintPickers(); }));
         $pick.querySelectorAll("[data-m]").forEach((b) => b.addEventListener("click", () => { $time.value = `${String($time.value || "09:00").slice(0, 2)}:${b.getAttribute("data-m")}`; pickOpen = null; clearError(); paintPickers(); }));
         return;
@@ -9103,7 +9110,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       $h.textContent = (($title.value || "").trim() || "Your post").replace(/\.?$/, ".");
       let html = "", acts = `<button type="button" class="ed-sched-submit" data-done="close">Done</button>`;
       if (kind === "planned") {
-        html = `<span class="ed-share-state">Planned</span><h4>On your calendar for ${esc(dayLong(ctx.date))}.</h4><p>We'll email you the caption and picture at 8am that morning. You can share it from here or from your calendar whenever you're ready.</p>`;
+        // Says what the reminder will do, as chosen (12 Nov).
+        html = `<span class="ed-share-state">Planned</span><h4>On your calendar for ${esc(dayLong(ctx.date))}.</h4><p>${ctx.remind ? `We'll email you the image and caption at ${esc(String(ctx.time || "08:00").slice(0, 5))} on the day. ` : ""}You can share it from here or from your calendar whenever you're ready.</p>`;
       } else {
         const z = (ctx.item.details && ctx.item.details.zernio) || {};
         const res = Array.isArray(z.results) ? z.results : [];
