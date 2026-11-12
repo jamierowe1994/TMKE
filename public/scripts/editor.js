@@ -2580,6 +2580,31 @@ import { createResizeEngine } from "./resize-engine.js";
   let _lastSaveWhy = null;                 // why the last cloud save failed
   const _saveWhyToldFor = new Set();       // each reason is said once, not per retry
 
+  /* The scheduled-post note covers the design's name and Designing as, so
+     the size, Save, Download and Share stay in view (Danielle, 12 Nov). Every
+     other status is the small pill, centred at the top. */
+  function placeSaveStatus(el) {
+    el = el || document.getElementById("ed-save-status");
+    if (!el) return;
+    const name = document.getElementById("ed-filename");
+    const as = document.getElementById("ed-asbrand");
+    const a = name && name.getBoundingClientRect();
+    const b = as && !as.hidden && as.getBoundingClientRect();
+    const right = b && b.width ? b.right : (a ? a.right : 0);
+    if (el._kind === "held" && a && a.width && right - a.left > 200) {
+      el.style.left = Math.round(a.left - 8) + "px";
+      el.style.width = Math.round(right - a.left + 16) + "px";
+      el.style.transform = "none";
+      el.style.borderRadius = "6px";
+      el.style.whiteSpace = "normal";
+      el.style.lineHeight = "1.35";
+      el.style.top = Math.round(a.top + a.height / 2 - el.offsetHeight / 2) + "px";
+    } else {
+      el.style.left = "50%"; el.style.width = ""; el.style.transform = "translateX(-50%)";
+      el.style.borderRadius = "999px"; el.style.whiteSpace = ""; el.style.lineHeight = ""; el.style.top = "12px";
+    }
+  }
+  window.addEventListener("resize", function () { placeSaveStatus(); });
   // Persistent save-status pill so a failed cloud save is never silent.
   function setSaveStatus(kind) {
     if (!ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ !== "function") return;
@@ -2594,8 +2619,10 @@ import { createResizeEngine } from "./resize-engine.js";
     el.style.opacity = "1";
     if (kind === "saving") { el.textContent = "Saving…"; el.style.background = "#fff"; el.style.color = "rgba(28,29,34,0.7)"; }
     else if (kind === "saved") { el.textContent = "All changes saved ✓"; el.style.background = "#e7f3ea"; el.style.color = "#2d6a44"; el._hideT = setTimeout(function () { el.style.opacity = "0"; }, 1800); }
-    else if (kind === "held") { el.textContent = "You have unsaved changes. Remember to save your design before leaving the Studio."; el.style.background = "#eae5e1"; el.style.color = "#371e28"; el.title = "This design's post is scheduled, so it only saves when you press Save."; }
+    else if (kind === "held") { el.textContent = "You have unsaved changes. Auto-save is off while your post is scheduled, so remember to press Save."; el.style.background = "#eae5e1"; el.style.color = "#371e28"; el.title = ""; }
     else if (kind === "local") { el.textContent = "⚠ Saved on this device — not yet in the cloud"; el.style.background = "#fcefe6"; el.style.color = "#a05a3c"; el.title = (_lastSaveWhy ? "Why: " + _lastSaveWhy + "\n\n" : "") + "Your work is safe in this browser. The message that appeared says why the cloud save failed."; }
+    el._kind = kind;
+    placeSaveStatus(el);
   }
 
   /* The save bar (Dani, 16 Oct): a warning that stays on screen, not a toast,
