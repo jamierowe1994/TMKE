@@ -5817,7 +5817,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-share-way b { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); }
     .ed-share-way i { font-style: normal; font-size: var(--ws-t-meta); color: #7e6765; }
     .ed-share-way.is-on { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
-    .ed-sched-when[hidden] { display: none; }
+    .ed-sched-when[hidden], .ed-sched-form[hidden] { display: none; }
     .ed-sched-when { display: flex; flex-direction: column; gap: 10px; }
     .ed-share-flag { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 4px; background: #fff; box-shadow: inset 0 0 0 1px #8a3f3f; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.45; color: #2b2226; }
     .ed-share-flag[hidden] { display: none; }
@@ -8354,6 +8354,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     function openModal(how) {
       clearError();
       mode = how === "share" ? "share" : "plan";
+      try { if (shareBar) shareBar.hidden = true; } catch (_) {}   // never over the pop-out
       // Pull current editor state for sensible defaults.
       const summary = (typeof window.__TMKE_EDITOR_SUMMARY__ === "function")
         ? window.__TMKE_EDITOR_SUMMARY__()
@@ -8402,6 +8403,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     function closeModal() {
       $modal.hidden = true;
       $pick.hidden = true; pickOpen = null;
+      try { paintBar(); } catch (_) {}
       $submit.disabled = false;
       $submit.textContent = "Plan post";
       if ($emailNow) { $emailNow.disabled = false; $emailNow.textContent = "Email it to me now"; }
@@ -9068,8 +9070,10 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         }
         item.details = { ...(item.details || {}), zernio: z };
         reset();
-        showDone(z && z.status === "scheduled" ? "scheduled" : "sent", { item, names });
-        // The design remembers the post it went out as, and says so on the canvas.
+        /* Sent: the pop-out closes and the banner on the design says what's
+           happening (Danielle, 12 Nov). View post on the banner opens the
+           details. The design remembers the post it went out as. */
+        closeModal();
         try { await (window as any).__TMKE_SET_SHARE_ITEM__?.(item.id); } catch (_) {}
         paintBar();
         if (z && z.status === "posting") pollShare(item, names);
@@ -9245,7 +9249,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const it = shareItem, z = zOf(it);
       const scheduled = !!(z && z.status === "scheduled");
       (window as any).__TMKE_HOLD_AUTOSAVE__?.(scheduled);
-      if (!it || !z) { if (shareBar) shareBar.hidden = true; return; }
+      if (!it || !z || !$modal.hidden) { if (shareBar) shareBar.hidden = true; return; }
       if (!shareBar) {
         shareBar = document.createElement("div");
         shareBar.className = "ed-sharebar";
@@ -9277,6 +9281,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       placeBar();
       shareBar.querySelector('[data-bar="view"]')?.addEventListener("click", () => {
         $modal.hidden = false;
+        shareBar.hidden = true;
         mode = "share";
         sharePlat = (it.platform_hint && PLAT[it.platform_hint]) ? it.platform_hint : sharePlat;
         showDone(scheduled ? "scheduled" : "sent", { item: it, names: namesOf(it) });
