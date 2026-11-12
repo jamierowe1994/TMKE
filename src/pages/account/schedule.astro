@@ -235,7 +235,7 @@ import "../../styles/account-sections.css";
           </section>
           <label class="post-remind">
             <input type="checkbox" id="post-remind" />
-            <span>Remind me on the day <span class="post-remind-note">— we'll email the caption &amp; image at 8am on the morning of this post</span></span>
+            <span>Remind me on the day <span class="post-remind-note" id="post-remind-note">&mdash; we'll email you the image and caption on the day</span></span>
           </label>
           <div class="post-error" id="post-error" hidden></div>
         </div>
@@ -386,7 +386,7 @@ import "../../styles/account-sections.css";
           </label>
           <label class="post-remind">
             <input type="checkbox" id="pick-remind" checked />
-            <span>Remind me on the day <span class="post-remind-note">&mdash; we'll email the caption &amp; image at 8am on the morning of this post</span></span>
+            <span>Remind me on the day <span class="post-remind-note" id="pick-remind-note">&mdash; we'll email you the image and caption on the day</span></span>
           </label>
           <div class="post-error" id="pick-error" hidden></div>
         </div>
@@ -1622,6 +1622,27 @@ import "../../styles/account-sections.css";
     const $postTitle   = document.getElementById('post-title');
     const $postDate    = document.getElementById('post-date');
     const $postTime    = document.getElementById('post-time');
+    /* The reminder line says when (Danielle, 12 Nov): "We'll email you the
+       image and caption on {date} at {time}". The Worker sends at the post's
+       own time for rows made since TIMED_REMINDERS_FROM (worker/src/index.js),
+       and at 8am for older rows and all-day ones. */
+    const TIMED_REMINDERS_FROM = '2026-11-12T16:45:00Z';
+    function remindNote(el, date, time, row) {
+      if (!el) return;
+      const old = row && (String(row.created_at || '') < TIMED_REMINDERS_FROM || (row.has_time === false && !time));
+      const t = old || !time ? '08:00' : String(time).slice(0, 5);
+      let day = '';
+      try { if (date) day = new Date(date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (_) {}
+      const [h, m] = t.split(':').map(Number);
+      const clock = `${((h + 11) % 12) + 1}:${String(m || 0).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+      el.innerHTML = day ? `&mdash; we'll email you the image and caption on ${escapeHtml(day)} at ${clock}.` : `&mdash; we'll email you the image and caption at ${clock} on the day.`;
+    }
+    const paintPostRemind = () => remindNote(document.getElementById('post-remind-note'), $postDate.value, $postTime.value, items.find((i) => String(i.id) === String(openPostId)));
+    $postDate.addEventListener('input', paintPostRemind); $postDate.addEventListener('change', paintPostRemind);
+    $postTime.addEventListener('input', paintPostRemind); $postTime.addEventListener('change', paintPostRemind);
+    const paintPickRemind = () => remindNote(document.getElementById('pick-remind-note'), $pickDate.value, $pickTime.value, null);
+    $pickDate.addEventListener('input', paintPickRemind); $pickDate.addEventListener('change', paintPickRemind);
+    $pickTime.addEventListener('input', paintPickRemind); $pickTime.addEventListener('change', paintPickRemind);
     const $postPlat    = document.getElementById('post-plat');
     const $postCaption = document.getElementById('post-caption');
     const $postRemind  = document.getElementById('post-remind');
@@ -2219,6 +2240,7 @@ import "../../styles/account-sections.css";
       $postPlat.textContent = platLabel(p.platform_hint);
       $postCaption.value = p.caption || '';
       $postRemind.checked = p.reminder !== false; // default on (column may be absent)
+      paintPostRemind();
       $postSave.disabled = false;  $postSave.textContent = 'Save changes';
       $postEmail.disabled = false; $postEmail.textContent = 'Email it to me now';
       $postDelete.disabled = false; $postDelete.textContent = 'Remove';
@@ -2376,8 +2398,12 @@ import "../../styles/account-sections.css";
       body.innerHTML = head + ticks + timeNote + '<ul class="sch-problems" id="sch-problems" hidden></ul>' + confirmBox + btns;
       body.querySelector('[data-sch="send"]')?.addEventListener('click', (e) => scheduleNow(p, e.currentTarget));
       body.querySelector('[data-sch="now"]')?.addEventListener('click', (e) => askPostNow(p, e.currentTarget));
-      body.querySelector('[data-sch="now-no"]')?.addEventListener('click', () => { document.getElementById('sch-confirm').hidden = true; body.querySelector('.sch-acts:last-child').hidden = false; });
-      body.querySelector('[data-sch="now-yes"]')?.addEventListener('click', (e) => postNow(p, e.currentTarget));
+      body.querySelector('[data-sch="now-no"]')?.addEventListener('click', () => { confirmGo = null; document.getElementById('sch-confirm').hidden = true; body.querySelector('.sch-acts:last-child').hidden = false; });
+      body.querySelector('[data-sch="now-yes"]')?.addEventListener('click', (e) => {
+        const go = confirmGo; confirmGo = null;
+        if (go) { document.getElementById('sch-confirm').hidden = true; body.querySelector('.sch-acts:last-child').hidden = false; go(); }
+        else postNow(p, e.currentTarget);
+      });
       if (z && z.status === 'posting') pollPosting(p);
       body.querySelector('[data-sch="cancel"]')?.addEventListener('click', (e) => unschedule(p, e.currentTarget));
       body.querySelectorAll('[data-acc]').forEach((i) => i.addEventListener('change', () => liveCheck(p)));
@@ -2406,7 +2432,18 @@ import "../../styles/account-sections.css";
     }
     $postCaption?.addEventListener('input', () => { const p = items.find((i) => String(i.id) === String(openPostId)); if (p && !document.getElementById('post-sched').hidden) liveCheck(p); });
 
-    async function scheduleNow(p, btn) {
+    // The one confirm under the buttons, for Schedule and for Post now.
+    let confirmGo = null;
+    function askConfirm(btn, text, yes, no, go) {
+      document.getElementById('sch-confirm-q').textContent = text;
+      const box = document.getElementById('sch-confirm');
+      box.querySelector('[data-sch="now-yes"]').textContent = yes;
+      box.querySelector('[data-sch="now-no"]').textContent = no;
+      confirmGo = go;
+      box.hidden = false;
+      btn.closest('.sch-acts').hidden = true;
+    }
+    async function scheduleNow(p, btn, confirmed) {
       const label = btn.textContent;
       const fail = (msg) => { btn.disabled = false; btn.textContent = label; schMsg(`<li>${escapeHtml(msg)}</li>`); };
       const acct = await plannerStore();
@@ -2448,6 +2485,19 @@ import "../../styles/account-sections.css";
           schMsg(chk.problems.map((x) => `<li>${escapeHtml(x.message)}</li>`).join(''));
           return;
         }
+        /* Say what's about to happen first (Danielle, 12 Nov): the date and
+           time come from the fields above, which they may not have noticed. */
+        if (!confirmed) {
+          btn.disabled = false; btn.textContent = label;
+          schMsg('');
+          const names = [...new Set(schedAccsShown.filter((a) => ids.includes(String(a.id))).map((a) => SCH_PLATS[a.platform]))];
+          const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
+          const day = new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+          const [h, m] = time.split(':').map(Number);
+          const clock = `${((h + 11) % 12) + 1}:${String(m || 0).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+          askConfirm(btn, `We'll schedule this post for ${day} at ${clock} on ${list}.`, 'Confirm', 'Cancel', () => scheduleNow(p, btn, true));
+          return;
+        }
         btn.textContent = 'Scheduling…';
         const out = await schedulePost(acct.token, p.id, ids);
         p.details = { ...(p.details || {}), zernio: out.zernio };
@@ -2483,9 +2533,7 @@ import "../../styles/account-sections.css";
       schMsg('');
       const names = [...new Set(schedAccsShown.filter((a) => ids.includes(String(a.id))).map((a) => SCH_PLATS[a.platform]))];
       const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
-      document.getElementById('sch-confirm-q').textContent = `Post this now to ${list}?`;
-      document.getElementById('sch-confirm').hidden = false;
-      btn.closest('.sch-acts').hidden = true;
+      askConfirm(btn, `Post this now to ${list}?`, 'Post now', 'Not now', null);
     }
     async function postNow(p, btn) {
       btn.disabled = true; btn.textContent = 'Posting…';
@@ -2779,6 +2827,7 @@ import "../../styles/account-sections.css";
       if (!$pickTime.value) $pickTime.value = '09:00';
       $pickCaption.value = '';
       $pickRemind.checked = true;
+      paintPickRemind();
       clearPickError();
       $pickH.textContent = pickMode === 'sequence' ? `Plan post ${pickIndex + 1} of ${pickQueue.length}` : 'Plan this post';
       $pickSave.textContent = pickMode === 'sequence' && pickIndex < pickQueue.length - 1 ? 'Plan post & next' : 'Plan post';
