@@ -11161,6 +11161,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           if (list.length === 1) packBrandById[p.id] = list[0];
         });
       } catch (_) {}
+      // A test pack sent from the Catalogue to this login (pack-access.js).
+      try {
+        const { testPacksFor } = await import("../../lib/pack-access.js");
+        (await testPacksFor(supabase, session.user.id)).forEach((t) => { if (!packIds.includes(t.id)) packIds.push(t.id); });
+      } catch (_) {}
       if (!packIds.length) return;
       railBtn.hidden = false;
       // A print template does not offer the other templates; the rail decides.
@@ -11393,6 +11398,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const { ownedPacks, memberBrandsFor, openNow } = await import("../../lib/pack-access.js");
       const memberBrand = await memberBrandsFor(supabase);
       const owned = ownedPacks(allPacks, ownedIds, memberBrand);
+      // A test pack sent from the Catalogue to this login (pack-access.js).
+      try {
+        const { testPacksFor } = await import("../../lib/pack-access.js");
+        (await testPacksFor(supabase, session && session.user.id)).forEach((t) => { if (!owned.some((o) => o.id === t.id)) owned.unshift(t); });
+      } catch (_) {}
       /* The Content Calendar's months as packs of their own, first: this
          month's and any published ahead. Only staff can read a month for now
          (the database decides), so members see their packs as before. */

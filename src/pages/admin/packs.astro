@@ -1,27 +1,35 @@
 ---
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
+import "../../styles/money-os.css";
+import "../../styles/catalogue-builder.css";
 ---
 
 <AdminShell active="catalogue" title="Catalogue" skin="hub">
-  <div class="page-header">
-    <div class="page-header-top">
-      <div class="page-header-left">
+  <!-- The Catalogue as a pack builder (Danielle, 12 Nov 2026; agreed on the
+       mock-up at docs/tmke-os/catalogue/index.html). src/lib/catalogue-builder.js
+       draws the packs and each pack's five steps; the Demo pack and Hub
+       notifications keep their own tabs. -->
+  <div class="ash-panel ash-page">
+    <div class="mo" id="pbx">
+      <section class="mo-head">
         <div>
-          <div class="page-header-title">Catalogue</div>
-          <div class="page-header-sub" id="catalogue-sub">Loading…</div>
+          <p class="mo-eye">Studio</p>
+          <div class="mo-title">Catalogue</div>
+          <p class="mo-sub">Every pack from the first idea to the shop: plan it, make the designs, write the prompts and guidance, check it, then list it.</p>
         </div>
-      </div>
-      <div class="page-header-actions">
-        <nav class="cat-tabs">
-          <button type="button" class="cat-tab is-on" data-kind="social">Social</button>
-          <button type="button" class="cat-tab" data-kind="print">Print</button>
-        </nav>
-        <a href="/admin/packs/editor" class="admin-btn admin-btn-primary" id="cat-new">+ New pack</a>
-      </div>
+      </section>
+      <nav class="pb-tabs" aria-label="Catalogue">
+        <button type="button" data-tab="packs" class="on">Packs</button>
+        <button type="button" data-tab="demo">Demo pack</button>
+        <button type="button" data-tab="notices">Hub notifications</button>
+      </nav>
+      <div id="pb-tab-packs"><div id="pb-main"><p class="pb-state">Loading the packs…</p></div></div>
+      <div id="pb-pop"></div>
     </div>
   </div>
-  <div class="ash-panel demo-pack is-collapsed" id="demo-pack">
+
+  <div class="ash-panel demo-pack pb-tabbed" id="demo-pack" hidden>
     <div class="demo-pack-head">
       <button type="button" class="demo-pack-toggle" id="demo-pack-toggle" aria-expanded="false" aria-controls="demo-pack-inner">
         <span class="demo-pack-chev" aria-hidden="true">&#9662;</span>
@@ -45,7 +53,7 @@ import "../../styles/admin.css";
 
   <!-- Hub notices: one message in every member's bell, sent when it's set for
        (supabase/member_broadcasts.sql; the Worker sends them). -->
-  <div class="ash-panel demo-pack hn is-collapsed" id="hn">
+  <div class="ash-panel demo-pack hn pb-tabbed" id="hn" hidden>
     <div class="demo-pack-head">
       <button type="button" class="demo-pack-toggle" id="hn-toggle" aria-expanded="false" aria-controls="hn-inner">
         <span class="demo-pack-chev" aria-hidden="true">&#9662;</span>
@@ -113,54 +121,6 @@ import "../../styles/admin.css";
         </div>
       </div>
     </div>
-  </div>
-
-  <div class="ash-panel ash-page">
-
-  <section class="catalogue-controls">
-    <div class="catalogue-controls-group" role="group" aria-label="Status filter">
-      <button type="button" class="catalogue-chip is-active" data-filter="all">All</button>
-      <button type="button" class="catalogue-chip" data-filter="active">Active</button>
-      <button type="button" class="catalogue-chip" data-filter="draft">Draft</button>
-      <button type="button" class="catalogue-chip" data-filter="archived">Archived</button>
-    </div>
-
-    <div class="catalogue-controls-spacer"></div>
-
-    <label class="catalogue-select">
-      <span>Sort</span>
-      <select id="catalogue-sort">
-        <option value="manual">Manual (drag to reorder)</option>
-        <option value="newest">Newest first</option>
-        <option value="oldest">Oldest first</option>
-        <option value="price-desc">Price (high → low)</option>
-        <option value="price-asc">Price (low → high)</option>
-        <option value="title">Title A → Z</option>
-      </select>
-    </label>
-
-    <div class="catalogue-controls-group" role="group" aria-label="View mode">
-      <button type="button" class="catalogue-view-btn is-active" data-view="grid" aria-label="Grid view">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="1" y="1" width="5" height="5" /><rect x="8" y="1" width="5" height="5" />
-          <rect x="1" y="8" width="5" height="5" /><rect x="8" y="8" width="5" height="5" />
-        </svg>
-      </button>
-      <button type="button" class="catalogue-view-btn" data-view="list" aria-label="List view">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
-          <line x1="1" y1="3" x2="13" y2="3" /><line x1="1" y1="7" x2="13" y2="7" /><line x1="1" y1="11" x2="13" y2="11" />
-        </svg>
-      </button>
-    </div>
-  </section>
-
-  <section class="catalogue-body" id="catalogue-body" aria-busy="true">
-    <p class="catalogue-loading" id="catalogue-loading">Loading catalogue…</p>
-    <p class="catalogue-empty" id="catalogue-empty" hidden>
-      No packs yet — click <strong>+ New pack</strong> to add the first one.
-    </p>
-    <div class="catalogue-grid is-view-grid" id="catalogue-grid"></div>
-  </section>
   </div>
 
   <div class="catalogue-toast" id="catalogue-toast" hidden></div>
@@ -829,209 +789,15 @@ import "../../styles/admin.css";
     import { rebuildSite } from "../../lib/site-rebuild.js";
     import { giftPack } from "../../lib/pack-gift.js";
 
+    import { initBuilder } from "../../lib/catalogue-builder.js";
+
     /** @type {any[]} */
-    let allPacks = [];
-    let filter = "all";
-    let sortBy = "manual";
-    let view = "grid";
-
-    // Persisted UI prefs
-    try {
-      const saved = JSON.parse(localStorage.getItem("tmke.admin.catalogue.prefs") || "{}");
-      if (saved.view === "grid" || saved.view === "list") view = saved.view;
-      if (typeof saved.sortBy === "string") sortBy = saved.sortBy;
-      if (typeof saved.filter === "string") filter = saved.filter;
-    } catch {}
-
-    function savePrefs() {
-      try {
-        localStorage.setItem(
-          "tmke.admin.catalogue.prefs",
-          JSON.stringify({ view, sortBy, filter }),
-        );
-      } catch {}
-    }
+    let allPacks = [];   // every pack, the demo too, for Gift and Insights
 
     function escapeHtml(s) {
       return String(s ?? "").replace(/[&<>"']/g, (c) => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
       }[c]));
-    }
-
-    // Which half of the catalogue is on show. Kept in the address so a reload,
-    // or coming back from the pack editor, lands where you were.
-    const KINDS = ["social", "print"];
-    let kind = KINDS.includes(new URLSearchParams(location.search).get("kind")) ? new URLSearchParams(location.search).get("kind") : "social";
-
-    function syncKindTabs() {
-      document.querySelectorAll(".cat-tab").forEach((b) => {
-        b.classList.toggle("is-on", b.getAttribute("data-kind") === kind);
-      });
-      const nu = document.getElementById("cat-new");
-      if (nu) {
-        nu.href = kind === "print" ? "/admin/packs/editor?kind=print" : "/admin/packs/editor";
-        nu.textContent = kind === "print" ? "+ New print pack" : "+ New pack";
-      }
-      const demo = document.getElementById("demo-pack");
-      if (demo) demo.hidden = kind !== "social";   // the demo pack is a social one
-    }
-
-    document.querySelectorAll(".cat-tab").forEach((b) => {
-      b.addEventListener("click", () => {
-        kind = KINDS.includes(b.getAttribute("data-kind")) ? b.getAttribute("data-kind") : "social";
-        const u = new URL(location.href);
-        if (kind !== "social") u.searchParams.set("kind", kind); else u.searchParams.delete("kind");
-        history.replaceState(null, "", u);
-        render();
-      });
-    });
-
-    function visiblePacks() {
-      let rows = allPacks.filter((p) => p.demo !== true);   // the demo pack has its own panel above
-      // Print packs are a different trade from social ones — different
-      // questions when you make them, different people allowed to see them —
-      // so they get their own half of the catalogue rather than being mixed in.
-      rows = rows.filter((p) => (p.kind || "social") === kind);
-      if (filter !== "all") rows = rows.filter((p) => p.status === filter);
-      switch (sortBy) {
-        case "newest":
-          rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-          break;
-        case "oldest":
-          rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-          break;
-        case "price-desc":
-          rows.sort((a, b) => (b.price_pence || 0) - (a.price_pence || 0));
-          break;
-        case "price-asc":
-          rows.sort((a, b) => (a.price_pence || 0) - (b.price_pence || 0));
-          break;
-        case "title":
-          rows.sort((a, b) => String(a.title).localeCompare(String(b.title)));
-          break;
-        case "manual":
-        default:
-          rows.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-      }
-      return rows;
-    }
-
-    /* A free-to-members pack shows its window where a price would be, e.g.
-       "Free · 24 Oct to 31 Oct" (supabase/pack_free_window.sql). */
-    function priceLabel(p) {
-      if (p.access !== "members") return gbpFromPence(p.price_pence);
-      const day = (iso, last) => new Date(Date.parse(iso) - (last ? 1 : 0))
-        .toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" });
-      const from = p.available_from ? day(p.available_from) : "";
-      const until = p.available_until ? day(p.available_until, true) : "";
-      if (from && until) return `Free · ${from} to ${until}`;
-      if (until) return `Free until ${until}`;
-      if (from) return `Free from ${from}`;
-      return "Free to members";
-    }
-
-    function packCardHtml(p) {
-      const cover = p.cover_image_url
-        ? `style="background-image:url('${escapeHtml(p.cover_image_url)}')"`
-        : "";
-      const editHref = `/admin/packs/editor?id=${encodeURIComponent(p.id)}`;
-      const dragHandle = `
-        <span class="pack-handle" aria-hidden="true" title="Drag to reorder">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-            <circle cx="4" cy="3" r="1"/><circle cx="10" cy="3" r="1"/>
-            <circle cx="4" cy="7" r="1"/><circle cx="10" cy="7" r="1"/>
-            <circle cx="4" cy="11" r="1"/><circle cx="10" cy="11" r="1"/>
-          </svg>
-        </span>`;
-      const statusPill = `<span class="pack-status is-${p.status}">${p.status}</span>`;
-      const archiveOrRestore = p.status === "archived"
-        ? `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-restore="${p.id}">Restore</button>`
-        : `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-archive="${p.id}">Archive</button>`;
-      const editBtn = `<a href="${editHref}" class="admin-btn admin-btn-primary admin-btn-sm" data-edit="${p.id}">Edit</a>`;
-      const giftBtn = `<button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-results="${p.id}">Insights</button> <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" data-gift="${p.id}">Gift</button>`;
-
-      if (view === "list") {
-        return `
-          <article class="pack-card is-${p.status}" data-id="${p.id}">
-            ${dragHandle}
-            <div class="pack-cover" ${cover}></div>
-            <div class="pack-body">
-              <h3 class="pack-title">${escapeHtml(p.title)}</h3>
-              <p class="pack-desc">${escapeHtml(p.description || "—")}</p>
-            </div>
-            <div class="pack-meta">${escapeHtml(p.category || "—")}</div>
-            ${statusPill}
-            <div class="pack-price pack-price--caps">${escapeHtml(priceLabel(p))}</div>
-            <div class="pack-actions">${giftBtn} ${editBtn} ${archiveOrRestore}</div>
-          </article>
-        `;
-      }
-      return `
-        <article class="pack-card is-${p.status}" data-id="${p.id}">
-          <div class="pack-cover" ${cover}>
-            ${dragHandle}
-            ${statusPill}
-          </div>
-          <div class="pack-body">
-            <div class="pack-meta">
-              <span>${escapeHtml(p.category || "—")}</span>
-              <span class="pack-price pack-price--caps">${escapeHtml(priceLabel(p))}</span>
-            </div>
-            <h3 class="pack-title">${escapeHtml(p.title)}</h3>
-            <p class="pack-desc">${escapeHtml(p.description || "")}</p>
-            <div class="pack-actions">${giftBtn} ${editBtn} ${archiveOrRestore}</div>
-          </div>
-        </article>
-      `;
-    }
-
-    function render() {
-      syncKindTabs();
-      const grid = document.getElementById("catalogue-grid");
-      const emptyEl = document.getElementById("catalogue-empty");
-      const sub = document.getElementById("catalogue-sub");
-      if (!grid) return;
-      const rows = visiblePacks();
-      const active = allPacks.filter((p) => p.status === "active").length;
-      const draft = allPacks.filter((p) => p.status === "draft").length;
-      const archived = allPacks.filter((p) => p.status === "archived").length;
-      if (sub) {
-        sub.textContent =
-          `${active} active · ${draft} draft · ${archived} archived · ${rows.length} shown`;
-      }
-      grid.className = `catalogue-grid is-view-${view}` + (sortBy === "manual" ? "" : " is-locked");
-      if (rows.length === 0) {
-        grid.innerHTML = "";
-        if (emptyEl) {
-          emptyEl.hidden = false;
-          emptyEl.innerHTML = kind === "print"
-            ? 'No print packs yet \u2014 <strong>+ New print pack</strong> makes one. A print pack isn\u2019t sold: you pick the brands it is for, and only their agents ever see it.'
-            : 'No packs yet \u2014 click <strong>+ New pack</strong> to add the first one.';
-        }
-      } else {
-        if (emptyEl) emptyEl.hidden = true;
-        grid.innerHTML = rows.map(packCardHtml).join("");
-      }
-
-      wireSortable(grid);
-    }
-
-    /** @type {any} */
-    let currentSortable = null;
-    function wireSortable(grid) {
-      if (currentSortable && typeof currentSortable.destroy === "function") {
-        currentSortable.destroy();
-        currentSortable = null;
-      }
-      const Sortable = /** @type {any} */ (window).Sortable;
-      if (!Sortable || sortBy !== "manual" || filter !== "all") return;
-      currentSortable = Sortable.create(grid, {
-        animation: 180,
-        handle: ".pack-handle",
-        ghostClass: "sortable-ghost",
-        dragClass: "sortable-drag",
-        onEnd: persistOrder,
-      });
     }
 
     let toastTimer = null;
@@ -1043,68 +809,25 @@ import "../../styles/admin.css";
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(() => { el.hidden = true; }, msg.length > 40 ? 5000 : 1800);
     }
-    // A note carried over from the pack editor (the site rebuild it started).
+    // A note carried over from another page (the site rebuild it started).
     try { const n = sessionStorage.getItem("tmke.admin.packsNote"); if (n) { sessionStorage.removeItem("tmke.admin.packsNote"); setTimeout(() => toast(n), 300); } } catch (_) {}
-    // Archive, restore and reorder change the shop, which is built at deploy time.
-    async function rebuildAndSay(done) { const m = await rebuildSite(supabase); toast(m ? done + " " + m : done); }
 
-    async function persistOrder() {
-      const grid = document.getElementById("catalogue-grid");
-      if (!grid) return;
-      const ids = Array.from(grid.querySelectorAll("[data-id]"))
-        .map((el) => el.getAttribute("data-id"))
-        .filter(Boolean);
-      const updates = ids.map((id, idx) => ({ id, sort_order: idx }));
-
-      // Optimistically update local state
-      const map = new Map(updates.map((u) => [u.id, u.sort_order]));
-      allPacks.forEach((p) => {
-        if (map.has(p.id)) p.sort_order = map.get(p.id);
-      });
-
-      const promises = updates.map((u) =>
-        supabase.from("packs").update({ sort_order: u.sort_order }).eq("id", u.id),
-      );
-      const results = await Promise.all(promises);
-      const failures = results.filter((r) => r.error);
-      if (failures.length) {
-        console.error("[TMKE] reorder failures", failures);
-        toast(`Couldn't save order (${failures.length} failed). Refresh to reset.`);
-      } else {
-        rebuildAndSay("Order saved.");
-      }
+    // The tabs: Packs, Demo pack, Hub notifications.
+    const TAB_PANELS = { packs: "pb-tab-packs", demo: "demo-pack", notices: "hn" };
+    function showTab(tab) {
+      if (!TAB_PANELS[tab]) tab = "packs";
+      document.querySelectorAll(".pb-tabs [data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+      Object.entries(TAB_PANELS).forEach(([k, id]) => { const el = document.getElementById(id); if (el) el.hidden = k !== tab; });
+      const u = new URL(location.href);
+      if (tab === "packs") u.searchParams.delete("tab"); else u.searchParams.set("tab", tab);
+      history.replaceState(null, "", u);
     }
-
-    async function archivePack(id) {
-      const { error } = await supabase.from("packs").update({ status: "archived" }).eq("id", id);
-      if (error) { alert("Archive failed: " + error.message); return; }
-      const row = allPacks.find((p) => p.id === id);
-      if (row) row.status = "archived";
-      render();
-      rebuildAndSay("Pack archived.");
-    }
-
-    async function restorePack(id) {
-      const { error } = await supabase.from("packs").update({ status: "active" }).eq("id", id);
-      try { await supabase.from("packs").update({ launched_at: new Date().toISOString() }).eq("id", id).is("launched_at", null); } catch (_) {}
-      if (error) { alert("Restore failed: " + error.message); return; }
-      const row = allPacks.find((p) => p.id === id);
-      if (row) row.status = "active";
-      render();
-      rebuildAndSay("Pack restored.");
-    }
+    document.querySelectorAll(".pb-tabs [data-tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+    showTab(new URLSearchParams(location.search).get("tab") || "packs");
 
     // ---- The demo pack: one flagged pack, copies of chosen templates ----
     // Folded by default (it is tall); the choice is remembered on this browser.
     let demoPack = null;
-    (function foldDemoPack() {
-      const panel = document.getElementById("demo-pack"), btn = document.getElementById("demo-pack-toggle");
-      let open = false;
-      try { open = localStorage.getItem("tmke.admin.demoPackOpen") === "1"; } catch (_) {}
-      const apply = () => { panel.classList.toggle("is-collapsed", !open); btn.setAttribute("aria-expanded", open ? "true" : "false"); };
-      apply();
-      btn.addEventListener("click", () => { open = !open; try { localStorage.setItem("tmke.admin.demoPackOpen", open ? "1" : "0"); } catch (_) {} apply(); });
-    })();
     function dpSummary(text) { const el = document.getElementById("demo-pack-summary"); if (el) el.textContent = text || ""; }
     const dpEl = (id) => document.getElementById(id);
     function dpNote(text) { const n = dpEl("demo-pack-note"); n.textContent = text || ""; n.hidden = !text; }
@@ -1203,46 +926,17 @@ import "../../styles/admin.css";
       if (unlinked) dpNote("Added, but as a copy: run supabase/templates_follow_source.sql so the Demo pack follows its originals.");
     }
 
-    async function loadPacks() {
-      const { data, error } = await supabase
-        .from("packs")
-        .select("*")
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false });
-
-      const loading = document.getElementById("catalogue-loading");
-      if (loading) loading.hidden = true;
-      const body = document.getElementById("catalogue-body");
-      if (body) body.removeAttribute("aria-busy");
-
-      if (error) {
-        if (loading) {
-          loading.hidden = false;
-          loading.textContent = "Failed to load catalogue: " + error.message;
-        }
-        return;
-      }
-
-      allPacks = data || [];
-      render();
-    }
-
-    function syncInitialUI() {
-      document.querySelectorAll("[data-filter]").forEach((el) => {
-        el.classList.toggle("is-active", el.getAttribute("data-filter") === filter);
-      });
-      document.querySelectorAll("[data-view]").forEach((el) => {
-        el.classList.toggle("is-active", el.getAttribute("data-view") === view);
-      });
-      const sortEl = document.getElementById("catalogue-sort");
-      if (sortEl) sortEl.value = sortBy;
-    }
+    const builder = initBuilder({
+      supabase, rebuildSite, toast, gbpFromPence,
+      setPacks: (list) => { allPacks = list || []; },
+      openGift: (id) => openGift(id),
+      openResults: (pack) => openResults(pack),
+    });
 
     (async () => {
       const session = await requireAdmin();
       if (!session) return;
-      syncInitialUI();
-      await loadPacks();
+      await builder.start();
       loadDemoPack();
       loadHubNotices();
       loadCustomerEmails();
@@ -1254,14 +948,6 @@ import "../../styles/admin.css";
     // "Now" and for a withdrawal rather than waiting for its five-minute tick.
     const hnEl = (id) => document.getElementById(id);
     const HN_WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
-    (function foldHubNotices() {
-      const panel = hnEl("hn"), btn = hnEl("hn-toggle");
-      let open = false;
-      try { open = localStorage.getItem("tmke.admin.hubNoticesOpen") === "1"; } catch (_) {}
-      const apply = () => { panel.classList.toggle("is-collapsed", !open); btn.setAttribute("aria-expanded", open ? "true" : "false"); };
-      apply();
-      btn.addEventListener("click", () => { open = !open; try { localStorage.setItem("tmke.admin.hubNoticesOpen", open ? "1" : "0"); } catch (_) {} apply(); });
-    })();
     function hnNote(text) { const n = hnEl("hn-note"); n.textContent = text || ""; n.hidden = !text; }
     function hnError(text) { const n = hnEl("hn-error"); n.textContent = text || ""; n.hidden = !text; }
     async function hnNudge() {
@@ -1398,49 +1084,6 @@ import "../../styles/admin.css";
         loadHubNotices();
       }));
     }
-
-    // Filter chips
-    document.querySelectorAll("[data-filter]").forEach((el) => {
-      el.addEventListener("click", () => {
-        filter = el.getAttribute("data-filter") || "all";
-        document.querySelectorAll("[data-filter]").forEach((c) => c.classList.remove("is-active"));
-        el.classList.add("is-active");
-        savePrefs();
-        render();
-      });
-    });
-
-    // View toggle
-    document.querySelectorAll("[data-view]").forEach((el) => {
-      el.addEventListener("click", () => {
-        view = el.getAttribute("data-view") || "grid";
-        document.querySelectorAll("[data-view]").forEach((c) => c.classList.remove("is-active"));
-        el.classList.add("is-active");
-        savePrefs();
-        render();
-      });
-    });
-
-    // Sort dropdown
-    document.getElementById("catalogue-sort")?.addEventListener("change", (e) => {
-      sortBy = e.target.value;
-      savePrefs();
-      render();
-    });
-
-    // Action delegation
-    document.getElementById("catalogue-grid")?.addEventListener("click", (e) => {
-      const target = e.target;
-      if (!(target instanceof HTMLElement)) return;
-      const archiveId = target.getAttribute("data-archive");
-      if (archiveId) { e.preventDefault(); archivePack(archiveId); return; }
-      const restoreId = target.getAttribute("data-restore");
-      if (restoreId) { e.preventDefault(); restorePack(restoreId); return; }
-      const giftId = target.getAttribute("data-gift");
-      if (giftId) { e.preventDefault(); openGift(giftId); return; }
-      const resId = target.getAttribute("data-results");
-      if (resId) { e.preventDefault(); openResults(allPacks.find((p) => p.id === resId)); return; }
-    });
 
     // ===== Pack insights (Danielle, 28 Oct 2026; "Results" until the same day) =====
     // For a promotion: how many members opened the pack's templates, saved

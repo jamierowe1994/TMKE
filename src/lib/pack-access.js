@@ -95,6 +95,20 @@ export async function memberBrandsFor(supabase) {
   return undefined;
 }
 
+/* Test packs (Catalogue › Final checks › Send me the test pack, Danielle,
+ * 12 Nov): a draft pack whose test_user_ids name this login, so the test
+ * login sees it in its Studio before it's live (supabase/catalogue_builder.sql
+ * lets only those logins read it). Marked `test` so the shelf can say so.
+ * Empty when there are none, or before that SQL has run. */
+export async function testPacksFor(supabase, uid) {
+  if (!uid) return [];
+  try {
+    const { data, error } = await supabase.from('packs').select('*').contains('test_user_ids', [uid]);
+    if (error) return [];
+    return (data || []).filter((p) => p.status !== 'active').map((p) => ({ ...p, test: true }));
+  } catch (_) { return []; }
+}
+
 export function ownedPacks(packs, paidPackIds, memberBrand) {
   const paid = paidPackIds instanceof Set ? paidPackIds : new Set(paidPackIds || []);
   return visibleToMember(packs, memberBrand).filter((p) => (

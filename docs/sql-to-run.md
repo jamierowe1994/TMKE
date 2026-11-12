@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/catalogue_builder.sql — the new Catalogue: each pack's step, its plan rows (idea, type, note, design, the ticks) and the test pack for your test login. Team only. Changes no pack or design and sends nothing. Until it runs, packs open on their Shop listing (12 Nov)
 - [ ] supabase/content_calendar_plus_rename.sql — renames the Scheduling tier to Content Calendar Plus on Content calendar › Overview, and in Done For You's "everything included" line. Changes no price or access (11 Nov)
 - [ ] supabase/content_calendar_images_required.sql — the "Images required" tick box at the end of each row on Content calendar › Creation, so Sam can see which designs need her pictures. Changes no post. Sends nothing (10 Nov)
 
