@@ -1269,7 +1269,11 @@ import "../../styles/account-sections.css";
       color: rgba(28,29,34,0.5);
     }
     /* ---- Post it for me (scheduling) ---- */
-    .sch { display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #fff; border: 1px solid rgba(28,29,34,0.13); border-radius: 4px; }
+    /* The pop-out sits outside .ws, so the hub button's variables are set
+       here: without them Schedule it was white on white and Post now had no
+       height (Danielle, 12 Nov: "not quite on brand"). */
+    .sch { --ws-accent: var(--english-violet); --ws-btn-h: 30px; --ws-r: 4px; --ws-ease: cubic-bezier(0.22, 1, 0.36, 1);
+      display: flex; flex-direction: column; gap: 12px; padding: 16px; background: #fff; border: 1px solid #e2d9d4; border-radius: 6px; }
     .sch[hidden] { display: none; }
     .sch-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .sch-state { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 4px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; background: #eae5e1; color: var(--violet-deep); }
@@ -1280,11 +1284,19 @@ import "../../styles/account-sections.css";
     .sch-body { display: flex; flex-direction: column; gap: 10px; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.45; color: var(--ink); }
     .sch-note { margin: 0; color: rgba(28,29,34,0.64); }
     .sch-note a, .sch-link { color: var(--violet-deep); font-weight: 600; }
-    .sch-accs { display: flex; flex-wrap: wrap; gap: 8px; }
-    .sch-acc { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border: 1px solid #e2d9d4; border-radius: 4px; cursor: pointer; background: #fff; }
-    .sch-acc:has(input:checked) { border-color: var(--violet-deep); }
-    .sch-acc input { margin: 0; accent-color: var(--violet-deep); }
-    .sch-acc img { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
+    /* The accounts, one a row, as the Studio's Share pop-out lists them:
+       the round wine tick, the picture, the name, the platform on the right. */
+    .sch-accs { display: flex; flex-direction: column; gap: 8px; }
+    .sch-acc { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 8px 12px; border: 1px solid #e2d9d4; border-radius: 4px; cursor: pointer; background: #fff; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ink); transition: border-color 0.18s; }
+    .sch-acc:has(input:checked) { border-color: var(--english-violet); }
+    .sch-acc input { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; margin: 0; flex: none; border: 1.5px solid #c9bcb7; border-radius: 50%; background: #fff; display: grid; place-items: center; cursor: pointer; }
+    .sch-acc input:checked { background: var(--english-violet); border-color: var(--english-violet); }
+    .sch-acc input:checked::after { content: ""; width: 6px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+    .sch-acc input:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    .sch-acc img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none; }
+    .sch-acc > .sch-ic { width: 26px; height: 26px; padding: 5px; box-sizing: border-box; border-radius: 50%; background: #eae5e1; color: var(--english-violet); }
+    .sch-acc-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sch-acc-plat { flex: none; color: var(--taupe, #7e6765); font-size: var(--ws-t-meta, 12px); }
     .sch-ic { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
     .sch-problems { margin: 0; padding: 10px 12px 10px 28px; background: #eae5e1; border-radius: 4px; color: var(--violet-deep); }
     .sch-problems[hidden] { display: none; }
@@ -1293,6 +1305,7 @@ import "../../styles/account-sections.css";
     .sch-res li { display: flex; gap: 8px; align-items: baseline; }
     .sch-res .is-bad { color: #8a3f3f; }
     .sch-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sch-acts .ws-btn { flex: 1 1 0; min-width: 120px; }
     .sch-warn { margin: 0; padding: 10px 12px; background: #eae5e1; border-radius: 4px; color: var(--violet-deep); }
     .sch-confirm { display: flex; flex-direction: column; gap: 10px; }
     .sch-confirm[hidden] { display: none; }
@@ -2337,7 +2350,7 @@ import "../../styles/account-sections.css";
       if (z && z.status === 'scheduled' && Array.isArray(z.accounts)) ticked = z.accounts.map(String);
       if (z && z.status === 'partial') { const f = results.filter((r) => r.status === 'failed').map((r) => String(r.account_id)); if (f.length) ticked = f; }
       const done = z && (z.status === 'posted' || z.status === 'posting');
-      const ticks = done ? '' : `<div class="sch-accs">${accs.map((a) => `<label class="sch-acc"><input type="checkbox" data-acc value="${escapeHtml(String(a.id))}"${ticked.includes(String(a.id)) ? ' checked' : ''}>${a.picture ? `<img src="${escapeHtml(a.picture)}" alt="">` : SCH_IC[a.platform]}<span>${escapeHtml(a.username || SCH_PLATS[a.platform])}</span></label>`).join('')}</div>`;
+      const ticks = done ? '' : `<div class="sch-accs">${accs.map((a) => `<label class="sch-acc"><input type="checkbox" data-acc value="${escapeHtml(String(a.id))}"${ticked.includes(String(a.id)) ? ' checked' : ''}>${a.picture ? `<img src="${escapeHtml(a.picture)}" alt="">` : SCH_IC[a.platform]}<span class="sch-acc-name">${escapeHtml(a.username || SCH_PLATS[a.platform])}</span><span class="sch-acc-plat">${escapeHtml(SCH_PLATS[a.platform])}</span></label>`).join('')}</div>`;
       const allDay = p.has_time === false && !(z && z.status === 'scheduled');
       const timeNote = allDay && !done ? '<p class="sch-note">This post has no time yet, so it\'s set to 9:00 above. Change it if you\'d like another time.</p>' : '';
       // Post now (Danielle, 11 Nov) sits beside Schedule it, Change and Try again.
@@ -2346,7 +2359,7 @@ import "../../styles/account-sections.css";
         ? `<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Change</button>${nowBtn}<button type="button" class="ws-btn ws-btn--ghost" data-sch="cancel">Don't post it</button></div>`
         : z && (z.status === 'failed' || z.status === 'partial')
           ? `<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Try again</button>${nowBtn}</div>`
-          : `<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Schedule it</button>${nowBtn}</div>`;
+          : `<div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="send">Schedule</button>${nowBtn}</div>`;
       const confirmBox = '<div class="sch-warn sch-confirm" id="sch-confirm" hidden><span id="sch-confirm-q"></span><div class="sch-acts"><button type="button" class="ws-btn ws-btn--primary" data-sch="now-yes">Post now</button><button type="button" class="ws-btn ws-btn--ghost" data-sch="now-no">Not now</button></div></div>';
       body.innerHTML = head + ticks + timeNote + '<ul class="sch-problems" id="sch-problems" hidden></ul>' + confirmBox + btns;
       body.querySelector('[data-sch="send"]')?.addEventListener('click', (e) => scheduleNow(p, e.currentTarget));
