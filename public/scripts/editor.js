@@ -4187,6 +4187,20 @@ import { createResizeEngine } from "./resize-engine.js";
   // that rebuilds the panel — stealing focus mid-keystroke — and, when
   // something is selected, flips the panel to the Selection pane.
   let _textHistT = 0;
+  /* What a drop onto the design may use as a picture: an address, never
+     words. Dragged text arrives as text/plain too, so highlighted words
+     dragged onto the canvas became a picture named "A subheading goes here"
+     (Site Health, 12 Nov: 36 requests for /account/A subheading goes here).
+     Words are left to the browser, so dropping them into a text box still
+     works. */
+  function droppedImageSrc(dt) {
+    if (!dt) return null;
+    const pick = function (v) {
+      v = String(v || "").split(/\r?\n/).map(function (x) { return x.trim(); }).filter(function (x) { return x && x.charAt(0) !== "#"; })[0] || "";
+      return /^(https?:\/\/|data:image\/|blob:)\S+$/i.test(v) || /^\/[^\s/]\S*$/.test(v) ? v : null;
+    };
+    return pick(dt.getData("text/uri-list")) || pick(dt.getData("text/plain"));
+  }
   function liveSetText(el, value) {
     if (!el) return;
     el.text = value;
@@ -4477,8 +4491,7 @@ import { createResizeEngine } from "./resize-engine.js";
       node.addEventListener("drop", function (e) {
         node.classList.remove("is-drop-target");
         if (!e.dataTransfer) return;
-        const src = e.dataTransfer.getData("text/uri-list")
-                 || e.dataTransfer.getData("text/plain");
+        const src = droppedImageSrc(e.dataTransfer);
         if (!src) return;
         e.preventDefault();
         e.stopPropagation();
@@ -4552,7 +4565,7 @@ import { createResizeEngine } from "./resize-engine.js";
       node.addEventListener("drop", function (e) {
         node.classList.remove("is-drop-target");
         if (!e.dataTransfer) return;
-        const src = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+        const src = droppedImageSrc(e.dataTransfer);
         if (!src) return;
         e.preventDefault();
         e.stopPropagation();
@@ -17061,7 +17074,7 @@ import { createResizeEngine } from "./resize-engine.js";
   });
   canvasEl.addEventListener("drop", function (e) {
     if (!e.dataTransfer) return;
-    const src = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+    const src = droppedImageSrc(e.dataTransfer);
     if (!src) return;
     e.preventDefault();
     const rect = canvasEl.getBoundingClientRect();
