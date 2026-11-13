@@ -1,0 +1,40 @@
+---
+// Page not found (Danielle, 13 Nov 2026). `serve` sends dist/404.html for any
+// address that doesn't exist.
+//
+// Site Health, 12 Nov: 64 visits to /), /videography), /join) and two print
+// guides with ")" on the end, most likely a link written in brackets in an
+// email or document, with the bracket swept into the link. A link that only
+// differs from a real page by punctuation on the end goes straight on to that
+// page, before anything shows. Anything else gets a page that says what
+// happened and where to go.
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Page not found · TMKE"
+  description="This page isn't here. Head to the TMKE home page or sign in to your account."
+  noindex
+>
+  <script is:inline>
+    (function () {
+      var path = location.pathname;
+      try { path = decodeURIComponent(path); } catch (e) {}
+      // Brackets, quotes and full stops a link picks up from the sentence around it.
+      var clean = path.replace(/[)\]}>.,;:!'"’”]+$/, "") || "/";
+      if (clean !== path) location.replace(clean + location.search + location.hash);
+    })();
+  </script>
+  <main class="legal nf">
+    <div class="legal-inner">
+      <p class="legal-eyebrow">Page not found</p>
+      <h1 class="legal-title">This page isn't here.</h1>
+      <p>The link may be out of date, or a character may have slipped onto the end of it. Everything else on the site is where it should be.</p>
+      <p class="nf-links"><a href="/">Go to the home page</a> <a href="/account">Sign in to your account</a></p>
+    </div>
+  </main>
+  <style>
+    .nf { min-height: 60vh; }
+    .nf-links { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 18px; }
+  </style>
+</BaseLayout>
