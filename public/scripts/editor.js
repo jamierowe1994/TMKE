@@ -17721,10 +17721,31 @@ import { createResizeEngine } from "./resize-engine.js";
     const sameHex = (a, b) => !!a && !!b && String(a).toLowerCase() === String(b).toLowerCase();
     const CARD_HEX = ["#f1f1f1", "#c4a092", "#eae5e1", "#2e3f34"];
     const isBlock = (o, pg) => (o.type === "rect" || o.type === "ellipse") && !o.hidden && !isGrad(o) && !thinBar(o, pg);
-    const bgBlocks = (pg) => (pg.elements || []).filter((o) => isBlock(o, pg) && o.fill &&
+    // Once a shape has been given the words' colour it stays an accent, even
+    // when that colour is also a card colour (Forest Green inside a card).
+    const bgBlocks = (pg) => (pg.elements || []).filter((o) => isBlock(o, pg) && o.fill && !o.cardInk &&
       (sameHex(o.fill, pg.canvas.background) || CARD_HEX.indexOf(String(o.fill).toLowerCase()) > -1 ||
        ((me && me.backgrounds) || []).some((b) => sameHex(b.hex, o.fill))));
     const outlined = (pg) => (pg.elements || []).filter((o) => isBlock(o, pg) && o.strokeWidth > 0 && o.stroke && o.stroke !== "transparent");
+    /* The accompanying colour (Dani, 17 Nov: "the boxes, the circle and the
+       QR code background colour"). Any other solid box or circle takes the
+       words' colour, as she set the circle behind the agent's photo to
+       #371E28 by hand on beige; a box with words on top of it is left alone,
+       or the words would vanish into it. The colour behind an agent photo
+       does the same. The QR code is drawn in the words' colour on the card's
+       colour, its border in the words' colour too. */
+    const textOver = (o, pg) => {
+      const els = pg.elements || [];
+      return els.slice(els.indexOf(o) + 1).some((t) => t.type === "text" && !t.hidden &&
+        t.x + t.w / 2 >= o.x && t.x + t.w / 2 <= o.x + o.w && t.y + t.h / 2 >= o.y && t.y + t.h / 2 <= o.y + o.h);
+    };
+    const accents = (pg) => {
+      const bgs = bgBlocks(pg);
+      return (pg.elements || []).filter((o) => isBlock(o, pg) && o.fill && o.fill !== "transparent" && bgs.indexOf(o) < 0 && !textOver(o, pg));
+    };
+    const photoBgs = (pg) => (pg.elements || []).filter((o) => o.brandRole === "photo" && o.photoBg && !o.hidden);
+    const qrs = (pg) => (pg.elements || []).filter((o) => o.brandRole === "qr" && o.qr && !o.hidden);
+    const qrWrong = (o, h, k) => !sameHex(o.qr.dark, k) || !sameHex(o.qr.light, h) || (o.qr.borderW > 0 && !sameHex(o.qr.borderColor, k));
     const inkOf = (o) => String((o.type === "text" ? o.color : o.type === "image" ? o.svgFill : o.fill) || "").toLowerCase();
     const inkWrong = (o, ink) => inkOf(o) !== ink || (o.type === "text" && Array.isArray(o.runs) && o.runs.some((r) => r.color));
     function inkTo(o, ink) {
@@ -17763,7 +17784,9 @@ import { createResizeEngine } from "./resize-engine.js";
       const inside = set && inHex ? state.pages.map((p, i) => i).filter((i) => folded(i) && state.pages[i].canvas.fold === "inside") : [];
       const needs = (i, h, k) => String(state.pages[i].canvas.background || "").toLowerCase() !== h.toLowerCase() ||
         inked(state.pages[i]).some((o) => inkWrong(o, k)) || grads(state.pages[i]).some((o) => gradWrong(o, h)) ||
-        bgBlocks(state.pages[i]).some((o) => !sameHex(o.fill, h)) || outlined(state.pages[i]).some((o) => !sameHex(o.stroke, k));
+        bgBlocks(state.pages[i]).some((o) => !sameHex(o.fill, h)) || outlined(state.pages[i]).some((o) => !sameHex(o.stroke, k)) ||
+        accents(state.pages[i]).some((o) => !sameHex(o.fill, k)) || photoBgs(state.pages[i]).some((o) => !sameHex(o.photoBg, k)) ||
+        qrs(state.pages[i]).some((o) => qrWrong(o, h, k));
       if (!outside.some((i) => needs(i, hex, ink)) && !inside.some((i) => needs(i, inHex, set.ink))) {
         if (retoneLogos(() => { fullRender(); })) fullRender();
         return;
@@ -17772,7 +17795,13 @@ import { createResizeEngine } from "./resize-engine.js";
       const paintPage = (i, h, k) => {
         // Read before the side changes colour: a block matches the old one.
         const blocks = bgBlocks(state.pages[i]);
+        accents(state.pages[i]).forEach((o) => { o.fill = k; o.cardInk = true; });
         blocks.forEach((o) => { o.fill = h; });
+        photoBgs(state.pages[i]).forEach((o) => { o.photoBg = k; });
+        qrs(state.pages[i]).forEach((o) => {
+          o.qr = Object.assign({}, o.qr, { dark: k, light: h }, o.qr.borderW > 0 ? { borderColor: k } : {});
+          if (o.src || qrTarget(o)) regenerateQr(o);
+        });
         outlined(state.pages[i]).forEach((o) => { o.stroke = k; });
         state.pages[i].canvas.background = h;
         inked(state.pages[i]).forEach((o) => inkTo(o, k));
