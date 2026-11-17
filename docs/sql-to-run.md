@@ -4,12 +4,13 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/usage_log.sql — the usage log for each Content Calendar month's Insights: what each signed-in member does with the month's posts and our templates (opened a post, opened its design, saved their own copy, downloaded, visited the hub), whatever their cookie choice. Members can only add their own rows; only admins can read them. Run it before December opens: until it runs nothing is recorded. Sends nothing (17 Nov)
-- [ ] supabase/content_calendar_plus_rename.sql — renames the Scheduling tier to Content Calendar Plus on Content calendar › Overview, and in Done For You's "everything included" line. Changes no price or access (11 Nov)
-- [ ] supabase/content_calendar_images_required.sql — the "Images required" tick box at the end of each row on Content calendar › Creation, so Sam can see which designs need her pictures. Changes no post. Sends nothing (10 Nov)
+Nothing waiting.
 
 ## Done
 
+- [x] supabase/usage_log.sql — the usage log for each Content Calendar month's Insights: what each signed-in member does with the month's posts and our templates (opened a post, opened its design, saved their own copy, downloaded, visited the hub), whatever their cookie choice. Members can only add their own rows; only admins can read them. Run it before December opens: until it runs nothing is recorded. Sends nothing (17 Nov; ran 17 Nov)
+- [x] supabase/content_calendar_plus_rename.sql — renames the Scheduling tier to Content Calendar Plus on Content calendar › Overview, and in Done For You's "everything included" line. Changes no price or access (11 Nov; ran 17 Nov)
+- [x] supabase/content_calendar_images_required.sql — the "Images required" tick box at the end of each row on Content calendar › Creation, so Sam can see which designs need her pictures. Changes no post. Sends nothing (10 Nov; ran 17 Nov)
 - [x] supabase/catalogue_builder_pillar.sql — Catalogue: a Content pillar on each planned design, the same pillars as the Content Calendar. Until it runs, the pillar can be chosen but won't save. Sends nothing (12 Nov; ran 12 Nov)
 - [x] supabase/catalogue_builder.sql — the new Catalogue: each pack's step, its plan rows (idea, type, note, design, the ticks) and the test pack for your test login. Team only. Changes no pack or design and sends nothing. Until it runs, packs open on their Shop listing (12 Nov; ran 12 Nov)
 - [x] supabase/contact_tasks_assignee.sql — Contacts: a task on a contact card says who it's for (Danielle, Sam, Abigail, Jack, Angel) as well as its due date. Until it runs, tasks save without the person. Changes no contact. Sends nothing (12 Nov; ran 12 Nov)
