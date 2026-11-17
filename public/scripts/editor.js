@@ -17745,7 +17745,11 @@ import { createResizeEngine } from "./resize-engine.js";
     };
     const photoBgs = (pg) => (pg.elements || []).filter((o) => o.brandRole === "photo" && o.photoBg && !o.hidden);
     const qrs = (pg) => (pg.elements || []).filter((o) => o.brandRole === "qr" && o.qr && !o.hidden);
-    const qrWrong = (o, h, k) => !sameHex(o.qr.dark, k) || !sameHex(o.qr.light, h) || (o.qr.borderW > 0 && !sameHex(o.qr.borderColor, k));
+    /* Always a dark code on a light square (Dani, 17 Nov): on Forest Green
+       the words are white, and a white code on green is one some phones
+       can't read, so there the square is white and the code is the green. */
+    const qrInk = (h, k) => (hexTone(k) > 0.6 ? { dark: h, light: k } : { dark: k, light: h });
+    const qrWrong = (o, h, k) => { const c = qrInk(h, k); return !sameHex(o.qr.dark, c.dark) || !sameHex(o.qr.light, c.light) || (o.qr.borderW > 0 && !sameHex(o.qr.borderColor, k)); };
     const inkOf = (o) => String((o.type === "text" ? o.color : o.type === "image" ? o.svgFill : o.fill) || "").toLowerCase();
     const inkWrong = (o, ink) => inkOf(o) !== ink || (o.type === "text" && Array.isArray(o.runs) && o.runs.some((r) => r.color));
     function inkTo(o, ink) {
@@ -17799,7 +17803,7 @@ import { createResizeEngine } from "./resize-engine.js";
         blocks.forEach((o) => { o.fill = h; });
         photoBgs(state.pages[i]).forEach((o) => { o.photoBg = k; });
         qrs(state.pages[i]).forEach((o) => {
-          o.qr = Object.assign({}, o.qr, { dark: k, light: h }, o.qr.borderW > 0 ? { borderColor: k } : {});
+          o.qr = Object.assign({}, o.qr, qrInk(h, k), o.qr.borderW > 0 ? { borderColor: k } : {});
           if (o.src || qrTarget(o)) regenerateQr(o);
         });
         outlined(state.pages[i]).forEach((o) => { o.stroke = k; });
