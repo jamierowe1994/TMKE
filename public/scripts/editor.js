@@ -17191,6 +17191,21 @@ import { createResizeEngine } from "./resize-engine.js";
 
     let me = null, photo = null, busy = false, lastUrl = null, bg = null;
     try { bg = localStorage.getItem("tmke.illBg"); } catch (_) {}
+    /* Picking a colour turns the card's outside (back and front) that colour
+       straight away, before any go is spent, so people see it on the card
+       and don't use a go on a colour they don't want (Dani, 17 Nov). One undo
+       step. Done again when the illustration is made, in case the outside was
+       changed in between. The inside stays as it is. */
+    function cardToBackground() {
+      const hex = (((me && me.backgrounds) || []).find((b) => b.key === bg) || {}).hex;
+      if (!hex) return;
+      const outside = state.pages.map((p, i) => i).filter((i) => isFolded(state.pages[i].canvas) && state.pages[i].canvas.fold !== "inside");
+      if (!outside.length || outside.every((i) => String(state.pages[i].canvas.background || "").toLowerCase() === hex.toLowerCase())) return;
+      const before = snapshotPages(), cur = state.currentPage;
+      outside.forEach((i) => { state.pages[i].canvas.background = hex; });
+      pushDesignHistory(before, cur);
+      fullRender();
+    }
     // Four swatches from the Worker's list, the last one chosen remembered.
     function paintBackgrounds() {
       const list = (me && me.backgrounds) || [];
@@ -17211,6 +17226,7 @@ import { createResizeEngine } from "./resize-engine.js";
           bg = b.key;
           try { localStorage.setItem("tmke.illBg", bg); } catch (_) {}
           paintBackgrounds();
+          cardToBackground();
         });
         row.appendChild(btn);
       });
@@ -17282,6 +17298,7 @@ import { createResizeEngine } from "./resize-engine.js";
     $("ed-ill-go").addEventListener("click", async () => {
       if (busy || !photo || !canGo()) return;
       if (demoLocked("Illustrations are for members.", "In the demo, change the words, pictures and colours of a template and see how the Studio feels.")) return;
+      cardToBackground();
       busy = true; paint(); status(C.working, "working");
       const out = await window.__TMKE_ILLUSTRATE__({ photo, style: "christmas", background: bg });
       busy = false;
