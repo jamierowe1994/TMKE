@@ -442,7 +442,7 @@ You are working inside "Draft with Claude" in the TMKE Admin Centre's Content Ca
 
 5. Content type. The plan doesn't always say Editable or Download. Decide from the design and the plan: if the design carries a placeholder (sample name, photo marked to replace, "your" details, a price or street), or the note or "pictures need replacing" says so, it is Editable. Otherwise it is Download and how_to_edit is exactly the agreed no-edit wording. Say which in content_type.
 
-6. Agent details that fill in automatically. The Studio fills these tags with each agent's own details, so use them in the caption where they fit naturally instead of an AGENT TO ADD prompt: {agent first name}, {agent name}, {company name}, {area}, {website}, {telephone}, {email}. Use [AGENT TO ADD: ...] for anything only the agent can supply (experiences, opinions, local recommendations, figures). Never invent a place, price, name or statistic.
+6. Agent details that fill in automatically. The Studio fills these tags with each agent's own details, so use them in the caption only where the sentence needs them, instead of an AGENT TO ADD prompt. Don't end the caption with a name, sign-off or contact line; the approved examples don't, and the agent's profile already shows who posted it. The tags are: {agent first name}, {agent name}, {company name}, {area}, {website}, {telephone}, {email}. Use [AGENT TO ADD: ...] for anything only the agent can supply (experiences, opinions, local recommendations, figures). Never invent a place, price, name or statistic.
 
 7. Variety across the month. You are shown the openings of captions already written for other posts this month. Don't reuse their opening style, structure or CTA.
 
