@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-Nothing waiting.
+- [ ] supabase/property_illustrator.sql — the property illustrator (Studio › Images › Illustrate): one settings row (5 Christmas goes for every member until 31 December, Content Calendar Plus 5 a month, Done For You 15 a month, a £50 monthly limit for all of TMKE) and a record of every go. Members can only see their own goes; only the server writes them. Until it runs, nobody sees the Illustrate tab. Sends nothing (17 Nov)
 
 ## Done
 

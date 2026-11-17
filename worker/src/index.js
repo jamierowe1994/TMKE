@@ -6347,6 +6347,92 @@ function smmReportAmendedHtml({ name, month, monthLabel, manager, link, joinLink
   </div>`;
 }
 // ── Post scheduling through Zernio (Dani, 20 Oct 2026) ─────────────────────
+/* ── The property illustrator (Danielle, 17 Nov 2026) ────────────────────────
+   A listing photo in, a watercolour Christmas illustration of the house out,
+   from Nano Banana Pro on fal.ai (FAL_KEY). Every go costs about $0.15, so goes
+   are counted here (supabase/property_illustrator.sql), never in the browser:
+   5 for every member until 31 December, then Package 2 (scheduling) 5 a month
+   and Package 3 (done_for_you) 15 a month, and a monthly spending stop for all
+   of TMKE that pauses it and tells her. Tested on five TPE listings first
+   (docs/christmas-cards/listing-test): Pro kept every house recognisable;
+   the others wrote words on the picture or redrew the house. */
+const ILL_MODEL = "fal-ai/nano-banana-pro/edit";
+const ILL_STYLES = {
+  christmas: {
+    label: "Christmas watercolour",
+    prompt: "Turn this photo into a hand-painted Christmas card illustration of the same house. Keep the house exactly as it is in the photo: the same shape and roofline, the same number and position of windows and doors, the same window frames, brick or render colours, porch, bay windows and chimneys. It must be recognisably this house. Style: soft watercolour and gouache with fine ink detail, warm and cosy, like a premium British Christmas card. The background is plain warm cream paper, with no sky colour. Make it Christmas: a light covering of snow on the roof, window sills, walls and garden; a green wreath with a red bow on the front door; warm golden light in the windows with a small decorated Christmas tree in one; a festive garland around the porch or along the gate; two small snow-dusted potted fir trees by the door; gently falling snow. Leave out cars, caravans, wheelie bins, alarm boxes, satellite dishes, cables, people and driveway clutter. Fade the neighbouring houses away so this house stands on its own. Portrait composition for the front of a greetings card: the house centred in the lower two thirds, a snowy foreground at the bottom, and calm empty space above the roof for a title. No text, no lettering, no house number, no border, no frame.",
+  },
+};
+const ILL_DEFAULTS = { christmas_goes: 5, christmas_until: "2026-12-31", monthly_goes: { scheduling: 5, done_for_you: 15 },
+  cap_gbp: 50, cost_usd: 0.15, usd_to_gbp: 0.79, paused: false, cap_told_month: null };
+
+async function illSettings(env) {
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/illustrator_settings?id=eq.1&select=*`, {
+    headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+  });
+  // Before the SQL has run the table isn't there: say so, never guess at goes.
+  if (!r.ok) return Object.assign({}, ILL_DEFAULTS, { ready: false });
+  const row = ((await r.json().catch(() => [])) || [])[0];
+  if (!row) return Object.assign({}, ILL_DEFAULTS, { ready: false });
+  return {
+    ready: true,
+    christmas_goes: Number(row.christmas_goes) || 0,
+    christmas_until: String(row.christmas_until || ILL_DEFAULTS.christmas_until).slice(0, 10),
+    monthly_goes: (row.monthly_goes && typeof row.monthly_goes === "object") ? row.monthly_goes : ILL_DEFAULTS.monthly_goes,
+    cap_gbp: Number(row.cap_gbp) || 0,
+    cost_usd: Number(row.cost_usd) || ILL_DEFAULTS.cost_usd,
+    usd_to_gbp: Number(row.usd_to_gbp) || ILL_DEFAULTS.usd_to_gbp,
+    paused: !!row.paused,
+    cap_told_month: row.cap_told_month || null,
+    updated_at: row.updated_at || null, updated_by: row.updated_by || null,
+  };
+}
+// The first moment of this calendar month in London, as an ISO time.
+function illMonthStart() {
+  const ym = londonParts(new Date()).ymd.slice(0, 7);
+  // UTC midnight on the 1st: in summer that is an hour after London's, which
+  // makes no difference to a month's goes.
+  return { ym, iso: `${ym}-01T00:00:00Z` };
+}
+// What this member may still do. Goes that are pending or done count;
+// a failed go costs nothing and gives the go back.
+async function illAllowance(env, user, S) {
+  S = S || await illSettings(env);
+  const staff = !!user._isAdmin;
+  const today = londonParts(new Date()).ymd;
+  const xmasOn = S.christmas_goes > 0 && today <= S.christmas_until;
+  const a = await memberAccess(env, user, null).catch(() => null);
+  const level = (a && a.level) || "free";
+  const monthly = staff ? 0 : Math.max(0, Number((S.monthly_goes || {})[level]) || 0);
+  const m = illMonthStart();
+  let xmasUsed = 0, monthUsed = 0;
+  if (S.ready) {
+    const runs = (await sbGet(env, "illustration_runs",
+      `user_id=eq.${encodeURIComponent(user.id)}&status=in.(pending,done)&select=pool,created_at&limit=1000`)) || [];
+    xmasUsed = runs.filter((r) => r.pool === "christmas").length;
+    monthUsed = runs.filter((r) => r.pool === "monthly" && r.created_at >= m.iso).length;
+  }
+  const xmasLeft = xmasOn && !staff ? Math.max(0, S.christmas_goes - xmasUsed) : 0;
+  const monthLeft = Math.max(0, monthly - monthUsed);
+  return {
+    staff, level,
+    christmas: xmasOn ? { goes: S.christmas_goes, used: xmasUsed, left: xmasLeft, until: S.christmas_until } : null,
+    monthly: monthly ? { goes: monthly, used: monthUsed, left: monthLeft } : null,
+    left: staff ? null : xmasLeft + monthLeft,          // null = no limit (staff)
+    pool: staff ? "staff" : xmasLeft > 0 ? "christmas" : monthLeft > 0 ? "monthly" : null,
+  };
+}
+// This month's spend for all of TMKE, in pounds.
+async function illMonthSpend(env, S) {
+  if (!S.ready) return 0;
+  const m = illMonthStart();
+  const rows = (await sbGetAll(env, "illustration_runs",
+    `created_at=gte.${encodeURIComponent(m.iso)}&status=in.(pending,done)&select=cost_usd,status&order=created_at.asc`)) || [];
+  // A pending go will cost what a go costs.
+  const usd = rows.reduce((t, r) => t + (r.status === "pending" ? S.cost_usd : Number(r.cost_usd) || 0), 0);
+  return Math.round(usd * S.usd_to_gbp * 100) / 100;
+}
+
 // ── Content Calendar access (Danielle, 27 Oct 2026) ─────────────────────────
 // The one access check for the Content Calendar subscription: what a member's
 // level gives them (the calendar, the library, scheduling, Done For You, which
@@ -9004,92 +9090,6 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         }, 200, request, env);
       }
 
-      // What this member's Content Calendar level gives them (memberAccess).
-      if (path.endsWith("/access/me") && request.method === "GET") {
-        const user = await getUser(request, env);
-        if (!user) return json({ error: "Sign in again." }, 401, request, env);
-        return json(await memberAccess(env, user, url.searchParams.get("as")), 200, request, env);
-      }
-
-      // ---- The Content Calendar month, for members (Danielle, 11 Nov) ----
-      if (path.includes("/calendar/") && request.method === "GET"
-          && /\/calendar\/(month|months|post|templates|template)$/.test(path)) {
-        const user = await getUser(request, env);
-        if (!user) return json({ error: "Sign in again." }, 401, request, env);
-        const a = await memberAccess(env, user, url.searchParams.get("as"));
-        const sp = url.searchParams;
-
-        // One month: the posts of the edition to show, and the editions on offer.
-        if (path.endsWith("/calendar/month")) {
-          const ym = ccMonthKey(sp.get("month"));
-          if (!ym) return json({ error: "Which month?" }, 400, request, env);
-          if (!ccMayOpenMonth(a, ym)) return json({ ok: true, access: a, month: null }, 200, request, env);
-          // Test logins see months still in draft, so they can be tried before publishing.
-          const months = (await sbGet(env, "content_months", `month=eq.${ym}&status=${a.test ? "in.(draft,published)" : "eq.published"}&select=id,month,edition,intro`)) || [];
-          const ed = ccPickEdition(a, months.map((m) => m.edition), sp.get("edition"));
-          const m = ed && months.find((x) => x.edition === ed);
-          if (!m) return json({ ok: true, access: a, month: null }, 200, request, env);
-          const preview = !a.calendar;
-          const posts = (await sbGet(env, "content_month_posts", `month_id=eq.${m.id}&select=${preview ? CC_PREVIEW_COLS : CC_POST_COLS}&order=post_date.asc,sort_order.asc`)) || [];
-          const tpls = await ccTemplatesById(env, posts.map((p) => p.template_id));
-          return json({
-            ok: true, access: a, preview, month: m,
-            editions: months.map((x) => x.edition).filter((e) => a.staff || (a.editions || []).includes(e))
-              .sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y)),
-            posts: posts.map((p) => ({ ...p, template: tpls.get(p.template_id) || null })),
-          }, 200, request, env);
-        }
-
-        // The months to offer as packs in the Studio, from a month on.
-        if (path.endsWith("/calendar/months")) {
-          if (!a.calendar) return json({ ok: true, access: a, months: [] }, 200, request, env);
-          const from = ccMonthKey(sp.get("from")) || accessMonth(0);
-          const rows = (await sbGet(env, "content_months", `status=${a.test ? "in.(draft,published)" : "eq.published"}&month=gte.${from}&select=id,month,edition&order=month.asc`)) || [];
-          const want = sp.get("edition");
-          const byMonth = new Map();
-          rows.filter((m) => ccMayOpenMonth(a, m.month) && ccMayOpenEdition(a, m.edition)).forEach((m) => {
-            const have = byMonth.get(m.month);
-            const rank = (x) => (x.edition === want ? 0 : x.edition === a.edition ? 1 : 2 + CC_EDITION_ORDER.indexOf(x.edition));
-            if (!have || rank(m) < rank(have)) byMonth.set(m.month, m);
-          });
-          const out = [...byMonth.values()];
-          if (out.length) {
-            const posts = (await sbGet(env, "content_month_posts", `month_id=in.(${out.map((m) => m.id).join(",")})&template_id=not.is.null&select=month_id,template_id&order=post_date.asc,sort_order.asc`)) || [];
-            const first = new Map();
-            posts.forEach((p) => { if (!first.has(p.month_id)) first.set(p.month_id, p.template_id); });
-            const tpls = await ccTemplatesById(env, [...first.values()]);
-            out.forEach((m) => { const t = tpls.get(first.get(m.id)); m.cover = (t && t.thumb_url) || null; });
-          }
-          return json({ ok: true, access: a, months: out }, 200, request, env);
-        }
-
-        if (!a.calendar) return json({ error: "Your plan doesn't include the Content Calendar." }, 403, request, env);
-
-        // One post, with its month (?ccpost= in the Studio).
-        if (path.endsWith("/calendar/post")) {
-          const p = ((await sbGet(env, "content_month_posts", `id=eq.${encodeURIComponent(sp.get("id") || "")}&select=${CC_POST_COLS}`)) || [])[0];
-          const m = p && await ccOpenMonthRow(env, a, p.month_id);
-          if (!m) return json({ ok: true, post: null }, 200, request, env);
-          return json({ ok: true, post: { ...p, month: m } }, 200, request, env);
-        }
-
-        // A month's posts with their whole designs, for the Studio pack.
-        if (path.endsWith("/calendar/templates")) {
-          const m = await ccOpenMonthRow(env, a, sp.get("month_id") || "");
-          if (!m) return json({ ok: true, posts: [], templates: [] }, 200, request, env);
-          const posts = (await sbGet(env, "content_month_posts", `month_id=eq.${m.id}&select=${CC_POST_COLS}&order=post_date.asc,sort_order.asc`)) || [];
-          const ids = [...new Set(posts.map((p) => p.template_id).filter(Boolean))];
-          const byId = await ccTemplatesById(env, ids, true);
-          return json({ ok: true, month: m, posts, templates: ids.map((id) => byId.get(id)).filter(Boolean) }, 200, request, env);
-        }
-
-        // One whole design, when it belongs to a post in a month they may open.
-        if (path.endsWith("/calendar/template")) {
-          const id = sp.get("id") || "";
-          const posts = (await sbGet(env, "content_month_posts", `template_id=eq.${encodeURIComponent(id)}&select=month_id`)) || [];
-          let ok = false;
-          for (const p of posts) { if (await ccOpenMonthRow(env, a, p.month_id)) { ok = true; break; } }
-          if (!ok) return json({ ok: true, template: null }, 200, request, env);
       /* One Content Calendar month's Insights (Danielle, 17 Nov 2026; mock-up
          docs/tmke-os/calendar-month-insights). The raw material, compact: the
          month's posts, who had access to its edition and who's on Plus, what
@@ -9187,6 +9187,214 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         }, 200, request, env);
       }
 
+      // What this member's Content Calendar level gives them (memberAccess).
+      if (path.endsWith("/access/me") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        return json(await memberAccess(env, user, url.searchParams.get("as")), 200, request, env);
+      }
+
+      // ---- The property illustrator (Danielle, 17 Nov) ----------------------
+      // How many goes this member has left, for Images › Illustrate.
+      if (path.endsWith("/illustrate/me") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        const S = await illSettings(env);
+        if (!S.ready) return json({ ok: true, ready: false }, 200, request, env);
+        const al = await illAllowance(env, user, S);
+        const resting = S.paused || (S.cap_gbp > 0 && (await illMonthSpend(env, S)) >= S.cap_gbp);
+        return json({ ok: true, ready: true, on: !!env.FAL_KEY, resting, ...al,
+          styles: Object.entries(ILL_STYLES).map(([k, v]) => ({ key: k, label: v.label })) }, 200, request, env);
+      }
+
+      // One go: { photo: data:image/jpeg;base64,..., style }. Answers with the
+      // illustration, already saved to the member's uploads.
+      if (path.endsWith("/illustrate") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        const S = await illSettings(env);
+        if (!S.ready || !env.FAL_KEY) return json({ error: "The illustrator isn't switched on yet." }, 503, request, env);
+        let b = {};
+        try { b = await request.json(); } catch (_) {}
+        const style = ILL_STYLES[b.style] ? b.style : "christmas";
+        const photo = String(b.photo || "");
+        if (!/^data:image\/(jpeg|png|webp);base64,/.test(photo)) return json({ error: "Choose a photo of the property first." }, 400, request, env);
+        if (photo.length > 8 * 1024 * 1024) return json({ error: "That photo is too big. Try one under 5MB." }, 413, request, env);
+        // The spending stop, for everyone, before anything is spent.
+        const spend = await illMonthSpend(env, S);
+        if (S.paused || (S.cap_gbp > 0 && spend + S.cost_usd * S.usd_to_gbp > S.cap_gbp)) {
+          const m = illMonthStart();
+          if (!S.paused && S.cap_told_month !== m.ym) {
+            await sbPatch(env, "illustrator_settings", "id=eq.1", { cap_told_month: m.ym });
+            await notifyAdmins(env, { area: "hub", event: "illustrator_cap", key: `illustrator-cap-${m.ym}`,
+              title: `The property illustrator has reached this month's £${S.cap_gbp} limit`,
+              body: `£${spend.toFixed(2)} spent so far this month, so it's paused for everyone until the 1st. Raise the limit in Admin › Studio › Illustrator to switch it back on.`,
+              href: "/admin/illustrator" });
+          }
+          return json({ error: "We've reached our monthly spending limit for illustrations, so this is resting until the 1st.", resting: true }, 503, request, env);
+        }
+        const al = await illAllowance(env, user, S);
+        if (!al.pool) return json({ error: al.monthly ? "You've used this month's goes. You'll have more on the 1st." : al.christmas ? "You've used all your Christmas goes." : "Illustrations aren't part of your plan.", allowance: al }, 403, request, env);
+        // The go is counted before it starts, so two tabs can't share one.
+        const ins = await sbPost(env, "illustration_runs", { user_id: user.id, pool: al.pool, style, status: "pending" }, "return=representation");
+        const run = ins && ins.ok ? ((await ins.json().catch(() => [])) || [])[0] : null;
+        if (!run) return json({ error: "Couldn't start the illustration. Try again in a moment." }, 502, request, env);
+        const t0 = Date.now();
+        const fail = async (msg, status) => {
+          await sbPatch(env, "illustration_runs", `id=eq.${run.id}`, { status: "failed", error: String(msg).slice(0, 500), seconds: Math.round((Date.now() - t0) / 1000) });
+          return json({ error: "Something went wrong and the illustration wasn't made. This go hasn't been counted, so you can try again." }, status || 502, request, env);
+        };
+        try {
+          const r = await fetch(`https://fal.run/${ILL_MODEL}`, {
+            method: "POST",
+            headers: { Authorization: `Key ${env.FAL_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt: ILL_STYLES[style].prompt, image_urls: [photo], aspect_ratio: "3:4", resolution: "2K", output_format: "jpeg" }),
+          });
+          const txt = await r.text();
+          if (!r.ok) return await fail(`fal ${r.status}: ${txt.slice(0, 300)}`);
+          const im = ((JSON.parse(txt) || {}).images || [])[0];
+          if (!im || !im.url) return await fail("no image in fal's reply");
+          const pic = await fetch(im.url);
+          if (!pic.ok) return await fail(`fetching the picture: ${pic.status}`);
+          // Into the member's own uploads, where the Studio lists them.
+          const key = `${user.id}/uploads/illustration-${run.id}.jpg`;
+          const up = await fetch(`${env.SUPABASE_URL}/storage/v1/object/calendar-assets/${key}`, {
+            method: "POST",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "image/jpeg", "x-upsert": "true", "cache-control": "31536000" },
+            body: await pic.arrayBuffer(),
+          });
+          if (!up.ok) return await fail(`storing: ${(await up.text().catch(() => "")).slice(0, 200)}`);
+          const publicUrl = `${env.SUPABASE_URL}/storage/v1/object/public/calendar-assets/${key}`;
+          await sbPatch(env, "illustration_runs", `id=eq.${run.id}`, { status: "done", cost_usd: S.cost_usd, image_url: publicUrl,
+            width: im.width || null, height: im.height || null, seconds: Math.round((Date.now() - t0) / 1000) });
+          const after = await illAllowance(env, user, S);
+          return json({ ok: true, url: publicUrl, width: im.width || null, height: im.height || null, left: after.left, allowance: after }, 200, request, env);
+        } catch (e) {
+          return await fail(e && e.message || String(e));
+        }
+      }
+
+      // Admin › Studio › Illustrator: the settings, this month's spend and every go.
+      if (path.endsWith("/admin/illustrator") && (request.method === "GET" || request.method === "POST")) {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (request.method === "POST") {
+          let b = {};
+          try { b = await request.json(); } catch (_) {}
+          const patch = { updated_at: new Date().toISOString(), updated_by: user.email || null };
+          const num = (v, lo, hi) => { const n = Number(v); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
+          if (b.christmas_goes != null) { const n = num(b.christmas_goes, 0, 100); if (n == null) return json({ error: "Christmas goes: 0 to 100." }, 400, request, env); patch.christmas_goes = Math.round(n); }
+          if (b.christmas_until != null) { if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.christmas_until))) return json({ error: "Christmas ends: a date." }, 400, request, env); patch.christmas_until = b.christmas_until; }
+          if (b.monthly_goes && typeof b.monthly_goes === "object") {
+            const mg = {};
+            for (const k of ["calendar", "scheduling", "done_for_you"]) {
+              if (b.monthly_goes[k] == null) continue;
+              const n = num(b.monthly_goes[k], 0, 200); if (n == null) return json({ error: "Goes a month: 0 to 200." }, 400, request, env);
+              mg[k] = Math.round(n);
+            }
+            patch.monthly_goes = mg;
+          }
+          if (b.cap_gbp != null) { const n = num(b.cap_gbp, 0, 5000); if (n == null) return json({ error: "Monthly limit: £0 to £5,000." }, 400, request, env); patch.cap_gbp = n; patch.cap_told_month = null; }
+          if (b.paused != null) patch.paused = !!b.paused;
+          const res = await sbPatch(env, "illustrator_settings", "id=eq.1", patch);
+          if (!res.ok) return json({ error: "Couldn't save. Has property_illustrator.sql been run?" }, 502, request, env);
+        }
+        const S = await illSettings(env);
+        if (!S.ready) return json({ ok: true, ready: false }, 200, request, env);
+        const m = illMonthStart();
+        const runs = (await sbGet(env, "illustration_runs", "select=id,user_id,pool,style,status,cost_usd,image_url,seconds,error,created_at&order=created_at.desc&limit=500")) || [];
+        const ids = [...new Set(runs.map((r) => r.user_id))];
+        const names = new Map();
+        if (ids.length) {
+          const cs = (await sbGet(env, "contacts", `user_id=in.(${ids.join(",")})&select=user_id,first_name,last_name,email,company`)) || [];
+          cs.forEach((c) => names.set(c.user_id, c));
+        }
+        return json({
+          ok: true, ready: true, on: !!env.FAL_KEY, settings: S,
+          month: m.ym, spend_gbp: await illMonthSpend(env, S),
+          runs: runs.map((r) => { const c = names.get(r.user_id) || {}; return { ...r, name: [c.first_name, c.last_name].filter(Boolean).join(" ") || null, email: c.email || null, company: c.company || null }; }),
+        }, 200, request, env);
+      }
+
+      // ---- The Content Calendar month, for members (Danielle, 11 Nov) ----
+      if (path.includes("/calendar/") && request.method === "GET"
+          && /\/calendar\/(month|months|post|templates|template)$/.test(path)) {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        const a = await memberAccess(env, user, url.searchParams.get("as"));
+        const sp = url.searchParams;
+
+        // One month: the posts of the edition to show, and the editions on offer.
+        if (path.endsWith("/calendar/month")) {
+          const ym = ccMonthKey(sp.get("month"));
+          if (!ym) return json({ error: "Which month?" }, 400, request, env);
+          if (!ccMayOpenMonth(a, ym)) return json({ ok: true, access: a, month: null }, 200, request, env);
+          // Test logins see months still in draft, so they can be tried before publishing.
+          const months = (await sbGet(env, "content_months", `month=eq.${ym}&status=${a.test ? "in.(draft,published)" : "eq.published"}&select=id,month,edition,intro`)) || [];
+          const ed = ccPickEdition(a, months.map((m) => m.edition), sp.get("edition"));
+          const m = ed && months.find((x) => x.edition === ed);
+          if (!m) return json({ ok: true, access: a, month: null }, 200, request, env);
+          const preview = !a.calendar;
+          const posts = (await sbGet(env, "content_month_posts", `month_id=eq.${m.id}&select=${preview ? CC_PREVIEW_COLS : CC_POST_COLS}&order=post_date.asc,sort_order.asc`)) || [];
+          const tpls = await ccTemplatesById(env, posts.map((p) => p.template_id));
+          return json({
+            ok: true, access: a, preview, month: m,
+            editions: months.map((x) => x.edition).filter((e) => a.staff || (a.editions || []).includes(e))
+              .sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y)),
+            posts: posts.map((p) => ({ ...p, template: tpls.get(p.template_id) || null })),
+          }, 200, request, env);
+        }
+
+        // The months to offer as packs in the Studio, from a month on.
+        if (path.endsWith("/calendar/months")) {
+          if (!a.calendar) return json({ ok: true, access: a, months: [] }, 200, request, env);
+          const from = ccMonthKey(sp.get("from")) || accessMonth(0);
+          const rows = (await sbGet(env, "content_months", `status=${a.test ? "in.(draft,published)" : "eq.published"}&month=gte.${from}&select=id,month,edition&order=month.asc`)) || [];
+          const want = sp.get("edition");
+          const byMonth = new Map();
+          rows.filter((m) => ccMayOpenMonth(a, m.month) && ccMayOpenEdition(a, m.edition)).forEach((m) => {
+            const have = byMonth.get(m.month);
+            const rank = (x) => (x.edition === want ? 0 : x.edition === a.edition ? 1 : 2 + CC_EDITION_ORDER.indexOf(x.edition));
+            if (!have || rank(m) < rank(have)) byMonth.set(m.month, m);
+          });
+          const out = [...byMonth.values()];
+          if (out.length) {
+            const posts = (await sbGet(env, "content_month_posts", `month_id=in.(${out.map((m) => m.id).join(",")})&template_id=not.is.null&select=month_id,template_id&order=post_date.asc,sort_order.asc`)) || [];
+            const first = new Map();
+            posts.forEach((p) => { if (!first.has(p.month_id)) first.set(p.month_id, p.template_id); });
+            const tpls = await ccTemplatesById(env, [...first.values()]);
+            out.forEach((m) => { const t = tpls.get(first.get(m.id)); m.cover = (t && t.thumb_url) || null; });
+          }
+          return json({ ok: true, access: a, months: out }, 200, request, env);
+        }
+
+        if (!a.calendar) return json({ error: "Your plan doesn't include the Content Calendar." }, 403, request, env);
+
+        // One post, with its month (?ccpost= in the Studio).
+        if (path.endsWith("/calendar/post")) {
+          const p = ((await sbGet(env, "content_month_posts", `id=eq.${encodeURIComponent(sp.get("id") || "")}&select=${CC_POST_COLS}`)) || [])[0];
+          const m = p && await ccOpenMonthRow(env, a, p.month_id);
+          if (!m) return json({ ok: true, post: null }, 200, request, env);
+          return json({ ok: true, post: { ...p, month: m } }, 200, request, env);
+        }
+
+        // A month's posts with their whole designs, for the Studio pack.
+        if (path.endsWith("/calendar/templates")) {
+          const m = await ccOpenMonthRow(env, a, sp.get("month_id") || "");
+          if (!m) return json({ ok: true, posts: [], templates: [] }, 200, request, env);
+          const posts = (await sbGet(env, "content_month_posts", `month_id=eq.${m.id}&select=${CC_POST_COLS}&order=post_date.asc,sort_order.asc`)) || [];
+          const ids = [...new Set(posts.map((p) => p.template_id).filter(Boolean))];
+          const byId = await ccTemplatesById(env, ids, true);
+          return json({ ok: true, month: m, posts, templates: ids.map((id) => byId.get(id)).filter(Boolean) }, 200, request, env);
+        }
+
+        // One whole design, when it belongs to a post in a month they may open.
+        if (path.endsWith("/calendar/template")) {
+          const id = sp.get("id") || "";
+          const posts = (await sbGet(env, "content_month_posts", `template_id=eq.${encodeURIComponent(id)}&select=month_id`)) || [];
+          let ok = false;
+          for (const p of posts) { if (await ccOpenMonthRow(env, a, p.month_id)) { ok = true; break; } }
+          if (!ok) return json({ ok: true, template: null }, 200, request, env);
           const t = (await ccTemplatesById(env, [id], true)).get(id) || null;
           return json({ ok: true, template: t }, 200, request, env);
         }

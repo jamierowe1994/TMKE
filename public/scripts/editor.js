@@ -17140,6 +17140,144 @@ import { createResizeEngine } from "./resize-engine.js";
     });
   });
 
+  // ---------- Images › Illustrate (Dani, 17 Nov) ----------
+  /* A listing photo in, a watercolour Christmas illustration of the house
+     out (Worker /illustrate, Nano Banana Pro). The Worker counts the goes and
+     holds the key; this only shows how many are left, sends a smaller copy of
+     the photo and puts the answer on the design and in Uploads. The tab stays
+     hidden unless the Worker says this member has goes (or is staff). Words
+     from the tmke-copywriter brief, 17 Nov. */
+  (function illustrate() {
+    const tab = $("ed-ill-tab");
+    if (!tab || typeof window.__TMKE_ILLUSTRATE__ !== "function") return;
+    const C = {
+      intro: "Turn a listing photo into a watercolour Christmas illustration of the same house, with snow, a wreath and lit windows, and space above the roof for a title. It's made for the front of the A5 Folded Card, but you can add it to any design.",
+      dropTitle: "Choose a listing photo",
+      dropSub: "Or drag one here. Landscape photos are fine.",
+      change: "Choose another photo",
+      go: "Make the illustration",
+      working: "Making your illustration. This takes about 30 seconds.",
+      done: "Done. Your illustration has been added to your design and saved to your Uploads.",
+      tips: "A clear photo of the front of the house, taken straight on, works best. Before you print, check it looks like the house, as a detail can occasionally be wrong. Only use listing photos you have the right to use.",
+      staff: "As part of the TMKE team, you have no limit on goes.",
+      noneXmas: "You've used all your Christmas goes.",
+      noneMonth: "You've used this month's goes. You'll have more on the 1st.",
+      resting: "We've reached our monthly spending limit for illustrations, so this is resting until the 1st.",
+      error: "Something went wrong and the illustration wasn't made. This go hasn't been counted, so you can try again.",
+    };
+    const xmasLine = (n, d) => n === 1 ? "You have 1 go left to use by " + d + "." : "You have " + n + " goes left to use by " + d + ".";
+    const monthLine = (n) => n === 1 ? "You have 1 go left this month." : "You have " + n + " goes left this month.";
+    const longDate = (ymd) => {
+      const p = String(ymd || "").split("-").map(Number);
+      if (p.length !== 3 || !p[0]) return ymd;
+      return new Date(Date.UTC(p[0], p[1] - 1, p[2])).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" });
+    };
+    $("ed-ill-intro").textContent = C.intro;
+    $("ed-ill-drop-title").textContent = C.dropTitle;
+    $("ed-ill-drop-sub").textContent = C.dropSub;
+    $("ed-ill-change").textContent = C.change;
+    $("ed-ill-go").textContent = C.go;
+    $("ed-ill-tips").textContent = C.tips;
+
+    let me = null, photo = null, busy = false, lastUrl = null;
+    const status = (text, kind) => {
+      const el = $("ed-ill-status");
+      el.textContent = text || "";
+      el.classList.toggle("is-error", kind === "error");
+      el.classList.toggle("is-working", kind === "working");
+    };
+    const canGo = () => !!me && !me.resting && (me.staff || (me.left || 0) > 0);
+    function paint() {
+      if (!me) return;
+      let line = "";
+      if (me.staff) line = C.staff;
+      else {
+        const bits = [];
+        if (me.christmas && me.christmas.left > 0) bits.push(xmasLine(me.christmas.left, longDate(me.christmas.until)));
+        if (me.monthly && me.monthly.left > 0) bits.push(monthLine(me.monthly.left));
+        if (!bits.length) bits.push(me.monthly ? C.noneMonth : C.noneXmas);
+        line = bits.join(" ");
+      }
+      $("ed-ill-left").textContent = line;
+      $("ed-ill-go").disabled = busy || !photo || !canGo();
+      $("ed-ill-drop").hidden = !!photo || busy;
+      $("ed-ill-photo").hidden = !photo;
+      if (me.resting && !busy) status(C.resting, "error");
+    }
+
+    // A smaller copy of the photo: 1600px on the long edge is plenty for the
+    // illustrator and keeps the upload quick on a phone connection.
+    function shrink(file) {
+      return new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+          const c = document.createElement("canvas");
+          c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+          const g = c.getContext("2d");
+          g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+          g.drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(url);
+          resolve(c.toDataURL("image/jpeg", 0.9));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+        img.src = url;
+      });
+    }
+    async function choose(file) {
+      if (!file || !/^image\//.test(file.type)) return;
+      const d = await shrink(file);
+      if (!d) { status("That photo couldn't be read. Try a JPEG or PNG.", "error"); return; }
+      photo = d;
+      $("ed-ill-photo-img").src = d;
+      status("");
+      paint();
+    }
+    $("ed-ill-input").addEventListener("change", (e) => { choose(e.target.files && e.target.files[0]); e.target.value = ""; });
+    const drop = $("ed-ill-drop");
+    drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("is-drag"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("is-drag"));
+    drop.addEventListener("drop", (e) => {
+      e.preventDefault(); drop.classList.remove("is-drag");
+      choose(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+    });
+    $("ed-ill-change").addEventListener("click", () => { if (!busy) $("ed-ill-input").click(); });
+
+    $("ed-ill-go").addEventListener("click", async () => {
+      if (busy || !photo || !canGo()) return;
+      if (demoLocked("Illustrations are for members.", "In the demo, change the words, pictures and colours of a template and see how the Studio feels.")) return;
+      busy = true; paint(); status(C.working, "working");
+      const out = await window.__TMKE_ILLUSTRATE__({ photo, style: "christmas" });
+      busy = false;
+      if (out && out.allowance) Object.assign(me, out.allowance);
+      if (out && out.resting) me.resting = true;
+      if (!out || !out.ok || !out.url) { paint(); status((out && out.error) || C.error, "error"); return; }
+      lastUrl = out.url;
+      state.uploads = state.uploads || [];
+      if (state.uploads.indexOf(out.url) === -1) state.uploads.unshift(out.url);
+      if (typeof renderUploadsSoon === "function") renderUploadsSoon();
+      $("ed-ill-result-img").src = out.url;
+      $("ed-ill-result").hidden = false;
+      await addImage(out.url);
+      paint();
+      status(C.done);
+    });
+    $("ed-ill-result").addEventListener("click", () => { if (lastUrl) addImage(lastUrl); });
+
+    // Shown only to someone with goes, and never in the demo.
+    let demo = false;
+    try { demo = !!localStorage.getItem("tmke_demo") && new URLSearchParams(location.search).get("mode") !== "admin"; } catch (_) {}
+    if (demo) return;
+    window.__TMKE_ILLUSTRATE__().then((r) => {
+      if (!r || !r.ok || !r.ready || !r.on) return;
+      if (!r.staff && !r.christmas && !r.monthly) return;
+      me = r;
+      tab.hidden = false;
+      paint();
+    });
+  })();
+
   // ---------- Drop a photo/upload anywhere on the canvas ----------
   // Frames have their own drop handlers (they stopPropagation), so a drop that
   // reaches the canvas is on empty space → drop a floating image where released.

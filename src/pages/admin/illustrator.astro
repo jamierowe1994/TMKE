@@ -1,0 +1,182 @@
+---
+/* The property illustrator (Danielle, 17 Nov 2026): Admin › Studio ›
+   Illustrator. How many goes each member gets, the monthly spending stop,
+   this month's spend and every go, with its picture. The goes themselves are
+   counted by the Worker (/illustrate), which this page reads and saves through
+   (/admin/illustrator). Needs supabase/property_illustrator.sql. */
+import AdminShell from "../../components/admin/AdminShell.astro";
+import StudioBar from "../../components/admin/StudioBar.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="studio" title="Illustrator" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Property illustrator</div>
+          <div class="page-header-sub">Members turn a listing photo into a watercolour Christmas illustration in the Studio (Images › Illustrate). Each go costs us about 12p, so goes are limited here, and the whole tool pauses if a month's spending reaches the limit.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ash-panel ash-page">
+    <StudioBar active="illustrator" countId="ill-count" />
+
+    <p class="il-note" id="il-note" hidden></p>
+
+    <section class="il-sum" id="il-sum" hidden>
+      <div class="il-stat"><span class="il-k">Spent this month</span><span class="il-v" id="il-spend">–</span></div>
+      <div class="il-stat"><span class="il-k">Goes this month</span><span class="il-v" id="il-month-goes">–</span></div>
+      <div class="il-stat"><span class="il-k">Members who've used it</span><span class="il-v" id="il-people">–</span></div>
+      <div class="il-stat"><span class="il-k">Status</span><span class="il-v" id="il-state">–</span></div>
+    </section>
+
+    <form class="il-form" id="il-form" hidden novalidate>
+      <h2 class="il-h">Allowances</h2>
+      <div class="il-grid">
+        <label class="il-field">Christmas goes, every member
+          <input type="number" id="il-xmas" min="0" max="100" step="1" />
+        </label>
+        <label class="il-field">Christmas goes end
+          <input type="date" id="il-until" />
+        </label>
+        <label class="il-field">Content Calendar Plus, goes a month
+          <input type="number" id="il-plus" min="0" max="200" step="1" />
+        </label>
+        <label class="il-field">Done For You, goes a month
+          <input type="number" id="il-dfy" min="0" max="200" step="1" />
+        </label>
+        <label class="il-field">Monthly limit for all of TMKE (£)
+          <input type="number" id="il-cap" min="0" max="5000" step="1" />
+        </label>
+        <label class="il-tick">
+          <input type="checkbox" id="il-paused" />
+          <span>Pause it for everyone</span>
+        </label>
+      </div>
+      <div class="il-actions">
+        <button type="submit" class="admin-btn admin-btn-primary" id="il-save">Save</button>
+        <span class="il-saved" id="il-saved" role="status"></span>
+      </div>
+    </form>
+
+    <section class="il-runs" id="il-runs-wrap" hidden>
+      <h2 class="il-h">Every go</h2>
+      <div class="il-table-wrap">
+        <table class="il-table">
+          <thead><tr><th>When</th><th>Member</th><th>Allowance</th><th>Result</th><th>Picture</th></tr></thead>
+          <tbody id="il-runs"></tbody>
+        </table>
+      </div>
+      <p class="il-empty" id="il-empty" hidden>Nobody has made an illustration yet.</p>
+    </section>
+  </div>
+
+  <style>
+    .il-note { margin: 16px 0 0; padding: 12px 14px; border: 1px solid #e2d9d4; border-radius: 6px; background: #f7f4f2; font-size: 14px; line-height: 1.5; color: #371e28; }
+    .il-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 20px; border-top: 1px solid #e2d9d4; border-bottom: 1px solid #e2d9d4; }
+    @media (max-width: 800px) { .il-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .il-stat { display: grid; gap: 4px; padding: 14px 16px; border-left: 1px solid #e2d9d4; }
+    .il-stat:first-child { border-left: 0; padding-left: 0; }
+    .il-k { font-size: 14px; color: #7e6765; }
+    .il-v { font-family: "Darker Grotesque", var(--sans, sans-serif); font-size: 28px; font-weight: 600; color: #371e28; font-variant-numeric: tabular-nums; }
+    .il-h { margin: 28px 0 12px; font-family: "Fraunces", Georgia, serif; font-weight: 300; font-size: 22px; color: #371e28; }
+    .il-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 18px; align-items: end; }
+    @media (max-width: 900px) { .il-grid { grid-template-columns: 1fr 1fr; } }
+    .il-field { display: grid; gap: 6px; font-size: 14px; color: #7e6765; }
+    .il-field input { height: 38px; box-sizing: border-box; padding: 0 10px; border: 1px solid #e2d9d4; border-radius: 6px; font: 400 14px var(--sans, sans-serif); color: #371e28; background: #fff; }
+    .il-field input:focus { outline: 2px solid #371e28; outline-offset: 1px; }
+    .il-tick { display: flex; align-items: center; gap: 10px; min-height: 38px; font-size: 14px; color: #371e28; cursor: pointer; }
+    .il-tick input { appearance: none; width: 22px; height: 22px; margin: 0; border: 1.5px solid #c9bcb7; border-radius: 50%; display: grid; place-items: center; cursor: pointer; }
+    .il-tick input:checked { background: #371e28; border-color: #371e28; }
+    .il-tick input:checked::after { content: ""; width: 6px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: translateY(-1px) rotate(45deg); }
+    .il-actions { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+    .il-saved { font-size: 14px; color: #7e6765; }
+    .il-saved.is-error { color: #a5352f; }
+    .il-table-wrap { overflow-x: auto; border-top: 1px solid #e2d9d4; border-bottom: 1px solid #e2d9d4; }
+    .il-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .il-table th { text-align: left; font-weight: 600; color: #7e6765; padding: 10px 12px; border-bottom: 1px solid #e2d9d4; white-space: nowrap; }
+    .il-table td { padding: 8px 12px; border-bottom: 1px solid #efe9e6; color: #371e28; vertical-align: middle; }
+    .il-table tr:last-child td { border-bottom: 0; }
+    .il-table .il-who small { display: block; color: #7e6765; font-size: 14px; }
+    .il-table img { width: 42px; height: 56px; object-fit: cover; border-radius: 3px; border: 1px solid #e2d9d4; display: block; }
+    .il-fail { color: #a5352f; }
+    .il-empty { font-size: 14px; color: #7e6765; }
+  </style>
+
+  <script>
+    import { requireAdmin } from '../../lib/admin-gate.js';
+    import { supabase } from '../../lib/supabase.js';
+
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const POOL = { christmas: 'Christmas', monthly: 'Monthly', staff: 'Team' };
+    const when = (iso) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
+
+    async function call(body) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { error: 'Sign in again.' };
+      const r = await fetch(WORKER + '/admin/illustrator', body ? {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token }, body: JSON.stringify(body),
+      } : { headers: { Authorization: 'Bearer ' + session.access_token } });
+      return r.json().catch(() => ({ error: "The answer couldn't be read." }));
+    }
+
+    function note(text) { $('il-note').textContent = text; $('il-note').hidden = !text; }
+
+    function paint(d) {
+      if (d.error) { note(d.error); return; }
+      if (!d.ready) { note('Run supabase/property_illustrator.sql in Supabase to switch this on. Until then members don\'t see the Illustrate tab.'); return; }
+      note(d.on ? '' : 'The fal.ai key isn\'t on the Worker yet, so members don\'t see the Illustrate tab. Add it with: wrangler secret put FAL_KEY');
+      const S = d.settings;
+      const mine = d.runs.filter((r) => r.created_at.slice(0, 7) === d.month && r.status !== 'failed');
+      $('il-spend').textContent = '£' + Number(d.spend_gbp || 0).toFixed(2) + ' of £' + Number(S.cap_gbp).toFixed(0);
+      $('il-month-goes').textContent = String(mine.length);
+      $('il-people').textContent = String(new Set(d.runs.filter((r) => r.status !== 'failed').map((r) => r.user_id)).size);
+      $('il-state').textContent = S.paused ? 'Paused' : (S.cap_gbp > 0 && d.spend_gbp >= S.cap_gbp) ? 'Resting' : d.on ? 'On' : 'Off';
+      $('ill-count').textContent = d.runs.length + (d.runs.length === 1 ? ' go' : ' goes');
+      $('il-sum').hidden = false;
+
+      $('il-xmas').value = S.christmas_goes;
+      $('il-until').value = S.christmas_until;
+      $('il-plus').value = (S.monthly_goes || {}).scheduling ?? 0;
+      $('il-dfy').value = (S.monthly_goes || {}).done_for_you ?? 0;
+      $('il-cap').value = S.cap_gbp;
+      $('il-paused').checked = !!S.paused;
+      $('il-form').hidden = false;
+
+      $('il-runs').innerHTML = d.runs.map((r) => `<tr>
+        <td>${esc(when(r.created_at))}</td>
+        <td class="il-who">${esc(r.name || r.email || 'Unknown')}${r.company ? `<small>${esc(r.company)}</small>` : ''}</td>
+        <td>${esc(POOL[r.pool] || r.pool)}</td>
+        <td>${r.status === 'done' ? `Made${r.seconds ? ` in ${r.seconds}s` : ''}` : r.status === 'pending' ? 'Making' : `<span class="il-fail" title="${esc(r.error || '')}">Didn't work, not counted</span>`}</td>
+        <td>${r.image_url ? `<a href="${esc(r.image_url)}" target="_blank" rel="noopener"><img src="${esc(r.image_url)}" alt="" loading="lazy"></a>` : ''}</td>
+      </tr>`).join('');
+      $('il-empty').hidden = d.runs.length > 0;
+      $('il-runs-wrap').hidden = false;
+    }
+
+    $('il-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const saved = $('il-saved');
+      saved.classList.remove('is-error'); saved.textContent = 'Saving…';
+      const d = await call({
+        christmas_goes: Number($('il-xmas').value), christmas_until: $('il-until').value,
+        monthly_goes: { scheduling: Number($('il-plus').value), done_for_you: Number($('il-dfy').value) },
+        cap_gbp: Number($('il-cap').value), paused: $('il-paused').checked,
+      });
+      if (d.error) { saved.classList.add('is-error'); saved.textContent = d.error; return; }
+      paint(d);
+      saved.textContent = 'Saved';
+    });
+
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+      paint(await call());
+    })();
+  </script>
+</AdminShell>
