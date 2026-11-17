@@ -17571,7 +17571,18 @@ import { createResizeEngine } from "./resize-engine.js";
       const l = (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
       return l > 0.6 ? "#000000" : "#ffffff";
     }
-    const thinBar = (o, pg) => o.type === "rect" && Math.min(o.w, o.h) <= pg.canvas.width * 0.006;
+    /* A gradient on the outside takes the card's colour too (Dani, 17 Nov):
+       hers sits near the top so the snow fades in, and it has to be the
+       background's own colour or a grey card gets a green fade. Every stop
+       becomes the card's colour and keeps its own see-through amount. */
+    const isGrad = (o) => o.type === "rect" && o.fillGradient && o.fillGradient.enabled && Array.isArray(o.fillGradient.stops);
+    const grads = (pg) => (pg.elements || []).filter(isGrad);
+    const gradWrong = (o, hex) => o.fillGradient.stops.some((st) => String(st.color || "").toLowerCase() !== hex.toLowerCase());
+    function gradTo(o, hex) {
+      o.fillGradient = Object.assign({}, o.fillGradient, { stops: o.fillGradient.stops.map((st) => Object.assign({}, st, { color: hex })) });
+      o.fill = hex;
+    }
+    const thinBar = (o, pg) => o.type === "rect" && !isGrad(o) && Math.min(o.w, o.h) <= pg.canvas.width * 0.006;
     const inked = (pg) => (pg.elements || []).filter((o) => !o.hidden &&
       (o.type === "text" || o.type === "line" || thinBar(o, pg) || (o.type === "image" && o.svgKey)));
     const inkOf = (o) => String((o.type === "text" ? o.color : o.type === "image" ? o.svgFill : o.fill) || "").toLowerCase();
@@ -17591,12 +17602,13 @@ import { createResizeEngine } from "./resize-engine.js";
       const ink = inkFor(hex);
       const outside = state.pages.map((p, i) => i).filter((i) => isFolded(state.pages[i].canvas) && state.pages[i].canvas.fold !== "inside");
       const needs = (i) => String(state.pages[i].canvas.background || "").toLowerCase() !== hex.toLowerCase() ||
-        inked(state.pages[i]).some((o) => inkWrong(o, ink));
+        inked(state.pages[i]).some((o) => inkWrong(o, ink)) || grads(state.pages[i]).some((o) => gradWrong(o, hex));
       if (!outside.some(needs)) return;
       const before = snapshotPages(), cur = state.currentPage;
       outside.forEach((i) => {
         state.pages[i].canvas.background = hex;
         inked(state.pages[i]).forEach((o) => inkTo(o, ink));
+        grads(state.pages[i]).forEach((o) => gradTo(o, hex));
       });
       pushDesignHistory(before, cur);
       fullRender();
