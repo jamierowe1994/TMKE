@@ -9802,6 +9802,86 @@ import { createResizeEngine } from "./resize-engine.js";
     _edgeCache.set(key, out);
     return out;
   }
+  /* See-through background (Danielle, 17 Nov, agreed on the test page).
+     The illustrator paints the house on a plain colour, but never a
+     perfectly flat one (paper grain, a slight drift lighter or darker), so no
+     single card colour matched it everywhere and a faint rectangle showed
+     round the house. Instead the plain background is taken out: starting from
+     the top and the sides, everything joined to the edge that is close to the
+     background colour becomes clear, softly at its border. The house, the
+     ground and the falling snow stay; only what is joined to the edge goes,
+     so a pink tile on the house is safe. Returns a canvas, or null if the
+     picture can't be read. */
+  function seeThroughCanvas(img) {
+    const W = img.naturalWidth, H = img.naturalHeight;
+    if (!W || !H) return null;
+    const full = document.createElement("canvas");
+    full.width = W; full.height = H;
+    const fg = full.getContext("2d");
+    fg.drawImage(img, 0, 0);
+    let px;
+    try { px = fg.getImageData(0, 0, W, H); } catch (_) { return null; }
+    const d = px.data;
+    // The background colour: the middle value of the band across the top.
+    const band = Math.max(4, Math.round(H * 0.06)), ch = [[], [], []];
+    for (let y = 2; y < band; y += 2) for (let x = 4; x < W - 4; x += 3) { const i = (y * W + x) * 4; ch[0].push(d[i]); ch[1].push(d[i + 1]); ch[2].push(d[i + 2]); }
+    const bg = ch.map((a) => { a.sort((p, q) => p - q); return a[a.length >> 1]; });
+    const dist = (i) => Math.hypot(d[i] - bg[0], d[i + 1] - bg[1], d[i + 2] - bg[2]);
+    // Which parts are background: a fill from the top and sides on a small grid.
+    const k = Math.max(1, Math.round(W / 360)), gw = Math.ceil(W / k), gh = Math.ceil(H / k), T = 34;
+    const near = new Uint8Array(gw * gh), seen = new Uint8Array(gw * gh);
+    for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
+      const i = (Math.min(H - 1, gy * k + (k >> 1)) * W + Math.min(W - 1, gx * k + (k >> 1))) * 4;
+      near[gy * gw + gx] = dist(i) < T ? 1 : 0;
+    }
+    const q = [];
+    const push = (gx, gy) => { const j = gy * gw + gx; if (gx < 0 || gy < 0 || gx >= gw || gy >= gh || seen[j] || !near[j]) return; seen[j] = 1; q.push(j); };
+    for (let gx = 0; gx < gw; gx++) push(gx, 0);
+    for (let gy = 0; gy < gh; gy++) { push(0, gy); push(gw - 1, gy); }
+    while (q.length) { const j = q.pop(), gx = j % gw, gy = (j / gw) | 0; push(gx + 1, gy); push(gx - 1, gy); push(gx, gy + 1); push(gx, gy - 1); }
+    let found = 0;
+    // Grown by one cell, so the soft border falls inside the region.
+    const region = new Uint8Array(gw * gh);
+    for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
+      let on = 0;
+      for (let oy = -1; oy <= 1 && !on; oy++) for (let ox = -1; ox <= 1; ox++) {
+        const x2 = gx + ox, y2 = gy + oy;
+        if (x2 >= 0 && y2 >= 0 && x2 < gw && y2 < gh && seen[y2 * gw + x2]) { on = 1; break; }
+      }
+      region[gy * gw + gx] = on; found += on;
+    }
+    if (found < gw * gh * 0.05) return null;          // no plain background to take out
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (!region[((y / k) | 0) * gw + ((x / k) | 0)]) continue;
+      const i = (y * W + x) * 4;
+      d[i + 3] = Math.round(d[i + 3] * edgeStep(T * 0.55, T * 1.25, dist(i)));
+    }
+    fg.putImageData(px, 0, 0);
+    return full;
+  }
+  // The see-through copy of an illustration, saved to the member's uploads.
+  // Resolves to its address, or null if it couldn't be made or saved.
+  function seeThroughUpload(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = async () => {
+        try {
+          const c = seeThroughCanvas(img);
+          if (!c || typeof window.__TMKE_UPLOAD_SAVE__ !== "function") { resolve(null); return; }
+          // WebP keeps the clear parts and is a fraction of a PNG's size;
+          // a browser that can't write it gives a PNG, which is fine too.
+          let data = c.toDataURL("image/webp", 0.9);
+          if (!/^data:image\/webp/.test(data)) data = c.toDataURL("image/png");
+          resolve(await window.__TMKE_UPLOAD_SAVE__(data));
+        } catch (_) { resolve(null); }
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+  function isIllustration(src) { return typeof src === "string" && /\/uploads\/illustration-[^/]+\.jpg(\?|$)/.test(src); }
+
   // Draws an image or frame layer with its painted edge: on its own sheet at
   // the export's resolution, faded by the mask, then onto the page.
   async function drawWithEdge(ctx, el) {
@@ -13210,6 +13290,29 @@ import { createResizeEngine } from "./resize-engine.js";
         input.click();
       });
       g.appendChild(btn);
+      /* An illustration made before its background was taken out as it
+         arrived (Dani, 17 Nov) can have it taken out here. The see-through
+         copy is saved to Uploads and replaces this one; Undo brings the
+         painted one back. */
+      if (isIllustration(el.src) && canSwapPicture(el)) {
+        const st = document.createElement("button");
+        st.className = "ed-ctx-btn";
+        st.textContent = "See-through background";
+        st.title = "Take out the illustration's plain background so the card's colour shows round the house";
+        st.addEventListener("click", async () => {
+          if (st.disabled) return;
+          st.disabled = true; st.textContent = "Taking it out\u2026";
+          const url = await seeThroughUpload(el.src);
+          if (!url) { st.disabled = false; st.textContent = "See-through background"; toast("The background couldn't be taken out of this picture. Try again, or match the card's colour to it instead.", 6000); return; }
+          el.src = url;
+          state.uploads = state.uploads || [];
+          if (state.uploads.indexOf(url) === -1) state.uploads.unshift(url);
+          if (typeof renderUploadsSoon === "function") renderUploadsSoon();
+          pushHistory();
+          fullRender();
+        });
+        g.appendChild(st);
+      }
       if (canReposition(el)) {
         const rp = document.createElement("button");
         rp.className = "ed-ctx-btn"; rp.textContent = "Reposition";
@@ -17384,6 +17487,8 @@ import { createResizeEngine } from "./resize-engine.js";
       noneMonth: "You've used this month's goes. You'll have more on the 1st.",
       resting: "We've reached our monthly spending limit for illustrations, so this is resting until the 1st.",
       error: "Something went wrong and the illustration wasn't made. This go hasn't been counted, so you can try again.",
+      clearing: "Taking out the background so your card's colour shows round the house.",
+      notClear: "Done. Your illustration is on your card, but its background couldn't be taken out, so the card has been matched to it instead. It's saved to your Uploads.",
     };
     const xmasLine = (n, d) => n === 1 ? "You have 1 go left to use by " + d + "." : "You have " + n + " goes left to use by " + d + ".";
     const monthLine = (n) => n === 1 ? "You have 1 go left this month." : "You have " + n + " goes left this month.";
@@ -17606,17 +17711,25 @@ import { createResizeEngine } from "./resize-engine.js";
       if (out && out.allowance) Object.assign(me, out.allowance);
       if (out && out.resting) me.resting = true;
       if (!out || !out.ok || !out.url) { paint(); status((out && out.error) || C.error, "error"); return; }
-      lastUrl = out.url;
+      /* The plain background is taken out before it goes on the card, so the
+         card's own colour shows round the house and there's nothing to match
+         (Dani, 17 Nov). Both copies are in Uploads. If the see-through copy
+         can't be made or saved, the painted one goes on, the card is matched
+         to it as before, and the message says so. */
+      status(C.clearing, "working");
+      const clear = await seeThroughUpload(out.url);
+      const url = clear || out.url;
+      lastUrl = url;
       state.uploads = state.uploads || [];
-      if (state.uploads.indexOf(out.url) === -1) state.uploads.unshift(out.url);
+      [out.url, url].forEach((u) => { if (state.uploads.indexOf(u) === -1) state.uploads.unshift(u); });
       if (typeof renderUploadsSoon === "function") renderUploadsSoon();
-      $("ed-ill-result-img").src = out.url;
+      $("ed-ill-result-img").src = url;
       $("ed-ill-result").hidden = false;
-      await placeIllustration(out.url);
-      await matchCardToPicture();
-      $("ed-ill-match").hidden = false;
+      await placeIllustration(url);
+      if (!clear) { await matchCardToPicture(); $("ed-ill-match").hidden = false; }
+      else $("ed-ill-match").hidden = true;
       paint();
-      status(C.done);
+      status(clear ? C.done : C.notClear);
     });
     $("ed-ill-result").addEventListener("click", () => { if (lastUrl) placeIllustration(lastUrl); });
     $("ed-ill-match").textContent = "Match the card to the picture";
