@@ -4755,6 +4755,13 @@ import { createResizeEngine } from "./resize-engine.js";
          (Dani, 13 Oct). Painted here and in the download alike. */
       node.style.background = (el.brandRole === "photo" && el.photoBg) ? el.photoBg : "";
     }
+    // A painted edge (see edgeKinds): the same mask the download uses.
+    if (el.type === "image" || el.type === "frame") {
+      const mk = edgeOn(el) ? "url(" + edgeMask(el.edge, el.w, el.h).url + ")" : "";
+      node.style.webkitMaskImage = node.style.maskImage = mk;
+      node.style.webkitMaskSize = node.style.maskSize = mk ? "100% 100%" : "";
+      node.style.webkitMaskRepeat = node.style.maskRepeat = mk ? "no-repeat" : "";
+    }
     if (el.type === "line") {
       const grad = (el.fillGradient && el.fillGradient.enabled) ? textGradientCss(el.fillGradient) : null;
       node.style.background = grad || el.fill || "#000";
@@ -8628,74 +8635,10 @@ import { createResizeEngine } from "./resize-engine.js";
         ctx.fill();
         ctx.restore();
       }
-      if (el.type === "image" && el.src) {
-        try {
-          const img = await loadImage(el.src);
-          if (el.imgFit === "contain" && img.naturalWidth && img.naturalHeight) {
-            // Whole and centred, as on the canvas -- except the agent photo,
-            // a cut-out, which stands on the floor of its box there and so
-            // must here (it was printed floating mid-box).
-            const k = Math.min(el.w / img.naturalWidth, el.h / img.naturalHeight);
-            const dw = img.naturalWidth * k, dh = img.naturalHeight * k;
-            if (el.brandRole === "photo") {
-              // Grown from its feet and moved, as Reposition left it, and
-              // cropped to its box like the canvas.
-              const s2 = el.imgScale || 1, w2 = dw * s2, h2 = dh * s2;
-              ctx.save();
-              ctx.beginPath();
-              if (hasPerCorner(el) || el.radius) {
-                roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
-                  cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
-              } else {
-                ctx.rect(0, 0, el.w, el.h);
-              }
-              ctx.clip();
-              ctx.drawImage(img, (el.w - w2) / 2 + (el.imgOffsetX || 0), el.h - h2 + (el.imgOffsetY || 0), w2, h2);
-              ctx.restore();
-            } else {
-              // Inside its rounded corners, as the canvas clips it -- a QR
-              // code with rounded corners came out square in the download.
-              const rounded = hasPerCorner(el) || el.radius;
-              if (rounded) {
-                ctx.save();
-                ctx.beginPath();
-                roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
-                  cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
-                ctx.clip();
-              }
-              ctx.drawImage(img, (el.w - dw) / 2, (el.h - dh) / 2, dw, dh);
-              if (rounded) ctx.restore();
-            }
-          } else {
-            /* Cropped to fill its box at its own position, exactly as the
-               screen shows it (object-fit: cover). It used to be stretched to
-               the box, so a photo of a different shape -- one swapped in with
-               Change image, or a box widened in the Studio -- looked right on
-               screen and came out squashed in the download and the preview.
-               Found 12 Oct while adding Reposition. */
-            ctx.save();
-            ctx.beginPath();
-            if (hasPerCorner(el) || el.radius) {
-              roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
-                cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
-            } else {
-              ctx.rect(0, 0, el.w, el.h);
-            }
-            ctx.clip();
-            const nw = img.naturalWidth, nh = img.naturalHeight;
-            if (nw && nh) {
-              const k = Math.max(el.w / nw, el.h / nh);
-              const dw = nw * k, dh = nh * k;
-              const px = (el.imgPosX != null ? el.imgPosX : 50) / 100;
-              const py = (el.imgPosY != null ? el.imgPosY : 50) / 100;
-              ctx.drawImage(img, (el.w - dw) * px, (el.h - dh) * py, dw, dh);
-            } else {
-              ctx.drawImage(img, 0, 0, el.w, el.h);
-            }
-            ctx.restore();
-          }
-        } catch (e) {}
-        drawQrBorder(ctx, el);
+      if (edgeOn(el)) {
+        await drawWithEdge(ctx, el);
+      } else if (el.type === "image" && el.src) {
+        await drawImageElement(ctx, el);
       } else if (el.type === "screen") {
         await drawScreenToCanvas(ctx, el);
       } else if (el.type === "frame") {
@@ -9755,6 +9698,184 @@ import { createResizeEngine } from "./resize-engine.js";
       }
     }
     ctx.restore();
+  }
+
+  /* Painted edges (Danielle, 17 Nov). A picture can fade into the card
+     instead of stopping at a hard line, like a watercolour on paper: her
+     examples of illustrated houses never end in a block of ground across the
+     bottom. A mask, the same one on screen and in the download, is made here
+     from the shape of the box: opaque in the middle, clear at the edge, with
+     a ragged, uneven edge for the painted kinds. The mask is small and
+     stretched, which keeps it soft; it is cached by kind and shape, so
+     resizing doesn't remake it on every move. */
+  // Declared as functions and a var, not consts: a saved design with an
+  // edge is drawn before the script reaches this point.
+  function edgeKinds() {
+    return { oval: "Soft oval", painted: "Painted edge", ground: "Fade at the bottom" };
+  }
+  function edgeOn(el) {
+    return !!(el && el.src && (el.type === "image" || el.type === "frame") &&
+      (el.edge === "oval" || el.edge === "painted" || el.edge === "ground"));
+  }
+  var _edgeCache = null;
+  function edgeHash(x, y, s) {
+    let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(s | 0, 982451653);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967295;
+  }
+  function edgeNoise(x, y, s) {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = edgeHash(xi, yi, s), b = edgeHash(xi + 1, yi, s), c = edgeHash(xi, yi + 1, s), d = edgeHash(xi + 1, yi + 1, s);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  function edgeFbm(x, y, s) {
+    let t = 0, amp = 0.5, f = 1;
+    for (let o = 0; o < 4; o++) { t += amp * edgeNoise(x * f, y * f, s + o * 17); f *= 2; amp *= 0.5; }
+    return t / 0.9375;
+  }
+  function edgeStep(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+  // The mask for a box of w x h, as a canvas. Aspect rounded to 2% steps.
+  function edgeMask(kind, w, h) {
+    const ar = Math.exp(Math.round(Math.log(Math.max(0.05, w / Math.max(1, h))) / 0.02) * 0.02);
+    const key = kind + ":" + ar.toFixed(3);
+    _edgeCache = _edgeCache || new Map();
+    if (_edgeCache.has(key)) return _edgeCache.get(key);
+    const L = 360;
+    const W = ar >= 1 ? L : Math.max(8, Math.round(L * ar)), H = ar >= 1 ? Math.max(8, Math.round(L / ar)) : L;
+    const S = Math.min(W, H);
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d");
+    const im = g.createImageData(W, H), d = im.data;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const X = x + 0.5, Y = y + 0.5;
+        let a = 1;
+        if (kind === "oval") {
+          const nx = (X / W - 0.5) / 0.5, ny = (Y / H - 0.5) / 0.5;
+          a = 1 - edgeStep(0.72, 1, Math.sqrt(nx * nx + ny * ny));
+        } else if (kind === "painted") {
+          const dist = Math.min(X, W - X, Y, H - Y) / S;
+          const e = 0.05 + 0.11 * edgeFbm(X / S * 5, Y / S * 5, 3);
+          a = edgeStep(e - 0.012, e + 0.035, dist);
+          // A little unevenness just inside the edge, like pigment drying.
+          const inner = edgeStep(e + 0.03, e + 0.13, dist);
+          a *= inner + (1 - inner) * (0.72 + 0.28 * edgeFbm(X / S * 18, Y / S * 18, 9));
+        } else if (kind === "ground") {
+          // The bottom fades on a ragged line; the sides fade only low down,
+          // where the ground reaches them. The top is left as it is.
+          const fromBottom = (H - Y) / S;
+          const eb = 0.03 + 0.17 * edgeFbm(X / S * 4, 0.5, 5);
+          a = edgeStep(eb, eb + 0.11, fromBottom);
+          const side = Math.min(X, W - X) / S;
+          const es = 0.02 + 0.09 * edgeFbm(0.5, Y / S * 4, 7);
+          const low = edgeStep(0.45, 0.75, Y / H);
+          a *= 1 - low + low * edgeStep(es, es + 0.08, side);
+        }
+        const i = (y * W + x) * 4;
+        d[i] = d[i + 1] = d[i + 2] = 255;
+        d[i + 3] = Math.round(255 * Math.max(0, Math.min(1, a)));
+      }
+    }
+    g.putImageData(im, 0, 0);
+    const out = { canvas: c, url: c.toDataURL("image/png") };
+    _edgeCache.set(key, out);
+    return out;
+  }
+  // Draws an image or frame layer with its painted edge: on its own sheet at
+  // the export's resolution, faded by the mask, then onto the page.
+  async function drawWithEdge(ctx, el) {
+    const m = ctx.getTransform();
+    const k = Math.max(1, Math.min(4, Math.hypot(m.a, m.b) || 1));
+    let sw = Math.max(1, Math.ceil(el.w * k)), sh = Math.max(1, Math.ceil(el.h * k));
+    const cap = 6000 / Math.max(sw, sh);
+    if (cap < 1) { sw = Math.ceil(sw * cap); sh = Math.ceil(sh * cap); }
+    const off = document.createElement("canvas");
+    off.width = sw; off.height = sh;
+    const oc = off.getContext("2d");
+    oc.scale(sw / el.w, sh / el.h);
+    if (el.type === "frame") await drawFrameToCanvas(oc, el);
+    else await drawImageElement(oc, el);
+    oc.setTransform(1, 0, 0, 1, 0, 0);
+    oc.globalCompositeOperation = "destination-in";
+    oc.imageSmoothingQuality = "high";
+    oc.drawImage(edgeMask(el.edge, el.w, el.h).canvas, 0, 0, sw, sh);
+    ctx.drawImage(off, 0, 0, el.w, el.h);
+  }
+
+  /* An image layer, drawn into its own box (0,0 to w,h) on `ctx`. Pulled out
+     of the export loop so a painted edge (below) can draw it on its own
+     sheet first and fade that sheet's edges. */
+  async function drawImageElement(ctx, el) {
+    try {
+      const img = await loadImage(el.src);
+      if (el.imgFit === "contain" && img.naturalWidth && img.naturalHeight) {
+        // Whole and centred, as on the canvas -- except the agent photo,
+        // a cut-out, which stands on the floor of its box there and so
+        // must here (it was printed floating mid-box).
+        const k = Math.min(el.w / img.naturalWidth, el.h / img.naturalHeight);
+        const dw = img.naturalWidth * k, dh = img.naturalHeight * k;
+        if (el.brandRole === "photo") {
+          // Grown from its feet and moved, as Reposition left it, and
+          // cropped to its box like the canvas.
+          const s2 = el.imgScale || 1, w2 = dw * s2, h2 = dh * s2;
+          ctx.save();
+          ctx.beginPath();
+          if (hasPerCorner(el) || el.radius) {
+            roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
+              cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+          } else {
+            ctx.rect(0, 0, el.w, el.h);
+          }
+          ctx.clip();
+          ctx.drawImage(img, (el.w - w2) / 2 + (el.imgOffsetX || 0), el.h - h2 + (el.imgOffsetY || 0), w2, h2);
+          ctx.restore();
+        } else {
+          // Inside its rounded corners, as the canvas clips it -- a QR
+          // code with rounded corners came out square in the download.
+          const rounded = hasPerCorner(el) || el.radius;
+          if (rounded) {
+            ctx.save();
+            ctx.beginPath();
+            roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
+              cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+            ctx.clip();
+          }
+          ctx.drawImage(img, (el.w - dw) / 2, (el.h - dh) / 2, dw, dh);
+          if (rounded) ctx.restore();
+        }
+      } else {
+        /* Cropped to fill its box at its own position, exactly as the
+           screen shows it (object-fit: cover). It used to be stretched to
+           the box, so a photo of a different shape -- one swapped in with
+           Change image, or a box widened in the Studio -- looked right on
+           screen and came out squashed in the download and the preview.
+           Found 12 Oct while adding Reposition. */
+        ctx.save();
+        ctx.beginPath();
+        if (hasPerCorner(el) || el.radius) {
+          roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
+            cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+        } else {
+          ctx.rect(0, 0, el.w, el.h);
+        }
+        ctx.clip();
+        const nw = img.naturalWidth, nh = img.naturalHeight;
+        if (nw && nh) {
+          const k = Math.max(el.w / nw, el.h / nh);
+          const dw = nw * k, dh = nh * k;
+          const px = (el.imgPosX != null ? el.imgPosX : 50) / 100;
+          const py = (el.imgPosY != null ? el.imgPosY : 50) / 100;
+          ctx.drawImage(img, (el.w - dw) * px, (el.h - dh) * py, dw, dh);
+        } else {
+          ctx.drawImage(img, 0, 0, el.w, el.h);
+        }
+        ctx.restore();
+      }
+    } catch (e) {}
+    drawQrBorder(ctx, el);
   }
 
   async function drawFrameToCanvas(ctx, el) {
@@ -13153,6 +13274,63 @@ import { createResizeEngine } from "./resize-engine.js";
         if (trig) trig.classList.add("ed-fx-active");
       }
       ctxEl.appendChild(effectsWrap);
+    }
+
+    /* Edges (Danielle, 17 Nov): a picture fades into the card instead of
+       stopping at a hard line. Each choice is shown on the picture itself,
+       on the page's own colour. */
+    if ((el.type === "image" && el.src && !el.svgKey && el.brandRole !== "logo") || (el.type === "frame" && el.src)) {
+      const edgeWrap = popoverIconButton({
+        icon: '<span class="ed-ctx-poplabel">Edges</span>',
+        title: "Edges",
+        key: "edges",
+        render: function () {
+          const panel = document.createElement("div");
+          panel.className = "ed-pop-panel ed-edge-panel";
+          const bgc = (state.canvas && state.canvas.background) || "#ffffff";
+          const opts = [["", "Straight"]].concat(Object.entries(edgeKinds()));
+          const ar = el.w / Math.max(1, el.h);
+          const tw = ar >= 1 ? 96 : Math.round(96 * ar), th = ar >= 1 ? Math.round(96 / ar) : 96;
+          panel.innerHTML = '<div class="ed-pop-row"><span>Edges</span></div><div class="ed-edge-grid"></div>';
+          const grid = panel.querySelector(".ed-edge-grid");
+          opts.forEach(function (o) {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "ed-edge-opt";
+            b.setAttribute("aria-pressed", String((el.edge || "") === o[0]));
+            const pic = document.createElement("span");
+            pic.className = "ed-edge-pic";
+            pic.style.background = bgc;
+            const im = document.createElement("img");
+            im.src = el.src; im.alt = ""; im.draggable = false;
+            im.style.width = tw + "px"; im.style.height = th + "px";
+            if (o[0]) {
+              const u = "url(" + edgeMask(o[0], el.w, el.h).url + ")";
+              im.style.webkitMaskImage = im.style.maskImage = u;
+              im.style.webkitMaskSize = im.style.maskSize = "100% 100%";
+            }
+            pic.appendChild(im);
+            b.appendChild(pic);
+            const lab = document.createElement("span");
+            lab.textContent = o[1];
+            b.appendChild(lab);
+            b.addEventListener("click", function () {
+              if ((el.edge || "") === o[0]) return;
+              if (o[0]) el.edge = o[0]; else delete el.edge;
+              grid.querySelectorAll(".ed-edge-opt").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+              pushHistory();
+              fullRender();
+            });
+            grid.appendChild(b);
+          });
+          return panel;
+        },
+      });
+      if (edgeOn(el)) {
+        const trig = edgeWrap.querySelector(".ed-pop-trigger");
+        if (trig) trig.classList.add("ed-fx-active");
+      }
+      ctxEl.appendChild(edgeWrap);
     }
 
     // Opacity — icon trigger, popover with a transparency slider.
