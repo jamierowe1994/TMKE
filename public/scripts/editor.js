@@ -6044,6 +6044,13 @@ import { createResizeEngine } from "./resize-engine.js";
     const EDGE = ["s", "m", "e"];
     const xs = [0, W / 2, W].map((v, i) => ({ v: v, page: true, k: EDGE[i] }));
     const ys = [0, H / 2, H].map((v, i) => ({ v: v, page: true, k: EDGE[i] }));
+    /* A folded card is two pages side by side (Dani, 17 Nov): the middle of
+       each half gets its line, and the fold counts as the edge of each half,
+       so a picture's edge lines up with it as well as its middle. */
+    if (isFolded(state.canvas)) {
+      xs.push({ v: W / 4, page: true, k: "m" }, { v: W * 3 / 4, page: true, k: "m" },
+        { v: W / 2, page: true, k: "e" }, { v: W / 2, page: true, k: "s" });
+    }
     const m = state.margins;
     if (m && m.on && m.size > 0) {
       if (m.size < W) xs.push({ v: m.size, page: true, k: "s" }, { v: W - m.size, page: true, k: "e" });
