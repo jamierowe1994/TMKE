@@ -16330,6 +16330,7 @@ import { createResizeEngine } from "./resize-engine.js";
       shadow.insertBefore(ov, guidesEl || null);
     }
     renderFoldGuide(shadow);
+    if (typeof window.__TMKE_ILL_SYNC__ === "function") window.__TMKE_ILL_SYNC__();
     const W = state.canvas.width, H = state.canvas.height;
     const key = state.safeZone;
     const def = key && SAFE_ZONES[key];
@@ -17145,13 +17146,15 @@ import { createResizeEngine } from "./resize-engine.js";
      out (Worker /illustrate, Nano Banana Pro). The Worker counts the goes and
      holds the key; this only shows how many are left, sends a smaller copy of
      the photo and puts the answer on the design and in Uploads. The tab stays
-     hidden unless the Worker says this member has goes (or is staff). Words
-     from the tmke-copywriter brief, 17 Nov. */
+     hidden unless the Worker says this member has goes (or is staff), and
+     only shows on a Christmas card, which for now means an A5 Folded Card
+     (Dani, 17 Nov: "I don't want them just using it willy-nilly on social
+     media posts"). Words from the tmke-copywriter brief, 17 Nov. */
   (function illustrate() {
     const tab = $("ed-ill-tab");
     if (!tab || typeof window.__TMKE_ILLUSTRATE__ !== "function") return;
     const C = {
-      intro: "Turn a listing photo into a watercolour Christmas illustration of the same house, with snow, a wreath and lit windows, and space above the roof for a title. It's made for the front of the A5 Folded Card, but you can add it to any design.",
+      intro: "Turn a listing photo into a watercolour Christmas illustration of the same house, with snow, a wreath and lit windows, and space above the roof for a title, ready for the front of your card.",
       dropTitle: "Choose a listing photo",
       dropSub: "Or drag one here. Landscape photos are fine.",
       change: "Choose another photo",
@@ -17269,12 +17272,24 @@ import { createResizeEngine } from "./resize-engine.js";
     let demo = false;
     try { demo = !!localStorage.getItem("tmke_demo") && new URLSearchParams(location.search).get("mode") !== "admin"; } catch (_) {}
     if (demo) return;
+    // On a folded card only. Checked on every render, since the design
+    // arrives after this runs and can be resized or swapped for another.
+    function sync() {
+      const show = !!me && (state.pages || []).some((p) => isFolded(p && p.canvas));
+      if (tab.hidden === !show) return;
+      tab.hidden = !show;
+      if (!show && tab.classList.contains("is-active")) {
+        const search = document.querySelector('.ed-ttab[data-itab="search"]');
+        if (search) search.click();
+      }
+    }
+    window.__TMKE_ILL_SYNC__ = sync;
     window.__TMKE_ILLUSTRATE__().then((r) => {
       if (!r || !r.ok || !r.ready || !r.on) return;
       if (!r.staff && !r.christmas && !r.monthly) return;
       me = r;
-      tab.hidden = false;
       paint();
+      sync();
     });
   })();
 
