@@ -4444,6 +4444,7 @@ import { createResizeEngine } from "./resize-engine.js";
         else if (el.imgPosX != null || el.imgPosY != null) {
           img.style.objectPosition = (el.imgPosX != null ? el.imgPosX : 50) + "% " + (el.imgPosY != null ? el.imgPosY : 50) + "%";
         }
+        if (el.imgFit !== "contain" && !standIn) applyImgZoom(img, el);
         node.appendChild(img);
       }
     } else if (el.type === "frame") {
@@ -4749,7 +4750,7 @@ import { createResizeEngine } from "./resize-engine.js";
       // Optional rounded corners — clip the photo to the (per-corner) radius.
       const r = frameRadiusCss(el);
       node.style.borderRadius = r;
-      node.style.overflow = r ? "hidden" : "";
+      node.style.overflow = (r || el.imgZoom > 1) ? "hidden" : "";
       /* An agent photo slot can carry a colour behind the person: the photos
          are cut-outs with clear backgrounds, so the box needs one of its own
          (Dani, 13 Oct). Painted here and in the download alike. */
@@ -9857,6 +9858,25 @@ import { createResizeEngine } from "./resize-engine.js";
       d[i + 3] = Math.round(d[i + 3] * edgeStep(T * 0.55, T * 1.25, dist(i)));
     }
     fg.putImageData(px, 0, 0);
+    /* Falling snow across the whole picture (Dani, 17 Nov: "the snow seems
+       to stop around the house... it would be nice if it was within the
+       picture frame"). The illustrator only paints flakes near the house, so
+       once its background is out the snow stopped there. Soft white flakes,
+       placed only where the background was taken out, so the house is no
+       busier than it was; the same picture always gets the same flakes. */
+    let seed = 20261217;
+    const rnd = () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const flakes = Math.round(W * H * 0.00012);
+    for (let n = 0; n < flakes; n++) {
+      const x = rnd() * W, y = rnd() * H, r = W * (0.0015 + rnd() * rnd() * 0.004), o = 0.55 + rnd() * 0.4;
+      if (d[(((y | 0) * W) + (x | 0)) * 4 + 3] > 128) continue;   // on the house or the ground: leave it
+      const grad = fg.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0, "rgba(255,255,255," + o + ")");
+      grad.addColorStop(0.55, "rgba(255,255,255," + (o * 0.85) + ")");
+      grad.addColorStop(1, "rgba(255,255,255,0)");
+      fg.fillStyle = grad;
+      fg.beginPath(); fg.arc(x, y, r, 0, Math.PI * 2); fg.fill();
+    }
     return full;
   }
   // The see-through copy of an illustration, saved to the member's uploads.
@@ -9962,7 +9982,8 @@ import { createResizeEngine } from "./resize-engine.js";
         ctx.clip();
         const nw = img.naturalWidth, nh = img.naturalHeight;
         if (nw && nh) {
-          const k = Math.max(el.w / nw, el.h / nh);
+          // Zoomed with Reposition: bigger about the same point (applyImgZoom).
+          const k = Math.max(el.w / nw, el.h / nh) * (el.imgZoom > 1 ? el.imgZoom : 1);
           const dw = nw * k, dh = nh * k;
           const px = (el.imgPosX != null ? el.imgPosX : 50) / 100;
           const py = (el.imgPosY != null ? el.imgPosY : 50) / 100;
@@ -15696,6 +15717,17 @@ import { createResizeEngine } from "./resize-engine.js";
     if (el.type === "image") enterImageReposition(el, node);
   }
   let _imgRepo = null;
+  /* Zoomed in with Reposition (Dani, 17 Nov: "I don't seem to be able to
+     zoom when I click and reposition the image"). The photo still fills its
+     box (cover), made bigger about the point Reposition has it at, so moving
+     and zooming work together; the download draws it the same way
+     (drawImageElement). 1 is as it was; up to 4 times. */
+  function applyImgZoom(img, el) {
+    const z = el.imgZoom > 1 ? el.imgZoom : 1;
+    if (z === 1) { img.style.transform = ""; img.style.transformOrigin = ""; return; }
+    img.style.transformOrigin = (el.imgPosX != null ? el.imgPosX : 50) + "% " + (el.imgPosY != null ? el.imgPosY : 50) + "%";
+    img.style.transform = "scale(" + z + ")";
+  }
   function enterImageReposition(el, node) {
     if ((el.imgFit === "contain" || standInFor(el)) && el.brandRole === "photo") { enterCutoutReposition(el, node); return; }
     if (el.imgFit === "contain") return;
@@ -15704,16 +15736,22 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!img || !img.naturalWidth || !img.naturalHeight) { toast("The photo is still loading \u2014 try again in a moment."); return; }
     const cl = (v, a, b) => Math.max(a, Math.min(b, v));
     const room = () => {
-      const k = Math.max(el.w / img.naturalWidth, el.h / img.naturalHeight);
+      const k = Math.max(el.w / img.naturalWidth, el.h / img.naturalHeight) * (el.imgZoom > 1 ? el.imgZoom : 1);
       return { x: img.naturalWidth * k - el.w, y: img.naturalHeight * k - el.h };
     };
-    const r0 = room();
-    if (r0.x < 1 && r0.y < 1) {
-      toast("This photo exactly fills its box, so there is nothing hidden to move into view. Make the box wider or taller first.", 4200);
-      return;
-    }
+    // Scrolling zooms, so a photo that exactly fills its box can still be
+    // zoomed into and then moved (it used to be turned away here).
     node.classList.add("is-img-repositioning");
-    toast("Drag the photo to move it inside its box \u2014 click away, or press Enter or Esc, when done.", 3600);
+    node.style.overflow = "hidden";
+    toast("Drag the photo to move it inside its box, scroll to zoom in or out \u2014 click away, or press Enter or Esc, when done.", 3600);
+    function wheel(ev) {
+      if (!node.contains(ev.target)) return;
+      ev.preventDefault(); ev.stopPropagation();
+      const f = ev.deltaY < 0 ? 1.05 : 1 / 1.05;
+      const z = Math.round(Math.max(1, Math.min(4, (el.imgZoom > 1 ? el.imgZoom : 1) * f)) * 1000) / 1000;
+      if (z > 1) el.imgZoom = z; else delete el.imgZoom;
+      applyImgZoom(img, el);
+    }
     let dragging = false, lx = 0, ly = 0;
     function down(ev) {
       if (ev.button !== 0 || !node.contains(ev.target)) return;
@@ -15731,12 +15769,14 @@ import { createResizeEngine } from "./resize-engine.js";
       if (r.x > 1) el.imgPosX = Math.round(cl(px - dX / r.x * 100, 0, 100) * 10) / 10;
       if (r.y > 1) el.imgPosY = Math.round(cl(py - dY / r.y * 100, 0, 100) * 10) / 10;
       img.style.objectPosition = (el.imgPosX != null ? el.imgPosX : 50) + "% " + (el.imgPosY != null ? el.imgPosY : 50) + "%";
+      applyImgZoom(img, el);
     }
     function up() { dragging = false; }
     function key(ev) { if (ev.key === "Escape" || ev.key === "Enter") { ev.preventDefault(); ev.stopPropagation(); exit(); } }
     function outside(ev) { if (!node.contains(ev.target)) exit(); }
     function exit() {
       _imgRepo = null;
+      canvasEl.removeEventListener("wheel", wheel, true);
       canvasEl.removeEventListener("pointerdown", down, true);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
@@ -15746,6 +15786,7 @@ import { createResizeEngine } from "./resize-engine.js";
       pushHistory();
       fullRender();
     }
+    canvasEl.addEventListener("wheel", wheel, { capture: true, passive: false });
     canvasEl.addEventListener("pointerdown", down, true);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -17511,21 +17552,33 @@ import { createResizeEngine } from "./resize-engine.js";
        and don't use a go on a colour they don't want (Dani, 17 Nov). One undo
        step. Done again when the illustration is made, in case the outside was
        changed in between. The inside stays as it is. */
-    /* The words on the front follow the colour too (Dani, 17 Nov): black on
-       Neutral Grey and Neutral Beige, white on Neutral Pink and Forest Green.
-       Every text box whose middle sits on the front half; a colour set on
-       part of the words goes as well, so the whole box is one colour. The
-       back and the inside are left alone. */
-    const TEXT_ON = { grey: "#000000", beige: "#000000", pink: "#ffffff", forest: "#ffffff" };
+    /* The words follow the colour too (Dani, 17 Nov): #3B3B3C on Neutral
+       Grey, #371E28 on Neutral Beige, #56423E on Neutral Pink, white on
+       Forest Green. Everything
+       drawn in one colour on the outside of the card, back and front: every
+       text box (a colour set on part of the words goes as well, so the whole
+       box is one colour), the lines (the rules either side of Season's
+       Greetings), thin bars and the small icons beside the contact details.
+       First only the front's words changed, so on grey or beige the white
+       name and contact details on the back disappeared and the rules stayed
+       white. Pictures, photo slots and the QR code are left alone, and so is
+       the inside. */
+    // Dani's own pairings, 17 Nov.
+    const TEXT_ON = { grey: "#3b3b3c", beige: "#371e28", pink: "#56423e", forest: "#ffffff" };
     function inkFor(hex) {
       if (TEXT_ON[bg]) return TEXT_ON[bg];
       const n = parseInt(String(hex).slice(1), 16);
       const l = (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
       return l > 0.6 ? "#000000" : "#ffffff";
     }
-    const frontWords = (pg) => (pg.elements || []).filter((o) => o.type === "text" && o.x + o.w / 2 >= pg.canvas.width / 2);
-    const inkWrong = (o, ink) => String(o.color || "").toLowerCase() !== ink || (Array.isArray(o.runs) && o.runs.some((r) => r.color));
+    const thinBar = (o, pg) => o.type === "rect" && Math.min(o.w, o.h) <= pg.canvas.width * 0.006;
+    const inked = (pg) => (pg.elements || []).filter((o) => !o.hidden &&
+      (o.type === "text" || o.type === "line" || thinBar(o, pg) || (o.type === "image" && o.svgKey)));
+    const inkOf = (o) => String((o.type === "text" ? o.color : o.type === "image" ? o.svgFill : o.fill) || "").toLowerCase();
+    const inkWrong = (o, ink) => inkOf(o) !== ink || (o.type === "text" && Array.isArray(o.runs) && o.runs.some((r) => r.color));
     function inkTo(o, ink) {
+      if (o.type === "image") { o.svgFill = ink; restyleSvgElement(o); return; }
+      if (o.type !== "text") { o.fill = ink; return; }
       o.color = ink;
       if (Array.isArray(o.runs) && o.runs.length) {
         const runs = o.runs.map((r) => { const c = Object.assign({}, r); delete c.color; return c; });
@@ -17538,12 +17591,12 @@ import { createResizeEngine } from "./resize-engine.js";
       const ink = inkFor(hex);
       const outside = state.pages.map((p, i) => i).filter((i) => isFolded(state.pages[i].canvas) && state.pages[i].canvas.fold !== "inside");
       const needs = (i) => String(state.pages[i].canvas.background || "").toLowerCase() !== hex.toLowerCase() ||
-        frontWords(state.pages[i]).some((o) => inkWrong(o, ink));
+        inked(state.pages[i]).some((o) => inkWrong(o, ink));
       if (!outside.some(needs)) return;
       const before = snapshotPages(), cur = state.currentPage;
       outside.forEach((i) => {
         state.pages[i].canvas.background = hex;
-        frontWords(state.pages[i]).forEach((o) => inkTo(o, ink));
+        inked(state.pages[i]).forEach((o) => inkTo(o, ink));
       });
       pushDesignHistory(before, cur);
       fullRender();
