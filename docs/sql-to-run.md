@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-Nothing waiting.
+- [ ] supabase/report_tpe_ppe_studio.sql — report only, changes nothing: every live TPE and PPE agent with a Hub account, their print and first-design training, designs saved (print counted separately), planner posts and downloads. For Sam. Download the result as CSV (17 Nov)
 
 ## Done
 
