@@ -6061,7 +6061,8 @@ import { createResizeEngine } from "./resize-engine.js";
        each half gets its line, and the fold counts as the edge of each half,
        so a picture's edge lines up with it as well as its middle. */
     if (isFolded(state.canvas)) {
-      xs[1].strong = true;
+      // The page's own edges are as strong as the fold (Dani, 17 Nov).
+      xs[0].strong = xs[1].strong = xs[2].strong = ys[0].strong = ys[2].strong = true;
       xs.push({ v: W / 4, page: true, k: "m" }, { v: W * 3 / 4, page: true, k: "m" },
         { v: W / 2, page: true, k: "e", strong: true }, { v: W / 2, page: true, k: "s", strong: true });
     }
@@ -6188,8 +6189,8 @@ import { createResizeEngine } from "./resize-engine.js";
     const skip = new Set(els.map((e) => e.id));
     const others = state.elements.filter((o) => !skip.has(o.id) && !o.hidden);
     const x0 = box.x, y0 = box.y;
-    spacingOnAxis(box, others, "x");
-    spacingOnAxis(box, others, "y");
+    if (!onPageLine(box, "x")) spacingOnAxis(box, others, "x");
+    if (!onPageLine(box, "y")) spacingOnAxis(box, others, "y");
     shiftAll(els, box.x - x0, box.y - y0);
   }
 
@@ -6212,10 +6213,22 @@ import { createResizeEngine } from "./resize-engine.js";
     guidesEl.appendChild(line);
     guidesEl.appendChild(badge);
   }
+  /* A page line (an edge, the middle, a folded card's fold or the middle of
+     each half) wins over equal spacing. The spacing snap runs after the edge
+     snap, and it used to move a picture straight back off the fold or the
+     page edge to match a gap somewhere else, even one between things on the
+     back of the card (Dani, 17 Nov: "it's still really struggling to locate,
+     even to just sit on the end of the page"). So on an axis where the
+     element already sits on a page line, spacing leaves it alone. */
+  function onPageLine(el, axis) {
+    const t = snapTargets(el);
+    const pts = axis === "x" ? [el.x, el.x + el.w / 2, el.x + el.w] : [el.y, el.y + el.h / 2, el.y + el.h];
+    return (axis === "x" ? t.xs : t.ys).some((tg) => tg.page && pts.some((v) => Math.abs(tg.v - v) <= 0.5));
+  }
   function drawDistances(el) {
     const others = state.elements.filter((o) => o.id !== el.id && !o.hidden);
-    spacingOnAxis(el, others, "x");
-    spacingOnAxis(el, others, "y");
+    if (!onPageLine(el, "x")) spacingOnAxis(el, others, "x");
+    if (!onPageLine(el, "y")) spacingOnAxis(el, others, "y");
   }
   function spacingOnAxis(el, others, axis) {
     const S = axis === "x" ? "x" : "y", Z = axis === "x" ? "w" : "h";
