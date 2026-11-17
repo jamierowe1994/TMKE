@@ -8212,7 +8212,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const cs = getComputedStyle(stageEl);
     const padX = window.innerWidth <= 760 ? 28 : parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     // A Share banner above the design adds its height to the top (data-bar-room).
-    const padY = window.innerWidth <= 760 ? 28 + (parseFloat(stageEl.dataset.barRoom) || 0) : parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    const padY = window.innerWidth <= 760 ? 28 + (parseFloat(stageEl.dataset.barRoom) || 0) + (stageEl.dataset.fold === "1" ? 38 : 0) : parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
     // Not laid out yet: the observer below fits it once it is.
     if (stageRect.width <= padX + 40 || stageRect.height <= padY + 40) { _zoomFitted = true; return; }
     const zw = (stageRect.width - padX) / state.canvas.width;
@@ -16284,7 +16284,15 @@ import { createResizeEngine } from "./resize-engine.js";
       shadow.insertBefore(fg, guidesEl || null);
     }
     fg.innerHTML = "";
-    if (!isFolded(state.canvas)) { fg.hidden = true; return; }
+    /* The labels sit above the card, not on it (Dani, 17 Nov: they could get
+       in the way of a design), so the stage keeps room for them at the top
+       while a folded card is open (.ed-stage[data-fold] in editor.astro). */
+    const folded = isFolded(state.canvas);
+    if (folded !== (stageEl.dataset.fold === "1")) {
+      if (folded) stageEl.dataset.fold = "1"; else delete stageEl.dataset.fold;
+      if (_zoomFitted) requestAnimationFrame(fitZoom);
+    }
+    if (!folded) { fg.hidden = true; return; }
     fg.hidden = false;
     const W = state.canvas.width, H = state.canvas.height;
     const fs = Math.round(Math.min(W, H) / 1080 * 34);
@@ -16304,14 +16312,13 @@ import { createResizeEngine } from "./resize-engine.js";
     line.style.left = (W / 2) + "px";
     line.style.borderLeftWidth = Math.max(2, Math.round(W / 1200)) + "px";
     fg.appendChild(line);
+    // Above each half, at the hub's button size whatever the zoom (--ez).
     const names = state.canvas.fold === "inside" ? ["Inside left", "Inside right"] : ["Back", "Front"];
     names.forEach(function (n, i) {
       const tag = document.createElement("span");
       tag.className = "ed-foldguide-tag";
       tag.textContent = n;
-      tag.style.fontSize = fs + "px";
       tag.style.left = (W / 4 + i * W / 2) + "px";
-      tag.style.top = Math.round(H * 0.025) + "px";
       fg.appendChild(tag);
     });
   }

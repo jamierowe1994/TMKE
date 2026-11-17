@@ -3569,6 +3569,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-ill-result { display: block; width: 100%; padding: 0; margin: 0 0 12px; border: 1px solid #e2d9d4; border-radius: 4px; background: #f7f4f2; cursor: copy; overflow: hidden; }
     .ed-ill-result img { display: block; width: 100%; height: auto; }
     .ed-ill-tips { margin-top: 4px; }
+    /* Their display rules beat the hidden attribute, so say it outright. */
+    .ed-ill-photo[hidden], .ed-ill-result[hidden], #ed-ill-drop[hidden] { display: none; }
     .ed-upload-drop strong { font-family: var(--sans); font-size: var(--ws-t-row); font-weight: 600; color: var(--english-violet); }
     .ed-upload-drop span { font-size: var(--ws-t-meta); color: rgba(28,29,34,0.55); }
     .ed-upload-drop:hover, .ed-upload-drop.is-drag {
@@ -5046,7 +5048,12 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-foldguide-line { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed rgba(55, 30, 40, 0.75); transform: translateX(-50%); }
     .ed-foldguide-band { position: absolute; top: 0; bottom: 0; background: rgba(214, 64, 69, 0.14); display: flex; align-items: center; justify-content: center; }
     .ed-foldguide-band span { writing-mode: vertical-rl; font-family: var(--sans); font-weight: 700; color: rgba(166, 40, 45, 0.95); white-space: nowrap; }
-    .ed-foldguide-tag { position: absolute; transform: translateX(-50%); font-family: var(--sans); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; background: rgba(55, 30, 40, 0.82); padding: 0.35em 0.8em; border-radius: 0.4em; white-space: nowrap; }
+    /* Above the card, the hub's button size on screen at any zoom: --ez is 1/zoom. */
+    .ed-foldguide-tag { position: absolute; top: 0; transform-origin: 0 0; transform: scale(var(--ez, 1)) translate(-50%, calc(-100% - 8px)); display: inline-flex; align-items: center; height: 30px; padding: 0 14px; box-sizing: border-box; border-radius: 6px; background: var(--english-violet, #371e28); color: #fff; font-family: var(--sans); font-size: 11px; font-weight: 600; line-height: 1; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+    /* Room above a folded card for those labels: 38px on top of the usual. */
+    .ed-stage[data-fold] { padding-top: 78px; }
+    @media (min-width: 761px) { .ed-stage[data-fold] { padding-top: 66px; } }
+    @media (max-width: 760px) { .ed-stage[data-fold] { padding-top: 52px; } }
     .ed-safezone {
       position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
       background: repeating-linear-gradient(135deg, rgba(214, 64, 69, 0.16) 0 14px, rgba(214, 64, 69, 0.06) 14px 28px);
