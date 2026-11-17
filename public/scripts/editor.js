@@ -1388,6 +1388,13 @@ import { createResizeEngine } from "./resize-engine.js";
     };
     if (!isGradient) {
       o.onSolid = function (hex) { el.fill = hex; el.fillGradient = null; };
+      /* A see-through middle for a shape (Dani, 17 Nov): turning a box's
+         opacity down to 0 took its border with it, so a box that was only
+         ever a border couldn't be made. "transparent" is a fill like any
+         other: the border stays, the middle shows what's behind it. */
+      // Boxes and circles: they have a border. A triangle or star has none,
+      // so with no fill it would vanish.
+      if (el.type === "rect" || el.type === "ellipse") o.clear = true;
     }
     return o;
   }
@@ -1419,7 +1426,11 @@ import { createResizeEngine } from "./resize-engine.js";
     // Named so the context bar can reopen this same swatch against the next
     // element — recolouring a run of items is why the panel is open at all.
     const swatchKey = opts.key || ("colour:" + (opts.title || "Colour"));
-    const paint = () => { btn.style.background = getCurrent() || "#000000"; };
+    const paint = () => {
+      const c = getCurrent();
+      btn.classList.toggle("is-clear", c === "transparent");
+      btn.style.background = c === "transparent" ? "" : (c || "#000000");
+    };
     paint();
     function show() {
       _openColorKey = swatchKey;
@@ -1427,6 +1438,7 @@ import { createResizeEngine } from "./resize-engine.js";
         title: opts.title || "Colour",
         current: getCurrent(),
         currentGradient: opts.getGradient ? opts.getGradient() : null,
+        clear: !!opts.clear,
         // Conditional, exactly like onGradient below. Wrapping unconditionally
         // meant the panel always believed a solid could be applied — so a
         // gradient still got the whole wall of flat swatches, and clicking one
@@ -1793,7 +1805,9 @@ import { createResizeEngine } from "./resize-engine.js";
             sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') +
             // One line of them (Dani, 3 Nov: the panel was "crazy busy").
             (recent.length ? sec("Recently used", grid(recent.map(swHtml), " ed-cpop-line")) : "") +
-            sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) +
+            sec("Default colours", grid((opts.clear
+              ? ['<button class="ed-cp-sw ed-cp-sw--clear' + (opts.current === "transparent" ? " is-current" : "") + '" data-hex="transparent" title="Transparent: no fill, the border stays" aria-label="Transparent"></button>']
+              : []).concat(CP_DEFAULT_SOLIDS.map(swHtml)))) +
             sec("Add a colour", '<div data-mount="picker"></div>')
           : "") +
         (panel._onGradient ? sec("Gradients", grid(CP_DEFAULT_GRADS.map(gradHtml), " ed-cp-grid--grad")) : "") +
@@ -8688,6 +8702,13 @@ import { createResizeEngine } from "./resize-engine.js";
         ctx.beginPath();
         ctx.ellipse(el.w / 2, el.h / 2, el.w / 2, el.h / 2, 0, 0, Math.PI * 2);
         ctx.fill();
+        // Its border, as on screen and as a box's (it was left out, so a
+        // ring with a see-through middle downloaded as nothing).
+        if (el.strokeWidth && el.stroke && el.stroke !== "transparent") {
+          ctx.lineWidth = el.strokeWidth;
+          ctx.strokeStyle = el.stroke;
+          ctx.stroke();
+        }
       } else if (el.type === "triangle") {
         ctx.fillStyle = shapeCanvasFill(ctx, el);
         ctx.beginPath();
