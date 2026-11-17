@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/training_progress_reporting.sql — training ready for reporting: a member's course progress only goes forward (reopening a finished course used to reset it to part 1), the first finish date is kept, and the team can read everyone's progress for a later training report. Changes nobody's progress. Sends nothing (17 Nov)
 - [ ] supabase/report_tpe_ppe_studio.sql — report only, changes nothing: every live TPE and PPE agent with a Hub account, their print and first-design training, designs saved (print counted separately), planner posts and downloads. For Sam. Download the result as CSV (17 Nov)
 
 ## Done

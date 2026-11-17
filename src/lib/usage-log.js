@@ -20,6 +20,9 @@
  *   design_opened one of our templates opened in the Studio, once a visit
  *   copy_saved    their own copy of a template saved for the first time
  *   downloaded    a design downloaded
+ *   course_part      a new part of a training course reached ({ course, part, of })
+ *   course_completed a training course finished for the first time ({ course, of })
+ *   guide_read       a training article read for the first time ({ course })
  */
 import { supabase, isConfigured } from "./supabase.js";
 import { isDemo } from "./demo.js";

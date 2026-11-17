@@ -488,6 +488,7 @@ const DEFAULT_COVER = (await getImage({
   <script>
     import { isDemo as demoOn, lock } from "../../../lib/demo.js";
     import { supabase } from "../../../lib/supabase.js";
+    import { logUsage } from "../../../lib/usage-log.js";
     import { GUIDE_TOPIC_MAP } from "../../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../../data/content-ideas-guide.js";
     import { TRAINING_GUIDES, PRINT_GUIDES } from "../../../data/training-guides.js";
@@ -502,11 +503,43 @@ const DEFAULT_COVER = (await getImage({
 
     // Persist how far the member has got. One row per (member, guide); we only
     // ever push the furthest point forward, and flip completed once at the end.
+    /* Forward only (Danielle, 17 Nov 2026: training should be reportable).
+       Reopening a course used to save it again from part 1, so a finished
+       course went back to "Part 1, not finished". Now the saved row is read
+       first and never goes backwards, and the first finish date is kept
+       (training_progress_reporting.sql makes the database hold to that too).
+       Each new part reached and each first finish also goes in the usage log,
+       so a training report can later say when, and where people stop. */
+    const SAVED = new Map();     // slug -> Promise of { furthest, completed }
+    function savedFor(slug) {
+      if (!SAVED.has(slug)) SAVED.set(slug, (async () => {
+        try {
+          const { data } = await supabase.from("guide_progress").select("furthest, completed")
+            .eq("user_id", USER_ID).eq("guide_slug", slug).maybeSingle();
+          return { furthest: (data && data.furthest) || 0, completed: !!(data && data.completed) };
+        } catch (_) { return { furthest: 0, completed: false }; }
+      })());
+      return SAVED.get(slug);
+    }
     async function saveProgress(slug, { furthest, total, completed }) {
       if (!USER_ID || !slug) return;
-      const row = { user_id: USER_ID, guide_slug: slug, furthest, total, completed };
-      if (completed) row.completed_at = new Date().toISOString();
-      try { await supabase.from("guide_progress").upsert(row, { onConflict: "user_id,guide_slug" }); } catch (_) {}
+      // One save at a time per guide, so quick clicks can't overtake each other.
+      const prev = SAVED.get(slug + ":chain") || Promise.resolve();
+      const next = prev.then(async () => {
+        const was = await savedFor(slug);
+        const now = { furthest: Math.max(was.furthest, furthest), completed: was.completed || !!completed };
+        if (now.furthest === was.furthest && now.completed === was.completed && was.furthest > 0) return;
+        const row = { user_id: USER_ID, guide_slug: slug, furthest: now.furthest, total, completed: now.completed };
+        if (now.completed && !was.completed) row.completed_at = new Date().toISOString();
+        try { await supabase.from("guide_progress").upsert(row, { onConflict: "user_id,guide_slug" }); } catch (_) {}
+        if (total > 0) {
+          for (let part = was.furthest + 1; part <= Math.min(now.furthest, total); part++) logUsage("course_part", { detail: { course: slug, part, of: total } });
+          if (now.completed && !was.completed) logUsage("course_completed", { detail: { course: slug, of: total } });
+        } else if (!was.completed && now.completed) logUsage("guide_read", { detail: { course: slug } });
+        SAVED.set(slug, Promise.resolve(now));
+      });
+      SAVED.set(slug + ":chain", next.catch(() => {}));
+      return next;
     }
 
     // Dev-only samples so both templates are viewable without a DB/session.
