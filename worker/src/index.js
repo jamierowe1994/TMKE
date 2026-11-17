@@ -6360,9 +6360,26 @@ const ILL_MODEL = "fal-ai/nano-banana-pro/edit";
 const ILL_STYLES = {
   christmas: {
     label: "Christmas watercolour",
-    prompt: "Turn this photo into a hand-painted Christmas card illustration of the same house. Keep the house exactly as it is in the photo: the same shape and roofline, the same number and position of windows and doors, the same window frames, brick or render colours, porch, bay windows and chimneys. It must be recognisably this house. Style: soft watercolour and gouache with fine ink detail, warm and cosy, like a premium British Christmas card. The background is plain warm cream paper, with no sky colour. Make it Christmas: a light covering of snow on the roof, window sills, walls and garden; a green wreath with a red bow on the front door; warm golden light in the windows with a small decorated Christmas tree in one; a festive garland around the porch or along the gate; two small snow-dusted potted fir trees by the door; gently falling snow. Leave out cars, caravans, wheelie bins, alarm boxes, satellite dishes, cables, people and driveway clutter. Fade the neighbouring houses away so this house stands on its own. Portrait composition for the front of a greetings card: the house centred in the lower two thirds, a snowy foreground at the bottom, and calm empty space above the roof for a title. No text, no lettering, no house number, no border, no frame.",
+    prompt: "Turn this photo into a hand-painted Christmas card illustration of the same house. Keep the house exactly as it is in the photo: the same shape and roofline, the same number and position of windows and doors, the same window frames, brick or render colours, porch, bay windows and chimneys. It must be recognisably this house. Style: soft watercolour and gouache with fine ink detail, warm and cosy, like a premium British Christmas card. {background} Make it Christmas: a light covering of snow on the roof, window sills, walls and garden; a green wreath with a red bow on the front door; warm golden light in the windows with a small decorated Christmas tree in one; a festive garland around the porch or along the gate; two small snow-dusted potted fir trees by the door; gently falling snow. Leave out cars, caravans, wheelie bins, alarm boxes, satellite dishes, cables, people and driveway clutter. Fade the neighbouring houses away so this house stands on its own. Portrait composition for the front of a greetings card: the house centred in the lower two thirds, a snowy foreground at the bottom, and calm empty space above the roof for a title. No text, no lettering, no house number, no border, no frame.",
   },
 };
+/* The background the member picks (Danielle, 17 Nov: her three neutrals and
+   forest green, chosen in the Studio, built into the prompt; cream felt dated). Neutral, so the
+   painting carries the colour and the brand colour goes on the back. */
+const ILL_BACKGROUNDS = {
+  grey:   { label: "Neutral Grey",  hex: "#F1F1F1", words: "a soft neutral light grey" },
+  pink:   { label: "Neutral Pink",  hex: "#c4a092", words: "a dusky muted pink" },
+  beige:  { label: "Neutral Beige", hex: "#eae5e1", words: "a soft warm light beige" },
+  // A daytime painting looks wrong on a dark ground: on forest green it's
+  // early evening, windows glowing and the snow bright against it.
+  forest: { label: "Forest Green",  hex: "#2e3f34", words: "a deep forest green", evening: true },
+};
+function illPrompt(style, bg) {
+  const b = ILL_BACKGROUNDS[bg] || ILL_BACKGROUNDS.grey;
+  return ILL_STYLES[style].prompt.replace("{background}",
+    `The background is one flat, even colour, ${b.words} (${b.hex}), filling the whole picture edge to edge, with no sky colour and no paper border.`
+    + (b.evening ? " It is early evening: the windows glow warm gold, a lantern by the door is lit, and the snow on the roof and ground is bright white against the dark background." : ""));
+}
 const ILL_DEFAULTS = { christmas_goes: 5, christmas_until: "2026-12-31", monthly_goes: { scheduling: 5, done_for_you: 15 },
   cap_gbp: 50, cost_usd: 0.15, usd_to_gbp: 0.79, paused: false, cap_told_month: null };
 
@@ -9204,7 +9221,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const al = await illAllowance(env, user, S);
         const resting = S.paused || (S.cap_gbp > 0 && (await illMonthSpend(env, S)) >= S.cap_gbp);
         return json({ ok: true, ready: true, on: !!env.FAL_KEY, resting, ...al,
-          styles: Object.entries(ILL_STYLES).map(([k, v]) => ({ key: k, label: v.label })) }, 200, request, env);
+          styles: Object.entries(ILL_STYLES).map(([k, v]) => ({ key: k, label: v.label })),
+          backgrounds: Object.entries(ILL_BACKGROUNDS).map(([k, v]) => ({ key: k, label: v.label, hex: v.hex })) }, 200, request, env);
       }
 
       // One go: { photo: data:image/jpeg;base64,..., style }. Answers with the
@@ -9217,6 +9235,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         let b = {};
         try { b = await request.json(); } catch (_) {}
         const style = ILL_STYLES[b.style] ? b.style : "christmas";
+        const bg = ILL_BACKGROUNDS[b.background] ? b.background : "grey";
         const photo = String(b.photo || "");
         if (!/^data:image\/(jpeg|png|webp);base64,/.test(photo)) return json({ error: "Choose a photo of the property first." }, 400, request, env);
         if (photo.length > 8 * 1024 * 1024) return json({ error: "That photo is too big. Try one under 5MB." }, 413, request, env);
@@ -9236,7 +9255,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const al = await illAllowance(env, user, S);
         if (!al.pool) return json({ error: al.monthly ? "You've used this month's goes. You'll have more on the 1st." : al.christmas ? "You've used all your Christmas goes." : "Illustrations aren't part of your plan.", allowance: al }, 403, request, env);
         // The go is counted before it starts, so two tabs can't share one.
-        const ins = await sbPost(env, "illustration_runs", { user_id: user.id, pool: al.pool, style, status: "pending" }, "return=representation");
+        const ins = await sbPost(env, "illustration_runs", { user_id: user.id, pool: al.pool, style: `${style}/${bg}`, status: "pending" }, "return=representation");
         const run = ins && ins.ok ? ((await ins.json().catch(() => [])) || [])[0] : null;
         if (!run) return json({ error: "Couldn't start the illustration. Try again in a moment." }, 502, request, env);
         const t0 = Date.now();
@@ -9248,7 +9267,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           const r = await fetch(`https://fal.run/${ILL_MODEL}`, {
             method: "POST",
             headers: { Authorization: `Key ${env.FAL_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: ILL_STYLES[style].prompt, image_urls: [photo], aspect_ratio: "3:4", resolution: "2K", output_format: "jpeg" }),
+            body: JSON.stringify({ prompt: illPrompt(style, bg), image_urls: [photo], aspect_ratio: "3:4", resolution: "2K", output_format: "jpeg" }),
           });
           const txt = await r.text();
           if (!r.ok) return await fail(`fal ${r.status}: ${txt.slice(0, 300)}`);

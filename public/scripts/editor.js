@@ -17189,7 +17189,32 @@ import { createResizeEngine } from "./resize-engine.js";
     $("ed-ill-go").textContent = C.go;
     $("ed-ill-tips").textContent = C.tips;
 
-    let me = null, photo = null, busy = false, lastUrl = null;
+    let me = null, photo = null, busy = false, lastUrl = null, bg = null;
+    try { bg = localStorage.getItem("tmke.illBg"); } catch (_) {}
+    // Four swatches from the Worker's list, the last one chosen remembered.
+    function paintBackgrounds() {
+      const list = (me && me.backgrounds) || [];
+      const wrap = $("ed-ill-bg"), row = $("ed-ill-bg-row");
+      wrap.hidden = !list.length;
+      if (!list.length) return;
+      if (!list.some((b) => b.key === bg)) bg = list[0].key;
+      row.innerHTML = "";
+      list.forEach((b) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "ed-ill-sw";
+        btn.setAttribute("role", "radio");
+        btn.setAttribute("aria-checked", String(b.key === bg));
+        btn.innerHTML = '<i style="background:' + b.hex + '"></i>';
+        btn.appendChild(document.createTextNode(b.label));
+        btn.addEventListener("click", () => {
+          bg = b.key;
+          try { localStorage.setItem("tmke.illBg", bg); } catch (_) {}
+          paintBackgrounds();
+        });
+        row.appendChild(btn);
+      });
+    }
     const status = (text, kind) => {
       const el = $("ed-ill-status");
       el.textContent = text || "";
@@ -17258,7 +17283,7 @@ import { createResizeEngine } from "./resize-engine.js";
       if (busy || !photo || !canGo()) return;
       if (demoLocked("Illustrations are for members.", "In the demo, change the words, pictures and colours of a template and see how the Studio feels.")) return;
       busy = true; paint(); status(C.working, "working");
-      const out = await window.__TMKE_ILLUSTRATE__({ photo, style: "christmas" });
+      const out = await window.__TMKE_ILLUSTRATE__({ photo, style: "christmas", background: bg });
       busy = false;
       if (out && out.allowance) Object.assign(me, out.allowance);
       if (out && out.resting) me.resting = true;
@@ -17295,6 +17320,7 @@ import { createResizeEngine } from "./resize-engine.js";
       if (!r || !r.ok || !r.ready || !r.on) return;
       if (!r.staff && !r.christmas && !r.monthly) return;
       me = r;
+      paintBackgrounds();
       paint();
       sync();
     });
