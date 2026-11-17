@@ -20,6 +20,8 @@
 
 export const PRINT_DPI = 300;
 export const PRINT_MARGIN_MM = 3;
+// Words and logos stay this far either side of a card's fold (printers ask 3-6mm).
+export const FOLD_MARGIN_MM = 5;
 
 const px = (mm) => Math.round((mm * PRINT_DPI) / 25.4);
 const print = (name, wMm, hMm) => ({
@@ -71,6 +73,15 @@ export const STUDIO_SIZES = [
       // A5 portrait is also the standard A5 postcard.
       print("A5 Portrait", 148, 210),
       print("A5 Landscape", 210, 148),
+      /* A folded card (Dani, 17 Nov: Christmas cards). Printed flat on A4
+         landscape and folded down the middle to A5, so the canvas is the
+         flat sheet: two pages, the outside (back on the left, front on the
+         right) and the inside. `fold` is what tells it from A4 Landscape,
+         which is the same size; the Studio draws the fold and labels the
+         halves, and the print-ready PDF marks the fold outside the card.
+         It is a way to start a design, not a size to resize into, so the
+         Resize panel leaves it out. */
+      Object.assign(print("A5 Folded Card", 297, 210), { mm: "Folds to 148 × 210 mm", fold: true }),
       /* A6 is the postcard size, and a postcard is as often landscape as it
          is upright -- an invitation with a cut-out down one edge and the copy
          beside it only works the wide way round. Both, like A4 and A5, and

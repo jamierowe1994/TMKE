@@ -3137,8 +3137,18 @@ import { createResizeEngine } from "./resize-engine.js";
   // and because the violet it used to be belongs to no palette we use. The
   // "Start building here" hint is DOM-only (see fullRender), so it never lands
   // in an export.
-  function loadBlank(w, h) {
+  function loadBlank(w, h, fold) {
     resetToSinglePage("#ffffff", w, h);
+    /* A folded card (?fold=1, Dani 17 Nov) starts with both its sides: the
+       outside, back on the left and front on the right, and the inside. Each
+       page's canvas says which it is, so the fold is drawn and the halves
+       labelled, and the saved design remembers it. */
+    if (fold && w > h) {
+      const one = state.pages[0];
+      one.name = "Outside"; one.canvas.fold = "outside";
+      state.pages.push({ id: uid("page"), name: "Inside",
+        canvas: Object.assign(deep(one.canvas), { fold: "inside" }), elements: [] });
+    }
     state.templateId = null;
     _templateOrigin = null;
     setCcLock(null);
@@ -3219,7 +3229,9 @@ import { createResizeEngine } from "./resize-engine.js";
       // 1080x1350 upgrade below turned a new page 1080x1440 (Dani, 9 Nov).
       canvas: Object.assign({ width: cur.width, height: cur.height, background: cur.background },
         cur.mockup ? { mockup: true } : {}, cur.sizeChosen ? { sizeChosen: true } : {}, cur.brand ? { brand: cur.brand } : {},
-        cur.calendar ? { calendar: true } : {}),
+        cur.calendar ? { calendar: true } : {},
+        // A folded card's next page is the other side of the sheet.
+        cur.fold ? { fold: cur.fold === "outside" ? "inside" : "outside" } : {}),
       elements: [],
     });
     loadPage(state.currentPage + 1);
@@ -3531,7 +3543,9 @@ import { createResizeEngine } from "./resize-engine.js";
          printer wants and it is correct, but it is also baffling: what you
          are holding is a 148 × 105mm postcard. Pixels stay, in brackets,
          for anyone who needs the file. */
-      if (sizeFamily(_W, _H) === "print") {
+      if (isFolded(state.canvas)) {
+        _szEl.textContent = "A5 Folded Card · " + (state.canvas.fold === "inside" ? "inside" : "outside") + " · 297 × 210 mm flat";
+      } else if (sizeFamily(_W, _H) === "print") {
         var _t = trimMm(_W, _H);
         var _mm = _t.w + " × " + _t.h + " mm";
         _szEl.textContent = _szName ? (_szName + " · " + _mm) : (_mm + " (" + _W + " × " + _H + " px)");
@@ -9304,13 +9318,26 @@ import { createResizeEngine } from "./resize-engine.js";
   /* Two PDFs of a print design (Dani, 4 Nov): print-ready always carries
      the bleed and the crop marks, so nobody has to remember them; digital is
      the finished size, nothing round it, for screens and email. */
-  function pdfPage(canvas, printReady) {
+  function pdfPage(canvas, printReady, fold) {
     if (!isPrintCanvas(canvas)) return { unit: "px", w: canvas.width, h: canvas.height, img: canvas };
     const tw = canvas.width / EXPORT_PX_PER_MM, th = canvas.height / EXPORT_PX_PER_MM;
     if (!printReady) return { unit: "mm", w: tw, h: th, img: canvas };
     const img = withBleed(canvas, Math.round(BLEED_MM * EXPORT_PX_PER_MM));
     const m = CROP_SLUG_MM;
-    return { unit: "mm", w: tw + 2 * m, h: th + 2 * m, img: img, trim: { m: m, w: tw, h: th }, crop: true };
+    return { unit: "mm", w: tw + 2 * m, h: th + 2 * m, img: img, trim: { m: m, w: tw, h: th }, crop: true, fold: !!fold };
+  }
+  /* A folded card's fold, marked the way printers mark one: a short dashed
+     line above and below the card, in the white past the bleed, level with
+     the middle. Nothing is drawn on the card itself, so the fold never
+     prints; the printer creases it where the marks say (Dani, 17 Nov). */
+  function drawFoldMarks(pdf, pg, k) {
+    const t = pg.trim, x = t.m + t.w / 2, near = BLEED_MM, far = BLEED_MM + CROP_LEN_MM;
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.25 * 25.4 / 72 * k);
+    if (pdf.setLineDashPattern) pdf.setLineDashPattern([1 * k, 0.8 * k], 0);
+    pdf.line(x * k, (t.m - near) * k, x * k, (t.m - far) * k, "S");
+    pdf.line(x * k, (t.m + t.h + near) * k, x * k, (t.m + t.h + far) * k, "S");
+    if (pdf.setLineDashPattern) pdf.setLineDashPattern([], 0);
   }
   // k turns millimetres into the document's unit.
   function drawCropMarks(pdf, pg, k) {
@@ -9368,13 +9395,14 @@ import { createResizeEngine } from "./resize-engine.js";
         pdf.addImage(pg.img.toDataURL("image/jpeg", 0.95), "JPEG", o, o,
           (pg.trim.w + 2 * BLEED_MM) * k, (pg.trim.h + 2 * BLEED_MM) * k);
         if (pg.crop) drawCropMarks(pdf, pg, k);
+        if (pg.crop && pg.fold) drawFoldMarks(pdf, pg, k);
         markPrintBoxes(pdf, pg);
       };
 
       if (separate || total === 1) {
         for (let k = 0; k < total; k++) {
           const i = list[k];
-          const pg = pdfPage(await renderPage(i, { transparent: false }), printReady);
+          const pg = pdfPage(await renderPage(i, { transparent: false }), printReady, isFolded(state.pages[i] && state.pages[i].canvas));
           const pdf = make(pg); pdf.__tmkeUnit = pg.unit;
           place(pdf, pg, true);
           // Named by the page's own number, so page 3 of 7 is "(page 3)".
@@ -9387,7 +9415,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
       let pdf = null;
       for (let k = 0; k < total; k++) {
-        const pg = pdfPage(await renderPage(list[k], { transparent: false }), printReady);
+        const pg = pdfPage(await renderPage(list[k], { transparent: false }), printReady, isFolded(state.pages[list[k]] && state.pages[list[k]].canvas));
         if (!pdf) { pdf = make(pg); pdf.__tmkeUnit = pg.unit; place(pdf, pg, true); }
         else place(pdf, pg, false);
       }
@@ -16232,6 +16260,62 @@ import { createResizeEngine } from "./resize-engine.js";
     return { x: 0, y: (H - h) / 2, w: W, h: h };
   }
 
+  /* A folded card (studio-sizes.js, "A5 Folded Card"): A4 landscape whose
+     canvas says which side of the sheet it is. Only while it is still that
+     size: resized to anything else, it is a flat design again. */
+  // Sizes worked out inside, not as consts beside it: the size badge and the
+  // PDF call this from earlier in the file, before a const here would exist.
+  function isFolded(cv) {
+    return !!(cv && cv.fold && Math.round(cv.width) === Math.round(297 * 300 / 25.4)
+      && Math.round(cv.height) === Math.round(210 * 300 / 25.4));
+  }
+  var FOLD_MARGIN_MM = 5;   // studio-sizes.js FOLD_MARGIN_MM
+  /* The fold, drawn over the canvas and never exported: a dashed line down
+     the middle, and the name of each half at its top so nobody has to work
+     out which way round a card goes. With the Print margin on, the strip
+     either side of the fold that words and logos stay out of is shaded too. */
+  function renderFoldGuide(shadow) {
+    let fg = document.getElementById("ed-foldguide");
+    if (!fg) {
+      fg = document.createElement("div");
+      fg.id = "ed-foldguide";
+      fg.className = "ed-foldguide";
+      fg.setAttribute("aria-hidden", "true");
+      shadow.insertBefore(fg, guidesEl || null);
+    }
+    fg.innerHTML = "";
+    if (!isFolded(state.canvas)) { fg.hidden = true; return; }
+    fg.hidden = false;
+    const W = state.canvas.width, H = state.canvas.height;
+    const fs = Math.round(Math.min(W, H) / 1080 * 34);
+    if (state.safeZone === "print") {
+      const band = document.createElement("div");
+      band.className = "ed-foldguide-band";
+      const m = Math.round(FOLD_MARGIN_MM * PX_PER_MM);
+      band.style.left = (W / 2 - m) + "px"; band.style.width = (2 * m) + "px";
+      const t = document.createElement("span");
+      t.textContent = "Keep words and logos " + FOLD_MARGIN_MM + "mm from the fold";
+      t.style.fontSize = fs + "px";
+      band.appendChild(t);
+      fg.appendChild(band);
+    }
+    const line = document.createElement("div");
+    line.className = "ed-foldguide-line";
+    line.style.left = (W / 2) + "px";
+    line.style.borderLeftWidth = Math.max(2, Math.round(W / 1200)) + "px";
+    fg.appendChild(line);
+    const names = state.canvas.fold === "inside" ? ["Inside left", "Inside right"] : ["Back", "Front"];
+    names.forEach(function (n, i) {
+      const tag = document.createElement("span");
+      tag.className = "ed-foldguide-tag";
+      tag.textContent = n;
+      tag.style.fontSize = fs + "px";
+      tag.style.left = (W / 4 + i * W / 2) + "px";
+      tag.style.top = Math.round(H * 0.025) + "px";
+      fg.appendChild(tag);
+    });
+  }
+
   function safeZoneFor(W, H) {
     return Object.keys(SAFE_ZONES).filter((k) => SAFE_ZONES[k].fits(W, H));
   }
@@ -16245,6 +16329,7 @@ import { createResizeEngine } from "./resize-engine.js";
       ov.className = "ed-safezones";
       shadow.insertBefore(ov, guidesEl || null);
     }
+    renderFoldGuide(shadow);
     const W = state.canvas.width, H = state.canvas.height;
     const key = state.safeZone;
     const def = key && SAFE_ZONES[key];
@@ -17912,7 +17997,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // ?blank=1080x1920 — the "new design" pop-out sends the size it was
     // asked for. Anything else (?blank=1, or nothing) takes the default.
     var _bm = /^(\d{2,5})x(\d{2,5})$/.exec(urlParams.get("blank") || "");
-    if (_bm) loadBlank(Number(_bm[1]), Number(_bm[2])); else loadBlank();
+    if (_bm) loadBlank(Number(_bm[1]), Number(_bm[2]), urlParams.get("fold") === "1"); else loadBlank();
   }
 
   // Persist filename changes

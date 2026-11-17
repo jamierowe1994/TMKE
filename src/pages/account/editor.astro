@@ -1229,7 +1229,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             <div class="ed-section-title">{g.label}</div>
             {g.note && <p class="ed-resize-note">{g.note}</p>}
             <div class="ed-resize-grid">
-              {g.sizes.map((z) => (
+              {g.sizes.filter((z) => !z.fold).map((z) => (
                 <button class="ed-resize-card" data-size={`${z.w},${z.h}`} data-family={g.family} data-margin={z.margin} data-shape={g.family === "social" ? (WIDE_SIZES.includes(z.name) ? "wide" : "upright") : null}>
                   <div class="ed-resize-vis" style={`aspect-ratio:${z.w}/${z.h}`}></div>
                   <strong>{z.name}</strong><span>{z.mm || `${z.w} × ${z.h}`}</span>
@@ -4994,6 +4994,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        trim. Drawn over the canvas, never exported. */
     .ed-safezones { position: absolute; inset: 0; pointer-events: none; z-index: 46; }
     .ed-safezones[hidden] { display: none; }
+    /* A folded card's fold and the names of its halves (editor.js, renderFoldGuide). Never exported. */
+    .ed-foldguide { position: absolute; inset: 0; pointer-events: none; z-index: 45; }
+    .ed-foldguide[hidden] { display: none; }
+    .ed-foldguide-line { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed rgba(55, 30, 40, 0.75); transform: translateX(-50%); }
+    .ed-foldguide-band { position: absolute; top: 0; bottom: 0; background: rgba(214, 64, 69, 0.14); display: flex; align-items: center; justify-content: center; }
+    .ed-foldguide-band span { writing-mode: vertical-rl; font-family: var(--sans); font-weight: 700; color: rgba(166, 40, 45, 0.95); white-space: nowrap; }
+    .ed-foldguide-tag { position: absolute; transform: translateX(-50%); font-family: var(--sans); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; background: rgba(55, 30, 40, 0.82); padding: 0.35em 0.8em; border-radius: 0.4em; white-space: nowrap; }
     .ed-safezone {
       position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
       background: repeating-linear-gradient(135deg, rgba(214, 64, 69, 0.16) 0 14px, rgba(214, 64, 69, 0.06) 14px 28px);

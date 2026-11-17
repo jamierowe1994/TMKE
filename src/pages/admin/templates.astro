@@ -952,7 +952,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
             <input type="text" class="tpl-ask-input" id="tpl-new-name" placeholder="${MOCK ? 'e.g. Laptop on a leather chair' : 'e.g. Just Listed — Editorial'}" />
             ${STUDIO_SIZES.map((g) => `<div class="tpl-size-group">
               <div class="tpl-ask-label">${escapeHtml(g.label)}</div>
-              <div class="tpl-size-opts">${g.sizes.map((z) => `<button type="button" class="tpl-size-opt" data-w="${z.w}" data-h="${z.h}" aria-pressed="${z === first}">${escapeHtml(z.name)}<small>${escapeHtml(z.mm || `${z.w} × ${z.h}`)}</small></button>`).join('')}</div>
+              <div class="tpl-size-opts">${g.sizes.map((z) => `<button type="button" class="tpl-size-opt" data-w="${z.w}" data-h="${z.h}"${z.fold ? ' data-fold="1"' : ''} aria-pressed="${z === first}">${escapeHtml(z.name)}<small>${escapeHtml(z.mm || `${z.w} × ${z.h}`)}</small></button>`).join('')}</div>
             </div>`).join('')}
             <div class="tpl-ask-actions">
               <button type="button" class="tpl-ask-cancel">Cancel</button>
@@ -969,7 +969,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
         const ok = () => { const name = input.value.trim(); if (!name) { input.focus(); return; } done({ name, ...chosen }); };
         scrim.querySelectorAll('.tpl-size-opt').forEach((b) => b.addEventListener('click', () => {
           scrim.querySelectorAll('.tpl-size-opt').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
-          chosen = { w: +b.dataset.w, h: +b.dataset.h };
+          chosen = { w: +b.dataset.w, h: +b.dataset.h, fold: b.dataset.fold === '1' };
         }));
         scrim.querySelector('.tpl-ask-ok').addEventListener('click', ok);
         scrim.querySelector('.tpl-ask-cancel').addEventListener('click', () => done(null));
@@ -995,8 +995,15 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
         // sizeChosen: the size was picked here, so the Studio keeps it. Without
         // it a 1080 x 1350 design is "upgraded" to 1440 on opening, and a
         // mockup's photo and screens part company (Dani, 25 Oct).
-        canvas: { width: picked.w, height: picked.h, background: '#f4f2f1', sizeChosen: true, ...(VIEW === 'mockups' ? { mockup: true } : {}) },
+        canvas: { width: picked.w, height: picked.h, background: '#f4f2f1', sizeChosen: true, ...(picked.fold ? { fold: 'outside' } : {}), ...(VIEW === 'mockups' ? { mockup: true } : {}) },
         elements: [],
+        /* A folded card starts with both its sides: the outside (back on the
+           left, front on the right) and the inside, each marked with which it
+           is so the Studio can draw the fold and label the halves. */
+        ...(picked.fold ? { pages: ['outside', 'inside'].map((side) => ({
+          canvas: { width: picked.w, height: picked.h, background: '#f4f2f1', sizeChosen: true, fold: side },
+          elements: [],
+        })) } : {}),
         status: 'draft',
         sort_order: 9000,
       };

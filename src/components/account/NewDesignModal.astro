@@ -35,8 +35,8 @@ const shape = (w: number, h: number) => {
         {g.note && <p class="nd-group-note">{g.note}</p>}
         <div class="nd-grid">
           {g.sizes.map((s) => (
-            <button type="button" class="nd-size" data-w={s.w} data-h={s.h}>
-              <span class="nd-shape" style={shape(s.w, s.h)}></span>
+            <button type="button" class="nd-size" data-w={s.w} data-h={s.h} data-fold={s.fold ? "1" : undefined}>
+              <span class={s.fold ? "nd-shape nd-shape--fold" : "nd-shape"} style={shape(s.w, s.h)}></span>
               <span class="nd-name">{s.name}</span>
               <span class="nd-dim">{s.mm || `${s.w} × ${s.h}`}</span>
             </button>
@@ -71,8 +71,10 @@ const shape = (w: number, h: number) => {
     const open = () => { scrim.hidden = false; document.documentElement.classList.add("nd-locked"); };
     const close = () => { scrim.hidden = true; document.documentElement.classList.remove("nd-locked"); };
     window.addEventListener("pageshow", close);
-    const start = (w: number, h: number) => {
-      location.href = `/account/editor?blank=${w}x${h}`;
+    // A folded card is A4 landscape with a fold: `fold=1` gives it its two
+    // sides, outside and inside, and the fold drawn down the middle.
+    const start = (w: number, h: number, fold?: boolean) => {
+      location.href = `/account/editor?blank=${w}x${h}${fold ? "&fold=1" : ""}`;
     };
 
     document.querySelectorAll("[data-new-design]").forEach((b) =>
@@ -82,7 +84,7 @@ const shape = (w: number, h: number) => {
       const t = e.target as HTMLElement;
       if (t === scrim || t.closest("[data-nd-close]")) { close(); return; }
       const size = t.closest("[data-w]") as HTMLElement | null;
-      if (size) start(Number(size.dataset.w), Number(size.dataset.h));
+      if (size) start(Number(size.dataset.w), Number(size.dataset.h), size.dataset.fold === "1");
     });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !scrim.hidden) close(); });
 
@@ -125,6 +127,8 @@ const shape = (w: number, h: number) => {
   .nd-size { appearance: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 7px; min-height: 94px; padding: 11px 10px; border: 1px solid rgba(28,29,34,0.13); border-radius: 4px; background: #fff; transition: border-color 0.2s, transform 0.2s; }
   .nd-size:hover { border-color: var(--english-violet); transform: translateY(-2px); }
   .nd-shape { width: var(--sw, 34px); height: var(--sh, 46px); border-radius: 2px; background: color-mix(in srgb, var(--english-violet) 12%, #fff); border: 1px solid color-mix(in srgb, var(--english-violet) 26%, transparent); }
+  .nd-shape--fold { position: relative; }
+  .nd-shape--fold::after { content: ""; position: absolute; top: 2px; bottom: 2px; left: 50%; border-left: 1px dashed color-mix(in srgb, var(--english-violet) 55%, transparent); }
   .nd-name { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); text-align: center; line-height: 1.2; }
   .nd-dim { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); font-variant-numeric: tabular-nums; }
 
