@@ -935,6 +935,8 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     });
 
     // ---- Claude drafts the words (Dani, 9 Nov). It never overwrites what's written. ----
+    // Claude's flags for the team, added under the note, never shown to members.
+    const flagNote = (note, flags) => [String(note || '').trim(), 'Claude flagged:\n' + String(flags).trim()].filter(Boolean).join('\n\n');
     async function draftWords(p) {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${WORKER}/calendar/draft-words`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ post_id: p.id }) });
@@ -959,6 +961,8 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
             if (p.post_type === 'reel' && !p.reel_prompt && d.what_to_film) patch.reel_prompt = d.what_to_film;
             if (!p.how_to_edit && d.how_to_edit) patch.how_to_edit = d.how_to_edit;
             if (!hasCap(p) && d.caption) patch.captions = [d.caption];
+            // Claude's flags (master prompt: flag, don't silently change) go in the team-only note.
+            if (Object.keys(patch).length && d.flags) patch.note = flagNote(p.note, d.flags);
             if (Object.keys(patch).length) {
               const { data, error } = await supabase.from('content_month_posts').update(patch).eq('id', p.id).select('id');
               if (error || !data || !data.length) throw new Error((error && error.message) || "That post didn't save.");
@@ -1560,6 +1564,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
           if (!$('cc-d-how').value.trim() && d.how_to_edit) $('cc-d-how').value = d.how_to_edit;
           const cap = document.querySelector('.cc-cap');
           if (![...document.querySelectorAll('.cc-cap')].some((t) => t.value.trim()) && d.caption) cap.value = d.caption;
+          if (d.flags) $('cc-d-note').value = flagNote($('cc-d-note').value, d.flags);
           await flushSave();
         }
       } catch (err) { alert(err.message); }

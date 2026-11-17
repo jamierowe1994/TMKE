@@ -28,6 +28,7 @@ import { ruleForService, sectorForRule, reviewHtml } from "../../src/lib/revenue
 import { ACTIVITIES as CAL_ACTIVITIES } from "../../src/data/marketing-activities.js";
 import puppeteer from "@cloudflare/puppeteer";
 import { isVideographyInvoicer } from "../../src/lib/team-roles.js";
+import { MASTER_BRIEF, BUILDER_NOTES } from "./caption-brief.js";
 
 const PART_PREFIX = "deliverables";
 
@@ -10926,12 +10927,14 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const b = await request.json().catch(() => ({}));
         const id = String((b && b.post_id) || "").trim();
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Post not found." }, 404, request, env);
-        const post = (await sbGet(env, "content_month_posts", `id=eq.${id}&select=title,post_type,pillar,note,occasion,date_tied,template_id,month_id&limit=1`))?.[0];
+        const post = (await sbGet(env, "content_month_posts", `id=eq.${id}&select=title,post_type,pillar,note,occasion,date_tied,template_id,month_id,post_date,images_required&limit=1`))?.[0];
         if (!post) return json({ error: "Post not found." }, 404, request, env);
         if (!post.template_id) return json({ error: "Link a design first. Claude reads it to write the words." }, 400, request, env);
         const tpl = (await sbGet(env, "templates", `id=eq.${encodeURIComponent(post.template_id)}&select=name,thumb_url,elements,pages&limit=1`))?.[0];
         if (!tpl) return json({ error: "That post's design couldn't be found." }, 404, request, env);
-        const month = (await sbGet(env, "content_months", `id=eq.${post.month_id}&select=intro&limit=1`))?.[0];
+        const month = (await sbGet(env, "content_months", `id=eq.${post.month_id}&select=intro,month,edition&limit=1`))?.[0];
+        // The rest of the month, so the openings and CTAs vary (master prompt, section 6).
+        const others = ((await sbGet(env, "content_month_posts", `month_id=eq.${post.month_id}&id=neq.${id}&select=post_date,title,pillar,captions&order=post_date.asc,sort_order.asc`)) || []);
         const pages = Array.isArray(tpl.pages) && tpl.pages.length ? tpl.pages : [{ elements: tpl.elements || [] }];
         const onDesign = pages.map((pg, i) => { const words = (pg.elements || []).map((el) => el && (el.text || el.content)).filter((t) => typeof t === "string" && t.trim()).map((t) => t.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()); return words.length ? `Page ${i + 1}: ${words.join(" | ")}` : ""; }).filter(Boolean).join("\n").slice(0, 3000);
         const content = [];
@@ -10947,24 +10950,34 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         } catch (_) { /* the words on the design are still enough to draft from */ }
         if (!content.length && !onDesign) return json({ error: "That design has no picture or words to read yet. Save it in the Studio first." }, 400, request, env);
         const reel = post.post_type === "reel";
+        const BRANDS = { property: "The Property Experts", prestige: "Prestige Property Experts", lettings: "The Letting Experts", independent: "independent estate agents (no group brand)" };
+        const brand = BRANDS[month && month.edition] || "The Property Experts";
         const facts = [
-          post.title ? `Post: ${post.title}` : "",
-          `Format: ${reel ? "Reel" : post.post_type === "carousel" ? "Carousel" : "Single image"}`,
+          `Brand for this month: ${brand}`,
+          post.post_date ? `Date: ${post.post_date}` : "",
+          post.title ? `Content topic: ${post.title}` : "",
+          `Format: ${reel ? "Reel" : post.post_type === "carousel" ? "Carousel" : "Static"}`,
+          post.post_type === "carousel" ? `Slides: ${pages.length}` : "",
           post.pillar ? `Content pillar: ${post.pillar}` : "",
-          post.date_tied && post.occasion ? `It's for: ${post.occasion}` : "",
+          post.date_tied && post.occasion ? `Tied to the day: ${post.occasion}` : "",
+          post.images_required ? "Pictures need replacing: yes (the agent puts their own photos in)" : "",
           month && month.intro ? `This month is about: ${month.intro}` : "",
-          post.note ? `Note from the team: ${post.note}` : "",
-          onDesign ? `The words on the design (some may be guidance or sample text for the agent to replace):\n${onDesign}` : "",
+          post.note ? `Note from the team (part of the plan): ${post.note}` : "",
+          content.length ? `The picture attached is ${pages.length > 1 ? "the first page or slide only; the other slides are known only from their words below, so flag anything you can't check" : "the design"}.` : "There is no picture of this design, only its words. Flag that you couldn't see the artwork.",
+          onDesign ? `The words on the design, page by page (some may be sample text for the agent to replace):\n${onDesign}` : "",
         ].filter(Boolean).join("\n");
-        const prompt = `TMKE writes a monthly content calendar for UK estate agents. Each post is a template the agent edits in the TMKE Studio and then posts as their own. Draft the words for this post, using the design${content.length ? " in the image" : ""} and these details.\n\n${facts}\n\nThree parts:\n\n` +
-          `what_to_film: ${reel ? "what the agent should film and say for this Reel: the shots in order, and any lines to say. Practical, short, written to the agent." : "leave this empty, it isn't a Reel."}\n\n` +
-          `how_to_edit: what the agent changes on this design before posting, based only on what's on it (for example the photo, the price, the street, the headline). Two or three short sentences, written to the agent as "you". No em dashes.\n\n` +
-          `caption: the post's caption, following these rules:\n- ${CAPTION_RULES}\n\nThe caption has to work for any agent who uses it. Where the agent's own details belong, use exactly these tags, which fill in automatically: {company name}, {area}, {website}, {agent name}, {agent first name}, {telephone}, {email}. Where the agent must type something specific, use square brackets such as [price], [street] or [school name]. Never invent a place, price, name or statistic.`;
+        const already = others.map((o) => { const c = ((o.captions || []).find((x) => x && x.trim()) || "").trim(); return c ? `${o.post_date || ""} ${o.title || ""} (${o.pillar || "no pillar"}): ${c.split("\n").filter((l) => l.trim()).slice(0, 2).join(" / ").slice(0, 220)} ... [ends] ${c.split("\n").filter((l) => l.trim()).slice(-1)[0].slice(0, 160)}` : ""; }).filter(Boolean).slice(0, 40).join("\n");
+        const prompt = `Draft the deliverables for this post.\n\n${facts}\n\n` + (already ? `Captions already written for other posts this month (opening lines, then the closing line). Vary your opening, structure and CTA from these:\n${already}\n\n` : "") + "Return the boxes described in the builder notes.";
         content.push({ type: "text", text: prompt });
-        const schema = { type: "object", properties: { what_to_film: { type: "string" }, how_to_edit: { type: "string" }, caption: { type: "string" } }, required: ["what_to_film", "how_to_edit", "caption"], additionalProperties: false };
+        const schema = { type: "object", properties: {
+          content_type: { type: "string", enum: ["Editable", "Download"] },
+          caption: { type: "string" }, how_to_edit: { type: "string" }, caption_personalisation: { type: "string" },
+          what_to_film: { type: "string" }, filming_tips: { type: "string" }, flags: { type: "string" },
+        }, required: ["content_type", "caption", "how_to_edit", "caption_personalisation", "what_to_film", "filming_tips", "flags"], additionalProperties: false };
+        const system = [{ type: "text", text: MASTER_BRIEF + "\n\n" + BUILDER_NOTES, cache_control: { type: "ephemeral" } }];
         let res, out;
         try {
-          res = await aiFetch(env, "write", { max_tokens: 2000, output_config: { format: { type: "json_schema", schema } }, messages: [{ role: "user", content }] });
+          res = await aiFetch(env, "write", { max_tokens: 6000, system, output_config: { format: { type: "json_schema", schema } }, messages: [{ role: "user", content }] });
           out = await res.json().catch(() => null);
         } catch (e) { return json({ error: "Couldn't reach Claude: " + (e.message || e) }, 502, request, env); }
         if (!res.ok || !out) {
@@ -10975,7 +10988,17 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         let r = null;
         try { r = JSON.parse((out.content || []).filter((c) => c.type === "text").map((c) => c.text).join("")); } catch (_) {}
         if (!r) return json({ error: "Claude didn't return a usable draft. Please try again." }, 502, request, env);
-        return json({ what_to_film: reel ? r.what_to_film : "", how_to_edit: r.how_to_edit, caption: r.caption }, 200, request, env);
+        // The brief's extra sections go in the boxes members already see:
+        // Caption personalisation under How to edit, Filming tips under What to film.
+        const t = (v) => String(v || "").trim();
+        const how = t(r.how_to_edit) + (t(r.caption_personalisation) ? `\n\nCaption personalisation\n${t(r.caption_personalisation)}` : "");
+        const film = reel && t(r.what_to_film) ? t(r.what_to_film) + (t(r.filming_tips) ? `\n\nFilming tips\n${t(r.filming_tips)}` : "") : "";
+        // Two house rules checked, never quietly rewritten: they go to the team as flags.
+        const flags = [t(r.flags)];
+        const all = [r.caption, how, film].join("\n");
+        if (/\u2014/.test(all)) flags.push("The draft contains an em dash. Please change it.");
+        if (/(^|\s)#[A-Za-z]/.test(all)) flags.push("The draft contains a hashtag. Please remove it.");
+        return json({ content_type: r.content_type, what_to_film: film, how_to_edit: how, caption: t(r.caption), flags: flags.filter(Boolean).join("\n") }, 200, request, env);
       }
 
       if (path.endsWith("/ai/caption") && request.method === "POST") {
