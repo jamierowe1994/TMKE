@@ -158,6 +158,8 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       <!-- Insights: the fifth step once the month is live (Danielle, 17 Nov). src/lib/month-insights.js -->
       <div class="ci" id="cc-insights" hidden></div>
       <label class="cc-f cc-about" id="cc-about"><span>About this month</span><input id="cc-intro" placeholder="A line about the month: what it's built around." /></label>
+      <!-- Typos Claude found on the designs, at Final checks (Danielle, 17 Nov). -->
+      <div class="section cc-typos" id="cc-typos" hidden></div>
       <div class="section cc-funnel" id="cc-funnel" hidden>
         <div class="strip"><div class="strip-t">Marketing funnel</div><span class="aside">Coming soon</span></div>
         <div class="empty">The launch email and mid-month reminders for this month will be created and managed here.</div>
@@ -236,15 +238,14 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         <label class="cc-f" id="cc-d-film-wrap"><span>What to film</span><textarea id="cc-d-reel" rows="3" placeholder="What to film and say."></textarea></label>
         <label class="cc-f" data-in="34"><span>How to edit</span><textarea id="cc-d-how" rows="3" placeholder="What the agent changes: the photo, the price, the street…"></textarea></label>
         <div class="cc-f" data-in="34">
-          <span>Caption <em>(up to {MAX_CAPTIONS}; the first is the example)</em></span>
+          <span>Caption</span>
           <div class="cc-tags" id="cc-tags">
             {CAPTION_TAGS.map((t) => <button type="button" data-tag={`{${t}}`}>{`{${t}}`}</button>)}
             {CAPTION_FILL_INS.map((t) => <button type="button" class="is-fill" data-tag={t}>{t}</button>)}
           </div>
           <p class="cc-hint">Curly brackets fill in from the agent's brand kit. Square brackets are for the agent to type, and they're warned if any are left.</p>
-          {Array.from({ length: MAX_CAPTIONS }, (_, i) => (
-            <textarea class="cc-cap" data-cap={i} rows={i === 0 ? 6 : 3} placeholder={i === 0 ? "Caption" : `Caption ${i + 1} (optional)`}></textarea>
-          ))}
+          {/* One caption per post (Danielle, 17 Nov: "There'll only ever be one caption"). */}
+          <textarea class="cc-cap" data-cap="0" rows="6" placeholder="Caption"></textarea>
         </div>
       </div>
     </div>
@@ -511,6 +512,13 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     #ccb .ci-sort td.ci-name { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
     @media (max-width: 900px) { .ci-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ci-grid { grid-template-columns: minmax(0, 1fr); } }
     .cc-funnel { margin-bottom: 16px; }
+    .cc-typos { margin-bottom: 16px; }
+    .cc-typo-list { display: grid; }
+    .cc-typo { display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--stone); }
+    .cc-typo-d { color: var(--tx); }
+    .cc-typo-t b { display: block; font-weight: 500; color: var(--ink); }
+    .cc-typo-a { display: flex; gap: 8px; }
+    @media (max-width: 700px) { .cc-typo { grid-template-columns: 1fr; gap: 6px; } }
     .cc-view-chips { margin: 0 0 14px; }
     #cc-views { display: flex; }
 
@@ -552,7 +560,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .cc-f > span em { font-style: normal; }
     .cc-f input, .cc-f select, .cc-f textarea, .cc-pick-q { width: 100%; box-sizing: border-box; border: 1px solid var(--stone); border-radius: 4px; padding: 8px 10px; background: #fff; }
     .cc-f input, .cc-f select, .cc-pick-q { height: 36px; }
-    .cc-f textarea { resize: vertical; line-height: 1.45; }
+    .cc-f textarea { resize: vertical; line-height: 1.45; overflow: hidden; }
     .cc-f input:focus, .cc-f select:focus, .cc-f textarea:focus, .cc-pick-q:focus { outline: 0; border-color: var(--wine); }
     .cc-f2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .cc-stack { display: grid; gap: 10px; }
@@ -762,6 +770,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       if (!INSIGHTS) $('cc-stage-next').textContent = st < 4 ? `Next: ${STAGES[st][1]} →` : 'Next: Insights →';
       $('cc-about').hidden = st !== 1 || INSIGHTS;
       $('cc-funnel').hidden = st !== 4 || INSIGHTS;
+      renderTypos(st === 4 && !INSIGHTS);
       $('cc-month-panel').classList.toggle('is-insights', INSIGHTS);
       $('cc-insights').hidden = !INSIGHTS;
       if (INSIGHTS) INS.show(m.id);
@@ -783,6 +792,29 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       ];
     }
     let DRAFTING = null;   // { done, total } while Claude is working through the month
+    function renderTypos(show) {
+      const box = $('cc-typos');
+      box.hidden = !show;
+      if (!show) return;
+      const rows = POSTS.flatMap((p) => typosOf(p).map((t, i) => ({ p, t, i })));
+      box.innerHTML = `<div class="strip"><div class="strip-t">Typos to fix</div><span class="aside">${rows.length ? `${rows.length} found by Claude` : 'None found'}</span></div>` +
+        (rows.length ? `<div class="cc-typo-list">${rows.map(({ p, t, i }) => `<div class="cc-typo"><span class="cc-typo-d">${esc(p.post_date ? new Date(p.post_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '')}</span><span class="cc-typo-t"><b>${esc(p.title || 'Post')}</b>${esc(t)}</span><span class="cc-typo-a"><button type="button" class="mbtn" data-typo-open="${p.id}">Open the design</button><button type="button" class="mbtn" data-typo-fixed="${p.id}" data-typo-i="${i}">Fixed</button></span></div>`).join('')}</div>`
+          : '<div class="empty">Claude didn\'t find any typos on this month\'s designs.</div>');
+    }
+    $('cc-typos').addEventListener('click', async (e) => {
+      const o = e.target.closest('[data-typo-open]'), f = e.target.closest('[data-typo-fixed]');
+      const p = POSTS.find((x) => x.id === ((o || f) && (o || f).dataset[o ? 'typoOpen' : 'typoFixed']));
+      if (!p) return;
+      if (o) { openDesign(p); return; }
+      const left = typosOf(p).filter((_, i) => i !== Number(f.dataset.typoI));
+      const flags = String(p.note || '').includes(FLAG_HEAD) ? String(p.note).slice(String(p.note).indexOf(FLAG_HEAD) + FLAG_HEAD.length).trim() : '';
+      const note = flagNote(p.note, { typos: left, flags }) || null;
+      const { data, error } = await supabase.from('content_month_posts').update({ note }).eq('id', p.id).select('id');
+      if (error || !data || !data.length) { alert(`Couldn't save that: ${(error && error.message) || 'no row came back'}`); return; }
+      p.note = note;
+      renderTypos(true);
+    });
+
     function renderProgress() {
       const n = POSTS.length;
       // A live month gets a fifth step, Insights (Danielle, 17 Nov).
@@ -935,8 +967,19 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     });
 
     // ---- Claude drafts the words (Dani, 9 Nov). It never overwrites what's written. ----
-    // Claude's flags for the team, added under the note, never shown to members.
-    const flagNote = (note, flags) => [String(note || '').trim(), 'Claude flagged:\n' + String(flags).trim()].filter(Boolean).join('\n\n');
+    // Claude's typos and flags for the team, kept at the end of the note and
+    // replaced on every redraft; never shown to members. Typos are listed in
+    // Final checks, above the marketing funnel (Danielle, 17 Nov).
+    const TYPO_HEAD = 'Typos on the design:', FLAG_HEAD = 'Claude flagged:';
+    const noteOnly = (note) => { const n = String(note || ''); const cut = [TYPO_HEAD, FLAG_HEAD].map((h) => n.indexOf(h)).filter((i) => i >= 0); return (cut.length ? n.slice(0, Math.min(...cut)) : n).trim(); };
+    const flagNote = (note, d) => [noteOnly(note),
+      (d.typos || []).length ? TYPO_HEAD + '\n' + d.typos.map((t) => '• ' + t).join('\n') : '',
+      d.flags ? FLAG_HEAD + '\n' + String(d.flags).trim() : ''].filter(Boolean).join('\n\n');
+    const typosOf = (p) => { const n = String(p.note || ''), i = n.indexOf(TYPO_HEAD); if (i < 0) return []; return n.slice(i + TYPO_HEAD.length).split('\n\n')[0].split('\n').map((l) => l.replace(/^•\s*/, '').trim()).filter(Boolean); };
+    // Every box in the post grows to show all of its words, no inner scrolling.
+    const grow = (ta) => { ta.style.height = 'auto'; ta.style.height = (ta.scrollHeight + 2) + 'px'; };
+    const growAll = () => document.querySelectorAll('#cc-drawer textarea').forEach(grow);
+    document.addEventListener('input', (e) => { if (e.target.matches && e.target.matches('#cc-drawer textarea')) grow(e.target); });
     async function draftWords(p) {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(`${WORKER}/calendar/draft-words`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ post_id: p.id }) });
@@ -962,7 +1005,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
             if (!p.how_to_edit && d.how_to_edit) patch.how_to_edit = d.how_to_edit;
             if (!hasCap(p) && d.caption) patch.captions = [d.caption];
             // Claude's flags (master prompt: flag, don't silently change) go in the team-only note.
-            if (Object.keys(patch).length && d.flags) patch.note = flagNote(p.note, d.flags);
+            if (Object.keys(patch).length && (d.flags || (d.typos || []).length)) patch.note = flagNote(p.note, d);
             if (Object.keys(patch).length) {
               const { data, error } = await supabase.from('content_month_posts').update(patch).eq('id', p.id).select('id');
               if (error || !data || !data.length) throw new Error((error && error.message) || "That post didn't save.");
@@ -1050,6 +1093,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       document.querySelectorAll('.cc-cap').forEach((ta, i) => { ta.value = (p.captions || [])[i] || ''; });
       $('cc-d-how').value = p.how_to_edit || '';
       $('cc-d-reel').value = p.reel_prompt || '';
+      requestAnimationFrame(growAll);
       document.querySelectorAll('#cc-d-plats input').forEach((cb) => { cb.checked = (p.platforms || []).includes(cb.value); });
       renderDrawerTemplate();
       syncStageFields();
@@ -1110,7 +1154,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         occasion: $('cc-d-occ').value.trim() || null,   // kept when not tied, so opening a post never changes it
         title: $('cc-d-title').value.trim() || null,
         pillar: $('cc-d-pillar').value.trim() || null,
-        captions: [...document.querySelectorAll('.cc-cap')].map((ta) => ta.value.trim()).filter(Boolean).slice(0, MAX_CAPTIONS),
+        captions: [...document.querySelectorAll('.cc-cap')].map((ta) => ta.value.trim()).filter(Boolean).slice(0, 1),
         how_to_edit: $('cc-d-how').value.trim() || null,
         note: $('cc-d-note').value.trim() || null,
         reel_prompt: $('cc-d-reel').value.trim() || null,
@@ -1564,7 +1608,8 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
           if (!$('cc-d-how').value.trim() && d.how_to_edit) $('cc-d-how').value = d.how_to_edit;
           const cap = document.querySelector('.cc-cap');
           if (![...document.querySelectorAll('.cc-cap')].some((t) => t.value.trim()) && d.caption) cap.value = d.caption;
-          if (d.flags) $('cc-d-note').value = flagNote($('cc-d-note').value, d.flags);
+          $('cc-d-note').value = flagNote($('cc-d-note').value, d);
+          growAll();
           await flushSave();
         }
       } catch (err) { alert(err.message); }

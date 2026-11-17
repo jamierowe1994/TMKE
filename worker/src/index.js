@@ -11154,7 +11154,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const b = await request.json().catch(() => ({}));
         const id = String((b && b.post_id) || "").trim();
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Post not found." }, 404, request, env);
-        const post = (await sbGet(env, "content_month_posts", `id=eq.${id}&select=title,post_type,pillar,note,occasion,date_tied,template_id,month_id,post_date,images_required&limit=1`))?.[0];
+        const post = (await sbGet(env, "content_month_posts", `id=eq.${id}&select=title,post_type,pillar,note,occasion,date_tied,template_id,month_id,post_date&limit=1`))?.[0];
         if (!post) return json({ error: "Post not found." }, 404, request, env);
         if (!post.template_id) return json({ error: "Link a design first. Claude reads it to write the words." }, 400, request, env);
         const tpl = (await sbGet(env, "templates", `id=eq.${encodeURIComponent(post.template_id)}&select=name,thumb_url,elements,pages&limit=1`))?.[0];
@@ -11187,10 +11187,9 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           post.post_type === "carousel" ? `Slides: ${pages.length}` : "",
           post.pillar ? `Content pillar: ${post.pillar}` : "",
           post.date_tied && post.occasion ? `Tied to the day: ${post.occasion}` : "",
-          post.images_required ? "Pictures need replacing: yes (the agent puts their own photos in)" : "",
           month && month.intro ? `This month is about: ${month.intro}` : "",
-          post.note ? `Note from the team (part of the plan): ${post.note}` : "",
-          content.length ? `The picture attached is ${pages.length > 1 ? "the first page or slide only; the other slides are known only from their words below, so flag anything you can't check" : "the design"}.` : "There is no picture of this design, only its words. Flag that you couldn't see the artwork.",
+          post.note ? `Note from the team (from planning, so the design may have moved on): ${post.note.split("\n\nClaude flagged:")[0].replace(/^Claude flagged:[\s\S]*/, "")}` : "",
+          content.length ? `The picture attached is ${pages.length > 1 ? "the first page or slide only; the other slides are known only from their words below" : "the design"}.` : "There is no picture of this design, only its words.",
           onDesign ? `The words on the design, page by page (some may be sample text for the agent to replace):\n${onDesign}` : "",
         ].filter(Boolean).join("\n");
         const already = others.map((o) => { const c = ((o.captions || []).find((x) => x && x.trim()) || "").trim(); return c ? `${o.post_date || ""} ${o.title || ""} (${o.pillar || "no pillar"}): ${c.split("\n").filter((l) => l.trim()).slice(0, 2).join(" / ").slice(0, 220)} ... [ends] ${c.split("\n").filter((l) => l.trim()).slice(-1)[0].slice(0, 160)}` : ""; }).filter(Boolean).slice(0, 40).join("\n");
@@ -11199,8 +11198,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const schema = { type: "object", properties: {
           content_type: { type: "string", enum: ["Editable", "Download"] },
           caption: { type: "string" }, how_to_edit: { type: "string" }, caption_personalisation: { type: "string" },
-          what_to_film: { type: "string" }, filming_tips: { type: "string" }, flags: { type: "string" },
-        }, required: ["content_type", "caption", "how_to_edit", "caption_personalisation", "what_to_film", "filming_tips", "flags"], additionalProperties: false };
+          what_to_film: { type: "string" }, filming_tips: { type: "string" }, typos: { type: "array", items: { type: "string" } }, flags: { type: "string" },
+        }, required: ["content_type", "caption", "how_to_edit", "caption_personalisation", "what_to_film", "filming_tips", "typos", "flags"], additionalProperties: false };
         const system = [{ type: "text", text: MASTER_BRIEF + "\n\n" + BUILDER_NOTES, cache_control: { type: "ephemeral" } }];
         let res, out;
         try {
@@ -11225,7 +11224,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const all = [r.caption, how, film].join("\n");
         if (/\u2014/.test(all)) flags.push("The draft contains an em dash. Please change it.");
         if (/(^|\s)#[A-Za-z]/.test(all)) flags.push("The draft contains a hashtag. Please remove it.");
-        return json({ content_type: r.content_type, what_to_film: film, how_to_edit: how, caption: t(r.caption), flags: flags.filter(Boolean).join("\n") }, 200, request, env);
+        return json({ content_type: r.content_type, what_to_film: film, how_to_edit: how, caption: t(r.caption), typos: (Array.isArray(r.typos) ? r.typos : []).map(t).filter(Boolean), flags: flags.filter(Boolean).join("\n") }, 200, request, env);
       }
 
       if (path.endsWith("/ai/caption") && request.method === "POST") {
