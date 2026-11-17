@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/usage_log.sql — the usage log for each Content Calendar month's Insights: what each signed-in member does with the month's posts and our templates (opened a post, opened its design, saved their own copy, downloaded, visited the hub), whatever their cookie choice. Members can only add their own rows; only admins can read them. Run it before December opens: until it runs nothing is recorded. Sends nothing (17 Nov)
 - [ ] supabase/content_calendar_plus_rename.sql — renames the Scheduling tier to Content Calendar Plus on Content calendar › Overview, and in Done For You's "everything included" line. Changes no price or access (11 Nov)
 - [ ] supabase/content_calendar_images_required.sql — the "Images required" tick box at the end of each row on Content calendar › Creation, so Sam can see which designs need her pictures. Changes no post. Sends nothing (10 Nov)
 

@@ -6655,6 +6655,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     // Uploaded brand fonts, from the start, before any design is drawn.
     loadBrandFonts(supabase);
     import { track, reportStudioFault } from '../../lib/track.js';
+    import { logUsage } from '../../lib/usage-log.js';
     import { installTimePicker } from '../../lib/time-picker.js';
     installTimePicker();
     // Downloads happen in the browser, so the editor tells us when one has
@@ -6668,6 +6669,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const src = (window as any).__TMKE_DESIGN_SOURCE__;
       const fromCopy = src && d && src.design === d.design_id ? src.template : null;
       track('design_downloaded', { ...d, template: (d && d.template) || fromCopy || q.get('template') || null });
+      // The usage log, whatever the cookie choice (Danielle, 17 Nov).
+      logUsage('downloaded', { template_id: (d && d.template) || fromCopy || q.get('template') || null, design_id: d && d.design_id, detail: { format: (d && d.format) || null, pages: (d && d.pages) || null } });
     };
     /* Opens, for a pack's results (Danielle, 28 Oct): a member opening one of
        our templates by any route - a pack's designs, the Templates switcher,
@@ -6681,6 +6684,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (isAdminStudio || !id || opened.has(id)) return;
         opened.add(id);
         track('template_opened', { template: id });
+        logUsage('design_opened', { template_id: id, post_id: new URLSearchParams(location.search).get('ccpost') });
       };
       (window as any).__TMKE_TEMPLATE_OPENED__ = onOpen;
       ((window as any).__TMKE_OPENED_Q__ || []).splice(0).forEach(onOpen);
@@ -7470,6 +7474,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             const { data, error } = await DB.from(DT).insert(row).select('id').single();
             if (error || !data) return { ok: false, reason: why(error) };
             currentDesignId = data.id;
+            // Their own copy of one of our templates, saved for the first time.
+            if (row.source_template_id && !store.training) logUsage('copy_saved', { template_id: row.source_template_id, design_id: data.id, post_id: params.get('ccpost') });
             try { const u = new URL(location.href); u.searchParams.set('design', currentDesignId); u.searchParams.delete('template'); history.replaceState(null, '', u); } catch (_) {}
             return { ok: true, id: currentDesignId };
           } catch (e) { return { ok: false, reason: String((e && e.message) || 'something went wrong saving.') }; }

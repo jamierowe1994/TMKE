@@ -1573,6 +1573,7 @@ import "../../styles/account-sections.css";
     import { readBrandCache } from '../../lib/brand-cache.js';
     installTimePicker();
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
+    import { logUsage, logUsageOnce } from '../../lib/usage-log.js';
     import { loadPublishedMonth, loadPost as loadCcPost, memberAccess, monthKey as ccMonthKey, monthPostsName, fmtPostDate, POST_TYPE_LABEL, EDITION_LABEL, setPreferredEdition } from '../../lib/calendar-month.js';
     import { zernioOf, isScheduled, schedulePost, checkPost, cancelPost, resendIfScheduled, cancelIfScheduled } from '../../lib/schedule-sync.js';
 
@@ -1941,6 +1942,8 @@ import "../../styles/account-sections.css";
       ed.hidden = m.editions.length < 2;
       if (!ed.hidden) sel.innerHTML = m.editions.map((e) => `<option value="${e}"${e === m.month.edition ? ' selected' : ''}>${escapeHtml(EDITION_LABEL[e] || e)}</option>`).join('');
       const showOurs = ccLayer === 'ours';
+      // The usage log: the month's posts seen, once a visit (Danielle, 17 Nov).
+      if (showOurs) logUsageOnce('month.' + m.month.id, 'month_viewed', { month_id: m.month.id, detail: m.preview ? { preview: true } : null });
       $ours.hidden = !showOurs;
       $cal.classList.toggle('is-ours', showOurs);
       $ccTab.textContent = showOurs ? 'Your calendar' : name;
@@ -2014,6 +2017,7 @@ import "../../styles/account-sections.css";
       const m = ccMonths.get(ccMonthKey(viewMonth));
       const p = m && !m.preview && m.posts.find((x) => x.id === id);
       if (!p) return;
+      logUsage('post_opened', { post_id: p.id, month_id: m.month.id, template_id: p.template_id });
       const set = (elId, text) => { const el = document.getElementById(elId); el.textContent = text || ''; return el; };
       const img = document.getElementById('ccp-img');
       img.src = (p.template && p.template.thumb_url) || '';
