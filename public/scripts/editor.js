@@ -16623,6 +16623,12 @@ import { createResizeEngine } from "./resize-engine.js";
     return !!(cv && cv.fold && Math.round(cv.width) === Math.round(297 * 300 / 25.4)
       && Math.round(cv.height) === Math.round(210 * 300 / 25.4));
   }
+  /* An A6 Landscape postcard (148 x 105 mm), which also takes the property
+     illustrator (Danielle, 17 Nov: the Christmas postcard). */
+  function isPostcard(cv) {
+    return !!(cv && Math.abs(cv.width - 1748) <= 2 && Math.abs(cv.height - 1240) <= 2);
+  }
+
   var FOLD_MARGIN_MM = 5;   // studio-sizes.js FOLD_MARGIN_MM
   /* The fold, drawn over the canvas and never exported: a dashed line down
      the middle, and the name of each half at its top so nobody has to work
@@ -17616,7 +17622,8 @@ import { createResizeEngine } from "./resize-engine.js";
       if (!hex) return;
       const ink = inkFor(hex);
       const folded = (i) => isFolded(state.pages[i].canvas);
-      const outside = state.pages.map((p, i) => i).filter((i) => folded(i) && state.pages[i].canvas.fold !== "inside");
+      // Every side of a postcard counts as the outside.
+      const outside = state.pages.map((p, i) => i).filter((i) => (folded(i) && state.pages[i].canvas.fold !== "inside") || isPostcard(state.pages[i].canvas));
       const set = withInside && INSIDE[bg];
       const inHex = set && swatchHex(set.bg);
       const inside = set && inHex ? state.pages.map((p, i) => i).filter((i) => folded(i) && state.pages[i].canvas.fold === "inside") : [];
@@ -17641,8 +17648,16 @@ import { createResizeEngine } from "./resize-engine.js";
        on the outside page. Behind everything else (Dani: "otherwise, when
        you move it or resize it, it's going to hide the text"), except a
        block that already fills the whole front, which would hide it. */
-    async function placeIllustration(url) {
+    /* Where it goes: a folded card's outside page, or on a postcard the side
+       being looked at (else the first). */
+    function illustrationPage() {
+      const cur = state.pages[state.currentPage];
+      if (cur && isPostcard(cur.canvas)) return state.currentPage;
       const outI = state.pages.findIndex((p) => isFolded(p && p.canvas) && p.canvas.fold !== "inside");
+      return outI >= 0 ? outI : state.pages.findIndex((p) => isPostcard(p && p.canvas));
+    }
+    async function placeIllustration(url) {
+      const outI = illustrationPage();
       if (outI < 0) { await addImage(url); return; }
       if (outI !== state.currentPage) goToPage(outI);
       const nat = await new Promise((res) => {
@@ -17652,9 +17667,12 @@ import { createResizeEngine } from "./resize-engine.js";
         im.src = url;
       });
       const W = state.canvas.width, H = state.canvas.height;
-      const w = Math.round(W / 2), h = Math.round(w * nat[1] / nat[0]);
+      // A postcard: the whole width of the side. A folded card: the front half.
+      const card = isPostcard(state.canvas);
+      const left = card ? 0 : W / 2;
+      const w = Math.round(W - left), h = Math.round(w * nat[1] / nat[0]);
       const els = state.elements;
-      const fills = (o) => o.type !== "text" && !o.hidden && o.x <= W / 2 && o.y <= 0 && o.x + o.w >= W && o.y + o.h >= H;
+      const fills = (o) => o.type !== "text" && !o.hidden && o.x <= left && o.y <= 0 && o.x + o.w >= W && o.y + o.h >= H;
       let at = 0;
       while (at < els.length && fills(els[at])) at++;
       const id = uid("image");
@@ -17792,7 +17810,9 @@ import { createResizeEngine } from "./resize-engine.js";
       if (demoLocked("Illustrations are for members.", "In the demo, change the words, pictures and colours of a template and see how the Studio feels.")) return;
       cardToBackground();
       busy = true; paint(); status(C.working, "working");
-      const out = await window.__TMKE_ILLUSTRATE__({ photo, style: "christmas", background: bg });
+      const target = state.pages[illustrationPage()];
+      const shape = target && isPostcard(target.canvas) ? "landscape" : "portrait";
+      const out = await window.__TMKE_ILLUSTRATE__({ photo, style: "christmas", background: bg, shape });
       busy = false;
       if (out && out.allowance) Object.assign(me, out.allowance);
       if (out && out.resting) me.resting = true;
@@ -17828,7 +17848,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // On a folded card only. Checked on every render, since the design
     // arrives after this runs and can be resized or swapped for another.
     function sync() {
-      const show = !!me && (state.pages || []).some((p) => isFolded(p && p.canvas));
+      const show = !!me && (state.pages || []).some((p) => p && (isFolded(p.canvas) || isPostcard(p.canvas)));
       if (tab.hidden === !show) return;
       tab.hidden = !show;
       if (!show && tab.classList.contains("is-active")) {

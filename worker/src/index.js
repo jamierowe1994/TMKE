@@ -6374,9 +6374,16 @@ const ILL_BACKGROUNDS = {
   // early evening, windows glowing and the snow bright against it.
   forest: { label: "Forest Green",  hex: "#2e3f34", words: "a deep forest green", evening: true },
 };
-function illPrompt(style, bg) {
+/* A landscape picture for an A6 Landscape postcard (Danielle, 17 Nov); the
+   folded card's front stays portrait. Same house, same style; only the
+   composition sentence and the shape change. */
+const ILL_PORTRAIT_FRAME = "Portrait composition for the front of a greetings card: the house centred in the lower two thirds, a snowy foreground at the bottom, and calm empty space above the roof for a title.";
+const ILL_LANDSCAPE_FRAME = "Landscape composition for the front of a postcard: the house centred and filling about half the width, a snowy foreground along the bottom, and calm empty space above the roof and either side of the house.";
+function illPrompt(style, bg, shape) {
   const b = ILL_BACKGROUNDS[bg] || ILL_BACKGROUNDS.grey;
-  return ILL_STYLES[style].prompt.replace("{background}",
+  let prompt = ILL_STYLES[style].prompt;
+  if (shape === "landscape") prompt = prompt.replace(ILL_PORTRAIT_FRAME, ILL_LANDSCAPE_FRAME);
+  return prompt.replace("{background}",
     `The background is one flat, even colour, ${b.words} (${b.hex}), filling the whole picture edge to edge, with no sky colour and no paper border.`
     + (b.evening ? " It is early evening: the windows glow warm gold, a lantern by the door is lit, and the snow on the roof and ground is bright white against the dark background." : ""));
 }
@@ -9236,6 +9243,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         try { b = await request.json(); } catch (_) {}
         const style = ILL_STYLES[b.style] ? b.style : "christmas";
         const bg = ILL_BACKGROUNDS[b.background] ? b.background : "grey";
+        const shape = b.shape === "landscape" ? "landscape" : "portrait";
         const photo = String(b.photo || "");
         if (!/^data:image\/(jpeg|png|webp);base64,/.test(photo)) return json({ error: "Choose a photo of the property first." }, 400, request, env);
         if (photo.length > 8 * 1024 * 1024) return json({ error: "That photo is too big. Try one under 5MB." }, 413, request, env);
@@ -9255,7 +9263,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const al = await illAllowance(env, user, S);
         if (!al.pool) return json({ error: al.monthly ? "You've used this month's goes. You'll have more on the 1st." : al.christmas ? "You've used all your Christmas goes." : "Illustrations aren't part of your plan.", allowance: al }, 403, request, env);
         // The go is counted before it starts, so two tabs can't share one.
-        const ins = await sbPost(env, "illustration_runs", { user_id: user.id, pool: al.pool, style: `${style}/${bg}`, status: "pending" }, "return=representation");
+        const ins = await sbPost(env, "illustration_runs", { user_id: user.id, pool: al.pool, style: `${style}/${bg}` + (shape === "landscape" ? "/landscape" : ""), status: "pending" }, "return=representation");
         const run = ins && ins.ok ? ((await ins.json().catch(() => [])) || [])[0] : null;
         if (!run) return json({ error: "Couldn't start the illustration. Try again in a moment." }, 502, request, env);
         const t0 = Date.now();
@@ -9267,7 +9275,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           const r = await fetch(`https://fal.run/${ILL_MODEL}`, {
             method: "POST",
             headers: { Authorization: `Key ${env.FAL_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: illPrompt(style, bg), image_urls: [photo], aspect_ratio: "3:4", resolution: "2K", output_format: "jpeg" }),
+            body: JSON.stringify({ prompt: illPrompt(style, bg, shape), image_urls: [photo], aspect_ratio: shape === "landscape" ? "4:3" : "3:4", resolution: "2K", output_format: "jpeg" }),
           });
           const txt = await r.text();
           if (!r.ok) return await fail(`fal ${r.status}: ${txt.slice(0, 300)}`);
