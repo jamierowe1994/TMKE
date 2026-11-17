@@ -17196,8 +17196,8 @@ import { createResizeEngine } from "./resize-engine.js";
        and don't use a go on a colour they don't want (Dani, 17 Nov). One undo
        step. Done again when the illustration is made, in case the outside was
        changed in between. The inside stays as it is. */
-    function cardToBackground() {
-      const hex = (((me && me.backgrounds) || []).find((b) => b.key === bg) || {}).hex;
+    function cardToBackground(exact) {
+      const hex = exact || (((me && me.backgrounds) || []).find((b) => b.key === bg) || {}).hex;
       if (!hex) return;
       const outside = state.pages.map((p, i) => i).filter((i) => isFolded(state.pages[i].canvas) && state.pages[i].canvas.fold !== "inside");
       if (!outside.length || outside.every((i) => String(state.pages[i].canvas.background || "").toLowerCase() === hex.toLowerCase())) return;
@@ -17205,6 +17205,41 @@ import { createResizeEngine } from "./resize-engine.js";
       outside.forEach((i) => { state.pages[i].canvas.background = hex; });
       pushDesignHistory(before, cur);
       fullRender();
+    }
+    /* The illustrator never paints exactly the colour asked for (Dani, 17 Nov:
+       "a slight color mismatch"), so the card follows the picture instead:
+       the colour is read from the band along the top of the illustration,
+       which is plain background, and the outside is matched to it. The
+       middle value of each channel, so a snowflake or the paper's grain
+       doesn't tip it. */
+    function pictureBackground(url) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          try {
+            const w = 120, h = Math.max(1, Math.round(120 * img.naturalHeight / img.naturalWidth));
+            const c = document.createElement("canvas");
+            c.width = w; c.height = h;
+            const g = c.getContext("2d");
+            g.drawImage(img, 0, 0, w, h);
+            const band = Math.max(2, Math.round(h * 0.08));
+            const d = g.getImageData(4, 2, w - 8, band).data;
+            const r = [], gg = [], b = [];
+            for (let i = 0; i < d.length; i += 4) { r.push(d[i]); gg.push(d[i + 1]); b.push(d[i + 2]); }
+            const mid = (a) => { a.sort((x, y) => x - y); return a[a.length >> 1]; };
+            const hx = (n) => n.toString(16).padStart(2, "0");
+            resolve("#" + hx(mid(r)) + hx(mid(gg)) + hx(mid(b)));
+          } catch (_) { resolve(null); }
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+    }
+    async function matchCardToPicture() {
+      if (!lastUrl) return;
+      const hex = await pictureBackground(lastUrl);
+      if (hex) cardToBackground(hex);
     }
     // Four swatches from the Worker's list, the last one chosen remembered.
     function paintBackgrounds() {
@@ -17312,10 +17347,14 @@ import { createResizeEngine } from "./resize-engine.js";
       $("ed-ill-result-img").src = out.url;
       $("ed-ill-result").hidden = false;
       await addImage(out.url);
+      await matchCardToPicture();
+      $("ed-ill-match").hidden = false;
       paint();
       status(C.done);
     });
     $("ed-ill-result").addEventListener("click", () => { if (lastUrl) addImage(lastUrl); });
+    $("ed-ill-match").textContent = "Match the card to the picture";
+    $("ed-ill-match").addEventListener("click", matchCardToPicture);
 
     // Shown only to someone with goes, and never in the demo.
     let demo = false;
