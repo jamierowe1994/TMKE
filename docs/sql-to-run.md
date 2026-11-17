@@ -4,10 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/property_illustrator.sql — the property illustrator (Studio › Images › Illustrate): one settings row (5 Christmas goes for every member until 31 December, Content Calendar Plus 5 a month, Done For You 15 a month, a £50 monthly limit for all of TMKE) and a record of every go. Members can only see their own goes; only the server writes them. Until it runs, nobody sees the Illustrate tab. Sends nothing (17 Nov)
+Nothing waiting.
 
 ## Done
 
+- [x] supabase/property_illustrator.sql — the property illustrator (Studio › Images › Illustrate): one settings row (5 Christmas goes for every member until 31 December, Content Calendar Plus 5 a month, Done For You 15 a month, a £50 monthly limit for all of TMKE) and a record of every go. Members can only see their own goes; only the server writes them. Until it runs, nobody sees the Illustrate tab. Sends nothing (17 Nov; ran 17 Nov)
 - [x] supabase/usage_log.sql — the usage log for each Content Calendar month's Insights: what each signed-in member does with the month's posts and our templates (opened a post, opened its design, saved their own copy, downloaded, visited the hub), whatever their cookie choice. Members can only add their own rows; only admins can read them. Run it before December opens: until it runs nothing is recorded. Sends nothing (17 Nov; ran 17 Nov)
 - [x] supabase/content_calendar_plus_rename.sql — renames the Scheduling tier to Content Calendar Plus on Content calendar › Overview, and in Done For You's "everything included" line. Changes no price or access (11 Nov; ran 17 Nov)
 - [x] supabase/content_calendar_images_required.sql — the "Images required" tick box at the end of each row on Content calendar › Creation, so Sam can see which designs need her pictures. Changes no post. Sends nothing (10 Nov; ran 17 Nov)
