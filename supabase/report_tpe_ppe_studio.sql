@@ -38,10 +38,19 @@ course as (
 designs as (
   select d.user_id,
          count(*) as designs_saved,
-         count(*) filter (where t.kind = 'print') as print_designs,
+         -- Print, the Studio's own test (studio.astro isPrintDesign): a print
+         -- size at 300dpi, or the A-series shape at print resolution. Fixed
+         -- 17 Nov: the first version looked for print on the template, which
+         -- only packs carry, so it said 0 for everyone.
+         count(*) filter (where d.w > 0 and d.h > 0 and (
+           (d.w || 'x' || d.h) in ('2480x3508','3508x2480','1748x2480','2480x1748','1240x1748','1748x1240','1004x650','650x1004')
+           or (abs(greatest(d.w, d.h)::numeric / least(d.w, d.h) - 1.41421) < 0.01 and least(d.w, d.h) >= 1200)
+         )) as print_designs,
          max(d.created_at) as last_design_at
-    from public.user_designs d
-    left join public.templates t on t.id = d.source_template_id
+    from (select user_id, created_at,
+                 case when canvas->>'width' ~ '^[0-9.]+$' then round((canvas->>'width')::numeric)::int end as w,
+                 case when canvas->>'height' ~ '^[0-9.]+$' then round((canvas->>'height')::numeric)::int end as h
+            from public.user_designs) d
    group by d.user_id
 ),
 planned as (
