@@ -4748,7 +4748,8 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     if (el.type === "image") {
       // Optional rounded corners — clip the photo to the (per-corner) radius.
-      const r = frameRadiusCss(el);
+      // A slot drawn as a circle stays a circle (isOvalSlot).
+      const r = isOvalSlot(el) ? "50%" : frameRadiusCss(el);
       node.style.borderRadius = r;
       node.style.overflow = (r || el.imgZoom > 1) ? "hidden" : "";
       /* An agent photo slot can carry a colour behind the person: the photos
@@ -4880,6 +4881,22 @@ import { createResizeEngine } from "./resize-engine.js";
   function hasPerCorner(el) {
     const r = el.radii;
     return !!(r && (r.tl != null || r.tr != null || r.br != null || r.bl != null));
+  }
+  /* A slot that was drawn as a circle or oval keeps that shape once it holds
+     a picture (Dani, 17 Nov: "when I put that in, it changes to a square").
+     Marking a shape as a slot turns it into an image and remembers what it
+     was (makeSlot), so the remembered shape is the answer. Screen and
+     download both clip to it. */
+  function isOvalSlot(el) {
+    return !!(el && el.type === "image" && el._slotWas && el._slotWas.type === "ellipse");
+  }
+  // The outline of an image's box, added to the current path: an oval for a
+  // round slot, otherwise its (per-corner) rounded rectangle.
+  function imageBoxPath(ctx, el) {
+    if (isOvalSlot(el)) ctx.ellipse(el.w / 2, el.h / 2, el.w / 2, el.h / 2, 0, 0, Math.PI * 2);
+    else if (hasPerCorner(el) || el.radius) roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
+      cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+    else ctx.rect(0, 0, el.w, el.h);
   }
   function frameRadiusCss(el) {
     if (hasPerCorner(el)) {
@@ -8639,12 +8656,7 @@ import { createResizeEngine } from "./resize-engine.js";
         // The slot's own colour, behind the person, inside its corners.
         ctx.save();
         ctx.beginPath();
-        if (hasPerCorner(el) || el.radius) {
-          roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
-            cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
-        } else {
-          ctx.rect(0, 0, el.w, el.h);
-        }
+        imageBoxPath(ctx, el);
         ctx.fillStyle = el.photoBg;
         ctx.fill();
         ctx.restore();
@@ -9941,24 +9953,18 @@ import { createResizeEngine } from "./resize-engine.js";
           const s2 = el.imgScale || 1, w2 = dw * s2, h2 = dh * s2;
           ctx.save();
           ctx.beginPath();
-          if (hasPerCorner(el) || el.radius) {
-            roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
-              cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
-          } else {
-            ctx.rect(0, 0, el.w, el.h);
-          }
+          imageBoxPath(ctx, el);
           ctx.clip();
           ctx.drawImage(img, (el.w - w2) / 2 + (el.imgOffsetX || 0), el.h - h2 + (el.imgOffsetY || 0), w2, h2);
           ctx.restore();
         } else {
           // Inside its rounded corners, as the canvas clips it -- a QR
           // code with rounded corners came out square in the download.
-          const rounded = hasPerCorner(el) || el.radius;
+          const rounded = hasPerCorner(el) || el.radius || isOvalSlot(el);
           if (rounded) {
             ctx.save();
             ctx.beginPath();
-            roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
-              cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+            imageBoxPath(ctx, el);
             ctx.clip();
           }
           ctx.drawImage(img, (el.w - dw) / 2, (el.h - dh) / 2, dw, dh);
@@ -9973,12 +9979,7 @@ import { createResizeEngine } from "./resize-engine.js";
            Found 12 Oct while adding Reposition. */
         ctx.save();
         ctx.beginPath();
-        if (hasPerCorner(el) || el.radius) {
-          roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
-            cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
-        } else {
-          ctx.rect(0, 0, el.w, el.h);
-        }
+        imageBoxPath(ctx, el);
         ctx.clip();
         const nw = img.naturalWidth, nh = img.naturalHeight;
         if (nw && nh) {
@@ -11925,6 +11926,7 @@ import { createResizeEngine } from "./resize-engine.js";
           const to = b.getAttribute("data-to");
           if (row.getAttribute("data-bg")) {
             state.canvas.background = to;
+            retoneLogos(function () { fullRender(); });
             fullRender(); pushHistory();
           } else {
             recolourDesign(row.getAttribute("data-from"), to);
@@ -11952,6 +11954,100 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!withSrc.length) return null;
     const main = withSrc.filter(function (l) { return l.primary; })[0];
     return (main || withSrc[0]).src;
+  }
+
+  /* Light and dark logos (Dani, 17 Nov: "if it's a dark background, a light
+     logo should go on, and vice versa"). A kit doesn't say which logo is
+     which, so each one is measured: how light its visible pixels are, from
+     0 (black) to 1 (white). A logo slot keeps the logo it has while that
+     stands out from the colour behind it; when it doesn't, the kit's logo
+     that stands out most goes in. Same box, so nothing moves. Run when a
+     template opens and whenever the card's colour or the background
+     changes. One logo in the kit: nothing to choose, nothing changes. */
+  const _logoTone = {};
+  function measureLogoTone(src) {
+    if (src in _logoTone) return _logoTone[src] instanceof Promise ? _logoTone[src] : Promise.resolve(_logoTone[src]);
+    _logoTone[src] = new Promise(function (resolve) {
+      const im = new Image();
+      if (!/^data:/.test(src)) im.crossOrigin = "anonymous";
+      im.onload = function () {
+        let tone = null;
+        try {
+          const n = 64, k = n / Math.max(im.naturalWidth || n, im.naturalHeight || n);
+          const c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round((im.naturalWidth || n) * k)); c.height = Math.max(1, Math.round((im.naturalHeight || n) * k));
+          const g = c.getContext("2d");
+          g.drawImage(im, 0, 0, c.width, c.height);
+          const d = g.getImageData(0, 0, c.width, c.height).data;
+          let sum = 0, wt = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            const a = d[i + 3] / 255;
+            if (a < 0.5) continue;
+            sum += a * (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255; wt += a;
+          }
+          tone = wt ? sum / wt : null;
+        } catch (_) { tone = null; }
+        _logoTone[src] = tone; resolve(tone);
+      };
+      im.onerror = function () { _logoTone[src] = null; resolve(null); };
+      im.src = src;
+    });
+    return _logoTone[src];
+  }
+  function kitLogos() {
+    return (BRAND && Array.isArray(BRAND.logos)) ? BRAND.logos.filter(function (l) { return l && l.src; }) : [];
+  }
+  function loadLogoTones() { return Promise.all(kitLogos().map(function (l) { return measureLogoTone(l.src); })); }
+  function hexTone(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
+  }
+  // The colour right behind a slot: the top solid shape under its middle,
+  // else the page's background.
+  function colourBehind(slot, pg) {
+    const els = pg.elements || [];
+    const cx = slot.x + slot.w / 2, cy = slot.y + slot.h / 2;
+    for (let i = els.indexOf(slot) - 1; i >= 0; i--) {
+      const o = els[i];
+      if (!o || o.hidden || (o.type !== "rect" && o.type !== "ellipse") || !o.fill || o.fill === "transparent") continue;
+      if (o.fillGradient && o.fillGradient.enabled) continue;
+      if ((o.opacity != null ? o.opacity : 1) < 0.5 || o.rotation) continue;
+      if (cx >= o.x && cx <= o.x + o.w && cy >= o.y && cy <= o.y + o.h) return o.fill;
+    }
+    return pg.canvas && pg.canvas.background;
+  }
+  const LOGO_STANDS_OUT = 0.35;
+  // Swaps logos already measured; true if any changed. Starts measuring any
+  // that aren't and, once they are, runs again (then = after a change).
+  function retoneLogos(then) {
+    const kit = kitLogos();
+    if (kit.length < 2) return false;
+    const pending = kit.some(function (l) { return !(l.src in _logoTone) || _logoTone[l.src] instanceof Promise; });
+    if (pending) {
+      loadLogoTones().then(function () { if (retoneLogos() && then) then(); });
+      return false;
+    }
+    const kitSrcs = kit.map(function (l) { return l.src; });
+    let changed = false;
+    (state.pages || []).forEach(function (pg) {
+      (pg.elements || []).forEach(function (el) {
+        if (!el || el.brandRole !== "logo" || el.type !== "image" || !el.src) return;
+        if (!el.autoLogo && kitSrcs.indexOf(el.src) < 0) return;   // a picture they put there themselves
+        const bg = hexTone(colourBehind(el, pg));
+        if (bg == null) return;
+        const cur = _logoTone[el.src];
+        if (cur != null && Math.abs(cur - bg) >= LOGO_STANDS_OUT) return;
+        let best = null, bestGap = cur != null ? Math.abs(cur - bg) : -1;
+        kit.forEach(function (l) {
+          const t = _logoTone[l.src];
+          if (t != null && Math.abs(t - bg) > bestGap + 0.05) { best = l.src; bestGap = Math.abs(t - bg); }
+        });
+        if (best && best !== el.src) { el.src = best; changed = true; }
+      });
+    });
+    return changed;
   }
 
   /* One logo, one slot. Sizing and placement live here so the first automatic
@@ -12671,6 +12767,8 @@ import { createResizeEngine } from "./resize-engine.js";
       slot.autoLogo = true;
       placeLogoInSlot(slot, src);
     });
+    // Light logo on a dark background and the other way round.
+    if (retoneLogos(function () { fullRender(); })) fullRender();
   }
 
   // Walk every text element and run their copy through applyMergeTags. Called
@@ -13879,6 +13977,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (all.length && !sel.length) { lockBlocks(all); return; }
     if (!sel.length) {
       state.canvas.background = hex;
+      retoneLogos(function () { fullRender(); }); 
       pushHistory();
       fullRender();
       return;
@@ -15257,6 +15356,7 @@ import { createResizeEngine } from "./resize-engine.js";
       // The custom fade swatch has no colour of its own; it opens the pop-out.
       if (!btn.dataset.color) return;
       state.canvas.background = btn.dataset.color;
+      retoneLogos(function () { fullRender(); }); 
       pushHistory();
       fullRender();
     });
@@ -15276,7 +15376,7 @@ import { createResizeEngine } from "./resize-engine.js";
       openColorPanel({
         title: "Background colour",
         current: isGradient(bg) ? "#F4F2F1" : bg,
-        onSolid: function (hex) { state.canvas.background = hex; fullRender(); pushHistory(); },   // the swatch stays the spectrum
+        onSolid: function (hex) { state.canvas.background = hex; retoneLogos(function () { fullRender(); }); fullRender(); pushHistory(); },   // the swatch stays the spectrum
       });
     });
   })();
@@ -17591,6 +17691,19 @@ import { createResizeEngine } from "./resize-engine.js";
     const thinBar = (o, pg) => o.type === "rect" && !isGrad(o) && Math.min(o.w, o.h) <= pg.canvas.width * 0.006;
     const inked = (pg) => (pg.elements || []).filter((o) => !o.hidden &&
       (o.type === "text" || o.type === "line" || thinBar(o, pg) || (o.type === "image" && o.svgKey)));
+    /* Blocks painted in the card's colour follow it as well (Dani's
+       postcard, 17 Nov: a full-size panel in Forest Green with a white
+       border, and a patch behind the logo). A solid shape the same colour
+       as its side, or as one of the four card colours, is background, so
+       it takes the new colour; its border, if it has one, takes the
+       words' colour like the lines do. Other coloured shapes are left. */
+    const sameHex = (a, b) => !!a && !!b && String(a).toLowerCase() === String(b).toLowerCase();
+    const CARD_HEX = ["#f1f1f1", "#c4a092", "#eae5e1", "#2e3f34"];
+    const isBlock = (o, pg) => (o.type === "rect" || o.type === "ellipse") && !o.hidden && !isGrad(o) && !thinBar(o, pg);
+    const bgBlocks = (pg) => (pg.elements || []).filter((o) => isBlock(o, pg) && o.fill &&
+      (sameHex(o.fill, pg.canvas.background) || CARD_HEX.indexOf(String(o.fill).toLowerCase()) > -1 ||
+       ((me && me.backgrounds) || []).some((b) => sameHex(b.hex, o.fill))));
+    const outlined = (pg) => (pg.elements || []).filter((o) => isBlock(o, pg) && o.strokeWidth > 0 && o.stroke && o.stroke !== "transparent");
     const inkOf = (o) => String((o.type === "text" ? o.color : o.type === "image" ? o.svgFill : o.fill) || "").toLowerCase();
     const inkWrong = (o, ink) => inkOf(o) !== ink || (o.type === "text" && Array.isArray(o.runs) && o.runs.some((r) => r.color));
     function inkTo(o, ink) {
@@ -17628,16 +17741,25 @@ import { createResizeEngine } from "./resize-engine.js";
       const inHex = set && swatchHex(set.bg);
       const inside = set && inHex ? state.pages.map((p, i) => i).filter((i) => folded(i) && state.pages[i].canvas.fold === "inside") : [];
       const needs = (i, h, k) => String(state.pages[i].canvas.background || "").toLowerCase() !== h.toLowerCase() ||
-        inked(state.pages[i]).some((o) => inkWrong(o, k)) || grads(state.pages[i]).some((o) => gradWrong(o, h));
-      if (!outside.some((i) => needs(i, hex, ink)) && !inside.some((i) => needs(i, inHex, set.ink))) return;
+        inked(state.pages[i]).some((o) => inkWrong(o, k)) || grads(state.pages[i]).some((o) => gradWrong(o, h)) ||
+        bgBlocks(state.pages[i]).some((o) => !sameHex(o.fill, h)) || outlined(state.pages[i]).some((o) => !sameHex(o.stroke, k));
+      if (!outside.some((i) => needs(i, hex, ink)) && !inside.some((i) => needs(i, inHex, set.ink))) {
+        if (retoneLogos(() => { fullRender(); })) fullRender();
+        return;
+      }
       const before = snapshotPages(), cur = state.currentPage;
       const paintPage = (i, h, k) => {
+        // Read before the side changes colour: a block matches the old one.
+        const blocks = bgBlocks(state.pages[i]);
+        blocks.forEach((o) => { o.fill = h; });
+        outlined(state.pages[i]).forEach((o) => { o.stroke = k; });
         state.pages[i].canvas.background = h;
         inked(state.pages[i]).forEach((o) => inkTo(o, k));
         grads(state.pages[i]).forEach((o) => gradTo(o, h));
       };
       outside.forEach((i) => paintPage(i, hex, ink));
       inside.forEach((i) => paintPage(i, inHex, set.ink));
+      retoneLogos(() => { fullRender(); });
       pushDesignHistory(before, cur);
       fullRender();
       if (state.pages.length > 1 && typeof refreshPageThumbs === "function") refreshPageThumbs();
@@ -18771,6 +18893,7 @@ import { createResizeEngine } from "./resize-engine.js";
       if (c.hex.toUpperCase() === "#FFFFFF") b.style.border = "1px solid rgba(0,0,0,0.1)";
       b.addEventListener("click", function () {
         state.canvas.background = c.hex;
+        retoneLogos(function () { fullRender(); }); 
         pushHistory();
         fullRender();
       });
