@@ -17596,20 +17596,41 @@ import { createResizeEngine } from "./resize-engine.js";
         o.runs = runsAreUniform(runs) ? null : runs;
       }
     }
-    function cardToBackground(exact) {
-      const hex = exact || (((me && me.backgrounds) || []).find((b) => b.key === bg) || {}).hex;
+    /* The inside follows as a set (Dani, 17 Nov): Neutral Grey or Neutral
+       Pink outside gives a Neutral Grey inside; Neutral Beige or Forest Green
+       outside gives a Neutral Beige inside. The inside's words, lines, icons
+       take the outside's word colour, except with Forest Green, where they
+       go back to the green. Only when a colour is picked, as a starting
+       point for a matching set: nothing is locked, and making the
+       illustration doesn't put the inside back after it has been changed. */
+    const INSIDE = {
+      grey:   { bg: "grey",  ink: "#3b3b3c" },
+      pink:   { bg: "grey",  ink: "#56423e" },
+      beige:  { bg: "beige", ink: "#371e28" },
+      forest: { bg: "beige", ink: "#2e3f34" },
+    };
+    const swatchHex = (key) => (((me && me.backgrounds) || []).find((b) => b.key === key) || {}).hex ||
+      ({ grey: "#F1F1F1", beige: "#eae5e1" })[key];
+    function cardToBackground(exact, withInside) {
+      const hex = exact || swatchHex(bg);
       if (!hex) return;
       const ink = inkFor(hex);
-      const outside = state.pages.map((p, i) => i).filter((i) => isFolded(state.pages[i].canvas) && state.pages[i].canvas.fold !== "inside");
-      const needs = (i) => String(state.pages[i].canvas.background || "").toLowerCase() !== hex.toLowerCase() ||
-        inked(state.pages[i]).some((o) => inkWrong(o, ink)) || grads(state.pages[i]).some((o) => gradWrong(o, hex));
-      if (!outside.some(needs)) return;
+      const folded = (i) => isFolded(state.pages[i].canvas);
+      const outside = state.pages.map((p, i) => i).filter((i) => folded(i) && state.pages[i].canvas.fold !== "inside");
+      const set = withInside && INSIDE[bg];
+      const inHex = set && swatchHex(set.bg);
+      const inside = set && inHex ? state.pages.map((p, i) => i).filter((i) => folded(i) && state.pages[i].canvas.fold === "inside") : [];
+      const needs = (i, h, k) => String(state.pages[i].canvas.background || "").toLowerCase() !== h.toLowerCase() ||
+        inked(state.pages[i]).some((o) => inkWrong(o, k)) || grads(state.pages[i]).some((o) => gradWrong(o, h));
+      if (!outside.some((i) => needs(i, hex, ink)) && !inside.some((i) => needs(i, inHex, set.ink))) return;
       const before = snapshotPages(), cur = state.currentPage;
-      outside.forEach((i) => {
-        state.pages[i].canvas.background = hex;
-        inked(state.pages[i]).forEach((o) => inkTo(o, ink));
-        grads(state.pages[i]).forEach((o) => gradTo(o, hex));
-      });
+      const paintPage = (i, h, k) => {
+        state.pages[i].canvas.background = h;
+        inked(state.pages[i]).forEach((o) => inkTo(o, k));
+        grads(state.pages[i]).forEach((o) => gradTo(o, h));
+      };
+      outside.forEach((i) => paintPage(i, hex, ink));
+      inside.forEach((i) => paintPage(i, inHex, set.ink));
       pushDesignHistory(before, cur);
       fullRender();
       if (state.pages.length > 1 && typeof refreshPageThumbs === "function") refreshPageThumbs();
@@ -17697,7 +17718,7 @@ import { createResizeEngine } from "./resize-engine.js";
           bg = b.key;
           try { localStorage.setItem("tmke.illBg", bg); } catch (_) {}
           paintBackgrounds();
-          cardToBackground();
+          cardToBackground(null, true);
         });
         row.appendChild(btn);
       });
