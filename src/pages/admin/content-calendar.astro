@@ -155,6 +155,8 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         <div class="cc-tl" id="cc-tl"></div>
         <div id="cc-call"></div>
       </div>
+      <!-- Insights: the fifth step once the month is live (Danielle, 17 Nov). src/lib/month-insights.js -->
+      <div class="ci" id="cc-insights" hidden></div>
       <label class="cc-f cc-about" id="cc-about"><span>About this month</span><input id="cc-intro" placeholder="A line about the month: what it's built around." /></label>
       <div class="section cc-funnel" id="cc-funnel" hidden>
         <div class="strip"><div class="strip-t">Marketing funnel</div><span class="aside">Coming soon</span></div>
@@ -456,6 +458,58 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .cc-call p { margin: 8px 0 0; color: var(--tx); }
     .cc-call-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .cc-about { margin: 0 0 16px; }
+
+    /* Insights (Danielle, 17 Nov; mock-up docs/tmke-os/calendar-month-insights). */
+    #cc-month-panel.is-insights #cc-views, #cc-month-panel.is-insights #cc-view-calendar, #cc-month-panel.is-insights #cc-view-templates, #cc-month-panel.is-insights #cc-view-notes { display: none !important; }
+    .ci { margin-bottom: 16px; }
+    .ci-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 14px; }
+    #ccb .ci-bar .chips { order: 0; flex: none; }
+    .ci-asof { margin: 0; display: flex; align-items: center; gap: 10px; color: var(--tx); }
+    .ci-hint { margin: 0 0 18px; color: var(--tx); }
+    .ci-card .ci-hint { margin: 0; }
+    .ci-note { margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--stone); border-radius: 4px; }
+    .ci-note b { font-weight: 600; }
+    .ci-figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0 0 22px; }
+    .ci-fig { display: grid; gap: 4px; align-content: start; padding: 16px 18px 14px; border-radius: 4px; }
+    .ci-fig b { font-weight: 400; font-size: 28px; line-height: 1.1; font-variant-numeric: lining-nums tabular-nums; }
+    .ci-fig.lin { background: var(--linen); color: var(--wine); }
+    .ci-fig.lin span, .ci-fig.lin small { color: var(--tx); }
+    .ci-fig.dark { background: var(--wine); color: #fff; }
+    .ci-fig.dark span, .ci-fig.dark small { color: rgba(255,255,255,.8); }
+    .ci-fig small { font-size: 14px; }
+    .ci-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; margin: 0 0 22px; }
+    .ci-card { border: 1px solid var(--edge); border-radius: 4px; padding: 16px 18px; display: grid; gap: 12px; align-content: start; }
+    .ci-card > p { margin: 0; color: var(--tx); }
+    .ci-wide { margin: 0 0 22px; }
+    .ci-h { font-family: var(--serif); font-weight: 300; font-size: 19px; line-height: 1.1; letter-spacing: -0.04em; color: var(--ink); }
+    .ci-legend { display: flex; gap: 16px; color: var(--tx); }
+    .ci-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: var(--wine); margin-right: 6px; vertical-align: -1px; }
+    .ci-chart { position: relative; }
+    .ci-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .ci-tip { position: absolute; pointer-events: none; background: var(--wine); color: #fff; padding: 6px 10px; border-radius: 4px; white-space: nowrap; transform: translate(-50%, -110%); opacity: 0; transition: opacity .12s; }
+    .ci-tip.on { opacity: 1; }
+    .ci-funnel { display: grid; gap: 8px; }
+    .ci-frow { display: grid; grid-template-columns: 190px minmax(0, 1fr) 90px; gap: 12px; align-items: center; }
+    .ci-tr { height: 22px; background: var(--linen); border-radius: 0 4px 4px 0; overflow: hidden; }
+    .ci-tr div { height: 100%; background: var(--wine); border-radius: 0 4px 4px 0; }
+    .ci-frow b { font-weight: 400; text-align: right; font-variant-numeric: tabular-nums; }
+    .ci-frow b small { color: var(--tx); font-size: 14px; margin-left: 4px; }
+    .ci-dlist { display: grid; }
+    #ccb .ci-drow { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 58px; padding: 0; border: 0; border-bottom: 1px solid var(--linen); background: none; color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+    #ccb .ci-drow:first-child { border-top: 1px solid var(--linen); }
+    #ccb .ci-drow:hover { background: #f7f4f2; }
+    .ci-drow small { display: block; color: var(--tx); font-size: 14px; }
+    .ci-drow b { font-weight: 400; font-variant-numeric: tabular-nums; }
+    .ci-th { display: block; width: 36px; height: 45px; border-radius: 2px; background: var(--linen) center / cover no-repeat; }
+    .ci-th.is-none { border: 1px dashed var(--stone); background: none; }
+    .cc-modal-box.ci-pop { width: min(980px, 100%); height: min(680px, 100%); }
+    .ci-pop-b { flex: 1; min-height: 0; overflow: auto; padding: 16px 18px; display: grid; gap: 12px; align-content: start; }
+    .ci-pop-f { padding: 12px 18px; border-top: 1px solid var(--linen); }
+    #ccb .ci-sort th[data-ci-sort] { cursor: pointer; }
+    #ccb .ci-sort th.on { color: var(--wine); }
+    #ccb .ci-sort td.n, #ccb .ci-sort th.n { text-align: right; }
+    #ccb .ci-sort td.ci-name { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 900px) { .ci-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ci-grid { grid-template-columns: minmax(0, 1fr); } }
     .cc-funnel { margin-bottom: 16px; }
     .cc-view-chips { margin: 0 0 14px; }
     #cc-views { display: flex; }
@@ -602,6 +656,10 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     const DEV = import.meta.env.DEV;
     const $ = (id) => document.getElementById(id);
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+    import { initMonthInsights } from '../../lib/month-insights.js';
+    const INS = initMonthInsights({ host: document.getElementById('cc-insights'), supabase, WORKER });
+    // The Insights step: a view of a live month, not a stage that's saved.
+    let INSIGHTS = false;
     // Opens the Studio in the brand of the month being worked on.
     const brandParam = () => { const b = CUR && EDITION_BRAND[CUR.edition]; return b ? `&ccbrand=${encodeURIComponent(b)}` : ''; };
 
@@ -674,6 +732,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     async function openMonth(m) {
       if (CUR && CUR !== m) await saveNotes();   // typed notes stay with the month they were typed in
       CUR = m;
+      INSIGHTS = false;
       if (!m) { history.replaceState(null, '', location.pathname); showTab('months'); return; }
       history.replaceState(null, '', `${location.pathname}?month=${m.month}&edition=${m.edition}`);
       await loadPosts();
@@ -695,13 +754,17 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       $('cc-title').textContent = monthName(m.month);
       $('cc-pill').textContent = live ? 'Live' : 'Draft';
       $('cc-ed-tag').textContent = editionLabel(m.edition);
-      $('cc-stage-tag').textContent = `Stage ${st} of 4`;
+      if (!live) INSIGHTS = false;
+      $('cc-stage-tag').textContent = INSIGHTS ? 'Insights' : `Stage ${st} of 4`;
       $('cc-count').textContent = `${POSTS.length} post${POSTS.length === 1 ? '' : 's'} · ${withDesign} with a design · ${live ? (m.published_at ? `Went live ${shortDate(m.published_at)}` : 'Live') : 'Not live yet'}`;
-      $('cc-stage-back').hidden = st === 1;
-      $('cc-stage-next').hidden = st === 4;
-      if (st < 4) $('cc-stage-next').textContent = `Next: ${STAGES[st][1]} →`;
-      $('cc-about').hidden = st !== 1;
-      $('cc-funnel').hidden = st !== 4;
+      $('cc-stage-back').hidden = st === 1 && !INSIGHTS;
+      $('cc-stage-next').hidden = INSIGHTS || (st === 4 && !live);
+      if (!INSIGHTS) $('cc-stage-next').textContent = st < 4 ? `Next: ${STAGES[st][1]} →` : 'Next: Insights →';
+      $('cc-about').hidden = st !== 1 || INSIGHTS;
+      $('cc-funnel').hidden = st !== 4 || INSIGHTS;
+      $('cc-month-panel').classList.toggle('is-insights', INSIGHTS);
+      $('cc-insights').hidden = !INSIGHTS;
+      if (INSIGHTS) INS.show(m.id);
       renderProgress();
       renderRows();
     }
@@ -721,10 +784,14 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     }
     let DRAFTING = null;   // { done, total } while Claude is working through the month
     function renderProgress() {
-      const st = stageOf(), n = POSTS.length;
-      const fill = (st - 1) / (STAGES.length - 1) * 100;
-      $('cc-tl').innerHTML = `<div class="cc-tl-track"><div style="width:${fill}%"></div></div>` + STAGES.map(([s, l], i) =>
-        `<button type="button" class="cc-tl-step${i === 0 ? ' first' : ''}${i === STAGES.length - 1 ? ' last' : ''}${s <= st ? ' done' : ''}${s === st ? ' cur' : ''}" style="left:${i / (STAGES.length - 1) * 100}%" data-stage="${s}"><span class="cc-tl-dot"></span><span>${l}</span></button>`).join('');
+      const n = POSTS.length;
+      // A live month gets a fifth step, Insights (Danielle, 17 Nov).
+      const STEPS = CUR.status === 'published' ? [...STAGES, [5, 'Insights']] : STAGES;
+      const st = INSIGHTS ? 5 : stageOf();
+      const fill = (st - 1) / (STEPS.length - 1) * 100;
+      $('cc-tl').innerHTML = `<div class="cc-tl-track"><div style="width:${fill}%"></div></div>` + STEPS.map(([s, l], i) =>
+        `<button type="button" class="cc-tl-step${i === 0 ? ' first' : ''}${i === STEPS.length - 1 ? ' last' : ''}${s <= st ? ' done' : ''}${s === st ? ' cur' : ''}" style="left:${i / (STEPS.length - 1) * 100}%" data-stage="${s}"><span class="cc-tl-dot"></span><span>${l}</span></button>`).join('');
+      if (INSIGHTS) { $('cc-call').innerHTML = ''; return; }
       const item = (ok, t) => `<li class="${ok ? 'ok' : ''}">${esc(t)}</li>`;
       const btn = (k, l, cls) => `<button type="button" class="mbtn${cls ? ' ' + cls : ''}" data-call="${k}">${l}</button>`;
       const boards = btn('grid', 'Instagram grid') + btn('client', 'Client calendar');
@@ -778,7 +845,10 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     }
 
     async function setStage(n) {
-      if (!CUR || n === stageOf()) return;
+      if (!CUR) return;
+      if (n === 5) { if (CUR.status === 'published' && !INSIGHTS) { INSIGHTS = true; renderMonth(); } return; }
+      if (INSIGHTS) { INSIGHTS = false; if (n === stageOf()) { renderMonth(); return; } }
+      if (n === stageOf()) return;
       const m = CUR, was = m.stage;
       m.stage = n;
       renderMonth();
@@ -1581,7 +1651,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       if (k === 'publish') togglePublish();
     });
     $('cc-tl').addEventListener('click', (e) => { const b = e.target.closest('[data-stage]'); if (b) setStage(Number(b.dataset.stage)); });
-    $('cc-stage-back').addEventListener('click', () => setStage(stageOf() - 1));
+    $('cc-stage-back').addEventListener('click', () => setStage(INSIGHTS ? 4 : stageOf() - 1));
     $('cc-stage-next').addEventListener('click', () => setStage(stageOf() + 1));
     $('cc-month-img').addEventListener('click', () => openPicker('image'));
     $('cc-short-add').addEventListener('click', () => openPicker('short'));

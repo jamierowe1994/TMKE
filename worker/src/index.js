@@ -9089,6 +9089,103 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           let ok = false;
           for (const p of posts) { if (await ccOpenMonthRow(env, a, p.month_id)) { ok = true; break; } }
           if (!ok) return json({ ok: true, template: null }, 200, request, env);
+      /* One Content Calendar month's Insights (Danielle, 17 Nov 2026; mock-up
+         docs/tmke-os/calendar-month-insights). The raw material, compact: the
+         month's posts, who had access to its edition and who's on Plus, what
+         the usage log recorded (supabase/usage_log.sql: opens, Use This
+         Template, saved copies, downloads, hub visits) and the planner items
+         made from its posts (planned, scheduled through Zernio, posted). The
+         admin page works out every figure from these, for Everyone, Content
+         Calendar or Plus. Staff and test logins are left out. Admins only. */
+      if (path.endsWith("/admin/month-insights") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const monthId = String(url.searchParams.get("month_id") || "");
+        if (!/^[0-9a-f-]{36}$/i.test(monthId)) return json({ error: "Which month?" }, 400, request, env);
+        const month = (await sbGet(env, "content_months", `id=eq.${monthId}&select=*`))?.[0];
+        if (!month) return json({ error: "Month not found." }, 404, request, env);
+        const quoted = (arr) => arr.map((i) => `"${String(i).replace(/"/g, "")}"`).join(",");
+
+        const posts = (await sbGet(env, "content_month_posts", `month_id=eq.${monthId}&select=id,post_date,title,template_id,pillar,post_type,sort_order&order=post_date.asc.nullslast,sort_order.asc`)) || [];
+        const tplIds = [...new Set(posts.map((p) => p.template_id).filter(Boolean))];
+        const tpls = await ccTemplatesById(env, tplIds, false);
+        const postIds = posts.map((p) => p.id);
+
+        // Left out: staff and test logins.
+        const S = await ccSettings(env, true);
+        const out = new Set([...(((await sbGet(env, "admins", "select=user_id")) || []).map((r) => r.user_id)), ...S.test_user_ids]);
+
+        // Who had this edition: members with a live brand in it, on an account.
+        const brands = Object.keys(ACCESS_EDITION_OF_BRAND).filter((b) => ACCESS_EDITION_OF_BRAND[b] === month.edition);
+        const access = new Set();
+        if (brands.length) {
+          const profs = (await sbGetAll(env, "agent_profiles", `brand=in.(${encodeURIComponent(quoted(brands))})&left_at=is.null&select=contact_id`)) || [];
+          const cids = [...new Set(profs.map((r) => r.contact_id).filter(Boolean))];
+          for (let i = 0; i < cids.length; i += 100) {
+            const rows = (await sbGet(env, "contacts", `id=in.(${cids.slice(i, i + 100).join(",")})&user_id=not.is.null&select=user_id`)) || [];
+            rows.forEach((c) => { if (!out.has(c.user_id)) access.add(c.user_id); });
+          }
+        }
+        // On Plus (or above), paid live by card.
+        const plus = new Set(((await sbGetAll(env, "member_subscriptions", "mode=eq.live&status=in.(active,past_due,cancelling)&level=in.(scheduling,done_for_you)&select=user_id")) || []).map((r) => r.user_id));
+
+        // The month's window: from when it went live (or the 1st, if sooner) to the month's end.
+        const start = String(month.month).slice(0, 10);
+        const [yy, mm] = start.split("-").map(Number);
+        const end = new Date(Date.UTC(yy, mm, 1)).toISOString().slice(0, 10);
+        const from = month.published_at && String(month.published_at).slice(0, 10) < start ? String(month.published_at).slice(0, 10) : start;
+
+        // The usage log: anything about this month's posts or designs.
+        let logs = [];
+        if (postIds.length || tplIds.length) {
+          const ors = [`month_id.eq.${monthId}`];
+          if (postIds.length) ors.push(`post_id.in.(${postIds.join(",")})`);
+          if (tplIds.length) ors.push(`template_id.in.(${quoted(tplIds)})`);
+          logs = (await sbGetAll(env, "usage_log", `event=in.(month_viewed,post_opened,design_opened,copy_saved,downloaded)&or=(${encodeURIComponent(ors.join(","))})&select=user_id,event,post_id,template_id,created_at&order=created_at.asc`)) || [];
+        }
+        const visits = (await sbGetAll(env, "usage_log", `event=eq.hub_visit&created_at=gte.${from}&created_at=lt.${end}&select=user_id,created_at&order=created_at.asc`)) || [];
+        const items = postIds.length ? ((await sbGetAll(env, "calendar_items", `details->>cc_post_id=in.(${postIds.join(",")})&status=neq.cancelled&select=user_id,status,details,created_at`)) || []) : [];
+
+        // Everyone in it, numbered, so the rows below stay small.
+        const people = [], idx = new Map();
+        const who = (uid) => {
+          if (!uid || out.has(uid)) return -1;
+          if (!idx.has(uid)) { idx.set(uid, people.length); people.push({ access: access.has(uid), plus: plus.has(uid) }); }
+          return idx.get(uid);
+        };
+        access.forEach(who);
+        const postOfTpl = new Map();
+        posts.forEach((p) => { if (p.template_id && !postOfTpl.has(p.template_id)) postOfTpl.set(p.template_id, p.id); });
+        const ev = [];
+        for (const r of logs) {
+          const u = who(r.user_id); if (u < 0) continue;
+          const pid = r.post_id && postIds.includes(r.post_id) ? r.post_id : postOfTpl.get(r.template_id) || null;
+          if (r.event !== "month_viewed" && !pid) continue;
+          ev.push([u, r.event, pid, r.created_at]);
+        }
+        const vis = [];
+        for (const r of visits) { const u = idx.has(r.user_id) ? idx.get(r.user_id) : -1; if (u >= 0) vis.push([u, r.created_at]); }
+        const its = [];
+        for (const r of items) {
+          const u = who(r.user_id); if (u < 0) continue;
+          const z = (r.details && r.details.zernio) || null;
+          const zs = z && z.status;
+          its.push([u, r.details.cc_post_id, r.created_at, !!z && zs !== "failed" && zs !== "cancelled", zs === "posted" || zs === "partial" || r.status === "done"]);
+        }
+
+        return json({
+          ok: true,
+          month: { id: month.id, month: start, edition: month.edition, status: month.status, published_at: month.published_at || null },
+          window: { from, to: end },
+          teg_live: S.teg_live,
+          posts: posts.map((p) => { const t = tpls.get(p.template_id) || {}; return { id: p.id, date: p.post_date, title: p.title || t.name || "Post", thumb: t.thumb_url || null, pillar: p.pillar || null, type: p.post_type || null }; }),
+          people,                 // [{ access, plus }] by number
+          events: ev,             // [person, event, post id, at]
+          visits: vis,            // [person, at]: Member Hub visits in the window
+          items: its,             // [person, post id, planned at, scheduled, posted]
+        }, 200, request, env);
+      }
+
           const t = (await ccTemplatesById(env, [id], true)).get(id) || null;
           return json({ ok: true, template: t }, 200, request, env);
         }
