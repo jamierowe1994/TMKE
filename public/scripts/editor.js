@@ -6018,16 +6018,22 @@ import { createResizeEngine } from "./resize-engine.js";
      they line two things up; within a kind, the nearest wins. The mixed
      pairings stay as the fallback, for the cases where a middle really is
      what you want. Dani, 10 Oct. */
+  /* A "strong" target (the fold of a folded card) reaches a little further
+     and wins over everything else in reach: Dani, 17 Nov, a picture "really
+     does not want to align" to the fold, because its other edge or the
+     things on the back were nearer to something else and took the snap. */
   function nearestEdge(pts, targets, tol) {
-    let best = null, bestSame = false;
+    let best = null, bestSame = false, bestStrong = false;
     pts.forEach(function (p) {
       targets.forEach(function (tg) {
         const d = tg.v - p.v;
-        if (Math.abs(d) > tol) return;
+        const strong = !!tg.strong;
+        if (Math.abs(d) > (strong ? tol * 1.5 : tol)) return;
         const same = tg.k === p.k;
-        if (best === null || (same && !bestSame) ||
-            (same === bestSame && Math.abs(d) < Math.abs(best))) {
-          best = d; bestSame = same;
+        if (best === null || (strong && !bestStrong) ||
+            (strong === bestStrong && ((same && !bestSame) ||
+              (same === bestSame && Math.abs(d) < Math.abs(best))))) {
+          best = d; bestSame = same; bestStrong = strong;
         }
       });
     });
@@ -6048,8 +6054,9 @@ import { createResizeEngine } from "./resize-engine.js";
        each half gets its line, and the fold counts as the edge of each half,
        so a picture's edge lines up with it as well as its middle. */
     if (isFolded(state.canvas)) {
+      xs[1].strong = true;
       xs.push({ v: W / 4, page: true, k: "m" }, { v: W * 3 / 4, page: true, k: "m" },
-        { v: W / 2, page: true, k: "e" }, { v: W / 2, page: true, k: "s" });
+        { v: W / 2, page: true, k: "e", strong: true }, { v: W / 2, page: true, k: "s", strong: true });
     }
     const m = state.margins;
     if (m && m.on && m.size > 0) {
@@ -17203,14 +17210,70 @@ import { createResizeEngine } from "./resize-engine.js";
        and don't use a go on a colour they don't want (Dani, 17 Nov). One undo
        step. Done again when the illustration is made, in case the outside was
        changed in between. The inside stays as it is. */
+    /* The words on the front follow the colour too (Dani, 17 Nov): black on
+       Neutral Grey and Neutral Beige, white on Neutral Pink and Forest Green.
+       Every text box whose middle sits on the front half; a colour set on
+       part of the words goes as well, so the whole box is one colour. The
+       back and the inside are left alone. */
+    const TEXT_ON = { grey: "#000000", beige: "#000000", pink: "#ffffff", forest: "#ffffff" };
+    function inkFor(hex) {
+      if (TEXT_ON[bg]) return TEXT_ON[bg];
+      const n = parseInt(String(hex).slice(1), 16);
+      const l = (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
+      return l > 0.6 ? "#000000" : "#ffffff";
+    }
+    const frontWords = (pg) => (pg.elements || []).filter((o) => o.type === "text" && o.x + o.w / 2 >= pg.canvas.width / 2);
+    const inkWrong = (o, ink) => String(o.color || "").toLowerCase() !== ink || (Array.isArray(o.runs) && o.runs.some((r) => r.color));
+    function inkTo(o, ink) {
+      o.color = ink;
+      if (Array.isArray(o.runs) && o.runs.length) {
+        const runs = o.runs.map((r) => { const c = Object.assign({}, r); delete c.color; return c; });
+        o.runs = runsAreUniform(runs) ? null : runs;
+      }
+    }
     function cardToBackground(exact) {
       const hex = exact || (((me && me.backgrounds) || []).find((b) => b.key === bg) || {}).hex;
       if (!hex) return;
+      const ink = inkFor(hex);
       const outside = state.pages.map((p, i) => i).filter((i) => isFolded(state.pages[i].canvas) && state.pages[i].canvas.fold !== "inside");
-      if (!outside.length || outside.every((i) => String(state.pages[i].canvas.background || "").toLowerCase() === hex.toLowerCase())) return;
+      const needs = (i) => String(state.pages[i].canvas.background || "").toLowerCase() !== hex.toLowerCase() ||
+        frontWords(state.pages[i]).some((o) => inkWrong(o, ink));
+      if (!outside.some(needs)) return;
       const before = snapshotPages(), cur = state.currentPage;
-      outside.forEach((i) => { state.pages[i].canvas.background = hex; });
+      outside.forEach((i) => {
+        state.pages[i].canvas.background = hex;
+        frontWords(state.pages[i]).forEach((o) => inkTo(o, ink));
+      });
       pushDesignHistory(before, cur);
+      fullRender();
+      if (state.pages.length > 1 && typeof refreshPageThumbs === "function") refreshPageThumbs();
+    }
+    /* The illustration goes straight onto the front (Dani, 17 Nov: "quite
+       difficult to get it to snap into that place and not go onto the
+       back"): the full width of the front half, sitting on the bottom edge,
+       on the outside page. Behind everything else (Dani: "otherwise, when
+       you move it or resize it, it's going to hide the text"), except a
+       block that already fills the whole front, which would hide it. */
+    async function placeIllustration(url) {
+      const outI = state.pages.findIndex((p) => isFolded(p && p.canvas) && p.canvas.fold !== "inside");
+      if (outI < 0) { await addImage(url); return; }
+      if (outI !== state.currentPage) goToPage(outI);
+      const nat = await new Promise((res) => {
+        const im = new Image();
+        im.onload = () => res([im.naturalWidth || 1792, im.naturalHeight || 2400]);
+        im.onerror = () => res([1792, 2400]);
+        im.src = url;
+      });
+      const W = state.canvas.width, H = state.canvas.height;
+      const w = Math.round(W / 2), h = Math.round(w * nat[1] / nat[0]);
+      const els = state.elements;
+      const fills = (o) => o.type !== "text" && !o.hidden && o.x <= W / 2 && o.y <= 0 && o.x + o.w >= W && o.y + o.h >= H;
+      let at = 0;
+      while (at < els.length && fills(els[at])) at++;
+      const id = uid("image");
+      els.splice(at, 0, { id, type: "image", x: W - w, y: H - h, w, h, src: url, opacity: 1, rotation: 0 });
+      state.selectedIds = [id];
+      pushHistory();
       fullRender();
     }
     /* The illustrator never paints exactly the colour asked for (Dani, 17 Nov:
@@ -17353,13 +17416,13 @@ import { createResizeEngine } from "./resize-engine.js";
       if (typeof renderUploadsSoon === "function") renderUploadsSoon();
       $("ed-ill-result-img").src = out.url;
       $("ed-ill-result").hidden = false;
-      await addImage(out.url);
+      await placeIllustration(out.url);
       await matchCardToPicture();
       $("ed-ill-match").hidden = false;
       paint();
       status(C.done);
     });
-    $("ed-ill-result").addEventListener("click", () => { if (lastUrl) addImage(lastUrl); });
+    $("ed-ill-result").addEventListener("click", () => { if (lastUrl) placeIllustration(lastUrl); });
     $("ed-ill-match").textContent = "Match the card to the picture";
     $("ed-ill-match").addEventListener("click", matchCardToPicture);
 
