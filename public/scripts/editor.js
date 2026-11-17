@@ -9700,85 +9700,90 @@ import { createResizeEngine } from "./resize-engine.js";
     ctx.restore();
   }
 
-  /* Painted edges (Danielle, 17 Nov). A picture can fade into the card
-     instead of stopping at a hard line, like a watercolour on paper: her
-     examples of illustrated houses never end in a block of ground across the
-     bottom. A mask, the same one on screen and in the download, is made here
-     from the shape of the box: opaque in the middle, clear at the edge, with
-     a ragged, uneven edge for the painted kinds. The mask is small and
-     stretched, which keeps it soft; it is cached by kind and shape, so
-     resizing doesn't remake it on every move. */
+  /* Edges (Danielle, 17 Nov). A picture can fade into the card instead of
+     stopping at a hard line. Agreed with her on a test page after four
+     rounds (claude.ai/artifact/K9JjEa9bRfDEwvdnDvWFnm), with the numbers she
+     settled on:
+       Straight fade  a straight fade 20% up from the bottom and 20% in from
+                      each side; the top is left alone.
+       Painted edge   like a watercolour on paper: the paint stops at a crisp,
+                      finely uneven edge all the way round (3% in, gentle
+                      waves 3, fine unevenness 6).
+     Rejected on the way: a soft oval and a pill, a ragged "broken glass"
+     edge, brush strokes, a soft wash with odd corners. Designs saved with
+     the first version's "oval" or "ground" are drawn with the straight fade.
+     A mask, the same one on screen and in the download, made from the shape
+     of the box and cached by kind and shape, so resizing doesn't remake it
+     on every move. */
   // Declared as functions and a var, not consts: a saved design with an
   // edge is drawn before the script reaches this point.
   function edgeKinds() {
-    return { oval: "Soft oval", painted: "Painted edge", ground: "Fade at the bottom" };
+    return { fade: "Straight fade", painted: "Painted edge" };
+  }
+  function edgeKind(k) {
+    return k === "painted" ? "painted" : (k === "fade" || k === "oval" || k === "ground") ? "fade" : null;
   }
   function edgeOn(el) {
-    return !!(el && el.src && (el.type === "image" || el.type === "frame") &&
-      (el.edge === "oval" || el.edge === "painted" || el.edge === "ground"));
+    return !!(el && el.src && (el.type === "image" || el.type === "frame") && edgeKind(el.edge));
   }
   var _edgeCache = null;
-  function edgeHash(x, y, s) {
-    let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(s | 0, 982451653);
+  function edgeHash1(i, s) {
+    let h = Math.imul(i | 0, 374761393) ^ Math.imul(s | 0, 668265263);
     h = Math.imul(h ^ (h >>> 13), 1274126177);
     h ^= h >>> 16;
     return (h >>> 0) / 4294967295;
   }
-  function edgeNoise(x, y, s) {
-    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
-    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
-    const a = edgeHash(xi, yi, s), b = edgeHash(xi + 1, yi, s), c = edgeHash(xi, yi + 1, s), d = edgeHash(xi + 1, yi + 1, s);
-    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-  }
-  function edgeFbm(x, y, s) {
-    let t = 0, amp = 0.5, f = 1;
-    for (let o = 0; o < 4; o++) { t += amp * edgeNoise(x * f, y * f, s + o * 17); f *= 2; amp *= 0.5; }
-    return t / 0.9375;
+  function edgeNoise1(x, s) {
+    const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f);
+    const a = edgeHash1(i, s), b = edgeHash1(i + 1, s);
+    return a + (b - a) * u;
   }
   function edgeStep(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
   // The mask for a box of w x h, as a canvas. Aspect rounded to 2% steps.
+  // The painted edge is crisp, so its mask is drawn larger than the fade's.
   function edgeMask(kind, w, h) {
+    kind = edgeKind(kind) || "fade";
     const ar = Math.exp(Math.round(Math.log(Math.max(0.05, w / Math.max(1, h))) / 0.02) * 0.02);
     const key = kind + ":" + ar.toFixed(3);
     _edgeCache = _edgeCache || new Map();
     if (_edgeCache.has(key)) return _edgeCache.get(key);
-    const L = 360;
+    const L = kind === "painted" ? 1200 : 360;
     const W = ar >= 1 ? L : Math.max(8, Math.round(L * ar)), H = ar >= 1 ? Math.max(8, Math.round(L / ar)) : L;
     const S = Math.min(W, H);
     const c = document.createElement("canvas");
     c.width = W; c.height = H;
     const g = c.getContext("2d");
     const im = g.createImageData(W, H), d = im.data;
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const X = x + 0.5, Y = y + 0.5;
-        let a = 1;
-        if (kind === "oval") {
-          const nx = (X / W - 0.5) / 0.5, ny = (Y / H - 0.5) / 0.5;
-          a = 1 - edgeStep(0.72, 1, Math.sqrt(nx * nx + ny * ny));
-        } else if (kind === "painted") {
-          const dist = Math.min(X, W - X, Y, H - Y) / S;
-          const e = 0.05 + 0.11 * edgeFbm(X / S * 5, Y / S * 5, 3);
-          a = edgeStep(e - 0.012, e + 0.035, dist);
-          // A little unevenness just inside the edge, like pigment drying.
-          const inner = edgeStep(e + 0.03, e + 0.13, dist);
-          a *= inner + (1 - inner) * (0.72 + 0.28 * edgeFbm(X / S * 18, Y / S * 18, 9));
-        } else if (kind === "ground") {
-          // The bottom fades on a ragged line; the sides fade only low down,
-          // where the ground reaches them. The top is left as it is.
-          const fromBottom = (H - Y) / S;
-          const eb = 0.03 + 0.17 * edgeFbm(X / S * 4, 0.5, 5);
-          a = edgeStep(eb, eb + 0.11, fromBottom);
-          const side = Math.min(X, W - X) / S;
-          const es = 0.02 + 0.09 * edgeFbm(0.5, Y / S * 4, 7);
-          const low = edgeStep(0.45, 0.75, Y / H);
-          a *= 1 - low + low * edgeStep(es, es + 0.08, side);
+    if (kind === "painted") {
+      // Each side's edge: a slow, gentle wave plus a fine, tear-like
+      // unevenness, drawn crisply; the corners barely rounded.
+      const base = 0.03, low = 3 * 0.003, fine = 6 * 0.0013;
+      const prof = (n, seed, k) => {
+        const a = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          const t = i / S;
+          a[i] = (base + k * (low * edgeNoise1(t * 3, seed) + fine * (edgeNoise1(t * 32, seed + 5) * 0.7 + edgeNoise1(t * 85, seed + 9) * 0.3))) * S;
         }
-        const i = (y * W + x) * 4;
-        d[i] = d[i + 1] = d[i + 2] = 255;
-        d[i + 3] = Math.round(255 * Math.max(0, Math.min(1, a)));
+        return a;
+      };
+      const top = prof(W, 11, 1), bot = prof(W, 23, 1.2), lef = prof(H, 37, 1), rig = prof(H, 41, 1);
+      const r = 0.012 * S;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const X = x + 0.5, Y = y + 0.5;
+          const dx = Math.max(lef[y] + r - X, 0, X - (W - rig[y] - r)), dy = Math.max(top[x] + r - Y, 0, Y - (H - bot[x] - r));
+          d[(y * W + x) * 4 + 3] = Math.round(255 * Math.max(0, Math.min(1, 0.5 - (Math.hypot(dx, dy) - r))));
+        }
+      }
+    } else {
+      const cols = new Float32Array(W);
+      for (let x = 0; x < W; x++) cols[x] = edgeStep(0, 0.2, (x + 0.5) / W) * edgeStep(0, 0.2, (W - x - 0.5) / W);
+      for (let y = 0; y < H; y++) {
+        const a = edgeStep(0, 0.2, (H - y - 0.5) / H);
+        for (let x = 0; x < W; x++) d[(y * W + x) * 4 + 3] = Math.round(255 * a * cols[x]);
       }
     }
+    for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = 255;
     g.putImageData(im, 0, 0);
     const out = { canvas: c, url: c.toDataURL("image/png") };
     _edgeCache.set(key, out);
@@ -13297,7 +13302,7 @@ import { createResizeEngine } from "./resize-engine.js";
             const b = document.createElement("button");
             b.type = "button";
             b.className = "ed-edge-opt";
-            b.setAttribute("aria-pressed", String((el.edge || "") === o[0]));
+            b.setAttribute("aria-pressed", String((edgeKind(el.edge) || "") === o[0]));
             const pic = document.createElement("span");
             pic.className = "ed-edge-pic";
             pic.style.background = bgc;
@@ -13315,7 +13320,7 @@ import { createResizeEngine } from "./resize-engine.js";
             lab.textContent = o[1];
             b.appendChild(lab);
             b.addEventListener("click", function () {
-              if ((el.edge || "") === o[0]) return;
+              if ((edgeKind(el.edge) || "") === o[0]) return;
               if (o[0]) el.edge = o[0]; else delete el.edge;
               grid.querySelectorAll(".ed-edge-opt").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
               pushHistory();
