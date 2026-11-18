@@ -32,8 +32,8 @@ import "../../styles/money-os.css";
     .sr .bar { margin: 0 0 22px; }
     .sr .sr-note { margin: 0; color: var(--tx); max-width: 75%; }
     .sr .sr-months { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; align-items: end; height: 150px; padding: 12px 0 0; border-bottom: 1px solid var(--stone); }
-    .sr .sr-m { display: grid; grid-template-rows: 1fr auto; height: 100%; gap: 6px; }
-    .sr .sr-m i { align-self: end; display: block; background: var(--wine); border-radius: 4px 4px 0 0; min-height: 2px; }
+    .sr .sr-m { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; gap: 4px; }
+    .sr .sr-m i { display: block; background: var(--wine); border-radius: 4px 4px 0 0; min-height: 2px; }
     .sr .sr-m b { font-weight: 400; text-align: center; color: var(--ink); }
     .sr .sr-mlabels { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; padding-top: 6px; }
     .sr .sr-mlabels span { text-align: center; color: var(--tx); }
@@ -190,7 +190,7 @@ import "../../styles/money-os.css";
       const t = new Date(); t.setDate(1);
       for (let i = 11; i >= 0; i--) { const x = new Date(t.getFullYear(), t.getMonth() - i, 1); months.push([x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0"), x.toLocaleDateString("en-GB", { month: "short" })]); }
       const n = months.map(([k]) => rows.filter((r) => r.joined && r.joined.slice(0, 7) === k).length), max = Math.max(1, ...n);
-      return `<div><p class="sr-note">Signed up each month</p><div class="sr-months">${months.map(([k, l], i) => `<div class="sr-m" title="${esc(l)}: ${n[i]} signed up"><b>${n[i] || ""}</b><i style="height:${(n[i] / max) * 100}%"></i></div>`).join("")}</div><div class="sr-mlabels">${months.map(([, l]) => `<span>${esc(l)}</span>`).join("")}</div></div>`;
+      return `<div><p class="sr-note">Signed up each month</p><div class="sr-months">${months.map(([k, l], i) => `<div class="sr-m" title="${esc(l)}: ${n[i]} signed up"><b>${n[i] || ""}</b><i style="height:${(n[i] / max) * 80}%"></i></div>`).join("")}</div><div class="sr-mlabels">${months.map(([, l]) => `<span>${esc(l)}</span>`).join("")}</div></div>`;
     }
 
     function packTable(rows) {
