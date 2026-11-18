@@ -213,8 +213,8 @@ export function initBuilder(ctx) {
       const t = cnt((r) => r.preview_ok), m = cnt((r) => r.member_ok);
       const sent = (P.test_user_ids || []).length > 0;
       const acts = isLive(P) ? '<button type="button" class="mbtn primary" data-gift>Gift the pack</button>'
-        : sent ? '<a class="mbtn" href="/account/studio" target="_blank" rel="noopener">Open the Studio</a><button type="button" class="mbtn" data-test="0">Take the test pack back</button>'
-        : '<button type="button" class="mbtn primary" data-test="1">Send me the test pack</button>';
+        : (sent ? '<a class="mbtn" href="/account/studio" target="_blank" rel="noopener">Open the Studio</a><button type="button" class="mbtn" data-test="0">Take the test pack back</button>'
+          : '<button type="button" class="mbtn primary" data-test="1">Send me the test pack</button>') + '<button type="button" class="mbtn" data-sendto>Send to a team member</button>';
       const lead = isLive(P) ? "It's live, so it's already in the Studio for everyone it's for. Gift the pack puts it in someone's library for free, such as another admin. "
         : sent ? "Sent to your test login: it's in that account's Studio as a test pack, and nobody else can see it. "
         : "Send me the test pack puts just this pack in your test login's Studio, so you can try every design as a member before it goes in the shop. ";
@@ -502,6 +502,47 @@ export function initBuilder(ctx) {
     toast(on ? `${P.title} is in your test login's Studio. Only that account can see it.` : "Taken back. It's no longer in your test login's Studio.");
   }
 
+  /* A team member's own login, staff included (Danielle, 18 Nov: Sam needed
+     to see the Christmas cards, and Test logins refuses staff). Found by
+     their email in Contacts; the pack goes on that login's Studio as a test
+     pack, the same as the test login's. */
+  async function openSendTo() {
+    const ids = P.test_user_ids || [];
+    let who = [];
+    if (ids.length) {
+      const { data } = await supabase.from("contacts").select("email,first_name,last_name,user_id").in("user_id", ids);
+      who = ids.map((id) => { const c = (data || []).find((x) => x.user_id === id); return { id, name: c ? ([c.first_name, c.last_name].filter(Boolean).join(" ") || c.email) : "A login", email: c ? c.email : "" }; });
+    }
+    const list = who.length
+      ? `<p class="pb-hint">It's in these Studios now:</p><ul class="pb-sendto-list">${who.map((w) => `<li><span>${esc(w.name)}${w.email && w.email !== w.name ? ` <em>${esc(w.email)}</em>` : ""}</span><button type="button" class="mbtn" data-unsend="${esc(w.id)}">Take it back</button></li>`).join("")}</ul>`
+      : '<p class="pb-hint">Nobody has it yet.</p>';
+    showPop("Send to a team member", "Final checks", `${list}<label class="pb-field"><span>Their email</span><input type="email" id="pb-sendto-email" placeholder="e.g. sam@tmke.co.uk" autocomplete="off"></label><p class="pb-hint">It goes in their own Studio as a test pack, so they can look through it before it's in the shop. Nobody else sees it.</p>`, '<button type="button" class="mbtn primary" data-dosendto>Send it</button>');
+    const f = pop.querySelector("#pb-sendto-email"); if (f) f.focus();
+  }
+  async function setTestIds(ids, msg) {
+    const tids = ROWS.map((r) => r.template_id).filter(Boolean);
+    if (ids.length && tids.length) await supabase.from("templates").update({ status: "active" }).in("id", tids);
+    const { error } = await supabase.from("packs").update({ test_user_ids: ids }).eq("id", P.id);
+    if (error) { toast(/test_user_ids/.test(error.message) ? "Run supabase/catalogue_builder.sql first." : "Couldn't send it: " + error.message); return false; }
+    P.test_user_ids = ids;
+    drawPack();
+    toast(msg);
+    return true;
+  }
+  async function doSendTo() {
+    const inp = pop.querySelector("#pb-sendto-email");
+    const email = (inp && inp.value || "").trim().toLowerCase();
+    if (!email) { if (inp) inp.focus(); return; }
+    const btn = pop.querySelector("[data-dosendto]"); if (btn) btn.disabled = true;
+    const { data, error } = await supabase.from("contacts").select("user_id,first_name").ilike("email", email).limit(1);
+    if (btn) btn.disabled = false;
+    const c = !error && data && data[0];
+    if (!c) return toast(`There's no contact with the email ${email}.`);
+    if (!c.user_id) return toast(`${email} hasn't signed in to the Hub yet. They need to sign in once first.`);
+    const ids = [...new Set([...(P.test_user_ids || []), c.user_id])];
+    if (await setTestIds(ids, `Sent. ${P.title} is in ${c.first_name || email}'s Studio as a test pack.`)) openSendTo();
+  }
+
   /* ---------------- Delete (a draft only) ---------------- */
   let delArmed = 0;
   async function deletePack(btn) {
@@ -734,6 +775,7 @@ export function initBuilder(ctx) {
     if (c("[data-copy]")) return openCopy(null);
     if (c("[data-set]")) return openSet();
     if ((b = c("[data-test]"))) return sendTest(b.dataset.test === "1");
+    if (c("[data-sendto]")) return openSendTo();
     if (c("[data-gift]")) return openGift(P.id);
     if (c("[data-insights]")) return openResults(P);
     if ((b = c("[data-delete]"))) return deletePack(b);
@@ -770,6 +812,8 @@ export function initBuilder(ctx) {
     let b;
     if (c("[data-close]") || e.target.matches("[data-scrim]")) return closePop();
     if (c("[data-create]")) return createPack();
+    if (c("[data-dosendto]")) return doSendTo();
+    if ((b = c("[data-unsend]"))) { const ids = (P.test_user_ids || []).filter((x) => x !== b.dataset.unsend); if (await setTestIds(ids, "Taken back from that Studio.")) openSendTo(); return; }
     if (c("[data-tickall]")) { pop.querySelectorAll("#pb-copy-grid input").forEach((x) => { x.checked = true; }); return; }
     if (c("[data-docopy]")) return doCopy();
     if ((b = c("[data-img]"))) { if (pop.dataset.mode === "img-cover") L.cover = b.dataset.img; else if (!L.gallery.includes(b.dataset.img)) L.gallery.push(b.dataset.img); closePop(); return drawPack(); }
