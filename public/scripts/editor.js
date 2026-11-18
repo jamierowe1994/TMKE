@@ -10389,6 +10389,7 @@ import { createResizeEngine } from "./resize-engine.js";
         if (!tgt) return;
         if (tgt.type === "frame") fillFrame(tgt, src);
         else if (tgt.type === "wframe") { tgt.fillSrc = src; if (tgt.mode === "lines") tgt.mode = "inside"; fullRender(); }
+        else if (tgt.brandRole === "photo") { tgt.src = src; delete tgt.autoPhoto; placeBrandPhoto(tgt, src); fullRender(); }
         else { tgt.src = src; fullRender(); }
         pushHistory();
         renderProps();
@@ -12465,6 +12466,10 @@ import { createResizeEngine } from "./resize-engine.js";
     return !!el && (el.brandRole === "photo" || el.brandRole === "headshot" || el.brandRole === "logo" || el.brandRole === "qr");
   }
   function canSwapPicture(el) {
+    /* An agent photo slot with nothing on file to fill it can take a picture
+       of the member's own (Dani, 18 Nov: Christmas cards go to external
+       members too). Once one is on file, the slot is the brand's again. */
+    if (el && el.brandRole === "photo" && !isAdminMode() && !photoForSlot("photo")) return true;
     return !(isSuppliedPicture(el) && !isAdminMode());
   }
 
@@ -14565,7 +14570,10 @@ import { createResizeEngine } from "./resize-engine.js";
      there rather than in an image element, so a list that skipped it would
      skip the biggest thing on the design. */
   function backgroundIsField() {
-    return !isPrintDesign() && !state.canvas.bgFieldHidden
+    /* Print is opt in for the background too: the author adds it (Dani,
+       18 Nov, for the Christmas cards). */
+    if (isPrintDesign()) return !!state.canvas.bgField && !state.canvas.bgFieldHidden;
+    return !state.canvas.bgFieldHidden
       && (!!state.canvas.backgroundImage || isAdminMode());
   }
   // Items the author has taken off the list, so they can put one back.
@@ -14725,6 +14733,16 @@ import { createResizeEngine } from "./resize-engine.js";
       row.appendChild(fieldControlFor(el, admin));
       wrap.appendChild(row);
     });
+
+    // On print the background is added by the author, when it should be asked for.
+    if (admin && isPrintDesign() && !bg) {
+      const addBg = document.createElement("button");
+      addBg.type = "button";
+      addBg.className = "ed-fields-restore";
+      addBg.textContent = cardColours() ? "Add the card colour to this list" : "Add the background to this list";
+      addBg.addEventListener("click", function () { state.canvas.bgField = true; delete state.canvas.bgFieldHidden; pushHistory(); renderFieldsPane(); });
+      wrap.appendChild(addBg);
+    }
 
     const ai = aiHelperBox(admin);
     if (ai) wrap.appendChild(ai);
@@ -15018,7 +15036,7 @@ import { createResizeEngine } from "./resize-engine.js";
       name.type = "text";
       name.className = "ed-field-name";
       name.value = state.canvas.bgFieldLabel || "";
-      name.placeholder = "e.g. This is where the photo of the house goes";
+      name.placeholder = cardColours() ? "e.g. Pick the colour of your card" : "e.g. This is where the photo of the house goes";
       name.addEventListener("change", function () {
         state.canvas.bgFieldLabel = name.value.trim() || null;
         pushHistory();
@@ -15026,17 +15044,37 @@ import { createResizeEngine } from "./resize-engine.js";
       });
       head.appendChild(name);
       head.appendChild(removeFieldButton(function () {
-        state.canvas.bgFieldHidden = true;
+        if (isPrintDesign()) delete state.canvas.bgField; else state.canvas.bgFieldHidden = true;
         pushHistory();
         renderFieldsPane();
       }));
     } else {
       const lbl = document.createElement("label");
       lbl.className = "ed-field-label";
-      lbl.textContent = state.canvas.bgFieldLabel || "The background picture";
+      lbl.textContent = state.canvas.bgFieldLabel || (cardColours() ? "Card colour" : "The background picture");
       head.appendChild(lbl);
     }
     row.appendChild(head);
+    /* A Christmas card or postcard: its four colours, with the same rules
+       as Illustrate (words, lines and the inside follow). */
+    const cc = cardColours();
+    if (cc) {
+      const sw = document.createElement("div");
+      sw.className = "ed-ill-bg-row ed-field-cardcol";
+      const on = cc.current();
+      cc.list().forEach(function (b) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "ed-ill-sw";
+        btn.setAttribute("aria-checked", String(b.key === on));
+        btn.innerHTML = '<i style="background:' + b.hex + '"></i>';
+        btn.appendChild(document.createTextNode(b.label));
+        btn.addEventListener("click", function () { cc.pick(b.key); renderFieldsPane(); });
+        sw.appendChild(btn);
+      });
+      row.appendChild(sw);
+      return row;
+    }
 
     const box = document.createElement("div");
     box.className = "ed-field-pic";
@@ -15053,6 +15091,12 @@ import { createResizeEngine } from "./resize-engine.js";
     box.appendChild(btn);
     row.appendChild(box);
     return row;
+  }
+
+  // The card colours, where Illustrate offers them (a folded card or a postcard).
+  function cardColours() {
+    const c = window.__TMKE_CARD_COLOURS__;
+    return c && c.available() ? c : null;
   }
 
   // "Not something they need to change" — the author's way of shortening the
@@ -15100,6 +15144,24 @@ import { createResizeEngine } from "./resize-engine.js";
     if (src) thumb.style.backgroundImage = "url(" + JSON.stringify(src) + ")";
     else thumb.classList.add("is-empty");
     box.appendChild(thumb);
+    /* A picture from Illustrate, or a painted frame: Change opens Images ›
+       Illustrate with it selected, so the scene picked goes into it (Dani,
+       18 Nov). Where Illustrate isn't offered, the usual chooser. */
+    const illTab = document.querySelector('.ed-ttab[data-itab="illustrate"]');
+    if ((isIllustrationPicture(el) || el.type === "wframe") && illTab && !illTab.hidden) {
+      if (el.type === "wframe" && el.fillSrc) { thumb.classList.remove("is-empty"); thumb.style.backgroundImage = "url(" + JSON.stringify(el.fillSrc) + ")"; }
+      const go = document.createElement("button");
+      go.type = "button";
+      go.className = "ed-field-change";
+      go.textContent = "Change";
+      go.addEventListener("click", function () {
+        state.selectedIds = [el.id];
+        fullRender();
+        openIllustrateFor();
+      });
+      box.appendChild(go);
+      return box;
+    }
     if (canSwapPicture(el)) {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -15119,6 +15181,7 @@ import { createResizeEngine } from "./resize-engine.js";
         const tgt = getEl(el.id);
         if (!tgt || !chosen) return;
         if (tgt.type === "frame") fillFrame(tgt, chosen);
+        else if (tgt.brandRole === "photo") { tgt.src = chosen; delete tgt.autoPhoto; placeBrandPhoto(tgt, chosen); fullRender(); }
         else { tgt.src = chosen; fullRender(); }
         rememberPrintPic(chosen);
         pushHistory();
@@ -18310,6 +18373,26 @@ import { createResizeEngine } from "./resize-engine.js";
       if (hex) cardToBackground(hex);
     }
     // Four swatches from the Worker's list, the last one chosen remembered.
+    // A card colour picked, here or from the member's list of things to change.
+    function pickCardColour(key) {
+      if (onInside()) { cardToBackground(null, false, key); paintBackgrounds(); return; }
+      bg = key;
+      try { localStorage.setItem("tmke.illBg", bg); } catch (_) {}
+      // Colour the card first: redrawing the swatches reads the card's
+      // colour back as the pick, so drawn first it undid the click.
+      cardToBackground(null, true);
+      paintBackgrounds();
+      paintSet();
+    }
+    window.__TMKE_CARD_COLOURS__ = {
+      available: () => cardPages().length > 0,
+      list: () => bgList(),
+      current: () => {
+        const cur = String(state.canvas.background || "").toLowerCase();
+        return (bgList().find((b) => String(b.hex).toLowerCase() === cur) || {}).key || null;
+      },
+      pick: (key) => pickCardColour(key),
+    };
     // On the inside of a folded card (slide 2).
     const onInside = () => { const p = state.pages[state.currentPage]; return !!(p && isFolded(p.canvas) && p.canvas.fold === "inside"); };
     function paintBackgrounds() {
@@ -18336,16 +18419,7 @@ import { createResizeEngine } from "./resize-engine.js";
         btn.setAttribute("aria-checked", String(b.key === shownKey));
         btn.innerHTML = '<i style="background:' + b.hex + '"></i>';
         btn.appendChild(document.createTextNode(b.label));
-        btn.addEventListener("click", () => {
-          if (onInside()) { cardToBackground(null, false, b.key); paintBackgrounds(); return; }
-          bg = b.key;
-          try { localStorage.setItem("tmke.illBg", bg); } catch (_) {}
-          // Colour the card first: redrawing the swatches reads the card's
-          // colour back as the pick, so drawn first it undid the click.
-          cardToBackground(null, true);
-          paintBackgrounds();
-          paintSet();
-        });
+        btn.addEventListener("click", () => pickCardColour(b.key));
         row.appendChild(btn);
       });
     }
