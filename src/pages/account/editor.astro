@@ -1055,8 +1055,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           </div>
           <!-- The background colour, built into the prompt (Dani, 17 Nov). -->
           <div class="ed-ill-bg" id="ed-ill-bg" hidden>
-            <span class="ed-ill-bg-label">Background</span>
+            <span class="ed-ill-bg-label" id="ed-ill-bg-label">Background</span>
             <div class="ed-ill-bg-row" id="ed-ill-bg-row" role="radiogroup" aria-label="Background colour"></div>
+          </div>
+          <!-- Our winter scenes (Dani, 18 Nov): on a template set to offer
+               them, members pick one instead of making a custom one. No goes. -->
+          <div class="ed-ill-set" id="ed-ill-set" hidden>
+            <span class="ed-ill-bg-label" id="ed-ill-set-label"></span>
+            <div class="ed-ill-set-grid" id="ed-ill-set-grid"></div>
           </div>
           <button type="button" class="ed-btn-solid ed-ill-go" id="ed-ill-go" disabled></button>
           <p class="ed-ill-status" id="ed-ill-status" role="status" aria-live="polite"></p>
@@ -1067,6 +1073,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
                this does it again, after the colour has been changed. -->
           <button type="button" class="ed-ill-match" id="ed-ill-match" hidden></button>
           <p class="ed-brand-hint ed-ill-tips" id="ed-ill-tips"></p>
+          <!-- Admin only: what this template's Illustrate offers. -->
+          <div class="ed-ill-admin" id="ed-ill-admin" hidden>
+            <span class="ed-ill-bg-label" id="ed-ill-admin-head"></span>
+            <div class="ed-ill-modes" id="ed-ill-modes" role="radiogroup"></div>
+            <div class="ed-ill-ticks" id="ed-ill-ticks"></div>
+            <p class="ed-brand-hint" id="ed-ill-admin-hint"></p>
+            <p class="ed-brand-hint" id="ed-ill-slot-hint"></p>
+          </div>
         </div>
 
         <!-- Uploads: the same order as Search - a search box, the way in, then
@@ -3588,6 +3602,19 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     /* Their display rules beat the hidden attribute, so say it outright. */
     .ed-ill-match { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 34px; margin: 0 0 12px; border: 1px solid var(--english-violet); border-radius: 4px; background: #fff; color: var(--english-violet); font: 600 var(--ws-t-body, 14px) var(--sans); cursor: pointer; }
     .ed-ill-match:hover { background: rgba(var(--violet-rgb),0.06); }
+    .ed-ill-set { margin: 0 0 14px; }
+    .ed-ill-set-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .ed-ill-scene { display: grid; gap: 6px; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; font: 400 var(--ws-t-meta, 12px)/1.3 var(--sans); color: var(--ink); }
+    .ed-ill-scene span.pic { display: block; aspect-ratio: 3 / 4; border-radius: 4px; border: 1px solid #e2d9d4; background: var(--ill-card, #eae5e1) center / contain no-repeat; transition: box-shadow .15s; }
+    .ed-ill-scene:hover span.pic { box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(var(--violet-rgb),0.5); }
+    .ed-ill-scene:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; border-radius: 4px; }
+    .ed-ill-admin { margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2d9d4; }
+    .ed-ill-modes, .ed-ill-ticks { display: grid; gap: 6px; margin-bottom: 10px; }
+    .ed-ill-modes label, .ed-ill-ticks label { display: flex; align-items: center; gap: 8px; font-size: var(--ws-t-body, 14px); color: var(--ink); cursor: pointer; }
+    .ed-ill-modes input, .ed-ill-ticks input { accent-color: var(--english-violet); width: 16px; height: 16px; margin: 0; }
+    .ed-ill-ticks[hidden], .ed-ill-set[hidden], .ed-ill-admin[hidden], .ed-ill-go[hidden], #ed-ill-left[hidden], #ed-ill-tips[hidden], #ed-ill-status[hidden] { display: none; }
+    .ed-element.is-illslot { outline: 1px dashed rgba(var(--violet-rgb), 0.85); outline-offset: 2px; }
+    .ed-element.is-illslot::after { content: "ILLUSTRATION"; position: absolute; top: -16px; left: 0; font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.14em; color: var(--english-violet); background: rgba(255,255,255,0.9); padding: 1px 4px; border-radius: 2px; pointer-events: none; }
     .ed-ill-photo[hidden], .ed-ill-result[hidden], #ed-ill-drop[hidden], .ed-ill-bg[hidden], .ed-ill-match[hidden] { display: none; }
     .ed-upload-drop strong { font-family: var(--sans); font-size: var(--ws-t-row); font-weight: 600; color: var(--english-violet); }
     .ed-upload-drop span { font-size: var(--ws-t-meta); color: rgba(28,29,34,0.55); }

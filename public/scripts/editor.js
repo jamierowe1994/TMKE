@@ -2059,6 +2059,21 @@ import { createResizeEngine } from "./resize-engine.js";
           toast(isPhoto ? "No longer the photo slot" : "This is the agent photo slot now");
         },
       });
+      /* Where the Christmas picture goes (Dani, 18 Nov): the scene a member
+         picks in Illustrate, or the one they make, fills this box, with the
+         box's own edge (a painted edge, a fade). */
+      const isIll = el.brandRole === "illustration";
+      items.push({
+        label: isIll ? "\u2713 Illustration slot" : "Mark as illustration slot",
+        action: function () {
+          if (isIll) { delete el.brandRole; unmakeSlot(el); }
+          else { el.brandRole = "illustration"; delete el.imgFit; makeSlot(el); }
+          pushHistory();
+          fullRender();
+          if (typeof window.__TMKE_ILL_SYNC__ === "function") window.__TMKE_ILL_SYNC__(true);
+          toast(isIll ? "No longer the illustration slot" : "This is the illustration slot now");
+        },
+      });
     }
 
     items.push(
@@ -4434,7 +4449,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const standIn = standInFor(el);
       // An empty agent-photo slot draws the ghost further down instead; an
       // <img> with no source is a broken-picture icon.
-      if (el.src || standIn || el.brandRole !== "photo") {
+      if (el.src || standIn || (el.brandRole !== "photo" && el.brandRole !== "illustration")) {
         const img = document.createElement("img");
         img.decoding = "async";
         img.src = el.src || standIn;
@@ -4662,6 +4677,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // customer sees their own logo there, not a marked-up box.
     if (el.brandRole === "logo" && isAdminMode()) node.classList.add("is-logoslot");
     if (el.brandRole === "headshot" && isAdminMode()) node.classList.add("is-shotslot");
+    if (el.brandRole === "illustration" && isAdminMode()) node.classList.add("is-illslot");
     // A cut-out has a real shape and people stand on the floor: contained,
     // bottom-aligned, never cropped to fill.
     if (el.brandRole === "photo") node.classList.add("is-photo");
@@ -17660,7 +17676,51 @@ import { createResizeEngine } from "./resize-engine.js";
       error: "Something went wrong and the illustration wasn't made. This go hasn't been counted, so you can try again.",
       clearing: "Taking out the background so your card's colour shows round the house.",
       notClear: "Done. Your illustration is on your card, but its background couldn't be taken out, so the card has been matched to it instead. It's saved to your Uploads.",
+      // Our winter scenes (tmke-copywriter, 18 Nov).
+      setIntro: "Pick one of our own watercolour winter scenes for the front of your card, then choose a card colour to go with it. The scenes don't use any of your goes.",
+      setColour: "Card colour",
+      setPick: "Choose a scene",
+      setAdded: "Scene added to your card",
+      adminHead: "What Illustrate offers",
+      modeCustom: "Custom illustration from a listing photo",
+      modeSet: "Choose from our winter scenes",
+      adminHint: "Members only see the scenes you tick, so keep at least one ticked.",
+      slotHint: "This template has no illustration slot, so the picture will go full width along the bottom of the front.",
     };
+    /* Our winter scenes (Dani, 18 Nov): painted once by us in the same
+       style (docs/christmas-cards/scene-set), so a member picks one instead of
+       spending a go. The street scenes suit a Happy Holidays card; the door
+       and the tree are Christmas. Which ones a template offers is ticked in
+       its own Illustrate tab (canvas.illustrate / canvas.illustrateSet). */
+    const SET = [
+      { key: "terrace",   name: "Victorian terraced street" },
+      { key: "country",   name: "English country house" },
+      { key: "townhouse", name: "White London townhouse" },
+      { key: "cab",       name: "Black cab" },
+      { key: "door",      name: "Georgian front door" },
+      { key: "tree",      name: "Tree by the window" },
+    ].map((x) => Object.assign(x, {
+      src: location.origin + "/images/illustrate-set/" + x.key + "-v1.webp",
+      thumb: "/images/illustrate-set/" + x.key + "-v1-thumb.webp",
+    }));
+    // The four card colours, for a set template when the goes haven't loaded.
+    const DEFAULT_BGS = [
+      { key: "grey",   label: "Neutral Grey",  hex: "#F1F1F1" },
+      { key: "pink",   label: "Neutral Pink",  hex: "#c4a092" },
+      { key: "beige",  label: "Neutral Beige", hex: "#eae5e1" },
+      { key: "forest", label: "Forest Green",  hex: "#2e3f34" },
+    ];
+    const bgList = () => (me && Array.isArray(me.backgrounds) && me.backgrounds.length) ? me.backgrounds : DEFAULT_BGS;
+    const cardPages = () => (state.pages || []).filter((p) => p && p.canvas && (isFolded(p.canvas) || isPostcard(p.canvas)));
+    // The scenes this template offers, or null when it's a custom one.
+    function setKeys() {
+      const p = cardPages().find((pg) => pg.canvas.illustrate === "set");
+      if (!p) return null;
+      const all = SET.map((x) => x.key);
+      const k = Array.isArray(p.canvas.illustrateSet) ? p.canvas.illustrateSet.filter((x) => all.indexOf(x) > -1) : all;
+      return k.length ? k : all;
+    }
+    const hasSlot = () => (state.pages || []).some((p) => (p.elements || []).some((o) => o && o.brandRole === "illustration"));
     const xmasLine = (n, d) => n === 1 ? "You have 1 go left to use by " + d + "." : "You have " + n + " goes left to use by " + d + ".";
     const monthLine = (n) => n === 1 ? "You have 1 go left this month." : "You have " + n + " goes left this month.";
     const longDate = (ymd) => {
@@ -17777,8 +17837,7 @@ import { createResizeEngine } from "./resize-engine.js";
       beige:  { bg: "beige", ink: "#371e28" },
       forest: { bg: "beige", ink: "#2e3f34" },
     };
-    const swatchHex = (key) => (((me && me.backgrounds) || []).find((b) => b.key === key) || {}).hex ||
-      ({ grey: "#F1F1F1", beige: "#eae5e1" })[key];
+    const swatchHex = (key) => (bgList().find((b) => b.key === key) || {}).hex;
     function cardToBackground(exact, withInside) {
       const hex = exact || swatchHex(bg);
       if (!hex) return;
@@ -17836,8 +17895,27 @@ import { createResizeEngine } from "./resize-engine.js";
       return outI >= 0 ? outI : state.pages.findIndex((p) => isPostcard(p && p.canvas));
     }
     async function placeIllustration(url) {
-      const outI = illustrationPage();
+      let outI = illustrationPage();
       if (outI < 0) { await addImage(url); return; }
+      /* A template with an illustration slot: the picture fills that box,
+         with the box's own edge (Dani, 18 Nov). On the side being placed on,
+         else wherever the slot is. */
+      const slotIn = (i) => ((state.pages[i] || {}).elements || []).find((o) => o && o.brandRole === "illustration");
+      let slot = slotIn(outI);
+      if (!slot) {
+        const j = state.pages.findIndex((p, i) => !!slotIn(i));
+        if (j > -1) { outI = j; slot = slotIn(j); }
+      }
+      if (slot) {
+        if (outI !== state.currentPage) goToPage(outI);
+        slot.type = "image";
+        slot.src = url;
+        ["imgFit", "imgPosX", "imgPosY", "imgZoom"].forEach((k) => { delete slot[k]; });
+        state.selectedIds = [slot.id];
+        pushHistory();
+        fullRender();
+        return;
+      }
       if (outI !== state.currentPage) goToPage(outI);
       const nat = await new Promise((res) => {
         const im = new Image();
@@ -17849,13 +17927,18 @@ import { createResizeEngine } from "./resize-engine.js";
       // A postcard: the whole width of the side. A folded card: the front half.
       const card = isPostcard(state.canvas);
       const left = card ? 0 : W / 2;
-      const w = Math.round(W - left), h = Math.round(w * nat[1] / nat[0]);
+      let w = Math.round(W - left), h = Math.round(w * nat[1] / nat[0]);
+      // Far taller than the side (a portrait scene on a postcard): fit the
+      // height, centred on the space it would have filled. A custom postcard
+      // picture is only a little taller and stays full width, as agreed.
+      let x0 = W - w;
+      if (h > H * 1.2) { h = H; const w2 = Math.round(H * nat[0] / nat[1]); x0 = Math.round(left + (w - w2) / 2); w = w2; }
       const els = state.elements;
       const fills = (o) => o.type !== "text" && !o.hidden && o.x <= left && o.y <= 0 && o.x + o.w >= W && o.y + o.h >= H;
       let at = 0;
       while (at < els.length && fills(els[at])) at++;
       const id = uid("image");
-      els.splice(at, 0, { id, type: "image", x: W - w, y: H - h, w, h, src: url, opacity: 1, rotation: 0 });
+      els.splice(at, 0, { id, type: "image", x: x0, y: H - h, w, h, src: url, opacity: 1, rotation: 0 });
       state.selectedIds = [id];
       pushHistory();
       fullRender();
@@ -17897,7 +17980,7 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     // Four swatches from the Worker's list, the last one chosen remembered.
     function paintBackgrounds() {
-      const list = (me && me.backgrounds) || [];
+      const list = bgList();
       const wrap = $("ed-ill-bg"), row = $("ed-ill-bg-row");
       wrap.hidden = !list.length;
       if (!list.length) return;
@@ -17916,6 +17999,7 @@ import { createResizeEngine } from "./resize-engine.js";
           try { localStorage.setItem("tmke.illBg", bg); } catch (_) {}
           paintBackgrounds();
           cardToBackground(null, true);
+          paintSet();
         });
         row.appendChild(btn);
       });
@@ -17943,6 +18027,93 @@ import { createResizeEngine } from "./resize-engine.js";
       $("ed-ill-drop").hidden = !!photo || busy;
       $("ed-ill-photo").hidden = !photo;
       if (me.resting && !busy) status(C.resting, "error");
+      if (setKeys()) { $("ed-ill-drop").hidden = true; $("ed-ill-photo").hidden = true; }
+    }
+    /* Custom or our scenes: the same tab, the parts that apply. */
+    function paintMode() {
+      const keys = setKeys(), isSet = !!keys;
+      $("ed-ill-intro").textContent = isSet ? C.setIntro : C.intro;
+      ["ed-ill-left", "ed-ill-go", "ed-ill-tips"].forEach((id) => { $(id).hidden = isSet; });
+      $("ed-ill-drop").hidden = isSet || !!photo || busy;
+      $("ed-ill-photo").hidden = isSet || !photo;
+      if (isSet) { $("ed-ill-result").hidden = true; $("ed-ill-match").hidden = true; }
+      $("ed-ill-bg-label").textContent = isSet ? C.setColour : "Background";
+      $("ed-ill-set").hidden = !isSet;
+      paintSet();
+      paintAdmin(keys);
+    }
+    function paintSet() {
+      const keys = setKeys(), grid = $("ed-ill-set-grid");
+      if (!keys) { grid.innerHTML = ""; return; }
+      $("ed-ill-set-label").textContent = C.setPick;
+      grid.style.setProperty("--ill-card", swatchHex(bg) || "#eae5e1");
+      grid.innerHTML = "";
+      SET.filter((x) => keys.indexOf(x.key) > -1).forEach((x) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "ed-ill-scene";
+        const pic = document.createElement("span");
+        pic.className = "pic";
+        pic.style.backgroundImage = "url(" + JSON.stringify(x.thumb) + ")";
+        b.appendChild(pic);
+        b.appendChild(document.createTextNode(x.name));
+        b.addEventListener("click", async () => {
+          if (busy) return;
+          cardToBackground();
+          await placeIllustration(x.src);
+          toast(C.setAdded);
+        });
+        grid.appendChild(b);
+      });
+    }
+    function paintAdmin(keys) {
+      const box = $("ed-ill-admin");
+      box.hidden = !isAdminMode();
+      if (box.hidden) return;
+      $("ed-ill-admin-head").textContent = C.adminHead;
+      const setAll = (mode, list) => {
+        cardPages().forEach((p) => {
+          // The ticks are kept while it's set to Custom, for switching back.
+          if (mode === "set") { p.canvas.illustrate = "set"; p.canvas.illustrateSet = list.slice(); }
+          else delete p.canvas.illustrate;
+        });
+        pushHistory();
+        paintMode();
+      };
+      const modes = $("ed-ill-modes");
+      modes.innerHTML = "";
+      [["custom", C.modeCustom], ["set", C.modeSet]].forEach((m) => {
+        const lab = document.createElement("label");
+        const inp = document.createElement("input");
+        inp.type = "radio"; inp.name = "ed-ill-mode"; inp.id = "ed-ill-mode-" + m[0];
+        inp.checked = (m[0] === "set") === !!keys;
+        inp.addEventListener("change", () => {
+          const kept = (cardPages().find((p) => Array.isArray(p.canvas.illustrateSet)) || {}).canvas;
+          setAll(m[0], keys || (kept && kept.illustrateSet.length ? kept.illustrateSet : SET.map((x) => x.key)));
+        });
+        lab.appendChild(inp); lab.appendChild(document.createTextNode(m[1]));
+        modes.appendChild(lab);
+      });
+      const ticks = $("ed-ill-ticks");
+      ticks.hidden = !keys;
+      ticks.innerHTML = "";
+      if (keys) SET.forEach((x) => {
+        const lab = document.createElement("label");
+        const inp = document.createElement("input");
+        inp.type = "checkbox"; inp.id = "ed-ill-tick-" + x.key;
+        inp.checked = keys.indexOf(x.key) > -1;
+        inp.addEventListener("change", () => {
+          const next = SET.map((y) => y.key).filter((k) => k === x.key ? inp.checked : keys.indexOf(k) > -1);
+          if (!next.length) { inp.checked = true; toast(C.adminHint); return; }
+          setAll("set", next);
+        });
+        lab.appendChild(inp); lab.appendChild(document.createTextNode(x.name));
+        ticks.appendChild(lab);
+      });
+      $("ed-ill-admin-hint").textContent = keys ? C.adminHint : "";
+      $("ed-ill-admin-hint").hidden = !keys;
+      $("ed-ill-slot-hint").textContent = hasSlot() ? "" : C.slotHint;
+      $("ed-ill-slot-hint").hidden = hasSlot();
     }
 
     // A smaller copy of the photo: 1600px on the long edge is plenty for the
@@ -18026,14 +18197,21 @@ import { createResizeEngine } from "./resize-engine.js";
     if (demo) return;
     // On a folded card only. Checked on every render, since the design
     // arrives after this runs and can be resized or swapped for another.
-    function sync() {
-      const show = !!me && (state.pages || []).some((p) => p && (isFolded(p.canvas) || isPostcard(p.canvas)));
-      if (tab.hidden === !show) return;
-      tab.hidden = !show;
-      if (!show && tab.classList.contains("is-active")) {
-        const search = document.querySelector('.ed-ttab[data-itab="search"]');
-        if (search) search.click();
+    let lastSig = null;
+    function sync(force) {
+      const cards = cardPages().length > 0;
+      const keys = cards ? setKeys() : null;
+      // A template offering our scenes shows the tab whatever goes are left.
+      const show = cards && (!!me || !!keys || isAdminMode());
+      if (tab.hidden !== !show) {
+        tab.hidden = !show;
+        if (!show && tab.classList.contains("is-active")) {
+          const search = document.querySelector('.ed-ttab[data-itab="search"]');
+          if (search) search.click();
+        }
       }
+      const sig = [show, keys ? keys.join() : "", hasSlot(), !!me].join("|");
+      if (show && (force === true || sig !== lastSig)) { lastSig = sig; paintBackgrounds(); paintMode(); }
     }
     window.__TMKE_ILL_SYNC__ = sync;
     window.__TMKE_ILLUSTRATE__().then((r) => {
@@ -18042,8 +18220,9 @@ import { createResizeEngine } from "./resize-engine.js";
       me = r;
       paintBackgrounds();
       paint();
-      sync();
+      sync(true);
     });
+    sync(true);
   })();
 
   // ---------- Drop a photo/upload anywhere on the canvas ----------
