@@ -9168,7 +9168,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const add = (arr, v) => { if (v && !arr.includes(v)) arr.push(v); };
 
         const [contacts, profs, packs, tpls, months, orders, gp, designs, logDl, oldDl] = await Promise.all([
-          sbGetAll(env, "contacts", "user_id=not.is.null&select=id,user_id,first_name,last_name,email,company"),
+          sbGetAll(env, "contacts", "user_id=not.is.null&select=id,user_id,first_name,last_name,email,company,tags"),
           sbGetAll(env, "agent_profiles", "left_at=is.null&select=contact_id,brand"),
           sbGetAll(env, "packs", "select=id,title,slug,kind,access,brands,demo,status,price_pence"),
           sbGetAll(env, "templates", "pack_id=not.is.null&select=id,pack_id"),
@@ -9189,17 +9189,21 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           const r = P(c.user_id); if (!r) return;
           if (!r.name) r.name = [c.first_name, c.last_name].filter(Boolean).join(" ").trim() || null;
           if (!r.company) r.company = c.company || null;
+          // As Contacts has it: management or support by tag (Danielle, 18 Nov).
+          if ((c.tags || []).includes("TEG-Role: Management-or-Support")) r.support = true;
           (brandsOfContact.get(c.id) || []).forEach((b) => add(r.brands, b));
         });
         people.forEach((r) => { r.brands.sort(); if (r.email) byEmail.set(r.email.toLowerCase(), r); });
         // How many of each brand we have in the CRM, account or not (Danielle,
         // 18 Nov: "TPE: 80 in the CRM, 39 signed up"). Staff and test logins out.
         const staffContact = new Set(contacts.filter((c) => out.has(c.user_id)).map((c) => c.id));
-        const crm = { any: new Set(), by: {} };
+        const crm = { any: new Set(), by: {}, of: new Map() };
         (profs || []).forEach((r) => {
           if (!r.brand || staffContact.has(r.contact_id)) return;
           crm.any.add(r.contact_id);
           (crm.by[r.brand] = crm.by[r.brand] || new Set()).add(r.contact_id);
+          if (!crm.of.has(r.contact_id)) crm.of.set(r.contact_id, []);
+          if (!crm.of.get(r.contact_id).includes(r.brand)) crm.of.get(r.contact_id).push(r.brand);
         });
 
         // How often (studio_reporting.sql). Before it has run, the page says so.
@@ -9254,7 +9258,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
         return json({
           ok: true, at: new Date().toISOString(), activity_ready: activityReady,
-          crm: { any: crm.any.size, by: Object.fromEntries(Object.entries(crm.by).map(([b, set]) => [b, set.size])) },
+          // groups: each CRM agent's brands, no names, so combined brands count each person once.
+          crm: { any: crm.any.size, by: Object.fromEntries(Object.entries(crm.by).map(([b, set]) => [b, set.size])), groups: [...crm.of.values()].map((b) => b.sort().join("|")) },
           packs: (packs || []).map((p) => ({ id: p.id, title: p.title, kind: p.kind || "social", access: p.access || "buy", brands: p.brands || [], demo: !!p.demo, status: p.status, price_pence: p.price_pence || 0 })),
           rows: [...people.values()],
         }, 200, request, env);

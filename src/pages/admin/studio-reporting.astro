@@ -67,7 +67,8 @@ import "../../styles/money-os.css";
     const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
     const one = (n) => (Math.round(n * 10) / 10).toLocaleString("en-GB");
 
-    let D = null, BRAND = "all", FILTER = null, SORT = { key: "joined", dir: -1 };
+    // PICK: the brands chosen, combined (Danielle, 18 Nov); empty is everyone. "ext" is External.
+    let D = null, PICK = new Set(), FILTER = null, SORT = { key: "joined", dir: -1 };
 
     async function load() {
       try {
@@ -87,7 +88,11 @@ import "../../styles/money-os.css";
       }
     }
 
-    const inBrand = (r) => BRAND === "all" || (BRAND === "none" ? !r.brands.length : r.brands.includes(BRAND));
+    // External, as Contacts has it: no brand they work for, and not management or support.
+    const isExternal = (r) => !r.brands.length && !r.support;
+    const inBrand = (r) => !PICK.size || r.brands.some((b) => PICK.has(b)) || (PICK.has("ext") && isExternal(r));
+    const brandsPicked = () => [...PICK].filter((k) => k !== "ext");
+    const pickName = () => (!PICK.size ? "Everyone" : [...brandsPicked().map(short), ...(PICK.has("ext") ? ["External"] : [])].join(" + "));
     const course = (r, slug) => r.courses[slug] || null;
     const started = (r) => Object.values(r.courses).some((c) => c.completed || c.furthest > 0);
     const done = (r) => Object.values(r.courses).some((c) => c.completed);
@@ -171,14 +176,16 @@ import "../../styles/money-os.css";
       const count = new Map();
       all.forEach((r) => r.brands.forEach((b) => count.set(b, (count.get(b) || 0) + 1)));
       const brands = [...count.keys()].sort((a, b) => count.get(b) - count.get(a));
-      const none = all.filter((r) => !r.brands.length).length;
-      $("sr-brands").innerHTML = [["all", "Everyone", all.length], ...brands.map((b) => [b, short(b), count.get(b)]), ...(none ? [["none", "No brand", none]] : [])]
-        .map(([k, l, n]) => `<button type="button" data-brand="${esc(k)}" aria-pressed="${BRAND === k}">${esc(l)} <i>${n0(n)}</i></button>`).join("");
+      const ext = all.filter(isExternal).length;
+      $("sr-brands").innerHTML = [["all", "Everyone", all.length], ...brands.map((b) => [b, short(b), count.get(b)]), ...(ext ? [["ext", "External", ext]] : [])]
+        .map(([k, l, n]) => `<button type="button" data-brand="${esc(k)}" aria-pressed="${k === "all" ? !PICK.size : PICK.has(k)}">${esc(l)} <i>${n0(n)}</i></button>`).join("");
       const rows = all.filter(inBrand);
       const signed = rows.filter(signedIn);
 
       // Accounts: how many we have in the CRM at this brand, then who and how often.
-      const inCrm = BRAND === "all" ? D.crm.any : BRAND === "none" ? null : D.crm.by[BRAND] || 0;
+      // Agents in the CRM at the picked brands, each person once; none when External is picked.
+      const picked = brandsPicked();
+      const inCrm = !PICK.size ? D.crm.any : PICK.has("ext") ? null : D.crm.groups.filter((g) => g.split("|").some((b) => picked.includes(b))).length;
       const acc = FIGS.accounts.map((f) => f[0] === "all" ? [f[0], f[1], f[2]] : [...f.slice(0, 3), [signedIn, "those signed up"]]);
       let html = section("Accounts", `${n0(rows.length)} signed up`, figsAccounts(acc, rows, inCrm) + (() => {
         const si = signed.map((r) => r.sign_ins).filter((n) => n > 0), days = signed.map((r) => r.active_days).filter((n) => n > 0);
@@ -218,9 +225,9 @@ import "../../styles/money-os.css";
 
     // Signed up is out of the agents in the CRM; the rest out of those signed up.
     function figsAccounts(list, rows, inCrm) {
-      return `<div class="figs">${inCrm == null ? "" : `<div class="fig dark static"><b>${n0(inCrm)}</b><span>${BRAND === "all" ? "Agents in our CRM, at any brand" : `${esc(short(BRAND))} agents in our CRM`}</span><small>account or not</small></div>`}${list.map(([k, l, who, of]) => {
+      return `<div class="figs">${inCrm == null ? "" : `<div class="fig dark static"><b>${n0(inCrm)}</b><span>${!PICK.size ? "Agents in our CRM, at any brand" : `${esc(pickName())} agents in our CRM`}</span><small>account or not</small></div>`}${list.map(([k, l, who, of]) => {
         const n = rows.filter(who).length;
-        const small = of ? `<small>${pc(n, rows.filter(of[0]).length)} of ${of[1]}</small>` : inCrm && BRAND !== "all" ? `<small>${pc(n, inCrm)} of ${esc(short(BRAND))} agents in our CRM</small>` : "";
+        const small = of ? `<small>${pc(n, rows.filter(of[0]).length)} of ${of[1]}</small>` : inCrm && PICK.size ? `<small>${pc(n, inCrm)} of ${esc(pickName())} agents in our CRM</small>` : "";
         return `<button type="button" class="fig lin" data-fig="${k}" aria-pressed="${FILTER === k}"><b>${n0(n)}</b><span>${esc(l)}</span>${small}</button>`;
       }).join("")}</div>`;
     }
@@ -289,7 +296,7 @@ import "../../styles/money-os.css";
       const columns = COLS.map(([, l]) => ({ title: l, width: l.length > 14 ? 24 : 16 }));
       columns[0].width = 26; columns[1].width = 32;
       const data = list.map((r) => COLS.map(([, , v, show]) => String((show || v)(r))));
-      const brand = BRAND === "all" ? "Everyone" : BRAND === "none" ? "No brand" : short(BRAND);
+      const brand = pickName();
       const blob = await writeXlsx({ sheet: "Studio reporting", columns, rows: data });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -300,7 +307,8 @@ import "../../styles/money-os.css";
 
     document.addEventListener("click", (e) => {
       const b = e.target.closest("[data-brand]");
-      if (b) { BRAND = b.dataset.brand; draw(); return; }
+      // Click brands to combine them; click one again to take it out. Everyone clears.
+      if (b) { const k = b.dataset.brand; if (k === "all") PICK.clear(); else if (PICK.has(k)) PICK.delete(k); else PICK.add(k); draw(); return; }
       const f = e.target.closest("[data-fig]");
       if (f) {
         FILTER = f.dataset.fig && FILTER !== f.dataset.fig ? f.dataset.fig : null;
