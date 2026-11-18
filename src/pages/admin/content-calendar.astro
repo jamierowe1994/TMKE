@@ -236,6 +236,16 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
           <label class="cc-f"><span>Pillar</span><select id="cc-d-pillar"></select></label>
         </div>
         <label class="cc-f" data-in="1234"><span>Note <em>(team only)</em></span><textarea id="cc-d-note" rows="3" placeholder="Anything the team needs to know about this post"></textarea></label>
+        {/* Pictures in the design (Danielle, 18 Nov): set at planning, and Draft with Claude
+            writes How to edit to it. Not set = Claude decides from the post. */}
+        <div class="cc-f" id="cc-d-imgs-wrap" data-in="1234">
+          <span>Pictures in the design</span>
+          <div class="chips cc-imgs" id="cc-d-imgs" role="group" aria-label="Pictures in the design">
+            <button type="button" data-img="none" aria-pressed="false">No need to replace</button>
+            <button type="button" data-img="optional" aria-pressed="false">Optional to replace</button>
+            <button type="button" data-img="required" aria-pressed="false">Must be replaced</button>
+          </div>
+        </div>
         <label class="cc-f" id="cc-d-film-wrap"><span>What to film</span><textarea id="cc-d-reel" rows="3" placeholder="What to film and say."></textarea></label>
         <label class="cc-f" data-in="34"><span>How to edit</span><textarea id="cc-d-how" rows="3" placeholder="What the agent changes: the photo, the price, the street…"></textarea></label>
         <div class="cc-f" data-in="34">
@@ -521,6 +531,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .cc-typo-a { display: flex; gap: 8px; }
     @media (max-width: 700px) { .cc-typo { grid-template-columns: 1fr; gap: 6px; } }
     .cc-view-chips { margin: 0 0 14px; }
+    .cc-imgs { display: flex; flex-wrap: wrap; gap: 6px; }
     #cc-views { display: flex; }
 
     /* The table: the money pages', a row per post. */
@@ -1176,6 +1187,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       $('cc-d-pillar').innerHTML = '<option value="">Choose a pillar</option>' + [...new Set([...PILLARS, ...(p.pillar ? [p.pillar] : [])])].map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join('');
       $('cc-d-pillar').value = p.pillar || '';
       $('cc-d-note').value = p.note || '';
+      setImgs(p.image_rule || null);
       document.querySelectorAll('.cc-cap').forEach((ta, i) => { ta.value = (p.captions || [])[i] || ''; });
       $('cc-d-how').value = p.how_to_edit || '';
       $('cc-d-reel').value = p.reel_prompt || '';
@@ -1232,6 +1244,8 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     }
 
     // Read the drawer into a patch for the open post.
+    const imgsNow = () => (document.querySelector('#cc-d-imgs [aria-pressed="true"]') || {}).dataset?.img || null;
+    function setImgs(v) { document.querySelectorAll('#cc-d-imgs [data-img]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.img === v))); }
     function drawerPatch() {
       return {
         post_date: $('cc-d-date').value || null,
@@ -1245,6 +1259,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         note: $('cc-d-note').value.trim() || null,
         reel_prompt: $('cc-d-reel').value.trim() || null,
         platforms: [...document.querySelectorAll('#cc-d-plats input:checked')].map((cb) => cb.value),
+        ...(OPEN && 'image_rule' in OPEN ? { image_rule: imgsNow() } : {}),
       };
     }
 
@@ -1617,6 +1632,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         post_type: p.post_type, title: p.title, pillar: p.pillar, note: p.note, platforms: p.platforms,
         date_tied: sameMonth ? p.date_tied : false, occasion: sameMonth ? p.occasion : null,
         ...(sameEd ? { template_id: p.template_id } : {}),
+        ...('image_rule' in p ? { image_rule: p.image_rule } : {}),
         ...(words ? { captions: p.captions, how_to_edit: p.how_to_edit, reel_prompt: p.reel_prompt } : {}),
       });
       const inserts = [];
@@ -1721,6 +1737,14 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         return;
       }
       p.images_required = want;
+    });
+    // Click a choice to set it; click it again to clear it.
+    $('cc-d-imgs').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-img]');
+      if (!b || !OPEN) return;
+      if (!('image_rule' in OPEN)) { alert('Run content_calendar_image_rule.sql first (it\'s on the SQL to run list), then try again.'); return; }
+      setImgs(b.getAttribute('aria-pressed') === 'true' ? null : b.dataset.img);
+      flushSave();
     });
     $('cc-pick-q').addEventListener('input', renderPicker);
     $('cc-pick-grid').addEventListener('click', async (e) => {

@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/content_calendar_image_rule.sql — Content Calendar: the "Pictures in the design" choice under Note in each post (No need to replace / Optional / Must be replaced), which Draft with Claude follows. Until it runs, clicking a choice says to run this. Changes no post. Sends nothing (18 Nov)
 - [ ] supabase/studio_reporting.sql — Insights › Studio reporting: how often each member signs in and how many days they've used the Member Hub. Only the server can run it. Until it runs, the page shows everything else and says how often is waiting. Changes nothing. Sends nothing (18 Nov)
 - [ ] supabase/report_tpe_ppe_studio.sql — report only, changes nothing: every live TPE and PPE agent with a Hub account, their print and first-design training, designs saved (print counted separately), planner posts and downloads. For Sam. Download the result as CSV (17 Nov)
 

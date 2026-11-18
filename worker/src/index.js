@@ -11298,7 +11298,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const b = await request.json().catch(() => ({}));
         const id = String((b && b.post_id) || "").trim();
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Post not found." }, 404, request, env);
-        const post = (await sbGet(env, "content_month_posts", `id=eq.${id}&select=title,post_type,pillar,note,occasion,date_tied,template_id,month_id,post_date&limit=1`))?.[0];
+        const post = (await sbGet(env, "content_month_posts", `id=eq.${id}&select=*&limit=1`))?.[0];
         if (!post) return json({ error: "Post not found." }, 404, request, env);
         if (!post.template_id) return json({ error: "Link a design first. Claude reads it to write the words." }, 400, request, env);
         const tpl = (await sbGet(env, "templates", `id=eq.${encodeURIComponent(post.template_id)}&select=name,thumb_url,elements,pages&limit=1`))?.[0];
@@ -11331,6 +11331,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           post.post_type === "carousel" ? `Slides: ${pages.length}` : "",
           post.pillar ? `Content pillar: ${post.pillar}` : "",
           post.date_tied && post.occasion ? `Tied to the day: ${post.occasion}` : "",
+          ({ none: "Pictures in the design: no need to replace (the team chose this)", optional: "Pictures in the design: optional to replace (the team chose this)", required: "Pictures in the design: must be replaced (the team chose this)" })[post.image_rule] || "",
           month && month.intro ? `This month is about: ${month.intro}` : "",
           post.note ? `Note from the team (from planning, so the design may have moved on): ${post.note.split("\n\nClaude flagged:")[0].replace(/^Claude flagged:[\s\S]*/, "")}` : "",
           content.length ? `The picture attached is ${pages.length > 1 ? "the first page or slide only; the other slides are known only from their words below" : "the design"}.` : "There is no picture of this design, only its words.",
