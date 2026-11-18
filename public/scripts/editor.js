@@ -15171,7 +15171,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const addBg = document.createElement("button");
       addBg.type = "button";
       addBg.className = "ed-fields-restore";
-      addBg.textContent = cardColours() ? "Add the card colour to this list" : "Add the background to this list";
+      addBg.textContent = cardColours() && !hasBgPattern() ? "Add the card colour to this list" : "Add the background to this list";
       addBg.addEventListener("click", function () { state.canvas.bgField = true; delete state.canvas.bgFieldHidden; pushHistory(); renderFieldsPane(); });
       wrap.appendChild(addBg);
     }
@@ -15457,6 +15457,10 @@ import { createResizeEngine } from "./resize-engine.js";
     renderFieldsPane();
   }
 
+  // A Christmas pattern on the background (any side): the row is about the background, not a card colour (Danielle, 18 Nov).
+  function hasBgPattern() {
+    return (state.pages || []).some(function (pg) { return pg && pg.canvas && pg.canvas.bgPattern; }) || !!(state.canvas && state.canvas.bgPattern);
+  }
   // The background, as a row like any other.
   function backgroundFieldRow(admin) {
     const row = document.createElement("div");
@@ -15468,7 +15472,7 @@ import { createResizeEngine } from "./resize-engine.js";
       name.type = "text";
       name.className = "ed-field-name";
       name.value = state.canvas.bgFieldLabel || "";
-      name.placeholder = cardColours() ? "e.g. Pick the colour of your card" : "e.g. This is where the photo of the house goes";
+      name.placeholder = hasBgPattern() ? "e.g. Pick your background" : cardColours() ? "e.g. Pick the colour of your card" : "e.g. This is where the photo of the house goes";
       name.addEventListener("change", function () {
         state.canvas.bgFieldLabel = name.value.trim() || null;
         pushHistory();
@@ -15483,7 +15487,7 @@ import { createResizeEngine } from "./resize-engine.js";
     } else {
       const lbl = document.createElement("label");
       lbl.className = "ed-field-label";
-      lbl.textContent = state.canvas.bgFieldLabel || (cardColours() ? "Card colour" : "The background picture");
+      lbl.textContent = state.canvas.bgFieldLabel || (hasBgPattern() ? "Your background" : cardColours() ? "Card colour" : "The background picture");
       head.appendChild(lbl);
     }
     row.appendChild(head);
@@ -17850,6 +17854,8 @@ import { createResizeEngine } from "./resize-engine.js";
     });
     if (Object.keys(about).length) keep.about = about;
     if (mine.headshot) keep.headshot = mine.headshot;
+    // The photo TMKE holds for them is theirs too, whichever brand they design as (Danielle, 18 Nov).
+    if (mine.brandPhoto) keep.brandPhoto = mine.brandPhoto;
     /* The patch they cover is theirs too. An agent works Cornwall whichever
        logo is on the design, so {area} and the area inside {local expert}
        follow the person, not the brand - otherwise designing as a national
