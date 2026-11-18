@@ -154,6 +154,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       <div class="cc-prog">
         <div class="cc-tl" id="cc-tl"></div>
         <div id="cc-call"></div>
+        <input type="file" id="cc-xlsx-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden />
       </div>
       <!-- Insights: the fifth step once the month is live (Danielle, 17 Nov). src/lib/month-insights.js -->
       <div class="ci" id="cc-insights" hidden></div>
@@ -669,6 +670,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     const $ = (id) => document.getElementById(id);
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
     import { initMonthInsights } from '../../lib/month-insights.js';
+    import { writeXlsx, readXlsx } from '../../lib/xlsx-lite.js';
     const INS = initMonthInsights({ host: document.getElementById('cc-insights'), supabase, WORKER });
     // The Insights step: a view of a live month, not a stage that's saved.
     let INSIGHTS = false;
@@ -831,6 +833,8 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       const item = (ok, t) => `<li class="${ok ? 'ok' : ''}">${esc(t)}</li>`;
       const btn = (k, l, cls) => `<button type="button" class="mbtn${cls ? ' ' + cls : ''}" data-call="${k}">${l}</button>`;
       const boards = btn('grid', 'Instagram grid') + btn('client', 'Client calendar');
+      // The words in one place, in Excel, and back again (Danielle, 18 Nov).
+      const excel = btn('xlsx-out', 'Export to Excel') + btn('xlsx-in', 'Bring changes back in');
       const box = (title, items, acts, hint) => `<div class="cc-call"><div><h4>${title}</h4><ul>${items.join('')}</ul>${hint ? `<p>${hint}</p>` : ''}</div><div class="cc-call-acts">${acts}</div></div>`;
       const d = countOf((p) => p.template_id), c = countOf(hasCap), h = countOf((p) => p.how_to_edit), pl = countOf((p) => p.title && p.pillar);
       const reels = countOf((p) => p.post_type === 'reel'), film = countOf((p) => p.post_type === 'reel' && p.reel_prompt);
@@ -840,11 +844,11 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         "Create calendar template gives you a blank post for every Monday to Friday, ready to fill with your ideas. Posts you've already started aren't touched.");
       else if (st === 2) html = box('Creation', [item(n > 0 && d === n, `${d} of ${n} designs linked`)], btn('design', 'Create a design') + boards);
       else if (st === 3) html = box('Captioning and guidance', [...(reels ? [item(film === reels, `${film} of ${reels} reels say what to film`)] : []), item(n > 0 && h === n, `${h} of ${n} how to edit written`), item(n > 0 && c === n, `${c} of ${n} captions written`)],
-        `<button type="button" class="mbtn primary" data-call="claude-all"${DRAFTING ? ' disabled' : ''}>${DRAFTING ? `Drafting ${DRAFTING.done} of ${DRAFTING.total}` : 'Draft the empty ones with Claude'}</button>` + boards,
+        `<button type="button" class="mbtn primary" data-call="claude-all"${DRAFTING ? ' disabled' : ''}>${DRAFTING ? `Drafting ${DRAFTING.done} of ${DRAFTING.total}` : 'Draft the empty ones with Claude'}</button>` + excel + boards,
         "Claude reads each post's design, title and notes, then writes a first draft for you to check and edit. Anything already written stays as it is.");
       else {
         const all = checks(), ready = n > 0 && all.every(([, a, b]) => a === b), live = CUR.status === 'published';
-        html = box('Final checks', all.map(([l, a, b]) => item(a === b, a === b ? l : `${l} (${b - a} to do)`)), boards + (live
+        html = box('Final checks', all.map(([l, a, b]) => item(a === b, a === b ? l : `${l} (${b - a} to do)`)), excel + boards + (live
           ? btn('publish', 'Back to draft')
           : `<button type="button" class="mbtn primary" data-call="publish"${ready ? '' : ' disabled title="Finish the checks first"'}>Publish</button>`));
       }
@@ -969,6 +973,84 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       const t = e.target.closest('.cc-ig-tile[data-id]');
       if (t) { const p = POSTS.find((x) => x.id === t.dataset.id); if (p) { $('cc-board').hidden = true; openDrawer(p); } }
     });
+
+    // ---- The words in Excel (Danielle, 18 Nov): every post's date, title, how
+    // to edit, what to film and caption on one sheet to read and change, then
+    // brought back in. The hidden last column is the post, so rows can be
+    // re-sorted; a row whose post has gone is left out and said so. ----
+    const XL_COLS = [
+      { title: 'Date', width: 20 }, { title: 'Title', width: 32 }, { title: 'How to edit', width: 60 },
+      { title: 'What to film (reels)', width: 50 }, { title: 'Caption', width: 70 }, { title: 'Post (leave this)', width: 12, hidden: true },
+    ];
+    const XL_FIELDS = [   // [column, label, read the post, the patch for a new value]
+      [1, 'title', (p) => p.title || '', (v) => ({ title: v || null })],
+      [2, 'how to edit', (p) => p.how_to_edit || '', (v) => ({ how_to_edit: v || null })],
+      [3, 'what to film', (p) => p.reel_prompt || '', (v) => ({ reel_prompt: v || null })],
+      [4, 'caption', (p) => ((p.captions || []).find((c) => c && c.trim()) || ''), (v) => ({ captions: v ? [v] : [] })],
+    ];
+    const xlName = () => `Content Calendar ${monthName(CUR.month)} ${editionLabel(CUR.edition)} words`.replace(/[\\/:*?"<>|]/g, ' ');
+    async function exportWords() {
+      if (!CUR || !POSTS.length) { alert('There are no posts in this month yet.'); return; }
+      const rows = POSTS.map((p) => [
+        p.post_date ? new Date(p.post_date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'No date',
+        p.title || '', p.how_to_edit || '',
+        p.post_type === 'reel' ? (p.reel_prompt || '') : { value: 'Not a reel', muted: true },
+        XL_FIELDS[3][2](p), p.id,
+      ]);
+      const blob = await writeXlsx({ sheet: monthName(CUR.month), columns: XL_COLS, rows });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = xlName() + '.xlsx';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+    async function importWords(file) {
+      const m = CUR;
+      let rows;
+      try { rows = await readXlsx(file); } catch (err) { alert(err.message || "Couldn't read that file."); return; }
+      const head = (rows[0] || []).map((h) => String(h).trim().toLowerCase());
+      if (head[1] !== 'title' || head[4] !== 'caption' || !head[5]) { alert("That isn't a sheet exported from this page. Use Export to Excel, make the changes in that file, then bring it back in."); return; }
+      const byId = new Map(POSTS.map((p) => [p.id, p]));
+      const clean = (v) => String(v || '').replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '').trim();
+      const changes = [], missing = [], skippedFilm = [];
+      for (const r of rows.slice(1)) {
+        const id = String(r[5] || '').trim();
+        if (!id) continue;
+        const p = byId.get(id);
+        if (!p) { missing.push(clean(r[1]) || clean(r[0]) || 'A row'); continue; }
+        const patch = {}, what = [];
+        for (const [col, label, read, write] of XL_FIELDS) {
+          const now = clean(r[col]);
+          if (col === 3 && p.post_type !== 'reel') { if (now && now !== 'Not a reel') skippedFilm.push(p.title || 'A post'); continue; }
+          if (now === clean(read(p))) continue;
+          Object.assign(patch, write(now));
+          what.push(now ? label : label + ' emptied');
+        }
+        if (what.length) changes.push({ p, patch, what });
+      }
+      if (!changes.length) {
+        alert(['Nothing to bring in: the words in that file match the month.', missing.length ? `${missing.length} row${missing.length === 1 ? ' is' : 's are'} for posts no longer in this month.` : ''].filter(Boolean).join(' '));
+        return;
+      }
+      const list = changes.slice(0, 12).map(({ p, what }) => `• ${p.title || 'Untitled'}: ${what.join(', ')}`).join('\n') + (changes.length > 12 ? `\n• and ${changes.length - 12} more` : '');
+      const notes = [
+        missing.length ? `${missing.length} row${missing.length === 1 ? ' is' : 's are'} for posts no longer in this month and will be left out.` : '',
+        skippedFilm.length ? `What to film is only kept for reels, so it's left out for ${skippedFilm.length} post${skippedFilm.length === 1 ? '' : 's'} that aren't reels.` : '',
+      ].filter(Boolean).join('\n');
+      if (!confirm(`Bring in changes to ${changes.length} post${changes.length === 1 ? '' : 's'}?\n\n${list}${notes ? '\n\n' + notes : ''}\n\nEverything else stays as it is.`)) return;
+      const failed = [];
+      for (const { p, patch } of changes) {
+        // .select() so a save the database turned down can't look like it worked.
+        const { data, error } = await supabase.from('content_month_posts').update(patch).eq('id', p.id).select('id');
+        if (error || !data || !data.length) { failed.push(p.title || 'Untitled'); continue; }
+        Object.assign(p, patch);
+      }
+      if (CUR === m) { renderMonth(); renderTemplates(); }
+      const done = changes.length - failed.length;
+      alert(failed.length
+        ? `${done} post${done === 1 ? '' : 's'} updated. ${failed.length} couldn't be saved: ${failed.join(', ')}. Try bringing the file in again.`
+        : `${done} post${done === 1 ? '' : 's'} updated.`);
+    }
 
     // ---- Claude drafts the words (Dani, 9 Nov). It never overwrites what's written. ----
     // Claude's typos and flags for the team, kept at the end of the note and
@@ -1702,8 +1784,11 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       if (k === 'design') openNewTemplate(null);
       if (k === 'grid' || k === 'client') openBoard(k);
       if (k === 'claude-all') draftAll();
+      if (k === 'xlsx-out') exportWords();
+      if (k === 'xlsx-in') $('cc-xlsx-file').click();
       if (k === 'publish') togglePublish();
     });
+    $('cc-xlsx-file').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) importWords(f); });
     $('cc-tl').addEventListener('click', (e) => { const b = e.target.closest('[data-stage]'); if (b) setStage(Number(b.dataset.stage)); });
     $('cc-stage-back').addEventListener('click', () => setStage(INSIGHTS ? 4 : stageOf() - 1));
     $('cc-stage-next').addEventListener('click', () => setStage(stageOf() + 1));
