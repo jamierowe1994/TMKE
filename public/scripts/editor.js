@@ -6008,6 +6008,7 @@ import { createResizeEngine } from "./resize-engine.js";
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
       clearGuides();
+      if (el.w !== o.w || el.h !== o.h) rememberLogoBox(el);
       pushHistory();
       renderProps();
     }
@@ -10658,6 +10659,7 @@ import { createResizeEngine } from "./resize-engine.js";
         tgt.h = Math.max(1, toPx(v));
         if (ratioLocked) { tgt.w = Math.max(1, Math.round(tgt.h * ratio)); wIn.value = toUi(tgt.w); }
       }
+      rememberLogoBox(tgt);
       fullRender();
       pushHistory();
     }
@@ -11055,7 +11057,7 @@ import { createResizeEngine } from "./resize-engine.js";
               '<img src="' + escapeHtml(l.src) + '" alt="' + escapeHtml(label) + '">' +
             '</button>';
           }).join('') +
-        '</div><p class="ed-props-hint">Your logo keeps its shape and fits within a ' + LOGO_MAX_W + ' \u00d7 ' + LOGO_MAX_H + ' area.</p></div>');
+        '</div><p class="ed-props-hint">Your logo keeps its shape and fits the size this box is set to. Drag a corner to make that bigger or smaller.</p></div>');
       } else if (kit.length === 1) {
         html.push('<div class="ed-props-section"><h4>Brand logo</h4>' +
           '<p class="ed-props-hint">Your brand kit contains one logo. ' +
@@ -12734,6 +12736,10 @@ import { createResizeEngine } from "./resize-engine.js";
     return "free";   // placed deliberately mid-design: stays put
   }
 
+  // A logo resized by hand: remember the box, so later fills keep its size.
+  function rememberLogoBox(el) {
+    if (el && el.brandRole === "logo" && el.w > 0 && el.h > 0) el.logoBox = { w: Math.round(el.w), h: Math.round(el.h) };
+  }
   function placeLogoInSlot(slot, src, after) {
     const anchor = logoAnchorOf(slot);
     const prevY = slot.y, prevH = slot.h || 0, prevCx = slot.x + (slot.w || 0) / 2;
@@ -12757,8 +12763,14 @@ import { createResizeEngine } from "./resize-engine.js";
       if (!ratio || !isFinite(ratio)) ratio = 1;
       // A logo is shown whole, whatever box it ends up in.
       slot.imgFit = "contain";
-      let w = LOGO_MAX_W, h = LOGO_MAX_W / ratio;
-      if (h > LOGO_MAX_H) { h = LOGO_MAX_H; w = LOGO_MAX_H * ratio; }
+      /* The size someone gave the logo by hand wins (Danielle, 18 Nov): a
+         logo resized past the 200 x 75 default keeps that box, so a refill
+         (a member's own logo, the light/dark swap, a new scene) fits inside
+         it rather than snapping back to the default. */
+      const box = slot.logoBox && slot.logoBox.w > 0 && slot.logoBox.h > 0 ? slot.logoBox : null;
+      const maxW = box ? box.w : LOGO_MAX_W, maxH = box ? box.h / 1.12 : LOGO_MAX_H;
+      let w = maxW, h = maxW / ratio;
+      if (h > maxH) { h = maxH; w = maxH * ratio; }
       // A little air above and below: a measured ratio can be a hair out,
       // and the mark must never lose the tops of its letters.
       h = h * 1.12;

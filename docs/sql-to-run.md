@@ -4,10 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/test_pack_designs.sql — Catalogue test packs: a test pack opened empty on the test login (and Sam's) because a pack's designs stayed hidden until its free date (Santa Baby... opens 20 Nov 8am). Anyone the test pack was sent to now sees its designs straight away; nobody else's view changes. Changes no pack or design. Sends nothing (18 Nov)
+(none)
 
 ## Done
 
+- [x] supabase/test_pack_designs.sql — Catalogue test packs: a test pack opened empty on the test login (and Sam's) because a pack's designs stayed hidden until its free date (Santa Baby... opens 20 Nov 8am). Anyone the test pack was sent to now sees its designs straight away; nobody else's view changes. Changes no pack or design. Sends nothing (18 Nov; ran 18 Nov)
 - [x] supabase/content_calendar_go_live.sql — Content Calendar: a "Goes live on" date on each month (Final checks). A month published before its date shows members blurred, "locked and loaded", until that day. Until it runs, members see a published month straight away and the date can't be saved. Changes no month. Sends nothing (18 Nov; ran 18 Nov)
 - [x] supabase/studio_reporting_sign_ins.sql — Studio reporting: "Sign-ins each, on average" said 0 because Supabase keeps no sign-in history for us. This counts sign-ins from the sessions on record and, from 18 Nov, every sign-in the site records itself. Only the server can run it. Changes nothing. Sends nothing (18 Nov; ran 18 Nov)
 - [x] supabase/report_tpe_ppe_studio.sql — report only, changes nothing: every live TPE and PPE agent with a Hub account, their print and first-design training, designs saved (print counted separately), planner posts and downloads. For Sam. Download the result as CSV (17 Nov; no longer needed: Insights › Studio reporting has it, 18 Nov)
