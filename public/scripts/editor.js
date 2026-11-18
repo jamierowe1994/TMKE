@@ -10997,6 +10997,8 @@ import { createResizeEngine } from "./resize-engine.js";
     // all. A field offers only what it's for - words on the canvas, or a new
     // photo from the chooser, which opens as you pick it.
     const ml = memberLock(el);
+    // An Illustrate picture goes to Christmas › Illustration however it's locked (Danielle, 18 Nov).
+    if (ml && isIllustrationPicture(el) && openIllustrateFor()) return;
     if (ml) {
       if (!colorPanelInUse()) closeColorPanel();
       if (typeof showPane === "function") showPane("selection");
@@ -19196,6 +19198,37 @@ import { createResizeEngine } from "./resize-engine.js";
         });
         grid.appendChild(b);
       });
+      /* Inside the card, their own picture too (Danielle, 18 Nov: "they
+         might want to put their dog in"): an upload, not a gallery search. */
+      if (onInside()) {
+        const up = document.createElement("button");
+        up.type = "button";
+        up.className = "ed-ill-scene ed-ill-own";
+        const pic = document.createElement("span");
+        pic.className = "pic";
+        pic.textContent = "+";
+        if (setShape() === "l") pic.style.aspectRatio = "4 / 3";
+        up.appendChild(pic);
+        up.appendChild(document.createTextNode("Upload your own"));
+        const inp = document.createElement("input");
+        inp.type = "file"; inp.accept = "image/*"; inp.hidden = true;
+        up.appendChild(inp);
+        up.addEventListener("click", (e) => { if (e.target !== inp && !busy) inp.click(); });
+        inp.addEventListener("change", async () => {
+          const file = inp.files && inp.files[0];
+          inp.value = "";
+          if (!file) return;
+          const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => isIllustrationPicture(o) || (o && o.type === "wframe"));
+          const at = state.currentPage;
+          const url = await fileToWebImage(file);
+          if (!url) return;
+          if (picked) { if (state.currentPage !== at) goToPage(at); state.selectedIds = [picked.id]; }
+          await placeIllustration(url);
+          fullRender();
+          toast("Your picture is in.");
+        });
+        grid.appendChild(up);
+      }
     }
     function paintAdmin(keys) {
       const box = $("ed-ill-admin");
@@ -20218,6 +20251,14 @@ import { createResizeEngine } from "./resize-engine.js";
         if (fail) fail.hidden = true;
       }
       loadDesignData(d);
+      /* Fill what is still empty from the brand kit (Danielle, 18 Nov): a
+         design first opened while the kit had no photo kept an empty photo
+         box for good, because a reopened design was never filled again. Safe
+         on a saved copy: a tag only fills while the text still holds it, a
+         logo slot while it is still text, and a photo they chose is theirs. */
+      if (!isAdminMode()) {
+        try { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); fullRender(); } catch (_) {}
+      }
     };
     if (typeof window.__TMKE_DESIGN_BOOTSTRAP_DONE__ !== "undefined") {
       window.__TMKE_BOOT_DESIGN__(window.__TMKE_DESIGN_BOOTSTRAP_DONE__);
