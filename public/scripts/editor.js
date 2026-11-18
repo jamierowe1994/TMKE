@@ -15564,6 +15564,24 @@ import { createResizeEngine } from "./resize-engine.js";
       box.appendChild(go);
       return box;
     }
+    /* A QR code or a logo isn't a picture to upload: Change selects it and
+       opens its own controls, the same place clicking it on the design goes
+       (the QR's link, the logo's version) (Danielle, 18 Nov). */
+    if (el.brandRole === "qr" || el.brandRole === "logo") {
+      if (el.brandRole === "logo" && !isAdminMode()) return box;
+      const go = document.createElement("button");
+      go.type = "button";
+      go.className = "ed-field-change";
+      go.textContent = "Change";
+      go.addEventListener("click", function () {
+        state.selectedIds = [el.id];
+        fullRender();
+        renderProps();
+        flashElement(el);
+      });
+      box.appendChild(go);
+      return box;
+    }
     /* A box, circle, triangle, star or frame with no picture in it is a
        shape: Change selects it and opens its own controls (fill, pattern,
        lines), not a picture chooser (Danielle, 18 Nov). */
