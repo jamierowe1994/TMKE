@@ -9757,7 +9757,13 @@ import { createResizeEngine } from "./resize-engine.js";
         if (o.type === "text") ink(o, c);
         else if (o.type === "wframe") {
           if (o.xpRole === "main") { o.fill = c; delete o.fillPattern; o.stroke = two.accent; } else o.stroke = c;
-        } else if (shape) { o.fill = c; delete o.fillPattern; o.fillGradient = null; }
+        } else if (shape) {
+          /* A see-through box with a line (Danielle, 18 Nov): only the line
+             takes the colour, the middle stays clear. */
+          const clear = (!o.fill || o.fill === "transparent") && !o.fillPattern && !(o.fillGradient && o.fillGradient.enabled);
+          if (clear) o.stroke = c;
+          else { o.fill = c; delete o.fillPattern; o.fillGradient = null; }
+        }
       });
     });
     // The inside of a folded card takes the main colour too.
