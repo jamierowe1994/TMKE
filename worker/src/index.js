@@ -15174,7 +15174,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       // Made the first time anyone looks and kept beside the thumbnails, so each
       // photo is resized once. If it can't be made, this hands over the original:
       // the same picture, only slower, and the log says why.
-      if (path.endsWith("/preview") && request.method === "GET") {
+      // Only with ?key=: other GETs ending in /preview (the TEG headshot
+      // preview) were caught here from 7 to 18 Nov and answered "Not a photo."
+      if (path.endsWith("/preview") && request.method === "GET" && url.searchParams.has("key")) {
         const key = url.searchParams.get("key") || "";
         if (!PREVIEWABLE.test(key) || key.includes(`/${THUMB_DIR}/`)) return json({ error: "Not a photo." }, 400, request, env);
         if (!(await mediaSigValid(env, key, url.searchParams.get("exp"), url.searchParams.get("sig")))) return json({ error: "Link expired." }, 403, request, env);
