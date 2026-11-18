@@ -17753,6 +17753,9 @@ import { createResizeEngine } from "./resize-engine.js";
       return k.length ? k : all;
     }
     const hasSlot = () => (state.pages || []).some((p) => (p.elements || []).some((o) => o && o.brandRole === "illustration"));
+    // Slide 1: the outside of a folded card, or a postcard's first side.
+    const frontPage = () => state.pages.findIndex((p) => p && p.canvas &&
+      ((isFolded(p.canvas) && p.canvas.fold !== "inside") || isPostcard(p.canvas)));
     // Where each scene puts the front logo: "centre", "right" or "off".
     const LOGO_PLACES = [["centre", "Top centre"], ["right", "Top right"], ["off", "None"]];
     const logoPlaceFor = (key) => {
@@ -17892,16 +17895,30 @@ import { createResizeEngine } from "./resize-engine.js";
       forest: { bg: "beige", ink: "#2e3f34" },
     };
     const swatchHex = (key) => (bgList().find((b) => b.key === key) || {}).hex;
-    function cardToBackground(exact, withInside) {
-      const hex = exact || swatchHex(bg);
-      if (!hex) return;
-      const ink = inkFor(hex);
+    /* insideKey: a colour picked while on the inside (slide 2) colours only
+       the inside, left and right, with the same word colours (Dani, 18 Nov).
+       Picked on the outside, the outside takes it and the inside its default
+       pairing, as before. */
+    function cardToBackground(exact, withInside, insideKey) {
       const folded = (i) => isFolded(state.pages[i].canvas);
-      // Every side of a postcard counts as the outside.
-      const outside = state.pages.map((p, i) => i).filter((i) => (folded(i) && state.pages[i].canvas.fold !== "inside") || isPostcard(state.pages[i].canvas));
-      const set = withInside && INSIDE[bg];
-      const inHex = set && swatchHex(set.bg);
-      const inside = set && inHex ? state.pages.map((p, i) => i).filter((i) => folded(i) && state.pages[i].canvas.fold === "inside") : [];
+      const insidePages = () => state.pages.map((p, i) => i).filter((i) => folded(i) && state.pages[i].canvas.fold === "inside");
+      let hex, ink, outside, set, inHex, inside;
+      if (insideKey) {
+        hex = null; ink = null; outside = [];
+        inHex = swatchHex(insideKey);
+        if (!inHex) return;
+        set = { bg: insideKey, ink: TEXT_ON[insideKey] || inkFor(inHex) };
+        inside = insidePages();
+      } else {
+        hex = exact || swatchHex(bg);
+        if (!hex) return;
+        ink = inkFor(hex);
+        // Every side of a postcard counts as the outside.
+        outside = state.pages.map((p, i) => i).filter((i) => (folded(i) && state.pages[i].canvas.fold !== "inside") || isPostcard(state.pages[i].canvas));
+        set = withInside && INSIDE[bg];
+        inHex = set && swatchHex(set.bg);
+        inside = set && inHex ? insidePages() : [];
+      }
       const needs = (i, h, k) => String(state.pages[i].canvas.background || "").toLowerCase() !== h.toLowerCase() ||
         inked(state.pages[i]).some((o) => inkWrong(o, k)) || grads(state.pages[i]).some((o) => gradWrong(o, h)) ||
         bgBlocks(state.pages[i]).some((o) => !sameHex(o.fill, h)) || outlined(state.pages[i]).some((o) => !sameHex(o.stroke, k)) ||
@@ -17955,7 +17972,11 @@ import { createResizeEngine } from "./resize-engine.js";
          with the box's own edge (Dani, 18 Nov). On the side being placed on,
          else wherever the slot is. */
       const slotIn = (i) => ((state.pages[i] || {}).elements || []).find((o) => o && o.brandRole === "illustration");
-      let slot = slotIn(outI);
+      /* With two slots (one outside, one inside), the one selected is the one
+         filled (Dani, 18 Nov); with none selected, the front's. */
+      const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => o && o.brandRole === "illustration");
+      let slot = picked || slotIn(outI);
+      if (picked) outI = state.currentPage;
       if (!slot) {
         const j = state.pages.findIndex((p, i) => !!slotIn(i));
         if (j > -1) { outI = j; slot = slotIn(j); }
@@ -18033,22 +18054,34 @@ import { createResizeEngine } from "./resize-engine.js";
       if (hex) cardToBackground(hex);
     }
     // Four swatches from the Worker's list, the last one chosen remembered.
+    // On the inside of a folded card (slide 2).
+    const onInside = () => { const p = state.pages[state.currentPage]; return !!(p && isFolded(p.canvas) && p.canvas.fold === "inside"); };
     function paintBackgrounds() {
       const list = bgList();
       const wrap = $("ed-ill-bg"), row = $("ed-ill-bg-row");
       wrap.hidden = !list.length;
       if (!list.length) return;
       if (!list.some((b) => b.key === bg)) bg = list[0].key;
+      // The ring shows the colour the side being looked at is: on the
+      // inside the inside's, else the outside's (the last pick if the card
+      // isn't one of the four).
+      const cur = String(state.canvas.background || "").toLowerCase();
+      const match = (list.find((b) => String(b.hex).toLowerCase() === cur) || {}).key || null;
+      // A card already in one of the four colours counts as picked, so the
+      // custom illustration is painted for it.
+      if (!onInside() && match) bg = match;
+      const shownKey = onInside() ? match : bg;
       row.innerHTML = "";
       list.forEach((b) => {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "ed-ill-sw";
         btn.setAttribute("role", "radio");
-        btn.setAttribute("aria-checked", String(b.key === bg));
+        btn.setAttribute("aria-checked", String(b.key === shownKey));
         btn.innerHTML = '<i style="background:' + b.hex + '"></i>';
         btn.appendChild(document.createTextNode(b.label));
         btn.addEventListener("click", () => {
+          if (onInside()) { cardToBackground(null, false, b.key); paintBackgrounds(); return; }
           bg = b.key;
           try { localStorage.setItem("tmke.illBg", bg); } catch (_) {}
           paintBackgrounds();
@@ -18113,9 +18146,16 @@ import { createResizeEngine } from "./resize-engine.js";
         b.appendChild(document.createTextNode(x.name));
         b.addEventListener("click", async () => {
           if (busy) return;
-          cardToBackground();
+          // Which slot was selected, before recolouring clears the selection.
+          const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => o && o.brandRole === "illustration");
+          const at = state.currentPage;
+          // A picture for the inside leaves the outside's colour alone.
+          if (!onInside()) cardToBackground();
+          if (picked) { if (state.currentPage !== at) goToPage(at); state.selectedIds = [picked.id]; }
           await placeIllustration(x.src);
-          applyFrontLogo(x.key, state.currentPage);
+          // The front logo follows the scene only on the front, slide 1; a
+          // picture inside the card leaves every logo alone (Dani, 18 Nov).
+          if (state.currentPage === frontPage()) applyFrontLogo(x.key, state.currentPage);
           fullRender();
           toast(C.setAdded);
         });
@@ -18288,7 +18328,7 @@ import { createResizeEngine } from "./resize-engine.js";
           if (search) search.click();
         }
       }
-      const sig = [show, keys ? keys.join() : "", hasSlot(), !!me].join("|");
+      const sig = [show, keys ? keys.join() : "", hasSlot(), !!me, onInside() ? "in" : "out", String(state.canvas.background)].join("|");
       if (show && (force === true || sig !== lastSig)) { lastSig = sig; paintBackgrounds(); paintMode(); }
     }
     window.__TMKE_ILL_SYNC__ = sync;
