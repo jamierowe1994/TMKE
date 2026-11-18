@@ -12466,10 +12466,6 @@ import { createResizeEngine } from "./resize-engine.js";
     return !!el && (el.brandRole === "photo" || el.brandRole === "headshot" || el.brandRole === "logo" || el.brandRole === "qr");
   }
   function canSwapPicture(el) {
-    /* An agent photo slot with nothing on file to fill it can take a picture
-       of the member's own (Dani, 18 Nov: Christmas cards go to external
-       members too). Once one is on file, the slot is the brand's again. */
-    if (el && el.brandRole === "photo" && !isAdminMode() && !photoForSlot("photo")) return true;
     return !(isSuppliedPicture(el) && !isAdminMode());
   }
 
@@ -12502,8 +12498,16 @@ import { createResizeEngine } from "./resize-engine.js";
     return sizeFamily(state.canvas.width, state.canvas.height) === "print";
   }
   // What belongs in this slot, or null when we hold nothing that may go there.
+  // A Christmas card or postcard (a folded A5 or an A6 Landscape side).
+  function isCardDesign() {
+    return (state.pages || []).some(function (p) { return p && p.canvas && (isFolded(p.canvas) || isPostcard(p.canvas)); });
+  }
   function photoForSlot(role) {
     const photo = brandPhotoSrc(), head = brandHeadshotSrc();
+    /* Cards and postcards (Dani, 18 Nov): the brand photo, else the
+       member's headshot; with neither they're asked to add a headshot to
+       their brand kit (nudgeIfNoBrandPhoto, and Download waits). */
+    if (isCardDesign()) return photo || head || null;
     // Print takes the brand-approved photo or nothing -- never the member's
     // own upload, which falls apart at print size (docs/agent-photo-brief.md).
     // Dani, 13 Oct: "Print should never use anybody's own headshot."
@@ -12907,9 +12911,16 @@ import { createResizeEngine } from "./resize-engine.js";
   function nudgeIfNoBrandPhoto() {
     const bar = document.getElementById("ed-photonudge");
     if (!bar) return;
-    const needs = !isAdminMode() && isPrintDesign() && !brandPhotoSrc()
+    const card = isCardDesign();
+    const needs = !isAdminMode() && (card ? !photoForSlot("photo") : (isPrintDesign() && !brandPhotoSrc()))
       && everyElement().some(function (el) { return el.brandRole === "photo" && !el.src; });
     bar.hidden = !needs;
+    const txt = bar.querySelector(".ed-brandnudge-txt"), go = bar.querySelector(".ed-brandnudge-go");
+    if (card && txt && go) {
+      txt.textContent = "This card has a space for your photo. Add a headshot to your brand kit and it goes in automatically, then you can download your card.";
+      go.textContent = "Add your headshot";
+      go.href = "/account/profile?next=" + encodeURIComponent(location.pathname + location.search) + "#sec-about";
+    }
   }
 
   function brandHeadshotSrc() {
@@ -15242,6 +15253,16 @@ import { createResizeEngine } from "./resize-engine.js";
         compact: true,
         onDone: function () { if (el.src) { thumb.classList.remove("is-empty"); thumb.style.backgroundImage = "url(" + JSON.stringify(el.src) + ")"; } },
       }));
+    } else if (el.brandRole === "photo" && !el.src && isCardDesign() && !photoForSlot("photo")) {
+      const note = document.createElement("span");
+      note.className = "ed-field-note";
+      note.textContent = "Add a headshot to your brand kit and your photo goes in here.";
+      box.appendChild(note);
+      const go = document.createElement("a");
+      go.className = "ed-field-change";
+      go.textContent = "Add your headshot";
+      go.href = "/account/profile?next=" + encodeURIComponent(location.pathname + location.search) + "#sec-about";
+      box.appendChild(go);
     } else {
       const note = document.createElement("span");
       note.className = "ed-field-note";
@@ -18846,6 +18867,14 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     trigger.addEventListener("click", (e) => {
       e.stopPropagation();
+      /* A card with a space for the member's photo and none on file waits
+         for a headshot in their brand kit (Dani, 18 Nov: "before continuing"). */
+      if (menu.hidden && !isAdminMode() && isCardDesign() && !photoForSlot("photo") &&
+          everyElement().some(function (el) { return el && el.brandRole === "photo" && !el.hidden && !el.src; })) {
+        nudgeIfNoBrandPhoto();
+        toast("Add a headshot to your brand kit first, so your photo is on your card.", 4200);
+        return;
+      }
       menu.hidden ? open() : close();
     });
     document.addEventListener("click", (e) => {
