@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-(none)
+- [ ] supabase/test_pack_designs.sql — Catalogue test packs: a test pack opened empty on the test login (and Sam's) because a pack's designs stayed hidden until its free date (Santa Baby... opens 20 Nov 8am). Anyone the test pack was sent to now sees its designs straight away; nobody else's view changes. Changes no pack or design. Sends nothing (18 Nov)
 
 ## Done
 
