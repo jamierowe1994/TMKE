@@ -186,7 +186,7 @@ import "../../styles/money-os.css";
       // Agents in the CRM at the picked brands, each person once; none when External is picked.
       const picked = brandsPicked();
       const inCrm = !PICK.size ? D.crm.any : PICK.has("ext") ? null : D.crm.groups.filter((g) => g.split("|").some((b) => picked.includes(b))).length;
-      const acc = FIGS.accounts.map((f) => f[0] === "all" ? [f[0], f[1], f[2]] : [...f.slice(0, 3), [signedIn, "those signed up"]]);
+      const acc = FIGS.accounts.map((f) => f[0] === "all" ? [f[0], f[1], f[2]] : [...f.slice(0, 3), [() => true, "those signed up"]]);
       let html = section("Accounts", `${n0(rows.length)} signed up`, figsAccounts(acc, rows, inCrm) + (() => {
         const si = signed.map((r) => r.sign_ins).filter((n) => n > 0), days = signed.map((r) => r.active_days).filter((n) => n > 0);
         const often = D.activity_ready
