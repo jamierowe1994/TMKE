@@ -9725,11 +9725,34 @@ import { createResizeEngine } from "./resize-engine.js";
     const wrap = document.createElement("div");
     wrap.className = "ed-xp";
     const cur = get();
+    /* The colour scheme travels with you (Danielle, 18 Nov): people pick the
+       scheme first, then flick through the patterns. The scheme is kept on the
+       value (route, plus the preset's name for the one-off extras); older
+       values are matched by their colours, whatever order they're in. */
+    const sameCols = function (a, b) {
+      a = a || {}; b = b || {};
+      const ks = Object.keys(Object.assign({}, a, b));
+      return ks.every(function (k) { return String(a[k] || "").toLowerCase() === String(b[k] || "").toLowerCase(); });
+    };
+    const schemeOf = function (v) {
+      if (!v) return null;
+      if (v.route || v.scheme) return { route: v.route || null, name: v.scheme || null };
+      const pt = xpPattern(v.key);
+      const hit = xpPresets(v.key).find(function (x) { return sameCols(Object.assign({}, pt && pt.cols, x.cols), Object.assign({}, pt && pt.cols, v.cols)); });
+      return hit ? { route: hit.route || null, name: hit.name } : null;
+    };
+    const presetFor = function (key, sc) {
+      const list = xpPresets(key);
+      return (sc && sc.route && list.find(function (x) { return x.route === sc.route; }))
+        || (sc && sc.name && list.find(function (x) { return x.name === sc.name; }))
+        || list[0];
+    };
+    const curScheme = schemeOf(cur);
     const grid = document.createElement("div");
     grid.className = "ed-xp-grid";
     XP_PATTERNS.forEach(function (p) {
-      const first = xpPresets(p.key)[0];
-      const look = { key: p.key, cols: first ? first.cols : p.cols, scale: 100 };
+      const first = presetFor(p.key, curScheme);
+      const look = { key: p.key, cols: first ? Object.assign({}, p.cols, first.cols) : p.cols, scale: 100 };
       const t = xpTile(look, 1.6);
       const b = document.createElement("button");
       b.type = "button";
@@ -9737,10 +9760,12 @@ import { createResizeEngine } from "./resize-engine.js";
       b.setAttribute("aria-pressed", String(!!cur && cur.key === p.key));
       b.innerHTML = '<span class="pic" style="background-image:url(&quot;' + t.url.replace(/"/g, "%22") + '&quot;)"></span>' + p.name;
       b.addEventListener("click", function () {
-        // A new pattern starts in the same route as the last, where it has one.
-        const route = cur && (xpPresets(cur.key).find(function (x) { return JSON.stringify(x.cols) === JSON.stringify(cur.cols); }) || {}).route;
-        const pr = xpPresets(p.key).find(function (x) { return route && x.route === route; }) || xpPresets(p.key)[0];
-        set({ key: p.key, cols: Object.assign({}, p.cols, pr ? pr.cols : {}), scale: (pr && pr.scale) || p.scale || 100 });
+        // A new pattern starts in the same colour scheme as the last, where it has one.
+        const pr = presetFor(p.key, curScheme);
+        const v = { key: p.key, cols: Object.assign({}, p.cols, pr ? pr.cols : {}), scale: (pr && pr.scale) || p.scale || 100 };
+        if (pr && pr.route) v.route = pr.route;
+        if (pr) v.scheme = pr.name;
+        set(v);
       });
       grid.appendChild(b);
     });
@@ -9760,7 +9785,11 @@ import { createResizeEngine } from "./resize-engine.js";
       b.className = "ed-xp-chip";
       b.setAttribute("aria-pressed", String(on));
       b.innerHTML = Object.keys(p.cols).map(function (k) { return '<i style="background:' + (pr.cols[k] || p.cols[k]) + '"></i>'; }).join("") + "<span>" + escapeHtml(pr.name) + "</span>";
-      b.addEventListener("click", function () { set({ key: cur.key, cols: Object.assign({}, p.cols, pr.cols), scale: pr.scale || cur.scale || 100 }); });
+      b.addEventListener("click", function () {
+        const v = { key: cur.key, cols: Object.assign({}, p.cols, pr.cols), scale: pr.scale || cur.scale || 100, scheme: pr.name };
+        if (pr.route) v.route = pr.route;
+        set(v);
+      });
       chips.appendChild(b);
     });
     wrap.appendChild(chips);
