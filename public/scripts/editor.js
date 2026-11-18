@@ -15530,6 +15530,18 @@ import { createResizeEngine } from "./resize-engine.js";
     if (src) thumb.style.backgroundImage = "url(" + JSON.stringify(src) + ")";
     else thumb.classList.add("is-empty");
     box.appendChild(thumb);
+    /* No picture yet: show what fills the shape now - its colour, gradient
+       or pattern - so the row says which box it is (Danielle, 18 Nov). */
+    if (!src && /^(rect|ellipse|triangle|star|wframe)$/.test(el.type || "")) {
+      const xpP0 = el.fillPattern && xpPattern(el.fillPattern.key);
+      const tile = xpP0 ? xpTile(el.fillPattern, 24 / xpP0.tw * ((el.fillPattern.scale || 100) / 100)) : null;
+      const grad = el.fillGradient && el.fillGradient.enabled ? textGradientCss(el.fillGradient) : null;
+      const solid = el.fill && el.fill !== "transparent" ? el.fill : null;
+      if (tile) { thumb.style.backgroundColor = (el.fillPattern.cols && el.fillPattern.cols.ground) || ""; thumb.style.backgroundImage = 'url("' + tile.url + '")'; thumb.style.backgroundSize = tile.w.toFixed(1) + "px " + tile.h.toFixed(1) + "px"; thumb.style.backgroundRepeat = "repeat"; }
+      else if (grad) thumb.style.backgroundImage = grad;
+      if (tile || grad || solid) { thumb.classList.remove("is-empty"); if (solid) thumb.style.backgroundColor = thumb.style.backgroundColor || solid; }
+      if (el.type === "ellipse") thumb.style.borderRadius = "50%";
+    }
     /* A picture from Illustrate, or a painted frame: Change opens Images ›
        Illustrate with it selected, so the scene picked goes into it (Dani,
        18 Nov). Where Illustrate isn't offered, the usual chooser. */
@@ -15544,6 +15556,25 @@ import { createResizeEngine } from "./resize-engine.js";
         state.selectedIds = [el.id];
         fullRender();
         openIllustrateFor();
+      });
+      box.appendChild(go);
+      return box;
+    }
+    /* A box, circle, triangle, star or frame with no picture in it is a
+       shape: Change selects it and opens its own controls (fill, pattern,
+       lines), not a picture chooser (Danielle, 18 Nov). */
+    if (!src && /^(rect|ellipse|triangle|star|wframe)$/.test(el.type || "")) {
+      // Members have no shape controls on a Fixed box: the colour shows, nothing to press.
+      if (!isAdminMode() && el.type !== "wframe") return box;
+      const go = document.createElement("button");
+      go.type = "button";
+      go.className = "ed-field-change";
+      go.textContent = "Change";
+      go.addEventListener("click", function () {
+        state.selectedIds = [el.id];
+        fullRender();
+        renderProps();
+        flashElement(el);
       });
       box.appendChild(go);
       return box;
