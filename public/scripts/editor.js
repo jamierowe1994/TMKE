@@ -7197,6 +7197,35 @@ import { createResizeEngine } from "./resize-engine.js";
   // renderer, history, export, or selection.
   // We stamp the element with `svgKey` + `svgFill` so the selection
   // panel can offer a colour picker that regenerates the src.
+  /* The Christmas graphics as a little picker (Danielle, 18 Nov): clicking
+     one, or its Change in the Edit list, offers the four to swap between, not
+     a picture upload. The swap keeps its height, centre and colour. */
+  const XMAS_GRAPHICS = [["xmas-tree", "Tree"], ["xmas-bow", "Bow"], ["xmas-present", "Present"], ["xmas-glasses", "Glasses"]];
+  function isXmasGraphic(el) { return !!(el && el.type === "image" && el.svgKey && /^xmas-/.test(el.svgKey)); }
+  function xmasGraphicPicker(el, after) {
+    const wrap = document.createElement("div");
+    wrap.className = "ed-xg-pick";
+    wrap.style.setProperty("--xg", el.svgFill || "#371e28");
+    XMAS_GRAPHICS.forEach(function (g) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ed-xg-b";
+      b.setAttribute("aria-pressed", String(el.svgKey === g[0]));
+      b.innerHTML = '<span class="ic">' + svgStylePreview(g[0], "plain") + "</span>" + g[1];
+      b.addEventListener("click", function () {
+        const t = getEl(el.id) || el, def = SVG_SHAPES[g[0]];
+        if (!def || t.svgKey === g[0]) return;
+        const cx = t.x + t.w / 2, h = t.h, w = Math.round(h * def.w / def.h);
+        t.svgKey = g[0]; t.w = w; t.x = Math.round(cx - w / 2);
+        restyleSvgElement(t);
+        pushHistory();
+        fullRender();
+        if (after) after();
+      });
+      wrap.appendChild(b);
+    });
+    return wrap;
+  }
   function addSvgShape(key) {
     const def = SVG_SHAPES[key];
     if (!def) return;
@@ -11050,6 +11079,13 @@ import { createResizeEngine } from "./resize-engine.js";
     const ml = memberLock(el);
     // An Illustrate picture goes to Christmas › Illustration however it's locked (Danielle, 18 Nov).
     if (ml && isIllustrationPicture(el) && openIllustrateFor()) return;
+    if (ml && isXmasGraphic(el)) {
+      if (!colorPanelInUse()) closeColorPanel();
+      if (typeof showPane === "function") showPane("selection");
+      body.innerHTML = '<p class="ed-selection-empty">Choose the Christmas graphic for this space. Its colour follows your background.</p>';
+      body.appendChild(xmasGraphicPicker(el, function () { renderProps(); }));
+      return;
+    }
     if (ml) {
       if (!colorPanelInUse()) closeColorPanel();
       if (typeof showPane === "function") showPane("selection");
@@ -11491,6 +11527,7 @@ import { createResizeEngine } from "./resize-engine.js";
     }
 
     // Lock is admin-only — customer flow doesn't get the affordance.
+    if (isXmasGraphic(el)) html.push('<div class="ed-props-section"><h4>Christmas graphic</h4><div data-mount="xg-pick"></div></div>');
     if (isAdminMode()) html.push(lockControlHtml([el]));
     /* Which of the pattern's two colours this item takes (Danielle, 18 Nov):
        when a member picks a pattern, marked items change with it. */
@@ -11707,6 +11744,8 @@ import { createResizeEngine } from "./resize-engine.js";
       });
     });
     wireLockControl(body, [el]);
+    const xgMount = body.querySelector('[data-mount="xg-pick"]');
+    if (xgMount) xgMount.appendChild(xmasGraphicPicker(el, function () { renderProps(); }));
     body.querySelectorAll("[data-xprole]").forEach(function (b) {
       b.addEventListener("click", function () {
         const k = b.getAttribute("data-xprole");
@@ -15798,6 +15837,12 @@ import { createResizeEngine } from "./resize-engine.js";
     /* A QR code or a logo isn't a picture to upload: Change selects it and
        opens its own controls, the same place clicking it on the design goes
        (the QR's link, the logo's version) (Danielle, 18 Nov). */
+    // A Christmas graphic: the four to choose between, right here.
+    if (isXmasGraphic(el)) {
+      box.innerHTML = "";
+      box.appendChild(xmasGraphicPicker(el, function () { renderFieldsPane(); }));
+      return box;
+    }
     if (el.brandRole === "qr" || el.brandRole === "logo") {
       if (el.brandRole === "logo" && !isAdminMode()) return box;
       const go = document.createElement("button");
