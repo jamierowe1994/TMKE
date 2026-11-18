@@ -11383,6 +11383,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const flags = [t(r.flags)];
         const all = [r.caption, how, film].join("\n");
         if (/\u2014/.test(all)) flags.push("The draft contains an em dash. Please change it.");
+        if (/\b(in these slides|in this (post|video|reel|carousel)|swipe (to|through|left|right)|scroll (down|through)|(see|shown|pictured|mentioned) above|the image above|on the slides)\b/i.test(String(r.caption || ""))) flags.push("The caption points at the post itself (slides, swipe, above). Please reword it.");
         if (/(^|\s)#[A-Za-z]/.test(all)) flags.push("The draft contains a hashtag. Please remove it.");
         return json({ content_type: r.content_type, what_to_film: film, how_to_edit: how, caption: t(r.caption), typos: (Array.isArray(r.typos) ? r.typos : []).map(t).filter(Boolean), flags: flags.filter(Boolean).join("\n") }, 200, request, env);
       }

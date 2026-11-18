@@ -453,6 +453,8 @@ The plan is conceptual, not literal (Danielle, 17 Nov): designs change between p
 
 7. Variety across the month. You are shown the openings of captions already written for other posts this month. Don't reuse their opening style, structure or CTA.
 
+7b. Don't point at the post itself in the caption (Danielle, 18 Nov). No "in these slides", "above", "swipe to see", "in this video", "check out the image", "the carousel" or similar. People know how social media works, so the caption talks about the subject, not the post.
+
 8. Plain text only. The boxes are shown to agents as plain text with line breaks kept. No markdown: no asterisks, no #, no bold. Put each paragraph of the caption on its own line with a blank line between paragraphs. In how_to_edit and what_to_film, start each bullet with "• " on its own line. Write to the agent as "you". No em dashes anywhere. No hashtags anywhere.
 
 9. The boxes:
