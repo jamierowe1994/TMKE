@@ -1300,6 +1300,7 @@ import { createResizeEngine } from "./resize-engine.js";
       '<div class="ed-cp-sec"><h5>' + escapeHtml(brandName) + '</h5>' +
         (brand.length ? '<div class="ed-cp-grid">' + brand.map(sw).join("") + '</div>' : '<p class="ed-cp-empty">No brand colours saved.</p>') + '</div>' +
       (recent.length ? '<div class="ed-cp-sec"><h5>Recently used</h5><div class="ed-cp-grid ed-cpop-line">' + recent.map(sw).join("") + '</div></div>' : "") +
+      '<div class="ed-cp-sec"><h5>Christmas</h5><div class="ed-cp-grid">' + xpChristmasColours().map(sw).join("") + '</div></div>' +
       '<div class="ed-cp-sec"><h5>Add a colour</h5><div data-mount="picker"></div></div>';
     const picker = buildColorPicker(current || "#000000",
       function (hex) { o.onChange(hex); },
@@ -1815,6 +1816,7 @@ import { createResizeEngine } from "./resize-engine.js";
             sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') +
             // One line of them (Dani, 3 Nov: the panel was "crazy busy").
             (recent.length ? sec("Recently used", grid(recent.map(swHtml), " ed-cpop-line")) : "") +
+            sec("Christmas", grid(xpChristmasColours().map(swHtml))) +
             sec("Default colours", grid((opts.clear
               ? ['<button class="ed-cp-sw ed-cp-sw--clear' + (opts.current === "transparent" ? " is-current" : "") + '" data-hex="transparent" title="Transparent: no fill, the border stays" aria-label="Transparent"></button>']
               : []).concat(CP_DEFAULT_SOLIDS.map(swHtml)))) +
@@ -9653,9 +9655,25 @@ import { createResizeEngine } from "./resize-engine.js";
         [[12, 4], [4, 12]].map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="0.55" fill="' + c.c2 + '"/>').join(""); } },
   ];
 
-  var XP_PRESETS = [{"p":"stripes","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","ground":"#FFF3EF"},"scale":100},{"p":"stripes","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","ground":"#F5EDDA"},"scale":100},{"p":"stripes","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","ground":"#FFFFFF"},"scale":100},{"p":"stripes","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","ground":"#612520"},"scale":100},{"p":"stripes","name":"Neutral","route":null,"cols":{"c1":"#EAE5E1","ground":"#FFFFFF"},"scale":100},{"p":"flower","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#5C5E31","c3":"#430E18","ground":"#430E18"},"scale":85},{"p":"flower","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#191E16","c3":"#612520","ground":"#F5EDDA"},"scale":90},{"p":"flower","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#FFFFFF","c3":"#F1F1F1","ground":"#E31F36"},"scale":90},{"p":"flower","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#BF9B7A","c3":"#191E16","ground":"#E8DCC6"},"scale":90},{"p":"tartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#E4C7C1","ground":"#430E18"},"scale":100},{"p":"tartan","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#BF9B7A","ground":"#191E16"},"scale":100},{"p":"tartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100},{"p":"tartan","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#612520"},"scale":100},{"p":"fir","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#5C5E31","c2":"#5C5E31","ground":"#430E18"},"scale":100},{"p":"fir","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#767154","ground":"#F5EDDA"},"scale":100},{"p":"fir","name":"Candy Cane","route":"candy","cols":{"c1":"#F1F1F1","c2":"#FFFFFF","ground":"#E31F36"},"scale":100},{"p":"fir","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#BF9B7A","ground":"#E8DCC6"},"scale":100},{"p":"fir","name":"Cranberry","route":null,"cols":{"c1":"#6E7B47","c2":"#6E7B47","ground":"#371E28"},"scale":100},{"p":"fir","name":"Forest","route":null,"cols":{"c1":"#2E3F34","c2":"#8A9A5B","ground":"#F3EDE4"},"scale":100},{"p":"fir","name":"Dusky Pink","route":null,"cols":{"c1":"#371E28","c2":"#371E28","ground":"#C4A092"},"scale":100},{"p":"fir","name":"Christmas Tree","route":null,"cols":{"c1":"#6E7B47","c2":"#8A9A5B","ground":"#2E3F34"},"scale":100},{"p":"bows","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100},{"p":"bows","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#E8DCC6","ground":"#767154"},"scale":100},{"p":"bows","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#FFFFFF","ground":"#FFFFFF"},"scale":100},{"p":"bows","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#191E16","ground":"#E8DCC6"},"scale":100},{"p":"stars","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#7F444C","ground":"#430E18"},"scale":100},{"p":"stars","name":"Traditional","route":"traditional","cols":{"c1":"#BF9B7A","c2":"#F5EDDA","ground":"#191E16"},"scale":100},{"p":"stars","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#F1F1F1","ground":"#E31F36"},"scale":100},{"p":"stars","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","c2":"#BF9B7A","ground":"#191E16"},"scale":100}];
+  var XP_PRESETS = [{"p":"stripes","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","ground":"#FFF3EF"},"scale":100},{"p":"stripes","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","ground":"#F5EDDA"},"scale":100},{"p":"stripes","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","ground":"#FFFFFF"},"scale":100},{"p":"stripes","name":"Neutral","route":null,"cols":{"c1":"#EAE5E1","ground":"#FFFFFF"},"scale":100},{"p":"flower","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#5C5E31","c3":"#430E18","ground":"#430E18"},"scale":85},{"p":"flower","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#191E16","c3":"#612520","ground":"#F5EDDA"},"scale":90},{"p":"flower","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#FFFFFF","c3":"#F1F1F1","ground":"#E31F36"},"scale":90},{"p":"flower","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#BF9B7A","c3":"#191E16","ground":"#E8DCC6"},"scale":90},{"p":"tartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#E4C7C1","ground":"#430E18"},"scale":100},{"p":"tartan","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#BF9B7A","ground":"#191E16"},"scale":100},{"p":"tartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100},{"p":"tartan","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#612520"},"scale":100},{"p":"fir","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#5C5E31","c2":"#5C5E31","ground":"#430E18"},"scale":100},{"p":"fir","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#767154","ground":"#F5EDDA"},"scale":100},{"p":"fir","name":"Candy Cane","route":"candy","cols":{"c1":"#F1F1F1","c2":"#FFFFFF","ground":"#E31F36"},"scale":100},{"p":"fir","name":"Cranberry","route":null,"cols":{"c1":"#6E7B47","c2":"#6E7B47","ground":"#371E28"},"scale":100},{"p":"bows","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100},{"p":"bows","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#E8DCC6","ground":"#767154"},"scale":100},{"p":"bows","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#FFFFFF","ground":"#FFFFFF"},"scale":100},{"p":"bows","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#191E16","ground":"#E8DCC6"},"scale":100},{"p":"stars","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#7F444C","ground":"#430E18"},"scale":100},{"p":"stars","name":"Traditional","route":"traditional","cols":{"c1":"#BF9B7A","c2":"#F5EDDA","ground":"#191E16"},"scale":100},{"p":"stars","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#F1F1F1","ground":"#E31F36"},"scale":100},{"p":"stars","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","c2":"#BF9B7A","ground":"#191E16"},"scale":100}];
   var XP_ROUTE_NAMES = { sweet: "Sweet Wonderland", traditional: "Traditional", candy: "Candy Cane" };
   function xpPattern(key) { return XP_PATTERNS.find(function (p) { return p.key === key; }) || null; }
+  // Every colour in the three Christmas routes, in route order, once each:
+  // a "Christmas" row in the colour panels so odd bits can be matched to the
+  // patterns without typing hex (Danielle, 18 Nov).
+  function xpChristmasColours() {
+    const out = [];
+    ["sweet", "traditional", "candy"].forEach(function (r) {
+      XP_PRESETS.forEach(function (x) {
+        if (x.route !== r) return;
+        ["ground", "c1", "c2", "c3"].forEach(function (k) {
+          const h = x.cols[k] && normHex(x.cols[k]);
+          if (h && out.indexOf(h) < 0) out.push(h);
+        });
+      });
+    });
+    return out;
+  }
   function xpPresets(key) { return XP_PRESETS.filter(function (x) { return x.p === key; }); }
   function xpUnit(cv) { return isPrintDesign() ? 300 / 25.4 : ((cv && cv.width) || 1080) / 148; }
   // The tile as an SVG document, `k` canvas pixels to a tile unit.
@@ -10669,6 +10687,10 @@ import { createResizeEngine } from "./resize-engine.js";
     const wantXmas = xhost && activeToolPane === "christmas" && el && el.type === "wframe";
     const target = wantText ? host : wantXmas ? xhost : home;
     if (target && body.parentNode !== target) target.appendChild(body);
+    // A frame picked while the Christmas panel is open opens its Frame tab.
+    if (wantXmas) xmasTab("frame");
+    const fhint = document.getElementById("ed-xmas-framehint");
+    if (fhint) fhint.hidden = !!wantXmas;
     // The heading belongs to the list, and a member no longer has the list.
     const listHead = document.getElementById("ed-textlist-head");
     if (listHead) listHead.hidden = !wantText || !isAdminMode();
@@ -15741,12 +15763,23 @@ import { createResizeEngine } from "./resize-engine.js";
     const tab = document.querySelector('.ed-ttab[data-itab="illustrate"]');
     if (!tab || tab.hidden) return false;
     if (openChristmasFor()) {
-      const sec = document.getElementById("ed-xmas-ill-sec");
-      if (sec && sec.scrollIntoView) sec.scrollIntoView({ block: "start" });
+      xmasTab("ill");
       return true;
     }
     return false;
   }
+  // The Christmas panel's three tabs: Illustration, Background, Frame.
+  var _xmasTab = "bg";
+  function xmasTab(name) {
+    const btn = document.querySelector('.ed-ttab[data-xtab="' + name + '"]');
+    if (!btn || btn.hidden) name = "bg";
+    _xmasTab = name;
+    document.querySelectorAll(".ed-ttab[data-xtab]").forEach(function (t) { t.classList.toggle("is-active", t.dataset.xtab === name); });
+    document.querySelectorAll(".ed-ttab-pane[data-xtab-pane]").forEach(function (p2) { p2.classList.toggle("is-active", p2.dataset.xtabPane === name); });
+  }
+  document.querySelectorAll(".ed-ttab[data-xtab]").forEach(function (t) {
+    t.addEventListener("click", function () { xmasTab(t.dataset.xtab); });
+  });
   // The Christmas button shows on cards and postcards (and where Illustrate is offered).
   function syncXmasRail() {
     const rail = document.getElementById("ed-rail-xmas");
@@ -15754,7 +15787,11 @@ import { createResizeEngine } from "./resize-engine.js";
     const tab = document.querySelector('.ed-ttab[data-itab="illustrate"]');
     const show = isCardDesign() || !!(tab && !tab.hidden);
     const sec = document.getElementById("ed-xmas-ill-sec");
-    if (sec) sec.hidden = !(tab && !tab.hidden);
+    const illOn = !!(tab && !tab.hidden);
+    if (sec) sec.hidden = !illOn;
+    const itab = document.getElementById("ed-xtab-ill");
+    if (itab) itab.hidden = !illOn;
+    if (!illOn && _xmasTab === "ill") xmasTab("bg");
     const fr = document.getElementById("ed-xmas-frames");
     if (fr) fr.hidden = !isAdminMode();
     if (rail.hidden === !show) return;

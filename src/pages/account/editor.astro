@@ -986,23 +986,36 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
            Merged from the old separate Photos + Uploads panes. -->
       <section class="ed-panel-pane" data-pane="christmas">
         <div class="ed-pane-header"><h3>Christmas</h3><p>Your card's illustration, frames and patterns in one place.</p></div>
-        <!-- The selected frame's controls are moved in here (placeSelectionBody). -->
-        <div id="ed-xmas-selhost"></div>
-        <div class="ed-bg-sec" id="ed-xmas-ill-sec">
-          <div class="ed-section-title">Illustration</div>
-          <div id="ed-xmas-ill"></div>
+        <!-- Three tabs (Danielle, 18 Nov): one long panel was confusing.
+             editor.js (xmasTab) switches them and opens the right one. -->
+        <div class="ed-ttabs" role="tablist">
+          <button type="button" class="ed-ttab" data-xtab="ill" role="tab" id="ed-xtab-ill">Illustration</button>
+          <button type="button" class="ed-ttab is-active" data-xtab="bg" role="tab">Background</button>
+          <button type="button" class="ed-ttab" data-xtab="frame" role="tab">Frame</button>
         </div>
-        <div class="ed-bg-sec">
-          <div class="ed-section-title">Background pattern</div>
-          <div id="ed-xmas-bg-mount"></div>
+        <div class="ed-ttab-pane" data-xtab-pane="ill">
+          <div class="ed-bg-sec" id="ed-xmas-ill-sec">
+            <div id="ed-xmas-ill"></div>
+          </div>
         </div>
-        <div class="ed-bg-sec" id="ed-xmas-frames" hidden>
-          <div class="ed-section-title">Add a frame</div>
-          <div class="ed-shape-grid ed-wf-grid">
-            <button class="ed-shape" data-wframe="wavyoval"><div class="sh sh-wf"></div><span>Wavy oval</span></button>
-            <button class="ed-shape" data-wframe="wavyrect"><div class="sh sh-wf"></div><span>Wavy panel</span></button>
-            <button class="ed-shape" data-wframe="label"><div class="sh sh-wf"></div><span>Vintage label</span></button>
-            <button class="ed-shape" data-wframe="scallop"><div class="sh sh-wf"></div><span>Scalloped</span></button>
+        <div class="ed-ttab-pane is-active" data-xtab-pane="bg">
+          <div class="ed-bg-sec">
+            <div class="ed-section-title">Background pattern</div>
+            <div id="ed-xmas-bg-mount"></div>
+          </div>
+        </div>
+        <div class="ed-ttab-pane" data-xtab-pane="frame">
+          <!-- The selected frame's controls are moved in here (placeSelectionBody). -->
+          <div id="ed-xmas-selhost"></div>
+          <p class="ed-xmas-framehint" id="ed-xmas-framehint">Click a frame on your card to change its shape, size, lines and fill.</p>
+          <div class="ed-bg-sec" id="ed-xmas-frames" hidden>
+            <div class="ed-section-title">Add a frame</div>
+            <div class="ed-shape-grid ed-wf-grid">
+              <button class="ed-shape" data-wframe="wavyoval"><div class="sh sh-wf"></div><span>Wavy oval</span></button>
+              <button class="ed-shape" data-wframe="wavyrect"><div class="sh sh-wf"></div><span>Wavy panel</span></button>
+              <button class="ed-shape" data-wframe="label"><div class="sh sh-wf"></div><span>Vintage label</span></button>
+              <button class="ed-shape" data-wframe="scallop"><div class="sh sh-wf"></div><span>Scalloped</span></button>
+            </div>
           </div>
         </div>
       </section>
@@ -3650,8 +3663,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-xp { display: grid; gap: 10px; }
     /* Illustrate lives in the Christmas panel now; its Images tab only says whether it's offered. */
     #ed-ill-tab { display: none !important; }
-    #ed-xmas-frames[hidden], #ed-xmas-ill-sec[hidden] { display: none; }
-    .ed-xp-area { display: flex; flex-wrap: wrap; gap: 6px; }
+    #ed-xmas-frames[hidden], #ed-xmas-ill-sec[hidden], #ed-xtab-ill[hidden], #ed-xmas-framehint[hidden] { display: none; }
+    .ed-xmas-framehint { margin: 4px 0 14px; font: 400 14px/1.45 var(--sans); color: var(--ink); }
+    .ed-xp-area { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     .ed-xp-area button { min-height: 30px; padding: 0 12px; border: 1px solid #e2d9d4; border-radius: 15px; background: #fff; cursor: pointer; font: 400 var(--ws-t-meta, 12px) var(--sans); color: var(--ink); }
     .ed-xp-area button[aria-pressed="true"] { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
     .ed-xp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
