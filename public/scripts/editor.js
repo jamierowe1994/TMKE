@@ -3769,6 +3769,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const cv = state.canvas;
       const row = document.createElement("div");
       row.className = "ed-xp-area";
+      row.style.marginTop = "12px";   // a clear gap under No pattern (Danielle, 18 Nov)
       const btn = function (label, on, fn) { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.setAttribute("aria-pressed", String(on)); b.addEventListener("click", fn); row.appendChild(b); };
       if (isFolded(cv) && cv.fold !== "inside") {
         const area = cur.area || "both";
