@@ -4776,6 +4776,11 @@ import { createResizeEngine } from "./resize-engine.js";
       node.style.borderRadius = (el.type === "ellipse" ? "50%" : frameRadiusCss(el));
       node.style.border = (el.strokeWidth ? `${el.strokeWidth}px solid ${el.stroke || "transparent"}` : "none");
     }
+    if (el.type === "wframe") {
+      const sig = [el.shape, el.mode, el.stroke, el.fill, el.fillSrc, el.lineW, el.paint, Math.round(el.w), Math.round(el.h)].join("|");
+      if (node._wfSig !== sig) { node.innerHTML = wframeSvg(el); node._wfSig = sig; }
+      node.style.background = "transparent";
+    }
     if (el.type === "image") {
       // Optional rounded corners — clip the photo to the (per-corner) radius.
       // A slot drawn as a circle stays a circle (isOvalSlot).
@@ -6814,6 +6819,18 @@ import { createResizeEngine } from "./resize-engine.js";
     else if (shape === "hr-thick") addElement(Object.assign({ type: "line" }, common, { h: 4, w: 480, fill: "#1c1d22" }));
   }
 
+  // A painted frame: on a folded card, on the front; otherwise in the middle.
+  function addWframe(shape) {
+    const W = state.canvas.width, H = state.canvas.height;
+    const folded = isFolded(state.canvas) && state.canvas.fold !== "inside";
+    const areaW = folded ? W / 2 : W, left = folded ? W / 2 : 0;
+    let w = Math.round(Math.min(areaW, H * 0.7) * 0.74), h = Math.round(w * 1.45);
+    if (h > H * 0.86) { h = Math.round(H * 0.86); w = Math.round(h / 1.45); }
+    addElement({ type: "wframe", shape: shape || "wavyoval", mode: "lines", stroke: "#b3171c", fill: "#2e3f34",
+      lineW: Math.max(4, Math.round(Math.min(w, h) * 0.013)), paint: 6,
+      x: Math.round(left + (areaW - w) / 2), y: Math.round((H - h) / 2), w, h, rotation: 0, opacity: 1 });
+  }
+
   function addText(kind) {
     const cx = state.canvas.width / 2;
     const cy = state.canvas.height / 2;
@@ -8699,6 +8716,8 @@ import { createResizeEngine } from "./resize-engine.js";
         await drawScreenToCanvas(ctx, el);
       } else if (el.type === "frame") {
         await drawFrameToCanvas(ctx, el);
+      } else if (el.type === "wframe") {
+        await drawWframe(ctx, el);
       } else if (el.type === "rect") {
         ctx.fillStyle = shapeCanvasFill(ctx, el);
         if (hasPerCorner(el)) roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
@@ -9447,6 +9466,130 @@ import { createResizeEngine } from "./resize-engine.js";
       toast("PDF export failed", 3500);
       return false;
     }
+  }
+
+  /* ---------- Painted frames (Danielle, 18 Nov) ----------
+     Four frames drawn by us (agreed on the test page,
+     claude.ai/artifact/JYvdChL7qhT1FHKw9EzGeC): a wavy oval, a wavy panel,
+     a vintage label and a scalloped edge. The line is a brush stroke that
+     swells and thins along its length. Each works three ways: just the
+     lines, filled inside, or filled outside (the colour round the frame, to
+     the edges of its box), with a colour or a picture. Drawn for the box it
+     sits in, so a wider or taller frame keeps its waves the same size
+     rather than stretching them. Element type "wframe". */
+  var WF_SHAPES = [["wavyoval", "Wavy oval"], ["wavyrect", "Wavy panel"], ["label", "Vintage label"], ["scallop", "Scalloped"]];
+  var WF_MODES = [["lines", "Just the lines"], ["inside", "Filled inside"], ["outside", "Filled outside"]];
+  function wfPerim(pts) { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return L; }
+  function wfResample(pts, n) {
+    const out = [], L = wfPerim(pts); let acc = 0, j = 1;
+    for (let k = 0; k < n; k++) {
+      const target = k / n * L;
+      while (j < pts.length - 1 && acc + Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]) < target) { acc += Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]); j++; }
+      const seg = Math.hypot(pts[j][0] - pts[j - 1][0], pts[j][1] - pts[j - 1][1]) || 1, t = (target - acc) / seg;
+      out.push([pts[j - 1][0] + (pts[j][0] - pts[j - 1][0]) * t, pts[j - 1][1] + (pts[j][1] - pts[j - 1][1]) * t]);
+    }
+    return out;
+  }
+  function wfRoundedRect(x0, y0, x1, y1, r, n) {
+    r = Math.min(r, (x1 - x0) / 2, (y1 - y0) / 2);
+    const p = [], arc = (cx, cy, a0, a1) => { for (let i = 0; i <= 24; i++) { const a = a0 + (a1 - a0) * i / 24; p.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } };
+    arc(x1 - r, y0 + r, -Math.PI / 2, 0); arc(x1 - r, y1 - r, 0, Math.PI / 2); arc(x0 + r, y1 - r, Math.PI / 2, Math.PI); arc(x0 + r, y0 + r, Math.PI, Math.PI * 1.5);
+    p.push(p[0]); return wfResample(p, n);
+  }
+  function wfDisplace(pts, f) {
+    const n = pts.length, L = wfPerim(pts.concat([pts[0]]));
+    return pts.map((pt, i) => {
+      const a = pts[(i - 1 + n) % n], b = pts[(i + 1) % n];
+      let nx = b[1] - a[1], ny = -(b[0] - a[0]); const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+      const d = f(i / n * L, L); return [pt[0] + nx * d, pt[1] + ny * d];
+    });
+  }
+  function wfOutline(shape, x0, y0, x1, y1) {
+    const m = Math.min(x1 - x0, y1 - y0);
+    if (shape === "wavyrect") {
+      const amp = 0.044 * m, base = wfRoundedRect(x0 + amp, y0 + amp, x1 - amp, y1 - amp, 0.27 * m, 900);
+      const n = Math.max(6, Math.round(wfPerim(base.concat([base[0]])) / (0.37 * m)));
+      return wfDisplace(base, (d, L) => amp * Math.sin(d / L * Math.PI * 2 * n));
+    }
+    if (shape === "scallop") {
+      const amp = 0.032 * m, base = wfRoundedRect(x0 + amp, y0 + amp, x1 - amp, y1 - amp, 0.06 * m, 1400);
+      const n = Math.max(10, Math.round(wfPerim(base.concat([base[0]])) / (0.13 * m)));
+      return wfDisplace(base, (d, L) => amp * Math.abs(Math.sin(d / L * Math.PI * n)) - amp / 2);
+    }
+    if (shape === "label") {
+      const r = 0.15 * m, a = 0.22 * m, cx = (x0 + x1) / 2, Y0 = y0 + a, Y1 = y1 - a, p = [];
+      const arc = (ox, oy, rr, t0, t1) => { for (let i = 0; i <= 40; i++) { const t = t0 + (t1 - t0) * i / 40; p.push([ox + rr * Math.cos(t), oy + rr * Math.sin(t)]); } };
+      arc(x0, Y0, r, Math.PI / 2, 0);
+      p.push([cx - a, Y0]); arc(cx, Y0, a, Math.PI, Math.PI * 2); p.push([x1 - r, Y0]);
+      arc(x1, Y0, r, Math.PI, Math.PI / 2);
+      p.push([x1, Y1 - r]); arc(x1, Y1, r, Math.PI * 1.5, Math.PI);
+      p.push([cx + a, Y1]); arc(cx, Y1, a, 0, Math.PI); p.push([x0 + r, Y1]);
+      arc(x0, Y1, r, Math.PI * 2, Math.PI * 1.5);
+      p.push(p[0]); return wfResample(p, 1100);
+    }
+    const pts = [], n = 13, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2 / 1.05, ry = (y1 - y0) / 2 / 1.05;
+    for (let k = 0; k < 900; k++) { const t = k / 900 * Math.PI * 2, r = 1 + 0.05 * Math.sin(t * n);
+      pts.push([cx + Math.cos(t - Math.PI / 2) * rx * r, cy + Math.sin(t - Math.PI / 2) * ry * r]); }
+    return pts;
+  }
+  // The brush line: a filled band whose width swells and thins round the frame.
+  function wfRibbon(pts, lw, paint) {
+    const n = pts.length, ph = [1.3, 4.1, 2.2, 5.6], outer = [], inner = [];
+    for (let i = 0; i < n; i++) {
+      const u = i / n * Math.PI * 2;
+      const v = 0.5 * Math.sin(3 * u + ph[0]) + 0.3 * Math.sin(5 * u + ph[1]) + 0.2 * Math.sin(9 * u + ph[2]) + 0.12 * Math.sin(17 * u + ph[3]);
+      const hw = lw * Math.max(0.25, 1 + paint * 0.075 * v) / 2;
+      const a = pts[(i - 1 + n) % n], b = pts[(i + 1) % n];
+      let nx = b[1] - a[1], ny = -(b[0] - a[0]); const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
+      outer.push([pts[i][0] + nx * hw, pts[i][1] + ny * hw]); inner.push([pts[i][0] - nx * hw, pts[i][1] - ny * hw]);
+    }
+    return wfPath(outer) + wfPath(inner.reverse());
+  }
+  function wfPath(q) { return "M" + q.map((pt) => pt[0].toFixed(1) + "," + pt[1].toFixed(1)).join("L") + "Z"; }
+  var _wfCache = null;
+  function wfGeom(el) {
+    const w = Math.max(20, el.w || 0), h = Math.max(20, el.h || 0);
+    const lw = el.lineW > 0 ? el.lineW : 16, paint = el.paint != null ? el.paint : 6;
+    const key = [el.shape, Math.round(w), Math.round(h), lw, paint].join("|");
+    _wfCache = _wfCache || new Map();
+    if (_wfCache.has(key)) return _wfCache.get(key);
+    const pad = lw * 0.75;
+    const pts = wfOutline(el.shape, pad, pad, w - pad, h - pad);
+    const g = { outline: wfPath(pts), ribbon: wfRibbon(pts, lw, paint) };
+    if (_wfCache.size > 60) _wfCache.clear();
+    _wfCache.set(key, g);
+    return g;
+  }
+  function wfArea(el, g) { return el.mode === "inside" ? g.outline : "M0,0H" + el.w + "V" + el.h + "H0Z " + g.outline; }
+  function wframeSvg(el, opts) {
+    const g = wfGeom(el), W = Math.max(20, el.w), H = Math.max(20, el.h);
+    const attr = (v) => String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    let out = '<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="display:block;overflow:visible">';
+    if (el.mode === "inside" || el.mode === "outside") {
+      const area = wfArea(el, g);
+      if (el.fillSrc) {
+        const id = "wfc-" + String(el.id || "x").replace(/[^\w-]/g, "") + (opts && opts.suffix || "");
+        out += '<defs><clipPath id="' + id + '"><path d="' + area + '" clip-rule="evenodd"/></clipPath></defs>' +
+          '<image href="' + attr(el.fillSrc) + '" x="0" y="0" width="' + W + '" height="' + H + '" preserveAspectRatio="xMidYMid slice" clip-path="url(#' + id + ')"/>';
+      } else out += '<path d="' + area + '" fill="' + attr(el.fill || "#2e3f34") + '" fill-rule="evenodd"/>';
+    }
+    out += '<path d="' + g.ribbon + '" fill="' + attr(el.stroke || "#b3171c") + '" fill-rule="evenodd"/>';
+    return out + "</svg>";
+  }
+  async function drawWframe(ctx, el) {
+    const g = wfGeom(el), W = el.w, H = el.h;
+    if (el.mode === "inside" || el.mode === "outside") {
+      const area = new Path2D(wfArea(el, g));
+      if (el.fillSrc) {
+        try {
+          const img = await loadImage(el.fillSrc);
+          const k = Math.max(W / img.naturalWidth, H / img.naturalHeight), dw = img.naturalWidth * k, dh = img.naturalHeight * k;
+          ctx.save(); ctx.clip(area, "evenodd"); ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh); ctx.restore();
+        } catch (_) {}
+      } else { ctx.fillStyle = el.fill || "#2e3f34"; ctx.fill(area, "evenodd"); }
+    }
+    ctx.fillStyle = el.stroke || "#b3171c";
+    ctx.fill(new Path2D(g.ribbon), "evenodd");
   }
 
   function loadImage(src) {
@@ -10231,6 +10374,7 @@ import { createResizeEngine } from "./resize-engine.js";
         const tgt = getEl(state.selectedIds[0]);
         if (!tgt) return;
         if (tgt.type === "frame") fillFrame(tgt, src);
+        else if (tgt.type === "wframe") { tgt.fillSrc = src; if (tgt.mode === "lines") tgt.mode = "inside"; fullRender(); }
         else { tgt.src = src; fullRender(); }
         pushHistory();
         renderProps();
@@ -10474,6 +10618,21 @@ import { createResizeEngine } from "./resize-engine.js";
           '<p class="ed-props-hint">Your brand kit contains one logo. ' +
           '<a href="/account/profile" style="color:var(--english-violet)">Add another</a> to switch between them here.</p></div>');
       }
+    }
+
+    if (el.type === "wframe") {
+      const filled = el.mode === "inside" || el.mode === "outside";
+      html.push('<div class="ed-props-section"><h4>Frame</h4>' +
+        '<div class="ed-wf-shapes">' + WF_SHAPES.map((x) => '<button type="button" class="ed-wf-shape" data-wfshape="' + x[0] + '" aria-pressed="' + (el.shape === x[0]) + '"><span class="pic"></span>' + x[1] + '</button>').join("") + '</div>' +
+        '<div class="ed-wf-modes">' + WF_MODES.map((x) => '<button type="button" class="ed-wf-mode" data-wfmode="' + x[0] + '" aria-pressed="' + ((el.mode || "lines") === x[0]) + '">' + x[1] + '</button>').join("") + '</div>' +
+        '<div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="wf-line"></span><label style="margin:0">Line colour</label></div>' +
+        (filled ? '<div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="wf-fill"></span><label style="margin:0">Fill colour</label></div>' +
+          '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-replace-img" aria-expanded="false" aria-controls="ed-sel-imgmenu" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:6px">' + (el.fillSrc ? "Change picture" : "Fill with a picture") +
+            ' <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>' +
+          '<div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>' +
+          (el.fillSrc ? '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-wf-nopic" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Use the colour instead</button>' : "") : "") +
+        '<div data-mount="wf-thick"></div><div data-mount="wf-paint"></div>' +
+      '</div>');
     }
 
     if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
@@ -10866,6 +11025,24 @@ import { createResizeEngine } from "./resize-engine.js";
       lineWeightMount.appendChild(lineThicknessRow(el));
     }
 
+    if (el.type === "wframe") {
+      const tgt = () => getEl(el.id) || el;
+      body.querySelectorAll(".ed-wf-shape").forEach((b) => {
+        b.querySelector(".pic").innerHTML = wframeSvg({ id: "pick-" + b.dataset.wfshape, shape: b.dataset.wfshape, mode: "lines", stroke: "currentColor", w: 120, h: 170, lineW: 7, paint: 6 });
+        b.addEventListener("click", () => { tgt().shape = b.dataset.wfshape; pushHistory(); fullRender(); renderProps(); });
+      });
+      body.querySelectorAll(".ed-wf-mode").forEach((b) => b.addEventListener("click", () => { tgt().mode = b.dataset.wfmode; pushHistory(); fullRender(); renderProps(); }));
+      const lineMount = body.querySelector('[data-mount="wf-line"]');
+      if (lineMount) lineMount.appendChild(colorSwatchButton(() => tgt().stroke || "#b3171c", { title: "Line colour", key: "wf-line", onSolid: (hex) => { tgt().stroke = hex; } }));
+      const fillMountWf = body.querySelector('[data-mount="wf-fill"]');
+      if (fillMountWf) fillMountWf.appendChild(colorSwatchButton(() => tgt().fill || "#2e3f34", { title: "Fill colour", key: "wf-fill", onSolid: (hex) => { const t = tgt(); t.fill = hex; delete t.fillSrc; } }));
+      const nopic = body.querySelector("#ed-wf-nopic");
+      if (nopic) nopic.addEventListener("click", () => { delete tgt().fillSrc; pushHistory(); fullRender(); renderProps(); });
+      const thick = body.querySelector('[data-mount="wf-thick"]');
+      if (thick) thick.appendChild(sliderNumberRow("Thickness", "px", 2, 80, 1, () => tgt().lineW || 16, (v) => { tgt().lineW = v; }, () => fullRender()));
+      const paintM = body.querySelector('[data-mount="wf-paint"]');
+      if (paintM) paintM.appendChild(sliderNumberRow("Painted", "", 0, 10, 1, () => tgt().paint != null ? tgt().paint : 6, (v) => { tgt().paint = v; }, () => fullRender()));
+    }
     const fillMount = body.querySelector('[data-mount="fill-color"]');
     if (fillMount) {
       fillMount.appendChild(colorSwatchButton(fillCurrent(el), fillControl(el)));
@@ -13972,6 +14149,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (el.type === "triangle") return "Triangle";
     if (el.type === "star") return "Star";
     if (el.type === "line") return "Line";
+    if (el.type === "wframe") return ((WF_SHAPES.find((x) => x[0] === el.shape) || [0, "Wavy oval"])[1]) + " frame";
     return el.type;
   }
 
@@ -15384,12 +15562,17 @@ import { createResizeEngine } from "./resize-engine.js";
   // ---------- Shapes / text / bg / swatches bindings ----------
   // A single .ed-shape button can carry data-shape (legacy CSS shapes),
   // data-frame (photo frame presets), or data-svg (SVG shape / icon).
+  document.querySelectorAll(".ed-shape[data-wframe] .sh-wf").forEach((box) => {
+    const k = box.parentNode.dataset.wframe;
+    box.innerHTML = wframeSvg({ id: "el-" + k, shape: k, mode: "lines", stroke: "currentColor", w: 120, h: 170, lineW: 7, paint: 6 });
+  });
   document.querySelectorAll(".ed-shape").forEach((btn) => {
     btn.addEventListener("click", () => {
       if (btn.dataset.iglayout) startIgPlace(btn.dataset.iglayout);
       else if (btn.dataset.screen) addScreen();
       else if (btn.dataset.frame) addFrame(btn.dataset.frame);
       else if (btn.dataset.svg) addSvgShape(btn.dataset.svg);
+      else if (btn.dataset.wframe) addWframe(btn.dataset.wframe);
       else if (btn.dataset.gradient) addGradient(btn.dataset.gradient);
       else if (btn.dataset.qr) addQrCode();
       else if (btn.dataset.shape) addShape(btn.dataset.shape);
@@ -17983,7 +18166,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const slotIn = (i) => ((state.pages[i] || {}).elements || []).find((o) => o && o.brandRole === "illustration");
       /* With two slots (one outside, one inside), the one selected is the one
          filled (Dani, 18 Nov); with none selected, the front's. */
-      const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => isIllustrationPicture(o));
+      const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => isIllustrationPicture(o) || (o && o.type === "wframe"));
       /* The side being looked at keeps the picture: its slot, else (on the
          outside) the full width along its bottom. It never jumps to a slot on
          another side (Dani, 18 Nov: "it shouldn't just then automatically go
@@ -17991,6 +18174,15 @@ import { createResizeEngine } from "./resize-engine.js";
       const here = state.currentPage, hereSlot = slotIn(here);
       let slot = picked || hereSlot || slotIn(outI);
       if (picked || hereSlot) outI = here;
+      if (slot && slot.type === "wframe") {
+        // A painted frame: the picture fills it, inside unless it already fills outside.
+        slot.fillSrc = url;
+        if (slot.mode !== "outside") slot.mode = "inside";
+        state.selectedIds = [slot.id];
+        pushHistory();
+        fullRender();
+        return;
+      }
       if (slot) {
         if (outI !== state.currentPage) goToPage(outI);
         slot.type = "image";
@@ -18161,7 +18353,7 @@ import { createResizeEngine } from "./resize-engine.js";
         b.addEventListener("click", async () => {
           if (busy) return;
           // Which slot was selected, before recolouring clears the selection.
-          const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => isIllustrationPicture(o));
+          const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => isIllustrationPicture(o) || (o && o.type === "wframe"));
           const at = state.currentPage;
           // A picture for the inside leaves the outside's colour alone.
           if (!onInside()) cardToBackground();
