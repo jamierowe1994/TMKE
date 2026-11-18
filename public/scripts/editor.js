@@ -9953,6 +9953,15 @@ import { createResizeEngine } from "./resize-engine.js";
     });
   }
   function isIllustration(src) { return typeof src === "string" && /\/uploads\/illustration-[^/]+\.jpg(\?|$)/.test(src); }
+  /* A picture that came from Illustrate: an illustration slot, one of our
+     winter scenes, or a custom illustration. Clicking it opens Illustrate and
+     the next pick replaces it (Dani, 18 Nov: picked without a slot, it was a
+     plain picture, so it showed the image controls and a new pick piled a
+     second picture on top). */
+  function isIllustrationPicture(el) {
+    return !!el && el.type === "image" && (el.brandRole === "illustration" ||
+      (typeof el.src === "string" && (/\/images\/illustrate-set\//.test(el.src) || isIllustration(el.src))));
+  }
 
   // Draws an image or frame layer with its painted edge: on its own sheet at
   // the export's resolution, faded by the mask, then onto the page.
@@ -10427,7 +10436,7 @@ import { createResizeEngine } from "./resize-engine.js";
       showPane("text");
       placeSelectionBody();
       renderTextList(); renderFontBrowser();
-    } else if (el.brandRole === "illustration" && openIllustrateFor()) {
+    } else if (isIllustrationPicture(el) && openIllustrateFor()) {
       // An illustration slot opens Images › Illustrate, where its picture is
       // chosen, not the shape controls (Dani, 18 Nov).
     } else if (typeof showPane === "function") {
@@ -17974,7 +17983,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const slotIn = (i) => ((state.pages[i] || {}).elements || []).find((o) => o && o.brandRole === "illustration");
       /* With two slots (one outside, one inside), the one selected is the one
          filled (Dani, 18 Nov); with none selected, the front's. */
-      const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => o && o.brandRole === "illustration");
+      const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => isIllustrationPicture(o));
       /* The side being looked at keeps the picture: its slot, else (on the
          outside) the full width along its bottom. It never jumps to a slot on
          another side (Dani, 18 Nov: "it shouldn't just then automatically go
@@ -17985,6 +17994,7 @@ import { createResizeEngine } from "./resize-engine.js";
       if (slot) {
         if (outI !== state.currentPage) goToPage(outI);
         slot.type = "image";
+        slot.brandRole = "illustration";
         slot.src = url;
         ["imgFit", "imgPosX", "imgPosY", "imgZoom"].forEach((k) => { delete slot[k]; });
         state.selectedIds = [slot.id];
@@ -18014,7 +18024,8 @@ import { createResizeEngine } from "./resize-engine.js";
       let at = 0;
       while (at < els.length && fills(els[at])) at++;
       const id = uid("image");
-      els.splice(at, 0, { id, type: "image", x: x0, y: H - h, w, h, src: url, opacity: 1, rotation: 0 });
+      // Marked as the illustration, so the next pick replaces it.
+      els.splice(at, 0, { id, type: "image", brandRole: "illustration", x: x0, y: H - h, w, h, src: url, opacity: 1, rotation: 0 });
       state.selectedIds = [id];
       pushHistory();
       fullRender();
@@ -18150,7 +18161,7 @@ import { createResizeEngine } from "./resize-engine.js";
         b.addEventListener("click", async () => {
           if (busy) return;
           // Which slot was selected, before recolouring clears the selection.
-          const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => o && o.brandRole === "illustration");
+          const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => isIllustrationPicture(o));
           const at = state.currentPage;
           // A picture for the inside leaves the outside's colour alone.
           if (!onInside()) cardToBackground();
