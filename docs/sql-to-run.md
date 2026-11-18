@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/content_calendar_go_live.sql — Content Calendar: a "Goes live on" date on each month (Final checks). A month published before its date shows members blurred, "locked and loaded", until that day. Until it runs, members see a published month straight away and the date can't be saved. Changes no month. Sends nothing (18 Nov)
 
 ## Done
 

@@ -117,7 +117,7 @@ export async function loadPublishedMonth(supabase, month, edition) {
     const w = await calendarGet(supabase, "month", { month: String(month).slice(0, 7), edition: edition || preferredEdition() });
     if (w) {
       if (!w.month) return null;
-      return { month: w.month, editions: w.editions || [w.month.edition], posts: w.posts || [], preview: !!w.preview };
+      return { month: w.month, editions: w.editions || [w.month.edition], posts: w.posts || [], preview: !!w.preview, waiting: w.waiting || null };
     }
     // The Worker unreachable: staff can still read the tables themselves; a
     // member can't, so they see nothing, as before.

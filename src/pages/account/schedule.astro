@@ -122,7 +122,8 @@ import "../../styles/account-sections.css";
              the way in (the plan's demo, Dani 21 Oct). -->
         <div class="cc-lock" id="cc-lock" hidden>
           <h3 class="cc-lock-h" id="cc-lock-h"></h3>
-          <p class="cc-lock-tx">Get a month's worth of ready-made content, with a post for every weekday. Just add your branding and make it yours.</p>
+          <p class="cc-lock-tx" id="cc-lock-tx">Get a month's worth of ready-made content, with a post for every weekday. Just add your branding and make it yours.</p>
+          <a class="ws-btn ws-btn--primary cc-lock-go" id="cc-lock-go" href="/account/settings?tab=plan">See the plans</a>
         </div>
       </div>
       <button type="button" class="cc-tab" id="cc-tab" hidden></button>
@@ -1424,6 +1425,8 @@ import "../../styles/account-sections.css";
     .cc-lock { position: absolute; top: 160px; left: 50%; transform: translateX(-50%); z-index: 3; width: min(440px, 90%); box-sizing: border-box; padding: 22px 24px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; text-align: center; box-shadow: 0 18px 50px rgba(55,30,40,0.2); }
     .cc-lock[hidden] { display: none; }
     .cc-lock-h { margin: 0 0 6px; font-family: var(--sans); font-size: 22px; font-weight: 600; line-height: 1.15; color: var(--violet-deep); }
+    .cc-lock-go { margin-top: 16px; }
+    .cc-lock-go[hidden] { display: none; }
     .cc-lock-tx { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.5; color: rgba(28,29,34,0.7); }
     /* Planned from the month: on their own calendar already. */
     .cc-mine { position: absolute; left: 5px; bottom: 5px; padding: 1px 6px; border-radius: 99px; background: var(--english-violet); color: #fff; font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
@@ -1929,11 +1932,23 @@ import "../../styles/account-sections.css";
       const lock = document.getElementById('cc-lock');
       if (lock) {
         lock.hidden = !m.preview;
-        // Danielle's wording (hub-wording doc, section 1, 11 Nov).
         const mName = new Date(String(m.month.month).slice(0, 7) + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long' });
-        document.getElementById('cc-lock-h').textContent = `Unlock ${mName}'s Templates`;
+        // Two reasons a month is blurred (Danielle, 18 Nov): published but before its
+        // go-live date, so it's on its way; or no Content Calendar in their plan.
+        if (m.waiting) {
+          const drop = new Date(m.waiting + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+          document.getElementById('cc-lock-h').textContent = `${mName}'s content is locked and loaded.`;
+          document.getElementById('cc-lock-tx').textContent = `Your ${mName} calendar drops on ${drop}. On the day, every post opens here, ready to make your own.`;
+        } else {
+          // Danielle's wording (hub-wording doc, section 1, 11 Nov).
+          document.getElementById('cc-lock-h').textContent = `Unlock ${mName}'s Templates`;
+          document.getElementById('cc-lock-tx').textContent = `${mName}'s templates are for Content Calendar members. Join to get a ready-made post for every weekday. Just add your branding and make it yours.`;
+        }
+        document.getElementById('cc-lock-go').hidden = !!m.waiting;
       }
-      document.getElementById('cc-ours-sub').textContent = m.preview
+      document.getElementById('cc-ours-sub').textContent = m.waiting
+        ? 'One for each weekday, on its way.'
+        : m.preview
         ? 'A ready-made post for every weekday, ready to make your own.'
         : 'One for each weekday. Click a post to see it full size.';
       // Staff testing: a month published for more than one edition.

@@ -7159,9 +7159,18 @@ async function ccStartUpgrade(env, user, mode, level, back) {
   return sess.url;
 }
 
+/* A month published ahead of its go-live date (Danielle, 18 Nov): until that
+   day (UK time) members see it blurred, "locked and loaded", and can't open a
+   post or design. Staff see it as normal, unless they're looking with ?as=. */
+function ccWaiting(a, m) {
+  if (!m || !m.goes_live_on) return false;
+  if (a.staff && !a.viewing_as) return false;
+  return String(m.goes_live_on).slice(0, 10) > londonParts(new Date()).ymd;
+}
 async function ccOpenMonthRow(env, a, monthId) {
-  const m = ((await sbGet(env, "content_months", `id=eq.${encodeURIComponent(monthId)}&select=id,month,edition,status,intro`)) || [])[0];
+  const m = ((await sbGet(env, "content_months", `id=eq.${encodeURIComponent(monthId)}&select=*`)) || [])[0];
   if (!m || (m.status !== "published" && !a.staff && !a.test)) return null;
+  if (ccWaiting(a, m)) return null;
   if (!ccMayOpenMonth(a, m.month) || (a.calendar && !ccMayOpenEdition(a, m.edition))) return null;
   return m;
 }
@@ -9500,6 +9509,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
         const a = await memberAccess(env, user, url.searchParams.get("as"));
+        if (a.staff && url.searchParams.get("as")) a.viewing_as = true;
         const sp = url.searchParams;
 
         // One month: the posts of the edition to show, and the editions on offer.
@@ -9508,15 +9518,19 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           if (!ym) return json({ error: "Which month?" }, 400, request, env);
           if (!ccMayOpenMonth(a, ym)) return json({ ok: true, access: a, month: null }, 200, request, env);
           // Test logins see months still in draft, so they can be tried before publishing.
-          const months = (await sbGet(env, "content_months", `month=eq.${ym}&status=${a.test ? "in.(draft,published)" : "eq.published"}&select=id,month,edition,intro`)) || [];
+          const months = ((await sbGet(env, "content_months", `month=eq.${ym}&status=${a.test ? "in.(draft,published)" : "eq.published"}&select=*`)) || [])
+            .map((x) => ({ id: x.id, month: x.month, edition: x.edition, intro: x.intro, goes_live_on: x.goes_live_on || null }));
           const ed = ccPickEdition(a, months.map((m) => m.edition), sp.get("edition"));
           const m = ed && months.find((x) => x.edition === ed);
           if (!m) return json({ ok: true, access: a, month: null }, 200, request, env);
-          const preview = !a.calendar;
+          // Not a member: blurred, "Unlock". Published but before its go-live
+          // date: blurred, "locked and loaded" (waiting carries the date).
+          const waiting = a.calendar && ccWaiting(a, m) ? String(m.goes_live_on).slice(0, 10) : null;
+          const preview = !a.calendar || !!waiting;
           const posts = (await sbGet(env, "content_month_posts", `month_id=eq.${m.id}&select=${preview ? CC_PREVIEW_COLS : CC_POST_COLS}&order=post_date.asc,sort_order.asc`)) || [];
           const tpls = await ccTemplatesById(env, posts.map((p) => p.template_id));
           return json({
-            ok: true, access: a, preview, month: m,
+            ok: true, access: a, preview, waiting, month: m,
             editions: months.map((x) => x.edition).filter((e) => a.staff || (a.editions || []).includes(e))
               .sort((x, y) => CC_EDITION_ORDER.indexOf(x) - CC_EDITION_ORDER.indexOf(y)),
             posts: posts.map((p) => ({ ...p, template: tpls.get(p.template_id) || null })),
@@ -9527,7 +9541,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         if (path.endsWith("/calendar/months")) {
           if (!a.calendar) return json({ ok: true, access: a, months: [] }, 200, request, env);
           const from = ccMonthKey(sp.get("from")) || accessMonth(0);
-          const rows = (await sbGet(env, "content_months", `status=${a.test ? "in.(draft,published)" : "eq.published"}&month=gte.${from}&select=id,month,edition&order=month.asc`)) || [];
+          const rows = ((await sbGet(env, "content_months", `status=${a.test ? "in.(draft,published)" : "eq.published"}&month=gte.${from}&select=*&order=month.asc`)) || [])
+            .filter((m) => !ccWaiting(a, m)).map((m) => ({ id: m.id, month: m.month, edition: m.edition }));
           const want = sp.get("edition");
           const byMonth = new Map();
           rows.filter((m) => ccMayOpenMonth(a, m.month) && ccMayOpenEdition(a, m.edition)).forEach((m) => {
