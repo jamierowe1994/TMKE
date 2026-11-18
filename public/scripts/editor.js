@@ -10646,6 +10646,7 @@ import { createResizeEngine } from "./resize-engine.js";
             ' <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>' +
           '<div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>' +
           (el.fillSrc ? '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-wf-nopic" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Use the colour instead</button>' : "") : "") +
+        '<div data-mount="wf-width"></div><div data-mount="wf-height"></div>' +
         '<div data-mount="wf-thick"></div><div data-mount="wf-paint"></div>' +
       '</div>');
     }
@@ -11053,6 +11054,17 @@ import { createResizeEngine } from "./resize-engine.js";
       if (fillMountWf) fillMountWf.appendChild(colorSwatchButton(() => tgt().fill || "#2e3f34", { title: "Fill colour", key: "wf-fill", onSolid: (hex) => { const t = tgt(); t.fill = hex; delete t.fillSrc; } }));
       const nopic = body.querySelector("#ed-wf-nopic");
       if (nopic) nopic.addEventListener("click", () => { delete tgt().fillSrc; pushHistory(); fullRender(); renderProps(); });
+      /* Width and height here as well as on the handles (Dani, 18 Nov: like
+         the test page). From the middle, so the frame stays where it is. */
+      const sizeRow = function (label, key, posKey, max) {
+        return sliderNumberRow(label, "px", 40, max, 1, () => Math.round(tgt()[key]), (v) => {
+          const t = tgt(); t[posKey] = Math.round(t[posKey] + (t[key] - v) / 2); t[key] = v;
+        }, () => { fullRender(); renderHandles(); });
+      };
+      const wM = body.querySelector('[data-mount="wf-width"]');
+      if (wM) wM.appendChild(sizeRow("Width", "w", "x", Math.round(state.canvas.width * 1.2)));
+      const hM = body.querySelector('[data-mount="wf-height"]');
+      if (hM) hM.appendChild(sizeRow("Height", "h", "y", Math.round(state.canvas.height * 1.2)));
       const thick = body.querySelector('[data-mount="wf-thick"]');
       if (thick) thick.appendChild(sliderNumberRow("Thickness", "px", 2, 80, 1, () => tgt().lineW || 16, (v) => { tgt().lineW = v; }, () => fullRender()));
       const paintM = body.querySelector('[data-mount="wf-paint"]');
