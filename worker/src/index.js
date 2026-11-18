@@ -1416,9 +1416,13 @@ async function runRosterCheck(env, by) {
       accountOf.set(uid, u && u.id ? { last_sign_in: u.last_sign_in_at || null } : null);
     } catch (_) { accountOf.set(uid, { last_sign_in: null, unknown: true }); }
   }));
+  // Not linked on the card: an account under the same email still counts.
+  const unlinked = [...new Set(result.leavers.filter((l) => !(ctx.byId.get(l.contact_id) || {}).user_id && l.email).map((l) => l.email))];
+  const byMail = new Map();
+  await Promise.all(unlinked.map(async (em) => { const u = await findUserByEmail(env, em); if (u) byMail.set(em, { last_sign_in: u.last_sign_in_at || null }); }));
   result.leavers.forEach((l) => {
     const uid = (ctx.byId.get(l.contact_id) || {}).user_id;
-    const a = uid ? accountOf.get(uid) : null;
+    const a = uid ? accountOf.get(uid) : byMail.get(l.email) || null;
     l.account = a ? { last_sign_in: a.last_sign_in } : null;
   });
   const ch = await rosterChanges(env, ctx, live.rows);
