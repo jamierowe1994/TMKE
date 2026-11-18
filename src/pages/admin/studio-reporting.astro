@@ -1,0 +1,289 @@
+---
+// Studio reporting (Danielle, 18 Nov 2026): Insights › Studio reporting. How
+// members use the Studio, print included: who's signed up and signed in and
+// how often, training, designs and downloads, the demo pack, and packs bought
+// and what was done with them. The Content Calendar has its own Insights, so
+// its designs are left out here. Rows from Worker /admin/studio-report; how
+// often from supabase/studio_reporting.sql. Every figure opens its people.
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/money-os.css";
+---
+
+<AdminShell active="studio-reporting" title="Studio reporting" skin="hub">
+  <div class="ash-panel ash-page">
+    <div class="mo sr" id="sr">
+      <section class="mo-head">
+        <div>
+          <p class="mo-eye">Insights</p>
+          <div class="mo-title">Studio reporting</div>
+          <p class="mo-sub">How members use the Studio, print included: who's signed up and signed in, training, designs and downloads, and the packs. The Content Calendar has its own Insights.</p>
+        </div>
+        <div class="mo-acts"><button type="button" class="mbtn" id="sr-xlsx" disabled>Download for Excel</button></div>
+      </section>
+      <p class="state" id="sr-state">Reading the Studio's records. This can take a few seconds.</p>
+      <div id="sr-main" hidden>
+        <div class="bar"><div class="chips" id="sr-brands" role="group" aria-label="Brand"></div></div>
+        <div id="sr-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <style is:global>
+    .sr .bar { margin: 0 0 22px; }
+    .sr .sr-note { margin: 0; color: var(--tx); max-width: 75%; }
+    .sr .sr-months { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; align-items: end; height: 150px; padding: 12px 0 0; border-bottom: 1px solid var(--stone); }
+    .sr .sr-m { display: grid; grid-template-rows: 1fr auto; height: 100%; gap: 6px; }
+    .sr .sr-m i { align-self: end; display: block; background: var(--wine); border-radius: 4px 4px 0 0; min-height: 2px; }
+    .sr .sr-m b { font-weight: 400; text-align: center; color: var(--ink); }
+    .sr .sr-mlabels { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; padding-top: 6px; }
+    .sr .sr-mlabels span { text-align: center; color: var(--tx); }
+    .sr th[data-sort] { cursor: pointer; user-select: none; }
+    .sr th[data-sort]:hover { color: var(--wine); }
+    .sr th[aria-sort="descending"]::after { content: " ↓"; }
+    .sr th[aria-sort="ascending"]::after { content: " ↑"; }
+    .sr .sr-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .sr .sr-filter p { margin: 0; }
+    .sr td.dim { color: var(--tx); }
+    .sr .fig span { line-height: 1.3; }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { supabase } from "../../lib/supabase.js";
+    import { escapeHtml as esc } from "../../lib/design-preview.js";
+    import { TRAINING_GUIDES, PRINT_GUIDES } from "../../data/training-guides.js";
+    import { writeXlsx } from "../../lib/xlsx-lite.js";
+
+    const $ = (id) => document.getElementById(id);
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const SHORT = { "The Property Experts": "TPE", "Prestige Property Experts": "PPE", "The Letting Experts": "TLE", "The Letting Experts Scotland": "TLE Scotland" };
+    const short = (b) => SHORT[b] || b;
+    // Print first, then the Studio courses in the order members meet them.
+    const COURSES = [...PRINT_GUIDES, ...TRAINING_GUIDES].map((g) => ({ slug: g.slug, title: g.title }));
+    const DAY = 864e5, NOW = Date.now();
+    const d = (iso) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "");
+    const ago = (iso) => (iso ? (NOW - new Date(iso).getTime()) / DAY : Infinity);
+    const n0 = (n) => Number(n || 0).toLocaleString("en-GB");
+    const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+    const one = (n) => (Math.round(n * 10) / 10).toLocaleString("en-GB");
+
+    let D = null, BRAND = "all", FILTER = null, SORT = { key: "joined", dir: -1 };
+
+    async function load() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(`${WORKER}/admin/studio-report`, { headers: { Authorization: `Bearer ${session && session.access_token}` } });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j.error || "Couldn't read the Studio's records.");
+        D = j;
+        D.pack = new Map(D.packs.map((p) => [p.id, p]));
+        $("sr-state").hidden = true;
+        $("sr-main").hidden = false;
+        $("sr-xlsx").disabled = false;
+        draw();
+      } catch (e) {
+        $("sr-state").textContent = e.message;
+        $("sr-state").classList.add("bad");
+      }
+    }
+
+    const inBrand = (r) => BRAND === "all" || (BRAND === "none" ? !r.brands.length : r.brands.includes(BRAND));
+    const course = (r, slug) => r.courses[slug] || null;
+    const started = (r) => Object.values(r.courses).some((c) => c.completed || c.furthest > 0);
+    const done = (r) => Object.values(r.courses).some((c) => c.completed);
+    const packsHeld = (r) => [...r.bought, ...r.gifted];
+    const usedOwn = (r) => packsHeld(r).some((p) => r.used_packs.includes(p));
+    const dlOwn = (r) => packsHeld(r).some((p) => r.dl_packs.includes(p));
+    const signedIn = (r) => !!r.last_sign_in;
+
+    // Every figure is a filter on the people below: [key, label, who].
+    const FIGS = {
+      accounts: [
+        ["all", "Signed up", () => true],
+        ["in", "Signed in at least once", signedIn],
+        ["never", "Never signed in", (r) => !signedIn(r)],
+        ["recent", "Signed in in the last 30 days", (r) => ago(r.last_sign_in) <= 30],
+        ["idle", "Signed in, nothing made or downloaded", (r) => signedIn(r) && !r.designs && !r.downloads],
+      ],
+      studio: [
+        ["made", "Made a design", (r) => r.designs > 0],
+        ["print", "Made a print design", (r) => r.print_designs > 0],
+        ["dl", "Downloaded a design", (r) => r.downloads > 0],
+        ["demo", "Used the demo templates", (r) => r.demo_designs > 0],
+      ],
+      packs: [
+        ["bought", "Bought a pack", (r) => r.bought.length > 0],
+        ["gifted", "Were gifted a pack", (r) => r.gifted.length > 0],
+        ["usedown", "Made a design from their pack", usedOwn],
+        ["dlown", "Downloaded from their pack", dlOwn],
+        ["unused", "Have a pack, not used it", (r) => packsHeld(r).length > 0 && !usedOwn(r)],
+      ],
+      training: [
+        ["tstart", "Started a course", started],
+        ["tdone", "Finished a course", done],
+        ["tnone", "Signed in, no training", (r) => signedIn(r) && !started(r)],
+      ],
+    };
+    const ALLFIGS = Object.values(FIGS).flat();
+    COURSES.forEach((c) => {
+      ALLFIGS.push([`c-${c.slug}-done`, `Finished ${c.title}`, (r) => !!(course(r, c.slug) || {}).completed]);
+      ALLFIGS.push([`c-${c.slug}-part`, `Part-way through ${c.title}`, (r) => { const x = course(r, c.slug); return !!x && !x.completed && x.furthest > 0; }]);
+      ALLFIGS.push([`c-${c.slug}-none`, `Not started ${c.title}`, (r) => { const x = course(r, c.slug); return !x || (!x.completed && !(x.furthest > 0)); }]);
+    });
+    const figOf = (k) => ALLFIGS.find((f) => f[0] === k) || (k && k.startsWith("p-") ? packFig(k) : null);
+    function packFig(k) {
+      const [, what, id] = k.match(/^p-(have|used|dl)-(.+)$/) || [];
+      const p = D.pack.get(id); if (!p) return null;
+      const label = { have: `Have ${p.title}`, used: `Made a design from ${p.title}`, dl: `Downloaded from ${p.title}` }[what];
+      const who = { have: (r) => packsHeld(r).includes(id), used: (r) => r.used_packs.includes(id), dl: (r) => r.dl_packs.includes(id) }[what];
+      return [k, label, who];
+    }
+
+    function figs(list, rows, dark) {
+      return `<div class="figs">${list.map(([k, l, who], i) => {
+        const n = rows.filter(who).length;
+        return `<button type="button" class="fig ${i === 0 && dark ? "dark" : "lin"}" data-fig="${k}" aria-pressed="${FILTER === k}"><b>${n0(n)}</b><span>${esc(l)}</span>${rows.length && i ? `<small>${Math.round((n / rows.length) * 100)}%</small>` : ""}</button>`;
+      }).join("")}</div>`;
+    }
+    const section = (title, aside, body) => `<div class="section"><div class="strip"><div class="strip-t">${esc(title)}</div>${aside ? `<span class="aside">${esc(aside)}</span>` : ""}</div>${body}</div>`;
+
+    function draw() {
+      const all = D.rows;
+      // Brands, biggest first, then anyone in none.
+      const count = new Map();
+      all.forEach((r) => r.brands.forEach((b) => count.set(b, (count.get(b) || 0) + 1)));
+      const brands = [...count.keys()].sort((a, b) => count.get(b) - count.get(a));
+      const none = all.filter((r) => !r.brands.length).length;
+      $("sr-brands").innerHTML = [["all", "Everyone", all.length], ...brands.map((b) => [b, short(b), count.get(b)]), ...(none ? [["none", "No brand", none]] : [])]
+        .map(([k, l, n]) => `<button type="button" data-brand="${esc(k)}" aria-pressed="${BRAND === k}">${esc(l)} <i>${n0(n)}</i></button>`).join("");
+      const rows = all.filter(inBrand);
+      const signed = rows.filter(signedIn);
+
+      // Accounts: who and how often.
+      let html = section("Accounts", `${n0(rows.length)} signed up`, figs(FIGS.accounts, rows, true) + (() => {
+        const si = signed.map((r) => r.sign_ins).filter((n) => n > 0), days = signed.map((r) => r.active_days).filter((n) => n > 0);
+        const often = D.activity_ready
+          ? `<div class="figs"><div class="fig lin static"><b>${one(avg(si))}</b><span>Sign-ins each, on average</span><small>of those who've signed in</small></div><div class="fig lin static"><b>${one(avg(days))}</b><span>Days in the Hub each, on average</span><small>of those with a day recorded</small></div><div class="fig lin static"><b>${n0(signed.filter((r) => ago(r.last_active) <= 7).length)}</b><span>Used the Hub in the last 7 days</span></div></div>
+             <p class="sr-note">A sign-in is counted each time someone signs in; staying signed in doesn't count again. Hub days before 17 November only include members who accepted analytics cookies.</p>`
+          : `<p class="sr-note">How often members sign in shows here once <b>supabase/studio_reporting.sql</b> has run.</p>`;
+        return often + signupChart(rows);
+      })());
+
+      // The Studio: designs, print, downloads, the demo.
+      html += section("Designs and downloads", "Content Calendar designs left out", figs(FIGS.studio, rows, false) +
+        `<p class="sr-note">Downloads before 17 November were only recorded for members who accepted analytics cookies, so earlier ones are undercounted.</p>`);
+
+      // Packs.
+      html += section("Packs", "", figs(FIGS.packs, rows, false) + packTable(rows));
+
+      // Training.
+      html += section("Training", "", figs(FIGS.training, rows, false) + trainingTable(rows) +
+        `<p class="sr-note">Until 17 November, reopening a finished course set it back to part 1, so some earlier finishes show as part-way.</p>`);
+
+      // The people behind whichever figure is picked.
+      html += peopleSection(rows);
+      $("sr-body").innerHTML = html;
+    }
+
+    function signupChart(rows) {
+      const months = [];
+      const t = new Date(); t.setDate(1);
+      for (let i = 11; i >= 0; i--) { const x = new Date(t.getFullYear(), t.getMonth() - i, 1); months.push([x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0"), x.toLocaleDateString("en-GB", { month: "short" })]); }
+      const n = months.map(([k]) => rows.filter((r) => r.joined && r.joined.slice(0, 7) === k).length), max = Math.max(1, ...n);
+      return `<div><p class="sr-note">Signed up each month</p><div class="sr-months">${months.map(([k, l], i) => `<div class="sr-m" title="${esc(l)}: ${n[i]} signed up"><b>${n[i] || ""}</b><i style="height:${(n[i] / max) * 100}%"></i></div>`).join("")}</div><div class="sr-mlabels">${months.map(([, l]) => `<span>${esc(l)}</span>`).join("")}</div></div>`;
+    }
+
+    function packTable(rows) {
+      const how = (p) => (p.demo ? "Free with every account" : p.access === "members" ? "Free to members" : p.access === "brands" ? "Given to a brand" : "Bought");
+      const list = D.packs.filter((p) => p.status === "active" || rows.some((r) => packsHeld(r).includes(p.id) || r.used_packs.includes(p.id)))
+        .map((p) => {
+          const have = p.demo || p.access === "members" ? null : rows.filter((r) => packsHeld(r).includes(p.id)).length;
+          return { p, have, used: rows.filter((r) => r.used_packs.includes(p.id)).length, dl: rows.filter((r) => r.dl_packs.includes(p.id)).length };
+        })
+        .sort((a, b) => b.used - a.used || (b.have || 0) - (a.have || 0));
+      const cell = (k, n) => (n ? `<button type="button" class="mbtn" data-fig="${k}">${n0(n)}</button>` : '<span class="dim">0</span>');
+      return `<div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Pack</th><th>Kind</th><th>How members get it</th><th class="num">Have it</th><th class="num">Made a design from it</th><th class="num">Downloaded from it</th></tr></thead><tbody>${list.map(({ p, have, used, dl }) =>
+        `<tr><td>${esc(p.title)}</td><td class="tx">${p.demo ? "Demo" : p.kind === "print" ? "Print" : "Social"}</td><td class="tx">${how(p)}</td><td class="num">${have === null ? '<span class="dim">Everyone</span>' : cell(`p-have-${p.id}`, have)}</td><td class="num">${cell(`p-used-${p.id}`, used)}</td><td class="num">${cell(`p-dl-${p.id}`, dl)}</td></tr>`).join("")}</tbody></table></div>`;
+    }
+
+    function trainingTable(rows) {
+      const cell = (k, n) => (n ? `<button type="button" class="mbtn" data-fig="${k}">${n0(n)}</button>` : '<span class="dim">0</span>');
+      return `<div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Course</th><th class="num">Finished</th><th class="num">Part-way</th><th class="num">Not started</th></tr></thead><tbody>${COURSES.map((c) => {
+        const [fd, fp, fn] = ["done", "part", "none"].map((w) => rows.filter(figOf(`c-${c.slug}-${w}`)[2]).length);
+        return `<tr><td>${esc(c.title)}</td><td class="num">${cell(`c-${c.slug}-done`, fd)}</td><td class="num">${cell(`c-${c.slug}-part`, fp)}</td><td class="num">${cell(`c-${c.slug}-none`, fn)}</td></tr>`;
+      }).join("")}</tbody></table></div>`;
+    }
+
+    // The people table: one row each, sortable, filtered by the picked figure.
+    const courseText = (r, slug) => { const c = course(r, slug); return !c ? "Not started" : c.completed ? `Finished${c.completed_at ? " " + d(c.completed_at) : ""}` : c.furthest > 0 ? `Part ${c.furthest} of ${c.total}` : "Opened"; };
+    const packNames = (ids) => ids.map((id) => (D.pack.get(id) || {}).title).filter(Boolean).join(", ");
+    const COLS = [
+      ["name", "Name", (r) => r.name || r.email || "", (r) => r.name || ""],
+      ["email", "Email", (r) => r.email || ""],
+      ["brand", "Brand", (r) => r.brands.map(short).join(" + ")],
+      ["joined", "Joined", (r) => r.joined || "", (r) => d(r.joined)],
+      ["last_sign_in", "Last signed in", (r) => r.last_sign_in || "", (r) => (r.last_sign_in ? d(r.last_sign_in) : "Never")],
+      ["sign_ins", "Sign-ins", (r) => r.sign_ins ?? -1, (r) => (r.sign_ins == null ? "" : n0(r.sign_ins))],
+      ["active_days", "Hub days", (r) => r.active_days ?? -1, (r) => (r.active_days == null ? "" : n0(r.active_days))],
+      ["print_course", "Your First Print Design", (r) => courseText(r, "print-first-design")],
+      ["studio_course", "Your First Design", (r) => courseText(r, "training-studio")],
+      ["designs", "Designs", (r) => r.designs, (r) => n0(r.designs)],
+      ["print_designs", "Print designs", (r) => r.print_designs, (r) => n0(r.print_designs)],
+      ["downloads", "Downloads", (r) => r.downloads, (r) => n0(r.downloads)],
+      ["last_design", "Last design", (r) => r.last_design || "", (r) => d(r.last_design)],
+      ["demo", "Demo designs", (r) => r.demo_designs, (r) => n0(r.demo_designs)],
+      ["bought", "Packs bought", (r) => packNames(r.bought)],
+      ["gifted", "Packs gifted", (r) => packNames(r.gifted)],
+    ];
+    const isNum = (k) => ["sign_ins", "active_days", "designs", "print_designs", "downloads", "demo"].includes(k);
+    function shown(rows) {
+      const f = FILTER && figOf(FILTER);
+      const list = f ? rows.filter(f[2]) : rows.slice();
+      const col = COLS.find((c) => c[0] === SORT.key) || COLS[3];
+      list.sort((a, b) => { const x = col[2](a), y = col[2](b); return (typeof x === "number" ? x - y : String(x).localeCompare(String(y))) * SORT.dir; });
+      return { f, list };
+    }
+    function peopleSection(rows) {
+      const { f, list } = shown(rows);
+      const head = COLS.map(([k, l]) => `<th data-sort="${k}"${isNum(k) ? ' class="num"' : ""}${SORT.key === k ? ` aria-sort="${SORT.dir < 0 ? "descending" : "ascending"}"` : ""}>${esc(l)}</th>`).join("");
+      const body = list.slice(0, 500).map((r) => `<tr>${COLS.map(([k, , v, show]) => `<td class="${isNum(k) ? "num" : "tx"}">${esc(String((show || v)(r)))}</td>`).join("")}</tr>`).join("");
+      const intro = `<div class="sr-filter"><p>${f ? `Showing the ${n0(list.length)} ${list.length === 1 ? "person" : "people"} who: <b>${esc(f[1].charAt(0).toLowerCase() + f[1].slice(1))}</b>.` : `Everyone, ${n0(list.length)} ${list.length === 1 ? "person" : "people"}. Click any figure above to see just those people.`}</p>${f ? '<button type="button" class="mbtn" data-fig="">Show everyone</button>' : ""}</div>`;
+      return section("People", list.length > 500 ? "The first 500; Download for Excel has them all" : "", intro + (list.length ? `<div class="tablewrap" data-lenis-prevent><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` : '<div class="empty">Nobody here.</div>'));
+    }
+
+    async function download() {
+      const rows = D.rows.filter(inBrand), { f, list } = shown(rows);
+      const columns = COLS.map(([, l]) => ({ title: l, width: l.length > 14 ? 24 : 16 }));
+      columns[0].width = 26; columns[1].width = 32;
+      const data = list.map((r) => COLS.map(([, , v, show]) => String((show || v)(r))));
+      const brand = BRAND === "all" ? "Everyone" : BRAND === "none" ? "No brand" : short(BRAND);
+      const blob = await writeXlsx({ sheet: "Studio reporting", columns, rows: data });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `Studio reporting ${brand}${f ? " - " + f[1] : ""} ${new Date().toISOString().slice(0, 10)}.xlsx`.replace(/[\\/:*?"<>|]/g, " ");
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+
+    document.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-brand]");
+      if (b) { BRAND = b.dataset.brand; draw(); return; }
+      const f = e.target.closest("[data-fig]");
+      if (f) {
+        FILTER = f.dataset.fig && FILTER !== f.dataset.fig ? f.dataset.fig : null;
+        const y = window.scrollY; draw();
+        if (FILTER) document.querySelector(".sr-filter")?.scrollIntoView({ behavior: "smooth", block: "start" }); else window.scrollTo(0, y);
+        return;
+      }
+      const s = e.target.closest("th[data-sort]");
+      if (s) { const k = s.dataset.sort; SORT = { key: k, dir: SORT.key === k ? -SORT.dir : (isNum(k) || ["joined", "last_sign_in", "last_design"].includes(k) ? -1 : 1) }; draw(); document.querySelector(".sr-filter")?.scrollIntoView({ block: "start" }); return; }
+      if (e.target.closest("#sr-xlsx")) download();
+    });
+
+    (async () => {
+      const session = await requireAdmin();
+      if (!session && !import.meta.env.DEV) return;
+      load();
+    })();
+  </script>
+</AdminShell>

@@ -9114,6 +9114,119 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         }, 200, request, env);
       }
 
+      /* Studio reporting (Danielle, 18 Nov 2026: Insights › Studio reporting).
+         How members use the Studio: every member account (staff and test
+         logins left out), its brand(s), when it joined, signed in and was
+         last active, how often (studio_report_activity(), studio_reporting.sql),
+         training progress, designs (print counted apart), downloads, the demo
+         pack and packs bought or gifted, and what was done with them. The
+         Content Calendar's own designs are left out: they have their own
+         Insights. The page works out every figure from these rows. Admins only. */
+      if (path.endsWith("/admin/studio-report") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const S = await ccSettings(env, true);
+        const out = new Set([...(((await sbGet(env, "admins", "select=user_id")) || []).map((r) => r.user_id)), ...S.test_user_ids]);
+        const H = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` };
+
+        // Every member account.
+        const people = new Map();
+        for (let page = 1; page <= 100; page++) {
+          const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?page=${page}&per_page=1000`, { headers: H });
+          if (!res.ok) return json({ error: "Couldn't read the accounts." }, 502, request, env);
+          const d = await res.json().catch(() => ({}));
+          const list = (d && d.users) || [];
+          list.forEach((u) => { if (!out.has(u.id)) people.set(u.id, { id: u.id, name: null, email: u.email || null, company: null, brands: [], joined: u.created_at || null, last_sign_in: u.last_sign_in_at || null,
+            sign_ins: null, active_days: null, last_active: null, courses: {}, designs: 0, print_designs: 0, last_design: null, downloads: 0, last_download: null,
+            demo_designs: 0, bought: [], gifted: [], used_packs: [], dl_packs: [] }); });
+          if (list.length < 1000) break;
+        }
+        const P = (uid) => people.get(uid);
+        const add = (arr, v) => { if (v && !arr.includes(v)) arr.push(v); };
+
+        const [contacts, profs, packs, tpls, months, orders, gp, designs, logDl, oldDl] = await Promise.all([
+          sbGetAll(env, "contacts", "user_id=not.is.null&select=id,user_id,first_name,last_name,email,company"),
+          sbGetAll(env, "agent_profiles", "left_at=is.null&select=contact_id,brand"),
+          sbGetAll(env, "packs", "select=id,title,slug,kind,access,brands,demo,status,price_pence"),
+          sbGetAll(env, "templates", "pack_id=not.is.null&select=id,pack_id"),
+          sbGetAll(env, "content_month_posts", "template_id=not.is.null&select=template_id"),
+          sbGetAll(env, "orders", "status=eq.paid&select=user_id,buyer_email,pack_id,payment_method,created_at"),
+          sbGetAll(env, "guide_progress", "select=user_id,guide_slug,furthest,total,completed,completed_at"),
+          sbGetAll(env, "user_designs", "select=id,user_id,created_at,source_template_id,w:canvas->>width,h:canvas->>height"),
+          sbGetAll(env, "usage_log", "event=eq.downloaded&select=user_id,template_id,design_id,created_at"),
+          // Before the usage log began (17 Nov) downloads were only recorded with the analytics cookie; after it, the usage log has them all, so none count twice.
+          sbGetAll(env, "site_events", "name=eq.design_downloaded&user_id=not.is.null&created_at=lt.2026-11-17&select=user_id,template_id:props->>template,design_id:props->>design_id,created_at"),
+        ]);
+        if (!contacts || !designs) return json({ error: "Couldn't read the Studio's records." }, 502, request, env);
+
+        const brandsOfContact = new Map();
+        (profs || []).forEach((r) => { if (!r.brand) return; if (!brandsOfContact.has(r.contact_id)) brandsOfContact.set(r.contact_id, new Set()); brandsOfContact.get(r.contact_id).add(r.brand); });
+        const byEmail = new Map();
+        contacts.forEach((c) => {
+          const r = P(c.user_id); if (!r) return;
+          if (!r.name) r.name = [c.first_name, c.last_name].filter(Boolean).join(" ").trim() || null;
+          if (!r.company) r.company = c.company || null;
+          (brandsOfContact.get(c.id) || []).forEach((b) => add(r.brands, b));
+        });
+        people.forEach((r) => { r.brands.sort(); if (r.email) byEmail.set(r.email.toLowerCase(), r); });
+
+        // How often (studio_reporting.sql). Before it has run, the page says so.
+        let activityReady = false;
+        try {
+          const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/studio_report_activity`, { method: "POST", headers: { ...H, "Content-Type": "application/json" }, body: "{}" });
+          if (res.ok) {
+            activityReady = true;
+            ((await res.json()) || []).forEach((a) => { const r = P(a.user_id); if (r) { r.sign_ins = a.sign_ins; r.active_days = a.active_days; r.last_active = a.last_active; } });
+          }
+        } catch (_) {}
+
+        const packOfTpl = new Map((tpls || []).map((t) => [t.id, t.pack_id]));
+        const packById = new Map((packs || []).map((p) => [p.id, p]));
+        const ccTpl = new Set((months || []).map((m) => m.template_id));
+        const demoIds = new Set((packs || []).filter((p) => p.demo).map((p) => p.id));
+
+        (orders || []).forEach((o) => {
+          const r = (o.user_id && P(o.user_id)) || (o.buyer_email && byEmail.get(String(o.buyer_email).toLowerCase()));
+          if (!r || !o.pack_id) return;
+          add(o.payment_method === "gift" ? r.gifted : r.bought, o.pack_id);
+        });
+        (gp || []).forEach((g) => { const r = P(g.user_id); if (r) r.courses[g.guide_slug] = { furthest: g.furthest || 0, total: g.total || 0, completed: !!g.completed, completed_at: g.completed_at || null }; });
+
+        const PRINT = new Set(["1748x2480", "1240x1748", "2480x3508", "650x1004"]);
+        const isPrint = (w, h) => {
+          w = Math.round(Number(w)); h = Math.round(Number(h));
+          if (!(w > 0 && h > 0)) return false;
+          const a = Math.max(w, h), b = Math.min(w, h);
+          return PRINT.has(`${b}x${a}`) || (Math.abs(a / b - 1.41421) < 0.01 && b >= 1200);
+        };
+        const tplOfDesign = new Map();
+        designs.forEach((d) => {
+          tplOfDesign.set(d.id, d.source_template_id || null);
+          const r = P(d.user_id); if (!r) return;
+          if (d.source_template_id && ccTpl.has(d.source_template_id)) return;   // a Content Calendar post
+          r.designs++;
+          if (isPrint(d.w, d.h)) r.print_designs++;
+          if (!r.last_design || d.created_at > r.last_design) r.last_design = d.created_at;
+          const pk = d.source_template_id && packOfTpl.get(d.source_template_id);
+          if (pk) { add(r.used_packs, pk); if (demoIds.has(pk)) r.demo_designs++; }
+        });
+        [...(oldDl || []), ...(logDl || [])].forEach((e) => {
+          const r = P(e.user_id); if (!r) return;
+          const tpl = e.template_id || (e.design_id && tplOfDesign.get(e.design_id)) || null;
+          if (tpl && ccTpl.has(tpl)) return;
+          r.downloads++;
+          if (!r.last_download || e.created_at > r.last_download) r.last_download = e.created_at;
+          const pk = tpl && packOfTpl.get(tpl);
+          if (pk) add(r.dl_packs, pk);
+        });
+
+        return json({
+          ok: true, at: new Date().toISOString(), activity_ready: activityReady,
+          packs: (packs || []).map((p) => ({ id: p.id, title: p.title, kind: p.kind || "social", access: p.access || "buy", demo: !!p.demo, status: p.status, price_pence: p.price_pence || 0 })),
+          rows: [...people.values()],
+        }, 200, request, env);
+      }
+
       /* One Content Calendar month's Insights (Danielle, 17 Nov 2026; mock-up
          docs/tmke-os/calendar-month-insights). The raw material, compact: the
          month's posts, who had access to its edition and who's on Plus, what
