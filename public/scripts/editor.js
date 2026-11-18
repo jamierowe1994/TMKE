@@ -3564,9 +3564,14 @@ import { createResizeEngine } from "./resize-engine.js";
     // A Christmas pattern on the background, over its colour (xpTile).
     const _xpBg = state.canvas.bgPattern && xpTile(state.canvas.bgPattern, xpScaleK(state.canvas.bgPattern, state.canvas));
     if (_xpBg) {
-      canvasEl.style.backgroundImage = 'url("' + _xpBg.url + '")';
-      canvasEl.style.backgroundSize = _xpBg.w.toFixed(2) + "px " + _xpBg.h.toFixed(2) + "px";
-      canvasEl.style.backgroundRepeat = "repeat";
+      // Front or back only on a folded card's outside: the other half keeps its plain colour.
+      const area = isFolded(state.canvas) && state.canvas.fold !== "inside" ? (state.canvas.bgPattern.area || "both") : "both";
+      const plain = /^#[0-9a-f]{3,8}$/i.test(String(state.canvas.background || "")) ? state.canvas.background : "#ffffff";
+      const half = area === "front" ? "linear-gradient(to right, " + plain + " 50%, transparent 50%)"
+        : area === "back" ? "linear-gradient(to right, transparent 50%, " + plain + " 50%)" : null;
+      canvasEl.style.backgroundImage = (half ? half + ", " : "") + 'url("' + _xpBg.url + '")';
+      canvasEl.style.backgroundSize = (half ? "100% 100%, " : "") + _xpBg.w.toFixed(2) + "px " + _xpBg.h.toFixed(2) + "px";
+      canvasEl.style.backgroundRepeat = (half ? "no-repeat, " : "") + "repeat";
     }
 
     // Keep the top-bar size badge in lock-step with the actual canvas. This runs
@@ -3719,23 +3724,61 @@ import { createResizeEngine } from "./resize-engine.js";
   // Keep the Background pane in sync with state: image preview, which controls
   // are visible, the opacity values, the fade-colour tint, and the custom swatch.
   // The background's pattern controls, rebuilt when the page or its pattern changes.
+  /* The background's pattern controls, in Background and in Christmas,
+     rebuilt when the page or its pattern changes. A folded card's outside
+     can have it on the front, the back or both (Dani, 18 Nov); a postcard's
+     can go on both sides. Choosing a pattern gives the page's painted frames
+     the line colour that goes with it. */
   var _xpBgSig = null;
+  function xpBgSig() { return state.currentPage + "|" + JSON.stringify(state.canvas.bgPattern || null); }
   function syncBgPatterns(force) {
-    const mount = document.getElementById("ed-bg-pattern-mount");
-    if (!mount) return;
-    const sig = state.currentPage + "|" + JSON.stringify(state.canvas.bgPattern || null);
+    const mounts = ["ed-bg-pattern-mount", "ed-xmas-bg-mount"].map(function (id) { return document.getElementById(id); }).filter(Boolean);
+    if (!mounts.length) return;
+    const sig = xpBgSig();
     if (!force && sig === _xpBgSig) return;
     _xpBgSig = sig;
-    mount.innerHTML = "";
-    mount.appendChild(xpPicker(function () { return state.canvas.bgPattern ? JSON.parse(JSON.stringify(state.canvas.bgPattern)) : null; }, function (v, live) {
-      if (v) state.canvas.bgPattern = v; else delete state.canvas.bgPattern;
+    const get = function () { return state.canvas.bgPattern ? JSON.parse(JSON.stringify(state.canvas.bgPattern)) : null; };
+    const set = function (v, live) {
+      const was = state.canvas.bgPattern;
+      if (v) { if (was && was.area && !v.area) v.area = was.area; state.canvas.bgPattern = v; } else delete state.canvas.bgPattern;
+      if (v && !live) {
+        const a = xpAccent(v);
+        if (a) (state.elements || []).forEach(function (o) { if (o && o.type === "wframe" && !o.fillPattern) o.stroke = a; });
+      }
       if (!live) pushHistory();   // the colour button and the slider record their own
       fullRender();
-      if (live) _xpBgSig = state.currentPage + "|" + JSON.stringify(state.canvas.bgPattern || null);
-    }));
+      if (live) _xpBgSig = xpBgSig(); else syncBgPatterns(true);
+    };
+    mounts.forEach(function (mount) {
+      mount.innerHTML = "";
+      mount.appendChild(xpPicker(get, set));
+      const cur = state.canvas.bgPattern;
+      if (!cur) return;
+      const cv = state.canvas;
+      const row = document.createElement("div");
+      row.className = "ed-xp-area";
+      const btn = function (label, on, fn) { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.setAttribute("aria-pressed", String(on)); b.addEventListener("click", fn); row.appendChild(b); };
+      if (isFolded(cv) && cv.fold !== "inside") {
+        const area = cur.area || "both";
+        [["front", "Front"], ["back", "Back"], ["both", "Front and back"]].forEach(function (a) {
+          btn(a[1], area === a[0], function () { const v = get(); v.area = a[0]; set(v); });
+        });
+        mount.appendChild(row);
+      } else if (isPostcard(cv) && state.pages.filter(function (pg) { return pg && pg.canvas && isPostcard(pg.canvas); }).length > 1) {
+        btn("Put it on both sides", false, function () {
+          const v = get();
+          state.pages.forEach(function (pg) { if (pg && pg.canvas && isPostcard(pg.canvas)) pg.canvas.bgPattern = JSON.parse(JSON.stringify(v)); });
+          pushHistory(); fullRender();
+          if (typeof refreshPageThumbs === "function") refreshPageThumbs();
+          toast("The pattern is on both sides now.");
+        });
+        mount.appendChild(row);
+      }
+    });
   }
   function syncBgPane() {
     syncBgPatterns();
+    syncXmasRail();
     const hasImg = !!state.canvas.backgroundImage;
     const thumb = document.getElementById("ed-bg-thumb");
     if (thumb) {
@@ -8682,7 +8725,13 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!transparent && SRC.canvas.bgPattern) {
       try {
         const pat = await xpCanvasPattern(ctx, SRC.canvas.bgPattern, SRC.canvas);
-        if (pat) { ctx.fillStyle = pat; ctx.fillRect(0, 0, c.width, c.height); }
+        const area = isFolded(SRC.canvas) && SRC.canvas.fold !== "inside" ? (SRC.canvas.bgPattern.area || "both") : "both";
+        if (pat) {
+          ctx.fillStyle = pat;
+          if (area === "front") ctx.fillRect(c.width / 2, 0, c.width / 2, c.height);
+          else if (area === "back") ctx.fillRect(0, 0, c.width / 2, c.height);
+          else ctx.fillRect(0, 0, c.width, c.height);
+        }
       } catch (_) {}
     }
     // Canvas background image (set via right-click → "Set as background")
@@ -9599,6 +9648,18 @@ import { createResizeEngine } from "./resize-engine.js";
     const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w.toFixed(2) + '" height="' + h.toFixed(2) + '" viewBox="0 0 ' + p.tw + ' ' + p.th + '">' +
       '<rect width="' + p.tw + '" height="' + p.th + '" fill="' + cols.ground + '"/>' + p.draw(cols) + '</svg>';
     return { svg: svg, w: w, h: h, url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg) };
+  }
+  /* The line colour that goes with a pattern (Dani, 18 Nov: "the line colors
+     aren't matching the color of the pattern"): of its colours, the one that
+     stands out most from its ground. */
+  function xpAccent(fill) {
+    const p = fill && xpPattern(fill.key);
+    if (!p) return null;
+    const cols = Object.assign({}, p.cols, fill.cols || {});
+    const g = hexTone(cols.ground);
+    let best = null, gap = -1;
+    ["c1", "c2", "c3"].forEach(function (k) { const t = hexTone(cols[k]); if (t != null && g != null && Math.abs(t - g) > gap) { gap = Math.abs(t - g); best = cols[k]; } });
+    return best;
   }
   function xpScaleK(fill, cv) { return xpUnit(cv) * ((fill && fill.scale) || 100) / 100; }
   // For the download: a canvas pattern of the tile, drawn at twice its size for print.
@@ -10584,7 +10645,10 @@ import { createResizeEngine } from "./resize-engine.js";
     const home = document.querySelector('.ed-panel-pane[data-pane="selection"]');
     const el = state.selectedIds.length === 1 ? getEl(state.selectedIds[0]) : null;
     const wantText = host && activeToolPane === "text" && el && el.type === "text";
-    const target = wantText ? host : home;
+    // A painted frame's controls sit in the Christmas panel when it's open.
+    const xhost = document.getElementById("ed-xmas-selhost");
+    const wantXmas = xhost && activeToolPane === "christmas" && el && el.type === "wframe";
+    const target = wantText ? host : wantXmas ? xhost : home;
     if (target && body.parentNode !== target) target.appendChild(body);
     // The heading belongs to the list, and a member no longer has the list.
     const listHead = document.getElementById("ed-textlist-head");
@@ -10633,6 +10697,66 @@ import { createResizeEngine } from "./resize-engine.js";
       });
     }
   }
+
+  /* A painted frame's controls, shared by the Selection panel and, for a
+     member on a frame set to Fixed, the Christmas panel (Dani, 18 Nov). */
+  function wfPanelHtml(el) {
+    const filled = el.mode === "inside" || el.mode === "outside";
+    return '<div class="ed-props-section"><h4>Frame</h4>' +
+        '<div class="ed-wf-shapes">' + WF_SHAPES.map((x) => '<button type="button" class="ed-wf-shape" data-wfshape="' + x[0] + '" aria-pressed="' + (el.shape === x[0]) + '"><span class="pic"></span>' + x[1] + '</button>').join("") + '</div>' +
+        '<div class="ed-wf-modes">' + WF_MODES.map((x) => '<button type="button" class="ed-wf-mode" data-wfmode="' + x[0] + '" aria-pressed="' + ((el.mode || "lines") === x[0]) + '">' + x[1] + '</button>').join("") + '</div>' +
+        '<div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="wf-line"></span><label style="margin:0">Line colour</label></div>' +
+        (filled ? '<div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="wf-fill"></span><label style="margin:0">Fill colour</label></div>' +
+          '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-replace-img" aria-expanded="false" aria-controls="ed-sel-imgmenu" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:6px">' + (el.fillSrc ? "Change picture" : "Fill with a picture") +
+            ' <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>' +
+          '<div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>' +
+          (el.fillSrc ? '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-wf-nopic" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Use the colour instead</button>' : "") +
+          '<div class="ed-xp-h">Fill with a pattern</div><div data-mount="wf-pattern"></div>' : "") +
+        '<div data-mount="wf-width"></div><div data-mount="wf-height"></div>' +
+        // Folded away (Dani, 18 Nov), the way a box's individual corners are.
+        '<details class="ed-corner-details"' + (_wfLineOpen ? " open" : "") + ' data-wf-line><summary>Line thickness and brush</summary>' +
+          '<div data-mount="wf-thick"></div><div data-mount="wf-paint"></div></details>' +
+      '</div>';
+  }
+  function wireWfPanel(body, el) {
+      const tgt = () => getEl(el.id) || el;
+      body.querySelectorAll(".ed-wf-shape").forEach((b) => {
+        b.querySelector(".pic").innerHTML = wframeSvg({ id: "pick-" + b.dataset.wfshape, shape: b.dataset.wfshape, mode: "lines", stroke: "currentColor", w: 120, h: 170, lineW: 7, paint: 6 });
+        b.addEventListener("click", () => { tgt().shape = b.dataset.wfshape; pushHistory(); fullRender(); renderProps(); });
+      });
+      body.querySelectorAll(".ed-wf-mode").forEach((b) => b.addEventListener("click", () => { tgt().mode = b.dataset.wfmode; pushHistory(); fullRender(); renderProps(); }));
+      const lineMount = body.querySelector('[data-mount="wf-line"]');
+      if (lineMount) lineMount.appendChild(colorSwatchButton(() => tgt().stroke || "#b3171c", { title: "Line colour", key: "wf-line", onSolid: (hex) => { tgt().stroke = hex; } }));
+      const fillMountWf = body.querySelector('[data-mount="wf-fill"]');
+      if (fillMountWf) fillMountWf.appendChild(colorSwatchButton(() => tgt().fill || "#2e3f34", { title: "Fill colour", key: "wf-fill", onSolid: (hex) => { const t = tgt(); t.fill = hex; delete t.fillSrc; delete t.fillPattern; } }));
+      const wfPat = body.querySelector('[data-mount="wf-pattern"]');
+      if (wfPat) wfPat.appendChild(xpPicker(() => (tgt().fillPattern ? JSON.parse(JSON.stringify(tgt().fillPattern)) : null), (v, live) => {
+        const t = tgt();
+        if (v) { t.fillPattern = v; delete t.fillSrc; } else delete t.fillPattern;
+        // A pattern or a preset chosen: the line takes the colour that goes with it.
+        if (v && !live) { const a = xpAccent(v); if (a) t.stroke = a; }
+        if (!live) { pushHistory(); fullRender(); renderProps(); } else fullRender();
+      }, { offLabel: "No pattern" }));
+      const nopic = body.querySelector("#ed-wf-nopic");
+      if (nopic) nopic.addEventListener("click", () => { delete tgt().fillSrc; pushHistory(); fullRender(); renderProps(); });
+      /* The frame's width and height inside its box (Dani, 18 Nov): the box,
+         and the picture or colour filling it, stay the same size; the frame
+         grows or shrinks in the middle, which sets the border round it. The
+         handles still size the whole box. */
+      const sizeRow = function (label, key) {
+        return sliderNumberRow(label, "%", 20, 100, 1, () => tgt()[key] || 100, (v) => { tgt()[key] = v; }, () => fullRender());
+      };
+      const wM = body.querySelector('[data-mount="wf-width"]');
+      if (wM) wM.appendChild(sizeRow("Frame width", "fw"));
+      const hM = body.querySelector('[data-mount="wf-height"]');
+      if (hM) hM.appendChild(sizeRow("Frame height", "fh"));
+      const lineFold = body.querySelector("[data-wf-line]");
+      if (lineFold) lineFold.addEventListener("toggle", () => { _wfLineOpen = lineFold.open; });
+      const thick = body.querySelector('[data-mount="wf-thick"]');
+      if (thick) thick.appendChild(sliderNumberRow("Thickness", "px", 2, 80, 1, () => tgt().lineW || 16, (v) => { tgt().lineW = v; }, () => fullRender()));
+      const paintM = body.querySelector('[data-mount="wf-paint"]');
+      if (paintM) paintM.appendChild(sliderNumberRow("Painted", "", 0, 10, 1, () => tgt().paint != null ? tgt().paint : 6, (v) => { tgt().paint = v; }, () => fullRender()));
+    }
 
   function renderProps() {
     const body = placeSelectionBody();
@@ -10761,6 +10885,12 @@ import { createResizeEngine } from "./resize-engine.js";
           const rb = body.querySelector("#ed-replace-img");
           if (rb) rb.click();
         }
+      } else if (ml === "light" && el.type === "wframe") {
+        // A frame set to Fixed: its look is theirs to change, not its place.
+        body.innerHTML = '<p class="ed-selection-empty">This frame stays where it is in the template. Change its shape, colours and fill here.</p>' + wfPanelHtml(el);
+        wireWfPanel(body, el);
+        wireReplaceImage(body);
+        openChristmasFor();
       } else if (ml === "light") {
         body.innerHTML = '<p class="ed-selection-empty">This text stays where it is in the template. Click it to change the words: if they run long, they shrink to fit.</p>';
       } else {
@@ -10815,6 +10945,8 @@ import { createResizeEngine } from "./resize-engine.js";
       showPane("text");
       placeSelectionBody();
       renderTextList(); renderFontBrowser();
+    } else if (el.type === "wframe" && openChristmasFor()) {
+      // A painted frame opens Christmas, with its controls at the top (Dani, 18 Nov).
     } else if (isIllustrationPicture(el) && openIllustrateFor()) {
       // An illustration slot opens Images › Illustrate, where its picture is
       // chosen, not the shape controls (Dani, 18 Nov).
@@ -10855,24 +10987,7 @@ import { createResizeEngine } from "./resize-engine.js";
       }
     }
 
-    if (el.type === "wframe") {
-      const filled = el.mode === "inside" || el.mode === "outside";
-      html.push('<div class="ed-props-section"><h4>Frame</h4>' +
-        '<div class="ed-wf-shapes">' + WF_SHAPES.map((x) => '<button type="button" class="ed-wf-shape" data-wfshape="' + x[0] + '" aria-pressed="' + (el.shape === x[0]) + '"><span class="pic"></span>' + x[1] + '</button>').join("") + '</div>' +
-        '<div class="ed-wf-modes">' + WF_MODES.map((x) => '<button type="button" class="ed-wf-mode" data-wfmode="' + x[0] + '" aria-pressed="' + ((el.mode || "lines") === x[0]) + '">' + x[1] + '</button>').join("") + '</div>' +
-        '<div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="wf-line"></span><label style="margin:0">Line colour</label></div>' +
-        (filled ? '<div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="wf-fill"></span><label style="margin:0">Fill colour</label></div>' +
-          '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-replace-img" aria-expanded="false" aria-controls="ed-sel-imgmenu" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:6px">' + (el.fillSrc ? "Change picture" : "Fill with a picture") +
-            ' <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>' +
-          '<div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>' +
-          (el.fillSrc ? '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-wf-nopic" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Use the colour instead</button>' : "") +
-          '<div class="ed-xp-h">Fill with a pattern</div><div data-mount="wf-pattern"></div>' : "") +
-        '<div data-mount="wf-width"></div><div data-mount="wf-height"></div>' +
-        // Folded away (Dani, 18 Nov), the way a box's individual corners are.
-        '<details class="ed-corner-details"' + (_wfLineOpen ? " open" : "") + ' data-wf-line><summary>Line thickness and brush</summary>' +
-          '<div data-mount="wf-thick"></div><div data-mount="wf-paint"></div></details>' +
-      '</div>');
-    }
+    if (el.type === "wframe") html.push(wfPanelHtml(el));
 
     if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
       // Same rich panel the swatch on the toolbar opens — Stroke below has
@@ -11264,43 +11379,7 @@ import { createResizeEngine } from "./resize-engine.js";
       lineWeightMount.appendChild(lineThicknessRow(el));
     }
 
-    if (el.type === "wframe") {
-      const tgt = () => getEl(el.id) || el;
-      body.querySelectorAll(".ed-wf-shape").forEach((b) => {
-        b.querySelector(".pic").innerHTML = wframeSvg({ id: "pick-" + b.dataset.wfshape, shape: b.dataset.wfshape, mode: "lines", stroke: "currentColor", w: 120, h: 170, lineW: 7, paint: 6 });
-        b.addEventListener("click", () => { tgt().shape = b.dataset.wfshape; pushHistory(); fullRender(); renderProps(); });
-      });
-      body.querySelectorAll(".ed-wf-mode").forEach((b) => b.addEventListener("click", () => { tgt().mode = b.dataset.wfmode; pushHistory(); fullRender(); renderProps(); }));
-      const lineMount = body.querySelector('[data-mount="wf-line"]');
-      if (lineMount) lineMount.appendChild(colorSwatchButton(() => tgt().stroke || "#b3171c", { title: "Line colour", key: "wf-line", onSolid: (hex) => { tgt().stroke = hex; } }));
-      const fillMountWf = body.querySelector('[data-mount="wf-fill"]');
-      if (fillMountWf) fillMountWf.appendChild(colorSwatchButton(() => tgt().fill || "#2e3f34", { title: "Fill colour", key: "wf-fill", onSolid: (hex) => { const t = tgt(); t.fill = hex; delete t.fillSrc; delete t.fillPattern; } }));
-      const wfPat = body.querySelector('[data-mount="wf-pattern"]');
-      if (wfPat) wfPat.appendChild(xpPicker(() => (tgt().fillPattern ? JSON.parse(JSON.stringify(tgt().fillPattern)) : null), (v, live) => {
-        const t = tgt();
-        if (v) { t.fillPattern = v; delete t.fillSrc; } else delete t.fillPattern;
-        if (!live) { pushHistory(); fullRender(); renderProps(); } else fullRender();
-      }, { offLabel: "No pattern" }));
-      const nopic = body.querySelector("#ed-wf-nopic");
-      if (nopic) nopic.addEventListener("click", () => { delete tgt().fillSrc; pushHistory(); fullRender(); renderProps(); });
-      /* The frame's width and height inside its box (Dani, 18 Nov): the box,
-         and the picture or colour filling it, stay the same size; the frame
-         grows or shrinks in the middle, which sets the border round it. The
-         handles still size the whole box. */
-      const sizeRow = function (label, key) {
-        return sliderNumberRow(label, "%", 20, 100, 1, () => tgt()[key] || 100, (v) => { tgt()[key] = v; }, () => fullRender());
-      };
-      const wM = body.querySelector('[data-mount="wf-width"]');
-      if (wM) wM.appendChild(sizeRow("Frame width", "fw"));
-      const hM = body.querySelector('[data-mount="wf-height"]');
-      if (hM) hM.appendChild(sizeRow("Frame height", "fh"));
-      const lineFold = body.querySelector("[data-wf-line]");
-      if (lineFold) lineFold.addEventListener("toggle", () => { _wfLineOpen = lineFold.open; });
-      const thick = body.querySelector('[data-mount="wf-thick"]');
-      if (thick) thick.appendChild(sliderNumberRow("Thickness", "px", 2, 80, 1, () => tgt().lineW || 16, (v) => { tgt().lineW = v; }, () => fullRender()));
-      const paintM = body.querySelector('[data-mount="wf-paint"]');
-      if (paintM) paintM.appendChild(sliderNumberRow("Painted", "", 0, 10, 1, () => tgt().paint != null ? tgt().paint : 6, (v) => { tgt().paint = v; }, () => fullRender()));
-    }
+    if (el.type === "wframe") wireWfPanel(body, el);
     const fillMount = body.querySelector('[data-mount="fill-color"]');
     if (fillMount) {
       fillMount.appendChild(colorSwatchButton(fillCurrent(el), fillControl(el)));
@@ -14731,6 +14810,7 @@ import { createResizeEngine } from "./resize-engine.js";
       }
       else placeSelectionBody();
       if (tool === "elements") mountLogoSlotTool();
+      if (tool === "christmas") syncBgPatterns(true);
       if (tool === "brand") renderRebrand();
     });
   });
@@ -15615,16 +15695,42 @@ import { createResizeEngine } from "./resize-engine.js";
   window.__TMKE_SYNC_RAIL__ = function () { try { syncPrintRail(); } catch (_) {} };
 
   // Open a tool pane programmatically (clears any selection so the pane shows).
-  /* Images › Illustrate, keeping the selection (openTool clears it). False
-     when the Illustrate tab isn't offered on this design. */
+  /* The Christmas panel, keeping the selection (openTool clears it): where
+     Illustrate lives now, with the frames and patterns (Dani, 18 Nov). False
+     when it isn't offered on this design. */
+  function openChristmasFor() {
+    const rail = document.getElementById("ed-rail-xmas");
+    if (!rail || rail.hidden) return false;
+    activeToolPane = "christmas";
+    document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "christmas"));
+    showPane("christmas");
+    placeSelectionBody();
+    syncBgPatterns(true);
+    return true;
+  }
   function openIllustrateFor() {
     const tab = document.querySelector('.ed-ttab[data-itab="illustrate"]');
     if (!tab || tab.hidden) return false;
-    activeToolPane = "photos";
-    document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "photos"));
-    showPane("photos");
-    if (!tab.classList.contains("is-active")) tab.click();
-    return true;
+    if (openChristmasFor()) {
+      const sec = document.getElementById("ed-xmas-ill-sec");
+      if (sec && sec.scrollIntoView) sec.scrollIntoView({ block: "start" });
+      return true;
+    }
+    return false;
+  }
+  // The Christmas button shows on cards and postcards (and where Illustrate is offered).
+  function syncXmasRail() {
+    const rail = document.getElementById("ed-rail-xmas");
+    if (!rail) return;
+    const tab = document.querySelector('.ed-ttab[data-itab="illustrate"]');
+    const show = isCardDesign() || !!(tab && !tab.hidden);
+    const sec = document.getElementById("ed-xmas-ill-sec");
+    if (sec) sec.hidden = !(tab && !tab.hidden);
+    const fr = document.getElementById("ed-xmas-frames");
+    if (fr) fr.hidden = !isAdminMode();
+    if (rail.hidden === !show) return;
+    rail.hidden = !show;
+    if (!show && activeToolPane === "christmas") openTool("start");
   }
   function openTool(name) {
     state.selectedIds = [];
@@ -18225,6 +18331,14 @@ import { createResizeEngine } from "./resize-engine.js";
      (Dani, 17 Nov: "I don't want them just using it willy-nilly on social
      media posts"). Words from the tmke-copywriter brief, 17 Nov. */
   (function illustrate() {
+    // Illustrate's panel lives in Christmas now (Dani, 18 Nov): its contents
+    // move there, ids and all; the Images tab is kept only to say whether
+    // Illustrate is offered.
+    (function () {
+      const from = document.querySelector('.ed-ttab-pane[data-itab-pane="illustrate"]');
+      const to = $("ed-xmas-ill");
+      if (from && to) while (from.firstChild) to.appendChild(from.firstChild);
+    })();
     const tab = $("ed-ill-tab");
     if (!tab || typeof window.__TMKE_ILLUSTRATE__ !== "function") return;
     const C = {
@@ -18925,6 +19039,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const show = cards && (!!me || !!keys || isAdminMode());
       if (tab.hidden !== !show) {
         tab.hidden = !show;
+        if (typeof syncXmasRail === "function") syncXmasRail();
         if (!show && tab.classList.contains("is-active")) {
           const search = document.querySelector('.ed-ttab[data-itab="search"]');
           if (search) search.click();
