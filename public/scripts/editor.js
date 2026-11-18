@@ -13464,6 +13464,12 @@ import { createResizeEngine } from "./resize-engine.js";
       // design as another brand. A logo they put there by hand carries no
       // mark and is left alone.
       slot.autoLogo = true;
+      /* On print (cards, postcards, stationery), the box the template's
+         author drew is the size the logo may fill (Danielle, 18 Nov): the
+         200 x 75 default is about 17 mm across on a card, far smaller than
+         the space left for it. Social keeps the default, as its templates
+         were drawn for. A size set by hand later still wins (logoBox). */
+      if (!slot.logoBox && isPrintDesign() && slot.w > 0 && slot.h > 0) slot.logoBox = { w: Math.round(slot.w), h: Math.round(slot.h) };
       placeLogoInSlot(slot, src);
     });
     // Light logo on a dark background and the other way round.
