@@ -18084,8 +18084,10 @@ import { createResizeEngine } from "./resize-engine.js";
           if (onInside()) { cardToBackground(null, false, b.key); paintBackgrounds(); return; }
           bg = b.key;
           try { localStorage.setItem("tmke.illBg", bg); } catch (_) {}
-          paintBackgrounds();
+          // Colour the card first: redrawing the swatches reads the card's
+          // colour back as the pick, so drawn first it undid the click.
           cardToBackground(null, true);
+          paintBackgrounds();
           paintSet();
         });
         row.appendChild(btn);
