@@ -17975,12 +17975,13 @@ import { createResizeEngine } from "./resize-engine.js";
       /* With two slots (one outside, one inside), the one selected is the one
          filled (Dani, 18 Nov); with none selected, the front's. */
       const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => o && o.brandRole === "illustration");
-      let slot = picked || slotIn(outI);
-      if (picked) outI = state.currentPage;
-      if (!slot) {
-        const j = state.pages.findIndex((p, i) => !!slotIn(i));
-        if (j > -1) { outI = j; slot = slotIn(j); }
-      }
+      /* The side being looked at keeps the picture: its slot, else (on the
+         outside) the full width along its bottom. It never jumps to a slot on
+         another side (Dani, 18 Nov: "it shouldn't just then automatically go
+         to the inside of the card"). */
+      const here = state.currentPage, hereSlot = slotIn(here);
+      let slot = picked || hereSlot || slotIn(outI);
+      if (picked || hereSlot) outI = here;
       if (slot) {
         if (outI !== state.currentPage) goToPage(outI);
         slot.type = "image";
