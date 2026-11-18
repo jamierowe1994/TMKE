@@ -11079,6 +11079,23 @@ import { createResizeEngine } from "./resize-engine.js";
     const ml = memberLock(el);
     // An Illustrate picture goes to Christmas › Illustration however it's locked (Danielle, 18 Nov).
     if (ml && isIllustrationPicture(el) && openIllustrateFor()) return;
+    /* A Fixed box, circle, triangle or star (Danielle, 18 Nov: "Choose a
+       background for your headshot" did nothing): its colour, or a pattern,
+       are theirs to choose; its place isn't. */
+    if (ml === "light" && /^(rect|ellipse|triangle|star)$/.test(el.type) && !el.src) {
+      if (!colorPanelInUse()) closeColorPanel();
+      if (typeof showPane === "function") showPane("selection");
+      body.innerHTML = '<p class="ed-selection-empty">This stays where it is in the template. Choose its colour, or a pattern.</p>' +
+        '<div class="ed-props-section"><h4>Colour</h4><div data-mount="ml-fill"></div></div>' +
+        '<div class="ed-props-section"><h4>Or a pattern</h4><div data-mount="ml-pat"></div></div>';
+      body.querySelector('[data-mount="ml-fill"]').appendChild(colorSwatchButton(fillCurrent(el), fillControl(el)));
+      body.querySelector('[data-mount="ml-pat"]').appendChild(xpPicker(function () { const t = getEl(el.id) || el; return t.fillPattern ? JSON.parse(JSON.stringify(t.fillPattern)) : null; }, function (v, live) {
+        const t = getEl(el.id) || el;
+        if (v) t.fillPattern = v; else delete t.fillPattern;
+        if (!live) { pushHistory(); fullRender(); renderProps(); } else fullRender();
+      }, { compact: true }));
+      return;
+    }
     if (ml && isXmasGraphic(el)) {
       if (!colorPanelInUse()) closeColorPanel();
       if (typeof showPane === "function") showPane("selection");
@@ -15862,8 +15879,6 @@ import { createResizeEngine } from "./resize-engine.js";
        shape: Change selects it and opens its own controls (fill, pattern,
        lines), not a picture chooser (Danielle, 18 Nov). */
     if (!src && /^(rect|ellipse|triangle|star|wframe)$/.test(el.type || "")) {
-      // Members have no shape controls on a Fixed box: the colour shows, nothing to press.
-      if (!isAdminMode() && el.type !== "wframe") return box;
       const go = document.createElement("button");
       go.type = "button";
       go.className = "ed-field-change";
