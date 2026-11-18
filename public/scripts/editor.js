@@ -3142,6 +3142,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // text afterwards — this just gives them a personalised starting point.
     if (!isAdminMode()) {
       fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos();
+      tpeCandyDefault();
       applyBrandFontsToTemplate(tpl && tpl.id);
       nudgeIfBrandNameMissing();
     }
@@ -3750,6 +3751,7 @@ import { createResizeEngine } from "./resize-engine.js";
   function bgPatGet() { return state.canvas.bgPattern ? JSON.parse(JSON.stringify(state.canvas.bgPattern)) : null; }
   function bgPatSet(v, live) {
     const was = state.canvas.bgPattern;
+    if (v && !isAdminMode()) v.memberPicked = true;   // theirs now: tpeCandyDefault leaves it
     if (v) { if (was && was.area && !v.area) v.area = was.area; state.canvas.bgPattern = v; } else delete state.canvas.bgPattern;
     if (v && !live && !applyPatternRoles(v)) {
       const a = xpAccent(v);
@@ -9772,6 +9774,35 @@ import { createResizeEngine } from "./resize-engine.js";
     });
     return any;
   }
+  /* Property Experts members start in Candy Cane (Danielle, 18 Nov: it's the
+     scheme most of them will want). Only for The Property Experts (not
+     Prestige), only where the pattern has a Candy Cane scheme, and never over
+     a scheme the member picked themselves (bgPattern.memberPicked). */
+  function isTpeKit() {
+    return String(_brandName || (BRAND && BRAND.company) || "").trim().toLowerCase() === "the property experts";
+  }
+  function tpeCandyDefault() {
+    if (isAdminMode() || !isTpeKit()) return false;
+    let changed = false;
+    (state.pages || []).forEach(function (pg) {
+      const v = pg && pg.canvas && pg.canvas.bgPattern;
+      if (!v || v.memberPicked || v.route === "candy") return;
+      const pr = xpPresets(v.key).find(function (x) { return x.route === "candy"; });
+      const pt = xpPattern(v.key);
+      if (!pr || !pt) return;
+      const nv = { key: v.key, cols: Object.assign({}, pt.cols, pr.cols), scale: pr.scale || v.scale || 100, route: "candy", scheme: pr.name };
+      if (v.area) nv.area = v.area;
+      pg.canvas.bgPattern = nv;
+      changed = true;
+    });
+    if (!changed) return false;
+    const v = designPattern();
+    if (v && !applyPatternRoles(v)) {
+      const a = xpAccent(v);
+      if (a) (state.pages || []).forEach(function (pg) { (pg.elements || []).forEach(function (o) { if (o && o.type === "wframe" && !o.fillPattern) o.stroke = a; }); });
+    }
+    return true;
+  }
   function xpScaleK(fill, cv) { return xpUnit(cv) * ((fill && fill.scale) || 100) / 100; }
   // For the download: a canvas pattern of the tile, drawn at twice its size for print.
   var _xpImg = new Map();
@@ -9814,6 +9845,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const list = xpPresets(key);
       return (sc && sc.route && list.find(function (x) { return x.route === sc.route; }))
         || (sc && sc.name && list.find(function (x) { return x.name === sc.name; }))
+        || (!isAdminMode() && isTpeKit() && list.find(function (x) { return x.route === "candy"; }))
         || list[0];
     };
     const curScheme = schemeOf(cur);
@@ -18026,6 +18058,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!kit.phone && mine.phone) keep.phone = mine.phone;
     _brandKit = Object.assign({}, kit, keep);
     _brandName = name || kit.company || null;
+    try { tpeCandyDefault(); } catch (_) {}
     BRAND = _brandKit;
     FONTS = buildFonts();
     state.pages.forEach(function (pg) { if (pg.canvas) pg.canvas.brand = _brandName; });
@@ -20263,7 +20296,7 @@ import { createResizeEngine } from "./resize-engine.js";
          on a saved copy: a tag only fills while the text still holds it, a
          logo slot while it is still text, and a photo they chose is theirs. */
       if (!isAdminMode()) {
-        try { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); fullRender(); } catch (_) {}
+        try { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); tpeCandyDefault(); fullRender(); } catch (_) {}
       }
     };
     if (typeof window.__TMKE_DESIGN_BOOTSTRAP_DONE__ !== "undefined") {
