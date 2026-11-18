@@ -9561,6 +9561,7 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   function wfPath(q) { return "M" + q.map((pt) => pt[0].toFixed(1) + "," + pt[1].toFixed(1)).join("L") + "Z"; }
   var _wfCache = null;
+  var _wfLineOpen = false;   // the frame panel's line fold-out, as last left
   function wfGeom(el) {
     const w = Math.max(20, el.w || 0), h = Math.max(20, el.h || 0);
     const lw = el.lineW > 0 ? el.lineW : 16, paint = el.paint != null ? el.paint : 6;
@@ -10647,7 +10648,9 @@ import { createResizeEngine } from "./resize-engine.js";
           '<div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>' +
           (el.fillSrc ? '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-wf-nopic" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Use the colour instead</button>' : "") : "") +
         '<div data-mount="wf-width"></div><div data-mount="wf-height"></div>' +
-        '<div data-mount="wf-thick"></div><div data-mount="wf-paint"></div>' +
+        // Folded away (Dani, 18 Nov), the way a box's individual corners are.
+        '<details class="ed-corner-details"' + (_wfLineOpen ? " open" : "") + ' data-wf-line><summary>Line thickness and brush</summary>' +
+          '<div data-mount="wf-thick"></div><div data-mount="wf-paint"></div></details>' +
       '</div>');
     }
 
@@ -11065,6 +11068,8 @@ import { createResizeEngine } from "./resize-engine.js";
       if (wM) wM.appendChild(sizeRow("Width", "w", "x", Math.round(state.canvas.width * 1.2)));
       const hM = body.querySelector('[data-mount="wf-height"]');
       if (hM) hM.appendChild(sizeRow("Height", "h", "y", Math.round(state.canvas.height * 1.2)));
+      const lineFold = body.querySelector("[data-wf-line]");
+      if (lineFold) lineFold.addEventListener("toggle", () => { _wfLineOpen = lineFold.open; });
       const thick = body.querySelector('[data-mount="wf-thick"]');
       if (thick) thick.appendChild(sliderNumberRow("Thickness", "px", 2, 80, 1, () => tgt().lineW || 16, (v) => { tgt().lineW = v; }, () => fullRender()));
       const paintM = body.querySelector('[data-mount="wf-paint"]');
