@@ -2453,6 +2453,10 @@ import { createResizeEngine } from "./resize-engine.js";
       const resultBlob = await removeBackground(srcBlob);
       const dataUrl = await blobToDataUrl(resultBlob);
 
+      /* A picture from Illustrate stays one with its background cut away: its
+         new address no longer says so, so the mark goes on the picture itself
+         and clicking it still opens Illustrate (Danielle, 18 Nov). */
+      if (isIllustrationPicture(el)) el.brandRole = "illustration";
       el.src = dataUrl;
       pushHistory();
       fullRender();
