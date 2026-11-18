@@ -12101,6 +12101,16 @@ import { createResizeEngine } from "./resize-engine.js";
      leaving it hanging where the previous one ended. */
   const LOGO_MAX_W = 200, LOGO_MAX_H = 75, LOGO_EDGE = 108;
 
+  /* The front logo on a Christmas card, set per scene (Dani, 18 Nov): 12 mm
+     down, and either centred on the front or 12 mm in from the right edge.
+     The front is the right half of a folded card's outside, or a postcard's
+     whole side. */
+  function placeFrontLogo(slot, cv) {
+    const m = Math.round(12 * 300 / 25.4);
+    const W = cv.width, left = isFolded(cv) ? W / 2 : 0;
+    slot.y = m;
+    slot.x = slot.logoPlace === "right" ? Math.round(W - m - slot.w) : Math.round(left + (W - left - slot.w) / 2);
+  }
   // Which edge this slot belongs to. Recorded on the element the first time it
   // is filled; worked out from where it sits for slots filled before that.
   function logoAnchorOf(el) {
@@ -12114,7 +12124,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
   function placeLogoInSlot(slot, src, after) {
     const anchor = logoAnchorOf(slot);
-    const prevY = slot.y, prevH = slot.h || 0;
+    const prevY = slot.y, prevH = slot.h || 0, prevCx = slot.x + (slot.w || 0) / 2;
     slot.logoAnchor = anchor;
     slot.src = src;
     const probe = new Image();
@@ -12142,10 +12152,18 @@ import { createResizeEngine } from "./resize-engine.js";
       h = h * 1.12;
       slot.w = Math.round(w);
       slot.h = Math.round(h);
-      slot.x = Math.round((state.canvas.width - w) / 2);
+      /* On a folded card or a postcard the logo stays where it was drawn
+         (Dani, 18 Nov): centred on its own half of a folded card, or on its
+         own box on a postcard. Centring on the whole sheet put a front logo
+         on the fold and a postcard's back logo across its column. */
+      const cv = state.canvas;
+      const cx = isFolded(cv) ? (prevCx < cv.width / 2 ? cv.width / 4 : cv.width * 3 / 4)
+        : isPostcard(cv) ? prevCx : cv.width / 2;
+      slot.x = Math.round(cx - w / 2);
       if (anchor === "top") slot.y = LOGO_EDGE;
       else if (anchor === "bottom") slot.y = Math.round(state.canvas.height - LOGO_EDGE - h);
       else slot.y = Math.round(prevY + (prevH - h) / 2);
+      if (slot.logoPlace) placeFrontLogo(slot, cv);
       fullRender();
       if (after) after();
     };
@@ -17721,6 +17739,28 @@ import { createResizeEngine } from "./resize-engine.js";
       return k.length ? k : all;
     }
     const hasSlot = () => (state.pages || []).some((p) => (p.elements || []).some((o) => o && o.brandRole === "illustration"));
+    // Where each scene puts the front logo: "centre", "right" or "off".
+    const LOGO_PLACES = [["centre", "Top centre"], ["right", "Top right"], ["off", "None"]];
+    const logoPlaceFor = (key) => {
+      const p = cardPages().find((pg) => pg.canvas.illustrateLogo);
+      const v = p && p.canvas.illustrateLogo[key];
+      return LOGO_PLACES.some((x) => x[0] === v) ? v : "centre";
+    };
+    /* The front's logo slots: on a folded card those on the front half of the
+       outside, on a postcard those on the side the picture went on. The back's
+       logo is left as it is. */
+    function applyFrontLogo(key, i) {
+      const pg = state.pages[i];
+      if (!pg) return;
+      const cv = pg.canvas, place = logoPlaceFor(key);
+      (pg.elements || []).filter((o) => o && o.brandRole === "logo" &&
+        (!isFolded(cv) || o.x + (o.w || 0) / 2 > cv.width / 2)).forEach((o) => {
+        if (place === "off") { o.hidden = true; o.logoOff = true; delete o.logoPlace; return; }
+        if (o.logoOff) { delete o.hidden; delete o.logoOff; }
+        o.logoPlace = place;
+        placeFrontLogo(o, cv);
+      });
+    }
     const xmasLine = (n, d) => n === 1 ? "You have 1 go left to use by " + d + "." : "You have " + n + " goes left to use by " + d + ".";
     const monthLine = (n) => n === 1 ? "You have 1 go left this month." : "You have " + n + " goes left this month.";
     const longDate = (ymd) => {
@@ -18061,6 +18101,8 @@ import { createResizeEngine } from "./resize-engine.js";
           if (busy) return;
           cardToBackground();
           await placeIllustration(x.src);
+          applyFrontLogo(x.key, state.currentPage);
+          fullRender();
           toast(C.setAdded);
         });
         grid.appendChild(b);
@@ -18098,6 +18140,8 @@ import { createResizeEngine } from "./resize-engine.js";
       ticks.hidden = !keys;
       ticks.innerHTML = "";
       if (keys) SET.forEach((x) => {
+        const row = document.createElement("div");
+        row.className = "ed-ill-tickrow";
         const lab = document.createElement("label");
         const inp = document.createElement("input");
         inp.type = "checkbox"; inp.id = "ed-ill-tick-" + x.key;
@@ -18108,8 +18152,28 @@ import { createResizeEngine } from "./resize-engine.js";
           setAll("set", next);
         });
         lab.appendChild(inp); lab.appendChild(document.createTextNode(x.name));
-        ticks.appendChild(lab);
+        row.appendChild(lab);
+        // The front logo for this scene (Dani, 18 Nov).
+        const sel = document.createElement("select");
+        sel.id = "ed-ill-logo-" + x.key;
+        sel.title = "Front logo with this scene";
+        sel.setAttribute("aria-label", "Front logo with " + x.name);
+        LOGO_PLACES.forEach((o) => { const op = document.createElement("option"); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op); });
+        sel.value = logoPlaceFor(x.key);
+        sel.disabled = !inp.checked;
+        sel.addEventListener("change", () => {
+          cardPages().forEach((p) => { p.canvas.illustrateLogo = Object.assign({}, p.canvas.illustrateLogo, { [x.key]: sel.value }); });
+          pushHistory();
+        });
+        row.appendChild(sel);
+        ticks.appendChild(row);
       });
+      if (keys) {
+        const head = document.createElement("div");
+        head.className = "ed-ill-tickhead";
+        head.innerHTML = "<span>Scene</span><span>Front logo</span>";
+        ticks.insertBefore(head, ticks.firstChild);
+      }
       $("ed-ill-admin-hint").textContent = keys ? C.adminHint : "";
       $("ed-ill-admin-hint").hidden = !keys;
       $("ed-ill-slot-hint").textContent = hasSlot() ? "" : C.slotHint;
