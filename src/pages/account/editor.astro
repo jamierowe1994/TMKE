@@ -7263,6 +7263,23 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
              looking at the back of a postcard replaced its front - and `pages`
              holds all of them. Same shape publish writes, so a design saved
              and a design published are the same thing on disk. */
+          /* Never an empty design over a full one (18 Nov: the December TPE
+             "Merry Christmas" template, tmpl-zvczap, was saved as a blank
+             1080 x 1440 page four seconds after it opened - the empty stand-in
+             the switcher list carries for a design whose contents aren't
+             loaded). A design with nothing on any page is only written when
+             the row has nothing on it either. */
+          const emptyNow = allPages.every((pg) => !(pg.elements || []).length) && !(payload?.canvas?.backgroundImage);
+          if (emptyNow) {
+            try {
+              const { data: row } = await supabase.from('templates').select('elements, pages').eq('id', payload.templateId).maybeSingle();
+              const had = row && (((row.elements || []).length) || (Array.isArray(row.pages) && row.pages.some((pg) => (pg.elements || []).length)));
+              if (had) {
+                console.warn('[save: refused empty over full]', payload.templateId);
+                return { ok: false, reason: 'Not saved: this would replace the design with an empty page. Reload the page to get the design back. If you really meant to clear it, delete one item at a time instead.' };
+              }
+            } catch (_) {}
+          }
           const first = allPages[0] || { canvas: payload.canvas, elements: payload.elements };
           const patch = {
             name: payload.filename,
@@ -7502,7 +7519,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           .order('sort_order', { ascending: true })
           .then(({ data: rows, error }) => {
             if (error || !rows || !rows.length || !tag) return;
-            const shaped = rows.map(shape);
+            /* These rows carry no contents: marked so the editor fetches a
+               design in full before opening it, and the full copies already
+               in the list (the design open now) are kept, not replaced. */
+            let have = [];
+            try { have = JSON.parse(tag.textContent || '[]'); } catch (_) {}
+            const full = new Map(have.filter((t) => t && !t.slim && Array.isArray(t.elements) && t.elements.length).map((t) => [t.id, t]));
+            const shaped = rows.map((r) => full.get(r.id) || Object.assign(shape(r), { slim: true }));
             if (requestedId) {
               const idx = shaped.findIndex((t) => t.id === requestedId);
               if (idx > 0) { const [hit] = shaped.splice(idx, 1); shaped.unshift(hit); }

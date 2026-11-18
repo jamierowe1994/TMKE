@@ -2959,6 +2959,20 @@ import { createResizeEngine } from "./resize-engine.js";
   // ---------- Load template ----------
   function loadTemplate(tplId, fresh) {
     let tpl = TEMPLATES.find((t) => t.id === tplId);
+    /* A list entry without its contents (the admin switcher list) is
+       fetched in full first; if it can't be, nothing opens. Opening the
+       stand-in gave a blank page, which autosave then wrote over the
+       template (tmpl-zvczap, 18 Nov). */
+    if (tpl && tpl.slim) {
+      if (typeof window.__TMKE_FETCH_TEMPLATE__ !== "function") { toast("This design couldn\u2019t be opened. Reload the page and try again."); return; }
+      window.__TMKE_FETCH_TEMPLATE__(tplId).then(function (full) {
+        if (full && full.canvas && Array.isArray(full.elements)) {
+          Object.assign(tpl, full); delete tpl.slim;
+          loadTemplate(tplId, fresh);
+        } else toast("This design couldn\u2019t be opened. Reload the page and try again.");
+      }).catch(function () { toast("This design couldn\u2019t be opened. Reload the page and try again."); });
+      return;
+    }
     // If the id isn't a bundled/pack template but a saved draft exists for it
     // (a Canva import or blank design autosaved under a "draft-…" id), keep the
     // id so we restore THAT draft rather than falling back to the first template.
@@ -14181,9 +14195,10 @@ import { createResizeEngine } from "./resize-engine.js";
           b.style.opacity = "0.5";
           try {
             const full = await window.__TMKE_FETCH_TEMPLATE__(t.id);
-            if (full) { t.canvas = full.canvas; t.elements = full.elements; t.pages = full.pages; t.updatedAt = full.updatedAt; }
+            if (full) { t.canvas = full.canvas; t.elements = full.elements; t.pages = full.pages; t.updatedAt = full.updatedAt; delete t.slim; }
           } catch (_) {}
           b.style.opacity = prevOpacity || "";
+          if (t.slim) { toast("This design couldn\u2019t be opened. Check your connection and try again."); return; }
         }
         loadTemplate(t.id, true);
         // A fresh design from a template: the Start pane's template list is
@@ -16811,11 +16826,12 @@ import { createResizeEngine } from "./resize-engine.js";
   var _templateOrigin = null;
   function syncResetButton() {
     const b = $("ed-start-reset");
-    if (b) b.hidden = !(_templateOrigin && TEMPLATES.some((t) => t.id === _templateOrigin));
+    // Not in the admin Studio: there the "original" is the template itself.
+    if (b) b.hidden = isAdminMode() || !(_templateOrigin && TEMPLATES.some((t) => t.id === _templateOrigin && !t.slim));
   }
   function resetToTemplate() {
     const tpl = TEMPLATES.find((t) => t.id === _templateOrigin);
-    if (!tpl) return;
+    if (!tpl || tpl.slim || isAdminMode() || !Array.isArray(tpl.elements) || !tpl.elements.length) return;
     if (!confirm("Reset to the original template? Every change you've made is cleared. Undo brings them back.")) return;
     const before = snapshotPages(), curBefore = state.currentPage;
     const W = state.canvas.width, H = state.canvas.height;
