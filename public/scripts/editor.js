@@ -4791,7 +4791,7 @@ import { createResizeEngine } from "./resize-engine.js";
       node.style.border = (el.strokeWidth ? `${el.strokeWidth}px solid ${el.stroke || "transparent"}` : "none");
     }
     if (el.type === "wframe") {
-      const sig = [el.shape, el.mode, el.stroke, el.fill, el.fillSrc, el.lineW, el.paint, Math.round(el.w), Math.round(el.h)].join("|");
+      const sig = [el.shape, el.mode, el.stroke, el.fill, el.fillSrc, el.lineW, el.paint, el.fw, el.fh, Math.round(el.w), Math.round(el.h)].join("|");
       if (node._wfSig !== sig) { node.innerHTML = wframeSvg(el); node._wfSig = sig; }
       node.style.background = "transparent";
     }
@@ -9565,11 +9565,15 @@ import { createResizeEngine } from "./resize-engine.js";
   function wfGeom(el) {
     const w = Math.max(20, el.w || 0), h = Math.max(20, el.h || 0);
     const lw = el.lineW > 0 ? el.lineW : 16, paint = el.paint != null ? el.paint : 6;
-    const key = [el.shape, Math.round(w), Math.round(h), lw, paint].join("|");
+    // The frame's own size inside its box, as a share of it (Dani, 18 Nov):
+    // the box and its picture stay put, the frame sets the border round it.
+    const fw = Math.max(20, Math.min(100, el.fw || 100)) / 100, fh = Math.max(20, Math.min(100, el.fh || 100)) / 100;
+    const key = [el.shape, Math.round(w), Math.round(h), lw, paint, fw, fh].join("|");
     _wfCache = _wfCache || new Map();
     if (_wfCache.has(key)) return _wfCache.get(key);
     const pad = lw * 0.75;
-    const pts = wfOutline(el.shape, pad, pad, w - pad, h - pad);
+    const iw = (w - 2 * pad) * fw, ih = (h - 2 * pad) * fh, x0 = (w - iw) / 2, y0 = (h - ih) / 2;
+    const pts = wfOutline(el.shape, x0, y0, x0 + iw, y0 + ih);
     const g = { outline: wfPath(pts), ribbon: wfRibbon(pts, lw, paint) };
     if (_wfCache.size > 60) _wfCache.clear();
     _wfCache.set(key, g);
@@ -11057,17 +11061,17 @@ import { createResizeEngine } from "./resize-engine.js";
       if (fillMountWf) fillMountWf.appendChild(colorSwatchButton(() => tgt().fill || "#2e3f34", { title: "Fill colour", key: "wf-fill", onSolid: (hex) => { const t = tgt(); t.fill = hex; delete t.fillSrc; } }));
       const nopic = body.querySelector("#ed-wf-nopic");
       if (nopic) nopic.addEventListener("click", () => { delete tgt().fillSrc; pushHistory(); fullRender(); renderProps(); });
-      /* Width and height here as well as on the handles (Dani, 18 Nov: like
-         the test page). From the middle, so the frame stays where it is. */
-      const sizeRow = function (label, key, posKey, max) {
-        return sliderNumberRow(label, "px", 40, max, 1, () => Math.round(tgt()[key]), (v) => {
-          const t = tgt(); t[posKey] = Math.round(t[posKey] + (t[key] - v) / 2); t[key] = v;
-        }, () => { fullRender(); renderHandles(); });
+      /* The frame's width and height inside its box (Dani, 18 Nov): the box,
+         and the picture or colour filling it, stay the same size; the frame
+         grows or shrinks in the middle, which sets the border round it. The
+         handles still size the whole box. */
+      const sizeRow = function (label, key) {
+        return sliderNumberRow(label, "%", 20, 100, 1, () => tgt()[key] || 100, (v) => { tgt()[key] = v; }, () => fullRender());
       };
       const wM = body.querySelector('[data-mount="wf-width"]');
-      if (wM) wM.appendChild(sizeRow("Width", "w", "x", Math.round(state.canvas.width * 1.2)));
+      if (wM) wM.appendChild(sizeRow("Frame width", "fw"));
       const hM = body.querySelector('[data-mount="wf-height"]');
-      if (hM) hM.appendChild(sizeRow("Height", "h", "y", Math.round(state.canvas.height * 1.2)));
+      if (hM) hM.appendChild(sizeRow("Frame height", "fh"));
       const lineFold = body.querySelector("[data-wf-line]");
       if (lineFold) lineFold.addEventListener("toggle", () => { _wfLineOpen = lineFold.open; });
       const thick = body.querySelector('[data-mount="wf-thick"]');
