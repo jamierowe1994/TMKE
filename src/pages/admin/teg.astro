@@ -419,7 +419,10 @@ import "../../styles/admin.css";
       const nameCell = (name, cid, email) => `${cid ? `<button type="button" class="rc-namebtn" data-card="${esc(cid)}">${esc(name)}</button>` : esc(name)}${email ? `<br><span style="color:rgba(28,29,34,0.5)">${esc(email)}</span>` : ''}`;
       const doneOr = (key, html) => DONE.has(key) ? `<span class="rc-done">${esc(DONE.get(key))}</span>` : html;
       const cardBtn = (cid) => cid ? `<button type="button" class="admin-btn admin-btn-ghost" data-card="${esc(cid)}">Contact card</button>` : '';
-      const leaverActs = (l) => doneOr(l.key, `<div class="rc-acts">${cardBtn(l.contact_id)}<button type="button" class="admin-btn admin-btn-ghost" data-left="${esc(l.key)}">Mark as left</button><button type="button" class="admin-btn admin-btn-danger" data-remove="${esc(l.key)}">Remove from CRM</button></div>`);
+      // With a Member Hub account they're marked as left for now; without
+      // one they can be removed from the CRM (Danielle, 18 Nov).
+      const leaverActs = (l) => doneOr(l.key, `<div class="rc-acts">${cardBtn(l.contact_id)}<button type="button" class="admin-btn admin-btn-ghost" data-left="${esc(l.key)}">Mark as left</button>${l.account ? '' : `<button type="button" class="admin-btn admin-btn-danger" data-remove="${esc(l.key)}">Remove from CRM</button>`}</div>`);
+      const accountCell = (l) => !l.account ? 'No account' : l.account.last_sign_in ? `Yes, last signed in ${esc(day(l.account.last_sign_in))}` : 'Yes, never signed in';
       const fmtChange = (c) => c.field === 'Status' || c.field === 'Team Hub record'
         ? `<span class="rc-change"><b>${esc(c.field)}:</b> ${statusPill(c.old_value)}<span class="rc-arrow">&rarr;</span>${statusPill(c.new_value)}</span>`
         : `<span class="rc-change"><b>${esc(c.field)}:</b> <s>${esc(c.old_value || 'none')}</s><span class="rc-arrow">&rarr;</span>${esc(c.new_value || 'none')}</span>`;
@@ -439,8 +442,8 @@ import "../../styles/admin.css";
             <td class="teg-flag rc-check">${esc(r.maybe)}${r.twin_id ? `<div class="rc-acts rc-acts-l"><button type="button" class="rc-link" data-card="${esc(r.twin_id)}">Open theirs</button>${DONE.has('s:' + r.key) ? '' : `<button type="button" class="rc-link" data-link="${esc(r.key)}">It's them</button>`}</div>` : ''}</td>
             <td>${doneOr('s:' + r.key, `<div class="rc-acts"><button type="button" class="admin-btn admin-btn-primary" data-add="${esc(r.key)}">Add to CRM</button></div>`)}</td></tr>`).join('')))}
 
-        ${sec('leavers', 'Leavers', left.length, 'In our CRM at these brands, and the Team Hub says they\'ve left. Remove takes them out of the CRM altogether; Mark as left keeps their card and marks them as left at that brand.',
-          table(['Name', 'Brand', 'Job title', 'Team Hub status', 'Leave date', ''], left.map((l) => `<tr><td>${nameCell(l.name, l.contact_id, l.email)}</td><td>${brandPills([l.brand])}</td><td>${esc(l.job_title || '—')}</td><td>${statusPill(l.teg_status)}</td><td>${l.left_at ? esc(day(l.left_at)) : '<span style="color:rgba(28,29,34,0.5)">Not set on the Team Hub</span>'}</td><td>${leaverActs(l)}</td></tr>`).join('')))}
+        ${sec('leavers', 'Leavers', left.length, 'In our CRM at these brands, and the Team Hub says they\'ve left. Mark as left keeps their card and takes away every brand, so no brand packs and no Content Calendar. Anyone with a Member Hub account is marked as left for now; anyone without one can be removed from the CRM altogether.',
+          table(['Name', 'Brand', 'Job title', 'Team Hub status', 'Leave date', 'Member account', ''], left.map((l) => `<tr><td>${nameCell(l.name, l.contact_id, l.email)}</td><td>${brandPills([l.brand])}</td><td>${esc(l.job_title || '—')}</td><td>${statusPill(l.teg_status)}</td><td>${l.left_at ? esc(day(l.left_at)) : '<span style="color:rgba(28,29,34,0.5)">Not set on the Team Hub</span>'}</td><td>${accountCell(l)}</td><td>${leaverActs(l)}</td></tr>`).join('')))}
 
         ${sec('changes', 'Changes since the last check', openChanges.length,
           d.baseline ? 'This was the first check, so there was nothing to compare with. Today\'s statuses are saved, and changes will show from the next check.' : 'Status, brand, job title or person type, as the Team Hub has them now. Each stays here until you mark it done.',
@@ -449,7 +452,7 @@ import "../../styles/admin.css";
           openChanges.length > 1 ? `<button type="button" class="rc-link" id="rc-cdone-all">Mark all done</button>` : '')}
 
         ${sec('missing', 'In our CRM, not on the Team Hub', missing.length, 'Not found on the Team Hub at all. That can be a leaver, or just a different email or name there, so check before removing anyone. Anyone who looks to be there under another name is noted.',
-          table(['Name', 'Brand', 'Job title', 'Still live?', ''], missing.map((l) => `<tr><td>${nameCell(l.name, l.contact_id, l.email)}</td><td>${brandPills([l.brand])}</td><td>${esc(l.job_title || '—')}</td><td class="teg-flag">${esc(l.live || '')}</td><td>${leaverActs(l)}</td></tr>`).join('')))}
+          table(['Name', 'Brand', 'Job title', 'Still live?', 'Member account', ''], missing.map((l) => `<tr><td>${nameCell(l.name, l.contact_id, l.email)}</td><td>${brandPills([l.brand])}</td><td>${esc(l.job_title || '—')}</td><td class="teg-flag">${esc(l.live || '')}</td><td>${accountCell(l)}</td><td>${leaverActs(l)}</td></tr>`).join('')))}
 
         ${sec('details', 'Details to fill for people we have', updates.length, 'Blanks on their brand profile the Team Hub can fill. Only blanks: where we already hold something different, it\'s under Doesn\'t agree and left alone.',
           `<div class="teg-pick"><button type="button" class="admin-btn admin-btn-primary" id="teg-ro-go" ${pick.size ? '' : 'disabled'}>Fill ${pick.size} selected</button> <span class="teg-status" id="teg-ro-st"></span></div>`
@@ -488,11 +491,14 @@ import "../../styles/admin.css";
       const l = (CHECK.leavers || []).find((x) => x.key === (t.dataset.left || t.dataset.remove));
       if (!l) return;
       if (t.dataset.left) {
-        if (!confirm(`Mark ${l.name} as left at ${l.brand}${l.left_at ? ` on ${l.left_at}` : ' today'}? Their contact card stays.`)) return;
+        const theirs = [...new Set((CHECK.leavers || []).filter((x) => x.contact_id === l.contact_id).map((x) => x.brand))];
+        if (!confirm(`Mark ${l.name} as left${l.left_at ? ` on ${l.left_at}` : ' today'}?\n\nThis takes away every brand they're at${theirs.length ? ` (${theirs.join(', ')}${theirs.length === 1 ? ', and any other' : ''})` : ''}, so they lose the brand packs and the Content Calendar. Their contact card stays${l.account ? ', and so does their Member Hub login' : ''}.`)) return;
         t.disabled = true;
         const { body } = await post('/teg/roster/apply', { actions: [{ kind: 'left', key: l.key, contact_id: l.contact_id, brand: l.brand, left_at: l.left_at }] });
         if (!body || (body.failed || []).length || !(body.done || []).length) { t.disabled = false; alert("Couldn't save that: " + ((body && body.failed && body.failed[0] && body.failed[0].error) || (body && body.error) || 'no answer')); return; }
-        DONE.set(l.key, 'Marked as left'); drawCheck();
+        // Every brand goes, so every row for the same person is done.
+        (CHECK.leavers || []).filter((x) => x.contact_id === l.contact_id).forEach((x) => DONE.set(x.key, 'Marked as left'));
+        drawCheck();
       } else {
         if (!confirm(`Remove ${l.name} from the CRM?\n\nThis deletes their contact card, brand profiles, notes, tasks and automation enrolments. Their bookings, orders and email history stay. It can't be undone.`)) return;
         t.disabled = true;

@@ -1167,7 +1167,7 @@ async function rosterContext(env) {
     email: lc(t.email) || null,
     phone: String(t.mobile || "").trim() || null,
   });
-  const contacts = (await sbGetAll(env, "contacts", "select=id,first_name,last_name,email,secondary_email,phone,company&order=id.asc")) || [];
+  const contacts = (await sbGetAll(env, "contacts", "select=id,first_name,last_name,email,secondary_email,phone,company,user_id&order=id.asc")) || [];
   const profs = (await sbGetAll(env, "agent_profiles", "select=id,contact_id,brand,email,phone,job_title,date_joined,postcode,area,left_at&order=id.asc")) || [];
   const byId = new Map(contacts.map((c) => [c.id, c]));
   const byEmail = new Map();
@@ -1405,6 +1405,22 @@ async function runRosterCheck(env, by) {
   if (live.error) return { error: live.error };
   const today = rosterToday();
   const result = rosterCompare(ctx, live.rows, today);
+  /* Whether each leaver has a Member Hub account (Danielle, 18 Nov 2026):
+     with one, they're marked as left for now; without, they can be removed
+     from the CRM. When they last signed in, from their sign-in record. */
+  const accountOf = new Map();
+  await Promise.all([...new Set(result.leavers.map((l) => (ctx.byId.get(l.contact_id) || {}).user_id).filter(Boolean))].map(async (uid) => {
+    try {
+      const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${uid}`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
+      const u = res.ok ? await res.json() : null;
+      accountOf.set(uid, u && u.id ? { last_sign_in: u.last_sign_in_at || null } : null);
+    } catch (_) { accountOf.set(uid, { last_sign_in: null, unknown: true }); }
+  }));
+  result.leavers.forEach((l) => {
+    const uid = (ctx.byId.get(l.contact_id) || {}).user_id;
+    const a = uid ? accountOf.get(uid) : null;
+    l.account = a ? { last_sign_in: a.last_sign_in } : null;
+  });
   const ch = await rosterChanges(env, ctx, live.rows);
   // What's still to look at: every change not yet marked done, newest first,
   // matched again to a contact in case one has been added since.
@@ -2889,6 +2905,9 @@ async function ensureTegFromDomain(env, { contactId, email }) {
   const mine = rows.find((r) => String(r.brand || "").trim() === brand);
   // Already known at this brand, or deliberately marked as having left it.
   if (mine) return mine.left_at ? null : brand;
+  // Someone marked as left everywhere is never given a brand back from their
+  // address (Danielle, 18 Nov): a PPE leaver with a TPE address stays out.
+  if (rows.some((r) => r.left_at) && !rows.some((r) => r.brand && !r.left_at)) return null;
   const blank = rows.find((r) => !r.brand);
   if (blank) {
     await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(blank.id)}`, {
@@ -15892,12 +15911,13 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
                 if (email !== lc(c.email) && !lc(c.secondary_email)) await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(a.contact_id)}`, { secondary_email: email });
                 done.push(a.key);
               } else if (a.kind === "left") {
-                // A leaver kept on file: their profile at that brand is marked
-                // as left (the date they left, else today). The contact stays.
+                // A leaver kept on file: marked as left at EVERY brand they're
+                // at (Danielle, 18 Nov: "all brands are stripped from them"),
+                // so no brand pack, brand kit or Content Calendar answers to
+                // them. The date they left, else today. The contact stays.
                 if (!byId.get(a.contact_id)) throw new Error("contact not found");
                 const when = /^\d{4}-\d{2}-\d{2}$/.test(a.left_at || "") ? a.left_at : rosterToday();
-                const brandQ = a.brand ? `&brand=eq.${encodeURIComponent(a.brand)}` : "";
-                const r = await sbPatch(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(a.contact_id)}&left_at=is.null${brandQ}`, { left_at: when, left_brand: a.brand || null });
+                const r = await sbPatch(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(a.contact_id)}&left_at=is.null`, { left_at: when, left_brand: a.brand || null });
                 if (r && r.ok === false) throw new Error("couldn't save");
                 done.push(a.key);
               }

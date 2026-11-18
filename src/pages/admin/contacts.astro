@@ -1374,7 +1374,18 @@ import "../../styles/contacts-os.css";
       const c = cardContact(); if (!c) return;
       const p = (CS.d.profiles || []).find((r) => String(r.id) === String(CS.tab)); if (!p || !p.brand) return;
       if (kind === "primary") { if (await brandPost(c, { brand: p.brand, make_primary: true })) { renderList(); renderCard(); toast("Their Studio opens in this brand now."); } return; }
-      if (kind === "leave") { if (await brandPost(c, { brand: p.brand, left_at: todayIso() })) { renderList(); renderCard(); toast(`Marked as left ${p.brand} today. Their history stays.`); } return; }
+      // Leaving takes away every brand (Danielle, 18 Nov): no brand packs, no
+      // brand kit and no Content Calendar. They're back is one brand at a time.
+      if (kind === "leave") {
+        const live = liveOf(CS.d.profiles);
+        const names = live.map((x) => x.brand);
+        if (!confirm(`Mark ${fullName(c)} as left today?\n\nThis takes away every brand they're at (${names.join(", ")}), so they lose the brand packs and the Content Calendar. Their card and history stay${c.user_id ? ", and so does their Member Hub login" : ""}.`)) return;
+        let ok = true;
+        for (const x of live) { if (!(await brandPost(c, { brand: x.brand, left_at: todayIso() }))) { ok = false; break; } }
+        renderList(); renderCard();
+        if (ok) toast(`Marked as left ${names.length > 1 ? "every brand" : names[0]} today. Their history stays.`);
+        return;
+      }
       if (kind === "unleave") { if (await brandPost(c, { brand: p.brand, left_at: null })) { renderList(); renderCard(); toast(`Back at ${p.brand}.`); } return; }
     }
     async function removeBrand() {
