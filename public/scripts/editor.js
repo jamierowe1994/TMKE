@@ -1380,6 +1380,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const o = {
       title: isGradient ? "Gradient" : "Fill",
       onGradient: function (gr) {
+        delete el.fillPattern;
         el.fillGradient = { enabled: true, type: gr.type || "linear",
           angle: gr.angle != null ? gr.angle : 135, stops: gr.stops,
           from: gr.from, to: gr.to, fromStop: gr.fromStop, toStop: gr.toStop };
@@ -1387,7 +1388,7 @@ import { createResizeEngine } from "./resize-engine.js";
       getGradient: function () { return el.fillGradient; },
     };
     if (!isGradient) {
-      o.onSolid = function (hex) { el.fill = hex; el.fillGradient = null; };
+      o.onSolid = function (hex) { el.fill = hex; el.fillGradient = null; delete el.fillPattern; };
       /* A see-through middle for a shape (Dani, 17 Nov): turning a box's
          opacity down to 0 took its border with it, so a box that was only
          ever a border couldn't be made. "transparent" is a fill like any
@@ -1739,6 +1740,15 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   let _cpGradOpen = false;     // the Custom gradient drop-down, open or shut
+  /* Being used right now: typing in its hex box, or the pointer over it.
+     A redraw while typing a colour (each valid hex is applied as you go)
+     used to shut it when nothing was selected, as on the background (Dani,
+     18 Nov: "if you pause between typing, it closes"). */
+  function colorPanelInUse() {
+    const p = document.getElementById("ed-colorpanel");
+    if (!p || p.hidden) return false;
+    return p.contains(document.activeElement) || (p.matches && p.matches(":hover"));
+  }
   function closeColorPanel() {
     _openColorKey = null;
     const panel = document.getElementById("ed-colorpanel");
@@ -4721,6 +4731,7 @@ import { createResizeEngine } from "./resize-engine.js";
       inner.style.height = "100%";
       inner.style.clipPath = "polygon(50% 0%, 100% 100%, 0% 100%)";
       inner.style.background = el.fill;
+      if (el.fillPattern) { const xpT2 = xpTile(el.fillPattern, xpScaleK(el.fillPattern, state.canvas)); if (xpT2) { inner.style.backgroundImage = 'url("' + xpT2.url + '")'; inner.style.backgroundSize = xpT2.w.toFixed(2) + "px " + xpT2.h.toFixed(2) + "px"; } }
       inner.style.opacity = el.opacity;
       node.appendChild(inner);
     } else if (el.type === "line") {
@@ -4732,6 +4743,7 @@ import { createResizeEngine } from "./resize-engine.js";
       inner.style.height = "100%";
       inner.style.clipPath = "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)";
       inner.style.background = el.fill;
+      if (el.fillPattern) { const xpT2 = xpTile(el.fillPattern, xpScaleK(el.fillPattern, state.canvas)); if (xpT2) { inner.style.backgroundImage = 'url("' + xpT2.url + '")'; inner.style.backgroundSize = xpT2.w.toFixed(2) + "px " + xpT2.h.toFixed(2) + "px"; } }
       inner.style.opacity = el.opacity;
       node.appendChild(inner);
     }
@@ -4854,6 +4866,9 @@ import { createResizeEngine } from "./resize-engine.js";
     if (el.type === "rect" || el.type === "ellipse") {
       const grad = (el.fillGradient && el.fillGradient.enabled) ? textGradientCss(el.fillGradient) : null;
       node.style.background = grad || el.fill || "transparent";
+      // A Christmas pattern fill (Dani, 18 Nov: "apply the background pattern to shapes").
+      const xpS = el.fillPattern && xpTile(el.fillPattern, xpScaleK(el.fillPattern, state.canvas));
+      if (xpS) { node.style.backgroundImage = 'url("' + xpS.url + '")'; node.style.backgroundSize = xpS.w.toFixed(2) + "px " + xpS.h.toFixed(2) + "px"; node.style.backgroundRepeat = "repeat"; }
       node.style.borderRadius = (el.type === "ellipse" ? "50%" : frameRadiusCss(el));
       node.style.border = (el.strokeWidth ? `${el.strokeWidth}px solid ${el.stroke || "transparent"}` : "none");
     }
@@ -8812,6 +8827,9 @@ import { createResizeEngine } from "./resize-engine.js";
         await drawFrameToCanvas(ctx, el);
       } else if (el.type === "wframe") {
         await drawWframe(ctx, el);
+      } else if ((_xpShapePat = (el.fillPattern && (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star"))
+          ? await xpCanvasPattern(ctx, el.fillPattern, SRC.canvas).catch(function () { return null; }) : null) && false) {
+        // (loads a shape's pattern for shapeCanvasFill; never taken)
       } else if (el.type === "rect") {
         ctx.fillStyle = shapeCanvasFill(ctx, el);
         if (hasPerCorner(el)) roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
@@ -8847,7 +8865,7 @@ import { createResizeEngine } from "./resize-engine.js";
         ctx.closePath();
         ctx.fill();
       } else if (el.type === "star") {
-        ctx.fillStyle = el.fill;
+        ctx.fillStyle = _xpShapePat || el.fill;
         drawStar(ctx, el.w, el.h);
       } else if (el.type === "line") {
         ctx.fillStyle = el.fill;
@@ -8855,6 +8873,7 @@ import { createResizeEngine } from "./resize-engine.js";
       } else if (el.type === "text") {
         drawTextElementToCanvas(ctx, el);
       }
+      _xpShapePat = null;
 
       ctx.restore();
     }
@@ -10771,7 +10790,7 @@ import { createResizeEngine } from "./resize-engine.js";
     }
 
     if (state.selectedIds.length !== 1) {
-      closeColorPanel();
+      if (!colorPanelInUse()) closeColorPanel();
       if (state.selectedIds.length > 1) {
         // Multi-select: show the group's bounding-box X/Y (editable — moves the
         // whole group) and its overall W/H (read-only). Previously the inspector
@@ -10857,7 +10876,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // photo from the chooser, which opens as you pick it.
     const ml = memberLock(el);
     if (ml) {
-      closeColorPanel();
+      if (!colorPanelInUse()) closeColorPanel();
       if (typeof showPane === "function") showPane("selection");
       const isPic = el.type === "image" || el.type === "frame";
       if (ml === "light" && isPic && el.brandRole === "qr") {
@@ -10996,6 +11015,7 @@ import { createResizeEngine } from "./resize-engine.js";
       html.push(`<div class="ed-props-section"><h4>Fill</h4>
         <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="fill-color"></span><label style="margin:0">Colour</label></div>
         <div data-mount="fill-opacity"></div>
+        ${el.type !== "line" ? '<div class="ed-xp-h">Fill with a pattern</div><div data-mount="shape-pattern"></div>' : ""}
       </div>`);
       if (el.type === "rect") {
         html.push(cornerRadiusSectionHtml());
@@ -11380,6 +11400,12 @@ import { createResizeEngine } from "./resize-engine.js";
     }
 
     if (el.type === "wframe") wireWfPanel(body, el);
+    const shapePat = body.querySelector('[data-mount="shape-pattern"]');
+    if (shapePat) shapePat.appendChild(xpPicker(function () { const t = getEl(el.id) || el; return t.fillPattern ? JSON.parse(JSON.stringify(t.fillPattern)) : null; }, function (v, live) {
+      const t = getEl(el.id) || el;
+      if (v) t.fillPattern = v; else delete t.fillPattern;
+      if (!live) { pushHistory(); fullRender(); renderProps(); } else fullRender();
+    }));
     const fillMount = body.querySelector('[data-mount="fill-color"]');
     if (fillMount) {
       fillMount.appendChild(colorSwatchButton(fillCurrent(el), fillControl(el)));
@@ -11898,7 +11924,9 @@ import { createResizeEngine } from "./resize-engine.js";
 
   // Canvas fill for a shape on export — a gradient (incl. fade-to-transparent)
   // when el.fillGradient is enabled, else the solid el.fill.
+  var _xpShapePat = null;   // the pattern of the shape being drawn, loaded just before
   function shapeCanvasFill(ctx, el) {
+    if (_xpShapePat) return _xpShapePat;
     const grad = el.fillGradient;
     if (!grad || !grad.enabled) return el.fill || "transparent";
     return canvasGrad(ctx, grad, el.w, el.h);
@@ -12627,14 +12655,15 @@ import { createResizeEngine } from "./resize-engine.js";
      leaving it hanging where the previous one ended. */
   const LOGO_MAX_W = 200, LOGO_MAX_H = 75, LOGO_EDGE = 108;
 
-  /* The front logo on a Christmas card, set per scene (Dani, 18 Nov): 12 mm
+  /* The front logo on a Christmas card, set per scene (Dani, 18 Nov): 8 mm
      down, and either centred on the front or 12 mm in from the right edge.
      The front is the right half of a folded card's outside, or a postcard's
      whole side. */
   function placeFrontLogo(slot, cv) {
-    const m = Math.round(12 * 300 / 25.4);
+    // 8 mm from the top since 18 Nov (Dani); 12 mm in from the right for Top right.
+    const m = Math.round(12 * 300 / 25.4), top = Math.round(8 * 300 / 25.4);
     const W = cv.width, left = isFolded(cv) ? W / 2 : 0;
-    slot.y = m;
+    slot.y = top;
     slot.x = slot.logoPlace === "right" ? Math.round(W - m - slot.w) : Math.round(left + (W - left - slot.w) / 2);
   }
   // Which edge this slot belongs to. Recorded on the element the first time it
@@ -18381,13 +18410,13 @@ import { createResizeEngine } from "./resize-engine.js";
     const SET_DIR = "/images/illustrate-set/";
     const SET = [
       { key: "terrace",   name: "Victorian terraced street", p: "terrace-v1" },
-      { key: "country",   name: "English country house",     p: "country-v1",   l: "country-land-v1" },
-      { key: "townhouse", name: "White London townhouse",    p: "townhouse-v1", l: "townhouse-land-v1", nameL: "London townhouses" },
-      { key: "cab",       name: "Black cab",                 p: "cab-v1",       l: "cab-land-v1" },
+      { key: "country",   name: "English country house",     p: "country-v1",   l: "country-land-v2" },
+      { key: "townhouse", name: "White London townhouse",    p: "townhouse-v1", l: "townhouse-land-v2", nameL: "London townhouses" },
+      { key: "cab",       name: "Black cab",                 p: "cab-v1",       l: "cab-land-v2" },
       { key: "door",      name: "Georgian front door",       p: "door-v1" },
-      { key: "opulent",   name: "Burgundy living room",      p: "opulent-v1",   l: "opulent-land-v1" },
-      { key: "cotswolds", name: "Cotswold village",                             l: "cotswolds-land-v1" },
-      { key: "farmhouse", name: "Cotswold farmhouse",                           l: "farmhouse-land-v1" },
+      { key: "opulent",   name: "Burgundy living room",      p: "opulent-v1",   l: "opulent-land-v2" },
+      { key: "cotswolds", name: "Cotswold village",                             l: "cotswolds-land-v2" },
+      { key: "farmhouse", name: "Cotswold farmhouse",                           l: "farmhouse-land-v2" },
     ];
     // The shape being designed: landscape on a postcard, portrait otherwise.
     const setShape = () => {
@@ -18403,11 +18432,13 @@ import { createResizeEngine } from "./resize-engine.js";
     const setName = (x, shape) => ((shape || setShape()) === "l" && x.nameL) || x.name;
     const forShape = (shape) => SET.filter((x) => !!x[shape || setShape()]);
     // The four card colours, for a set template when the goes haven't loaded.
+    // The card colours since 18 Nov (Dani): the Worker sends the same list.
     const DEFAULT_BGS = [
-      { key: "grey",   label: "Neutral Grey",  hex: "#F1F1F1" },
-      { key: "pink",   label: "Neutral Pink",  hex: "#c4a092" },
-      { key: "beige",  label: "Neutral Beige", hex: "#eae5e1" },
-      { key: "forest", label: "Forest Green",  hex: "#2e3f34" },
+      { key: "grey",    label: "Ivory",        hex: "#F1F1F1" },
+      { key: "beige",   label: "Oat",          hex: "#eae5e1" },
+      { key: "blush",   label: "Blush",        hex: "#E4C7C1" },
+      { key: "oxblood", label: "Oxblood",      hex: "#430E18" },
+      { key: "forest",  label: "Forest Green", hex: "#242F25" },
     ];
     const bgList = () => (me && Array.isArray(me.backgrounds) && me.backgrounds.length) ? me.backgrounds : DEFAULT_BGS;
     const cardPages = () => (state.pages || []).filter((p) => p && p.canvas && (isFolded(p.canvas) || isPostcard(p.canvas)));
@@ -18486,7 +18517,8 @@ import { createResizeEngine } from "./resize-engine.js";
        white. Pictures, photo slots and the QR code are left alone, and so is
        the inside. */
     // Dani's own pairings, 17 Nov.
-    const TEXT_ON = { grey: "#3b3b3c", beige: "#371e28", pink: "#56423e", forest: "#ffffff" };
+    // Blush takes Oxblood, Oxblood and Forest Green take white (Dani, 18 Nov).
+    const TEXT_ON = { grey: "#3b3b3c", beige: "#371e28", blush: "#430e18", oxblood: "#ffffff", forest: "#ffffff", pink: "#56423e" };
     function inkFor(hex) {
       if (TEXT_ON[bg]) return TEXT_ON[bg];
       const n = parseInt(String(hex).slice(1), 16);
@@ -18514,7 +18546,7 @@ import { createResizeEngine } from "./resize-engine.js";
        it takes the new colour; its border, if it has one, takes the
        words' colour like the lines do. Other coloured shapes are left. */
     const sameHex = (a, b) => !!a && !!b && String(a).toLowerCase() === String(b).toLowerCase();
-    const CARD_HEX = ["#f1f1f1", "#c4a092", "#eae5e1", "#2e3f34"];
+    const CARD_HEX = ["#f1f1f1", "#eae5e1", "#e4c7c1", "#430e18", "#242f25", "#c4a092", "#2e3f34"];
     const isBlock = (o, pg) => (o.type === "rect" || o.type === "ellipse") && !o.hidden && !isGrad(o) && !thinBar(o, pg);
     // Once a shape has been given the words' colour it stays an accent, even
     // when that colour is also a card colour (Forest Green inside a card).
@@ -18572,10 +18604,12 @@ import { createResizeEngine } from "./resize-engine.js";
        point for a matching set: nothing is locked, and making the
        illustration doesn't put the inside back after it has been changed. */
     const INSIDE = {
-      grey:   { bg: "grey",  ink: "#3b3b3c" },
-      pink:   { bg: "grey",  ink: "#56423e" },
-      beige:  { bg: "beige", ink: "#371e28" },
-      forest: { bg: "beige", ink: "#2e3f34" },
+      grey:    { bg: "grey",  ink: "#3b3b3c" },
+      blush:   { bg: "grey",  ink: "#430e18" },
+      beige:   { bg: "beige", ink: "#371e28" },
+      oxblood: { bg: "beige", ink: "#430e18" },
+      forest:  { bg: "beige", ink: "#242f25" },
+      pink:    { bg: "grey",  ink: "#56423e" },
     };
     const swatchHex = (key) => (bgList().find((b) => b.key === key) || {}).hex;
     /* insideKey: a colour picked while on the inside (slide 2) colours only

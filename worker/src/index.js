@@ -6390,12 +6390,18 @@ const ILL_STYLES = {
    forest green, chosen in the Studio, built into the prompt; cream felt dated). Neutral, so the
    painting carries the colour and the brand colour goes on the back. */
 const ILL_BACKGROUNDS = {
-  grey:   { label: "Neutral Grey",  hex: "#F1F1F1", words: "a soft neutral light grey" },
-  pink:   { label: "Neutral Pink",  hex: "#c4a092", words: "a dusky muted pink" },
-  beige:  { label: "Neutral Beige", hex: "#eae5e1", words: "a soft warm light beige" },
-  // A daytime painting looks wrong on a dark ground: on forest green it's
+  /* The card colours (Danielle, 18 Nov, after the pattern palettes): Ivory and
+     Oat are the old Neutral Grey and Neutral Beige renamed; Blush replaces
+     Neutral Pink; Oxblood is new; Forest Green is deeper. Pink is kept, off
+     the list, for goes asked for before the change. */
+  grey:    { label: "Ivory",        hex: "#F1F1F1", words: "a soft neutral light grey" },
+  beige:   { label: "Oat",          hex: "#eae5e1", words: "a soft warm light beige" },
+  blush:   { label: "Blush",        hex: "#E4C7C1", words: "a soft dusty blush pink" },
+  // A daytime painting looks wrong on a dark ground: on the dark colours it's
   // early evening, windows glowing and the snow bright against it.
-  forest: { label: "Forest Green",  hex: "#2e3f34", words: "a deep forest green", evening: true },
+  oxblood: { label: "Oxblood",      hex: "#430E18", words: "a deep oxblood red", evening: true },
+  forest:  { label: "Forest Green", hex: "#242F25", words: "a deep dark forest green", evening: true },
+  pink:    { label: "Neutral Pink", hex: "#c4a092", words: "a dusky muted pink", hidden: true },
 };
 /* A landscape picture for an A6 Landscape postcard (Danielle, 17 Nov); the
    folded card's front stays portrait. Same house, same style; only the
@@ -9391,7 +9397,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const resting = S.paused || (S.cap_gbp > 0 && (await illMonthSpend(env, S)) >= S.cap_gbp);
         return json({ ok: true, ready: true, on: !!env.FAL_KEY, resting, ...al,
           styles: Object.entries(ILL_STYLES).map(([k, v]) => ({ key: k, label: v.label })),
-          backgrounds: Object.entries(ILL_BACKGROUNDS).map(([k, v]) => ({ key: k, label: v.label, hex: v.hex })) }, 200, request, env);
+          backgrounds: Object.entries(ILL_BACKGROUNDS).filter(([, v]) => !v.hidden).map(([k, v]) => ({ key: k, label: v.label, hex: v.hex })) }, 200, request, env);
       }
 
       // One go: { photo: data:image/jpeg;base64,..., style }. Answers with the
