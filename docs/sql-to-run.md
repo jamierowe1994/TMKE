@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/studio_reporting_sign_ins.sql — Studio reporting: "Sign-ins each, on average" said 0 because Supabase keeps no sign-in history for us. This counts sign-ins from the sessions on record and, from 18 Nov, every sign-in the site records itself. Only the server can run it. Changes nothing. Sends nothing (18 Nov)
 
 ## Done
 

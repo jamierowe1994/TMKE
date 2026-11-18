@@ -14,6 +14,7 @@
  * test logins are recorded and left out when the Insights are worked out.
  *
  * Events:
+ *   signed_in     signed in, by password or email link (18 Nov)
  *   hub_visit     the Member Hub, once a day
  *   month_viewed  a month's posts on the calendar, once a visit per month
  *   post_opened   a post clicked open on the calendar

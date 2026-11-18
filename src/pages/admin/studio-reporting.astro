@@ -91,12 +91,19 @@ import "../../styles/money-os.css";
     const course = (r, slug) => r.courses[slug] || null;
     const started = (r) => Object.values(r.courses).some((c) => c.completed || c.furthest > 0);
     const done = (r) => Object.values(r.courses).some((c) => c.completed);
-    const packsHeld = (r) => [...r.bought, ...r.gifted];
+    // Canvassing cards are reported on their own, before the packs (Danielle, 18 Nov).
+    const isCanvP = (p) => !!p && /canvass/i.test(p.title || "");
+    const isCanv = (id) => isCanvP(D.pack.get(id));
+    const packsHeld = (r) => [...r.bought, ...r.gifted].filter((id) => !isCanv(id));
+    const canvAccess = (r) => D.packs.some((p) => isCanvP(p) && p.status === "active" && (p.demo || p.access === "members" || (p.access === "brands" && (p.brands || []).some((b) => r.brands.includes(b))) || r.bought.includes(p.id) || r.gifted.includes(p.id)));
+    const hasPack = (r) => packsHeld(r).length > 0;
     const usedOwn = (r) => packsHeld(r).some((p) => r.used_packs.includes(p));
     const dlOwn = (r) => packsHeld(r).some((p) => r.dl_packs.includes(p));
     const signedIn = (r) => !!r.last_sign_in;
 
-    // Every figure is a filter on the people below: [key, label, who].
+    // Every figure is a filter on the people below: [key, label, who, of].
+    // `of` is what its percentage is out of: [who, "those …"]; without it, everyone signed up.
+    const OF_PACK = [hasPack, "those with a pack"], OF_CANV = [canvAccess, "those with canvassing cards"];
     const FIGS = {
       accounts: [
         ["all", "Signed up", () => true],
@@ -111,12 +118,18 @@ import "../../styles/money-os.css";
         ["dl", "Downloaded a design", (r) => r.downloads > 0],
         ["demo", "Used the demo templates", (r) => r.demo_designs > 0],
       ],
+      canvassing: [
+        ["canv", "Have canvassing cards", canvAccess],
+        ["canvmade", "Made a canvassing card", (r) => canvAccess(r) && r.used_packs.some(isCanv), OF_CANV],
+        ["canvdl", "Downloaded a canvassing card", (r) => canvAccess(r) && r.dl_packs.some(isCanv), OF_CANV],
+        ["canvnone", "Have them, not made one", (r) => canvAccess(r) && !r.used_packs.some(isCanv), OF_CANV],
+      ],
       packs: [
-        ["bought", "Bought a pack", (r) => r.bought.length > 0],
-        ["gifted", "Were gifted a pack", (r) => r.gifted.length > 0],
-        ["usedown", "Made a design from their pack", usedOwn],
-        ["dlown", "Downloaded from their pack", dlOwn],
-        ["unused", "Have a pack, not used it", (r) => packsHeld(r).length > 0 && !usedOwn(r)],
+        ["bought", "Bought a pack", (r) => r.bought.some((id) => !isCanv(id))],
+        ["gifted", "Were gifted a pack", (r) => r.gifted.some((id) => !isCanv(id))],
+        ["usedown", "Made a design from their pack", usedOwn, OF_PACK],
+        ["dlown", "Downloaded from their pack", dlOwn, OF_PACK],
+        ["unused", "Have a pack, not used it", (r) => hasPack(r) && !usedOwn(r), OF_PACK],
       ],
       training: [
         ["tstart", "Started a course", started],
@@ -135,14 +148,19 @@ import "../../styles/money-os.css";
       const [, what, id] = k.match(/^p-(have|used|dl)-(.+)$/) || [];
       const p = D.pack.get(id); if (!p) return null;
       const label = { have: `Have ${p.title}`, used: `Made a design from ${p.title}`, dl: `Downloaded from ${p.title}` }[what];
-      const who = { have: (r) => packsHeld(r).includes(id), used: (r) => r.used_packs.includes(id), dl: (r) => r.dl_packs.includes(id) }[what];
+      const who = { have: (r) => (p.access === "brands" ? (p.brands || []).some((b) => r.brands.includes(b)) : r.bought.includes(id) || r.gifted.includes(id)), used: (r) => r.used_packs.includes(id), dl: (r) => r.dl_packs.includes(id) }[what];
       return [k, label, who];
     }
 
-    function figs(list, rows, dark) {
-      return `<div class="figs">${list.map(([k, l, who], i) => {
+    // Each figure's percentage says what it's out of (Danielle, 18 Nov: made a
+    // design from their pack is out of those with a pack, not everyone).
+    const pc = (n, of) => (of ? `${Math.round((n / of) * 100)}%` : "–");
+    function figs(list, rows) {
+      return `<div class="figs">${list.map(([k, l, who, of]) => {
         const n = rows.filter(who).length;
-        return `<button type="button" class="fig ${i === 0 && dark ? "dark" : "lin"}" data-fig="${k}" aria-pressed="${FILTER === k}"><b>${n0(n)}</b><span>${esc(l)}</span>${rows.length && i ? `<small>${Math.round((n / rows.length) * 100)}%</small>` : ""}</button>`;
+        const base = of ? rows.filter(of[0]).length : rows.length;
+        const small = `<small>${pc(n, base)} of ${of ? of[1] : "everyone signed up"}</small>`;
+        return `<button type="button" class="fig lin" data-fig="${k}" aria-pressed="${FILTER === k}"><b>${n0(n)}</b><span>${esc(l)}</span>${small}</button>`;
       }).join("")}</div>`;
     }
     const section = (title, aside, body) => `<div class="section"><div class="strip"><div class="strip-t">${esc(title)}</div>${aside ? `<span class="aside">${esc(aside)}</span>` : ""}</div>${body}</div>`;
@@ -159,25 +177,30 @@ import "../../styles/money-os.css";
       const rows = all.filter(inBrand);
       const signed = rows.filter(signedIn);
 
-      // Accounts: who and how often.
-      let html = section("Accounts", `${n0(rows.length)} signed up`, figs(FIGS.accounts, rows, true) + (() => {
+      // Accounts: how many we have in the CRM at this brand, then who and how often.
+      const inCrm = BRAND === "all" ? D.crm.any : BRAND === "none" ? null : D.crm.by[BRAND] || 0;
+      const acc = FIGS.accounts.map((f) => f[0] === "all" ? [f[0], f[1], f[2]] : [...f.slice(0, 3), [signedIn, "those signed up"]]);
+      let html = section("Accounts", `${n0(rows.length)} signed up`, figsAccounts(acc, rows, inCrm) + (() => {
         const si = signed.map((r) => r.sign_ins).filter((n) => n > 0), days = signed.map((r) => r.active_days).filter((n) => n > 0);
         const often = D.activity_ready
           ? `<div class="figs"><div class="fig lin static"><b>${one(avg(si))}</b><span>Sign-ins each, on average</span><small>of those who've signed in</small></div><div class="fig lin static"><b>${one(avg(days))}</b><span>Days in the Hub each, on average</span><small>of those with a day recorded</small></div><div class="fig lin static"><b>${n0(signed.filter((r) => ago(r.last_active) <= 7).length)}</b><span>Used the Hub in the last 7 days</span></div></div>
-             <p class="sr-note">A sign-in is counted each time someone signs in; staying signed in doesn't count again. Hub days before 17 November only include members who accepted analytics cookies.</p>`
+             <p class="sr-note">A sign-in is counted each time someone signs in; staying signed in doesn't count again. Every sign-in is counted from 18 November; before that, only the ones still on record, so earlier figures are a minimum. Hub days before 17 November only include members who accepted analytics cookies.</p>`
           : `<p class="sr-note">How often members sign in shows here once <b>supabase/studio_reporting.sql</b> has run.</p>`;
         return often + signupChart(rows);
       })());
 
       // The Studio: designs, print, downloads, the demo.
-      html += section("Designs and downloads", "Content Calendar designs left out", figs(FIGS.studio, rows, false) +
+      html += section("Designs and downloads", "Content Calendar designs left out", figs(FIGS.studio, rows) +
         `<p class="sr-note">Downloads before 17 November were only recorded for members who accepted analytics cookies, so earlier ones are undercounted.</p>`);
 
-      // Packs.
-      html += section("Packs", "", figs(FIGS.packs, rows, false) + packTable(rows));
+      // Canvassing cards, then packs, then training (Danielle, 18 Nov).
+      html += section("Canvassing cards", "", figs(FIGS.canvassing, rows) +
+        `<p class="sr-note">Have canvassing cards: everyone whose brand has them. The rest are out of those people.</p>` + packTable(rows, true));
+      html += section("Packs", "Canvassing cards left out", figs(FIGS.packs, rows) +
+        `<p class="sr-note">Bought and gifted are out of everyone signed up. Made a design, downloaded and not used are out of the people who have a pack, and only count the packs they have.</p>` + packTable(rows, false));
 
       // Training.
-      html += section("Training", "", figs(FIGS.training, rows, false) + trainingTable(rows) +
+      html += section("Training", "", figs(FIGS.training, rows) + trainingTable(rows) +
         `<p class="sr-note">Until 17 November, reopening a finished course set it back to part 1, so some earlier finishes show as part-way.</p>`);
 
       // The people behind whichever figure is picked.
@@ -193,11 +216,21 @@ import "../../styles/money-os.css";
       return `<div><p class="sr-note">Signed up each month</p><div class="sr-months">${months.map(([k, l], i) => `<div class="sr-m" title="${esc(l)}: ${n[i]} signed up"><b>${n[i] || ""}</b><i style="height:${(n[i] / max) * 80}%"></i></div>`).join("")}</div><div class="sr-mlabels">${months.map(([, l]) => `<span>${esc(l)}</span>`).join("")}</div></div>`;
     }
 
-    function packTable(rows) {
+    // Signed up is out of the agents in the CRM; the rest out of those signed up.
+    function figsAccounts(list, rows, inCrm) {
+      return `<div class="figs">${inCrm == null ? "" : `<div class="fig dark static"><b>${n0(inCrm)}</b><span>${BRAND === "all" ? "Agents in our CRM, at any brand" : `${esc(short(BRAND))} agents in our CRM`}</span><small>account or not</small></div>`}${list.map(([k, l, who, of]) => {
+        const n = rows.filter(who).length;
+        const small = of ? `<small>${pc(n, rows.filter(of[0]).length)} of ${of[1]}</small>` : inCrm && BRAND !== "all" ? `<small>${pc(n, inCrm)} of ${esc(short(BRAND))} agents in our CRM</small>` : "";
+        return `<button type="button" class="fig lin" data-fig="${k}" aria-pressed="${FILTER === k}"><b>${n0(n)}</b><span>${esc(l)}</span>${small}</button>`;
+      }).join("")}</div>`;
+    }
+
+    function packTable(rows, canv) {
       const how = (p) => (p.demo ? "Free with every account" : p.access === "members" ? "Free to members" : p.access === "brands" ? "Given to a brand" : "Bought");
-      const list = D.packs.filter((p) => p.status === "active" || rows.some((r) => packsHeld(r).includes(p.id) || r.used_packs.includes(p.id)))
+      const held = (r, id) => r.bought.includes(id) || r.gifted.includes(id);
+      const list = D.packs.filter((p) => isCanvP(p) === canv && (p.status === "active" || rows.some((r) => held(r, p.id) || r.used_packs.includes(p.id))))
         .map((p) => {
-          const have = p.demo || p.access === "members" ? null : rows.filter((r) => packsHeld(r).includes(p.id)).length;
+          const have = p.demo || p.access === "members" ? null : p.access === "brands" ? rows.filter((r) => (p.brands || []).some((b) => r.brands.includes(b))).length : rows.filter((r) => held(r, p.id)).length;
           return { p, have, used: rows.filter((r) => r.used_packs.includes(p.id)).length, dl: rows.filter((r) => r.dl_packs.includes(p.id)).length };
         })
         .sort((a, b) => b.used - a.used || (b.have || 0) - (a.have || 0));

@@ -106,6 +106,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   <script>
     import { supabase } from "../../lib/supabase.js";
     import { clearDemoAtSignIn } from "../../lib/demo.js";
+    import { logUsage } from "../../lib/usage-log.js";
 
     const $headline = document.getElementById("cb-headline");
     const $sub = document.getElementById("cb-sub");
@@ -121,8 +122,10 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       $next.hidden = false;
     }
 
-    function routeAfter() {
+    async function routeAfter() {
       clearDemoAtSignIn();   // nothing of a demo outlives a sign-in
+      // A sign-in by email link, counted for Studio reporting (18 Nov).
+      await Promise.race([logUsage("signed_in", { detail: { via: "link" } }), new Promise((r) => setTimeout(r, 1500))]);
       const params = new URLSearchParams(location.search);
       // Paths on this site only: a ?next= pointing elsewhere is ignored.
       const nx = params.get("next") || "";
