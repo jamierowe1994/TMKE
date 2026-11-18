@@ -4,10 +4,10 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/studio_reporting_sign_ins.sql — Studio reporting: "Sign-ins each, on average" said 0 because Supabase keeps no sign-in history for us. This counts sign-ins from the sessions on record and, from 18 Nov, every sign-in the site records itself. Only the server can run it. Changes nothing. Sends nothing (18 Nov)
 
 ## Done
 
+- [x] supabase/studio_reporting_sign_ins.sql — Studio reporting: "Sign-ins each, on average" said 0 because Supabase keeps no sign-in history for us. This counts sign-ins from the sessions on record and, from 18 Nov, every sign-in the site records itself. Only the server can run it. Changes nothing. Sends nothing (18 Nov; ran 18 Nov)
 - [x] supabase/report_tpe_ppe_studio.sql — report only, changes nothing: every live TPE and PPE agent with a Hub account, their print and first-design training, designs saved (print counted separately), planner posts and downloads. For Sam. Download the result as CSV (17 Nov; no longer needed: Insights › Studio reporting has it, 18 Nov)
 - [x] supabase/content_calendar_image_rule.sql — Content Calendar: the "Pictures in the design" choice under Note in each post (No need to replace / Optional / Must be replaced), which Draft with Claude follows. Until it runs, clicking a choice says to run this. Changes no post. Sends nothing (18 Nov; ran 18 Nov)
 - [x] supabase/studio_reporting.sql — Insights › Studio reporting: how often each member signs in and how many days they've used the Member Hub. Only the server can run it. Until it runs, the page shows everything else and says how often is waiting. Changes nothing. Sends nothing (18 Nov; ran 18 Nov)
