@@ -10427,6 +10427,9 @@ import { createResizeEngine } from "./resize-engine.js";
       showPane("text");
       placeSelectionBody();
       renderTextList(); renderFontBrowser();
+    } else if (el.brandRole === "illustration" && openIllustrateFor()) {
+      // An illustration slot opens Images › Illustrate, where its picture is
+      // chosen, not the shape controls (Dani, 18 Nov).
     } else if (typeof showPane === "function") {
       showPane("selection");
     }
@@ -15083,6 +15086,17 @@ import { createResizeEngine } from "./resize-engine.js";
   window.__TMKE_SYNC_RAIL__ = function () { try { syncPrintRail(); } catch (_) {} };
 
   // Open a tool pane programmatically (clears any selection so the pane shows).
+  /* Images › Illustrate, keeping the selection (openTool clears it). False
+     when the Illustrate tab isn't offered on this design. */
+  function openIllustrateFor() {
+    const tab = document.querySelector('.ed-ttab[data-itab="illustrate"]');
+    if (!tab || tab.hidden) return false;
+    activeToolPane = "photos";
+    document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "photos"));
+    showPane("photos");
+    if (!tab.classList.contains("is-active")) tab.click();
+    return true;
+  }
   function openTool(name) {
     state.selectedIds = [];
     if (name !== "brand") brandPaneByChoice = false;
