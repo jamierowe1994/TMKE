@@ -9765,10 +9765,12 @@ import { createResizeEngine } from "./resize-engine.js";
   // Declared as functions and a var, not consts: a saved design with an
   // edge is drawn before the script reaches this point.
   function edgeKinds() {
-    return { fade: "Straight fade", painted: "Painted edge" };
+    // "Fade all round" (Dani, 18 Nov): the straight fade on the top as well,
+    // for a full scene with sky that should melt into the card.
+    return { fade: "Straight fade", fadeall: "Fade all round", painted: "Painted edge" };
   }
   function edgeKind(k) {
-    return k === "painted" ? "painted" : (k === "fade" || k === "oval" || k === "ground") ? "fade" : null;
+    return k === "painted" ? "painted" : k === "fadeall" ? "fadeall" : (k === "fade" || k === "oval" || k === "ground") ? "fade" : null;
   }
   function edgeOn(el) {
     return !!(el && el.src && (el.type === "image" || el.type === "frame") && edgeKind(el.edge));
@@ -9825,8 +9827,9 @@ import { createResizeEngine } from "./resize-engine.js";
     } else {
       const cols = new Float32Array(W);
       for (let x = 0; x < W; x++) cols[x] = edgeStep(0, 0.2, (x + 0.5) / W) * edgeStep(0, 0.2, (W - x - 0.5) / W);
+      const topToo = kind === "fadeall";
       for (let y = 0; y < H; y++) {
-        const a = edgeStep(0, 0.2, (H - y - 0.5) / H);
+        const a = edgeStep(0, 0.2, (H - y - 0.5) / H) * (topToo ? edgeStep(0, 0.2, (y + 0.5) / H) : 1);
         for (let x = 0; x < W; x++) d[(y * W + x) * 4 + 3] = Math.round(255 * a * cols[x]);
       }
     }
