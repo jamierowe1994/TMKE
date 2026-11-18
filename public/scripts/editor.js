@@ -3754,7 +3754,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (v && !isAdminMode()) v.memberPicked = true;   // theirs now: tpeCandyDefault leaves it
     if (v) { if (was && was.area && !v.area) v.area = was.area; state.canvas.bgPattern = v; } else delete state.canvas.bgPattern;
     if (v && !live && !applyPatternRoles(v)) {
-      const a = xpAccent(v);
+      const a = (xpTwo(v) || {}).accent || xpAccent(v);
       if (a) (state.elements || []).forEach(function (o) { if (o && o.type === "wframe" && !o.fillPattern) o.stroke = a; });
     }
     if (!live) pushHistory();   // the colour button and the slider record their own
@@ -9798,7 +9798,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!changed) return false;
     const v = designPattern();
     if (v && !applyPatternRoles(v)) {
-      const a = xpAccent(v);
+      const a = (xpTwo(v) || {}).accent || xpAccent(v);
       if (a) (state.pages || []).forEach(function (pg) { (pg.elements || []).forEach(function (o) { if (o && o.type === "wframe" && !o.fillPattern) o.stroke = a; }); });
     }
     return true;
@@ -10913,7 +10913,7 @@ import { createResizeEngine } from "./resize-engine.js";
         const t = tgt();
         if (v) { t.fillPattern = v; delete t.fillSrc; } else delete t.fillPattern;
         // A pattern or a preset chosen: the line takes the colour that goes with it.
-        if (v && !live) { const a = xpAccent(v); if (a) t.stroke = a; }
+        if (v && !live) { const a = (xpTwo(v) || {}).accent || xpAccent(v); if (a) t.stroke = a; }
         if (!live) { pushHistory(); fullRender(); renderProps(); } else fullRender();
       }, { offLabel: "No pattern" }));
       const nopic = body.querySelector("#ed-wf-nopic");
