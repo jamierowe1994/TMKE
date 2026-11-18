@@ -9318,7 +9318,9 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const start = String(month.month).slice(0, 10);
         const [yy, mm] = start.split("-").map(Number);
         const end = new Date(Date.UTC(yy, mm, 1)).toISOString().slice(0, 10);
-        const from = month.published_at && String(month.published_at).slice(0, 10) < start ? String(month.published_at).slice(0, 10) : start;
+        // From its go-live date when it has one (content_calendar_go_live.sql, 18 Nov): members can't open it before.
+        const from = month.goes_live_on ? String(month.goes_live_on).slice(0, 10)
+          : month.published_at && String(month.published_at).slice(0, 10) < start ? String(month.published_at).slice(0, 10) : start;
 
         // The usage log: anything about this month's posts or designs.
         let logs = [];
