@@ -105,6 +105,10 @@ import "../../styles/money-os.css";
     const usedOwn = (r) => packsHeld(r).some((p) => r.used_packs.includes(p));
     const dlOwn = (r) => packsHeld(r).some((p) => r.dl_packs.includes(p));
     const signedIn = (r) => !!r.last_sign_in;
+    // Last active (Danielle, 18 Nov): members stay signed in, so a sign-in date
+    // goes stale. The latest of their last sign-in and the last thing they did
+    // in the Hub or the Studio (a visit, opening, saving or downloading a design).
+    const lastSeen = (r) => [r.last_active, r.last_sign_in].filter(Boolean).sort().pop() || null;
 
     // Every figure is a filter on the people below: [key, label, who, of].
     // `of` is what its percentage is out of: [who, "those …"]; without it, everyone signed up.
@@ -114,7 +118,8 @@ import "../../styles/money-os.css";
         ["all", "Signed up", () => true],
         ["in", "Signed in at least once", signedIn],
         ["never", "Never signed in", (r) => !signedIn(r)],
-        ["recent", "Signed in in the last 30 days", (r) => ago(r.last_sign_in) <= 30],
+        ["recent", "Active in the last 30 days", (r) => ago(lastSeen(r)) <= 30],
+        ["week", "Active in the last 7 days", (r) => ago(lastSeen(r)) <= 7],
         ["idle", "Signed in, nothing made or downloaded", (r) => signedIn(r) && !r.designs && !r.downloads],
       ],
       studio: [
@@ -190,8 +195,8 @@ import "../../styles/money-os.css";
       let html = section("Accounts", `${n0(rows.length)} signed up`, figsAccounts(acc, rows, inCrm) + (() => {
         const si = signed.map((r) => r.sign_ins).filter((n) => n > 0), days = signed.map((r) => r.active_days).filter((n) => n > 0);
         const often = D.activity_ready
-          ? `<div class="figs"><div class="fig lin static"><b>${one(avg(si))}</b><span>Sign-ins each, on average</span><small>of those who've signed in</small></div><div class="fig lin static"><b>${one(avg(days))}</b><span>Days in the Hub each, on average</span><small>of those with a day recorded</small></div><div class="fig lin static"><b>${n0(signed.filter((r) => ago(r.last_active) <= 7).length)}</b><span>Used the Hub in the last 7 days</span></div></div>
-             <p class="sr-note">A sign-in is counted each time someone signs in; staying signed in doesn't count again. Every sign-in is counted from 18 November; before that, only the ones still on record, so earlier figures are a minimum. Hub days before 17 November only include members who accepted analytics cookies.</p>`
+          ? `<div class="figs"><div class="fig lin static"><b>${one(avg(si))}</b><span>Sign-ins each, on average</span><small>of those who've signed in</small></div><div class="fig lin static"><b>${one(avg(days))}</b><span>Days in the Hub each, on average</span><small>of those with a day recorded</small></div></div>
+             <p class="sr-note">Active means they used the Member Hub or the Studio that day: visited it, opened or saved a design, or downloaded one. It's the better measure, because members stay signed in and don't have to sign in again. Sign-ins are counted each time someone signs in, in full from 18 November and as a minimum before. Activity before 17 November only includes members who accepted analytics cookies.</p>`
           : `<p class="sr-note">How often members sign in shows here once <b>supabase/studio_reporting.sql</b> has run.</p>`;
         return often + signupChart(rows);
       })());
@@ -262,6 +267,7 @@ import "../../styles/money-os.css";
       ["email", "Email", (r) => r.email || ""],
       ["brand", "Brand", (r) => r.brands.map(short).join(" + ")],
       ["joined", "Joined", (r) => r.joined || "", (r) => d(r.joined)],
+      ["last_active", "Last active", (r) => lastSeen(r) || "", (r) => (lastSeen(r) ? d(lastSeen(r)) : "Never")],
       ["last_sign_in", "Last signed in", (r) => r.last_sign_in || "", (r) => (r.last_sign_in ? d(r.last_sign_in) : "Never")],
       ["sign_ins", "Sign-ins", (r) => r.sign_ins ?? -1, (r) => (r.sign_ins == null ? "" : n0(r.sign_ins))],
       ["active_days", "Hub days", (r) => r.active_days ?? -1, (r) => (r.active_days == null ? "" : n0(r.active_days))],
@@ -317,7 +323,7 @@ import "../../styles/money-os.css";
         return;
       }
       const s = e.target.closest("th[data-sort]");
-      if (s) { const k = s.dataset.sort; SORT = { key: k, dir: SORT.key === k ? -SORT.dir : (isNum(k) || ["joined", "last_sign_in", "last_design"].includes(k) ? -1 : 1) }; draw(); document.querySelector(".sr-filter")?.scrollIntoView({ block: "start" }); return; }
+      if (s) { const k = s.dataset.sort; SORT = { key: k, dir: SORT.key === k ? -SORT.dir : (isNum(k) || ["joined", "last_active", "last_sign_in", "last_design"].includes(k) ? -1 : 1) }; draw(); document.querySelector(".sr-filter")?.scrollIntoView({ block: "start" }); return; }
       if (e.target.closest("#sr-xlsx")) download();
     });
 
