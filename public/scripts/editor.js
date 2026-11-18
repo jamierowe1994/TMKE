@@ -17916,17 +17916,35 @@ import { createResizeEngine } from "./resize-engine.js";
        spending a go. The street scenes suit a Happy Holidays card; the door
        and the tree are Christmas. Which ones a template offers is ticked in
        its own Illustrate tab (canvas.illustrate / canvas.illustrateSet). */
+    /* Each scene has a portrait picture for a folded card and, where one was
+       painted, a landscape one for a postcard (Dani, 18 Nov). Cards: terrace,
+       country house, townhouse, cab, door, living room. Postcards: living
+       room, Cotswold village, country house, townhouses, farmhouse, cab. The
+       tree by the window is off the list; cards already using it keep it. */
+    const SET_DIR = "/images/illustrate-set/";
     const SET = [
-      { key: "terrace",   name: "Victorian terraced street" },
-      { key: "country",   name: "English country house" },
-      { key: "townhouse", name: "White London townhouse" },
-      { key: "cab",       name: "Black cab" },
-      { key: "door",      name: "Georgian front door" },
-      { key: "tree",      name: "Tree by the window" },
-    ].map((x) => Object.assign(x, {
-      src: location.origin + "/images/illustrate-set/" + x.key + "-v1.webp",
-      thumb: "/images/illustrate-set/" + x.key + "-v1-thumb.webp",
-    }));
+      { key: "terrace",   name: "Victorian terraced street", p: "terrace-v1" },
+      { key: "country",   name: "English country house",     p: "country-v1",   l: "country-land-v1" },
+      { key: "townhouse", name: "White London townhouse",    p: "townhouse-v1", l: "townhouse-land-v1", nameL: "London townhouses" },
+      { key: "cab",       name: "Black cab",                 p: "cab-v1",       l: "cab-land-v1" },
+      { key: "door",      name: "Georgian front door",       p: "door-v1" },
+      { key: "opulent",   name: "Burgundy living room",      p: "opulent-v1",   l: "opulent-land-v1" },
+      { key: "cotswolds", name: "Cotswold village",                             l: "cotswolds-land-v1" },
+      { key: "farmhouse", name: "Cotswold farmhouse",                           l: "farmhouse-land-v1" },
+    ];
+    // The shape being designed: landscape on a postcard, portrait otherwise.
+    const setShape = () => {
+      const cur = state.pages[state.currentPage];
+      if (cur && cur.canvas && isPostcard(cur.canvas)) return "l";
+      if (cur && cur.canvas && isFolded(cur.canvas)) return "p";
+      const first = cardPages()[0];
+      return first && isPostcard(first.canvas) ? "l" : "p";
+    };
+    const setFile = (x, shape) => x[shape || setShape()];
+    const setSrc = (x, shape) => location.origin + SET_DIR + setFile(x, shape) + ".webp";
+    const setThumb = (x, shape) => SET_DIR + setFile(x, shape) + "-thumb.webp";
+    const setName = (x, shape) => ((shape || setShape()) === "l" && x.nameL) || x.name;
+    const forShape = (shape) => SET.filter((x) => !!x[shape || setShape()]);
     // The four card colours, for a set template when the goes haven't loaded.
     const DEFAULT_BGS = [
       { key: "grey",   label: "Neutral Grey",  hex: "#F1F1F1" },
@@ -17937,11 +17955,19 @@ import { createResizeEngine } from "./resize-engine.js";
     const bgList = () => (me && Array.isArray(me.backgrounds) && me.backgrounds.length) ? me.backgrounds : DEFAULT_BGS;
     const cardPages = () => (state.pages || []).filter((p) => p && p.canvas && (isFolded(p.canvas) || isPostcard(p.canvas)));
     // The scenes this template offers, or null when it's a custom one.
+    /* The scenes this template offers, or null when it's a custom one. The
+       unticked ones are stored (illustrateOff), so a scene added later
+       arrives ticked; a template saved with the old list of ticked ones
+       (illustrateSet) keeps what it had and gets the new scenes too. */
+    const FIRST_SIX = ["terrace", "country", "townhouse", "cab", "door", "tree"];
     function setKeys() {
       const p = cardPages().find((pg) => pg.canvas.illustrate === "set");
       if (!p) return null;
-      const all = SET.map((x) => x.key);
-      const k = Array.isArray(p.canvas.illustrateSet) ? p.canvas.illustrateSet.filter((x) => all.indexOf(x) > -1) : all;
+      const c = p.canvas, all = forShape().map((x) => x.key);
+      let k;
+      if (Array.isArray(c.illustrateOff)) k = all.filter((x) => c.illustrateOff.indexOf(x) < 0);
+      else if (Array.isArray(c.illustrateSet)) k = all.filter((x) => c.illustrateSet.indexOf(x) > -1 || FIRST_SIX.indexOf(x) < 0);
+      else k = all;
       return k.length ? k : all;
     }
     const hasSlot = () => (state.pages || []).some((p) => (p.elements || []).some((o) => o && o.brandRole === "illustration"));
@@ -18057,6 +18083,14 @@ import { createResizeEngine } from "./resize-engine.js";
     };
     const photoBgs = (pg) => (pg.elements || []).filter((o) => o.brandRole === "photo" && o.photoBg && !o.hidden);
     const qrs = (pg) => (pg.elements || []).filter((o) => o.brandRole === "qr" && o.qr && !o.hidden);
+    /* Painted frames follow the card too (Dani, 18 Nov: "take card colour
+       plan but can be editable"): the line takes the words' colour, and a
+       fill that matches the card goes on matching it. Anything changed by
+       hand afterwards stays until the next pick. */
+    const wframes = (pg) => (pg.elements || []).filter((o) => o.type === "wframe" && !o.hidden);
+    // Only a fill that is the card's own colour follows it: a Forest Green
+    // panel on a Beige card is a choice, and stays.
+    const wfFillFollows = (o, pg) => !o.fillSrc && o.fill && sameHex(o.fill, pg.canvas.background);
     /* Always a dark code on a light square (Dani, 17 Nov): on Forest Green
        the words are white, and a white code on green is one some phones
        can't read, so there the square is white and the code is the green. */
@@ -18115,7 +18149,8 @@ import { createResizeEngine } from "./resize-engine.js";
         inked(state.pages[i]).some((o) => inkWrong(o, k)) || grads(state.pages[i]).some((o) => gradWrong(o, h)) ||
         bgBlocks(state.pages[i]).some((o) => !sameHex(o.fill, h)) || outlined(state.pages[i]).some((o) => !sameHex(o.stroke, k)) ||
         accents(state.pages[i]).some((o) => !sameHex(o.fill, k)) || photoBgs(state.pages[i]).some((o) => !sameHex(o.photoBg, k)) ||
-        qrs(state.pages[i]).some((o) => qrWrong(o, h, k));
+        qrs(state.pages[i]).some((o) => qrWrong(o, h, k)) ||
+        wframes(state.pages[i]).some((o) => !sameHex(o.stroke, k) || (wfFillFollows(o, state.pages[i]) && !sameHex(o.fill, h)));
       if (!outside.some((i) => needs(i, hex, ink)) && !inside.some((i) => needs(i, inHex, set.ink))) {
         if (retoneLogos(() => { fullRender(); })) fullRender();
         return;
@@ -18127,6 +18162,7 @@ import { createResizeEngine } from "./resize-engine.js";
         accents(state.pages[i]).forEach((o) => { o.fill = k; o.cardInk = true; });
         blocks.forEach((o) => { o.fill = h; });
         photoBgs(state.pages[i]).forEach((o) => { o.photoBg = k; });
+        wframes(state.pages[i]).forEach((o) => { if (wfFillFollows(o, state.pages[i])) o.fill = h; o.stroke = k; });
         qrs(state.pages[i]).forEach((o) => {
           o.qr = Object.assign({}, o.qr, qrInk(h, k), o.qr.borderW > 0 ? { borderColor: k } : {});
           if (o.src || qrTarget(o)) regenerateQr(o);
@@ -18341,15 +18377,16 @@ import { createResizeEngine } from "./resize-engine.js";
       $("ed-ill-set-label").textContent = C.setPick;
       grid.style.setProperty("--ill-card", swatchHex(bg) || "#eae5e1");
       grid.innerHTML = "";
-      SET.filter((x) => keys.indexOf(x.key) > -1).forEach((x) => {
+      forShape().filter((x) => keys.indexOf(x.key) > -1).forEach((x) => {
         const b = document.createElement("button");
         b.type = "button";
         b.className = "ed-ill-scene";
         const pic = document.createElement("span");
         pic.className = "pic";
-        pic.style.backgroundImage = "url(" + JSON.stringify(x.thumb) + ")";
+        pic.style.backgroundImage = "url(" + JSON.stringify(setThumb(x)) + ")";
+        if (setShape() === "l") pic.style.aspectRatio = "4 / 3";
         b.appendChild(pic);
-        b.appendChild(document.createTextNode(x.name));
+        b.appendChild(document.createTextNode(setName(x)));
         b.addEventListener("click", async () => {
           if (busy) return;
           // Which slot was selected, before recolouring clears the selection.
@@ -18358,7 +18395,7 @@ import { createResizeEngine } from "./resize-engine.js";
           // A picture for the inside leaves the outside's colour alone.
           if (!onInside()) cardToBackground();
           if (picked) { if (state.currentPage !== at) goToPage(at); state.selectedIds = [picked.id]; }
-          await placeIllustration(x.src);
+          await placeIllustration(setSrc(x, isPostcard(state.pages[at].canvas) ? "l" : setShape()));
           // The front logo follows the scene only on the front, slide 1; a
           // picture inside the card leaves every logo alone (Dani, 18 Nov).
           if (state.currentPage === frontPage()) applyFrontLogo(x.key, state.currentPage);
@@ -18376,7 +18413,11 @@ import { createResizeEngine } from "./resize-engine.js";
       const setAll = (mode, list) => {
         cardPages().forEach((p) => {
           // The ticks are kept while it's set to Custom, for switching back.
-          if (mode === "set") { p.canvas.illustrate = "set"; p.canvas.illustrateSet = list.slice(); }
+          if (mode === "set") {
+            p.canvas.illustrate = "set";
+            p.canvas.illustrateOff = forShape().map((x) => x.key).filter((k) => list.indexOf(k) < 0);
+            delete p.canvas.illustrateSet;
+          }
           else delete p.canvas.illustrate;
         });
         pushHistory();
@@ -18390,8 +18431,9 @@ import { createResizeEngine } from "./resize-engine.js";
         inp.type = "radio"; inp.name = "ed-ill-mode"; inp.id = "ed-ill-mode-" + m[0];
         inp.checked = (m[0] === "set") === !!keys;
         inp.addEventListener("change", () => {
-          const kept = (cardPages().find((p) => Array.isArray(p.canvas.illustrateSet)) || {}).canvas;
-          setAll(m[0], keys || (kept && kept.illustrateSet.length ? kept.illustrateSet : SET.map((x) => x.key)));
+          // Switching back to our scenes: setKeys reads the remembered ticks.
+          if (m[0] === "set") cardPages().forEach((p) => { p.canvas.illustrate = "set"; });
+          setAll(m[0], m[0] === "set" ? (setKeys() || forShape().map((x) => x.key)) : (keys || []));
         });
         lab.appendChild(inp); lab.appendChild(document.createTextNode(m[1]));
         modes.appendChild(lab);
@@ -18399,7 +18441,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const ticks = $("ed-ill-ticks");
       ticks.hidden = !keys;
       ticks.innerHTML = "";
-      if (keys) SET.forEach((x) => {
+      if (keys) forShape().forEach((x) => {
         const row = document.createElement("div");
         row.className = "ed-ill-tickrow";
         const lab = document.createElement("label");
@@ -18407,17 +18449,17 @@ import { createResizeEngine } from "./resize-engine.js";
         inp.type = "checkbox"; inp.id = "ed-ill-tick-" + x.key;
         inp.checked = keys.indexOf(x.key) > -1;
         inp.addEventListener("change", () => {
-          const next = SET.map((y) => y.key).filter((k) => k === x.key ? inp.checked : keys.indexOf(k) > -1);
+          const next = forShape().map((y) => y.key).filter((k) => k === x.key ? inp.checked : keys.indexOf(k) > -1);
           if (!next.length) { inp.checked = true; toast(C.adminHint); return; }
           setAll("set", next);
         });
-        lab.appendChild(inp); lab.appendChild(document.createTextNode(x.name));
+        lab.appendChild(inp); lab.appendChild(document.createTextNode(setName(x)));
         row.appendChild(lab);
         // The front logo for this scene (Dani, 18 Nov).
         const sel = document.createElement("select");
         sel.id = "ed-ill-logo-" + x.key;
         sel.title = "Front logo with this scene";
-        sel.setAttribute("aria-label", "Front logo with " + x.name);
+        sel.setAttribute("aria-label", "Front logo with " + setName(x));
         LOGO_PLACES.forEach((o) => { const op = document.createElement("option"); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op); });
         sel.value = logoPlaceFor(x.key);
         sel.disabled = !inp.checked;
@@ -18534,7 +18576,7 @@ import { createResizeEngine } from "./resize-engine.js";
           if (search) search.click();
         }
       }
-      const sig = [show, keys ? keys.join() : "", hasSlot(), !!me, onInside() ? "in" : "out", String(state.canvas.background)].join("|");
+      const sig = [show, keys ? keys.join() : "", hasSlot(), !!me, onInside() ? "in" : "out", String(state.canvas.background), setShape()].join("|");
       if (show && (force === true || sig !== lastSig)) { lastSig = sig; paintBackgrounds(); paintMode(); }
     }
     window.__TMKE_ILL_SYNC__ = sync;
