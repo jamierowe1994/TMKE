@@ -3751,12 +3751,13 @@ import { createResizeEngine } from "./resize-engine.js";
   function bgPatSet(v, live) {
     const was = state.canvas.bgPattern;
     if (v) { if (was && was.area && !v.area) v.area = was.area; state.canvas.bgPattern = v; } else delete state.canvas.bgPattern;
-    if (v && !live) {
+    if (v && !live && !applyPatternRoles(v)) {
       const a = xpAccent(v);
       if (a) (state.elements || []).forEach(function (o) { if (o && o.type === "wframe" && !o.fillPattern) o.stroke = a; });
     }
     if (!live) pushHistory();   // the colour button and the slider record their own
     fullRender();
+    if (!live && typeof refreshPageThumbs === "function") refreshPageThumbs();
     if (live) _xpBgSig = xpBgSig(); else syncBgPatterns(true);
   }
   function syncBgPatterns(force) {
@@ -9662,7 +9663,7 @@ import { createResizeEngine } from "./resize-engine.js";
         [[12, 4], [4, 12]].map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="0.55" fill="' + c.c2 + '"/>').join(""); } },
   ];
 
-  var XP_PRESETS = [{"p":"stripes","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","ground":"#FFF3EF"},"scale":100},{"p":"stripes","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","ground":"#F5EDDA"},"scale":100},{"p":"stripes","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","ground":"#FFFFFF"},"scale":100},{"p":"stripes","name":"Neutral","route":null,"cols":{"c1":"#C9BCB7","ground":"#FFFFFF"},"scale":100},{"p":"flower","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#5C5E31","c3":"#430E18","ground":"#430E18"},"scale":85},{"p":"flower","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#191E16","c3":"#5C5E31","ground":"#F5EDDA"},"scale":90},{"p":"flower","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#767154","c3":"#767154","ground":"#EAE5E1"},"scale":90},{"p":"tartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#E4C7C1","ground":"#430E18"},"scale":100},{"p":"tartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100},{"p":"tartan","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#612520"},"scale":100},{"p":"fir","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#5C5E31","c2":"#5C5E31","ground":"#430E18"},"scale":100},{"p":"fir","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#767154","ground":"#F5EDDA"},"scale":100},{"p":"fir","name":"Candy Cane","route":"candy","cols":{"c1":"#F1F1F1","c2":"#FFFFFF","ground":"#E31F36"},"scale":100},{"p":"fir","name":"Cranberry","route":null,"cols":{"c1":"#6E7B47","c2":"#6E7B47","ground":"#371E28"},"scale":100},{"p":"bows","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100},{"p":"bows","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#E8DCC6","ground":"#767154"},"scale":100},{"p":"bows","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#FFFFFF","ground":"#FFFFFF"},"scale":100},{"p":"bows","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#EAE5E1","ground":"#EAE5E1"},"scale":100},{"p":"stars","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#7F444C","ground":"#430E18"},"scale":100},{"p":"stars","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#F1F1F1","ground":"#E31F36"},"scale":100},{"p":"stars","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","c2":"#BF9B7A","ground":"#191E16"},"scale":100}];
+  var XP_PRESETS = [{"p":"stripes","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","ground":"#FFF3EF"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"stripes","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"stripes","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stripes","name":"Neutral","route":null,"cols":{"c1":"#C9BCB7","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#371E28"},{"p":"flower","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#5C5E31","c3":"#430E18","ground":"#430E18"},"scale":85,"main":"#FFF3EF","accent":"#5C5E31"},{"p":"flower","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#191E16","c3":"#5C5E31","ground":"#F5EDDA"},"scale":90,"main":"#F5EDDA","accent":"#6F171F"},{"p":"flower","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#767154","c3":"#767154","ground":"#EAE5E1"},"scale":90,"main":"#EAE5E1","accent":"#612520"},{"p":"tartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#E4C7C1","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#5C5E31"},{"p":"tartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"tartan","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#612520"},"scale":100,"main":"#EAE5E1","accent":"#5C5E31"},{"p":"fir","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#5C5E31","c2":"#5C5E31","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#5C5E31"},{"p":"fir","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#767154","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"fir","name":"Candy Cane","route":"candy","cols":{"c1":"#F1F1F1","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"fir","name":"Cranberry","route":null,"cols":{"c1":"#6E7B47","c2":"#6E7B47","ground":"#371E28"},"scale":100,"main":"#EAE5E1","accent":"#6E7B47"},{"p":"bows","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"bows","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#E8DCC6","ground":"#767154"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"bows","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#FFFFFF","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"bows","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#EAE5E1","ground":"#EAE5E1"},"scale":100,"main":"#EAE5E1","accent":"#612520"},{"p":"stars","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#7F444C","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"stars","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#F1F1F1","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stars","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","c2":"#BF9B7A","ground":"#191E16"},"scale":100,"main":"#EAE5E1","accent":"#612520"}];
   var XP_ROUTE_NAMES = { sweet: "Sweet Wonderland", traditional: "Traditional", candy: "Candy Cane" };
   function xpPattern(key) { return XP_PATTERNS.find(function (p) { return p.key === key; }) || null; }
   // Every colour in the three Christmas routes, in route order, once each:
@@ -9704,6 +9705,66 @@ import { createResizeEngine } from "./resize-engine.js";
     let best = null, gap = -1;
     ["c1", "c2", "c3"].forEach(function (k) { const t = hexTone(cols[k]); if (t != null && g != null && Math.abs(t - g) > gap) { gap = Math.abs(t - g); best = cols[k]; } });
     return best;
+  }
+  /* Two colours per scheme (Danielle, 18 Nov). A card built round a pattern
+     takes a main colour (the inside, a frame's centre, the box with the name
+     details) and an accent (a frame's line, the square behind the photo, the
+     title, a box's line). Each preset carries its pair (main, accent); a
+     scheme without one falls back to its lightest colour and the colour that
+     stands out most from the ground. Items opt in with el.xpRole: "main",
+     "accent" or "pattern" (the outside's pattern itself). */
+  function xpTwo(v) {
+    const pt = v && xpPattern(v.key);
+    if (!pt) return null;
+    const cols = Object.assign({}, pt.cols, v.cols || {});
+    const list = xpPresets(v.key);
+    const same = function (a, b) { const ks = Object.keys(Object.assign({}, a, b)); return ks.every(function (k) { return String(a[k] || "").toLowerCase() === String(b[k] || "").toLowerCase(); }); };
+    const pr = (v.scheme && list.find(function (x) { return x.name === v.scheme && (!v.route || x.route === v.route); }))
+      || list.find(function (x) { return same(Object.assign({}, pt.cols, x.cols), cols); });
+    let light = null, lt = -1;
+    Object.keys(cols).forEach(function (k) { const t = hexTone(cols[k]); if (t != null && t > lt) { lt = t; light = cols[k]; } });
+    return { main: (pr && pr.main) || light || "#ffffff", accent: (pr && pr.accent) || xpAccent(v) || "#371e28" };
+  }
+  // The pattern on the design's outside (the first page that has one).
+  function designPattern() {
+    const pg = (state.pages || []).find(function (p) { return p && p.canvas && p.canvas.bgPattern; });
+    return pg ? pg.canvas.bgPattern : null;
+  }
+  // Colour every item marked with a role from this pattern; true when any is marked.
+  function applyPatternRoles(v) {
+    const two = xpTwo(v);
+    if (!two) return false;
+    let any = false;
+    const ink = function (o, c) {
+      o.color = c;
+      if (Array.isArray(o.runs)) o.runs.forEach(function (r) { if (r && r.color) r.color = c; });
+    };
+    (state.pages || []).forEach(function (pg) {
+      (pg.elements || []).forEach(function (o) {
+        if (!o || !o.xpRole) return;
+        any = true;
+        const shape = /^(rect|ellipse|triangle|star)$/.test(o.type);
+        if (o.xpRole === "pattern") {
+          if (shape || o.type === "wframe") {
+            const f = JSON.parse(JSON.stringify(v)); delete f.area;
+            o.fillPattern = f;
+            if (o.type === "wframe") { delete o.fillSrc; if (o.mode === "lines") o.mode = "inside"; }
+            o.stroke = two.accent;
+          }
+          return;
+        }
+        const c = o.xpRole === "main" ? two.main : two.accent;
+        if (o.type === "text") ink(o, c);
+        else if (o.type === "wframe") {
+          if (o.xpRole === "main") { o.fill = c; delete o.fillPattern; o.stroke = two.accent; } else o.stroke = c;
+        } else if (shape) { o.fill = c; delete o.fillPattern; o.fillGradient = null; }
+      });
+    });
+    // The inside of a folded card takes the main colour too.
+    if (any) (state.pages || []).forEach(function (pg) {
+      if (pg && pg.canvas && pg.canvas.fold === "inside" && !pg.canvas.bgPattern) pg.canvas.background = two.main;
+    });
+    return any;
   }
   function xpScaleK(fill, cv) { return xpUnit(cv) * ((fill && fill.scale) || 100) / 100; }
   // For the download: a canvas pattern of the tile, drawn at twice its size for print.
@@ -11378,6 +11439,20 @@ import { createResizeEngine } from "./resize-engine.js";
 
     // Lock is admin-only — customer flow doesn't get the affordance.
     if (isAdminMode()) html.push(lockControlHtml([el]));
+    /* Which of the pattern's two colours this item takes (Danielle, 18 Nov):
+       when a member picks a pattern, marked items change with it. */
+    if (isAdminMode() && /^(text|rect|ellipse|triangle|star|wframe)$/.test(el.type) && !(el.type === "rect" && el.src)) {
+      const rl = el.xpRole || "";
+      const rb = function (k, label) { return '<button type="button" data-xprole="' + k + '"' + (rl === k ? ' class="is-on"' : "") + ">" + label + "</button>"; };
+      const canPat = el.type !== "text";
+      html.push('<div class="ed-props-section"><h4>Follows the pattern</h4><div class="ed-lockset' + (canPat ? " ed-lockset--4" : "") + '">' +
+        rb("", "No") + rb("main", "Main colour") + rb("accent", "Accent") + (canPat ? rb("pattern", "The pattern") : "") +
+        '</div><p class="ed-props-hint ed-props-hint--block">' +
+        (el.type === "wframe" ? "Main colour fills the frame's centre and gives its line the accent. Accent colours just the line."
+          : el.type === "text" ? "When a member picks a background pattern, these words take its main or accent colour."
+          : "When a member picks a background pattern, this takes its main or accent colour, or the pattern itself with an accent line.") +
+        "</p></div>");
+    }
     if (isAdminMode() && el.type === "text") {
       // Which of the member's three fonts this text takes. Auto goes by size.
       const auto = textRole(Object.assign({}, el, { fontRole: null }));
@@ -11579,6 +11654,18 @@ import { createResizeEngine } from "./resize-engine.js";
       });
     });
     wireLockControl(body, [el]);
+    body.querySelectorAll("[data-xprole]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        const k = b.getAttribute("data-xprole");
+        if (k) el.xpRole = k; else delete el.xpRole;
+        const v = designPattern();
+        if (k && v) applyPatternRoles(v);
+        pushHistory();
+        fullRender();
+        if (typeof refreshPageThumbs === "function") refreshPageThumbs();
+        renderProps();
+      });
+    });
     body.querySelectorAll("[data-fontrole]").forEach(function (b) {
       b.addEventListener("click", function () {
         const v = b.getAttribute("data-fontrole");
@@ -15904,11 +15991,30 @@ import { createResizeEngine } from "./resize-engine.js";
     syncBgPatterns(true);
     return true;
   }
+  // Corner rounding for the selected illustration, in Christmas › Illustration (Danielle, 18 Nov; admin).
+  function syncIllRound() {
+    const box = document.getElementById("ed-xmas-ill-round");
+    if (!box) return;
+    const el = state.selectedIds.length === 1 ? getEl(state.selectedIds[0]) : null;
+    const on = isAdminMode() && isIllustrationPicture(el);
+    box.hidden = !on;
+    box.innerHTML = "";
+    if (!on) return;
+    const t = document.createElement("div");
+    t.className = "ed-section-title";
+    t.textContent = "Corner rounding";
+    box.appendChild(t);
+    box.appendChild(sliderNumberRow("", "px", 0, 500, 1,
+      function () { const e = getEl(el.id); return (e && e.radius) || 0; },
+      function (v) { const e = getEl(el.id); if (e) { e.radius = v; e.radii = null; } },
+      function () { const e = getEl(el.id); if (e) partialRenderElement(e); pushHistory(); }));
+  }
   function openIllustrateFor() {
     const tab = document.querySelector('.ed-ttab[data-itab="illustrate"]');
     if (!tab || tab.hidden) return false;
     if (openChristmasFor()) {
       xmasTab("ill");
+      syncIllRound();
       return true;
     }
     return false;
