@@ -3561,6 +3561,13 @@ import { createResizeEngine } from "./resize-engine.js";
     canvasEl.style.width = state.canvas.width + "px";
     canvasEl.style.height = state.canvas.height + "px";
     canvasEl.style.background = state.canvas.background;
+    // A Christmas pattern on the background, over its colour (xpTile).
+    const _xpBg = state.canvas.bgPattern && xpTile(state.canvas.bgPattern, xpScaleK(state.canvas.bgPattern, state.canvas));
+    if (_xpBg) {
+      canvasEl.style.backgroundImage = 'url("' + _xpBg.url + '")';
+      canvasEl.style.backgroundSize = _xpBg.w.toFixed(2) + "px " + _xpBg.h.toFixed(2) + "px";
+      canvasEl.style.backgroundRepeat = "repeat";
+    }
 
     // Keep the top-bar size badge in lock-step with the actual canvas. This runs
     // on every render — load, resize (preset or custom), page switch, undo/redo —
@@ -3711,7 +3718,24 @@ import { createResizeEngine } from "./resize-engine.js";
 
   // Keep the Background pane in sync with state: image preview, which controls
   // are visible, the opacity values, the fade-colour tint, and the custom swatch.
+  // The background's pattern controls, rebuilt when the page or its pattern changes.
+  var _xpBgSig = null;
+  function syncBgPatterns(force) {
+    const mount = document.getElementById("ed-bg-pattern-mount");
+    if (!mount) return;
+    const sig = state.currentPage + "|" + JSON.stringify(state.canvas.bgPattern || null);
+    if (!force && sig === _xpBgSig) return;
+    _xpBgSig = sig;
+    mount.innerHTML = "";
+    mount.appendChild(xpPicker(function () { return state.canvas.bgPattern ? JSON.parse(JSON.stringify(state.canvas.bgPattern)) : null; }, function (v, live) {
+      if (v) state.canvas.bgPattern = v; else delete state.canvas.bgPattern;
+      if (!live) pushHistory();   // the colour button and the slider record their own
+      fullRender();
+      if (live) _xpBgSig = state.currentPage + "|" + JSON.stringify(state.canvas.bgPattern || null);
+    }));
+  }
   function syncBgPane() {
+    syncBgPatterns();
     const hasImg = !!state.canvas.backgroundImage;
     const thumb = document.getElementById("ed-bg-thumb");
     if (thumb) {
@@ -4791,7 +4815,7 @@ import { createResizeEngine } from "./resize-engine.js";
       node.style.border = (el.strokeWidth ? `${el.strokeWidth}px solid ${el.stroke || "transparent"}` : "none");
     }
     if (el.type === "wframe") {
-      const sig = [el.shape, el.mode, el.stroke, el.fill, el.fillSrc, el.lineW, el.paint, el.fw, el.fh, Math.round(el.w), Math.round(el.h)].join("|");
+      const sig = [el.shape, el.mode, el.stroke, el.fill, el.fillSrc, JSON.stringify(el.fillPattern || null), el.lineW, el.paint, el.fw, el.fh, Math.round(el.w), Math.round(el.h)].join("|");
       if (node._wfSig !== sig) { node.innerHTML = wframeSvg(el); node._wfSig = sig; }
       node.style.background = "transparent";
     }
@@ -8654,6 +8678,13 @@ import { createResizeEngine } from "./resize-engine.js";
       }
     }
 
+    // A Christmas pattern on the background.
+    if (!transparent && SRC.canvas.bgPattern) {
+      try {
+        const pat = await xpCanvasPattern(ctx, SRC.canvas.bgPattern, SRC.canvas);
+        if (pat) { ctx.fillStyle = pat; ctx.fillRect(0, 0, c.width, c.height); }
+      } catch (_) {}
+    }
     // Canvas background image (set via right-click → "Set as background")
     if (SRC.canvas.backgroundImage) {
       try {
@@ -9482,6 +9513,182 @@ import { createResizeEngine } from "./resize-engine.js";
     }
   }
 
+  /* ---------- Christmas patterns (Danielle, 18 Nov) ----------
+     Six repeats drawn in code, so every colour can change and they stay
+     sharp in print: painted stripes, block-print flower, painted tartan, fir
+     sprig trail, bows and Scandi stars. Agreed on the test page
+     (claude.ai/artifact/FyHz7nmY5KvRkkvV3or4j4), and the colour presets are
+     the ones saved there: one per route (Sweet Wonderland, Traditional,
+     Candy Cane) plus the named extras. A pattern is { key, cols, scale } on
+     the background (canvas.bgPattern) or on a painted frame (fillPattern).
+     One tile unit is a millimetre on print, a 148th of the width elsewhere. */
+  // A seeded random, so each tile is the same every time it's drawn.
+  function xpRng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  var xpP = (pts) => "M" + pts.map((p) => p[0].toFixed(2) + "," + p[1].toFixed(2)).join("L") + "Z";
+  // A hand-drawn blob: an ellipse whose edge wanders a little.
+  function xpBlob(cx, cy, rx, ry, rot, r, wob) {
+    const pts = [], n = 28, ph = r() * 6;
+    for (let i = 0; i < n; i++) { const t = i / n * Math.PI * 2, k = 1 + (wob || 0.08) * Math.sin(3 * t + ph) * (0.6 + 0.4 * r());
+      const x = Math.cos(t) * rx * k, y = Math.sin(t) * ry * k;
+      pts.push([cx + x * Math.cos(rot) - y * Math.sin(rot), cy + x * Math.sin(rot) + y * Math.cos(rot)]); }
+    return xpP(pts);
+  }
+  // Each pattern: a tile size, its colour slots (with suggested colours), and what's in the tile.
+  var XP_PATTERNS = [
+    { key: "stripes", name: "Painted stripes", tw: 26, th: 60, cols: { ground: "#F3EDE4", c1: "#B3171C" }, draw(c) {
+      let s = "", x = 1; const widths = [4.2, 1.2, 4.2, 1.2];
+      widths.forEach((w, i) => { const pts = [], ph = i * 1.7;
+        for (let y = 0; y <= 60; y += 3) pts.push([x + 0.35 * Math.sin(y / 60 * Math.PI * 4 + ph), y]);
+        for (let y = 60; y >= 0; y -= 3) pts.push([x + w + 0.35 * Math.sin(y / 60 * Math.PI * 2 + ph + 1), y]);
+        s += '<path d="' + xpP(pts) + '" fill="' + c.c1 + '" opacity="0.92"/>'; x += w + (i % 2 ? 4.4 : 1.6); });
+      return s; } },
+    { key: "flower", name: "Block-print flower", scale: 90, tw: 22, th: 22, cols: { ground: "#2E3F34", c1: "#B3171C", c2: "#8A9A5B", c3: "#D6B36A" }, draw(c) {
+      const motif = (x, y) => { const r = xpRng(Math.round(x * 7 + y * 3)); let m = "";
+        m += '<path d="M' + x + ',' + (y + 1) + ' Q' + (x + 0.6) + ',' + (y + 5) + ' ' + x + ',' + (y + 8.5) + '" stroke="' + c.c2 + '" stroke-width="0.7" fill="none" stroke-linecap="round"/>';
+        m += '<path d="' + xpBlob(x - 2.4, y + 5.2, 2.6, 1, -0.5, r, 0.12) + '" fill="' + c.c2 + '"/><path d="' + xpBlob(x + 2.4, y + 5.6, 2.6, 1, 0.5, r, 0.12) + '" fill="' + c.c2 + '"/>';
+        // A full fan of petals, like a block-printed carnation.
+        for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 + (i - 3) * 0.36; m += '<path d="' + xpBlob(x + Math.cos(a) * 3.1, y - 0.4 + Math.sin(a) * 3.1, 2.5, 1.15, a, r, 0.1) + '" fill="' + c.c1 + '"/>'; }
+        m += '<path d="' + xpBlob(x, y - 0.2, 2.2, 1.6, 0, r, 0.08) + '" fill="' + c.c1 + '"/>';
+        m += '<circle cx="' + x + '" cy="' + (y + 0.6) + '" r="1.05" fill="' + c.c3 + '"/>'; return m; };
+      return motif(11, 4) + motif(0, 15) + motif(22, 15) + motif(0, -7) + motif(22, -7) + motif(11, 26); } },
+    { key: "tartan", name: "Painted tartan", tw: 32, th: 32, cols: { ground: "#2E3F34", c1: "#B3171C", c2: "#B8935A" }, draw(c) {
+      return '<rect x="8" y="0" width="12" height="32" fill="' + c.c1 + '" opacity="0.6"/><rect x="0" y="8" width="32" height="12" fill="' + c.c1 + '" opacity="0.6"/>' +
+        '<rect x="13.4" y="0" width="1.2" height="32" fill="' + c.c2 + '" opacity="0.9"/><rect x="0" y="13.4" width="32" height="1.2" fill="' + c.c2 + '" opacity="0.9"/>' +
+        '<rect x="26" y="0" width="0.7" height="32" fill="' + c.c2 + '" opacity="0.7"/><rect x="0" y="26" width="32" height="0.7" fill="' + c.c2 + '" opacity="0.7"/>' +
+        '<rect x="3" y="0" width="0.9" height="32" fill="#000" opacity="0.18"/><rect x="0" y="3" width="32" height="0.9" fill="#000" opacity="0.18"/>'; } },
+    { key: "fir", name: "Fir sprig trail", tw: 24, th: 22, cols: { ground: "#F3EDE4", c1: "#2E3F34", c2: "#8A9A5B" }, draw(c) {
+      const sprig = (x, y, flip) => { let m = '<path d="M' + x + ',' + y + ' q' + (3 * flip) + ',5 0,11" stroke="' + c.c1 + '" stroke-width="0.6" fill="none" stroke-linecap="round"/>';
+        for (let i = 1; i <= 9; i++) { const t = i / 10, px = x + Math.sin(t * Math.PI) * 1.5 * flip, py = y + t * 11; const L = 2.6 * (1 - t * 0.4);
+          m += '<line x1="' + px.toFixed(2) + '" y1="' + py.toFixed(2) + '" x2="' + (px - L).toFixed(2) + '" y2="' + (py - L * 0.55).toFixed(2) + '" stroke="' + (i % 2 ? c.c1 : c.c2) + '" stroke-width="0.55" stroke-linecap="round"/>' +
+            '<line x1="' + px.toFixed(2) + '" y1="' + py.toFixed(2) + '" x2="' + (px + L).toFixed(2) + '" y2="' + (py - L * 0.55).toFixed(2) + '" stroke="' + (i % 2 ? c.c2 : c.c1) + '" stroke-width="0.55" stroke-linecap="round"/>'; }
+        return m; };
+      return sprig(6, 2, 1) + sprig(18, 13, -1) + sprig(18, -9, -1) + sprig(6, 24, 1); } },
+    { key: "bows", name: "Bows", tw: 26, th: 26, cols: { ground: "#F3EDE4", c1: "#6B1E2C", c2: "#371E28" }, draw(c) {
+      // A velvet ribbon bow: two full loops with a fold line, a knot, and
+      // two flowing tails cut into a V. In a half-drop, so the rows step.
+      const bow = (x, y) => {
+        const L = (m) => 'M' + x + ',' + y + ' C' + (x + m * 2) + ',' + (y - 4.4) + ' ' + (x + m * 7.4) + ',' + (y - 4) + ' ' + (x + m * 6.6) + ',' + (y - 0.3) +
+          ' C' + (x + m * 6.1) + ',' + (y + 2.2) + ' ' + (x + m * 2.6) + ',' + (y + 1.6) + ' ' + x + ',' + (y + 0.7) + 'Z';
+        const F = (m) => 'M' + (x + m * 0.9) + ',' + (y + 0.1) + ' C' + (x + m * 2.6) + ',' + (y - 2.6) + ' ' + (x + m * 5.4) + ',' + (y - 2.4) + ' ' + (x + m * 5.3) + ',' + (y - 0.5);
+        const T = (m) => 'M' + (x + m * 0.4) + ',' + (y + 0.7) + ' C' + (x + m * 1.6) + ',' + (y + 3) + ' ' + (x + m * 0.6) + ',' + (y + 5.2) + ' ' + (x + m * 2.6) + ',' + (y + 8.2) +
+          ' L' + (x + m * 1.5) + ',' + (y + 7.4) + ' L' + (x + m * 1.1) + ',' + (y + 8.8) +
+          ' C' + (x - m * 0.6) + ',' + (y + 5.6) + ' ' + (x + m * 0.4) + ',' + (y + 3.2) + ' ' + (x - m * 0.5) + ',' + (y + 0.9) + 'Z';
+        return [-1, 1].map((m) => '<path d="' + T(m) + '" fill="' + c.c1 + '"/><path d="' + L(m) + '" fill="' + c.c1 + '"/>' +
+            '<path d="' + F(m) + '" fill="none" stroke="' + c.c2 + '" stroke-width="0.35" stroke-linecap="round" opacity="0.7"/>').join("") +
+          '<ellipse cx="' + x + '" cy="' + (y + 0.3) + '" rx="1.25" ry="1.15" fill="' + c.c1 + '"/>' +
+          '<path d="M' + (x - 0.5) + ',' + (y - 0.4) + ' q0.5,0.8 0,1.4" stroke="' + c.c2 + '" stroke-width="0.3" fill="none" opacity="0.7"/>';
+      };
+      return [[6.5, 4], [19.5, 17], [19.5, -9], [6.5, 30], [-6.5, 17], [32.5, 4]].map(([x, y]) => bow(x, y)).join(""); } },
+    { key: "stars", name: "Scandi stars", tw: 16, th: 16, cols: { ground: "#2E3F34", c1: "#B8935A", c2: "#F3EDE4" }, draw(c) {
+      const star = (x, y, R) => { const pts = []; for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2 - Math.PI / 2, rr = i % 2 ? R * 0.45 : R; pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]); } return '<path d="' + xpP(pts) + '" fill="' + c.c1 + '"/>'; };
+      return star(4, 4, 2.4) + star(12, 12, 2.4) + star(-4, 12, 2.4) + star(20, 4, 2.4) + star(12, -4, 2.4) + star(4, 20, 2.4) +
+        [[12, 4], [4, 12]].map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="0.55" fill="' + c.c2 + '"/>').join(""); } },
+  ];
+
+  var XP_PRESETS = [{"p":"stripes","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","ground":"#FFF3EF"},"scale":100},{"p":"stripes","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","ground":"#F5EDDA"},"scale":100},{"p":"stripes","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","ground":"#FFFFFF"},"scale":100},{"p":"stripes","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","ground":"#612520"},"scale":100},{"p":"stripes","name":"Neutral","route":null,"cols":{"c1":"#EAE5E1","ground":"#FFFFFF"},"scale":100},{"p":"flower","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#5C5E31","c3":"#430E18","ground":"#430E18"},"scale":85},{"p":"flower","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#191E16","c3":"#612520","ground":"#F5EDDA"},"scale":90},{"p":"flower","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#FFFFFF","c3":"#F1F1F1","ground":"#E31F36"},"scale":90},{"p":"flower","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#BF9B7A","c3":"#191E16","ground":"#E8DCC6"},"scale":90},{"p":"tartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#E4C7C1","ground":"#430E18"},"scale":100},{"p":"tartan","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#BF9B7A","ground":"#191E16"},"scale":100},{"p":"tartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100},{"p":"tartan","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#612520"},"scale":100},{"p":"fir","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#5C5E31","c2":"#5C5E31","ground":"#430E18"},"scale":100},{"p":"fir","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#767154","ground":"#F5EDDA"},"scale":100},{"p":"fir","name":"Candy Cane","route":"candy","cols":{"c1":"#F1F1F1","c2":"#FFFFFF","ground":"#E31F36"},"scale":100},{"p":"fir","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#BF9B7A","ground":"#E8DCC6"},"scale":100},{"p":"fir","name":"Cranberry","route":null,"cols":{"c1":"#6E7B47","c2":"#6E7B47","ground":"#371E28"},"scale":100},{"p":"fir","name":"Forest","route":null,"cols":{"c1":"#2E3F34","c2":"#8A9A5B","ground":"#F3EDE4"},"scale":100},{"p":"fir","name":"Dusky Pink","route":null,"cols":{"c1":"#371E28","c2":"#371E28","ground":"#C4A092"},"scale":100},{"p":"fir","name":"Christmas Tree","route":null,"cols":{"c1":"#6E7B47","c2":"#8A9A5B","ground":"#2E3F34"},"scale":100},{"p":"bows","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100},{"p":"bows","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#E8DCC6","ground":"#767154"},"scale":100},{"p":"bows","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#FFFFFF","ground":"#FFFFFF"},"scale":100},{"p":"bows","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#191E16","ground":"#E8DCC6"},"scale":100},{"p":"stars","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#7F444C","ground":"#430E18"},"scale":100},{"p":"stars","name":"Traditional","route":"traditional","cols":{"c1":"#BF9B7A","c2":"#F5EDDA","ground":"#191E16"},"scale":100},{"p":"stars","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#F1F1F1","ground":"#E31F36"},"scale":100},{"p":"stars","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","c2":"#BF9B7A","ground":"#191E16"},"scale":100}];
+  var XP_ROUTE_NAMES = { sweet: "Sweet Wonderland", traditional: "Traditional", candy: "Candy Cane" };
+  function xpPattern(key) { return XP_PATTERNS.find(function (p) { return p.key === key; }) || null; }
+  function xpPresets(key) { return XP_PRESETS.filter(function (x) { return x.p === key; }); }
+  function xpUnit(cv) { return isPrintDesign() ? 300 / 25.4 : ((cv && cv.width) || 1080) / 148; }
+  // The tile as an SVG document, `k` canvas pixels to a tile unit.
+  function xpTile(fill, k) {
+    const p = xpPattern(fill && fill.key);
+    if (!p) return null;
+    const cols = Object.assign({}, p.cols, fill.cols || {});
+    const w = p.tw * k, h = p.th * k;
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w.toFixed(2) + '" height="' + h.toFixed(2) + '" viewBox="0 0 ' + p.tw + ' ' + p.th + '">' +
+      '<rect width="' + p.tw + '" height="' + p.th + '" fill="' + cols.ground + '"/>' + p.draw(cols) + '</svg>';
+    return { svg: svg, w: w, h: h, url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg) };
+  }
+  function xpScaleK(fill, cv) { return xpUnit(cv) * ((fill && fill.scale) || 100) / 100; }
+  // For the download: a canvas pattern of the tile, drawn at twice its size for print.
+  var _xpImg = new Map();
+  async function xpCanvasPattern(ctx, fill, cv) {
+    const t = xpTile(fill, xpScaleK(fill, cv) * 2);
+    if (!t) return null;
+    let img = _xpImg.get(t.url);
+    if (!img) { img = await loadImage(t.url); if (_xpImg.size > 30) _xpImg.clear(); _xpImg.set(t.url, img); }
+    const pat = ctx.createPattern(img, "repeat");
+    if (pat && pat.setTransform && typeof DOMMatrix === "function") pat.setTransform(new DOMMatrix().scale(0.5));
+    return pat;
+  }
+
+  /* The pattern controls, for the background and for a painted frame: the
+     six patterns, the chosen one's colour presets, its size, and each of its
+     colours (Dani: "set color presets ... so that people can choose from").
+     get() returns the current { key, cols, scale } or null; set(v) stores it. */
+  function xpPicker(get, set, opts) {
+    opts = opts || {};
+    const wrap = document.createElement("div");
+    wrap.className = "ed-xp";
+    const cur = get();
+    const grid = document.createElement("div");
+    grid.className = "ed-xp-grid";
+    XP_PATTERNS.forEach(function (p) {
+      const first = xpPresets(p.key)[0];
+      const look = { key: p.key, cols: first ? first.cols : p.cols, scale: 100 };
+      const t = xpTile(look, 1.6);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ed-xp-pat";
+      b.setAttribute("aria-pressed", String(!!cur && cur.key === p.key));
+      b.innerHTML = '<span class="pic" style="background-image:url(&quot;' + t.url.replace(/"/g, "%22") + '&quot;)"></span>' + p.name;
+      b.addEventListener("click", function () {
+        // A new pattern starts in the same route as the last, where it has one.
+        const route = cur && (xpPresets(cur.key).find(function (x) { return JSON.stringify(x.cols) === JSON.stringify(cur.cols); }) || {}).route;
+        const pr = xpPresets(p.key).find(function (x) { return route && x.route === route; }) || xpPresets(p.key)[0];
+        set({ key: p.key, cols: Object.assign({}, p.cols, pr ? pr.cols : {}), scale: (pr && pr.scale) || p.scale || 100 });
+      });
+      grid.appendChild(b);
+    });
+    wrap.appendChild(grid);
+    if (!cur || !xpPattern(cur.key)) return wrap;
+    const p = xpPattern(cur.key);
+    const head = document.createElement("div");
+    head.className = "ed-xp-k";
+    head.textContent = "Colours";
+    wrap.appendChild(head);
+    const chips = document.createElement("div");
+    chips.className = "ed-xp-chips";
+    xpPresets(cur.key).forEach(function (pr) {
+      const on = JSON.stringify(Object.assign({}, p.cols, pr.cols)) === JSON.stringify(Object.assign({}, p.cols, cur.cols));
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ed-xp-chip";
+      b.setAttribute("aria-pressed", String(on));
+      b.innerHTML = Object.keys(p.cols).map(function (k) { return '<i style="background:' + (pr.cols[k] || p.cols[k]) + '"></i>'; }).join("") + "<span>" + escapeHtml(pr.name) + "</span>";
+      b.addEventListener("click", function () { set({ key: cur.key, cols: Object.assign({}, p.cols, pr.cols), scale: pr.scale || cur.scale || 100 }); });
+      chips.appendChild(b);
+    });
+    wrap.appendChild(chips);
+    // Each colour on its own, for anything the presets don't cover.
+    const own = document.createElement("div");
+    own.className = "ed-xp-own";
+    const NAMES = { ground: "Ground", c1: "Colour 1", c2: "Colour 2", c3: "Colour 3" };
+    Object.keys(p.cols).forEach(function (slot) {
+      const cell = document.createElement("span");
+      cell.className = "ed-xp-cell";
+      cell.appendChild(colorSwatchButton(function () { return (get().cols || {})[slot] || p.cols[slot]; }, {
+        title: NAMES[slot], key: "xp-" + slot,
+        onSolid: function (hex) { const v = get(); v.cols = Object.assign({}, v.cols, { [slot]: hex }); set(v, true); },
+      }));
+      const lab = document.createElement("span"); lab.textContent = NAMES[slot]; cell.appendChild(lab);
+      own.appendChild(cell);
+    });
+    wrap.appendChild(own);
+    wrap.appendChild(sliderNumberRow("Pattern size", "%", 40, 250, 5, function () { return get().scale || 100; }, function (v) { const x = get(); x.scale = v; set(x, true); }, function () { fullRender(); }));
+    if (opts.removable !== false) {
+      const off = document.createElement("button");
+      off.type = "button";
+      off.className = "ed-btn-ghost ed-bg-btn";
+      off.style.cssText = "background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px";
+      off.textContent = opts.offLabel || "No pattern";
+      off.addEventListener("click", function () { set(null); });
+      wrap.appendChild(off);
+    }
+    return wrap;
+  }
+
   /* ---------- Painted frames (Danielle, 18 Nov) ----------
      Four frames drawn by us (agreed on the test page,
      claude.ai/artifact/JYvdChL7qhT1FHKw9EzGeC): a wavy oval, a wavy panel,
@@ -9586,7 +9793,13 @@ import { createResizeEngine } from "./resize-engine.js";
     let out = '<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="display:block;overflow:visible">';
     if (el.mode === "inside" || el.mode === "outside") {
       const area = wfArea(el, g);
-      if (el.fillSrc) {
+      const xpT = !el.fillSrc && el.fillPattern ? xpTile(el.fillPattern, xpScaleK(el.fillPattern, state.canvas)) : null;
+      if (xpT) {
+        const pid = "wfp-" + String(el.id || "x").replace(/[^\w-]/g, "") + (opts && opts.suffix || "");
+        out += '<defs><pattern id="' + pid + '" patternUnits="userSpaceOnUse" width="' + xpT.w.toFixed(2) + '" height="' + xpT.h.toFixed(2) + '">' +
+          '<image href="' + attr(xpT.url) + '" width="' + xpT.w.toFixed(2) + '" height="' + xpT.h.toFixed(2) + '"/></pattern></defs>' +
+          '<path d="' + area + '" fill="url(#' + pid + ')" fill-rule="evenodd"/>';
+      } else if (el.fillSrc) {
         const id = "wfc-" + String(el.id || "x").replace(/[^\w-]/g, "") + (opts && opts.suffix || "");
         out += '<defs><clipPath id="' + id + '"><path d="' + area + '" clip-rule="evenodd"/></clipPath></defs>' +
           '<image href="' + attr(el.fillSrc) + '" x="0" y="0" width="' + W + '" height="' + H + '" preserveAspectRatio="xMidYMid slice" clip-path="url(#' + id + ')"/>';
@@ -9605,6 +9818,8 @@ import { createResizeEngine } from "./resize-engine.js";
           const k = Math.max(W / img.naturalWidth, H / img.naturalHeight), dw = img.naturalWidth * k, dh = img.naturalHeight * k;
           ctx.save(); ctx.clip(area, "evenodd"); ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh); ctx.restore();
         } catch (_) {}
+      } else if (el.fillPattern) {
+        try { const pat = await xpCanvasPattern(ctx, el.fillPattern, state.canvas); if (pat) { ctx.fillStyle = pat; ctx.fill(area, "evenodd"); } } catch (_) {}
       } else { ctx.fillStyle = el.fill || "#2e3f34"; ctx.fill(area, "evenodd"); }
     }
     ctx.fillStyle = el.stroke || "#b3171c";
@@ -10393,7 +10608,7 @@ import { createResizeEngine } from "./resize-engine.js";
         const tgt = getEl(state.selectedIds[0]);
         if (!tgt) return;
         if (tgt.type === "frame") fillFrame(tgt, src);
-        else if (tgt.type === "wframe") { tgt.fillSrc = src; if (tgt.mode === "lines") tgt.mode = "inside"; fullRender(); }
+        else if (tgt.type === "wframe") { tgt.fillSrc = src; delete tgt.fillPattern; if (tgt.mode === "lines") tgt.mode = "inside"; fullRender(); }
         else if (tgt.brandRole === "photo") { tgt.src = src; delete tgt.autoPhoto; placeBrandPhoto(tgt, src); fullRender(); }
         else { tgt.src = src; fullRender(); }
         pushHistory();
@@ -10650,7 +10865,8 @@ import { createResizeEngine } from "./resize-engine.js";
           '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-replace-img" aria-expanded="false" aria-controls="ed-sel-imgmenu" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:6px">' + (el.fillSrc ? "Change picture" : "Fill with a picture") +
             ' <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>' +
           '<div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>' +
-          (el.fillSrc ? '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-wf-nopic" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Use the colour instead</button>' : "") : "") +
+          (el.fillSrc ? '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-wf-nopic" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Use the colour instead</button>' : "") +
+          '<div class="ed-xp-h">Fill with a pattern</div><div data-mount="wf-pattern"></div>' : "") +
         '<div data-mount="wf-width"></div><div data-mount="wf-height"></div>' +
         // Folded away (Dani, 18 Nov), the way a box's individual corners are.
         '<details class="ed-corner-details"' + (_wfLineOpen ? " open" : "") + ' data-wf-line><summary>Line thickness and brush</summary>' +
@@ -11058,7 +11274,13 @@ import { createResizeEngine } from "./resize-engine.js";
       const lineMount = body.querySelector('[data-mount="wf-line"]');
       if (lineMount) lineMount.appendChild(colorSwatchButton(() => tgt().stroke || "#b3171c", { title: "Line colour", key: "wf-line", onSolid: (hex) => { tgt().stroke = hex; } }));
       const fillMountWf = body.querySelector('[data-mount="wf-fill"]');
-      if (fillMountWf) fillMountWf.appendChild(colorSwatchButton(() => tgt().fill || "#2e3f34", { title: "Fill colour", key: "wf-fill", onSolid: (hex) => { const t = tgt(); t.fill = hex; delete t.fillSrc; } }));
+      if (fillMountWf) fillMountWf.appendChild(colorSwatchButton(() => tgt().fill || "#2e3f34", { title: "Fill colour", key: "wf-fill", onSolid: (hex) => { const t = tgt(); t.fill = hex; delete t.fillSrc; delete t.fillPattern; } }));
+      const wfPat = body.querySelector('[data-mount="wf-pattern"]');
+      if (wfPat) wfPat.appendChild(xpPicker(() => (tgt().fillPattern ? JSON.parse(JSON.stringify(tgt().fillPattern)) : null), (v, live) => {
+        const t = tgt();
+        if (v) { t.fillPattern = v; delete t.fillSrc; } else delete t.fillPattern;
+        if (!live) { pushHistory(); fullRender(); renderProps(); } else fullRender();
+      }, { offLabel: "No pattern" }));
       const nopic = body.querySelector("#ed-wf-nopic");
       if (nopic) nopic.addEventListener("click", () => { delete tgt().fillSrc; pushHistory(); fullRender(); renderProps(); });
       /* The frame's width and height inside its box (Dani, 18 Nov): the box,
