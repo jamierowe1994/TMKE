@@ -469,8 +469,8 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     .cc-call li.ok::before { border-color: var(--good); background: var(--good) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat; }
     .cc-call p { margin: 8px 0 0; color: var(--tx); }
     .cc-call-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
-    .cc-golive { display: inline-flex; align-items: center; gap: 8px; margin-right: 6px; }
-    .cc-golive input { height: 30px; padding: 0 8px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; font: inherit; }
+    .cc-golive { display: inline-flex; align-items: center; margin: 0; vertical-align: middle; }
+    .cc-golive input { box-sizing: border-box; height: 30px; margin: 0; padding: 0 10px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; color: var(--ink); font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: .08em; line-height: 1; vertical-align: middle; cursor: pointer; }
     .cc-about { margin: 0 0 16px; }
 
     /* Insights (Danielle, 17 Nov; mock-up docs/tmke-os/calendar-month-insights). */
@@ -863,7 +863,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         const all = checks(), ready = n > 0 && all.every(([, a, b]) => a === b), live = CUR.status === 'published';
         // The go-live date (Danielle, 18 Nov): publish ahead, and members see the month
         // blurred, "locked and loaded", until this day. Starts as the 1st of the month.
-        const golive = `<label class="cc-golive"><span>Goes live on</span><input type="date" id="cc-golive" value="${esc(goLiveOf(CUR))}" /></label>`;
+        const golive = `<label class="cc-golive" title="Goes live on"><input type="date" id="cc-golive" aria-label="Goes live on" value="${esc(goLiveOf(CUR))}" /></label>`;
         html = box('Final checks', all.map(([l, a, b]) => item(a === b, a === b ? l : `${l} (${b - a} to do)`)), golive + excel + boards + (live
           ? btn('publish', 'Back to draft')
           : `<button type="button" class="mbtn primary" data-call="publish"${ready ? '' : ' disabled title="Finish the checks first"'}>Publish</button>`));
