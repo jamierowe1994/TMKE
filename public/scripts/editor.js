@@ -3747,24 +3747,25 @@ import { createResizeEngine } from "./resize-engine.js";
      the line colour that goes with it. */
   var _xpBgSig = null;
   function xpBgSig() { return state.currentPage + "|" + JSON.stringify(state.canvas.bgPattern || null); }
+  function bgPatGet() { return state.canvas.bgPattern ? JSON.parse(JSON.stringify(state.canvas.bgPattern)) : null; }
+  function bgPatSet(v, live) {
+    const was = state.canvas.bgPattern;
+    if (v) { if (was && was.area && !v.area) v.area = was.area; state.canvas.bgPattern = v; } else delete state.canvas.bgPattern;
+    if (v && !live) {
+      const a = xpAccent(v);
+      if (a) (state.elements || []).forEach(function (o) { if (o && o.type === "wframe" && !o.fillPattern) o.stroke = a; });
+    }
+    if (!live) pushHistory();   // the colour button and the slider record their own
+    fullRender();
+    if (live) _xpBgSig = xpBgSig(); else syncBgPatterns(true);
+  }
   function syncBgPatterns(force) {
     const mounts = ["ed-bg-pattern-mount", "ed-xmas-bg-mount"].map(function (id) { return document.getElementById(id); }).filter(Boolean);
     if (!mounts.length) return;
     const sig = xpBgSig();
     if (!force && sig === _xpBgSig) return;
     _xpBgSig = sig;
-    const get = function () { return state.canvas.bgPattern ? JSON.parse(JSON.stringify(state.canvas.bgPattern)) : null; };
-    const set = function (v, live) {
-      const was = state.canvas.bgPattern;
-      if (v) { if (was && was.area && !v.area) v.area = was.area; state.canvas.bgPattern = v; } else delete state.canvas.bgPattern;
-      if (v && !live) {
-        const a = xpAccent(v);
-        if (a) (state.elements || []).forEach(function (o) { if (o && o.type === "wframe" && !o.fillPattern) o.stroke = a; });
-      }
-      if (!live) pushHistory();   // the colour button and the slider record their own
-      fullRender();
-      if (live) _xpBgSig = xpBgSig(); else syncBgPatterns(true);
-    };
+    const get = bgPatGet, set = bgPatSet;
     mounts.forEach(function (mount) {
       mount.innerHTML = "";
       mount.appendChild(xpPicker(get, set));
@@ -9794,6 +9795,7 @@ import { createResizeEngine } from "./resize-engine.js";
       chips.appendChild(b);
     });
     wrap.appendChild(chips);
+    if (opts.compact) return wrap;   // the Edit list: patterns and schemes only
     // Each colour on its own, for anything the presets don't cover.
     const own = document.createElement("div");
     own.className = "ed-xp-own";
@@ -15016,6 +15018,17 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   // What to call a field that was never named: its own first words, which at
   // least say which part of the design it is.
+  // The example in an empty name box, by what the item is (Danielle, 18 Nov).
+  function fieldPlaceholderFor(el) {
+    if (el.type === "text") return "e.g. This is where the town goes";
+    if (el.type === "wframe") return "e.g. Change the frame round your message";
+    if (/^(rect|ellipse|triangle|star)$/.test(el.type) && !el.src) return "e.g. Pick the colour of the box behind your name";
+    if (el.brandRole === "qr") return "e.g. Where your QR code takes people";
+    if (el.brandRole === "photo" || el.brandRole === "headshot") return "e.g. This is where the photo of you goes";
+    if (el.brandRole === "logo") return "e.g. Your logo";
+    if (isIllustrationPicture(el)) return "e.g. Choose your Christmas picture";
+    return "e.g. This is where the photo of the house goes";
+  }
   function fieldLabelFor(el) {
     const named = (el.fieldLabel || "").trim();
     if (named) return named;
@@ -15027,6 +15040,9 @@ import { createResizeEngine } from "./resize-engine.js";
     if (el.brandRole === "photo") return "Photograph of you";
     if (el.brandRole === "headshot") return "Your headshot";
     if (el.brandRole === "logo") return "Your logo";
+    if (el.brandRole === "qr") return "Your QR code";
+    if (el.type === "wframe") return "The frame";
+    if (/^(rect|ellipse|triangle|star)$/.test(el.type) && !el.src) return "Box colour";
     return el.type === "image" || el.type === "frame" ? "Picture" : "Item";
   }
   // Is this design one the Edit pane is for?
@@ -15119,6 +15135,8 @@ import { createResizeEngine } from "./resize-engine.js";
       const row = document.createElement("div");
       row.className = "ed-field";
       row.dataset.id = el.id;
+      // Point at a row and its item lights up on the design, so it's clear which one it is.
+      row.addEventListener("mouseenter", function () { flashElement(el); });
 
       const head = document.createElement("div");
       head.className = "ed-field-head";
@@ -15128,7 +15146,7 @@ import { createResizeEngine } from "./resize-engine.js";
         name.type = "text";
         name.className = "ed-field-name";
         name.value = el.fieldLabel || "";
-        name.placeholder = "e.g. This is where the town goes";
+        name.placeholder = fieldPlaceholderFor(el);
         name.addEventListener("change", function () {
           el.fieldLabel = name.value.trim() || null;
           pushHistory();
@@ -15459,7 +15477,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
   // A Christmas pattern on the background (any side): the row is about the background, not a card colour (Danielle, 18 Nov).
   function hasBgPattern() {
-    return (state.pages || []).some(function (pg) { return pg && pg.canvas && pg.canvas.bgPattern; }) || !!(state.canvas && state.canvas.bgPattern);
+    return !!(state.canvas && state.canvas.bgPattern);
   }
   // The background, as a row like any other.
   function backgroundFieldRow(admin) {
@@ -15491,6 +15509,12 @@ import { createResizeEngine } from "./resize-engine.js";
       head.appendChild(lbl);
     }
     row.appendChild(head);
+    /* A patterned background (Danielle, 18 Nov): the patterns and their
+       colour schemes, not the card colours, which the pattern covers. */
+    if (state.canvas.bgPattern) {
+      row.appendChild(xpPicker(bgPatGet, function (v, live) { bgPatSet(v, live); if (!live) renderFieldsPane(); }, { compact: true, removable: false }));
+      return row;
+    }
     /* A Christmas card or postcard: its four colours, with the same rules
        as Illustrate (words, lines and the inside follow). */
     const cc = cardColours();
@@ -15580,24 +15604,39 @@ import { createResizeEngine } from "./resize-engine.js";
     if (src) thumb.style.backgroundImage = "url(" + JSON.stringify(src) + ")";
     else thumb.classList.add("is-empty");
     box.appendChild(thumb);
-    /* No picture yet: show what fills the shape now - its colour, gradient
-       or pattern - so the row says which box it is (Danielle, 18 Nov). */
+    /* No picture yet: a small drawing of the thing itself - its shape, in
+       its proportions, with its colour, gradient or pattern - so the row says
+       which box or frame it is (Danielle, 18 Nov: two plain beige squares
+       said nothing). */
     if (!src && /^(rect|ellipse|triangle|star|wframe)$/.test(el.type || "")) {
-      const xpP0 = el.fillPattern && xpPattern(el.fillPattern.key);
-      const tile = xpP0 ? xpTile(el.fillPattern, 24 / xpP0.tw * ((el.fillPattern.scale || 100) / 100)) : null;
-      const grad = el.fillGradient && el.fillGradient.enabled ? textGradientCss(el.fillGradient) : null;
-      const solid = el.fill && el.fill !== "transparent" ? el.fill : null;
-      if (tile) { thumb.style.backgroundColor = (el.fillPattern.cols && el.fillPattern.cols.ground) || ""; thumb.style.backgroundImage = 'url("' + tile.url + '")'; thumb.style.backgroundSize = tile.w.toFixed(1) + "px " + tile.h.toFixed(1) + "px"; thumb.style.backgroundRepeat = "repeat"; }
-      else if (grad) thumb.style.backgroundImage = grad;
-      if (tile || grad || solid) { thumb.classList.remove("is-empty"); if (solid) thumb.style.backgroundColor = thumb.style.backgroundColor || solid; }
-      if (el.type === "ellipse") thumb.style.borderRadius = "50%";
+      thumb.classList.remove("is-empty");
+      thumb.classList.add("is-shape");
+      const k = 44 / Math.max(el.w || 1, el.h || 1);
+      const mini = document.createElement("span");
+      mini.className = "ed-field-mini";
+      mini.style.width = Math.max(6, Math.round((el.w || 1) * k)) + "px";
+      mini.style.height = Math.max(6, Math.round((el.h || 1) * k)) + "px";
+      if (el.type === "wframe") {
+        try { mini.innerHTML = wframeSvg(el); } catch (_) {}
+      } else {
+        const xpP0 = el.fillPattern && xpPattern(el.fillPattern.key);
+        const tile = xpP0 ? xpTile(el.fillPattern, 18 / xpP0.tw * ((el.fillPattern.scale || 100) / 100)) : null;
+        const grad = el.fillGradient && el.fillGradient.enabled ? textGradientCss(el.fillGradient) : null;
+        const solid = el.fill && el.fill !== "transparent" ? el.fill : null;
+        if (solid) mini.style.backgroundColor = solid;
+        if (tile) { mini.style.backgroundColor = (el.fillPattern.cols && el.fillPattern.cols.ground) || solid || ""; mini.style.backgroundImage = 'url("' + tile.url + '")'; mini.style.backgroundSize = tile.w.toFixed(1) + "px " + tile.h.toFixed(1) + "px"; }
+        else if (grad) mini.style.backgroundImage = grad;
+        if (el.type === "ellipse") mini.style.borderRadius = "50%";
+        if (el.type === "triangle") mini.style.clipPath = "polygon(50% 0%, 100% 100%, 0% 100%)";
+        if (el.type === "star") mini.style.clipPath = "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)";
+      }
+      thumb.appendChild(mini);
     }
     /* A picture from Illustrate, or a painted frame: Change opens Images ›
        Illustrate with it selected, so the scene picked goes into it (Dani,
        18 Nov). Where Illustrate isn't offered, the usual chooser. */
     const illTab = document.querySelector('.ed-ttab[data-itab="illustrate"]');
-    if ((isIllustrationPicture(el) || el.type === "wframe") && illTab && !illTab.hidden) {
-      if (el.type === "wframe" && el.fillSrc) { thumb.classList.remove("is-empty"); thumb.style.backgroundImage = "url(" + JSON.stringify(el.fillSrc) + ")"; }
+    if (isIllustrationPicture(el) && illTab && !illTab.hidden) {
       const go = document.createElement("button");
       go.type = "button";
       go.className = "ed-field-change";
