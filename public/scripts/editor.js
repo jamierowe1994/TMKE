@@ -9870,7 +9870,8 @@ import { createResizeEngine } from "./resize-engine.js";
       return wfDisplace(base, (d, L) => amp * Math.abs(Math.sin(d / L * Math.PI * n)) - amp / 2);
     }
     if (shape === "label") {
-      const r = 0.15 * m, a = 0.22 * m, cx = (x0 + x1) / 2, Y0 = y0 + a, Y1 = y1 - a, p = [];
+      // Smaller top and bottom arcs and corners, so the straight sides run longer (Danielle, 18 Nov; was r 0.15, a 0.22).
+      const r = 0.12 * m, a = 0.16 * m, cx = (x0 + x1) / 2, Y0 = y0 + a, Y1 = y1 - a, p = [];
       const arc = (ox, oy, rr, t0, t1) => { for (let i = 0; i <= 40; i++) { const t = t0 + (t1 - t0) * i / 40; p.push([ox + rr * Math.cos(t), oy + rr * Math.sin(t)]); } };
       arc(x0, Y0, r, Math.PI / 2, 0);
       p.push([cx - a, Y0]); arc(cx, Y0, a, Math.PI, Math.PI * 2); p.push([x1 - r, Y0]);
