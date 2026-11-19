@@ -716,6 +716,12 @@ import "../../styles/money-os.css";
     .inv-wrap .ap-pill.is-rejected { background: #f9f0f0; color: #8a3f3f; }
     .inv-wrap .ap-notes, .inv-wrap .ap-num-name em, .inv-wrap .ap-open { font-size: 14px; font-weight: 400; color: #7e6765; }
     .inv-wrap .ap-num-row { font-size: 14px; border-top: 1px solid #eae5e1; }
+    /* Numbers needed: one fixed row each, the box, button and Saved note in
+       the same place on every row (Dani, 19 Nov). */
+    .inv-wrap .ap-num-row { display: grid; grid-template-columns: minmax(0, 1fr) 120px 96px 180px; align-items: center; gap: 12px; min-height: 68px; padding: 10px 0; flex-wrap: nowrap; }
+    .inv-wrap .ap-num-name { flex: none; gap: 4px; }
+    .inv-wrap .ap-num-row input { box-sizing: border-box; width: 100%; height: 36px; margin: 0; }
+    .inv-wrap .ap-num-row .inv-save { box-sizing: border-box; width: 100%; height: 36px; margin: 0; padding: 0 10px; }
     .inv-wrap .mc-auto, .inv-wrap .ap-numbers { border: 1px solid #e2d9d4; border-radius: 4px; }
     .inv-wrap .mc-auto-on { font-size: 14px; font-weight: 400; }
     .inv-wrap .mc-modal-box { border-radius: 4px; }
@@ -1604,10 +1610,10 @@ import "../../styles/money-os.css";
       if (!nums.length) { host.hidden = true; return; }
       host.hidden = false;
       host.innerHTML = `<h3 class="mc-h">Numbers needed</h3><p class="inv-intro">These invoices need a number from you each month before they can go out. Fill it in any time before the day it goes.</p>` +
-        nums.map((n) => `<div class="ap-num-row"><span class="ap-num-name"><strong>${esc(n.name)}</strong> · ${esc(n.month_label)}<em>${esc(n.label)}${n.unit_pence ? `, £${(n.unit_pence / 100).toFixed(2)} each` : ""}. Goes out on the ${n.day}${[11, 12, 13].includes(n.day % 100) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n.day % 10] || "th")}.</em></span>
+        nums.map((n) => `<div class="ap-num-row"><span class="ap-num-name"><span><strong>${esc(n.name)}</strong> · ${esc(n.month_label)}</span><em>${esc(n.label)}${n.unit_pence ? `, £${(n.unit_pence / 100).toFixed(2)} each` : ""}. Goes out on the ${n.day}${[11, 12, 13].includes(n.day % 100) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n.day % 10] || "th")}.</em></span>
           <input type="number" min="0" step="1" value="${n.qty ?? ""}" data-numfor="${esc(n.recurring_id)}" data-month="${esc(n.month)}" aria-label="${esc(n.label)}" />
           <button type="button" class="inv-save" data-numsave="${esc(n.recurring_id)}|${esc(n.month)}">${n.qty != null ? "Update" : "Save"}</button>
-          <span class="ap-num-done">${n.qty != null ? `Saved${n.entered_by ? ` by ${esc(String(n.entered_by).split("@")[0])}` : ""}` : ""}</span></div>`).join("");
+          <span class="ap-num-done">${n.qty != null ? `Saved${n.entered_by ? ` by ${esc(String(n.entered_by).split("@")[0].replace(/^./, (c) => c.toUpperCase()))}` : ""}` : ""}</span></div>`).join("");
       host.querySelectorAll("[data-numsave]").forEach((b) => b.addEventListener("click", async () => {
         const [rid, month] = b.dataset.numsave.split("|");
         const inp = host.querySelector(`[data-numfor="${rid}"][data-month="${month}"]`);
