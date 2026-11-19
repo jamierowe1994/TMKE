@@ -8605,7 +8605,9 @@ const PORTAL_FILTER = "status=eq.sent&or=(payment_method.is.null,payment_method.
 // One Stripe payout on a page (Dani, 19 Nov): every payment in it with its fee,
 // any refund taken out, adding up to the line on the bank statement.
 async function payoutStatementPdf(env, po, lines) {
-  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=company_name,vat_number"))?.[0] || {};
+  // Dressed like our invoices (Dani, 19 Nov): paper, TMKE wordmark, a wine
+  // header on the table and every row one height, however long its words.
+  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=company_name,vat_number,font_family,accent_color"))?.[0] || {};
   const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const money = (p) => (p < 0 ? "&minus;" : "") + "£" + (Math.abs(p) / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const longDay = (d) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" });
@@ -8614,35 +8616,56 @@ async function payoutStatementPdf(env, po, lines) {
   const amount = Number(po.amount) || 0;
   const sum = lines.reduce((t, l) => t + l.net, 0);
   const pays = lines.filter((l) => l.pay);
-  const td = 'style="padding:7px 6px;border-bottom:1px solid #e4dedf;font-size:9.5pt;vertical-align:top;"';
-  const tdr = 'style="padding:7px 6px;border-bottom:1px solid #e4dedf;font-size:9.5pt;text-align:right;white-space:nowrap;vertical-align:top;"';
-  const body = lines.map((l) => `<tr><td ${td}>${esc(shortDay(l.at))}</td><td ${td}>${esc(l.what)}</td><td ${td}>${esc(l.who || "")}</td><td ${tdr}>${l.pay ? money(l.gross) : ""}</td><td ${tdr}>${l.pay ? money(-l.fee) : ""}</td><td ${tdr}>${money(l.net)}</td></tr>`).join("");
+  const accent = /^#[0-9a-f]{6}$/i.test(st.accent_color || "") ? st.accent_color : "#371e28";
+  const cell = (v, cls) => `<td${cls ? ` class="${cls}"` : ""}><div>${v}</div></td>`;
+  const body = lines.map((l) => `<tr>${cell(esc(shortDay(l.at)))}${cell(esc(l.what))}${cell(esc(l.who || ""))}${cell(l.pay ? money(l.gross) : "", "r")}${cell(l.pay ? money(-l.fee) : "", "r")}${cell(money(l.net), "r")}</tr>`).join("");
   const html = `<!doctype html><html><head><meta charset="utf-8">
     <style>
-      @page { size: A4; margin: 18mm; }
-      body { font-family: Verdana, Geneva, sans-serif; color:#241419; margin:0; }
-      .eyebrow { font-size:9pt; letter-spacing:0.18em; text-transform:uppercase; color:#8a8796; margin:0 0 6px; }
-      h1 { font-size:20pt; font-weight:400; margin:0 0 4px; }
-      .sub { font-size:10pt; color:#6b5c61; margin:0 0 22px; }
-      table { width:100%; border-collapse:collapse; }
-      th { padding:7px 6px; font-size:8.5pt; font-weight:400; color:#6b5c61; text-align:left; border-top:1px solid #c9bcb7; border-bottom:1px solid #c9bcb7; }
-      th.r { text-align:right; }
-      .foot { margin-top:24px; font-size:8.5pt; line-height:1.6; color:#8a8796; border-top:1px solid #e4dedf; padding-top:14px; }
-    </style></head><body>
-    <p class="eyebrow">${esc((st.company_name || "The Marketing Experts").toUpperCase())} &middot; Stripe payout</p>
-    <h1>${money(amount)} into the bank</h1>
-    <p class="sub">${esc(longDay(arrival))} &middot; ${pays.length} ${pays.length === 1 ? "payment" : "payments"}${po.statement_descriptor ? " &middot; shows on the bank as " + esc(po.statement_descriptor) : ""}</p>
+      * { box-sizing: border-box; }
+      @page { size: A4; margin: 0; }
+      html, body { margin: 0; }
+      body { background: #f1efec; font-family: ${st.font_family || "Arial, Helvetica, sans-serif"}; color: ${accent}; -webkit-font-smoothing: antialiased; }
+      .page { min-height: 297mm; padding: 64px 64px 56px; display: flex; flex-direction: column; }
+      .top { display: flex; justify-content: space-between; align-items: flex-end; }
+      .wordmark { font-weight: 800; font-size: 56px; line-height: .9; letter-spacing: -0.01em; }
+      .kind { text-align: right; font-size: 11.5px; line-height: 1.6; }
+      .lbl { font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+      .company { margin-top: 22px; font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+      .amount { margin-top: 52px; font-size: 40px; font-weight: 800; letter-spacing: -0.01em; line-height: 1; }
+      .sub { margin-top: 10px; font-size: 12.5px; }
+      table { width: 100%; margin-top: 40px; border-collapse: collapse; table-layout: fixed; }
+      th { height: 34px; padding: 0 12px; background: ${accent}; color: #f1efec; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; text-align: left; white-space: nowrap; }
+      th.r, td.r { text-align: right; }
+      td { height: 42px; padding: 0 12px; border-bottom: 1px solid rgba(55,30,40,.16); font-size: 12px; vertical-align: middle; }
+      td div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      tr.total td { height: 58px; border-bottom: 0; border-top: 1.5px solid ${accent}; }
+      tr.total .t { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+      tr.total .v { font-size: 22px; font-weight: 800; }
+      .foot { margin-top: auto; padding-top: 18px; border-top: 1px solid rgba(55,30,40,.2); font-size: 10.5px; line-height: 1.6; }
+      .foot p { margin: 0; }
+      .foot p + p { margin-top: 12px; }
+      .warn { margin-top: 18px; padding: 12px 14px; border: 1px solid ${accent}; font-size: 11.5px; line-height: 1.5; }
+    </style></head><body><div class="page">
+    <div class="top">
+      <div class="wordmark">TMKE</div>
+      <div class="kind"><div class="lbl">Stripe payout</div><div>${esc(longDay(arrival))}</div></div>
+    </div>
+    <div class="company">${esc((st.company_name || "The Marketing Experts").toUpperCase())}</div>
+    <div class="amount">${money(amount)}</div>
+    <div class="sub">Paid into the bank on ${esc(longDay(arrival))}, made up of ${pays.length} ${pays.length === 1 ? "payment" : "payments"}${po.statement_descriptor ? `. It shows on the bank statement as ${esc(po.statement_descriptor)}` : ""}.</div>
     <table>
-      <thead><tr><th style="width:52px;">Date</th><th>What it was for</th><th style="width:150px;">Paid by</th><th class="r" style="width:70px;">Paid</th><th class="r" style="width:70px;">Stripe fee</th><th class="r" style="width:74px;">Net</th></tr></thead>
+      <colgroup><col style="width:70px"><col><col style="width:160px"><col style="width:86px"><col style="width:92px"><col style="width:90px"></colgroup>
+      <thead><tr><th>Date</th><th>What it was for</th><th>Paid by</th><th class="r">Paid</th><th class="r">Stripe fee</th><th class="r">Net</th></tr></thead>
       <tbody>${body}
-        <tr><td colspan="5" style="padding:12px 6px 0;border-top:2px solid #371e28;font-size:11pt;font-weight:700;">Paid into the bank</td><td style="padding:12px 6px 0;border-top:2px solid #371e28;font-size:11pt;font-weight:700;text-align:right;white-space:nowrap;">${money(amount)}</td></tr>
+        <tr class="total"><td colspan="5" class="t">Paid into the bank</td><td class="r v">${money(amount)}</td></tr>
       </tbody>
     </table>
-    <p class="foot">
-      ${sum !== amount ? `The lines above add up to ${money(sum)}, ${money(amount - sum)} different from the payout. Stripe didn't itemise all of it, so please ask us about the difference.<br>` : ""}
-      Stripe payout reference ${esc(po.id)}. Paid amounts include VAT; each payment has its own receipt on the accounts page.
-      <br>A statement of a payout, not a VAT invoice.${st.vat_number ? "<br>VAT number " + esc(st.vat_number) : ""}
-    </p></body></html>`;
+    ${sum !== amount ? `<div class="warn">The lines above add up to ${money(sum)}, ${money(amount - sum)} different from the payout. Stripe didn't itemise all of it, so please ask us about the difference.</div>` : ""}
+    <div class="foot">
+      <p>Stripe payout reference ${esc(po.id)}. Paid amounts include VAT. Each payment has its own receipt on the accounts page.</p>
+      <p>A statement of a payout, not a VAT invoice.${st.vat_number ? ` VAT number ${esc(st.vat_number)}.` : ""}</p>
+    </div>
+    </div></body></html>`;
   const browser = await puppeteer.launch(env.BROWSER);
   try {
     const page = await browser.newPage();
@@ -11111,47 +11134,69 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
           const money = (p) => (p == null ? "&mdash;" : "£" + (p / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
           const when = paidAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" });
-          const est = derived ? ' <span style="font-size:9pt;color:#8a6a3c;">est</span>' : "";
-          const row = (k, v, strong) => `<tr>
-            <td style="padding:7px 0;color:#6b5c61;font-size:10pt;">${esc(k)}</td>
-            <td style="padding:7px 0;text-align:right;font-size:${strong ? "13pt;font-weight:700" : "10pt"};color:#241419;">${v}</td></tr>`;
-
+          // Dressed like the invoices and the payout statement (Dani, 19 Nov):
+          // paper, TMKE wordmark, wine table headers, rows one height each.
+          const accent = /^#[0-9a-f]{6}$/i.test(st.accent_color || "") ? st.accent_color : "#371e28";
+          const shortDay = paidAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" });
+          const est = derived ? " (estimated)" : "";
+          const line = (k, v, cls) => `<tr${cls ? ` class="${cls}"` : ""}><td><div>${k}</div></td><td class="r"><div>${v}</div></td></tr>`;
           const html = `<!doctype html><html><head><meta charset="utf-8">
             <style>
-              @page { size: A4; margin: 20mm; }
-              body { font-family: Verdana, Geneva, sans-serif; color:#241419; margin:0; }
-              .eyebrow { font-size:9pt; letter-spacing:0.18em; text-transform:uppercase; color:#8a8796; margin:0 0 6px; }
-              h1 { font-size:20pt; font-weight:400; margin:0 0 4px; }
-              .sub { font-size:10pt; color:#6b5c61; margin:0 0 26px; }
-              table { width:100%; border-collapse:collapse; }
-              .rule td { border-top:1px solid #e4dedf; }
-              .total td { border-top:2px solid #371e28; padding-top:12px; }
-              .foot { margin-top:28px; font-size:8.5pt; line-height:1.6; color:#8a8796; border-top:1px solid #e4dedf; padding-top:14px; }
-            </style></head><body>
-            <p class="eyebrow">${esc((st.company_name || "The Marketing Experts").toUpperCase())} &middot; Payment received</p>
-            <h1>${esc(label)}</h1>
-            <p class="sub">${esc(when)}${source ? " &middot; " + esc(source) : ""}</p>
+              * { box-sizing: border-box; }
+              @page { size: A4; margin: 0; }
+              html, body { margin: 0; }
+              body { background: #f1efec; font-family: ${st.font_family || "Arial, Helvetica, sans-serif"}; color: ${accent}; -webkit-font-smoothing: antialiased; }
+              .page { min-height: 297mm; padding: 64px 64px 56px; display: flex; flex-direction: column; }
+              .top { display: flex; justify-content: space-between; align-items: flex-end; }
+              .wordmark { font-weight: 800; font-size: 56px; line-height: .9; letter-spacing: -0.01em; }
+              .kind { text-align: right; font-size: 11.5px; line-height: 1.6; }
+              .lbl { font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+              .company { margin-top: 22px; font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+              .amount { margin-top: 52px; font-size: 40px; font-weight: 800; letter-spacing: -0.01em; line-height: 1; }
+              .sub { margin-top: 10px; font-size: 12.5px; }
+              table { width: 100%; margin-top: 40px; border-collapse: collapse; table-layout: fixed; }
+              table + table { margin-top: 28px; }
+              th { height: 34px; padding: 0 12px; background: ${accent}; color: #f1efec; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; text-align: left; white-space: nowrap; }
+              th.r, td.r { text-align: right; }
+              td { height: 42px; padding: 0 12px; border-bottom: 1px solid rgba(55,30,40,.16); font-size: 12px; vertical-align: middle; }
+              td div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+              tr.total td { height: 58px; border-bottom: 1px solid rgba(55,30,40,.16); border-top: 1.5px solid ${accent}; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+              tr.total td.r { font-size: 22px; font-weight: 800; letter-spacing: 0; }
+              .foot { margin-top: auto; padding-top: 18px; border-top: 1px solid rgba(55,30,40,.2); font-size: 10.5px; line-height: 1.6; }
+              .foot p { margin: 0; }
+              .foot p + p { margin-top: 12px; }
+            </style></head><body><div class="page">
+            <div class="top">
+              <div class="wordmark">TMKE</div>
+              <div class="kind"><div class="lbl">Payment received</div><div>${esc(when)}</div></div>
+            </div>
+            <div class="company">${esc((st.company_name || "The Marketing Experts").toUpperCase())}</div>
+            <div class="amount">${money(gross)}</div>
+            <div class="sub">Received${customer ? ` from ${esc(customer)}` : ""} on ${esc(when)}, for ${esc(label)}.</div>
             <table>
-              ${row("Received from", esc(customer || "&mdash;"))}
-              ${row("Date", esc(when))}
-              ${source ? row("Source", esc(source)) : ""}
-              <tr class="rule"><td colspan="2" style="height:8px;"></td></tr>
-              ${row("Net", money(net) + est)}
-              ${row("VAT", money(vat) + est)}
-              <tr class="total">${`<td style="padding:12px 0 0;font-size:13pt;font-weight:700;">Gross paid</td><td style="padding:12px 0 0;text-align:right;font-size:13pt;font-weight:700;">${money(gross)}</td>`}</tr>
-              <tr class="rule"><td colspan="2" style="height:8px;"></td></tr>
-              ${offStripe ? "" : row("Stripe fee", money(fee))}
-              ${row("Received in bank", money(fee == null ? null : gross - fee))}
-              ${refunded ? row("Refunded", money(refunded)) : ""}
-              ${row(offStripe ? "Reference" : "Stripe reference", esc(reference))}
+              <colgroup><col style="width:70px"><col><col style="width:170px"><col style="width:130px"></colgroup>
+              <thead><tr><th>Date</th><th>What it was for</th><th>Paid by</th><th>Area</th></tr></thead>
+              <tbody><tr><td><div>${esc(shortDay)}</div></td><td><div>${esc(label)}</div></td><td><div>${esc(customer || "")}</div></td><td><div>${esc(source || "")}</div></td></tr></tbody>
             </table>
-            <p class="foot">
-              ${derived
-                ? "The VAT shown was worked back from the total at the standard rate. This payment was taken outside the Hub, so no split was recorded at the time &mdash; confirm against the source before relying on it for a return."
-                : "The VAT split shown is the one recorded when the payment was taken."}
-              <br>A record of a payment received, not a VAT invoice.
-              ${st.vat_number ? "<br>VAT number " + esc(st.vat_number) : ""}
-            </p></body></html>`;
+            <table>
+              <colgroup><col><col style="width:160px"></colgroup>
+              <thead><tr><th>Breakdown</th><th class="r">Amount</th></tr></thead>
+              <tbody>
+                ${line(`Net${est}`, money(net))}
+                ${line(`VAT${est}`, money(vat))}
+                ${line("Paid", money(gross), "total")}
+                ${offStripe ? "" : line("Stripe fee", fee == null ? "&mdash;" : "&minus;" + money(fee))}
+                ${line("Into the bank", money(fee == null ? null : gross - fee))}
+                ${refunded ? line("Refunded", "&minus;" + money(refunded)) : ""}
+              </tbody>
+            </table>
+            <div class="foot">
+              <p>${offStripe ? "Reference" : "Stripe reference"} ${esc(reference)}. ${derived
+                ? "The VAT shown was worked back from the total at the standard rate, as no split was recorded when it was taken. Please check it against the source before using it for a return."
+                : "The VAT split shown is the one recorded when the payment was taken."}</p>
+              <p>A record of a payment received, not a VAT invoice.${st.vat_number ? ` VAT number ${esc(st.vat_number)}.` : ""}</p>
+            </div>
+            </div></body></html>`;
 
           const browser = await puppeteer.launch(env.BROWSER);
           let pdf;

@@ -112,6 +112,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ac-fig span { color: var(--t); }
     .ac-fig.dark { background: var(--w); color: #fff; }
     .ac-fig.dark span { color: rgba(255,255,255,.8); }
+    /* Outstanding in the mid TMKE colour, then wine, then the light ones (Dani, 19 Nov). */
+    .ac-fig.mid { background: var(--t); color: #fff; }
+    .ac-fig.mid span { color: rgba(255,255,255,.85); }
     .ac-sec { display: grid; gap: 10px; margin-top: 22px; }
     .ac-strip { display: flex; align-items: center; min-height: 30px; padding: 0 14px; background: var(--w); border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: #fff; }
     .ac-strip span { margin-left: 8px; color: rgba(255,255,255,.6); }
@@ -284,7 +287,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const tot = (a) => gbp(a.reduce((t, v) => t + v.net_pence, 0));
       const ib = live.filter((v) => v.route === "internal"), ext = live.filter((v) => v.route !== "internal"), ov = live.filter(isOver);
       const fc = (cls, val, lab) => `<div class="ac-fig ${cls}"><b>${val}</b><span>${lab}</span></div>`;
-      $("ac-figs").innerHTML = fc("", tot(live), `Still open, ${live.length} ${live.length === 1 ? "invoice" : "invoices"}`) + fc("dark", tot(ov), `Overdue, ${ov.length}`) + fc("", tot(ib), `Inter-brand, ${ib.length}`) + fc("", tot(ext), `External clients, ${ext.length}`);
+      $("ac-figs").innerHTML = fc("mid", tot(live), `Outstanding, ${live.length} ${live.length === 1 ? "invoice" : "invoices"}`) + fc("dark", tot(ov), `Overdue, ${ov.length}`) + fc("", tot(ib), `Inter-brand, ${ib.length}`) + fc("", tot(ext), `External clients, ${ext.length}`);
     }
     function row(v) {
       const view = `<button type="button" class="ac-btn" data-view="${v.id}">View</button>`;
