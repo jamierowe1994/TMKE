@@ -4791,6 +4791,25 @@ import { createResizeEngine } from "./resize-engine.js";
     // Authoring aid: show which element is the logo slot. Admin only — a
     // customer sees their own logo there, not a marked-up box.
     if (el.brandRole === "logo" && isAdminMode()) node.classList.add("is-logoslot");
+    /* The TMKE logo as a stand-in in an empty logo slot (Danielle, 19 Nov):
+       admin only, on screen only, never written to the design, so a template
+       shows the size a logo comes out at and a screenshot has a logo in it.
+       The white logo on a dark colour, the dark one on a light colour. The
+       size follows the member's rule: the slot's own box on print, at most
+       200 x 75 elsewhere. */
+    if (el.brandRole === "logo" && isAdminMode() && (el.type === "text" || (el.type === "image" && !el.src))) {
+      const tone = hexTone(colourBehind(el, { elements: state.elements, canvas: state.canvas }));
+      const sub = document.createElement("img");
+      sub.className = "ed-logostandin";
+      sub.alt = ""; sub.draggable = false;
+      sub.src = tone != null && tone < 0.5 ? "/images/tmke-logo-light.png" : "/images/tmke-logo-dark.png";
+      if (!isPrintDesign() && !el.logoBox) {
+        sub.style.maxWidth = Math.min(el.w, LOGO_MAX_W) + "px";
+        sub.style.maxHeight = Math.min(el.h, LOGO_MAX_H) + "px";
+      }
+      node.classList.add("has-logostandin");
+      node.appendChild(sub);
+    }
     if (el.brandRole === "headshot" && isAdminMode()) node.classList.add("is-shotslot");
     if (el.brandRole === "illustration" && isAdminMode()) node.classList.add("is-illslot");
     // A cut-out has a real shape and people stand on the floor: contained,
@@ -19420,7 +19439,50 @@ import { createResizeEngine } from "./resize-engine.js";
       $("ed-ill-bg-label").textContent = isSet ? C.setColour : "Background";
       $("ed-ill-set").hidden = !isSet;
       paintSet();
+      paintMine(isSet);
       paintAdmin(keys);
+    }
+    /* Their earlier illustrations (Danielle, 19 Nov: "they might want to swap
+       them out"): every one they've made is in their uploads, so the custom
+       option lists them to put back in. Uses no goes. */
+    let _mine = null;
+    // Which see-through copy belongs to which illustration, on this device.
+    const illClearFor = (u) => { try { return (JSON.parse(localStorage.getItem("tmke.ill.clear") || "{}"))[u] || null; } catch (_) { return null; } };
+    const illClearRemember = (u, c) => { if (!u || !c || u === c) return; try { const m = JSON.parse(localStorage.getItem("tmke.ill.clear") || "{}"); m[u] = c; localStorage.setItem("tmke.ill.clear", JSON.stringify(m)); } catch (_) {} };
+    function paintMine(isSet) {
+      const box = $("ed-ill-mine"), grid = $("ed-ill-mine-grid");
+      if (!box || !grid) return;
+      if (isSet || typeof window.__TMKE_UPLOADS_LIST__ !== "function") { box.hidden = true; return; }
+      const draw = (urls) => {
+        const list = (urls || []).filter((u) => isIllustration(u)).slice().reverse();
+        box.hidden = !list.length;
+        grid.innerHTML = "";
+        list.forEach((u) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "ed-ill-scene";
+          const pic = document.createElement("span");
+          pic.className = "pic";
+          pic.style.backgroundImage = "url(" + JSON.stringify(u) + ")";
+          b.appendChild(pic);
+          b.appendChild(document.createTextNode("Use this one"));
+          b.addEventListener("click", async () => {
+            if (busy) return;
+            const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => isIllustrationPicture(o) || (o && o.type === "wframe"));
+            const at = state.currentPage;
+            // The see-through copy that went on the card, made again if this device hasn't got it.
+            let use = illClearFor(u);
+            if (!use) { busy = true; status(C.clearing, "working"); use = (await seeThroughUpload(u)) || u; illClearRemember(u, use); busy = false; status(""); }
+            if (picked) { if (state.currentPage !== at) goToPage(at); state.selectedIds = [picked.id]; }
+            await placeIllustration(use);
+            fullRender();
+            toast("Your illustration is back in.");
+          });
+          grid.appendChild(b);
+        });
+      };
+      if (_mine) { draw(_mine); return; }
+      window.__TMKE_UPLOADS_LIST__().then((urls) => { _mine = urls || []; draw(_mine); }).catch(() => { box.hidden = true; });
     }
     function paintSet() {
       const keys = setKeys(), grid = $("ed-ill-set-grid");
@@ -19624,6 +19686,9 @@ import { createResizeEngine } from "./resize-engine.js";
       const clear = await seeThroughUpload(out.url);
       const url = clear || out.url;
       lastUrl = url;
+      illClearRemember(out.url, url);
+      if (_mine && _mine.indexOf(out.url) < 0) _mine.push(out.url);
+      paintMine(false);
       state.uploads = state.uploads || [];
       [out.url, url].forEach((u) => { if (state.uploads.indexOf(u) === -1) state.uploads.unshift(u); });
       if (typeof renderUploadsSoon === "function") renderUploadsSoon();
