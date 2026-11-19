@@ -2963,6 +2963,35 @@ function kitBrandOf(brand) {
   return k ? KIT_SHARED_WITH[k] : brand;
 }
 
+/* The AI cut-out of an illustration (BiRefNet on fal, as the winter scenes
+   were cut, Danielle 19 Nov). Kept beside the member's uploads, not in them,
+   at <user>/cutouts/illustration-<run>.png; null when it couldn't be made,
+   and the Studio then clears the sky by colour and reports it. */
+async function illCutout(env, userId, runId, imageUrl) {
+  const key = `${userId}/cutouts/illustration-${runId}.png`;
+  const pub = `${env.SUPABASE_URL}/storage/v1/object/public/calendar-assets/${key}`;
+  try {
+    const have = await fetch(pub, { method: "HEAD" });
+    if (have.ok) return pub;
+    const r = await fetch("https://fal.run/fal-ai/birefnet/v2", {
+      method: "POST",
+      headers: { Authorization: `Key ${env.FAL_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ image_url: imageUrl, model: "General Use (Heavy)", operating_resolution: "2048x2048", output_format: "png", refine_foreground: true }),
+    });
+    if (!r.ok) { console.log("illCutout fal", r.status, (await r.text()).slice(0, 200)); return null; }
+    const u = (((await r.json()) || {}).image || {}).url;
+    if (!u) return null;
+    const png = await fetch(u);
+    if (!png.ok) return null;
+    const up = await fetch(`${env.SUPABASE_URL}/storage/v1/object/calendar-assets/${key}`, {
+      method: "POST",
+      headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "image/png", "x-upsert": "true", "cache-control": "31536000" },
+      body: await png.arrayBuffer(),
+    });
+    return up.ok ? pub : null;
+  } catch (e) { console.log("illCutout", e && e.message); return null; }
+}
+
 function brandHalf(bp, brand) {
   return {
     company: (bp && bp.company) || brand || "",
@@ -9483,6 +9512,22 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           backgrounds: Object.entries(ILL_BACKGROUNDS).filter(([, v]) => !v.hidden).map(([k, v]) => ({ key: k, label: v.label, hex: v.hex })) }, 200, request, env);
       }
 
+      /* The cut-out for one of their earlier illustrations (Danielle, 19 Nov:
+         "Your illustrations"): made once, kept beside it. Only their own. */
+      if (path.endsWith("/illustrate/cutout") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        let b = {};
+        try { b = await request.json(); } catch (_) {}
+        const want = String(b.url || "");
+        const pre = `/calendar-assets/${user.id}/uploads/illustration-`;
+        const at = want.indexOf(pre);
+        const id = at >= 0 ? want.slice(at + pre.length).replace(/\.jpg$/, "") : "";
+        if (!/^[0-9a-f-]{36}$/.test(id) || !want.endsWith(".jpg")) return json({ error: "That isn't one of your illustrations." }, 400, request, env);
+        const cut = await illCutout(env, user.id, id, `${env.SUPABASE_URL}/storage/v1/object/public/calendar-assets/${user.id}/uploads/illustration-${id}.jpg`);
+        return json({ ok: !!cut, cut }, cut ? 200 : 502, request, env);
+      }
+
       // One go: { photo: data:image/jpeg;base64,..., style }. Answers with the
       // illustration, already saved to the member's uploads.
       if (path.endsWith("/illustrate") && request.method === "POST") {
@@ -9545,8 +9590,10 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           const publicUrl = `${env.SUPABASE_URL}/storage/v1/object/public/calendar-assets/${key}`;
           await sbPatch(env, "illustration_runs", `id=eq.${run.id}`, { status: "done", cost_usd: S.cost_usd, image_url: publicUrl,
             width: im.width || null, height: im.height || null, seconds: Math.round((Date.now() - t0) / 1000) });
+          // The AI cut-out (Danielle, 19 Nov): the Studio takes the sky out with it, so a snowy roof stays whole.
+          const cutUrl = await illCutout(env, user.id, run.id, publicUrl);
           const after = await illAllowance(env, user, S);
-          return json({ ok: true, url: publicUrl, width: im.width || null, height: im.height || null, left: after.left, allowance: after }, 200, request, env);
+          return json({ ok: true, url: publicUrl, cut: cutUrl, width: im.width || null, height: im.height || null, left: after.left, allowance: after }, 200, request, env);
         } catch (e) {
           return await fail(e && e.message || String(e));
         }

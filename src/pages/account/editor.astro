@@ -3738,6 +3738,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-ill-tickrow select { flex: 0 0 auto; height: 28px; padding: 0 6px; border: 1px solid #e2d9d4; border-radius: 4px; background: #fff; font: 400 var(--ws-t-meta, 12px) var(--sans); color: var(--ink); cursor: pointer; }
     .ed-ill-tickrow select:disabled { opacity: 0.45; cursor: default; }
     .ed-ill-tickrow select:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 1px; }
+    .ed-ill-logotop { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2d9d4; }
+    .ed-ill-logotop input { width: 64px; height: 30px; padding: 0 8px; border: 1px solid #e2d9d4; border-radius: 4px; font: 400 14px var(--sans); color: var(--ink); background: #fff; }
     .ed-ill-ticks[hidden], .ed-ill-set[hidden], .ed-ill-admin[hidden], .ed-ill-go[hidden], #ed-ill-left[hidden], #ed-ill-tips[hidden], #ed-ill-status[hidden] { display: none; }
     .ed-element.is-illslot { outline: 1px dashed rgba(var(--violet-rgb), 0.85); outline-offset: 2px; }
     .ed-element.is-illslot::after { content: "ILLUSTRATION"; position: absolute; top: -16px; left: 0; font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.14em; color: var(--english-violet); background: rgba(255,255,255,0.9); padding: 1px 4px; border-radius: 2px; pointer-events: none; }
@@ -7187,6 +7189,18 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         } : { headers: { Authorization: 'Bearer ' + session.access_token } });
         return await r.json().catch(() => ({ error: "The answer couldn't be read. Try again." }));
       } catch (_) { return { error: "Couldn't reach the illustrator. Check your connection and try again." }; }
+    };
+
+    // The AI cut-out of one of their illustrations (worker /illustrate/cutout, Danielle 19 Nov).
+    window.__TMKE_ILL_CUTOUT__ = async (url) => {
+      const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!WORKER || !session) return null;
+      try {
+        const r = await fetch(WORKER + '/illustrate/cutout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token }, body: JSON.stringify({ url }) });
+        const j = await r.json().catch(() => null);
+        return (j && j.cut) || null;
+      } catch (_) { return null; }
     };
 
     // Glare and dim for a screen, suggested by Claude (worker /studio/screen-light).

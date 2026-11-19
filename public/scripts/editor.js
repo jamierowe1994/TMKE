@@ -10617,13 +10617,68 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   // The see-through copy of an illustration, saved to the member's uploads.
   // Resolves to its address, or null if it couldn't be made or saved.
-  function seeThroughUpload(url) {
+  /* Sky out, ground kept (Danielle, 19 Nov). Clearing by colour alone took
+     the snow off roofs (it's the background's colour), and the AI cut-out on
+     its own took the snowy ground away. Together: the sky goes where the
+     cut-out says, and everything from the painting down stays, found by
+     working down each column from the top until the painting starts (never
+     below 62% of the height, never from the sides). Snowflakes in the sky
+     stay as white. Returns a canvas, or null. */
+  function skyKeepAlpha(d, W, H) {
+    const ch = [[], [], []];
+    for (let y = 2; y < Math.round(H * 0.05); y += 2) for (let x = 4; x < W - 4; x += 3) { const i = (y * W + x) * 4; ch[0].push(d[i]); ch[1].push(d[i + 1]); ch[2].push(d[i + 2]); }
+    const bg = ch.map((a) => { a.sort((p, q) => p - q); return a[a.length >> 1]; });
+    const lum = (i) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2], lbg = 0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2];
+    const T = 22, maxDepth = Math.round(H * 0.62), run = Math.max(6, Math.round(H * 0.012));
+    const depth = new Float32Array(W);
+    for (let x = 0; x < W; x++) {
+      let y = 0, bad = 0;
+      for (; y < maxDepth; y++) {
+        const i = (y * W + x) * 4;
+        const near = Math.hypot(d[i] - bg[0], d[i + 1] - bg[1], d[i + 2] - bg[2]) < T, flake = lum(i) - lbg > 6;
+        if (near || flake) bad = 0; else if (++bad >= run) { y -= bad - 1; break; }
+      }
+      depth[x] = y;
+    }
+    const r = Math.max(2, Math.round(W / 300)), sm = new Float32Array(W);
+    for (let x = 0; x < W; x++) { const a = []; for (let k = -r; k <= r; k++) a.push(depth[Math.min(W - 1, Math.max(0, x + k))]); a.sort((p, q) => p - q); sm[x] = a[a.length >> 1]; }
+    const feather = Math.max(2, Math.round(H / 400)), out = new Uint8ClampedArray(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let a = Math.min(1, Math.max(0, (y - sm[x]) / feather + 0.5));
+      if (a < 1) a = Math.max(a, Math.min(1, Math.max(0, (lum((y * W + x) * 4) - lbg - 8) / 30)));
+      out[y * W + x] = Math.round(a * 255);
+    }
+    return out;
+  }
+  function cutoutCanvas(img, cut) {
+    const W = img.naturalWidth, H = img.naturalHeight;
+    if (!W || !H) return null;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+    const k = document.createElement("canvas"); k.width = W; k.height = H;
+    const kg = k.getContext("2d"); kg.drawImage(cut, 0, 0, W, H);
+    let px, ca;
+    try { px = g.getImageData(0, 0, W, H); ca = kg.getImageData(0, 0, W, H).data; } catch (_) { return null; }
+    const d = px.data, keep = skyKeepAlpha(d, W, H);
+    for (let p = 0; p < W * H; p++) d[p * 4 + 3] = Math.max(ca[p * 4 + 3], keep[p]);
+    g.putImageData(px, 0, 0);
+    return c;
+  }
+  const loadCors = (src) => new Promise((res, rej) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  function seeThroughUpload(url, cutUrl) {
     return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = async () => {
         try {
-          const c = seeThroughCanvas(img);
+          // The AI cut-out where there is one (made with the illustration, or now for an earlier one).
+          if (!cutUrl && isIllustration(url) && typeof window.__TMKE_ILL_CUTOUT__ === "function") cutUrl = await window.__TMKE_ILL_CUTOUT__(url);
+          let c = null;
+          if (cutUrl) { try { c = cutoutCanvas(img, await loadCors(cutUrl)); } catch (_) { c = null; } }
+          if (!c) {
+            if (isIllustration(url)) reportFallback("ill_cutout", "no AI cut-out for " + url.split("/").pop() + "; cleared by colour");
+            c = seeThroughCanvas(img);
+          }
           if (!c || typeof window.__TMKE_UPLOAD_SAVE__ !== "function") { resolve(null); return; }
           // WebP keeps the clear parts and is a fraction of a PNG's size;
           // a browser that can't write it gives a PNG, which is fine too.
@@ -12959,8 +13014,9 @@ import { createResizeEngine } from "./resize-engine.js";
      The front is the right half of a folded card's outside, or a postcard's
      whole side. */
   function placeFrontLogo(slot, cv) {
-    // 8 mm from the top since 18 Nov (Dani); 12 mm in from the right for Top right.
-    const m = Math.round(12 * 300 / 25.4), top = Math.round(8 * 300 / 25.4);
+    // From the top: the template's own setting (Christmas › Illustration, admin), 10 mm unless set (Dani, 19 Nov; was 8 mm). 12 mm in from the right for Top right.
+    const mm = cv.logoTopMm != null && isFinite(cv.logoTopMm) ? cv.logoTopMm : 10;
+    const m = Math.round(12 * 300 / 25.4), top = Math.round(mm * 300 / 25.4);
     const W = cv.width, left = isFolded(cv) ? W / 2 : 0;
     slot.y = top;
     slot.x = slot.logoPlace === "right" ? Math.round(W - m - slot.w) : Math.round(left + (W - left - slot.w) / 2);
@@ -19619,6 +19675,28 @@ import { createResizeEngine } from "./resize-engine.js";
         head.className = "ed-ill-tickhead";
         head.innerHTML = "<span>Scene</span><span>Front logo</span>";
         ticks.insertBefore(head, ticks.firstChild);
+        /* How far down the front logo sits, in mm (Danielle, 19 Nov: "a little
+           box ... which lets me dictate the height of the logo"). One setting
+           for every scene; 10 mm unless changed. */
+        const fp = state.pages[frontPage()] || state.pages[0];
+        const row = document.createElement("label");
+        row.className = "ed-ill-tickrow ed-ill-logotop";
+        row.appendChild(document.createTextNode("Front logo from the top"));
+        const box = document.createElement("span");
+        const num = document.createElement("input");
+        num.type = "number"; num.min = "0"; num.max = "60"; num.step = "0.5";
+        num.value = String(fp && fp.canvas && fp.canvas.logoTopMm != null ? fp.canvas.logoTopMm : 10);
+        num.setAttribute("aria-label", "Front logo distance from the top, in millimetres");
+        num.addEventListener("change", () => {
+          const v = Math.max(0, Math.min(60, parseFloat(num.value)));
+          if (!isFinite(v)) return;
+          cardPages().forEach((p) => { p.canvas.logoTopMm = v; });
+          state.pages.forEach((pg) => (pg.elements || []).forEach((o) => { if (o && o.brandRole === "logo" && o.logoPlace) placeFrontLogo(o, pg.canvas); }));
+          pushHistory(); fullRender();
+        });
+        box.appendChild(num); box.appendChild(document.createTextNode(" mm"));
+        row.appendChild(box);
+        ticks.appendChild(row);
       }
       $("ed-ill-admin-hint").textContent = keys ? C.adminHint : "";
       $("ed-ill-admin-hint").hidden = !keys;
@@ -19683,7 +19761,7 @@ import { createResizeEngine } from "./resize-engine.js";
          can't be made or saved, the painted one goes on, the card is matched
          to it as before, and the message says so. */
       status(C.clearing, "working");
-      const clear = await seeThroughUpload(out.url);
+      const clear = await seeThroughUpload(out.url, out.cut);
       const url = clear || out.url;
       lastUrl = url;
       illClearRemember(out.url, url);
