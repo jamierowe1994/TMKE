@@ -9105,7 +9105,10 @@ import { createResizeEngine } from "./resize-engine.js";
     const stage = document.createElement("div");
     stage.style.cssText = "position:fixed;left:-99999px;top:0;overflow:hidden;" +
       "width:" + src.canvas.width + "px;height:" + src.canvas.height + "px;";
-    texts.forEach(function (e) { try { stage.appendChild(renderElement(e)); } catch (_) {} });
+    /* Measured upright: the download turns each text box itself, so a box
+       measured already turned was turned twice and its words slid off their
+       lines (Danielle, 19 Nov: the gift tag's angled words). */
+    texts.forEach(function (e) { try { const n = renderElement(e); n.style.transform = "none"; stage.appendChild(n); } catch (_) {} });
     document.body.appendChild(stage);
 
     try {
