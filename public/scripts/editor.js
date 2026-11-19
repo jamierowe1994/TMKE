@@ -2618,6 +2618,7 @@ import { createResizeEngine } from "./resize-engine.js";
     try { return new URLSearchParams(window.location.search).get("mode") === "admin"; } catch (_) { return false; }
   })();
   let _autosaveTimer = null;
+  var _frontShot = false;   // saveFrontPng is working on a filled-in copy: no saving
   let _dbSaveTimer = null;
   let _dbSaving = false;
   let _dbRetries = 0;
@@ -2729,6 +2730,8 @@ import { createResizeEngine } from "./resize-engine.js";
 
   function autosaveDraft() {
     if (!ADMIN_MODE_URL) return;
+    // Never while a front is being photographed with a member's kit filled in.
+    if (_frontShot) { clearTimeout(_autosaveTimer); _autosaveTimer = setTimeout(autosaveDraft, 2000); return; }
     if (!state.templateId) state.templateId = "draft-" + Date.now(); // new / imported designs get a stable key
     const key = "tmke.editor." + state.templateId;
     let raw;
@@ -2759,6 +2762,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // failure the work is already safe locally — show it + retry with backoff so
   // a transient blip self-heals without anyone losing work.
   async function autosaveToDb() {
+    if (_frontShot) { clearTimeout(_dbSaveTimer); _dbSaveTimer = setTimeout(autosaveToDb, 2000); return; }
     const adminHook = ADMIN_MODE_URL && typeof window.__TMKE_ADMIN_SAVE__ === "function";
     const designHook = !ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ === "function";
     if (!adminHook && !designHook) { if (ADMIN_MODE_URL) setSaveStatus("local"); return; }
@@ -13117,6 +13121,53 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   // What belongs in this slot, or null when we hold nothing that may go there.
   // A Christmas card or postcard (a folded A5 or an A6 Landscape side).
+  /* Save the front as a PNG (Danielle, 19 Nov: shots for the Christmas
+     teaser). Admin, on a card or postcard. The front as a member would see
+     it: their kit filled in (logo, words, photo) from the admin's own kit,
+     just for the picture, then the template is put back exactly as it was.
+     Nothing is saved while it works (_frontShot). Downloaded, named after the
+     design and its pattern and scheme or card colour. */
+  async function saveFrontPng(btn) {
+    if (!isAdminMode() || !isCardDesign() || _frontShot) return;
+    const was = btn ? btn.textContent : "";
+    if (btn) { btn.disabled = true; btn.textContent = "Saving the front\u2026"; }
+    _frontShot = true;
+    clearTimeout(_autosaveTimer); clearTimeout(_dbSaveTimer);
+    const snap = snapshotPages(), cur = state.currentPage, hook = window.__TMKE_ADMIN_SAVE__;
+    const fi = Math.max(0, state.pages.findIndex(function (p) { return p && p.canvas && p.canvas.fold !== "inside"; }));
+    const fc = state.pages[fi].canvas;
+    try {
+      window.__TMKE_ADMIN_SAVE__ = undefined;   // the fills only run for members
+      try { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); } catch (_) {}
+      window.__TMKE_ADMIN_SAVE__ = hook;
+      fullRender();
+      await new Promise(function (r) { setTimeout(r, 1800); });   // logos measure themselves
+      const full = await _renderDesignToCanvas({ page: fi });
+      const half = isFolded(fc) && fc.fold !== "inside";
+      const sx = half ? Math.round(full.width / 2) : 0, sw = full.width - sx;
+      const c = document.createElement("canvas"); c.width = sw; c.height = full.height;
+      c.getContext("2d").drawImage(full, sx, 0, sw, full.height, 0, 0, sw, full.height);
+      const blob = await new Promise(function (r) { c.toBlob(r, "image/png"); });
+      const slug = function (v) { return String(v || "").toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); };
+      const v = fc.bgPattern;
+      const look = v ? (v.key + "-" + (v.scheme || v.route || "own")) : (fc.background || "");
+      const name = [slug(filenameEl.value || "card"), slug(look)].filter(Boolean).join("--") + "--front.png";
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      toast("Saved the front: " + name);
+    } catch (e) {
+      toast("Couldn\u2019t save the front: " + ((e && e.message) || "try again"));
+    } finally {
+      window.__TMKE_ADMIN_SAVE__ = hook;
+      putPages(snap, cur);
+      _frontShot = false;
+      fullRender();
+      if (typeof refreshPageThumbs === "function") refreshPageThumbs();
+      if (btn) { btn.disabled = false; btn.textContent = was; }
+    }
+  }
   function isCardDesign() {
     return (state.pages || []).some(function (p) { return p && p.canvas && (isFolded(p.canvas) || isPostcard(p.canvas)); });
   }
@@ -16160,6 +16211,11 @@ import { createResizeEngine } from "./resize-engine.js";
     if (fr) fr.hidden = !isAdminMode();
     const gr = document.getElementById("ed-xmas-icons");
     if (gr) gr.hidden = !isAdminMode();
+    const shot = document.getElementById("ed-xmas-shot");
+    if (shot) {
+      shot.hidden = !isAdminMode();
+      if (!shot._wired) { shot._wired = true; shot.addEventListener("click", function () { saveFrontPng(shot); }); }
+    }
     if (rail.hidden === !show) return;
     rail.hidden = !show;
     if (!show && activeToolPane === "christmas") openTool("start");
