@@ -4581,10 +4581,13 @@ import { createResizeEngine } from "./resize-engine.js";
         }
         if (el.imgFit !== "contain" && !standIn) applyImgZoom(img, el);
         illMigrate(el);
-        if (el.illShift > 0) {
+        if (el.illShift) {
           const dy = el.illShift * el.h, fade = ILL_FADE * el.h;
           img.style.transform = "translateY(" + dy.toFixed(1) + "px) " + (img.style.transform || "");
-          img.style.webkitMaskImage = img.style.maskImage = "linear-gradient(to bottom, transparent 0, #000 " + fade.toFixed(1) + "px)";
+          // Moved down, the top fades in; moved up, the bottom fades out.
+          img.style.webkitMaskImage = img.style.maskImage = dy > 0
+            ? "linear-gradient(to bottom, transparent 0, #000 " + fade.toFixed(1) + "px)"
+            : "linear-gradient(to bottom, #000 calc(100% - " + fade.toFixed(1) + "px), transparent 100%)";
           node.style.overflow = "hidden";
         }
         node.appendChild(img);
@@ -10776,15 +10779,15 @@ import { createResizeEngine } from "./resize-engine.js";
           const dw = nw * k, dh = nh * k;
           const px = (el.imgPosX != null ? el.imgPosX : 50) / 100;
           const py = (el.imgPosY != null ? el.imgPosY : 50) / 100;
-          if (el.illShift > 0) {
-            // Moved down in its box (Picture position): drawn on its own sheet, faded in at its top.
+          if (el.illShift) {
+            // Moved in its box (Picture position): drawn on its own sheet, faded where the space opens.
             const dy = el.illShift * el.h, fade = ILL_FADE * el.h;
             const off = document.createElement("canvas");
             off.width = Math.max(1, Math.ceil(el.w)); off.height = Math.max(1, Math.ceil(el.h));
             const oc = off.getContext("2d");
             oc.drawImage(img, (el.w - dw) * px, (el.h - dh) * py + dy, dw, dh);
             oc.globalCompositeOperation = "destination-in";
-            const gr = oc.createLinearGradient(0, dy, 0, dy + fade);
+            const gr = dy > 0 ? oc.createLinearGradient(0, dy, 0, dy + fade) : oc.createLinearGradient(0, el.h + dy, 0, el.h + dy - fade);
             gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,1)");
             oc.fillStyle = gr; oc.fillRect(0, 0, off.width, off.height);
             ctx.drawImage(off, 0, 0, el.w, el.h);
@@ -16266,7 +16269,8 @@ import { createResizeEngine } from "./resize-engine.js";
   function illSetDrop(el, frac) {
     if (!el) return;
     illMigrate(el);
-    const v = Math.max(0, Math.min(ILL_DROP_MAX, frac || 0));
+    // Down (more than 0) or up (less than 0), Danielle 19 Nov.
+    const v = Math.max(-ILL_DROP_MAX, Math.min(ILL_DROP_MAX, frac || 0));
     if (v) el.illShift = v; else delete el.illShift;
   }
   // How much of the box an empty band at the picture's bottom takes up (0 when there's none).
@@ -16309,7 +16313,7 @@ import { createResizeEngine } from "./resize-engine.js";
     p.className = "ed-section-title";
     p.textContent = "Picture position";
     box.appendChild(p);
-    box.appendChild(sliderNumberRow("Move it down", "%", 0, Math.round(ILL_DROP_MAX * 100), 1,
+    box.appendChild(sliderNumberRow("Up or down", "%", -Math.round(ILL_DROP_MAX * 100), Math.round(ILL_DROP_MAX * 100), 1,
       function () { const e = getEl(el.id); illMigrate(e); return Math.round(((e && e.illShift) || 0) * 100); },
       function (v) { const e = getEl(el.id); if (e) { illSetDrop(e, v / 100); partialRenderElement(e); } },
       function () { fullRender(); pushHistory(); }));
