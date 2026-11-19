@@ -4580,6 +4580,13 @@ import { createResizeEngine } from "./resize-engine.js";
           img.style.objectPosition = (el.imgPosX != null ? el.imgPosX : 50) + "% " + (el.imgPosY != null ? el.imgPosY : 50) + "%";
         }
         if (el.imgFit !== "contain" && !standIn) applyImgZoom(img, el);
+        illMigrate(el);
+        if (el.illShift > 0) {
+          const dy = el.illShift * el.h, fade = ILL_FADE * el.h;
+          img.style.transform = "translateY(" + dy.toFixed(1) + "px) " + (img.style.transform || "");
+          img.style.webkitMaskImage = img.style.maskImage = "linear-gradient(to bottom, transparent 0, #000 " + fade.toFixed(1) + "px)";
+          node.style.overflow = "hidden";
+        }
         node.appendChild(img);
       }
     } else if (el.type === "frame") {
@@ -10695,7 +10702,19 @@ import { createResizeEngine } from "./resize-engine.js";
           const dw = nw * k, dh = nh * k;
           const px = (el.imgPosX != null ? el.imgPosX : 50) / 100;
           const py = (el.imgPosY != null ? el.imgPosY : 50) / 100;
-          ctx.drawImage(img, (el.w - dw) * px, (el.h - dh) * py, dw, dh);
+          if (el.illShift > 0) {
+            // Moved down in its box (Picture position): drawn on its own sheet, faded in at its top.
+            const dy = el.illShift * el.h, fade = ILL_FADE * el.h;
+            const off = document.createElement("canvas");
+            off.width = Math.max(1, Math.ceil(el.w)); off.height = Math.max(1, Math.ceil(el.h));
+            const oc = off.getContext("2d");
+            oc.drawImage(img, (el.w - dw) * px, (el.h - dh) * py + dy, dw, dh);
+            oc.globalCompositeOperation = "destination-in";
+            const gr = oc.createLinearGradient(0, dy, 0, dy + fade);
+            gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,1)");
+            oc.fillStyle = gr; oc.fillRect(0, 0, off.width, off.height);
+            ctx.drawImage(off, 0, 0, el.w, el.h);
+          } else ctx.drawImage(img, (el.w - dw) * px, (el.h - dh) * py, dw, dh);
         } else {
           ctx.drawImage(img, 0, 0, el.w, el.h);
         }
@@ -16156,16 +16175,24 @@ import { createResizeEngine } from "./resize-engine.js";
     return true;
   }
   /* Picture position (Danielle, 19 Nov): an illustration can be moved down
-     in its space, never up: most come with no sky, so what drops off the
-     bottom is plain ground, cut at the card's edge. The box keeps where the
-     template put it (illBaseY) and moves down by a share of its height. */
-  var ILL_DROP_MAX = 0.35;
+     inside its box, never up. The box stays where the template put it (so
+     nothing looks out of place); the picture slides down within it, its
+     bottom (plain ground) cut at the box's edge, and the space that opens at
+     the top fades softly into the card. el.illShift: a share of the box's
+     height. Pictures moved by the first version (which moved the box,
+     illBaseY/illDrop) are put back and shifted the new way. */
+  var ILL_DROP_MAX = 0.35, ILL_FADE = 0.07;
+  function illMigrate(el) {
+    if (!el || el.illBaseY == null) return;
+    el.y = el.illBaseY;
+    if (el.illDrop) el.illShift = el.illDrop;
+    delete el.illBaseY; delete el.illDrop;
+  }
   function illSetDrop(el, frac) {
     if (!el) return;
-    if (el.illBaseY == null) { if (!frac) return; el.illBaseY = el.y; }
-    el.illDrop = Math.max(0, Math.min(ILL_DROP_MAX, frac || 0));
-    el.y = Math.round(el.illBaseY + el.illDrop * el.h);
-    if (!el.illDrop) { el.y = el.illBaseY; delete el.illDrop; }
+    illMigrate(el);
+    const v = Math.max(0, Math.min(ILL_DROP_MAX, frac || 0));
+    if (v) el.illShift = v; else delete el.illShift;
   }
   // How much of the box an empty band at the picture's bottom takes up (0 when there's none).
   function illBlankBottom(url, slot) {
@@ -16208,7 +16235,7 @@ import { createResizeEngine } from "./resize-engine.js";
     p.textContent = "Picture position";
     box.appendChild(p);
     box.appendChild(sliderNumberRow("Move it down", "%", 0, Math.round(ILL_DROP_MAX * 100), 1,
-      function () { const e = getEl(el.id); return Math.round(((e && e.illDrop) || 0) * 100); },
+      function () { const e = getEl(el.id); illMigrate(e); return Math.round(((e && e.illShift) || 0) * 100); },
       function (v) { const e = getEl(el.id); if (e) { illSetDrop(e, v / 100); partialRenderElement(e); } },
       function () { fullRender(); pushHistory(); }));
     if (!isAdminMode()) return;
