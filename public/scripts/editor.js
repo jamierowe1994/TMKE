@@ -19062,11 +19062,13 @@ import { createResizeEngine } from "./resize-engine.js";
        country house, townhouse, cab, door, living room. Postcards: living
        room, Cotswold village, country house, townhouses, farmhouse, cab. The
        tree by the window is off the list; cards already using it keep it. */
+    /* townhouse-v2 (Danielle, 19 Nov): the card townhouse at 85%, shrunk
+       towards its bottom edge so the snow stays put and the top clears. */
     const SET_DIR = "/images/illustrate-set/";
     const SET = [
       { key: "terrace",   name: "Victorian terraced street", p: "terrace-v1" },
       { key: "country",   name: "English country house",     p: "country-v1",   l: "country-land-v2" },
-      { key: "townhouse", name: "White London townhouse",    p: "townhouse-v1", l: "townhouse-land-v2", nameL: "London townhouses" },
+      { key: "townhouse", name: "White London townhouse",    p: "townhouse-v2", l: "townhouse-land-v2", nameL: "London townhouses" },
       { key: "cab",       name: "Black cab",                 p: "cab-v1",       l: "cab-land-v2" },
       { key: "door",      name: "Georgian front door",       p: "door-v1" },
       { key: "opulent",   name: "Burgundy living room",      p: "opulent-v1",   l: "opulent-land-v2" },
