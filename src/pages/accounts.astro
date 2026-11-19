@@ -39,7 +39,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <section class="ac-head">
           <div class="ac-title" id="ac-title">Invoices to confirm.</div>
           <p class="ac-sub" id="ac-sub-inv">Mark each one once it's paid or settled. Until then there's nothing to press. If there's a problem, add a note or message us. An invoice you've marked stays here until everything in that month is closed, then the whole month drops off by itself.</p>
-          <p class="ac-sub" id="ac-sub-rec" hidden>Every payment we've taken by card through Stripe, a month at a time. Open a receipt for the full breakdown: what it was for, the VAT, Stripe's fee and what reached the bank. There's nothing to mark here.</p>
+          <p class="ac-sub" id="ac-sub-rec" hidden>Every payment we've taken by card through Stripe, grouped by the payout that put it in the bank. Each group matches one line on the bank statement. The payout statement shows what made up that amount, and each payment has its own receipt. There's nothing to mark here.</p>
         </section>
         <!-- Receipts (Dani, 19 Nov): Stripe payments, so accounts can see what each one was. -->
         <div class="ac-tabs" role="tablist">
@@ -58,7 +58,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             <button type="button" class="ac-ic" data-rmonth="1" aria-label="The month after">›</button>
           </div>
           <div id="ac-rbody"></div>
-          <p class="ac-foot">Amounts include VAT. Stripe pays card payments into the bank a few days after each one, with its fee already taken off, so the bank shows what's under In bank. An invoice paid by card shows here and comes off the Invoices tab by itself. A receipt is a record of a payment received, not a VAT invoice.</p>
+          <p class="ac-foot">Amounts include VAT. Stripe pays card payments into the bank a few days after they're taken, often several together, with its fees already taken off. The months follow the date the money reached the bank, so a payment taken at the end of a month can appear under the next one. An invoice paid by card shows here and comes off the Invoices tab by itself. Receipts and payout statements are records of payments received, not VAT invoices.</p>
         </div>
       </main>
     </div>
@@ -160,6 +160,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ac-mnav span { min-width: 150px; text-align: center; font-family: var(--serif); font-weight: 300; font-size: 22px; letter-spacing: -0.03em; color: var(--i); }
     .ac-mnav .ac-ic { font-size: 18px; line-height: 1; }
     .ac-mnav .ac-ic:disabled { opacity: .35; cursor: default; border-color: var(--e); color: var(--t); }
+    .ac-sbtn { margin-left: auto; height: 22px; padding: 0 10px; border: 1px solid rgba(255,255,255,.55); border-radius: 4px; background: transparent; color: #fff; cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+    .ac-sbtn:hover { background: #fff; color: var(--w); }
+    .ac-sbtn:disabled { opacity: .6; cursor: default; }
+    .ac-sbtn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
     .ac-r { min-width: 1040px; }
     .ac-r th:nth-child(1) { width: 76px; } .ac-r th:nth-child(2) { width: auto; } .ac-r th:nth-child(3) { width: 210px; } .ac-r th:nth-child(4) { width: 124px; }
     .ac-r th:nth-child(5), .ac-r th:nth-child(6), .ac-r th:nth-child(7), .ac-r th:nth-child(8) { width: 92px; } .ac-r th:nth-child(9) { width: 104px; }
@@ -294,7 +298,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
     // ---- Receipts: Stripe payments, a month at a time (Dani, 19 Nov) ----
-    let REC = [], RMONTH = "", RTRUNC = false, RLOADING = false;
+    let REC = [], RPAY = [], RPAYOK = true, RMONTH = "", RTRUNC = false, RLOADING = false;
     const ukDay = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" });
     const addMonth = (ym, n) => { const [y, m] = ym.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 15)); return d.toISOString().slice(0, 7); };
     function setTab(t) {
@@ -309,7 +313,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       try {
         const d = await call(`/accounts-portal/receipts?month=${encodeURIComponent(ym)}`);
         if (RMONTH !== ym) return;
-        REC = d.receipts || []; RTRUNC = !!d.truncated;
+        REC = d.receipts || []; RPAY = d.payouts || []; RPAYOK = d.payouts_ok !== false; RTRUNC = !!d.truncated;
       } catch (err) {
         if (err.message === "signed_out") return;
         REC = null;
@@ -323,27 +327,53 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       document.querySelector('[data-rmonth="1"]').disabled = !RMONTH || RMONTH >= thisMonth;
       if (RLOADING) { $("ac-rbody").innerHTML = `<div class="ac-empty">Loading ${esc(ymLabel(RMONTH))}…</div>`; return; }
       if (REC === null) { $("ac-rbody").innerHTML = `<div class="ac-empty">We couldn't load the card payments just now. Please try again.</div>`; return; }
-      if (!REC.length) { $("ac-rbody").innerHTML = `<div class="ac-empty">No card payments in ${esc(ymLabel(RMONTH))}.</div>`; return; }
-      const sum = (k) => REC.reduce((t, r) => t + (Number(r[k]) || 0), 0);
+      if (!REC.length && !RPAY.length) { $("ac-rbody").innerHTML = `<div class="ac-empty">No card payments or payouts in ${esc(ymLabel(RMONTH))}.</div>`; return; }
       const fc = (cls, val, lab) => `<div class="ac-fig ${cls}"><b>${val}</b><span>${lab}</span></div>`;
-      const refunded = sum("refunded_pence");
-      const figs = fc("dark", gbp(sum("gross_pence")), `Taken by card, ${REC.length} ${REC.length === 1 ? "payment" : "payments"}`) + fc("", gbp(sum("vat_pence")), "VAT in that") + fc("", gbp(sum("fee_pence")), "Stripe's fees") + fc("", gbp(sum("received_pence")), "In bank") + (refunded ? fc("", gbp(refunded), "Refunded") : "");
-      const rows = REC.map((r) => `<tr><td class="tx">${esc(ukDay(r.paid_at))}</td><td title="${esc(r.label)}">${esc(r.label)}${r.refunded_pence ? ` <span class="ac-chip bad">Refunded ${gbp(r.refunded_pence)}</span>` : ""}</td><td class="tx" title="${esc(r.customer)}">${esc(r.customer || "—")}</td><td class="tx">${esc(r.source)}</td><td class="num">${gbp(r.gross_pence)}</td><td class="num tx">${gbp(r.vat_pence)}</td><td class="num tx">${r.fee_pence == null ? "—" : gbp(r.fee_pence)}</td><td class="num">${r.received_pence == null ? "—" : gbp(r.received_pence)}</td><td><button type="button" class="ac-btn" data-receipt="${esc(r.id)}">Receipt</button></td></tr>`).join("");
-      $("ac-rbody").innerHTML = `<div class="ac-figs">${figs}</div><div class="ac-sec"><div class="ac-strip">${esc(ymLabel(RMONTH))}<span>${REC.length} by card</span></div><div class="ac-tw" data-lenis-prevent><table class="ac-t ac-r"><thead><tr><th>Date</th><th>What it was for</th><th>Paid by</th><th>Area</th><th class="num">Paid</th><th class="num">VAT</th><th class="num">Stripe fee</th><th class="num">In bank</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>${RTRUNC ? `<p class="ac-rnote">There were more payments this month than we could show. Please ask us for the full list.</p>` : ""}`;
+      const mine = REC.filter((r) => r.this_month);
+      const sum = (list, k) => list.reduce((t, r) => t + (Number(r[k]) || 0), 0);
+      const refunded = sum(mine, "refunded_pence");
+      const n = (x, one, many) => `${x} ${x === 1 ? one : many}`;
+      const figs = (RPAYOK ? fc("dark", gbp(sum(RPAY, "amount_pence")), `Into the bank, ${n(RPAY.length, "payout", "payouts")}`) : "")
+        + fc(RPAYOK ? "" : "dark", gbp(sum(mine, "gross_pence")), `Taken by card in ${esc(ymLabel(RMONTH).split(" ")[0])}, ${n(mine.length, "payment", "payments")}`)
+        + fc("", gbp(sum(mine, "vat_pence")), "VAT in that") + fc("", gbp(sum(mine, "fee_pence")), "Stripe's fees") + (refunded ? fc("", gbp(refunded), "Refunded") : "");
+      const payRow = (r) => `<tr><td class="tx">${esc(ukDay(r.paid_at))}</td><td title="${esc(r.label)}">${esc(r.label)}${r.refunded_pence ? ` <span class="ac-chip bad">Refunded ${gbp(r.refunded_pence)}</span>` : ""}</td><td class="tx" title="${esc(r.customer)}">${esc(r.customer || "—")}</td><td class="tx">${esc(r.source)}</td><td class="num">${gbp(r.gross_pence)}</td><td class="num tx">${gbp(r.vat_pence)}</td><td class="num tx">${r.fee_pence == null ? "—" : gbp(r.fee_pence)}</td><td class="num">${r.received_pence == null ? "—" : gbp(r.received_pence)}</td><td><button type="button" class="ac-btn" data-receipt="${esc(r.id)}">Receipt</button></td></tr>`;
+      const otherRow = (o) => `<tr><td class="tx">${esc(ukDay(o.at))}</td><td>${esc(o.what)}</td><td></td><td></td><td></td><td></td><td></td><td class="num">${gbp(o.net_pence)}</td><td></td></tr>`;
+      const table = (rows) => `<div class="ac-tw" data-lenis-prevent><table class="ac-t ac-r"><thead><tr><th>Date</th><th>What it was for</th><th>Paid by</th><th>Area</th><th class="num">Paid</th><th class="num">VAT</th><th class="num">Stripe fee</th><th class="num">In bank</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      let html = "";
+      if (RPAYOK) {
+        RPAY.forEach((p) => {
+          const list = REC.filter((r) => r.payout === p.id).sort((a, c) => (a.paid_at < c.paid_at ? -1 : 1));
+          const state = p.status === "paid" ? "" : " · on its way";
+          html += `<div class="ac-sec"><div class="ac-strip">Into the bank ${esc(ukDay(p.arrival))}<span>${gbp(p.amount_pence)} · ${n(list.length, "payment", "payments")}${state}</span><button type="button" class="ac-sbtn" data-payout="${esc(p.id)}">Payout statement</button></div>${table(list.map(payRow).join("") + p.other.map(otherRow).join(""))}${p.complete ? "" : `<p class="ac-rnote">Stripe didn't list what's in this one, so it can't be broken down here. Please ask us.</p>`}</div>`;
+        });
+        const later = mine.filter((r) => !r.payout);
+        if (later.length) {
+          const isNow = RMONTH >= (TODAY || new Date().toISOString()).slice(0, 7);
+          html += `<div class="ac-sec"><div class="ac-strip">${isNow ? "Not in the bank yet" : `Taken in ${esc(ymLabel(RMONTH))}, in the bank the month after`}<span>${n(later.length, "payment", "payments")}</span></div>${table(later.map(payRow).join(""))}</div>`;
+        }
+        if (!html) html = `<div class="ac-empty">No card payments or payouts in ${esc(ymLabel(RMONTH))}.</div>`;
+      } else {
+        html = `<p class="ac-rnote">We couldn't read Stripe's payouts just now, so these aren't grouped by bank payment. Please try again later.</p><div class="ac-sec"><div class="ac-strip">${esc(ymLabel(RMONTH))}<span>${n(mine.length, "payment", "payments")}</span></div>${table(mine.map(payRow).join(""))}</div>`;
+      }
+      $("ac-rbody").innerHTML = `<div class="ac-figs">${figs}</div>${html}${RTRUNC ? `<p class="ac-rnote">There were more payments this month than we could show. Please ask us for the full list.</p>` : ""}`;
     }
-    async function openReceipt(r, b) {
+    // A PDF from the Worker, opened in a new tab (or saved where tabs are blocked).
+    async function openPdf(path, data, name, b) {
       const tab = window.open("", "_blank"); b.disabled = true;
       try {
-        const res = await fetch(`${WORKER}/accounts-portal/receipt-pdf`, { method: "POST", headers: { "Content-Type": "application/json", ...(tok() ? { Authorization: "Bearer " + tok() } : {}) }, body: JSON.stringify({ id: r.id, label: r.label, customer: r.customer, source: r.source, vat_pence: r.vat_pence, vat_derived: r.vat_derived, exp: r.exp, sig: r.sig }) });
+        const res = await fetch(`${WORKER}${path}`, { method: "POST", headers: { "Content-Type": "application/json", ...(tok() ? { Authorization: "Bearer " + tok() } : {}) }, body: JSON.stringify(data) });
         if (res.status === 401) { if (tab) tab.close(); session.clear(); openGate(); return; }
-        if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || "We couldn't open that receipt. Please try again."); }
+        if (!res.ok) { const body = await res.json().catch(() => ({})); throw new Error(body.error || "We couldn't open that just now. Please try again."); }
         const url = URL.createObjectURL(await res.blob());
         if (tab) tab.location = url;
-        else { const a = document.createElement("a"); a.href = url; a.download = `TMKE receipt ${r.paid_at.slice(0, 10)}.pdf`; document.body.appendChild(a); a.click(); a.remove(); }
+        else { const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
         setTimeout(() => URL.revokeObjectURL(url), 60000);
       } catch (err) { if (tab) tab.close(); toast(err.message); }
       finally { b.disabled = false; }
     }
+    const signed = (r) => ({ id: r.id, label: r.label, customer: r.customer, source: r.source, vat_pence: r.vat_pence, vat_derived: r.vat_derived, exp: r.exp, sig: r.sig });
+    const openReceipt = (r, b) => openPdf("/accounts-portal/receipt-pdf", signed(r), `TMKE receipt ${r.paid_at.slice(0, 10)}.pdf`, b);
+    const openPayout = (p, b) => openPdf("/accounts-portal/payout-pdf", { id: p.id, rows: REC.filter((r) => r.payout === p.id).map(signed) }, `TMKE payout ${p.arrival.slice(0, 10)}.pdf`, b);
 
     function openNote(v) {
       $("ac-pop").innerHTML = `<div class="ac-scrim" id="ac-scrim"><div class="ac-popb" role="dialog" aria-modal="true" aria-label="A note"><div class="ac-poph"><p>${esc(v.number)}, ${esc(v.client)}</p><div>A note</div></div><label class="ac-popm"><span>Anything worth remembering on this one. Both sides can see it.</span><textarea id="ac-note-t" data-lenis-prevent placeholder="e.g. Paying with the next batch on Friday">${esc(v.note || "")}</textarea></label><div class="ac-popf"><button type="button" class="ac-btn" data-close>Cancel</button><button type="button" class="ac-btn pri" data-savenote="${v.id}">Save</button></div></div></div>`;
@@ -357,6 +387,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if (q("[data-close]") || t.id === "ac-scrim") { closePop(); return; }
       if ((b = q("[data-tab]"))) { setTab(b.dataset.tab); return; }
       if ((b = q("[data-rmonth]"))) { if (!b.disabled && RMONTH) loadRec(addMonth(RMONTH, Number(b.dataset.rmonth))); return; }
+      if ((b = q("[data-payout]"))) { const p = RPAY.find((x) => x.id === b.dataset.payout); if (p) openPayout(p, b); return; }
       if ((b = q("[data-receipt]"))) { const r = (REC || []).find((x) => x.id === b.dataset.receipt); if (r) openReceipt(r, b); return; }
       if ((b = q("[data-view]"))) {
         const tab = window.open("", "_blank"); b.disabled = true;

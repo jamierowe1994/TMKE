@@ -8602,6 +8602,54 @@ async function invoiceBook(env, filter) {
 // What accounts are asked about: sent and unpaid. Paid by card or direct debit
 // never lands here, because we already know.
 const PORTAL_FILTER = "status=eq.sent&or=(payment_method.is.null,payment_method.neq.direct_debit)";
+// One Stripe payout on a page (Dani, 19 Nov): every payment in it with its fee,
+// any refund taken out, adding up to the line on the bank statement.
+async function payoutStatementPdf(env, po, lines) {
+  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=company_name,vat_number"))?.[0] || {};
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const money = (p) => (p < 0 ? "&minus;" : "") + "£" + (Math.abs(p) / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const longDay = (d) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" });
+  const shortDay = (d) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" });
+  const arrival = new Date((Number(po.arrival_date) || 0) * 1000);
+  const amount = Number(po.amount) || 0;
+  const sum = lines.reduce((t, l) => t + l.net, 0);
+  const pays = lines.filter((l) => l.pay);
+  const td = 'style="padding:7px 6px;border-bottom:1px solid #e4dedf;font-size:9.5pt;vertical-align:top;"';
+  const tdr = 'style="padding:7px 6px;border-bottom:1px solid #e4dedf;font-size:9.5pt;text-align:right;white-space:nowrap;vertical-align:top;"';
+  const body = lines.map((l) => `<tr><td ${td}>${esc(shortDay(l.at))}</td><td ${td}>${esc(l.what)}</td><td ${td}>${esc(l.who || "")}</td><td ${tdr}>${l.pay ? money(l.gross) : ""}</td><td ${tdr}>${l.pay ? money(-l.fee) : ""}</td><td ${tdr}>${money(l.net)}</td></tr>`).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8">
+    <style>
+      @page { size: A4; margin: 18mm; }
+      body { font-family: Verdana, Geneva, sans-serif; color:#241419; margin:0; }
+      .eyebrow { font-size:9pt; letter-spacing:0.18em; text-transform:uppercase; color:#8a8796; margin:0 0 6px; }
+      h1 { font-size:20pt; font-weight:400; margin:0 0 4px; }
+      .sub { font-size:10pt; color:#6b5c61; margin:0 0 22px; }
+      table { width:100%; border-collapse:collapse; }
+      th { padding:7px 6px; font-size:8.5pt; font-weight:400; color:#6b5c61; text-align:left; border-top:1px solid #c9bcb7; border-bottom:1px solid #c9bcb7; }
+      th.r { text-align:right; }
+      .foot { margin-top:24px; font-size:8.5pt; line-height:1.6; color:#8a8796; border-top:1px solid #e4dedf; padding-top:14px; }
+    </style></head><body>
+    <p class="eyebrow">${esc((st.company_name || "The Marketing Experts").toUpperCase())} &middot; Stripe payout</p>
+    <h1>${money(amount)} into the bank</h1>
+    <p class="sub">${esc(longDay(arrival))} &middot; ${pays.length} ${pays.length === 1 ? "payment" : "payments"}${po.statement_descriptor ? " &middot; shows on the bank as " + esc(po.statement_descriptor) : ""}</p>
+    <table>
+      <thead><tr><th style="width:52px;">Date</th><th>What it was for</th><th style="width:150px;">Paid by</th><th class="r" style="width:70px;">Paid</th><th class="r" style="width:70px;">Stripe fee</th><th class="r" style="width:74px;">Net</th></tr></thead>
+      <tbody>${body}
+        <tr><td colspan="5" style="padding:12px 6px 0;border-top:2px solid #371e28;font-size:11pt;font-weight:700;">Paid into the bank</td><td style="padding:12px 6px 0;border-top:2px solid #371e28;font-size:11pt;font-weight:700;text-align:right;white-space:nowrap;">${money(amount)}</td></tr>
+      </tbody>
+    </table>
+    <p class="foot">
+      ${sum !== amount ? `The lines above add up to ${money(sum)}, ${money(amount - sum)} different from the payout. Stripe didn't itemise all of it, so please ask us about the difference.<br>` : ""}
+      Stripe payout reference ${esc(po.id)}. Paid amounts include VAT; each payment has its own receipt on the accounts page.
+      <br>A statement of a payout, not a VAT invoice.${st.vat_number ? "<br>VAT number " + esc(st.vat_number) : ""}
+    </p></body></html>`;
+  const browser = await puppeteer.launch(env.BROWSER);
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
+    return await page.pdf({ printBackground: true, preferCSSPageSize: true });
+  } finally { await browser.close(); }
+}
 // What a portal receipt is signed over: the payment and the words on it.
 function receiptSigKey(id, c) {
   return `receipt:${id}|${String((c && c.label) || "").slice(0, 160)}|${String((c && c.customer) || "").slice(0, 160)}|${String((c && c.source) || "").slice(0, 40)}|${Number(c && c.vat_pence) || 0}|${c && c.vat_derived ? 1 : 0}`;
@@ -10963,6 +11011,43 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
       // /admin/payments moments earlier), but the amount, the fee and the date
       // are re-read from the charge so the figures on a document that reaches
       // an accounts team cannot be whatever a page happened to be holding.
+      // A payout statement (Dani, 19 Nov): one Stripe payout, every payment
+      // in it, adding up to the line on the bank statement. Amounts are
+      // re-read from Stripe; the words come from the list, signed there.
+      if ((path.endsWith("/accounts-portal/payout-pdf") || path.endsWith("/admin/payments/payout-pdf")) && request.method === "POST") {
+        if (path.endsWith("/accounts-portal/payout-pdf")) {
+          if (!(await accountsFromSession(env, request))) return json({ code: "signed_out" }, 401, request, env);
+        } else {
+          const user = await getUser(request, env);
+          if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+          if (!(await isManagement(env, user))) return json({ error: "Payments are management only." }, 403, request, env);
+        }
+        if (!env.STRIPE_SECRET_KEY) return json({ error: "Stripe isn't configured on the Worker." }, 503, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.id) || "");
+        if (!/^po_[A-Za-z0-9]+$/.test(id)) return json({ error: "Which payout?" }, 400, request, env);
+        try {
+          const po = await stripeGet(env, `payouts/${encodeURIComponent(id)}`);
+          const { rows: bts } = await stripeList(env, "balance_transactions", { payout: id });
+          const words = new Map();
+          for (const r of Array.isArray(b.rows) ? b.rows.slice(0, 500) : []) {
+            if (r && /^ch_[A-Za-z0-9]+$/.test(String(r.id)) && await mediaSigValid(env, receiptSigKey(r.id, r), r.exp, r.sig)) words.set(String(r.id), r);
+          }
+          const lines = bts.filter((bt) => bt && bt.type !== "payout").sort((a, c) => (Number(a.created) || 0) - (Number(c.created) || 0)).map((bt) => {
+            const pay = bt.type === "charge" || bt.type === "payment";
+            const w = words.get(String(bt.source || ""));
+            const what = w ? w.label : pay ? (bt.description || "Card payment") : bt.type === "refund" || bt.type === "payment_refund" ? "Refund" : String(bt.description || bt.type || "Adjustment").replace(/_/g, " ");
+            return { pay, at: new Date((Number(bt.created) || 0) * 1000), what, who: w ? w.customer : "", gross: Number(bt.amount) || 0, fee: Number(bt.fee) || 0, net: Number(bt.net) || 0 };
+          });
+          const pdf = await payoutStatementPdf(env, po, lines);
+          const day = new Date((Number(po.arrival_date) || 0) * 1000).toISOString().slice(0, 10);
+          return new Response(pdf, { status: 200, headers: { ...corsHeaders(request, env), "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="TMKE-payout-${day}.pdf"` } });
+        } catch (e) {
+          console.error("payout-pdf", String((e && e.message) || e).slice(0, 300));
+          return json({ error: "Couldn't build that statement. Please try again." }, 502, request, env);
+        }
+      }
+
       // Also the Receipts tab on the invoice portal (Dani, 19 Nov): its
       // passcode instead of an admin, Stripe payments only, download only.
       if ((path.endsWith("/admin/payments/receipt") || path.endsWith("/accounts-portal/receipt-pdf")) && request.method === "POST") {
@@ -11140,26 +11225,59 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         let since = Math.floor(Date.now() / 1000) - days * 86400, until = null;
         // The portal asks for a month: UK midnight on the 1st to the next 1st.
         const ym = /^\d{4}-\d{2}$/.test(u.searchParams.get("month") || "") ? u.searchParams.get("month") : invToday().ymd.slice(0, 7);
-        if (fromPortal) {
+        // An admin can ask for the portal's version (?as=portal) to check it.
+        const shaped = fromPortal || u.searchParams.get("as") === "portal";
+        if (shaped) {
           const ukStart = (y, m) => Date.UTC(y, m - 1, 1) / 1000 - (m >= 4 && m <= 10 ? 3600 : 0);
           const [y, m] = ym.split("-").map(Number);
           since = ukStart(y, m); until = m === 12 ? ukStart(y + 1, 1) : ukStart(y, m + 1);
         }
 
         try {
+          // The portal groups payments by the payout that put them in the
+          // bank (Dani, 19 Nov), so each bank line matches one group. The
+          // payouts that landed this month, and which payments are in each;
+          // some of those were taken last month, so the charges reach back.
+          const payouts = [], payoutOf = new Map();
+          let payoutsOk = true, chargesSince = since;
+          if (shaped) {
+            try {
+              const { rows: pos } = await stripeList(env, "payouts", { "arrival_date[gte]": since, "arrival_date[lt]": until });
+              for (const po of pos) {
+                if (!po || po.status === "canceled" || po.status === "failed") continue;
+                const item = { id: po.id, amount_pence: Number(po.amount) || 0, arrival: new Date((Number(po.arrival_date) || 0) * 1000).toISOString(), status: po.status, other: [], complete: true };
+                try {
+                  const { rows: bts } = await stripeList(env, "balance_transactions", { payout: po.id });
+                  for (const bt of bts) {
+                    if (!bt || bt.type === "payout") continue;
+                    if ((bt.type === "charge" || bt.type === "payment") && bt.source) {
+                      payoutOf.set(String(bt.source), po.id);
+                      chargesSince = Math.min(chargesSince, Number(bt.created) || chargesSince);
+                    } else {
+                      item.other.push({ what: bt.type === "refund" || bt.type === "payment_refund" ? "Refund" : String(bt.description || bt.type || "Adjustment").replace(/_/g, " "), at: new Date((Number(bt.created) || 0) * 1000).toISOString(), net_pence: Number(bt.net) || 0 });
+                    }
+                  }
+                } catch (_) { item.complete = false; }   // a manual payout can't be itemised
+                payouts.push(item);
+              }
+            } catch (e) { payoutsOk = false; console.error("payments: payouts", String((e && e.message) || e).slice(0, 200)); }
+          }
+
           // Charges are the complete set (Pixieset's included). The balance
           // transaction is expanded so every row carries the fee Stripe
           // actually took, rather than a percentage we guessed at.
-          const { rows: charges, truncated } = await stripeList(env, "charges", {
-            "created[gte]": since, ...(until ? { "created[lt]": until } : {}), "expand[]": "data.balance_transaction",
+          const { rows: allCharges, truncated } = await stripeList(env, "charges", {
+            "created[gte]": chargesSince, ...(until ? { "created[lt]": until } : {}), "expand[]": "data.balance_transaction",
           });
+          // Reaching back only for payments in this month's payouts.
+          const charges = allCharges.filter((c) => c && (Number(c.created) >= since || payoutOf.has(String(c.id))));
 
           // Our metadata rides on the Checkout Session, not the charge - Stripe
           // does not copy session metadata onto the PaymentIntent. Joining on
           // the payment intent is what tells us which of these charges were
           // ours and what they were for. Anything with no session is external.
           // A week earlier too: a Checkout can be opened a while before it's paid.
-          const { rows: sessions } = await stripeList(env, "checkout/sessions", { "created[gte]": since - 7 * 86400, ...(until ? { "created[lt]": until } : {}) });
+          const { rows: sessions } = await stripeList(env, "checkout/sessions", { "created[gte]": chargesSince - 7 * 86400, ...(until ? { "created[lt]": until } : {}) });
           const byPaymentIntent = new Map();
           for (const sess of sessions) {
             if (sess && sess.payment_intent) byPaymentIntent.set(String(sess.payment_intent), sess);
@@ -11285,7 +11403,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           // metadata.invoice_id. Those are matched by id and skipped, so a card
           // invoice appears once, not twice. (Not for the portal's Receipts,
           // which are Stripe only: the invoices tab has the rest.)
-          if (!fromPortal) try {
+          if (!shaped) try {
             const sinceDate = new Date(since * 1000).toISOString().slice(0, 10);
             // Card-paid invoices are already above, but they may be filed as
             // videography or social now - so match on the id, not the category.
@@ -11346,7 +11464,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
           out.sort((a, b) => (a.paid_at < b.paid_at ? 1 : -1));
 
-          if (fromPortal) {
+          if (shaped) {
             // Each row carries a signature over its words, so its receipt
             // prints exactly what this list said (good for a day).
             const exp = Date.now() + 24 * 60 * 60 * 1000;
@@ -11354,9 +11472,10 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             for (const r of out) {
               const sector = { social: "Social media", video: "Videography", studio: "The Studio", agent: "Agent services" }[r.sector] || "Other";
               const c = { label: r.label, customer: r.customer || "", source: sector, vat_pence: r.vat_pence, vat_derived: !!r.vat_derived };
-              rows.push({ id: r.id, paid_at: r.paid_at, ...c, gross_pence: r.gross_pence, net_pence: r.net_pence, fee_pence: r.fee_pence, received_pence: r.received_pence, refunded_pence: r.refunded_pence, exp, sig: await mediaSig(env, receiptSigKey(r.id, c), exp) });
+              rows.push({ id: r.id, paid_at: r.paid_at, ...c, gross_pence: r.gross_pence, net_pence: r.net_pence, fee_pence: r.fee_pence, received_pence: r.received_pence, refunded_pence: r.refunded_pence, payout: payoutOf.get(String(r.id)) || null, this_month: Date.parse(r.paid_at) / 1000 >= since, exp, sig: await mediaSig(env, receiptSigKey(r.id, c), exp) });
             }
-            return json({ ok: true, month: ym, today: invToday().ymd, truncated, receipts: rows }, 200, request, env);
+            payouts.sort((a, b) => (a.arrival < b.arrival ? 1 : -1));
+            return json({ ok: true, month: ym, today: invToday().ymd, truncated, payouts_ok: payoutsOk, payouts, receipts: rows }, 200, request, env);
           }
           return json({ ok: true, days, vat_rate: vatRate, truncated, payments: out }, 200, request, env);
         } catch (e) {
