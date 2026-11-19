@@ -6412,7 +6412,7 @@ const ILL_MODEL = "fal-ai/nano-banana-pro/edit";
 const ILL_STYLES = {
   christmas: {
     label: "Christmas watercolour",
-    prompt: "Turn this photo into a hand-painted Christmas card illustration of the same house. Keep the house exactly as it is in the photo: the same shape and roofline, the same number and position of windows and doors, the same window frames, brick or render colours, porch, bay windows and chimneys. It must be recognisably this house. Style: soft watercolour and gouache with fine ink detail, warm and cosy, like a premium British Christmas card. {background} Make it Christmas: a light covering of snow on the roof, window sills, walls and garden; a green wreath with a red bow on the front door; warm golden light in the windows with a small decorated Christmas tree in one; a festive garland around the porch or along the gate; two small snow-dusted potted fir trees by the door; gently falling snow. Leave out cars, caravans, wheelie bins, alarm boxes, satellite dishes, cables, people and driveway clutter. Fade the neighbouring houses away so this house stands on its own. Portrait composition for the front of a greetings card: the house centred in the lower two thirds, a snowy foreground at the bottom, and calm empty space above the roof for a title. No text, no lettering, no house number, no border, no frame.",
+    prompt: "Turn this photo into a hand-painted Christmas card illustration of the same house. Keep the house exactly as it is in the photo: the same shape and roofline, the same number and position of windows and doors, the same window frames, brick or render colours, porch, bay windows and chimneys. It must be recognisably this house. Style: soft watercolour and gouache with fine ink detail, warm and cosy, like a premium British Christmas card. {background} Make it Christmas: a light covering of snow on the roof, window sills, walls and garden; a green wreath with a red bow on the front door; warm golden light in the windows with a small decorated Christmas tree in one; a festive garland around the porch or along the gate; two small snow-dusted potted fir trees by the door; gently falling snow. Leave out cars, caravans, wheelie bins, alarm boxes, satellite dishes, cables, people and driveway clutter. Fade the neighbouring houses away so this house stands on its own. Portrait composition for the front of a greetings card: the house centred in the middle of the picture, with calm empty space above the roof for a title, and in front of the house a generous snowy foreground (a snow-covered front garden, path and pavement) that fills the whole bottom quarter of the picture and runs right to the bottom edge, so the house never sits on the bottom edge. No text, no lettering, no house number, no border, no frame.",
   },
 };
 /* The background the member picks (Danielle, 17 Nov: her three neutrals and
@@ -6435,14 +6435,16 @@ const ILL_BACKGROUNDS = {
 /* A landscape picture for an A6 Landscape postcard (Danielle, 17 Nov); the
    folded card's front stays portrait. Same house, same style; only the
    composition sentence and the shape change. */
-const ILL_PORTRAIT_FRAME = "Portrait composition for the front of a greetings card: the house centred in the lower two thirds, a snowy foreground at the bottom, and calm empty space above the roof for a title.";
-const ILL_LANDSCAPE_FRAME = "Landscape composition for the front of a postcard: the house centred and filling about half the width, a snowy foreground along the bottom, and calm empty space above the roof and either side of the house.";
+/* A generous snowy foreground, always (Danielle, 19 Nov: "you can move it
+   down if there's too much, but you can't move it up if there's not enough"). */
+const ILL_PORTRAIT_FRAME = "Portrait composition for the front of a greetings card: the house centred in the middle of the picture, with calm empty space above the roof for a title, and in front of the house a generous snowy foreground (a snow-covered front garden, path and pavement) that fills the whole bottom quarter of the picture and runs right to the bottom edge, so the house never sits on the bottom edge.";
+const ILL_LANDSCAPE_FRAME = "Landscape composition for the front of a postcard: the house centred and filling about half the width, calm empty space above the roof and either side of the house, and a generous snowy foreground (a snow-covered garden and pavement) that fills the bottom fifth of the picture and runs right to the bottom edge.";
 function illPrompt(style, bg, shape) {
   const b = ILL_BACKGROUNDS[bg] || ILL_BACKGROUNDS.grey;
   let prompt = ILL_STYLES[style].prompt;
   if (shape === "landscape") prompt = prompt.replace(ILL_PORTRAIT_FRAME, ILL_LANDSCAPE_FRAME);
   return prompt.replace("{background}",
-    `The background is one flat, even colour, ${b.words} (${b.hex}), filling the whole picture edge to edge, with no sky colour and no paper border.`
+    `The background behind and above the house is one flat, even colour, ${b.words} (${b.hex}), out to the side and top edges, with no sky colour and no paper border; the snowy foreground covers the bottom.`
     + (b.evening ? " It is early evening: the windows glow warm gold, a lantern by the door is lit, and the snow on the roof and ground is bright white against the dark background." : ""));
 }
 const ILL_DEFAULTS = { christmas_goes: 5, christmas_until: "2026-12-31", monthly_goes: { scheduling: 5, done_for_you: 15 },

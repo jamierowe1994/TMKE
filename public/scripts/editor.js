@@ -10646,7 +10646,7 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     const r = Math.max(2, Math.round(W / 300)), sm = new Float32Array(W);
     for (let x = 0; x < W; x++) { const a = []; for (let k = -r; k <= r; k++) a.push(depth[Math.min(W - 1, Math.max(0, x + k))]); a.sort((p, q) => p - q); sm[x] = a[a.length >> 1]; }
-    // Plain background under the painting: found up from the bottom edge, then one soft fade where most
+    // Plain background under the painting: found up from the bottom edge, then one short soft edge (1% of the height; the box's painted frame does the rest) where most
     // of the painting has ended (85% of columns), never a cut per column, which left teeth in the snow.
     const up = new Float32Array(W);
     for (let x = 0; x < W; x++) {
@@ -10657,7 +10657,7 @@ import { createResizeEngine } from "./resize-engine.js";
       }
       up[x] = y;
     }
-    const srt = Array.from(up).sort((p, q) => p - q), line = srt[Math.floor(srt.length * 0.85)], fade = Math.max(4, Math.round(H * 0.04));
+    const srt = Array.from(up).sort((p, q) => p - q), line = srt[Math.floor(srt.length * 0.85)], fade = Math.max(3, Math.round(H * 0.01));
     const feather = Math.max(2, Math.round(H / 400)), out = new Uint8ClampedArray(W * H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       let a = Math.min(1, Math.max(0, (y - sm[x]) / feather + 0.5));
@@ -10688,7 +10688,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // Where the finished see-through picture of an illustration is kept, if it has been made.
   function illCardUrls(url) {
     const m = /^(.*)\/uploads\/illustration-([0-9a-f-]{36})\.jpg/.exec(String(url || ""));
-    return m ? ["webp", "png"].map(function (x) { return m[1] + "/cutouts/illustration-" + m[2] + "-card2." + x; }) : [];
+    return m ? ["webp", "png"].map(function (x) { return m[1] + "/cutouts/illustration-" + m[2] + "-card3." + x; }) : [];
   }
   async function illCardSaved(url) {
     for (const u of illCardUrls(url)) {
