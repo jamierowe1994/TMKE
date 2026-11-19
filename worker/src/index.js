@@ -8602,6 +8602,10 @@ async function invoiceBook(env, filter) {
 // What accounts are asked about: sent and unpaid. Paid by card or direct debit
 // never lands here, because we already know.
 const PORTAL_FILTER = "status=eq.sent&or=(payment_method.is.null,payment_method.neq.direct_debit)";
+// What a portal receipt is signed over: the payment and the words on it.
+function receiptSigKey(id, c) {
+  return `receipt:${id}|${String((c && c.label) || "").slice(0, 160)}|${String((c && c.customer) || "").slice(0, 160)}|${String((c && c.source) || "").slice(0, 40)}|${Number(c && c.vat_pence) || 0}|${c && c.vat_derived ? 1 : 0}`;
+}
 async function accountsPortalRow(env) {
   return (await sbGet(env, "accounts_portal", "id=eq.1&select=*"))?.[0] || null;
 }
@@ -10959,16 +10963,26 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
       // /admin/payments moments earlier), but the amount, the fee and the date
       // are re-read from the charge so the figures on a document that reaches
       // an accounts team cannot be whatever a page happened to be holding.
-      if (path.endsWith("/admin/payments/receipt") && request.method === "POST") {
-        const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        // Takings are management only, like the invoice ledger.
-        if (!(await isManagement(env, user))) return json({ error: "Payments are management only." }, 403, request, env);
+      // Also the Receipts tab on the invoice portal (Dani, 19 Nov): its
+      // passcode instead of an admin, Stripe payments only, download only.
+      if ((path.endsWith("/admin/payments/receipt") || path.endsWith("/accounts-portal/receipt-pdf")) && request.method === "POST") {
+        const fromPortal = path.endsWith("/accounts-portal/receipt-pdf");
+        if (fromPortal) {
+          if (!(await accountsFromSession(env, request))) return json({ code: "signed_out" }, 401, request, env);
+        } else {
+          const user = await getUser(request, env);
+          if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+          // Takings are management only, like the invoice ledger.
+          if (!(await isManagement(env, user))) return json({ error: "Payments are management only." }, 403, request, env);
+        }
         if (!env.STRIPE_SECRET_KEY) return json({ error: "Stripe isn't configured on the Worker." }, 503, request, env);
 
         const b = await request.json().catch(() => ({}));
         const rowId = String((b && b.id) || "").trim();
-        const action = (b && b.action) === "email" ? "email" : "download";
+        const action = !fromPortal && (b && b.action) === "email" ? "email" : "download";
+        // The portal's words on the receipt are the ones its list gave out,
+        // signed there, so the page can't print anything else on it.
+        if (fromPortal && !(/^ch_[A-Za-z0-9]+$/.test(rowId) && await mediaSigValid(env, receiptSigKey(rowId, b), b && b.exp, b && b.sig))) return json({ error: "Please refresh the page and try again." }, 400, request, env);
         // Two kinds of payment reach this page, so two sources of truth. A
         // Stripe charge is re-read from Stripe; an invoice settled by bank
         // transfer or direct debit never touched Stripe, so its own row is the
@@ -11107,30 +11121,45 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
       // record of each payment (Stripe's), annotated with whatever context we
       // already hold, so nothing on this page can duplicate an order we
       // recorded ourselves.
-      if (path.endsWith("/admin/payments") && request.method === "GET") {
-        const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        // Takings are management only, like the invoice ledger.
-        if (!(await isManagement(env, user))) return json({ error: "Payments are management only." }, 403, request, env);
+      // Also the Receipts tab on the invoice portal (Dani, 19 Nov): one month
+      // at a time, Stripe payments only, behind the portal's passcode.
+      if ((path.endsWith("/admin/payments") || path.endsWith("/accounts-portal/receipts")) && request.method === "GET") {
+        const fromPortal = path.endsWith("/accounts-portal/receipts");
+        if (fromPortal) {
+          if (!(await accountsFromSession(env, request))) return json({ code: "signed_out" }, 401, request, env);
+        } else {
+          const user = await getUser(request, env);
+          if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+          // Takings are management only, like the invoice ledger.
+          if (!(await isManagement(env, user))) return json({ error: "Payments are management only." }, 403, request, env);
+        }
         if (!env.STRIPE_SECRET_KEY) return json({ error: "Stripe isn't configured on the Worker." }, 503, request, env);
 
         const u = new URL(request.url);
         const days = Math.min(Math.max(parseInt(u.searchParams.get("days") || "90", 10) || 90, 1), 3650);
-        const since = Math.floor(Date.now() / 1000) - days * 86400;
+        let since = Math.floor(Date.now() / 1000) - days * 86400, until = null;
+        // The portal asks for a month: UK midnight on the 1st to the next 1st.
+        const ym = /^\d{4}-\d{2}$/.test(u.searchParams.get("month") || "") ? u.searchParams.get("month") : invToday().ymd.slice(0, 7);
+        if (fromPortal) {
+          const ukStart = (y, m) => Date.UTC(y, m - 1, 1) / 1000 - (m >= 4 && m <= 10 ? 3600 : 0);
+          const [y, m] = ym.split("-").map(Number);
+          since = ukStart(y, m); until = m === 12 ? ukStart(y + 1, 1) : ukStart(y, m + 1);
+        }
 
         try {
           // Charges are the complete set (Pixieset's included). The balance
           // transaction is expanded so every row carries the fee Stripe
           // actually took, rather than a percentage we guessed at.
           const { rows: charges, truncated } = await stripeList(env, "charges", {
-            "created[gte]": since, "expand[]": "data.balance_transaction",
+            "created[gte]": since, ...(until ? { "created[lt]": until } : {}), "expand[]": "data.balance_transaction",
           });
 
           // Our metadata rides on the Checkout Session, not the charge - Stripe
           // does not copy session metadata onto the PaymentIntent. Joining on
           // the payment intent is what tells us which of these charges were
           // ours and what they were for. Anything with no session is external.
-          const { rows: sessions } = await stripeList(env, "checkout/sessions", { "created[gte]": since });
+          // A week earlier too: a Checkout can be opened a while before it's paid.
+          const { rows: sessions } = await stripeList(env, "checkout/sessions", { "created[gte]": since - 7 * 86400, ...(until ? { "created[lt]": until } : {}) });
           const byPaymentIntent = new Map();
           for (const sess of sessions) {
             if (sess && sess.payment_intent) byPaymentIntent.set(String(sess.payment_intent), sess);
@@ -11254,8 +11283,9 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           //
           // Invoices PAID BY CARD are already above, as charges carrying
           // metadata.invoice_id. Those are matched by id and skipped, so a card
-          // invoice appears once, not twice.
-          try {
+          // invoice appears once, not twice. (Not for the portal's Receipts,
+          // which are Stripe only: the invoices tab has the rest.)
+          if (!fromPortal) try {
             const sinceDate = new Date(since * 1000).toISOString().slice(0, 10);
             // Card-paid invoices are already above, but they may be filed as
             // videography or social now - so match on the id, not the category.
@@ -11316,6 +11346,18 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
           out.sort((a, b) => (a.paid_at < b.paid_at ? 1 : -1));
 
+          if (fromPortal) {
+            // Each row carries a signature over its words, so its receipt
+            // prints exactly what this list said (good for a day).
+            const exp = Date.now() + 24 * 60 * 60 * 1000;
+            const rows = [];
+            for (const r of out) {
+              const sector = { social: "Social media", video: "Videography", studio: "The Studio", agent: "Agent services" }[r.sector] || "Other";
+              const c = { label: r.label, customer: r.customer || "", source: sector, vat_pence: r.vat_pence, vat_derived: !!r.vat_derived };
+              rows.push({ id: r.id, paid_at: r.paid_at, ...c, gross_pence: r.gross_pence, net_pence: r.net_pence, fee_pence: r.fee_pence, received_pence: r.received_pence, refunded_pence: r.refunded_pence, exp, sig: await mediaSig(env, receiptSigKey(r.id, c), exp) });
+            }
+            return json({ ok: true, month: ym, today: invToday().ymd, truncated, receipts: rows }, 200, request, env);
+          }
           return json({ ok: true, days, vat_rate: vatRate, truncated, payments: out }, 200, request, env);
         } catch (e) {
           return json({ error: String((e && e.message) || e).slice(0, 300) }, 502, request, env);
