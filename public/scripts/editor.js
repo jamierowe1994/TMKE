@@ -16155,15 +16155,63 @@ import { createResizeEngine } from "./resize-engine.js";
     syncBgPatterns(true);
     return true;
   }
-  // Corner rounding for the selected illustration, in Christmas › Illustration (Danielle, 18 Nov; admin).
+  /* Picture position (Danielle, 19 Nov): an illustration can be moved down
+     in its space, never up: most come with no sky, so what drops off the
+     bottom is plain ground, cut at the card's edge. The box keeps where the
+     template put it (illBaseY) and moves down by a share of its height. */
+  var ILL_DROP_MAX = 0.35;
+  function illSetDrop(el, frac) {
+    if (!el) return;
+    if (el.illBaseY == null) { if (!frac) return; el.illBaseY = el.y; }
+    el.illDrop = Math.max(0, Math.min(ILL_DROP_MAX, frac || 0));
+    el.y = Math.round(el.illBaseY + el.illDrop * el.h);
+    if (!el.illDrop) { el.y = el.illBaseY; delete el.illDrop; }
+  }
+  // How much of the box an empty band at the picture's bottom takes up (0 when there's none).
+  function illBlankBottom(url, slot) {
+    return new Promise(function (res, rej) {
+      const im = new Image();
+      im.crossOrigin = "anonymous";
+      im.onload = function () {
+        try {
+          const w = 120, h = Math.max(1, Math.round(im.naturalHeight * w / im.naturalWidth));
+          const c = document.createElement("canvas"); c.width = w; c.height = h;
+          const x = c.getContext("2d"); x.drawImage(im, 0, 0, w, h);
+          const d = x.getImageData(0, 0, w, h).data;
+          const row = function (y) { let r = 0, g = 0, b = 0; for (let i = 0; i < w; i++) { const o = (y * w + i) * 4; r += d[o]; g += d[o + 1]; b += d[o + 2]; } r /= w; g /= w; b /= w;
+            let v = 0; for (let i = 0; i < w; i++) { const o = (y * w + i) * 4; v += Math.abs(d[o] - r) + Math.abs(d[o + 1] - g) + Math.abs(d[o + 2] - b); } return { r: r, g: g, b: b, v: v / w }; };
+          const ref = row(h - 1);
+          let y = h - 1;
+          while (y > h * 0.5) { const q = row(y); if (q.v > 14 || Math.abs(q.r - ref.r) + Math.abs(q.g - ref.g) + Math.abs(q.b - ref.b) > 24) break; y--; }
+          const blank = (h - 1 - y) / h;   // share of the picture
+          // The box shows the picture filled to its size, centred: what of the band is inside it.
+          const k = Math.max(slot.w / im.naturalWidth, slot.h / im.naturalHeight), dh = im.naturalHeight * k;
+          const hidden = Math.max(0, (dh - slot.h) / 2);
+          res(Math.max(0, (blank * dh - hidden) / slot.h));
+        } catch (e) { rej(e); }
+      };
+      im.onerror = rej;
+      im.src = url;
+    });
+  }
+  // The selected illustration's position (everyone) and corner rounding (admin), in Christmas › Illustration.
   function syncIllRound() {
     const box = document.getElementById("ed-xmas-ill-round");
     if (!box) return;
     const el = state.selectedIds.length === 1 ? getEl(state.selectedIds[0]) : null;
-    const on = isAdminMode() && isIllustrationPicture(el);
+    const on = isIllustrationPicture(el);
     box.hidden = !on;
     box.innerHTML = "";
     if (!on) return;
+    const p = document.createElement("div");
+    p.className = "ed-section-title";
+    p.textContent = "Picture position";
+    box.appendChild(p);
+    box.appendChild(sliderNumberRow("Move it down", "%", 0, Math.round(ILL_DROP_MAX * 100), 1,
+      function () { const e = getEl(el.id); return Math.round(((e && e.illDrop) || 0) * 100); },
+      function (v) { const e = getEl(el.id); if (e) { illSetDrop(e, v / 100); partialRenderElement(e); } },
+      function () { fullRender(); pushHistory(); }));
+    if (!isAdminMode()) return;
     const t = document.createElement("div");
     t.className = "ed-section-title";
     t.textContent = "Corner rounding";
@@ -19179,9 +19227,20 @@ import { createResizeEngine } from "./resize-engine.js";
         slot.brandRole = "illustration";
         slot.src = url;
         ["imgFit", "imgPosX", "imgPosY", "imgZoom"].forEach((k) => { delete slot[k]; });
+        illSetDrop(slot, 0);   // a new picture starts where the template put the box
         state.selectedIds = [slot.id];
         pushHistory();
         fullRender();
+        /* A custom illustration can come back with an empty band under the
+           painting: move it down by that much, so the house sits on the
+           bottom of the card and clear of the words (Danielle, 19 Nov). */
+        if (isIllustration(url)) {
+          const frac = await illBlankBottom(url, slot).catch(() => 0);
+          if (frac > 0.04 && getEl(slot.id) && getEl(slot.id).src === url) {
+            illSetDrop(getEl(slot.id), Math.min(0.25, frac));
+            pushHistory(); fullRender(); syncIllRound();
+          }
+        }
         return;
       }
       if (outI !== state.currentPage) goToPage(outI);
