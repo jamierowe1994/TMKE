@@ -465,4 +465,53 @@ The plan is conceptual, not literal (Danielle, 17 Nov): designs change between p
 - filming_tips: only alongside what_to_film: framing, orientation, clip length, sequencing, text overlays, voiceover or no-speaking alternative, finished length, consent. Otherwise empty.
 - content_type: "Editable" or "Download".
 - typos: each spelling mistake or typo on the design, as described in point 2. Usually empty. Don't list tags in curly brackets or deliberate placeholders.
-- flags: one short sentence per thing the team must fix or check (see point 2), never shown to agents. Usually empty.`;
+- flags: one short sentence per thing the team must fix or check (see point 2), never shown to agents. Usually empty.
+
+10. Write captions in Sam's style (Danielle, 19 Nov). Sam rewrote every December caption by hand, because the drafts read like AI. Her versions are the target. Where this point and the master prompt pull in different directions, this point wins.
+- Open with one plain, chatty line, the way an agent would actually start a post. A greeting, an exclamation or an everyday observation: "Hello, December!", "Come on, take a look inside!", "Imagine coming home to this...", "My diary might say my first appointment is at 10am, but that doesn't mean my working day starts at 10!". Never open with a crafted line of wisdom about homes or selling.
+- Short paragraphs, most of them one sentence. Around 80 to 150 words in total. Holiday greetings (Christmas Eve, Christmas Day, New Year's Eve) are shorter still, warm, with no selling.
+- Sound like a person talking: "I don't know about you, but", "And, I have to ask...", "hopefully", "I think we're lucky to have places like this". Sentences can start with "And" or "But". An exclamation mark or "..." now and then is fine.
+- No scene-setting or sensory description (a fire lit, a cup of tea on the side, lamps on as the day winds down). No contrast lines such as "Floor plans tell you what a home has. They don't tell you how it feels", "The question isn't X. It's Y" or "It's not about X, it's about Y". Say the point plainly.
+- Personalisation is lighter. Fewer AGENT TO ADD prompts, and often the sentence starts and the prompt finishes it: "When I first met the seller, [AGENT TO ADD: ...]" or "The result? [AGENT TO ADD: ...]". Inside a prompt, offer ideas with "Perhaps it's...". For a single fact the agent fills in, a short capitals placeholder is fine: [PROPERTY ADDRESS], [ASKING PRICE], [BUSINESS NAME], [VENUE OR EVENT NAME]. Posts about a listing end with [PROPERTY ADDRESS] and [ASKING PRICE] on their own lines. Keep using {area} for the agent's area, because it fills in automatically.
+- End with a plain invitation ("get in touch and I'll happily arrange a viewing", "I'm always happy to explain the process") or an either/or question that's easy to answer ("are you already feeling festive, or are you still wondering where the rest of the year went?", "Would you consider a property that needed updating, or would you rather find somewhere ready to move straight into?"). Don't write "tell me in the comments and I'll go and try it".
+- Honest caveats stay, but light and in passing: "it's only when contracts have been exchanged that the sale becomes legally binding in England and Wales", "market averages only tell part of the story".
+Three of Sam's December captions, for the voice (match the style, never copy the words):
+
+Hello, December!
+
+I don't know about you, but Christmas seems to come around quicker every year!
+
+There's something lovely about this season, though. Seeing the Christmas lights being switched on, getting the house feeling cosy and having a few festive plans to look forward to.
+
+And whether you've had your decorations up for weeks already or you're planning to get the tree out this weekend, I hope December is a good one for you.
+
+And, I have to ask... are you already feeling festive, or are you still wondering where the rest of the year went?
+
+---
+
+My diary might say my first appointment is at 10am, but that doesn't mean my working day starts at 10!
+
+There's usually plenty to get through before I head out to meet anyone.
+
+Emails to respond to, calls to return, clients to update and a diary to organise.
+
+[AGENT TO ADD: Mention something you typically do during your morning routine, particularly if it's something people might not realise is part of your job.]
+
+It's all part of making sure I'm prepared for the day ahead and that the people I'm working with aren't left waiting for answers.
+
+Are you someone who likes to get organised first thing, or do you prefer to tackle things as the day unfolds?
+
+---
+
+Not every home needs to look perfect to be worth a closer look.
+
+Take this property in {area}, for example.
+
+[AGENT TO ADD: Highlight an opportunity the property offers. Perhaps it has a flexible layout, a particularly good-sized garden, plenty of natural light or a room that could be adapted to suit different needs.]
+
+Sometimes finding the right property is about recognising what already works and imagining how you might make the rest your own.
+
+If you'd like to find out more about this home, get in touch and I'll happily arrange a viewing.
+
+[PROPERTY ADDRESS]
+[ASKING PRICE]`;
