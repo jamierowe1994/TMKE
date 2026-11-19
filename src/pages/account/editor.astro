@@ -7191,6 +7191,23 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       } catch (_) { return { error: "Couldn't reach the illustrator. Check your connection and try again." }; }
     };
 
+    /* The finished see-through picture of one of their illustrations, kept
+       once under a fixed name beside it (<user>/cutouts/illustration-<id>-card.webp
+       or .png), so every device and every card reuses it (Danielle, 19 Nov). */
+    window.__TMKE_ILL_SAVE_CLEAR__ = async (origUrl, dataUrl) => {
+      const m = /\/uploads\/illustration-([0-9a-f-]{36})\.jpg/.exec(String(origUrl || ''));
+      const d = /^data:(image\/(webp|png));base64,(.+)$/.exec(String(dataUrl || ''));
+      if (!m || !d) return null;
+      const uid = await _externGetUid();
+      if (!uid) return null;
+      const key = uid + '/cutouts/illustration-' + m[1] + '-card.' + d[2];
+      const bin = atob(d[3]); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const { error } = await supabase.storage.from('calendar-assets').upload(key, new Blob([bytes], { type: d[1] }), { cacheControl: '31536000', upsert: true, contentType: d[1] });
+      if (error) return null;
+      return supabase.storage.from('calendar-assets').getPublicUrl(key).data.publicUrl;
+    };
+
     // The AI cut-out of one of their illustrations (worker /illustrate/cutout, Danielle 19 Nov).
     window.__TMKE_ILL_CUTOUT__ = async (url) => {
       const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');

@@ -10668,8 +10668,21 @@ import { createResizeEngine } from "./resize-engine.js";
     return c;
   }
   const loadCors = (src) => new Promise((res, rej) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  // Where the finished see-through picture of an illustration is kept, if it has been made.
+  function illCardUrls(url) {
+    const m = /^(.*)\/uploads\/illustration-([0-9a-f-]{36})\.jpg/.exec(String(url || ""));
+    return m ? ["webp", "png"].map(function (x) { return m[1] + "/cutouts/illustration-" + m[2] + "-card." + x; }) : [];
+  }
+  async function illCardSaved(url) {
+    for (const u of illCardUrls(url)) {
+      try { const r = await fetch(u, { method: "HEAD", cache: "no-store" }); if (r.ok) return u; } catch (_) {}
+    }
+    return null;
+  }
   function seeThroughUpload(url, cutUrl) {
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
+      // Made before, on any device: use it as it is.
+      if (isIllustration(url)) { const have = await illCardSaved(url); if (have) { resolve(have); return; } }
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = async () => {
@@ -10687,6 +10700,11 @@ import { createResizeEngine } from "./resize-engine.js";
           // a browser that can't write it gives a PNG, which is fine too.
           let data = c.toDataURL("image/webp", 0.9);
           if (!/^data:image\/webp/.test(data)) data = c.toDataURL("image/png");
+          // An illustration's is kept under its fixed name, once; anything else is an ordinary upload.
+          if (isIllustration(url) && typeof window.__TMKE_ILL_SAVE_CLEAR__ === "function") {
+            const kept = await window.__TMKE_ILL_SAVE_CLEAR__(url, data);
+            if (kept) { resolve(kept); return; }
+          }
           resolve(await window.__TMKE_UPLOAD_SAVE__(data));
         } catch (_) { resolve(null); }
       };
@@ -10702,7 +10720,7 @@ import { createResizeEngine } from "./resize-engine.js";
      second picture on top). */
   function isIllustrationPicture(el) {
     return !!el && el.type === "image" && (el.brandRole === "illustration" ||
-      (typeof el.src === "string" && (/\/images\/illustrate-set\//.test(el.src) || isIllustration(el.src))));
+      (typeof el.src === "string" && (/\/images\/illustrate-set\//.test(el.src) || /\/cutouts\/illustration-/.test(el.src) || isIllustration(el.src))));
   }
 
   // Draws an image or frame layer with its painted edge: on its own sheet at
