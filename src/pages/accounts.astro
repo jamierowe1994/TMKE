@@ -316,6 +316,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       } finally { if (RMONTH === ym) { RLOADING = false; drawRec(); } }
     }
     function drawRec() {
+      // Pence always shown here, as these are what reach the bank.
+      const gbp = (p) => "£" + ((Number(p) || 0) / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const thisMonth = (TODAY || new Date().toISOString()).slice(0, 7);
       $("ac-rmonth").textContent = RMONTH ? ymLabel(RMONTH) : "";
       document.querySelector('[data-rmonth="1"]').disabled = !RMONTH || RMONTH >= thisMonth;
