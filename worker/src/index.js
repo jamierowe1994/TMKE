@@ -11493,6 +11493,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
               received_pence: fee == null ? null : gross - fee,
               refunded_pence: refunded,
               receipt_url: c.receipt_url || null,
+              invoice_id: source === "invoice" ? ref : null,
             };
           });
 
@@ -11574,7 +11575,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             for (const r of out) {
               const sector = { social: "Social media", video: "Videography", studio: "The Studio", agent: "Agent services" }[r.sector] || "Other";
               const c = { label: r.label, customer: r.customer || "", source: sector, vat_pence: r.vat_pence, vat_derived: !!r.vat_derived };
-              rows.push({ id: r.id, paid_at: r.paid_at, ...c, gross_pence: r.gross_pence, net_pence: r.net_pence, fee_pence: r.fee_pence, received_pence: r.received_pence, refunded_pence: r.refunded_pence, payout: payoutOf.get(String(r.id)) || null, this_month: Date.parse(r.paid_at) / 1000 >= since, exp, sig: await mediaSig(env, receiptSigKey(r.id, c), exp) });
+              rows.push({ id: r.id, paid_at: r.paid_at, ...c, gross_pence: r.gross_pence, net_pence: r.net_pence, fee_pence: r.fee_pence, received_pence: r.received_pence, refunded_pence: r.refunded_pence, payout: payoutOf.get(String(r.id)) || null, invoice_id: r.invoice_id || null, this_month: Date.parse(r.paid_at) / 1000 >= since, exp, sig: await mediaSig(env, receiptSigKey(r.id, c), exp) });
             }
             payouts.sort((a, b) => (a.arrival < b.arrival ? 1 : -1));
             return json({ ok: true, month: ym, today: invToday().ymd, truncated, payouts_ok: payoutsOk, payouts, receipts: rows }, 200, request, env);
@@ -14859,17 +14860,18 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const p = await accountsFromSession(env, request);
         if (!p) return json({ code: "signed_out" }, 401, request, env);
         // Only what accounts need to see, nothing about how it's filed with us.
-        const shown = (v) => ({ id: v.id, number: v.number, route: v.route, kind: v.kind, client: v.client, payer: v.payer, sent: v.sent, due: v.due, month: v.month, net_pence: v.net_pence, note: v.note, status: v.status, marked_at: v.marked_at });
+        const shown = (v) => ({ id: v.id, number: v.number, route: v.route, kind: v.kind, client: v.client, payer: v.payer, sent: v.sent, due: v.due, month: v.month, net_pence: v.net_pence, note: v.note, status: v.status, marked_at: v.marked_at, by_card: v.status === "paid" && v.method === "card" && !v.marked_at, paid_on: v.paid_on });
         if (path.endsWith("/accounts-portal/invoices") && request.method === "GET") {
           const open = await invoiceBook(env, PORTAL_FILTER);
           if (!open) return json({ error: "Couldn't load the invoices." }, 502, request, env);
           // What accounts have marked stays, with its box and Undo, until its
-          // month has nothing open (Dani, 6 Nov). Card payments still come off.
+          // month has nothing open (Dani, 6 Nov). Paid by card stays too, as
+          // Paid, its View opening the receipt (Dani, 19 Nov).
           const months = [...new Set(open.map((v) => v.month))].filter(Boolean).sort();
           let marked = [];
           if (months.length) {
             const from = `${months[0]}-01`;
-            const rows = await invoiceBook(env, `status=eq.paid&accounts_marked_at=not.is.null&or=(sent_at.gte.${from},issued_date.gte.${from})`);
+            const rows = await invoiceBook(env, `status=eq.paid&and=(or(accounts_marked_at.not.is.null,payment_method.eq.card),or(sent_at.gte.${from},issued_date.gte.${from}))`);
             if (!rows) return json({ error: "Couldn't load the invoices." }, 502, request, env);
             marked = rows.filter((v) => months.includes(v.month) && v.method !== "direct_debit");
           }

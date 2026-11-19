@@ -138,6 +138,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .ac-t td:nth-child(10) { padding-right: 0; } .ac-t td:nth-child(11) { padding: 0 8px 0 6px; }
     .ac-acts { display: grid; grid-template-columns: 58px 92px 84px; gap: 6px; align-items: center; justify-content: end; }
     .ac-wide { grid-column: 2 / 4; }
+    .ac-bycard { display: inline-flex; align-items: center; justify-content: center; height: 30px; color: var(--t); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+    .ac-t tr.ac-hit td { background: var(--l); }
     .ac-btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 30px; padding: 0 4px; border-radius: 4px; border: 1px solid var(--e); background: #fff; color: var(--i); cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
     .ac-btn:hover { border-color: var(--w); color: var(--w); }
     .ac-btn.pri { background: var(--w); border-color: var(--w); color: #fff; }
@@ -293,15 +295,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const view = `<button type="button" class="ac-btn" data-view="${v.id}">View</button>`;
       const ib = v.route === "internal";
       let acts;
-      if (v.status === "paid") acts = `${view}<button type="button" class="ac-btn ac-wide" data-undo="${v.id}">Undo</button>`;
+      // Paid by card: nothing to confirm or undo; View opens its receipt.
+      if (v.by_card) acts = `<button type="button" class="ac-btn" data-cardview="${v.id}" title="Opens its card receipt">View</button><span class="ac-wide ac-bycard">By card</span>`;
+      else if (v.status === "paid") acts = `${view}<button type="button" class="ac-btn ac-wide" data-undo="${v.id}">Undo</button>`;
       else acts = `${view}<button type="button" class="ac-btn pri ac-wide" data-paid="${v.id}">${ib ? "Settled" : "Paid"}</button>`;
       // The status box: Paid or Settled replaces Overdue, in the same place.
-      const box = v.status === "paid" ? `<span class="ac-chip good">${ib ? "Settled" : "Paid"}</span>` : isOver(v) ? '<span class="ac-chip bad">Overdue</span>' : "";
+      const box = v.by_card ? '<span class="ac-chip good" title="Paid by card">Paid</span>' : v.status === "paid" ? `<span class="ac-chip good">${ib ? "Settled" : "Paid"}</span>` : isOver(v) ? '<span class="ac-chip bad">Overdue</span>' : "";
       return `<tr><td><span class="ac-chip route ${ib ? "ib" : "ext"}">${ib ? "Inter-brand" : "External client"}</span></td><td class="tx">${esc(KIND[v.kind] || "Other")}</td><td>${esc(v.number)}</td><td title="${esc(v.client)}">${esc(v.client)}</td><td class="tx" title="${esc(v.payer)}">${esc(v.payer)}</td><td class="tx">${esc(day(v.sent))}</td><td class="tx">${esc(day(v.due))}</td><td class="num">${gbp(v.net_pence)}</td><td>${box}</td><td><div class="ac-acts">${acts}</div></td><td><button type="button" class="ac-ic${v.note ? " has" : ""}" data-note="${v.id}" aria-label="${v.note ? "Read the note" : "Add a note"}" title="${v.note ? "There's a note" : "Add a note"}">${ICON_NOTE}</button></td></tr>`;
     }
 
     // ---- Receipts: Stripe payments, a month at a time (Dani, 19 Nov) ----
-    let REC = [], RPAY = [], RPAYOK = true, RMONTH = "", RTRUNC = false, RLOADING = false;
+    let REC = [], RPAY = [], RPAYOK = true, RMONTH = "", RTRUNC = false, RLOADING = false, RHIT = "";
     const ukDay = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" });
     const addMonth = (ym, n) => { const [y, m] = ym.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 15)); return d.toISOString().slice(0, 7); };
     function setTab(t) {
@@ -339,7 +343,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const figs = (RPAYOK ? fc("dark", gbp(sum(RPAY, "amount_pence")), `Into the bank, ${n(RPAY.length, "payout", "payouts")}`) : "")
         + fc(RPAYOK ? "" : "dark", gbp(sum(mine, "gross_pence")), `Taken by card in ${esc(ymLabel(RMONTH).split(" ")[0])}, ${n(mine.length, "payment", "payments")}`)
         + fc("", gbp(sum(mine, "vat_pence")), "VAT in that") + fc("", gbp(sum(mine, "fee_pence")), "Stripe's fees") + (refunded ? fc("", gbp(refunded), "Refunded") : "");
-      const payRow = (r) => `<tr><td class="tx">${esc(ukDay(r.paid_at))}</td><td title="${esc(r.label)}">${esc(r.label)}${r.refunded_pence ? ` <span class="ac-chip bad">Refunded ${gbp(r.refunded_pence)}</span>` : ""}</td><td class="tx" title="${esc(r.customer)}">${esc(r.customer || "—")}</td><td class="tx">${esc(r.source)}</td><td class="num">${gbp(r.gross_pence)}</td><td class="num tx">${gbp(r.vat_pence)}</td><td class="num tx">${r.fee_pence == null ? "—" : gbp(r.fee_pence)}</td><td class="num">${r.received_pence == null ? "—" : gbp(r.received_pence)}</td><td><button type="button" class="ac-btn" data-receipt="${esc(r.id)}">Receipt</button></td></tr>`;
+      const payRow = (r) => `<tr data-rid="${esc(r.id)}"${r.id === RHIT ? ' class="ac-hit"' : ""}><td class="tx">${esc(ukDay(r.paid_at))}</td><td title="${esc(r.label)}">${esc(r.label)}${r.refunded_pence ? ` <span class="ac-chip bad">Refunded ${gbp(r.refunded_pence)}</span>` : ""}</td><td class="tx" title="${esc(r.customer)}">${esc(r.customer || "—")}</td><td class="tx">${esc(r.source)}</td><td class="num">${gbp(r.gross_pence)}</td><td class="num tx">${gbp(r.vat_pence)}</td><td class="num tx">${r.fee_pence == null ? "—" : gbp(r.fee_pence)}</td><td class="num">${r.received_pence == null ? "—" : gbp(r.received_pence)}</td><td><button type="button" class="ac-btn" data-receipt="${esc(r.id)}">Receipt</button></td></tr>`;
       const otherRow = (o) => `<tr><td class="tx">${esc(ukDay(o.at))}</td><td>${esc(o.what)}</td><td></td><td></td><td></td><td></td><td></td><td class="num">${gbp(o.net_pence)}</td><td></td></tr>`;
       const table = (rows) => `<div class="ac-tw" data-lenis-prevent><table class="ac-t ac-r"><thead><tr><th>Date</th><th>What it was for</th><th>Paid by</th><th>Area</th><th class="num">Paid</th><th class="num">VAT</th><th class="num">Stripe fee</th><th class="num">In bank</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
       let html = "";
@@ -392,6 +396,19 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       if ((b = q("[data-rmonth]"))) { if (!b.disabled && RMONTH) loadRec(addMonth(RMONTH, Number(b.dataset.rmonth))); return; }
       if ((b = q("[data-payout]"))) { const p = RPAY.find((x) => x.id === b.dataset.payout); if (p) openPayout(p, b); return; }
       if ((b = q("[data-receipt]"))) { const r = (REC || []).find((x) => x.id === b.dataset.receipt); if (r) openReceipt(r, b); return; }
+      if ((b = q("[data-cardview]"))) {
+        // Its receipt sits in the month the card was taken.
+        const v = byId(b.dataset.cardview); if (!v) return;
+        RHIT = ""; setTab("rec");
+        const ym = String(v.paid_on || v.sent || TODAY || "").slice(0, 7);
+        if (RMONTH !== ym || REC === null) await loadRec(ym);
+        const r = (REC || []).find((x) => x.invoice_id === v.id);
+        if (!r) { toast(`We couldn't find the card payment for ${v.number} in ${ymLabel(ym)}.`); return; }
+        RHIT = r.id; drawRec();
+        const tr = document.querySelector(`[data-rid="${r.id}"]`);
+        if (tr) tr.scrollIntoView({ block: "center", behavior: "smooth" });
+        return;
+      }
       if ((b = q("[data-view]"))) {
         const tab = window.open("", "_blank"); b.disabled = true;
         try { const d = await call(`/accounts-portal/invoice-pdf?id=${encodeURIComponent(b.dataset.view)}`); if (tab) tab.location = d.url; else location.href = d.url; }
