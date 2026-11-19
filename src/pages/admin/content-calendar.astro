@@ -847,7 +847,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       const btn = (k, l, cls) => `<button type="button" class="mbtn${cls ? ' ' + cls : ''}" data-call="${k}">${l}</button>`;
       const boards = btn('grid', 'Instagram grid') + btn('client', 'Client calendar');
       // The words in one place, in Excel, and back again (Danielle, 18 Nov).
-      const excel = btn('xlsx-out', 'Export to Excel') + btn('xlsx-in', 'Bring changes back in');
+      const excel = btn('xlsx-out', 'Export to Excel') + btn('xlsx-in', 'Import captions');
       const box = (title, items, acts, hint) => `<div class="cc-call"><div><h4>${title}</h4><ul>${items.join('')}</ul>${hint ? `<p>${hint}</p>` : ''}</div><div class="cc-call-acts">${acts}</div></div>`;
       const d = countOf((p) => p.template_id), c = countOf(hasCap), h = countOf((p) => p.how_to_edit), pl = countOf((p) => p.title && p.pillar);
       const reels = countOf((p) => p.post_type === 'reel'), film = countOf((p) => p.post_type === 'reel' && p.reel_prompt);
@@ -1025,7 +1025,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       let rows;
       try { rows = await readXlsx(file); } catch (err) { alert(err.message || "Couldn't read that file."); return; }
       const head = (rows[0] || []).map((h) => String(h).trim().toLowerCase());
-      if (head[1] !== 'title' || head[4] !== 'caption' || !head[5]) { alert("That isn't a sheet exported from this page. Use Export to Excel, make the changes in that file, then bring it back in."); return; }
+      if (head[1] !== 'title' || head[4] !== 'caption' || !head[5]) { alert("That isn't a sheet exported from this page. Use Export to Excel, make the changes in that file, then import it here."); return; }
       const byId = new Map(POSTS.map((p) => [p.id, p]));
       const clean = (v) => String(v || '').replace(/\r\n?/g, '\n').replace(/[ \t]+$/gm, '').trim();
       const changes = [], missing = [], skippedFilm = [];
@@ -1045,7 +1045,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         if (what.length) changes.push({ p, patch, what });
       }
       if (!changes.length) {
-        alert(['Nothing to bring in: the words in that file match the month.', missing.length ? `${missing.length} row${missing.length === 1 ? ' is' : 's are'} for posts no longer in this month.` : ''].filter(Boolean).join(' '));
+        alert(['Nothing to import: the words in that file match the month.', missing.length ? `${missing.length} row${missing.length === 1 ? ' is' : 's are'} for posts no longer in this month.` : ''].filter(Boolean).join(' '));
         return;
       }
       const list = changes.slice(0, 12).map(({ p, what }) => `• ${p.title || 'Untitled'}: ${what.join(', ')}`).join('\n') + (changes.length > 12 ? `\n• and ${changes.length - 12} more` : '');
@@ -1053,7 +1053,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         missing.length ? `${missing.length} row${missing.length === 1 ? ' is' : 's are'} for posts no longer in this month and will be left out.` : '',
         skippedFilm.length ? `What to film is only kept for reels, so it's left out for ${skippedFilm.length} post${skippedFilm.length === 1 ? '' : 's'} that aren't reels.` : '',
       ].filter(Boolean).join('\n');
-      if (!confirm(`Bring in changes to ${changes.length} post${changes.length === 1 ? '' : 's'}?\n\n${list}${notes ? '\n\n' + notes : ''}\n\nEverything else stays as it is.`)) return;
+      if (!confirm(`Import changes to ${changes.length} post${changes.length === 1 ? '' : 's'}?\n\n${list}${notes ? '\n\n' + notes : ''}\n\nEverything else stays as it is.`)) return;
       const failed = [];
       for (const { p, patch } of changes) {
         // .select() so a save the database turned down can't look like it worked.
