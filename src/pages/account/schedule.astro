@@ -117,14 +117,19 @@ import "../../styles/account-sections.css";
         <div class="cal-weekhead" aria-hidden="true">
           <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
         </div>
-        <div class="cc-grid" id="cc-grid"></div>
         <!-- A member without the calendar sees the real month, blurred, with
-             the way in (the plan's demo, Dani 21 Oct). -->
-        <div class="cc-lock" id="cc-lock" hidden>
-          <h3 class="cc-lock-h" id="cc-lock-h"></h3>
-          <p class="cc-lock-tx" id="cc-lock-tx">Get a month's worth of ready-made content, with a post for every weekday. Just add your branding and make it yours.</p>
-          <a class="ws-btn ws-btn--primary cc-lock-go" id="cc-lock-go" href="/account/settings?tab=plan">See the plans</a>
+             the way in (the plan's demo, Dani 21 Oct). The zero-height pin
+             keeps the box mid-screen while the blurred month scrolls behind
+             it (Danielle, 19 Nov); it sits before the grid so it sticks from
+             the top of the month to the bottom. -->
+        <div class="cc-lock-pin">
+          <div class="cc-lock" id="cc-lock" hidden>
+            <h3 class="cc-lock-h" id="cc-lock-h"></h3>
+            <p class="cc-lock-tx" id="cc-lock-tx">Get a month's worth of ready-made content, with a post for every weekday. Just add your branding and make it yours.</p>
+            <a class="ws-btn ws-btn--primary cc-lock-go" id="cc-lock-go" href="/account/settings?tab=plan">See the plans</a>
+          </div>
         </div>
+        <div class="cc-grid" id="cc-grid"></div>
       </div>
       <button type="button" class="cc-tab" id="cc-tab" hidden></button>
     </section>
@@ -1424,7 +1429,8 @@ import "../../styles/account-sections.css";
     /* The blurred preview (Dani, 11 Nov): the real month, no way into it. */
     .cc-ours { position: relative; }
     .cc-ours.is-preview .cc-post { filter: blur(7px); pointer-events: none; }
-    .cc-lock { position: absolute; top: 160px; left: 50%; transform: translateX(-50%); z-index: 3; width: min(440px, 90%); box-sizing: border-box; padding: 22px 24px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; text-align: center; box-shadow: 0 18px 50px rgba(55,30,40,0.2); }
+    .cc-lock-pin { position: sticky; top: calc(50vh - 90px); height: 0; z-index: 3; }
+    .cc-lock { position: relative; left: 50%; transform: translateX(-50%); z-index: 3; width: min(440px, 90%); box-sizing: border-box; padding: 22px 24px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; text-align: center; box-shadow: 0 18px 50px rgba(55,30,40,0.2); }
     .cc-lock[hidden] { display: none; }
     .cc-lock-h { margin: 0 0 6px; font-family: var(--sans); font-size: 22px; font-weight: 600; line-height: 1.15; color: var(--violet-deep); }
     .cc-lock-go { margin-top: 16px; }
@@ -1437,7 +1443,7 @@ import "../../styles/account-sections.css";
     .ccp-mine[hidden] { display: none; }
     .cc-empty { margin: 0; padding: 24px 0; font-family: var(--sans); font-size: var(--ws-t-body); color: rgba(28,29,34,0.6); }
     /* The tab on the right edge: the other calendar. */
-    .cc-tab { position: absolute; right: calc(-1 * clamp(14px, 2vw, 34px)); top: 120px; z-index: 3; writing-mode: vertical-rl; transform: rotate(180deg); padding: 16px 8px; border: 0; border-radius: 0 3px 3px 0; background: var(--english-violet); color: #fff; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; box-shadow: 0 6px 18px rgba(55,30,40,0.18); }
+    .cc-tab { position: absolute; right: calc(-1 * clamp(14px, 2vw, 34px)); top: 120px; z-index: 3; writing-mode: vertical-rl; transform: rotate(180deg); padding: 16px 8px; border: 0; min-height: 180px; box-sizing: border-box; text-align: center; border-radius: 0 3px 3px 0; background: var(--english-violet); color: #fff; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; box-shadow: 0 6px 18px rgba(55,30,40,0.18); }
     .cc-tab[hidden] { display: none; }
     .cc-tab:hover { background: var(--violet-deep); }
     @media (max-width: 780px) {
@@ -1445,7 +1451,7 @@ import "../../styles/account-sections.css";
       .cc-day { padding: 3px; gap: 3px; }
       .cc-num { font-size: 10px; }
       .cc-post-card, .cc-badge { display: none; }
-      .cc-tab { position: static; writing-mode: horizontal-tb; transform: none; width: 100%; margin-top: 10px; padding: 10px; border-radius: 3px; }
+      .cc-tab { position: static; writing-mode: horizontal-tb; transform: none; width: 100%; min-height: 0; margin-top: 10px; padding: 10px; border-radius: 3px; }
     }
 
     /* One post, full size. */
@@ -1939,7 +1945,7 @@ import "../../styles/account-sections.css";
         // go-live date, so it's on its way; or no Content Calendar in their plan.
         if (m.waiting) {
           const drop = new Date(m.waiting + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-          document.getElementById('cc-lock-h').textContent = `${mName}'s content is locked and loaded.`;
+          document.getElementById('cc-lock-h').textContent = `Your ${mName} content is locked and loaded.`;
           document.getElementById('cc-lock-tx').textContent = `Your ${mName} calendar drops on ${drop}. On the day, every post opens here, ready to make your own.`;
         } else {
           // Danielle's wording (hub-wording doc, section 1, 11 Nov).
