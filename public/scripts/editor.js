@@ -19541,9 +19541,9 @@ import { createResizeEngine } from "./resize-engine.js";
        them out"): every one they've made is in their uploads, so the custom
        option lists them to put back in. Uses no goes. */
     let _mine = null;
-    // Which see-through copy belongs to which illustration, on this device. v2: only copies made with the AI cut-out (19 Nov), so older colour-cleared ones are made again.
-    const illClearFor = (u) => { try { return (JSON.parse(localStorage.getItem("tmke.ill.clear.v2") || "{}"))[u] || null; } catch (_) { return null; } };
-    const illClearRemember = (u, c) => { if (!u || !c || u === c) return; try { const m = JSON.parse(localStorage.getItem("tmke.ill.clear.v2") || "{}"); m[u] = c; localStorage.setItem("tmke.ill.clear.v2", JSON.stringify(m)); } catch (_) {} };
+    // (A per-browser memory of see-through copies was here until 19 Nov; it kept serving copies
+    // from older clearing code. The kept version beside each illustration replaces it.)
+    try { localStorage.removeItem("tmke.ill.clear"); localStorage.removeItem("tmke.ill.clear.v2"); } catch (_) {}
     function paintMine(isSet) {
       const box = $("ed-ill-mine"), grid = $("ed-ill-mine-grid");
       if (!box || !grid) return;
@@ -19565,9 +19565,10 @@ import { createResizeEngine } from "./resize-engine.js";
             if (busy) return;
             const picked = (state.selectedIds || []).map((id) => getEl(id)).find((o) => isIllustrationPicture(o) || (o && o.type === "wframe"));
             const at = state.currentPage;
-            // The see-through copy that went on the card, made again if this device hasn't got it.
-            let use = illClearFor(u);
-            if (!use) { busy = true; status(C.clearing, "working"); use = (await seeThroughUpload(u)) || u; illClearRemember(u, use); busy = false; status(""); }
+            // The see-through version: the one kept beside it (seeThroughUpload finds it), or made and kept now.
+            busy = true; status(C.clearing, "working");
+            const use = (await seeThroughUpload(u)) || u;
+            busy = false; status("");
             if (picked) { if (state.currentPage !== at) goToPage(at); state.selectedIds = [picked.id]; }
             await placeIllustration(use);
             fullRender();
@@ -19803,7 +19804,6 @@ import { createResizeEngine } from "./resize-engine.js";
       const clear = await seeThroughUpload(out.url, out.cut);
       const url = clear || out.url;
       lastUrl = url;
-      illClearRemember(out.url, url);
       if (_mine && _mine.indexOf(out.url) < 0) _mine.push(out.url);
       paintMine(false);
       state.uploads = state.uploads || [];
