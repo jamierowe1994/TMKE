@@ -10632,7 +10632,8 @@ import { createResizeEngine } from "./resize-engine.js";
     for (let y = 2; y < Math.round(H * 0.05); y += 2) for (let x = 4; x < W - 4; x += 3) { const i = (y * W + x) * 4; ch[0].push(d[i]); ch[1].push(d[i + 1]); ch[2].push(d[i + 2]); }
     const bg = ch.map((a) => { a.sort((p, q) => p - q); return a[a.length >> 1]; });
     const lum = (i) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2], lbg = 0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2];
-    const T = 22, maxDepth = Math.round(H * 0.62), run = Math.max(6, Math.round(H * 0.012));
+    // Down beside the house too, until the painting starts (19 Nov: stopping at a fixed line left blocks of background either side).
+    const T = 22, maxDepth = Math.round(H * 0.97), run = Math.max(6, Math.round(H * 0.012));
     const depth = new Float32Array(W);
     for (let x = 0; x < W; x++) {
       let y = 0, bad = 0;
@@ -10645,12 +10646,25 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     const r = Math.max(2, Math.round(W / 300)), sm = new Float32Array(W);
     for (let x = 0; x < W; x++) { const a = []; for (let k = -r; k <= r; k++) a.push(depth[Math.min(W - 1, Math.max(0, x + k))]); a.sort((p, q) => p - q); sm[x] = a[a.length >> 1]; }
+    // Plain background under the painting: found up from the bottom edge, then one soft fade where most
+    // of the painting has ended (85% of columns), never a cut per column, which left teeth in the snow.
+    const up = new Float32Array(W);
+    for (let x = 0; x < W; x++) {
+      let y = H - 1, bad = 0;
+      for (; y > H * 0.4; y--) {
+        const i = (y * W + x) * 4;
+        if (Math.hypot(d[i] - bg[0], d[i + 1] - bg[1], d[i + 2] - bg[2]) < T) bad = 0; else if (++bad >= run) { y += bad - 1; break; }
+      }
+      up[x] = y;
+    }
+    const srt = Array.from(up).sort((p, q) => p - q), line = srt[Math.floor(srt.length * 0.85)], fade = Math.max(4, Math.round(H * 0.04));
     const feather = Math.max(2, Math.round(H / 400)), out = new Uint8ClampedArray(W * H);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       let a = Math.min(1, Math.max(0, (y - sm[x]) / feather + 0.5));
       if (a < 1) a = Math.max(a, Math.min(1, Math.max(0, (lum((y * W + x) * 4) - lbg - 8) / 30)));
       out[y * W + x] = Math.round(a * 255);
     }
+    out.line = line; out.fade = fade;
     return out;
   }
   function cutoutCanvas(img, cut) {
@@ -10663,7 +10677,10 @@ import { createResizeEngine } from "./resize-engine.js";
     let px, ca;
     try { px = g.getImageData(0, 0, W, H); ca = kg.getImageData(0, 0, W, H).data; } catch (_) { return null; }
     const d = px.data, keep = skyKeepAlpha(d, W, H);
-    for (let p = 0; p < W * H; p++) d[p * 4 + 3] = Math.max(ca[p * 4 + 3], keep[p]);
+    for (let p = 0; p < W * H; p++) {
+      const y = (p / W) | 0, below = Math.min(1, Math.max(0, (keep.line - y) / keep.fade));
+      d[p * 4 + 3] = Math.round(Math.max(ca[p * 4 + 3], keep[p]) * below);
+    }
     g.putImageData(px, 0, 0);
     return c;
   }
@@ -10671,7 +10688,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // Where the finished see-through picture of an illustration is kept, if it has been made.
   function illCardUrls(url) {
     const m = /^(.*)\/uploads\/illustration-([0-9a-f-]{36})\.jpg/.exec(String(url || ""));
-    return m ? ["webp", "png"].map(function (x) { return m[1] + "/cutouts/illustration-" + m[2] + "-card." + x; }) : [];
+    return m ? ["webp", "png"].map(function (x) { return m[1] + "/cutouts/illustration-" + m[2] + "-card2." + x; }) : [];
   }
   async function illCardSaved(url) {
     for (const u of illCardUrls(url)) {
