@@ -22,7 +22,8 @@ import "../../styles/money-os.css";
       </section>
       <p class="state" id="sr-state">Reading the Studio's records. This can take a few seconds.</p>
       <div id="sr-main" hidden>
-        <div class="bar"><div class="chips" id="sr-brands" role="group" aria-label="Brand"></div></div>
+        <div class="bar sr-bar"><div class="chips" id="sr-brands" role="group" aria-label="Brand"></div><div class="chips sr-admin" id="sr-admin" role="group" aria-label="Admin accounts"></div></div>
+        <p class="sr-note sr-leftnote" id="sr-leftnote" hidden>TEG leavers are marked as left if they hold an active TMKE member account. Those who don't are removed from our CRM, so they aren't here.</p>
         <div id="sr-body"></div>
       </div>
     </div>
@@ -30,6 +31,10 @@ import "../../styles/money-os.css";
 
   <style is:global>
     .sr .bar { margin: 0 0 22px; }
+    .sr .sr-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .sr .sr-leftnote { margin: -10px 0 22px; }
+    /* Admin accounts, highlighted in the people table (Danielle, 19 Nov). */
+    .sr tr.is-admin td { background: var(--linen); }
     .sr .sr-note { margin: 0; color: var(--tx); max-width: 75%; }
     .sr .sr-months { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; align-items: end; height: 150px; padding: 12px 0 0; border-bottom: 1px solid var(--stone); }
     .sr .sr-m { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; gap: 4px; }
@@ -68,7 +73,9 @@ import "../../styles/money-os.css";
     const one = (n) => (Math.round(n * 10) / 10).toLocaleString("en-GB");
 
     // PICK: the brands chosen, combined (Danielle, 18 Nov); empty is everyone. "ext" is External.
-    let D = null, PICK = new Set(), FILTER = null, SORT = { key: "joined", dir: -1 };
+    // "left" is Left. ADMIN: admin accounts in the figures or not (Danielle, 19 Nov).
+    let D = null, PICK = new Set(), FILTER = null, SORT = { key: "joined", dir: -1 }, ADMIN = true;
+    const pool = () => D.rows.filter((r) => ADMIN || !r.admin);
 
     async function load() {
       try {
@@ -89,10 +96,11 @@ import "../../styles/money-os.css";
     }
 
     // External, as Contacts has it: no brand they work for, and not management or support.
-    const isExternal = (r) => !r.brands.length && !r.support;
-    const inBrand = (r) => !PICK.size || r.brands.some((b) => PICK.has(b)) || (PICK.has("ext") && isExternal(r));
-    const brandsPicked = () => [...PICK].filter((k) => k !== "ext");
-    const pickName = () => (!PICK.size ? "Everyone" : [...brandsPicked().map(short), ...(PICK.has("ext") ? ["External"] : [])].join(" + "));
+    // Left: marked as left at every brand, but still holding a member account.
+    const isExternal = (r) => !r.brands.length && !r.support && !r.left;
+    const inBrand = (r) => !PICK.size || r.brands.some((b) => PICK.has(b)) || (PICK.has("ext") && isExternal(r)) || (PICK.has("left") && r.left);
+    const brandsPicked = () => [...PICK].filter((k) => k !== "ext" && k !== "left");
+    const pickName = () => (!PICK.size ? "Everyone" : [...brandsPicked().map(short), ...(PICK.has("ext") ? ["External"] : []), ...(PICK.has("left") ? ["Left"] : [])].join(" + "));
     const course = (r, slug) => r.courses[slug] || null;
     const started = (r) => Object.values(r.courses).some((c) => c.completed || c.furthest > 0);
     const done = (r) => Object.values(r.courses).some((c) => c.completed);
@@ -176,21 +184,24 @@ import "../../styles/money-os.css";
     const section = (title, aside, body) => `<div class="section"><div class="strip"><div class="strip-t">${esc(title)}</div>${aside ? `<span class="aside">${esc(aside)}</span>` : ""}</div>${body}</div>`;
 
     function draw() {
-      const all = D.rows;
-      // Brands, biggest first, then anyone in none.
+      const all = pool();
+      // Brands, biggest first, then anyone in none, then leavers.
       const count = new Map();
       all.forEach((r) => r.brands.forEach((b) => count.set(b, (count.get(b) || 0) + 1)));
       const brands = [...count.keys()].sort((a, b) => count.get(b) - count.get(a));
-      const ext = all.filter(isExternal).length;
-      $("sr-brands").innerHTML = [["all", "Everyone", all.length], ...brands.map((b) => [b, short(b), count.get(b)]), ...(ext ? [["ext", "External", ext]] : [])]
+      const ext = all.filter(isExternal).length, left = all.filter((r) => r.left).length;
+      $("sr-brands").innerHTML = [["all", "Everyone", all.length], ...brands.map((b) => [b, short(b), count.get(b)]), ...(ext ? [["ext", "External", ext]] : []), ...(left ? [["left", "Left", left]] : [])]
         .map(([k, l, n]) => `<button type="button" data-brand="${esc(k)}" aria-pressed="${k === "all" ? !PICK.size : PICK.has(k)}">${esc(l)} <i>${n0(n)}</i></button>`).join("");
+      const admins = D.rows.filter((r) => r.admin).length;
+      $("sr-admin").innerHTML = `<button type="button" data-admin="1" aria-pressed="${ADMIN}">Admin included <i>${n0(admins)}</i></button><button type="button" data-admin="0" aria-pressed="${!ADMIN}">Admin left out</button>`;
+      $("sr-leftnote").hidden = !PICK.has("left");
       const rows = all.filter(inBrand);
       const signed = rows.filter(signedIn);
 
       // Accounts: how many we have in the CRM at this brand, then who and how often.
-      // Agents in the CRM at the picked brands, each person once; none when External is picked.
+      // Agents in the CRM at the picked brands, each person once; none when External or Left is picked.
       const picked = brandsPicked();
-      const inCrm = !PICK.size ? D.crm.any : PICK.has("ext") ? null : D.crm.groups.filter((g) => g.split("|").some((b) => picked.includes(b))).length;
+      const inCrm = !PICK.size ? D.crm.any : PICK.has("ext") || PICK.has("left") ? null : D.crm.groups.filter((g) => g.split("|").some((b) => picked.includes(b))).length;
       const acc = FIGS.accounts.map((f) => f[0] === "all" ? [f[0], f[1], f[2]] : [...f.slice(0, 3), [() => true, "those signed up"]]);
       let html = section("Accounts", `${n0(rows.length)} signed up`, figsAccounts(acc, rows, inCrm) + (() => {
         const si = signed.map((r) => r.sign_ins).filter((n) => n > 0), days = signed.map((r) => r.active_days).filter((n) => n > 0);
@@ -265,7 +276,7 @@ import "../../styles/money-os.css";
     const COLS = [
       ["name", "Name", (r) => r.name || r.email || "", (r) => r.name || ""],
       ["email", "Email", (r) => r.email || ""],
-      ["brand", "Brand", (r) => r.brands.map(short).join(" + ")],
+      ["brand", "Brand", (r) => [r.admin ? "Admin" : "", r.brands.map(short).join(" + "), r.left ? `Left (was ${r.left_brands.map(short).join(" + ")})` : ""].filter(Boolean).join(" · ")],
       ["joined", "Joined", (r) => r.joined || "", (r) => d(r.joined)],
       ["last_active", "Last active", (r) => lastSeen(r) || "", (r) => (lastSeen(r) ? d(lastSeen(r)) : "Never")],
       ["last_sign_in", "Last signed in", (r) => r.last_sign_in || "", (r) => (r.last_sign_in ? d(r.last_sign_in) : "Never")],
@@ -292,13 +303,13 @@ import "../../styles/money-os.css";
     function peopleSection(rows) {
       const { f, list } = shown(rows);
       const head = COLS.map(([k, l]) => `<th data-sort="${k}"${isNum(k) ? ' class="num"' : ""}${SORT.key === k ? ` aria-sort="${SORT.dir < 0 ? "descending" : "ascending"}"` : ""}>${esc(l)}</th>`).join("");
-      const body = list.slice(0, 500).map((r) => `<tr>${COLS.map(([k, , v, show]) => `<td class="${isNum(k) ? "num" : "tx"}">${esc(String((show || v)(r)))}</td>`).join("")}</tr>`).join("");
+      const body = list.slice(0, 500).map((r) => `<tr${r.admin ? ' class="is-admin"' : ""}>${COLS.map(([k, , v, show]) => `<td class="${isNum(k) ? "num" : "tx"}">${esc(String((show || v)(r)))}</td>`).join("")}</tr>`).join("");
       const intro = `<div class="sr-filter"><p>${f ? `Showing the ${n0(list.length)} ${list.length === 1 ? "person" : "people"} who: <b>${esc(f[1].charAt(0).toLowerCase() + f[1].slice(1))}</b>.` : `Everyone, ${n0(list.length)} ${list.length === 1 ? "person" : "people"}. Click any figure above to see just those people.`}</p>${f ? '<button type="button" class="mbtn" data-fig="">Show everyone</button>' : ""}</div>`;
       return section("People", list.length > 500 ? "The first 500; Download for Excel has them all" : "", intro + (list.length ? `<div class="tablewrap" data-lenis-prevent><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>` : '<div class="empty">Nobody here.</div>'));
     }
 
     async function download() {
-      const rows = D.rows.filter(inBrand), { f, list } = shown(rows);
+      const rows = pool().filter(inBrand), { f, list } = shown(rows);
       const columns = COLS.map(([, l]) => ({ title: l, width: l.length > 14 ? 24 : 16 }));
       columns[0].width = 26; columns[1].width = 32;
       const data = list.map((r) => COLS.map(([, , v, show]) => String((show || v)(r))));
@@ -315,6 +326,8 @@ import "../../styles/money-os.css";
       const b = e.target.closest("[data-brand]");
       // Click brands to combine them; click one again to take it out. Everyone clears.
       if (b) { const k = b.dataset.brand; if (k === "all") PICK.clear(); else if (PICK.has(k)) PICK.delete(k); else PICK.add(k); draw(); return; }
+      const ad = e.target.closest("[data-admin]");
+      if (ad) { ADMIN = ad.dataset.admin === "1"; draw(); return; }
       const f = e.target.closest("[data-fig]");
       if (f) {
         FILTER = f.dataset.fig && FILTER !== f.dataset.fig ? f.dataset.fig : null;

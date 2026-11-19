@@ -9239,7 +9239,11 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const S = await ccSettings(env, true);
-        const out = new Set([...(((await sbGet(env, "admins", "select=user_id")) || []).map((r) => r.user_id)), ...S.test_user_ids]);
+        // Admin accounts come back flagged, for the page's include/exclude
+        // switch (Danielle, 19 Nov); test logins never do. Neither counts in the CRM figures.
+        const adminIds = new Set(((await sbGet(env, "admins", "select=user_id")) || []).map((r) => r.user_id));
+        const testIds = new Set(S.test_user_ids);
+        const out = new Set([...adminIds, ...testIds]);
         const H = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` };
 
         // Every member account.
@@ -9249,7 +9253,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           if (!res.ok) return json({ error: "Couldn't read the accounts." }, 502, request, env);
           const d = await res.json().catch(() => ({}));
           const list = (d && d.users) || [];
-          list.forEach((u) => { if (!out.has(u.id)) people.set(u.id, { id: u.id, name: null, email: u.email || null, company: null, brands: [], joined: u.created_at || null, last_sign_in: u.last_sign_in_at || null,
+          list.forEach((u) => { if (!testIds.has(u.id)) people.set(u.id, { id: u.id, name: null, email: u.email || null, company: null, brands: [], admin: adminIds.has(u.id), left: false, left_brands: [], joined: u.created_at || null, last_sign_in: u.last_sign_in_at || null,
             sign_ins: null, active_days: null, last_active: null, courses: {}, designs: 0, print_designs: 0, last_design: null, downloads: 0, last_download: null,
             demo_designs: 0, bought: [], gifted: [], used_packs: [], dl_packs: [] }); });
           if (list.length < 1000) break;
@@ -9259,7 +9263,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
         const [contacts, profs, packs, tpls, months, orders, gp, designs, logDl, oldDl] = await Promise.all([
           sbGetAll(env, "contacts", "user_id=not.is.null&select=id,user_id,first_name,last_name,email,company,tags"),
-          sbGetAll(env, "agent_profiles", "left_at=is.null&select=contact_id,brand"),
+          sbGetAll(env, "agent_profiles", "select=contact_id,brand,left_at"),
           sbGetAll(env, "packs", "select=id,title,slug,kind,access,brands,demo,status,price_pence"),
           sbGetAll(env, "templates", "pack_id=not.is.null&select=id,pack_id"),
           sbGetAll(env, "content_month_posts", "template_id=not.is.null&select=template_id"),
@@ -9272,8 +9276,11 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         ]);
         if (!contacts || !designs) return json({ error: "Couldn't read the Studio's records." }, 502, request, env);
 
-        const brandsOfContact = new Map();
-        (profs || []).forEach((r) => { if (!r.brand) return; if (!brandsOfContact.has(r.contact_id)) brandsOfContact.set(r.contact_id, new Set()); brandsOfContact.get(r.contact_id).add(r.brand); });
+        // Live brands, and the brands of anyone marked as left (Danielle, 19 Nov:
+        // leavers with an account are reported as Left).
+        const brandsOfContact = new Map(), leftOfContact = new Map();
+        (profs || []).forEach((r) => { if (!r.brand) return; const m = r.left_at ? leftOfContact : brandsOfContact; if (!m.has(r.contact_id)) m.set(r.contact_id, new Set()); m.get(r.contact_id).add(r.brand); });
+        const liveProfs = (profs || []).filter((r) => !r.left_at);
         const byEmail = new Map();
         contacts.forEach((c) => {
           const r = P(c.user_id); if (!r) return;
@@ -9282,13 +9289,14 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           // As Contacts has it: management or support by tag (Danielle, 18 Nov).
           if ((c.tags || []).includes("TEG-Role: Management-or-Support")) r.support = true;
           (brandsOfContact.get(c.id) || []).forEach((b) => add(r.brands, b));
+          (leftOfContact.get(c.id) || []).forEach((b) => add(r.left_brands, b));
         });
-        people.forEach((r) => { r.brands.sort(); if (r.email) byEmail.set(r.email.toLowerCase(), r); });
+        people.forEach((r) => { r.brands.sort(); r.left_brands.sort(); r.left = !r.brands.length && r.left_brands.length > 0; if (r.email) byEmail.set(r.email.toLowerCase(), r); });
         // How many of each brand we have in the CRM, account or not (Danielle,
         // 18 Nov: "TPE: 80 in the CRM, 39 signed up"). Staff and test logins out.
         const staffContact = new Set(contacts.filter((c) => out.has(c.user_id)).map((c) => c.id));
         const crm = { any: new Set(), by: {}, of: new Map() };
-        (profs || []).forEach((r) => {
+        liveProfs.forEach((r) => {
           if (!r.brand || staffContact.has(r.contact_id)) return;
           crm.any.add(r.contact_id);
           (crm.by[r.brand] = crm.by[r.brand] || new Set()).add(r.contact_id);
