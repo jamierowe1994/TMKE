@@ -19158,7 +19158,7 @@ import { createResizeEngine } from "./resize-engine.js";
       { key: "beige",   label: "Oat",          hex: "#eae5e1" },
       { key: "blush",   label: "Blush",        hex: "#E4C7C1" },
       { key: "oxblood", label: "Oxblood",      hex: "#430E18" },
-      { key: "forest",  label: "Forest Green", hex: "#242F25" },
+      { key: "forest",  label: "Forest",       hex: "#242F25" },   // "Forest", one line under its swatch (Danielle, 19 Nov)
     ];
     const bgList = () => (me && Array.isArray(me.backgrounds) && me.backgrounds.length) ? me.backgrounds : DEFAULT_BGS;
     const cardPages = () => (state.pages || []).filter((p) => p && p.canvas && (isFolded(p.canvas) || isPostcard(p.canvas)));

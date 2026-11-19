@@ -6429,7 +6429,7 @@ const ILL_BACKGROUNDS = {
   // A daytime painting looks wrong on a dark ground: on the dark colours it's
   // early evening, windows glowing and the snow bright against it.
   oxblood: { label: "Oxblood",      hex: "#430E18", words: "a deep oxblood red", evening: true },
-  forest:  { label: "Forest Green", hex: "#242F25", words: "a deep dark forest green", evening: true },
+  forest:  { label: "Forest",       hex:"#242F25", words: "a deep dark forest green", evening: true },
   pink:    { label: "Neutral Pink", hex: "#c4a092", words: "a dusky muted pink", hidden: true },
 };
 /* A landscape picture for an A6 Landscape postcard (Danielle, 17 Nov); the
