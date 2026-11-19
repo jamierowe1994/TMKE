@@ -11012,6 +11012,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // The heading belongs to the list, and a member no longer has the list.
     const listHead = document.getElementById("ed-textlist-head");
     if (listHead) listHead.hidden = !wantText || !isAdminMode();
+    syncXmasEdge();
     return body;
   }
 
@@ -16364,6 +16365,62 @@ import { createResizeEngine } from "./resize-engine.js";
       function () { const e = getEl(el.id); return (e && e.radius) || 0; },
       function (v) { const e = getEl(el.id); if (e) { e.radius = v; e.radii = null; } },
       function () { const e = getEl(el.id); if (e) partialRenderElement(e); pushHistory(); }));
+  }
+  /* Christmas › Frame › Add an edge (Danielle, 19 Nov): None, Fade all round
+     or Painted edge on the card's illustration, for members too, as the
+     template illustrations come without one. The selected illustration, else
+     the one on the side being looked at; hidden when there isn't one. Each
+     choice is shown on the picture itself, on the page's colour. */
+  function syncXmasEdge() {
+    const sec = document.getElementById("ed-xmas-edge");
+    const grid = document.getElementById("ed-xmas-edge-grid");
+    if (!sec || !grid) return;
+    const sel = state.selectedIds.length === 1 ? getEl(state.selectedIds[0]) : null;
+    const el = (isIllustrationPicture(sel) && sel.src) ? sel
+      : (state.elements || []).find((o) => isIllustrationPicture(o) && o.src && !o.hidden) || null;
+    sec.hidden = !el;
+    if (!el) { grid.innerHTML = ""; grid._sig = ""; return; }
+    const bgc = (state.canvas && state.canvas.background) || "#ffffff";
+    const cur = edgeKind(el.edge) || "";
+    const sig = [el.id, el.src, cur, Math.round(el.w), Math.round(el.h), bgc].join("|");
+    if (grid._sig === sig) return;
+    grid._sig = sig;
+    grid.innerHTML = "";
+    const k = edgeKinds();
+    const opts = [["", "None"], ["fadeall", k.fadeall], ["painted", k.painted]];
+    const ar = el.w / Math.max(1, el.h), S = 68;
+    const tw = ar >= 1 ? S : Math.round(S * ar), th = ar >= 1 ? Math.round(S / ar) : S;
+    opts.forEach(function (o) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ed-edge-opt";
+      b.setAttribute("aria-pressed", String(cur === o[0]));
+      const pic = document.createElement("span");
+      pic.className = "ed-edge-pic";
+      pic.style.background = bgc;
+      const im = document.createElement("img");
+      im.src = el.src; im.alt = ""; im.draggable = false;
+      im.style.width = tw + "px"; im.style.height = th + "px";
+      if (o[0]) {
+        const u = "url(" + edgeMask(o[0], el.w, el.h).url + ")";
+        im.style.webkitMaskImage = im.style.maskImage = u;
+        im.style.webkitMaskSize = im.style.maskSize = "100% 100%";
+      }
+      pic.appendChild(im);
+      b.appendChild(pic);
+      const lab = document.createElement("span");
+      lab.textContent = o[1];
+      b.appendChild(lab);
+      b.addEventListener("click", function () {
+        const e = getEl(el.id);
+        if (!e || (edgeKind(e.edge) || "") === o[0]) return;
+        if (o[0]) e.edge = o[0]; else delete e.edge;
+        pushHistory();
+        fullRender();
+        syncXmasEdge();
+      });
+      grid.appendChild(b);
+    });
   }
   function openIllustrateFor() {
     const tab = document.querySelector('.ed-ttab[data-itab="illustrate"]');
