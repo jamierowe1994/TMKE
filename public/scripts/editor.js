@@ -16371,9 +16371,15 @@ import { createResizeEngine } from "./resize-engine.js";
      template illustrations come without one. The selected illustration, else
      the one on the side being looked at; hidden when there isn't one. Each
      choice is shown on the picture itself, on the page's colour. */
+  /* Shown twice (Danielle, 19 Nov): in Frame, and in Illustration beside the
+     picture as it's chosen, uploaded or clicked in the Edit list. */
   function syncXmasEdge() {
-    const sec = document.getElementById("ed-xmas-edge");
-    const grid = document.getElementById("ed-xmas-edge-grid");
+    syncXmasEdgeIn("ed-xmas-edge", "ed-xmas-edge-grid");
+    syncXmasEdgeIn("ed-xmas-ill-edge", "ed-xmas-ill-edge-grid");
+  }
+  function syncXmasEdgeIn(secId, gridId) {
+    const sec = document.getElementById(secId);
+    const grid = document.getElementById(gridId);
     if (!sec || !grid) return;
     const sel = state.selectedIds.length === 1 ? getEl(state.selectedIds[0]) : null;
     const el = (isIllustrationPicture(sel) && sel.src) ? sel
