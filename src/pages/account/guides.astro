@@ -325,6 +325,9 @@ import "../../styles/reel.css";
     .lrn-sheet-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); }
     .lrn-sheet-h { font-family: var(--serif); font-weight: 400; font-size: clamp(24px, 3vw, 30px); line-height: 1.1; color: var(--ws-ink); margin: 10px 0 0; }
     .lrn-sheet-sub { font-size: 13.5px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 4px 0 20px; }
+    /* Getting Started in groups (Danielle, 20 Nov): the Explore label's look, across the whole row. */
+    .lrn-sheet-group { grid-column: 1 / -1; margin: 18px 0 0; padding-bottom: 10px; border-bottom: 1px solid rgba(28,29,34,0.35); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-ink); }
+    .lrn-sheet-group:first-child { margin-top: 0; }
     .lrn-guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: clamp(11px, 1.1vw, 16px); }
     .lrn-guides-grid--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     @media (max-width: 1000px) { .lrn-guides-grid--four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -614,9 +617,32 @@ import "../../styles/reel.css";
       const list = ALL.filter((g) => g.topic === slug);
       document.getElementById('lrn-sheet-h').innerHTML = topic.label;
       document.getElementById('lrn-sheet-sub').textContent = topic.blurb || '';
-      document.getElementById('lrn-sheet-grid').innerHTML = list.map(cardHtml).join('');
+      document.getElementById('lrn-sheet-grid').innerHTML = slug === 'getting-started' ? groupedHtml(list) : list.map(cardHtml).join('');
       document.getElementById('lrn-sheet-empty').hidden = list.length > 0;
       sheet.hidden = false; window.__lenis?.stop?.();
+    }
+    /* Getting Started under three headings, in this order (Danielle, 20 Nov):
+       the Studio courses, then print, then the Content Calendar. A heading
+       with nothing under it is left out, so Content Calendar shows once its
+       course is on Learn (it is held back until the calendar launches). */
+    const START_GROUPS = [
+      { label: 'The Studio', slugs: ['training-hub', 'training-brand-kit', 'training-studio', 'training-planner'] },
+      { label: 'Print', test: (g) => g.slug === 'print-first-design' || String(g.slug).startsWith('print-materials-') },
+      { label: 'Content Calendar', test: (g) => /calendar/.test(g.slug) },
+    ];
+    function groupedHtml(list) {
+      const used = new Set();
+      const parts = START_GROUPS.map((grp) => {
+        const items = list.filter((g) => !used.has(g) && (grp.slugs ? grp.slugs.includes(g.slug) : grp.test(g)));
+        if (grp.slugs) items.sort((a, b) => grp.slugs.indexOf(a.slug) - grp.slugs.indexOf(b.slug));
+        else items.sort((a, b) => (a.slug === 'print-first-design' ? -1 : 0) - (b.slug === 'print-first-design' ? -1 : 0));
+        items.forEach((g) => used.add(g));
+        return items.length ? `<p class="lrn-sheet-group">${grp.label}</p>` + items.map(cardHtml).join('') : '';
+      });
+      // Anything new in Getting Started that no group claims yet still shows, last.
+      const rest = list.filter((g) => !used.has(g));
+      if (rest.length) parts.push(`<p class="lrn-sheet-group">More</p>` + rest.map(cardHtml).join(''));
+      return parts.join('');
     }
     function closeTopic() { if (!sheet || sheet.hidden) return; sheet.hidden = true; window.__lenis?.start?.(); }
     document.querySelectorAll('.lrn-topic[data-topic]').forEach((t) => t.addEventListener('click', (e) => {
