@@ -4,10 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/whats_new.sql — Member hub › What's new: the updates members step through from What's New in Your Member Hub, now kept in the database so you can write, edit, delete and choose who sees each one. Adds the seven updates already in the hub, so members see no change. Until it runs, the hub keeps showing those seven and the editor says to run this. Sends nothing (20 Nov)
+(none)
 
 ## Done
 
+- [x] supabase/whats_new.sql — Member hub › What's new: the updates members step through from What's New in Your Member Hub, now kept in the database so you can write, edit, delete and choose who sees each one. Adds the seven updates already in the hub, so members see no change. Until it runs, the hub keeps showing those seven and the editor says to run this. Sends nothing (20 Nov; ran 20 Nov)
 - [x] supabase/test_pack_designs.sql — Catalogue test packs: a test pack opened empty on the test login (and Sam's) because a pack's designs stayed hidden until its free date (Santa Baby... opens 20 Nov 8am). Anyone the test pack was sent to now sees its designs straight away; nobody else's view changes. Changes no pack or design. Sends nothing (18 Nov; ran 18 Nov)
 - [x] supabase/content_calendar_go_live.sql — Content Calendar: a "Goes live on" date on each month (Final checks). A month published before its date shows members blurred, "locked and loaded", until that day. Until it runs, members see a published month straight away and the date can't be saved. Changes no month. Sends nothing (18 Nov; ran 18 Nov)
 - [x] supabase/studio_reporting_sign_ins.sql — Studio reporting: "Sign-ins each, on average" said 0 because Supabase keeps no sign-in history for us. This counts sign-ins from the sessions on record and, from 18 Nov, every sign-in the site records itself. Only the server can run it. Changes nothing. Sends nothing (18 Nov; ran 18 Nov)

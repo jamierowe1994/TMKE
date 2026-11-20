@@ -9038,7 +9038,7 @@ Plan the edit:
         const examples = (Array.isArray(b.examples) ? b.examples : []).slice(0, 4).map((e) => ({
           title: cap(e.title, 120), area: cap(e.area, 60), find_it: cap(e.find_it, 160), what: cap(e.what, 600), why: cap(e.why, 400), tip: cap(e.tip, 400),
         }));
-        const links = ["/account", "/account/studio", "/account/editor", "/account/profile", "/account/schedule", "/account/guides", "/account/blog"];
+        const links = ["/account", "/account/studio", "/account/studio?inspo=trending", "/account/editor", "/account/profile", "/account/schedule", "/account/guides", "/account/blog"];
         const schema = {
           type: "object", additionalProperties: false,
           required: ["title", "area", "find_it", "what", "why", "tip", "link_href", "link_label", "notes"],
@@ -9058,7 +9058,7 @@ THE CARD
 - what: what it is, two sentences at most.
 - why: what it saves them or makes possible, one or two sentences.
 - tip: one practical pointer, one or two sentences.
-- link_href: where the button goes, one of ${links.join(", ")}, or "" for no button. link_label: the button words, e.g. "Open the Studio" ("" when no button).
+- link_href: where the button goes, one of ${links.join(", ")}, or "" for no button. /account/studio?inspo=trending opens the month's See what's working trends straight away: use it for a Trending month. link_label: the button words, e.g. "Open the Studio" ("" when no button).
 - notes: one sentence to the admin about anything you weren't sure of or couldn't find in the material. "" if nothing.
 
 VOICE
