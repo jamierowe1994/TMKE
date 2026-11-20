@@ -1,0 +1,396 @@
+/* The guide reader's look (moved out of src/pages/account/guides/read.astro,
+   20 Nov 2026) so the admin Guides editor can show a lesson exactly as
+   members see it. Both pages import this file. */
+/* Workspace tokens — the reader relies on these for cards, borders, radii
+   and shadows. Kept in sync with the Learn landing (account/guides.astro). */
+body[data-dashboard] { background: var(--ws-bg); }
+.ws {
+  --ws-bg: var(--paper, #f4f2f1);
+  --ws-card: #ffffff;
+  --ws-soft: #fbfaf8;
+  --ws-ink: #1c1d22;
+  --ws-tx: rgba(28, 29, 34, 0.60);
+  --ws-faint: rgba(28, 29, 34, 0.40);
+  --ws-line: rgba(28, 29, 34, 0.07);
+  --ws-accent: var(--english-violet, #5b4a55);
+  --ws-success: #3f9468;
+  --ws-r-lg: 4px; --ws-r: 4px; --ws-r-sm: 4px;
+  --ws-sh-hero: 0 2px 4px rgba(28,29,34,0.03), 0 34px 64px -34px rgba(28,29,34,0.30), 0 14px 30px -22px rgba(28,29,34,0.20);
+  --ws-sh: 0 1px 2px rgba(28,29,34,0.02), 0 18px 40px -30px rgba(28,29,34,0.16);
+  --ws-ease: cubic-bezier(.2, .8, .2, 1);
+  min-height: 100vh;
+  color: var(--ws-ink);
+  font-family: var(--sans);
+  background:
+    radial-gradient(120% 80% at 100% -5%, rgba(91, 74, 85, 0.055), transparent 55%),
+    radial-gradient(100% 70% at -5% 105%, rgba(91, 74, 85, 0.045), transparent 52%),
+    var(--ws-bg);
+}
+
+/* The reader is its own page: it has to carry the Learn landing's
+   gutters itself, or the article hugs the left edge of the window. */
+.gr-main { width: 100%; max-width: 1840px; margin: 0 auto; padding: clamp(20px, 2.4vh, 34px) clamp(22px, 2.6vw, 56px) 120px; }
+/* The page sits on the hub's gutters like every other; the reading
+   measure is kept on the text itself, not by shrinking the page. */
+.gr-article { max-width: none; }
+.gr-article .gr-head, .gr-article .gr-body, .gr-article .gr-artfoot { max-width: 820px; }
+
+/* ---- Course cover: a full-width photograph with the copy in a wine card
+   at its top-left. The hub's banner, taller, with the card doing the work
+   the gradient does on the page headers. ---- */
+.gc-slide--intro { position: relative; min-height: min(620px, 68vh); padding: clamp(20px, 2.6vw, 32px); border-radius: 6px; border: 1px solid var(--ws-line); overflow: hidden; background: #e6e3e1 center / cover no-repeat; display: flex; align-items: flex-start; }
+/* Half the cover, whatever the course. Sized by the page rather than by
+   how long the summary happens to be, so the four cards match. */
+.gc-intro-card { width: min(50%, 660px); max-width: 100%; padding: clamp(24px, 2.6vw, 34px); background: var(--english-violet, #4a2a3c); color: #fff; border-radius: 6px; }
+@media (max-width: 900px) { .gc-intro-card { width: 100%; } }
+.gc-intro-card .gr-topic { color: rgba(255,255,255,0.72); }
+.gc-intro-card .gc-intro-title { color: #fff; }
+.gc-intro-card .gc-intro-sum { color: rgba(255,255,255,0.84); }
+.gc-intro-card .gc-intro-meta span { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); color: #fff; }
+.gc-intro-card .ws-btn--primary { background: #fff; color: var(--english-violet, #4a2a3c); }
+.gc-intro-card .ws-btn--primary:hover { background: var(--paper, #f4f2f1); }
+
+/* ---- Content-ideas guide (ci-*) — cards, image placeholders, pillars ---- */
+/* Full-width text stops at about the middle of the last of four cards —
+   88% of the panel — so a line never runs the whole way across. */
+.gc-slide-body > p, .gc-slide-body > .ci-rhythm { max-width: 88%; }
+.ci-lead { font-size: 15px; line-height: 1.6; font-weight: 600; color: var(--ws-ink); }
+.ci-ph { position: relative; margin: 0; aspect-ratio: 4 / 3; border-radius: var(--ws-r); border: 1px dashed rgba(28,29,34,0.22); background: repeating-linear-gradient(135deg, rgba(28,29,34,0.03) 0 10px, transparent 10px 20px), #fff; display: grid; place-items: center; }
+.ci-ph span { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-faint); }
+/* Written to beat ".gr-body img" further down, which gives pictures in a
+   lesson a margin and their own height - on a slot image that pushed it 8px
+   down and out of its frame, which is what the gap at the top of every
+   picture was. A slot image fills its slot: no margin, no shape of its own. */
+.ci-ph img, .gr-body .ci-ph img { position: absolute; inset: 0; display: block;
+  width: 100%; height: 100%; margin: 0; object-fit: cover; border-radius: inherit; }
+/* ---- Brand Kit course blocks ---------------------------------------- */
+/* Column counts are chosen per block, not left to auto-fit: five cards
+   across a wide screen is a strip, and six openers came out five and one. */
+.bk-cards { display: grid; gap: 14px; margin: 20px 0 22px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.bk-cards--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bk-cards--1 { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 1040px) { .bk-cards, .bk-cards--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bk-cards--1 { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 620px) { .bk-cards, .bk-cards--2 { grid-template-columns: 1fr; } }
+.bk-card { display: flex; flex-direction: column; gap: 7px; padding: 20px 22px; background: var(--ws-card, #fff);
+  border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+.bk-card strong { font-family: var(--sans); font-size: 14px; font-weight: 700; line-height: 1.3; color: var(--ws-ink); }
+.bk-card span { font-size: 14px; line-height: 1.6; color: var(--ws-tx); }
+/* A tip sits in the grid as a card of its own, coloured so it reads as an
+   aside rather than another instruction. */
+.bk-card--tip { background: rgba(201, 188, 183, 0.22); border-color: #c9bcb7; }
+.bk-card--tip strong { color: #7e6765; letter-spacing: 0.08em; text-transform: uppercase; font-size: 11.5px; }
+
+.bk-panel { margin: 22px 0; padding: 17px 22px; background: rgba(55, 30, 40, 0.045);
+  border-left: 3px solid var(--ws-accent); border-radius: var(--ws-r); }
+.bk-panel > strong { display: block; font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ws-ink); margin-bottom: 8px; }
+.bk-panel p { margin-bottom: 0; }
+.bk-panel p + p { margin-top: 10px; }
+
+.bk-cta { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 24px 0 6px;
+  padding: 18px 22px; background: var(--ws-card, #fff); border: 1px solid var(--ws-line); border-radius: var(--ws-r);
+  text-decoration: none; transition: border-color 0.2s; }
+.bk-cta:hover { border-color: var(--ws-accent); }
+.bk-cta-tx { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bk-cta-tx strong { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ws-ink); }
+.bk-cta-tx span { font-size: 14px; line-height: 1.6; color: var(--ws-tx); }
+.bk-cta-go { flex: none; font-family: var(--sans); font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ws-accent); }
+
+.bk-open-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 24px 0 6px; }
+@media (max-width: 1040px) { .bk-open-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .bk-open-grid { grid-template-columns: 1fr; } }
+.bk-open { display: flex; flex-direction: column; gap: 7px; text-align: left; cursor: pointer; padding: 22px;
+  background: var(--ws-card, #fff); border: 1px solid var(--ws-line); border-radius: var(--ws-r);
+  transition: border-color 0.2s, transform 0.2s; font-family: inherit; }
+.bk-open:hover { border-color: var(--ws-accent); transform: translateY(-2px); }
+.bk-open-t { font-family: var(--sans); font-size: 14.5px; font-weight: 700; color: var(--ws-ink); }
+.bk-open-b { font-size: 13px; line-height: 1.55; color: var(--ws-tx); }
+.bk-open-go { margin-top: 6px; font-family: var(--sans); font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ws-accent); }
+.bk-open-body[hidden] { display: none; }
+/* A picture worth seeing big: a wide button with a strip of it, opening
+   the whole thing (and its labels) in the pop-out. */
+.bk-shot { display: grid; grid-template-columns: 148px minmax(0, 1fr) auto; align-items: center; gap: 18px;
+  font-family: var(--sans);
+  width: 100%; margin: 24px 0 30px; padding: 14px 18px 14px 14px; text-align: left; cursor: pointer;
+  background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line); border-radius: var(--ws-r); color: inherit;
+  transition: border-color .2s var(--ws-ease), transform .2s var(--ws-ease); }
+.bk-shot:hover { border-color: var(--ws-accent); transform: translateY(-2px); }
+.bk-shot-img { display: block; width: 148px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 3px; margin: 0; }
+.bk-shot-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bk-shot-t { font-family: var(--sans); font-size: 14.5px; font-weight: 700; color: var(--ws-ink); }
+/* A button does not inherit font-family, so every word in this box except
+   the title -- which sets its own -- was rendering in Arial. Set on the
+   button itself so anything added to it later is right too, and sized to
+   the body copy beside it. Dani, 12 Oct: "I don't feel like that is the
+   correct font ... all of the font on here for the body should be the
+   same." */
+.bk-shot-b { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ws-tx); }
+.bk-shot-go { font-family: var(--sans); font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-accent); white-space: nowrap; }
+/* Written with both classes so it wins over .bk-sheet's own width, which
+   is declared after this block. */
+.bk-sheet.bk-sheet--wide { width: min(1320px, 100%); padding: 30px 32px 28px; }
+.bk-sheet.bk-sheet--wide .bk-figure img { width: 100%; }
+.bk-sheet .bk-figure { margin: 0 0 20px; }
+@media (max-width: 620px) {
+  .bk-shot { grid-template-columns: 96px minmax(0, 1fr); }
+  .bk-shot-img { width: 96px; }
+  .bk-shot-go { grid-column: 2; }
+}
+
+/* The pop-out: one part of the kit, with room to read it. */
+.bk-sheet-wrap { position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center;
+  padding: 32px; background: rgba(28, 20, 24, 0.55); }
+.bk-sheet-wrap[hidden] { display: none; }
+.bk-sheet { position: relative; width: min(640px, 100%); max-height: 84vh; overflow: auto; padding: 34px 36px 32px;
+  background: var(--ws-card, #fff); border-radius: var(--ws-r-lg, 12px); box-shadow: 0 30px 70px rgba(28, 20, 24, 0.3); }
+/* Fraunces Light (Dani, 11 Nov; was Helios) - not The Seasons, which read as a different
+   kind of thing entirely on a card. (h3 swaps --serif for --subhead
+   globally, so the family is named here rather than inherited.) */
+.bk-sheet h3, .bk-sheet .gr-body h3 { font-family: var(--serif); font-weight: 300;
+  font-size: 24.6px; line-height: 1.2; letter-spacing: -0.02em; color: var(--ws-ink); margin: 0 0 12px; }
+.bk-sheet .gr-body { margin: 0; font-size: 14px; line-height: 1.68; }
+.bk-sheet p { margin-bottom: 12px; }
+.bk-sheet p:last-child, .bk-sheet .bk-panel:last-child, .bk-sheet .ci-rhythm:last-child { margin-bottom: 0; }
+.bk-sheet ul { margin: 0 0 12px; padding-left: 18px; }
+.bk-sheet li { font-size: 14px; line-height: 1.6; margin-bottom: 6px; }
+.bk-sheet .bk-panel { margin: 16px 0; padding: 15px 18px; }
+/* Flush, like everything else in the sheet - the bar made it look inset. */
+.bk-sheet .ci-rhythm { margin: 16px 0 0; padding: 15px 18px; border-left: 0;
+  background: var(--ws-soft, #faf8f7); border-radius: var(--ws-r); font-size: 13.5px; }
+.bk-sheet-x { position: absolute; top: 14px; right: 16px; border: 0; background: none; cursor: pointer;
+  font-size: 26px; line-height: 1; color: var(--ws-faint); }
+.bk-sheet-x:hover { color: var(--ws-ink); }
+
+.bk-eg { margin: 26px 0; padding: 24px; background: var(--ws-soft, #faf8f7); border-radius: var(--ws-r); }
+.gr-body code, .bk-sheet code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+  background: rgba(28, 29, 34, 0.05); border-radius: 4px; padding: 1px 5px; }
+.bk-eg-l { display: block; font-family: var(--sans); font-size: 11px; font-weight: 800; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ws-faint); }
+.bk-eg blockquote { margin: 20px 0 0; padding: 0; border: 0; font-style: italic; font-size: 15px; line-height: 1.65; color: var(--ws-ink); }
+.bk-eg blockquote p { margin: 0; }
+.bk-eg-n { display: block; margin-top: 14px; font-size: 12.5px; color: var(--ws-faint); }
+
+.bk-figure { margin: 30px 0 8px; }
+.bk-figure img { display: block; width: 100%; border-radius: var(--ws-r-lg, 12px); border: 1px solid var(--ws-line); }
+.bk-figure figcaption { margin-top: 10px; font-family: var(--sans); font-size: 12.5px; color: var(--ws-faint); }
+
+/* A slot with a real picture in it: no dashed outline waiting for one. */
+.ci-ph--img { border-style: solid; border-color: var(--ws-line); background: var(--ws-soft, #f4f0ed); }
+.ci-intro { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr); gap: 28px; align-items: start; margin-bottom: 28px; }
+.ci-intro .ci-ph { aspect-ratio: 16 / 9; }
+/* The copy stops short of the picture and its lines end on one edge. */
+.ci-intro > div { max-width: 90%; text-align: justify; }
+.ci-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 8px; }
+.ci-card { position: relative; margin: 0; padding: 16px 16px 16px 52px; background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+.ci-card h4 { margin: 0 0 5px; font-family: var(--serif); font-weight: 500; font-size: 17px; line-height: 1.2; letter-spacing: -0.05em; color: var(--ws-ink); }
+.ci-card p { margin: 0; font-size: 13px; line-height: 1.55; color: var(--ws-tx); }
+.ci-no { position: absolute; left: 16px; top: 17px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: var(--ws-accent); }
+.ci-card--new { background: #fff; border-style: dashed; }
+.gr-body h3.ci-more { margin: 26px 0 12px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent); }
+.ci-pillars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 26px 0; }
+.ci-pillar { display: block; padding: 12px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); text-decoration: none; color: inherit; transition: border-color 0.2s, transform 0.2s; }
+.ci-pillar:hover { border-color: var(--ws-accent); transform: translateY(-2px); }
+.ci-pillar .ci-ph { aspect-ratio: 16 / 9; margin-bottom: 12px; }
+.ci-pillar strong { display: block; font-family: var(--sans); font-weight: 700; font-size: 14px; line-height: 1.3; color: var(--ws-ink); margin-bottom: 4px; }
+.ci-pillar span { font-size: 13px; line-height: 1.5; color: var(--ws-tx); }
+.ci-rhythm { padding: 14px 16px; border-left: 3px solid var(--ws-accent); background: #fff; border-radius: var(--ws-r); }
+/* A quote in the pack card's slot, for a pillar with no pack yet. */
+.gr-body blockquote.ci-quote { margin: 26px 0 0; max-width: 88%; box-sizing: border-box; padding: 24px 30px; border: 0; border-left: 3px solid var(--ws-accent); background: #fff; border-radius: var(--ws-r); font-family: "The Seasons", var(--serif); font-weight: 500; font-size: 20px; line-height: 1.4; letter-spacing: -0.01em; color: var(--ws-ink); font-style: normal; }
+.ci-pillar--static { cursor: default; }
+.ci-pillar--static:hover { border-color: var(--ws-line); transform: none; }
+/* The pack that carries a pillar's templates: a card at the foot of the part. */
+.ci-pack { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; align-items: center; margin-top: 26px; padding: 14px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); text-decoration: none; color: inherit; transition: border-color 0.2s; }
+.ci-pack:hover { border-color: var(--ws-accent); }
+.ci-pack .ci-ph { aspect-ratio: 4 / 5; margin: 0; }
+.ci-pack-tx { display: flex; flex-direction: column; gap: 4px; }
+.ci-pack-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent); margin-bottom: 4px; }
+.ci-pack-tx strong { font-family: var(--serif); font-weight: 500; font-size: 20px; line-height: 1.15; color: var(--ws-ink); }
+.ci-pack-tx > span { font-size: 14px; line-height: 1.55; color: var(--ws-tx); max-width: 60ch; }
+.ci-pack-tx em { font-style: normal; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--ws-accent); margin-top: 8px; }
+.ci-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
+.ci-col { padding: 16px 18px; background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+.ci-col h3 { margin: 0 0 8px; font-family: var(--sans); font-weight: 700; font-size: 14px; letter-spacing: 0.02em; color: var(--ws-ink); }
+.ci-col p, .ci-col li { font-size: 14px; line-height: 1.6; color: var(--ws-tx); }
+.ci-col ul { margin: 0; padding-left: 18px; }
+@media (max-width: 1000px) { .ci-pillars { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .ci-intro, .ci-grid, .ci-pillars, .ci-cols, .ci-pack { grid-template-columns: 1fr; } .gc-slide-body > p, .gc-slide-body > .ci-rhythm { max-width: none; } }
+.gr-back { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ws-tx); text-decoration: none; margin-bottom: 4px; }
+.gr-back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.gr-back:hover { color: var(--ws-ink); }
+.gr-loading, .gr-empty { text-align: center; padding: 60px 0; color: var(--ws-faint); font-size: 14px; }
+.gr-empty h1 { font-family: var(--serif); font-weight: 500; color: var(--ws-ink); font-size: 28px; margin: 0 0 8px; }
+.gr-empty p { margin: 0 0 18px; }
+
+/* ---- Shared long-form typography (used by both templates) ---- */
+.gr-topic { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-accent); text-decoration: none; margin-bottom: 12px; }
+.gr-title { font-family: var(--serif); font-weight: 500; font-size: clamp(30px, 4vw, 46px); line-height: 1.06; letter-spacing: -0.05em; color: var(--ws-ink); margin: 0; }
+.gr-summary { font-size: clamp(15px, 1.3vw, 18px); line-height: 1.6; color: var(--ws-tx); margin: 14px 0 0; max-width: 64ch; }
+.gr-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 18px 0 0; font-size: 12.5px; color: var(--ws-faint); }
+.gr-meta span { display: inline-flex; align-items: center; gap: 6px; }
+.gr-cover { margin: 26px 0 0; border-radius: var(--ws-r-lg); overflow: hidden; box-shadow: var(--ws-sh); }
+.gr-cover img { display: block; width: 100%; height: auto; }
+
+.gr-body { margin: 30px 0 0; font-size: 16px; line-height: 1.72; color: var(--ws-ink); }
+.gr-body h2 { font-family: var(--serif); font-weight: 500; font-size: 26px; line-height: 1.15; margin: 34px 0 12px; }
+.gr-body h3 { font-size: 18px; font-weight: 700; margin: 26px 0 8px; }
+.gr-body p { margin: 0 0 16px; }
+.gr-body ul, .gr-body ol { margin: 0 0 16px; padding-left: 22px; }
+.gr-body li { margin: 0 0 8px; }
+.gr-body img { max-width: 100%; height: auto; border-radius: var(--ws-r); margin: 8px 0; }
+/* A lesson's video, 16:9, above its copy. */
+.gr-video { position: relative; aspect-ratio: 16 / 9; margin: 18px 0 6px; border-radius: var(--ws-r); overflow: hidden; background: #1c1d22; }
+.gr-video iframe, .gr-video video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+/* "Show me": the walkthrough offer under a lesson. */
+/* Wine, so it stands out from the copy: this is the thing to press. */
+/* The button's foot sits on the last line of the copy beside it. */
+/* A walkthrough whose pictures are still to come: the box is there, the
+   button says so and does nothing. */
+.gr-walk--soon .ws-btn[disabled] { opacity: 0.55; cursor: default; pointer-events: none; }
+.gr-walk { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-top: 22px; padding: 18px 20px; border-radius: var(--ws-r); background: var(--ws-accent); color: #fff; }
+.gr-walk-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+/* Same size as a card title: the two sit together and used to differ. */
+.gr-walk-tx strong { font-family: var(--sans); font-size: 14px; font-weight: 700; color: #fff; }
+/* The same size as the copy above it. At meta size it read as a caption
+   under the heading rather than as the sentence it is. Dani, 12 Oct. */
+.gr-walk-tx span { font-size: 14px; color: rgba(255,255,255,0.8); line-height: 1.6; }
+/* Four numbered cards, two across (training-guides.js `toolCards`). Each
+   holds its own copy and its own walkthrough box, flush to the bottom of
+   the card so the four boxes line up however long the copy above them
+   runs. Dani, 12 Oct. */
+.bk-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+.bk-tool { display: flex; flex-direction: column; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); overflow: hidden; }
+.bk-tool-n { padding: 18px 20px 0; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; color: var(--ws-accent); }
+.bk-tool-t { margin: 6px 0 0; padding: 0 20px; font-family: var(--sans); font-size: 17px; font-weight: 700; line-height: 1.2; color: var(--ws-ink); }
+/* Takes the slack, so the walk box below it sits on the card's floor. */
+.bk-tool-b { flex: 1 1 auto; padding: 0 20px; }
+.bk-tool-b > p:first-child { margin-top: 10px; }
+.bk-tool-b > p:last-child { margin-bottom: 18px; }
+/* Full width of the card, square to its bottom corners. The outer walk box
+   keeps its own margins; this one has none of its own. */
+.gr-walk--in { margin: 0; border-radius: 0; padding: 14px 16px; align-items: center; flex-wrap: wrap; gap: 12px; }
+.gr-walk--in .gr-walk-tx strong { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+.gr-walk--in .gr-walk-tx span { color: rgba(255,255,255,0.86); }
+@media (max-width: 760px) { .bk-tools { grid-template-columns: 1fr; } }
+.gr-walk .ws-btn { flex: 0 0 auto; background: #fff; color: var(--ws-accent); border-color: #fff; }
+.gr-walk .ws-btn:hover { background: #f4f2f1; color: var(--ws-accent); }
+.gr-body--after { margin-top: 18px; }
+/* Where to go first: a wide card and a picture, the row a link. */
+/* The picture is a fixed width so a 16:9 slot cannot stretch the row: at
+   3fr/1fr it grew with the window and left the text stranded in a tall card. */
+.ci-go { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 12px; margin: 0 0 12px; text-decoration: none; color: inherit; align-items: stretch; }
+/* The same type as the What's Where cards: number and title on one line,
+   the copy beneath. */
+.ci-go-card { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-height: 112px; padding: 16px 20px; background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line); border-radius: var(--ws-r); transition: border-color .2s; }
+.ci-go-card .ci-no { position: static; margin-right: 10px; }
+.ci-go-card strong { display: flex; align-items: baseline; font-family: var(--sans); font-weight: 700; font-size: 14px; line-height: 1.3; color: var(--ws-ink); }
+.ci-go-card span { font-size: 13px; line-height: 1.5; color: var(--ws-tx); }
+/* The picture is the card's twin: same top, same bottom, same height,
+   filled. Fixed 260px wide (see the grid above), so it never stretches the
+   row - the height comes from the card beside it. */
+.ci-go .ci-ph { aspect-ratio: auto; height: 100%; min-height: 0; margin: 0; align-self: stretch; }
+.ci-go:hover .ci-go-card { border-color: rgba(28,29,34,0.28); }
+@media (max-width: 720px) { .ci-go { grid-template-columns: 1fr; } .ci-go .ci-ph { aspect-ratio: 16 / 9; min-height: 0; } }
+@media (max-width: 560px) { .gr-walk { flex-direction: column; align-items: flex-start; } }
+/* Captioned hub screenshot. Uses a background-image so a not-yet-added shot
+   shows a clean tinted placeholder rather than a broken-image icon; drop the
+   real PNG in and it fills automatically. */
+.gr-body .gr-shot { margin: 22px 0; border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); background: var(--ws-soft, #f4f0ed) center/cover no-repeat; aspect-ratio: 16 / 10; box-shadow: var(--ws-sh); overflow: hidden; display: flex; align-items: flex-end; }
+.gr-body .gr-shot figcaption { width: 100%; margin: 0; padding: 32px 16px 12px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.01em; color: #fff; background: linear-gradient(transparent, rgba(20,16,22,0.62)); }
+.gr-body a { color: var(--ws-accent); }
+.gr-body strong { font-weight: 700; }
+.gr-body blockquote { margin: 0 0 16px; padding: 4px 0 4px 18px; border-left: 3px solid var(--ws-accent); color: var(--ws-tx); font-style: italic; }
+
+/* ---- Article footer ---- */
+.gr-artfoot { margin: 46px 0 0; padding-top: 24px; border-top: 1px solid var(--ws-line); }
+.ws-btn--ghost { background: var(--ws-card); border-color: var(--ws-line); color: var(--ws-ink); }
+.ws-btn--ghost:hover { border-color: var(--ws-accent); }
+
+/* ======================================================
+   COURSE — click-through, one lesson per slide
+   ====================================================== */
+.gc-progress { position: sticky; top: 0; z-index: 6; margin: 2px 0 4px; padding: 12px 0 14px; background: color-mix(in srgb, var(--ws-bg, #f6f4f2) 90%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.gc-bar { height: 4px; border-radius: 999px; background: var(--ws-line); overflow: hidden; }
+.gc-fill { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--ws-accent); transition: width .55s cubic-bezier(.2,.7,.3,1); }
+.gc-progress-meta { display: flex; justify-content: space-between; margin-top: 9px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--ws-faint); }
+#gc-step { color: var(--ws-tx); }
+
+/* The stage holds one slide at a time and vertically centres content parts
+   (and the completion slide) so the course reads like a click-through deck.
+   The overview slide stays top-aligned. */
+.gc-stage { position: relative; min-height: min(56vh, 520px); display: flex; flex-direction: column; justify-content: flex-start; }
+/* A part fills the screen: the page stops scrolling, the white card runs
+   from under the progress bar to just off the bottom, the copy scrolls
+   inside it, and Previous / Next sit on the card's foot. The cover and
+   the finish keep the flowing layout. */
+body.gr-fixed { overflow: hidden; }
+body.gr-fixed .gr-main { padding-bottom: 0; }
+/* The card, a 2px gap, the foot bar and 12px under it: the whole
+   of it on one screen, on the cover and on every part alike (Dani, 17 Oct:
+   the bar was cut off under the parts). */
+.gc.is-part { position: relative; display: flex; flex-direction: column; height: calc(100dvh - var(--gc-top, 120px) - var(--gc-foot, 36px) - 14px); margin-bottom: 2px; }
+.gc.is-part .gc-progress { position: static; margin: 8px 0 12px; }
+/* The gap under the cover is the page's side margin, so the picture sits
+   in an even frame. */
+.gc.is-cover { display: flex; flex-direction: column; height: calc(100dvh - var(--gc-top, 120px) - var(--gc-foot, 36px) - 14px); margin-bottom: 2px; }
+.gc.is-cover .gc-stage { flex: 1 1 auto; min-height: 0; }
+.gc.is-cover .gc-slide--intro { box-sizing: border-box; height: 100%; min-height: 0; }
+.gc.is-part .gc-stage { flex: 1 1 auto; min-height: 0; }
+.gc.is-part .gc-slide--part { box-sizing: border-box; height: 100%; overflow-y: auto; padding-bottom: 96px; scrollbar-width: thin; }
+.gc.is-part .gc-nav { position: absolute; left: 1px; right: 1px; bottom: 1px; margin: 0; padding: 14px var(--gc-pad-r, clamp(26px, 3vw, 40px)) 18px clamp(26px, 3vw, 40px); background: var(--ws-card); border-top: 0; border-radius: 0 0 var(--ws-r-lg) var(--ws-r-lg); z-index: 3; }
+/* No rule above the buttons: the copy fades into the foot instead. */
+.gc.is-part .gc-nav::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 28px; background: linear-gradient(to top, var(--ws-card), rgba(255,255,255,0)); pointer-events: none; }
+.gc-stage.is-centered { justify-content: center; }
+/* The box holds still; what arrives is the content inside it.
+   The animation used to sit on .gc-slide, which IS the white card -- so
+   every Next started the whole panel twelve pixels low and floated it up,
+   border, shadow and all. Dani, 11 Oct: "the white box around all of the
+   content bounces when I press Next. It goes down and then back up ...
+   the box shouldn't move, and only the content should move."
+   Moved onto the card's children: transform does not affect layout, so
+   the words rise inside a card that stays exactly where it is. The nav
+   buttons are a sibling of the stage, not a child of the slide, so they
+   are untouched either way. */
+.gc-slide > * { animation: gcIn .42s cubic-bezier(.2,.7,.3,1); }
+@keyframes gcIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .gc-slide > * { animation: none; } }
+
+/* Content slide — a soft card panel (deck feel), text left-aligned. */
+.gc-slide--part { background: var(--ws-card); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); padding: clamp(26px, 3vw, 40px); box-shadow: var(--ws-sh); }
+.gc-part { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-accent); margin: 0 0 14px; }
+.gc-slide-title { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.4vw, 40px); line-height: 1.08; letter-spacing: -0.05em; color: var(--ws-ink); margin: 0 0 6px; }
+.gc-slide-body { margin-top: 14px; }
+/* Course parts read at the hub's body size, not the article's 16px. */
+.gc-slide-body.gr-body { font-size: 14px; line-height: 1.6; }
+
+/* Intro slide */
+.gc-intro-title { font-family: var(--serif); font-weight: 500; font-size: clamp(28px, 3.2vw, 40px); line-height: 1.06; letter-spacing: -0.05em; color: var(--ws-ink); margin: 10px 0 0; }
+.gc-intro-sum { font-size: 14px; line-height: 1.6; color: var(--ws-tx); margin: 14px 0 0; max-width: 62ch; }
+.gc-intro-meta { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0 0; }
+.gc-intro-meta span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ws-tx); background: var(--ws-card); border: 1px solid var(--ws-line); border-radius: 999px; padding: 6px 14px; }
+.gc-intro-cover { margin: 28px 0 0; border-radius: var(--ws-r-lg); overflow: hidden; box-shadow: var(--ws-sh); }
+.gc-intro-cover img { display: block; width: 100%; height: auto; }
+.gc-intro-start { margin-top: 24px; display: flex; justify-content: flex-end; }
+
+/* Completion slide */
+.gc-slide--done { text-align: center; padding: 34px 0 8px; }
+.gc-done-badge { width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 22px; display: grid; place-items: center; background: color-mix(in srgb, var(--ws-accent) 12%, #fff); color: var(--ws-accent); }
+.gc-done-badge svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gc-slide--done h2 { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 3vw, 34px); line-height: 1.12; color: var(--ws-ink); margin: 0 0 10px; }
+.gc-slide--done p { color: var(--ws-tx); font-size: 15px; line-height: 1.6; margin: 0 auto 24px; max-width: 46ch; }
+.gc-done-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* Nav row */
+.gc-nav { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 42px 0 0; padding-top: 22px; border-top: 1px solid var(--ws-line); }
+.gc-nav[hidden] { display: none; }
+.gc-rail { display: flex; gap: 8px; }
+.gc-dot { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: var(--ws-line); cursor: pointer; transition: background .2s, transform .2s; }
+.gc-dot:hover { transform: scale(1.25); }
+.gc-dot.is-done { background: color-mix(in srgb, var(--ws-accent) 42%, var(--ws-line)); }
+.gc-dot.is-active { background: var(--ws-accent); transform: scale(1.3); }
+.gc-prev-hidden { visibility: hidden; }
+
+@media (max-width: 560px) {
+  .gc-rail { display: none; }
+  .gc-nav { justify-content: space-between; }
+}

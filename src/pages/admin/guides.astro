@@ -1,6 +1,7 @@
 ---
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
+import "../../styles/guide-reader.css";   // a lesson drawn as members see it
 import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 ---
 
@@ -25,39 +26,86 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       <div class="gadm-items" id="g-items"><p class="gadm-muted">Loading…</p></div>
     </aside>
 
-    <!-- ───────── editor ───────── -->
+    <!-- ───────── editor ─────────
+         Laid out like the built-in view (Danielle, 20 Nov): the cover, title,
+         summary and facts are changed where they sit, and each lesson opens as
+         its own page, drawn as members see it, with its words editable. -->
     <section class="gadm-edit" id="g-edit" hidden>
       <div class="gadm-bar">
         <span class="gadm-status-pill" id="g-status-pill" data-status="draft">Draft</span>
         <span class="gadm-saved" id="g-saved"></span>
         <div class="gadm-bar-r">
           <button type="button" class="gadm-btn gadm-btn--danger" id="g-delete">Delete</button>
+          <a class="gadm-btn gadm-btn--link" id="g-open" href="#" target="_blank" rel="noopener">Open as a member sees it</a>
           <button type="button" class="gadm-btn" id="g-save">Save draft</button>
           <button type="button" class="gadm-btn gadm-btn--solid" id="g-publish">Publish</button>
         </div>
       </div>
 
-      <label class="gadm-f"><span>Title</span><input id="g-title" placeholder="e.g. Setting up your brand kit" /></label>
-      <label class="gadm-f"><span>URL slug</span><input id="g-slug" placeholder="setting-up-your-brand-kit" /></label>
+      <!-- the course -->
+      <div class="gle-course" id="g-course">
+        <div class="gadm-built-cover gle-cover" id="g-cover-box">
+          <div class="gle-cover-acts">
+            <label class="gadm-btn gle-photo-btn">Change cover<input type="file" id="g-cover-file" accept="image/jpeg,image/png,image/webp" hidden /></label>
+            <button type="button" class="gadm-btn gle-photo-btn" id="g-cover-link">Use a link</button>
+            <button type="button" class="gadm-btn gle-photo-btn" id="g-cover-clear">Remove</button>
+          </div>
+          <span class="gle-cover-empty">No cover yet. Members see the standard Learn picture.</span>
+        </div>
+        <p class="gadm-muted gle-cover-stat" id="g-cover-stat" hidden></p>
+        <label class="gadm-f" id="g-cover-url-wrap" hidden><span>Cover picture link</span><input id="g-cover" type="text" inputmode="url" spellcheck="false" placeholder="https://…" /></label>
 
-      <div class="gadm-f4">
-        <label class="gadm-f"><span>Topic</span><select id="g-topic">{GUIDE_TOPICS.map((t) => (<option value={t.slug}>{t.label}</option>))}</select></label>
-        <label class="gadm-f"><span>Type</span><select id="g-kind"><option value="guide">Article</option><option value="course">Course</option></select></label>
-        <label class="gadm-f"><span>Audience</span><select id="g-audience"><option value="members">All members</option><option value="public">Everyone (public)</option><option value="teg">The Experts Group agents (not Fine &amp; Country)</option></select></label>
-        <label class="gadm-f" title="Which Content Calendar level includes it. Everything is Free until the subscription launches."><span>Level</span><select id="g-level"><option value="free">Free</option><option value="calendar">Content Calendar</option><option value="scheduling">Content Calendar Plus</option><option value="done_for_you">Done For You</option></select></label>
-        <label class="gadm-f"><span>Est. minutes</span><input id="g-mins" type="number" min="1" max="240" placeholder="6" /></label>
+        <input class="gle-h" id="g-title" placeholder="Course title" aria-label="Title" />
+        <textarea class="gle-sum" id="g-summary" rows="1" placeholder="One line that sells it. It shows on the cards in Learn." aria-label="Summary"></textarea>
+
+        <dl class="gadm-built-facts gle-facts">
+          <div><dt>Type</dt><dd><select id="g-kind" aria-label="Type"><option value="guide">Article</option><option value="course">Course</option></select></dd></div>
+          <div><dt>Topic</dt><dd><select id="g-topic" aria-label="Topic">{GUIDE_TOPICS.map((t) => (<option value={t.slug}>{t.label}</option>))}</select></dd></div>
+          <div><dt>Who sees it</dt><dd><select id="g-audience" aria-label="Who sees it"><option value="members">All members</option><option value="public">Everyone (public)</option><option value="teg">The Experts Group agents (not Fine &amp; Country)</option></select></dd></div>
+          <div title="Which Content Calendar level includes it. Everything is Free until the subscription launches."><dt>Level</dt><dd><select id="g-level" aria-label="Level"><option value="free">Free</option><option value="calendar">Content Calendar</option><option value="scheduling">Content Calendar Plus</option><option value="done_for_you">Done For You</option></select></dd></div>
+          <div><dt>Length</dt><dd class="gle-mins">About <input id="g-mins" type="number" min="1" max="240" placeholder="6" aria-label="Minutes" /> minutes</dd></div>
+          <div><dt>Link</dt><dd class="gle-slug">/guides/<input id="g-slug" placeholder="its-link" aria-label="Link" /></dd></div>
+        </dl>
+        <p class="gadm-muted gadm-typehint" id="g-type-hint"></p>
+
+        <div class="gadm-lessons-head">
+          <span class="gadm-sub">Lessons</span>
+          <span class="gadm-muted" id="g-lessons-hint">Click a lesson to read it as members see it and change its words.</span>
+        </div>
+        <ol class="gadm-built-lessons gle-lessons" id="g-lessons"></ol>
+        <button type="button" class="gadm-addlesson" id="g-add-lesson">+ Add lesson</button>
       </div>
-      <p class="gadm-muted gadm-typehint" id="g-type-hint"></p>
 
-      <label class="gadm-f"><span>Summary (shown on cards)</span><textarea id="g-summary" rows="2" placeholder="One line that sells the guide."></textarea></label>
-      <label class="gadm-f"><span>Cover image URL (optional)</span><input id="g-cover" type="text" inputmode="url" spellcheck="false" placeholder="https://…" /></label>
-
-      <div class="gadm-lessons-head">
-        <span class="gadm-sub">Lessons</span>
-        <span class="gadm-muted" id="g-lessons-hint">An Article is usually one lesson; a Course has one lesson per slide.</span>
+      <!-- one lesson, as members see it -->
+      <div class="gle-page" id="g-page" hidden>
+        <div class="gle-page-bar">
+          <button type="button" class="gadm-btn" id="g-page-back">Back to the course</button>
+          <span class="gadm-sub" id="g-page-no"></span>
+          <div class="gadm-bar-r">
+            <button type="button" class="gadm-btn" id="g-page-prev">Previous</button>
+            <button type="button" class="gadm-btn" id="g-page-next">Next</button>
+            <button type="button" class="gadm-btn gadm-btn--danger" id="g-page-del">Remove lesson</button>
+          </div>
+        </div>
+        <p class="gadm-muted gle-page-tip">Click any words to change them. Pictures, cards and layout stay as they are; change those in the HTML below.</p>
+        <div class="ws gle-ws">
+          <div class="gc-slide gc-slide--part gle-slide">
+            <span class="gc-part" id="g-page-part"></span>
+            <input class="gc-slide-title gle-ltitle" id="g-page-title" placeholder="Lesson title" aria-label="Lesson title" />
+            <div class="gc-slide-body gr-body gle-body" id="g-page-body"></div>
+            <p class="gle-walk-note" id="g-page-walknote" hidden></p>
+          </div>
+        </div>
+        <div class="gadm-l-extras">
+          <label><span>Video link</span><input id="g-page-video" placeholder="YouTube, Vimeo or an MP4 link (optional)" /></label>
+          <label><span>Show me walkthrough</span><select id="g-page-walk"><option value="">None</option></select></label>
+        </div>
+        <details class="gle-html" id="g-page-htmlbox">
+          <summary>Edit the HTML (for pictures, cards and layout)</summary>
+          <textarea id="g-page-html" rows="14" spellcheck="false"></textarea>
+          <p class="gadm-lesson-hint">Paragraphs &lt;p&gt;, sub-heads &lt;h3&gt;, lists &lt;ul&gt;&lt;li&gt;, bold &lt;strong&gt;, links &lt;a href&gt;. The page above updates when you click out of the box.</p>
+        </details>
       </div>
-      <div id="g-lessons"></div>
-      <button type="button" class="gadm-addlesson" id="g-add-lesson">+ Add lesson</button>
     </section>
 
     <!-- ───────── a built-in course: read only ───────── -->
@@ -162,6 +210,55 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .gadm-built-lessons li { counter-increment: l; display: flex; gap: 10px; align-items: baseline; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 10px 12px; background: #fbfaf8; font-family: var(--sans); font-size: 14px; color: var(--ink); }
     .gadm-built-lessons li::before { content: "Lesson " counter(l); flex: 0 0 auto; font-size: 11px; font-weight: 700; color: var(--english-violet); }
     .gadm-built-lessons a { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--english-violet); text-decoration: none; white-space: nowrap; }
+    /* ---- The editable view: the built-in layout, changed in place ---- */
+    .gle-course, .gle-page { display: flex; flex-direction: column; gap: 14px; }
+    .gle-course[hidden], .gle-page[hidden], .gadm-f[hidden] { display: none; }
+    .gle-cover { position: relative; display: flex; align-items: flex-end; justify-content: flex-end; padding: 14px; box-sizing: border-box; }
+    .gle-cover-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .gadm .gle-photo-btn { display: inline-flex; align-items: center; margin: 0; background: rgba(255,255,255,0.92); text-transform: none; font-size: 12px; letter-spacing: 0.06em; color: var(--english-violet); cursor: pointer; }
+    .gle-cover-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); text-align: center; }
+    .gle-cover.has-img .gle-cover-empty, .gle-cover:not(.has-img) #g-cover-clear { display: none; }
+    .gle-cover-stat { margin: -6px 0 0; }
+    .gle-cover-stat[hidden] { display: none; }
+    /* Words that look like the page until you touch them. */
+    .gadm .gle-h, .gadm .gle-sum, .gadm .gle-ltitle { width: 100%; box-sizing: border-box; border: 1px solid transparent; border-radius: 4px; background: transparent; padding: 2px 6px; margin: 0 -6px; min-height: 0; resize: none; overflow: hidden; transition: border-color .15s, background .15s; }
+    .gadm .gle-h:hover, .gadm .gle-sum:hover, .gadm .gle-ltitle:hover { border-color: rgba(28,29,34,0.14); }
+    .gadm .gle-h:focus, .gadm .gle-sum:focus, .gadm .gle-ltitle:focus { outline: none; border-color: var(--english-violet); background: #fff; box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
+    .gadm .gle-h { font-family: var(--serif); font-weight: 400; font-size: 26px; line-height: 1.15; letter-spacing: -0.05em; color: var(--ink); }
+    .gadm .gle-sum { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: rgba(28,29,34,0.7); }
+    .gadm .gle-ltitle { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.4vw, 40px); line-height: 1.08; letter-spacing: -0.05em; color: var(--ws-ink); margin-bottom: 6px; }
+    .gle-facts dd { display: flex; align-items: center; gap: 4px; }
+    .gadm .gle-facts select, .gadm .gle-facts input { font-family: var(--sans); font-size: 14px; color: var(--ink); border: 1px solid transparent; border-radius: 4px; background: transparent; padding: 3px 6px; margin-left: -7px; max-width: 100%; min-width: 0; cursor: pointer; }
+    .gadm .gle-facts select:hover, .gadm .gle-facts input:hover { border-color: rgba(28,29,34,0.14); }
+    .gadm .gle-facts select:focus, .gadm .gle-facts input:focus { outline: none; border-color: var(--english-violet); background: #fff; }
+    .gadm .gle-mins input { width: 54px; margin: 0; text-align: center; cursor: text; }
+    .gle-slug { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.5); }
+    .gadm .gle-slug input { margin: 0; flex: 1; cursor: text; }
+    /* Lesson rows: the whole row opens the page. */
+    .gle-lessons li { cursor: pointer; align-items: center; transition: border-color .15s; }
+    .gle-lessons li:hover { border-color: var(--english-violet); }
+    .gle-lessons .gle-l-t { flex: 1; min-width: 0; }
+    .gle-lessons .gle-l-t.is-empty { color: rgba(28,29,34,0.45); }
+    .gle-lessons .gadm-mini { padding: 2px 7px; }
+    .gle-l-open { font-size: 12px; font-weight: 700; color: var(--english-violet); white-space: nowrap; margin-left: 6px; }
+    /* One lesson. */
+    .gle-page-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .gle-page-tip { margin: 0; }
+    .gle-ws.ws { min-height: 0; background: var(--ws-bg); padding: clamp(14px, 2vw, 26px); border-radius: 8px; }
+    .gle-slide > * { animation: none; }
+    .gle-body [contenteditable="true"] { border-radius: 3px; outline: 1px dashed transparent; outline-offset: 2px; cursor: text; transition: outline-color .15s, background .15s; }
+    .gle-body [contenteditable="true"]:hover { outline-color: rgba(55,30,40,0.35); }
+    .gle-body [contenteditable="true"]:focus { outline: 2px solid var(--english-violet); background: rgba(255,255,255,0.7); }
+    .gle-body a, .gle-body button { cursor: text; }
+    .gle-body [contenteditable="true"]:empty { min-height: 1.6em; }
+    .gle-body [contenteditable="true"]:empty::before { content: "Type here"; color: rgba(28,29,34,0.35); }
+    /* Parts members open by tapping a card are shown here so their words can be changed. */
+    .gle-body .bk-open-body[hidden] { display: block; grid-column: 1 / -1; padding: 14px 16px; border: 1px dashed rgba(55,30,40,0.3); border-radius: 4px; background: rgba(255,255,255,0.6); }
+    .gle-body .bk-open-body[hidden]::before { content: "Opens when they tap the card"; display: block; margin-bottom: 6px; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .gle-walk-note { margin: 18px 0 0; padding: 12px 14px; border: 1px dashed rgba(55,30,40,0.3); border-radius: 4px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); }
+    .gle-walk-note[hidden] { display: none; }
+    .gle-html summary { cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); }
+    .gadm .gle-html textarea { width: 100%; box-sizing: border-box; margin-top: 8px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; line-height: 1.5; }
     .gadm-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; font-family: var(--sans); font-size: 13px; z-index: 100; }
   </style>
 
@@ -200,34 +297,134 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     import { WALK_LIST } from "../../data/walkthroughs.js";
     let lessons = [];          // [{ title, body_html, video_url?, walk? }]
 
-    /* ---------- lessons editor ---------- */
+    /* ---------- lessons: a list on the course, each opening as its own page ---------- */
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const plainTitle = (t) => String(t || "").replace(/<[^>]+>/g, "").trim();
+    let pageAt = -1;            // the lesson open as a page, or -1 for the course
     function renderLessons() {
       const wrap = $("#g-lessons");
       wrap.innerHTML = lessons.map((l, i) => `
-        <div class="gadm-lesson" data-i="${i}">
-          <div class="gadm-lesson-bar">
-            <span class="gadm-lesson-no">Lesson ${i + 1}</span>
-            <button type="button" class="gadm-mini" data-up="${i}" ${i===0?"disabled":""}>↑</button>
-            <button type="button" class="gadm-mini" data-down="${i}" ${i===lessons.length-1?"disabled":""}>↓</button>
-            <button type="button" class="gadm-mini" data-del="${i}">Remove</button>
-          </div>
-          <input class="gadm-l-title" data-i="${i}" placeholder="Lesson title" value="${esc(l.title || "")}" />
-          <textarea class="gadm-l-body" data-i="${i}" rows="8" placeholder="Lesson content — HTML: <p>…</p>, <h3>…</h3>, <ul><li>…</li></ul>, <strong>…</strong>">${esc(l.body_html || "")}</textarea>
-          <div class="gadm-l-extras">
-            <label><span>Video URL</span><input class="gadm-l-video" data-i="${i}" placeholder="YouTube, Vimeo or an MP4 link — optional" value="${esc(l.video_url || "")}" /></label>
-            <label><span>Show me walkthrough</span><select class="gadm-l-walk" data-i="${i}"><option value="">None</option>${WALK_LIST.map((w) => `<option value="${w.id}"${l.walk === w.id ? " selected" : ""}>${esc(w.title)}</option>`).join("")}</select></label>
-          </div>
-          <p class="gadm-lesson-hint">Write in simple HTML: paragraphs &lt;p&gt;, sub-heads &lt;h3&gt;, lists &lt;ul&gt;&lt;li&gt;, bold &lt;strong&gt;, links &lt;a href&gt;.</p>
-        </div>`).join("");
-      wrap.querySelectorAll(".gadm-l-title").forEach((el) => el.addEventListener("input", () => { lessons[+el.dataset.i].title = el.value; markDirty(); }));
-      wrap.querySelectorAll(".gadm-l-body").forEach((el) => el.addEventListener("input", () => { lessons[+el.dataset.i].body_html = el.value; markDirty(); }));
-      wrap.querySelectorAll(".gadm-l-video").forEach((el) => el.addEventListener("input", () => { lessons[+el.dataset.i].video_url = el.value; markDirty(); }));
-      wrap.querySelectorAll(".gadm-l-walk").forEach((el) => el.addEventListener("change", () => { lessons[+el.dataset.i].walk = el.value; markDirty(); }));
-      wrap.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => { lessons.splice(+b.dataset.del, 1); renderLessons(); markDirty(); }));
+        <li data-open="${i}" title="Open this lesson">
+          <span class="gle-l-t${plainTitle(l.title) ? "" : " is-empty"}">${esc(plainTitle(l.title) || "Untitled lesson")}</span>
+          <button type="button" class="gadm-mini" data-up="${i}" ${i===0?"disabled":""} title="Move up">↑</button>
+          <button type="button" class="gadm-mini" data-down="${i}" ${i===lessons.length-1?"disabled":""} title="Move down">↓</button>
+          <span class="gle-l-open">Open</span>
+        </li>`).join("");
+      wrap.querySelectorAll("[data-open]").forEach((li) => li.addEventListener("click", (e) => { if (e.target.closest("[data-up],[data-down]")) return; openPage(+li.dataset.open); }));
       wrap.querySelectorAll("[data-up]").forEach((b) => b.addEventListener("click", () => { const i=+b.dataset.up; [lessons[i-1],lessons[i]]=[lessons[i],lessons[i-1]]; renderLessons(); markDirty(); }));
       wrap.querySelectorAll("[data-down]").forEach((b) => b.addEventListener("click", () => { const i=+b.dataset.down; [lessons[i+1],lessons[i]]=[lessons[i],lessons[i+1]]; renderLessons(); markDirty(); }));
     }
-    $("#g-add-lesson").addEventListener("click", () => { lessons.push({ title: "", body_html: "" }); renderLessons(); markDirty(); });
+    $("#g-add-lesson").addEventListener("click", () => { lessons.push({ title: "", body_html: "<p></p>" }); renderLessons(); markDirty(); openPage(lessons.length - 1); });
+
+    // The page: the lesson's HTML drawn with the reader's own styles, every
+    // run of words editable where it sits. Only the words: an element is
+    // editable when it holds text and nothing block-shaped, so a card, a
+    // picture or a layout can't be broken by a stray Backspace.
+    const BLOCKS = "div,figure,img,ul,ol,p,h1,h2,h3,h4,h5,h6,blockquote,table,section,video,iframe,svg,figcaption,li,button";
+    function makeEditable(root) {
+      root.querySelectorAll("*").forEach((el) => {
+        if (el.closest('[contenteditable="true"]')) return;
+        if (/^(IMG|SVG|VIDEO|IFRAME|BR|HR)$/i.test(el.tagName)) return;
+        const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+        // An empty paragraph, heading or list item is a place to type, too.
+        const emptyLine = !el.children.length && !el.textContent.trim() && /^(P|H[1-6]|LI|BLOCKQUOTE|FIGCAPTION)$/.test(el.tagName);
+        if (!(ownText || emptyLine) || el.querySelector(BLOCKS)) return;
+        el.setAttribute("contenteditable", "true");
+        el.setAttribute("spellcheck", "true");
+      });
+    }
+    // Back to HTML without the editing marks.
+    function pageHtml() {
+      const c = $("#g-page-body").cloneNode(true);
+      c.querySelectorAll("[contenteditable]").forEach((el) => { el.removeAttribute("contenteditable"); el.removeAttribute("spellcheck"); });
+      return c.innerHTML;
+    }
+    function drawPageBody() {
+      const body = $("#g-page-body");
+      body.innerHTML = (lessons[pageAt].body_html || "").trim() || "<p></p>";
+      makeEditable(body);
+    }
+    function openPage(i) {
+      if (i < 0 || i >= lessons.length) return;
+      pageAt = i;
+      const l = lessons[i], n = lessons.length;
+      $("#g-course").hidden = true; $("#g-page").hidden = false;
+      $("#g-page-no").textContent = `Lesson ${i + 1} of ${n}`;
+      $("#g-page-part").textContent = $("#g-kind").value === "course" ? `Part ${i + 1} of ${n}` : "";
+      $("#g-page-part").hidden = $("#g-kind").value !== "course";
+      $("#g-page-title").value = plainTitle(l.title);
+      $("#g-page-video").value = l.video_url || "";
+      $("#g-page-walk").value = l.walk || "";
+      $("#g-page-prev").disabled = i === 0; $("#g-page-next").disabled = i === n - 1;
+      $("#g-page-html").value = l.body_html || "";
+      drawPageBody(); walkNote();
+      const slug = $("#g-slug").value.trim();
+      $("#g-open").href = slug ? `/account/guides/read?g=${encodeURIComponent(slug)}&p=${i + 1}` : "#";
+      $("#g-edit").scrollIntoView({ block: "start" });
+    }
+    function closePage() {
+      pageAt = -1; $("#g-page").hidden = true; $("#g-course").hidden = false; renderLessons(); setOpenLink();
+    }
+    function walkNote() {
+      const id = $("#g-page-walk").value, w = WALK_LIST.find((x) => x.id === id);
+      $("#g-page-walknote").hidden = !w;
+      $("#g-page-walknote").textContent = w ? `The "Show me" box for ${w.title} sits here.` : "";
+    }
+    WALK_LIST.forEach((w) => { const o = document.createElement("option"); o.value = w.id; o.textContent = w.title; $("#g-page-walk").appendChild(o); });
+    $("#g-page-body").addEventListener("input", () => { if (pageAt < 0) return; lessons[pageAt].body_html = pageHtml(); $("#g-page-html").value = lessons[pageAt].body_html; markDirty(); });
+    // Links and buttons in the lesson are words to edit here, not places to go.
+    $("#g-page-body").addEventListener("click", (e) => { if (e.target.closest("a,button")) e.preventDefault(); });
+    $("#g-page-body").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.target.closest('[contenteditable="true"]')) { e.preventDefault(); document.execCommand("insertLineBreak"); }
+    });
+    // Pasted words come in plain, so nothing from Word or a web page sneaks in.
+    $("#g-page-body").addEventListener("paste", (e) => {
+      if (!e.target.closest('[contenteditable="true"]')) return;
+      e.preventDefault(); document.execCommand("insertText", false, (e.clipboardData || window.clipboardData).getData("text/plain"));
+    });
+    $("#g-page-html").addEventListener("change", () => { if (pageAt < 0) return; lessons[pageAt].body_html = $("#g-page-html").value; drawPageBody(); markDirty(); });
+    $("#g-page-title").addEventListener("input", () => { if (pageAt < 0) return; lessons[pageAt].title = $("#g-page-title").value; markDirty(); });
+    $("#g-page-video").addEventListener("input", () => { if (pageAt < 0) return; lessons[pageAt].video_url = $("#g-page-video").value; markDirty(); });
+    $("#g-page-walk").addEventListener("change", () => { if (pageAt < 0) return; lessons[pageAt].walk = $("#g-page-walk").value; walkNote(); markDirty(); });
+    $("#g-page-back").addEventListener("click", closePage);
+    $("#g-page-prev").addEventListener("click", () => openPage(pageAt - 1));
+    $("#g-page-next").addEventListener("click", () => openPage(pageAt + 1));
+    $("#g-page-del").addEventListener("click", () => {
+      if (pageAt < 0 || !confirm(`Remove lesson ${pageAt + 1}${plainTitle(lessons[pageAt].title) ? `, "${plainTitle(lessons[pageAt].title)}"` : ""}? It goes when you save.`)) return;
+      lessons.splice(pageAt, 1); if (!lessons.length) lessons.push({ title: "", body_html: "<p></p>" });
+      markDirty(); closePage();
+    });
+
+    /* ---------- the cover, changed on the picture ---------- */
+    function drawCover() {
+      const url = ($("#g-cover").value || "").trim(), box = $("#g-cover-box");
+      box.style.backgroundImage = url ? `url('${url.replace(/'/g, "%27")}')` : "";
+      box.classList.toggle("has-img", !!url);
+    }
+    function coverStat(t) { const el = $("#g-cover-stat"); el.textContent = t || ""; el.hidden = !t; }
+    $("#g-cover-link").addEventListener("click", () => { const w = $("#g-cover-url-wrap"); w.hidden = !w.hidden; if (!w.hidden) $("#g-cover").focus(); });
+    $("#g-cover-clear").addEventListener("click", () => { $("#g-cover").value = ""; drawCover(); coverStat("Cover removed. Members will see the standard Learn picture once you save."); markDirty(); });
+    $("#g-cover-file").addEventListener("change", async (e) => {
+      const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
+      if (!WORKER) { coverStat("Uploads need the site's Worker address."); return; }
+      coverStat("Uploading…");
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        const fd = new FormData(); fd.append("file", file);
+        const res = await fetch(`${WORKER}/admin/upload`, { method: "POST", headers: s?.access_token ? { Authorization: `Bearer ${s.access_token}` } : {}, body: fd });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.url) { coverStat("Upload failed: " + (j.error || ("HTTP " + res.status))); return; }
+        $("#g-cover").value = j.url; drawCover(); markDirty();
+        const img = new Image();
+        img.onload = () => coverStat(img.naturalWidth < 1600 ? `Uploaded. It's ${img.naturalWidth} pixels wide; the cover fills the page, so 1600 or wider looks sharper.` : "Uploaded. Save to keep it.");
+        img.onerror = () => coverStat("Uploaded. Save to keep it.");
+        img.src = j.url;
+      } catch (err) { coverStat("Upload failed: " + (err.message || err)); }
+    });
+    // The title and summary boxes grow with their words.
+    function fit(el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }
+    $("#g-summary").addEventListener("input", () => fit($("#g-summary")));
+    function setOpenLink() { const slug = $("#g-slug").value.trim(); $("#g-open").href = slug ? `/account/guides/read?g=${encodeURIComponent(slug)}` : "#"; }
 
     /* ---------- form <-> state ---------- */
     function setStatusPill(s){ const p=$("#g-status-pill"); p.dataset.status=s; p.textContent=s.charAt(0).toUpperCase()+s.slice(1); }
@@ -247,8 +444,11 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       $("#g-mins").value = guide?.est_minutes ?? "";
       $("#g-summary").value = guide?.summary || "";
       $("#g-cover").value = guide?.cover_url || "";
-      lessons = Array.isArray(guide?.lessons) && guide.lessons.length ? JSON.parse(JSON.stringify(guide.lessons)) : [{ title: "", body_html: "" }];
-      renderLessons(); setStatusPill(curStatus); updateTypeHint();
+      $("#g-cover-url-wrap").hidden = true; coverStat(""); drawCover();
+      lessons = Array.isArray(guide?.lessons) && guide.lessons.length ? JSON.parse(JSON.stringify(guide.lessons)) : [{ title: "", body_html: "<p></p>" }];
+      pageAt = -1; $("#g-page").hidden = true; $("#g-course").hidden = false;
+      renderLessons(); setStatusPill(curStatus); updateTypeHint(); setOpenLink();
+      requestAnimationFrame(() => fit($("#g-summary")));
       $("#g-saved").textContent = guide?.updated_at ? "Saved " + new Date(guide.updated_at).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "";
       dirty = false;
       document.querySelectorAll(".gadm-item").forEach((el) => el.classList.toggle("is-active", el.dataset.id === (cur||"")));
@@ -309,7 +509,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 
     ["g-title","g-slug","g-topic","g-kind","g-audience","g-level","g-mins","g-summary","g-cover"].forEach((id) => {
       const el = $("#"+id); const ev = el.tagName === "SELECT" ? "change" : "input";
-      el.addEventListener(ev, () => { if(id==="g-title" && !$("#g-slug").value) $("#g-slug").value = slugify($("#g-title").value); if(id==="g-kind") updateTypeHint(); markDirty(); });
+      el.addEventListener(ev, () => { if(id==="g-title" && !cur && !$("#g-slug").value) $("#g-slug").value = slugify($("#g-title").value); if(id==="g-kind") updateTypeHint(); if(id==="g-cover") drawCover(); if(id==="g-slug") setOpenLink(); markDirty(); });
     });
 
     // One-line reminder of what the chosen Type gives you in the hub.
