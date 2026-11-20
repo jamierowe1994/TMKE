@@ -2749,6 +2749,10 @@ function teaserKeys(deliverables, teaserCount) {
 
 // Debounce site rebuilds so rapid publishes/saves don't queue many deploys.
 let _lastDeployAt = 0;
+// The PUBLISH_REV value of the rebuild most recently asked for. The site is
+// built with the same number (a <meta name="publish-rev"> on every page), so
+// the editor can tell when the rebuild it asked for has gone live.
+let _lastDeployRev = "";
 
 // ---- Microsoft Graph (app-only / client credentials) --------------------
 let _msToken = null; // { token, exp } cached per Worker isolate
@@ -10418,37 +10422,70 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         // A rebuild already in flight picks up the latest content, so coalesce
         // bursts (e.g. publish then a quick edit) into one deploy.
         if (now - _lastDeployAt < 45000) {
-          return json({ ok: true, queued: false, message: "A site update is already in progress - your changes will be included." }, 200, request, env);
+          return json({ ok: true, queued: false, rev: _lastDeployRev, message: "A site update is already in progress - your changes will be included." }, 200, request, env);
         }
         _lastDeployAt = now;
         try {
+          // WHY THIS IS NOT A PLAIN REDEPLOY (found 20 Nov). serviceInstance-
+          // Redeploy redeploys the existing build "as-is", and even deploying
+          // from source reuses Railway's saved copy of the build when nothing
+          // it can see has changed. Publishing a post changes nothing in the
+          // code or the service's settings, only the database the build reads,
+          // so deployments "succeeded" and shipped the old site: a publish at
+          // 13:37 and a Save at 13:44 both ran the build step from cache and
+          // the article never got a page. Railway fingerprints the service's
+          // variables into that saved copy, so we change one (PUBLISH_REV)
+          // before every deploy, which makes it run the build for real.
+          // Tested against the live service: with the value changed the site
+          // build ran; deployed again with it unchanged, it was skipped.
+          //
           // An account or workspace token goes as a Bearer; a project token
           // has its own header. Try the first, then the second, so either works.
-          const redeploy = (auth) => fetch("https://backboard.railway.com/graphql/v2", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...auth },
-            body: JSON.stringify({
-              query: "mutation Redeploy($e: String!, $s: String!) { serviceInstanceRedeploy(environmentId: $e, serviceId: $s) }",
-              variables: { e: env.RAILWAY_ENVIRONMENT_ID, s: env.RAILWAY_SERVICE_ID },
-            }),
-          });
-          let r = await redeploy({ Authorization: `Bearer ${env.RAILWAY_API_TOKEN}` });
-          let out = await r.json().catch(() => ({}));
-          if (!r.ok || (out && out.errors && out.errors.length)) {
-            r = await redeploy({ "Project-Access-Token": env.RAILWAY_API_TOKEN });
-            out = await r.json().catch(() => ({}));
-          }
-          if (!r.ok || (out && out.errors && out.errors.length)) {
+          const call = async (query, variables) => {
+            const send = (auth) => fetch("https://backboard.railway.com/graphql/v2", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", ...auth },
+              body: JSON.stringify({ query, variables }),
+            });
+            let r = await send({ Authorization: `Bearer ${env.RAILWAY_API_TOKEN}` });
+            let out = await r.json().catch(() => ({}));
+            if (!r.ok || (out && out.errors && out.errors.length)) {
+              r = await send({ "Project-Access-Token": env.RAILWAY_API_TOKEN });
+              out = await r.json().catch(() => ({}));
+            }
+            const failed = !r.ok || !!(out && out.errors && out.errors.length);
+            const msg = failed ? ((out && out.errors && out.errors[0] && out.errors[0].message) || ("Railway API returned " + r.status)) : "";
+            return { data: out && out.data, failed, msg, status: r.status };
+          };
+          const refuse = (res, step) => {
             _lastDeployAt = 0; // allow a retry
-            const msg = (out && out.errors && out.errors[0] && out.errors[0].message) || ("Railway API returned " + r.status);
-            const expired = /not authori[sz]ed|unauthori[sz]ed|invalid token/i.test(msg) || r.status === 401;
-            return json({ ok: false, error: expired ? "the Railway token on the Worker has expired or been revoked - make a new one in Railway and set it with wrangler secret put RAILWAY_API_TOKEN." : msg }, 502, request, env);
+            const expired = /not authori[sz]ed|unauthori[sz]ed|invalid token/i.test(res.msg) || res.status === 401;
+            return json({ ok: false, error: expired
+              ? "the Railway token on the Worker has expired or been revoked - make a new one in Railway and set it with wrangler secret put RAILWAY_API_TOKEN."
+              : `${step}: ${res.msg}` }, 502, request, env);
+          };
+          let projectId = env.RAILWAY_PROJECT_ID || "";
+          if (!projectId) {
+            const p = await call("query($s: String!) { service(id: $s) { projectId } }", { s: env.RAILWAY_SERVICE_ID });
+            projectId = (p.data && p.data.service && p.data.service.projectId) || "";
+            if (!projectId) return refuse(p.failed ? p : { msg: "couldn't find the Railway project for this service", status: 0 }, "Looking up the Railway project");
           }
+          const v = await call(
+            "mutation($i: VariableUpsertInput!) { variableUpsert(input: $i) }",
+            { i: { projectId, environmentId: env.RAILWAY_ENVIRONMENT_ID, serviceId: env.RAILWAY_SERVICE_ID, name: "PUBLISH_REV", value: String(now), skipDeploys: true } },
+          );
+          if (v.failed) return refuse(v, "Couldn't change the setting that makes Railway rebuild");
+          const d = await call(
+            "mutation($e: String!, $s: String!) { serviceInstanceDeploy(environmentId: $e, serviceId: $s, latestCommit: true) }",
+            { e: env.RAILWAY_ENVIRONMENT_ID, s: env.RAILWAY_SERVICE_ID },
+          );
+          if (d.failed) return refuse(d, "Couldn't start the rebuild");
+          _lastDeployRev = String(now);
         } catch (e) {
           _lastDeployAt = 0;
           return json({ ok: false, error: "Couldn't reach the Railway API." }, 502, request, env);
         }
-        return json({ ok: true, queued: true, message: "Site is updating - your post will be live in a minute or two." }, 200, request, env);
+        return json({ ok: true, queued: true, rev: _lastDeployRev, message: "Site is updating - your post will be live in a minute or two." }, 200, request, env);
       }
 
       // ---- Admin image upload → R2 (assets.tmke.co.uk), returns the URL -------

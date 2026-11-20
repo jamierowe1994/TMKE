@@ -1271,6 +1271,33 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       $deploy.textContent = text || "";
       $deploy.className = "be-deploy" + (kind ? " is-" + kind : "");
     }
+    // Watches for the rebuild just asked for to go live, so nobody has to guess.
+    // The Worker hands back a rebuild number and every page of the live site
+    // carries the number it was built with (<meta name="publish-rev">), so
+    // "live" simply means the site's number has caught up with ours. Checked
+    // every 15 seconds; a newer Save takes over from an older watch.
+    let watchToken = 0;
+    function watchRebuild(rev) {
+      if (!rev) return;
+      const mine = ++watchToken, started = Date.now();
+      const tick = async () => {
+        if (mine !== watchToken) return;
+        try {
+          const r = await fetch("/blog/?_=" + Date.now(), { cache: "no-store" });
+          const m = (await r.text()).match(/<meta name="publish-rev" content="(\d+)"/);
+          if (m && Number(m[1]) >= Number(rev)) {
+            deployState("ok", "Live ✓ The site has been rebuilt with this version.");
+            return;
+          }
+        } catch (_) { /* try again */ }
+        if (Date.now() - started > 10 * 60 * 1000) {
+          deployState("warn", "Saved, and a rebuild was asked for, but the live site still hasn't picked it up after 10 minutes. Press Save once more; if it still doesn't appear, tell whoever looks after the site.");
+          return;
+        }
+        setTimeout(tick, 15000);
+      };
+      setTimeout(tick, 20000);
+    }
     async function triggerDeploy() {
       if (!WORKER_URL) {
         deployState("warn", "Saved to the database. The live site was not rebuilt — no Worker is configured here, so this is expected in local development.");
@@ -1290,7 +1317,8 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         });
         const out = await res.json().catch(() => ({}));
         if (res.ok && out && out.ok) {
-          deployState("ok", (out.message || "The site is rebuilding.") + " Article pages refresh on their own; the /blog list needs this rebuild to finish.");
+          deployState("ok", (out.message || "The site is rebuilding.") + " Article pages refresh on their own; the /blog list needs this rebuild to finish. Watching for it to go live…");
+          watchRebuild(out.rev);
         } else {
           deployState("warn", "Saved to the database, but the live site was NOT rebuilt: "
             + ((out && out.error) || ("the deploy endpoint returned " + res.status))

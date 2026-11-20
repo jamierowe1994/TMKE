@@ -91,6 +91,11 @@ const enableTransition = !isBackend && !isEditing && (pageTransition ?? !hideNav
 // be seen and any already-known URL would linger in the results.
 const privateArea = /^\/(account|admin|deliver)(\/|$)/.test(path);
 const hideFromSearch = noindex || privateArea;
+// The number of the rebuild this copy of the site came from. Publishing from
+// the admin changes the service's PUBLISH_REV and rebuilds; the blog editor
+// reads this tag back to tell whether its rebuild has gone live yet. Absent
+// (no tag) when the variable isn't set, e.g. a local build.
+const publishRev = process.env.PUBLISH_REV || "";
 ---
 
 <!DOCTYPE html>
@@ -106,6 +111,7 @@ const hideFromSearch = noindex || privateArea;
     <title>{title}</title>
     <meta name="description" content={description} />
     {hideFromSearch && <meta name="robots" content="noindex,nofollow" />}
+    {publishRev && <meta name="publish-rev" content={publishRev} />}
     <link rel="canonical" href={canonical} />
 
     {pwa && <link rel="manifest" href={pwa.manifest} />}
