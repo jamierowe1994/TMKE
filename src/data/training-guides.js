@@ -456,6 +456,114 @@ export const TRAINING_GUIDES = [
   }),
 ];
 
+/* ---- Content Calendar ----------------------------------------------------
+   Course 2, Getting the Most From Your Content Calendar: Dani's copy, 20 Nov,
+   laid out the house way (labelled points are cards, a mid-lesson heading is
+   a bold line). Held back until the calendar launches: it is in the reader
+   (read?g=training-calendar-content) but not on Learn, because CALENDAR_GUIDES
+   is only added to the reader's list. At launch, add it to Learn too. */
+export const CALENDAR_GUIDES = [
+  guide({
+    slug: "training-calendar-content",
+    title: "Getting the Most From Your Content Calendar",
+    summary: "The thinking behind your monthly posts, and how to make them work for your business.",
+    est_minutes: 12, sort_order: 6, training: false, held: true,
+    lessons: [
+      { title: "Understanding the Different Formats",
+        body_html:
+          p("Your Content Calendar is designed to make planning your social media easier, but there's a little more to it than having posts ready to use.") +
+          p("Each month, we plan a mix of content formats, topics and ideas to help you build a recognisable presence, demonstrate your expertise and stay connected with your local audience. This course explains the thinking behind that approach and how to make the most of what we've created.") +
+          p("<strong>Not every message is best delivered in the same way.</strong>") +
+          p("That's why your Content Calendar includes three different formats: single-image posts, carousels and reels. Each has a different purpose, and understanding those differences will help you choose the right content for your audience.") +
+          cards([
+            ["Single-image posts", "A single-image post communicates one main message through a designed graphic or photograph. They're particularly useful when you want someone to understand something quickly, whether that's a property tip, a local announcement, a seasonal message or a reminder about your services.<br><br><strong>What we provide:</strong> An editable design and a ready-written caption that you can personalise before posting."],
+            ["Carousels", "A carousel brings several images or slides together in one post, allowing people to swipe through the content. They're particularly useful for explaining something in more detail, breaking information into smaller sections or telling a story across several slides.<br><br>But carousels don't always need lots of text. They can also be highly visual, showcasing a property's interiors, exploring different design styles or sharing a collection of photographs that give people a better sense of who you are.<br><br><strong>What we provide:</strong> A complete set of editable slides and a caption to accompany the post."],
+            ["Reels", "Reels are short-form videos that give your audience a different way to engage with your content. They're particularly effective for introducing yourself, showcasing properties, sharing local knowledge or giving people a glimpse into your working day.<br><br>Video allows you to show things that photographs alone can't always capture, from the flow of a property and its standout features to your personality and approach as an agent. Reels can also help your content reach people who don't already follow you, although reach will depend on the content and how people respond to it.<br><br><strong>What we provide:</strong> A reel cover, a suggested filming concept, guidance on what to capture and a ready-written caption. You'll need to film and assemble the video yourself."],
+          ], 3) +
+          p("<strong>Why we use all three</strong>") +
+          p("Variety isn't just about making your feed look different. Some messages need only a few seconds of attention. Others deserve a little more explanation. And some are far more effective when they come directly from you.") +
+          p("By using different formats, you can communicate in ways that suit the subject, rather than trying to make every idea fit the same type of post. You don't need to use every format equally, but we'd encourage you to include a mixture over the course of the month.") },
+
+      { title: "Understanding Your Content Pillars",
+        body_html:
+          p("A successful social media presence needs to do more than advertise properties or remind people that you're an estate agent.") +
+          p("People might follow you because they're thinking about moving, because they enjoy your local content or simply because they find your advice useful. Your content needs to give those different audiences reasons to keep paying attention. That's why we build every monthly calendar around four content pillars.") +
+          cards([
+            ["The Person Behind the Business", "<strong>Helping people get to know you.</strong><br><br>Estate agency is a personal service. When someone chooses an agent, they're trusting a person to guide them through an important decision. This pillar gives your audience an opportunity to understand who you are, how you work and what matters to you.<br><br>It might include an introduction, a behind-the-scenes reel, something you've learned through your career or a glimpse into your life outside work.<br><br>The purpose isn't to share everything about yourself. It's to become more familiar and approachable to the people who may eventually need your services."],
+            ["Educate and Empower", "<strong>Demonstrating your knowledge by helping people.</strong><br><br>Buying, selling and letting property can be complicated, particularly for people who haven't done it before. This pillar focuses on answering questions, explaining processes and sharing advice that helps your audience make more informed decisions.<br><br>It might cover preparing a home for sale, understanding a valuation, navigating a property chain or common mistakes to avoid.<br><br>Useful advice gives people a reason to follow you before they're ready to move. It also helps demonstrate your expertise without needing to tell people how experienced you are."],
+            ["Promote Your Service With Purpose", "<strong>Showing people what you do and why it matters.</strong><br><br>Your social media should help generate business, so there's absolutely a place for promoting your services. The difference is how you approach it. Rather than repeatedly asking people to book a valuation or list their property, this pillar focuses on explaining the value of what you offer.<br><br>That might mean showing how you market a property, explaining your approach to viewings, sharing a client experience or highlighting what makes your service different.<br><br>You're helping potential clients understand what working with you would actually look like."],
+            ["Connect With the Community", "<strong>Building your presence in the areas you serve.</strong><br><br>Local knowledge is one of the most valuable things an estate agent can demonstrate. This pillar is about the neighbourhoods, businesses, events and places that make your area what it is.<br><br>It might include a favourite local café, an upcoming event, a neighbourhood spotlight or a reel showing somewhere you particularly enjoy.<br><br>Not everyone following you will be planning to move. Local content gives people another reason to engage with your account and helps build recognition within your community."],
+          ], 2) +
+          p("<strong>Why the balance matters</strong>") +
+          p("Each pillar serves a different purpose, but they work best together. Someone might first discover you through a local reel, follow you for your property advice and gradually become familiar with your personality and approach. When they eventually need an estate agent, they'll already have a sense of who you are and what you offer.") +
+          p("That's the thinking behind our monthly calendar. We move between the four pillars so your content doesn't become overly promotional, too impersonal or focused on just one part of your business.") +
+          p("You'll see the relevant content pillar on each post in your calendar, helping you understand its purpose before you decide how to use or personalise it.") },
+
+      { title: "Why We Plan Five Days a Week",
+        body_html:
+          p("Your Content Calendar provides a planned post for every weekday, Monday to Friday. We do this to give you a reliable supply of content across the month, with enough variety to cover different topics, formats and content pillars.") +
+          p("But five planned posts doesn't mean you need to publish five times a week.") +
+          p("<strong>Start with a routine you can maintain</strong>") +
+          p("Consistency matters because building familiarity takes time. If you post regularly, people have more opportunities to recognise your name, see your expertise and become familiar with your business.") +
+          p("That doesn't mean you need to post every day, and it certainly doesn't mean that posting more automatically produces better results. For many agents, three posts a week is a sensible starting point. Others may comfortably manage four or five.") +
+          p("The important thing is choosing a frequency you can realistically maintain, rather than posting every day for two weeks and then disappearing for a month.") +
+          p("<strong>Leave room for your own content</strong>") +
+          p("We deliberately leave weekends without planned posts. That gives you flexibility to share content that comes directly from your business, such as:") +
+          ul("New property listings, price changes and recently agreed sales.",
+             "Relevant local property news or market updates.",
+             "Community events, local recommendations and spontaneous content.",
+             "Reels showing properties, your working day or something happening in your area.") +
+          p("You don't have to save those posts for weekends, either. If a new instruction comes in on a Wednesday, there's no reason you can't share it instead of the planned calendar post. Your own property marketing should always have room within your social media activity.") +
+          panel("Don't mistake availability for obligation",
+            p("Five planned posts and two free days are not an instruction to publish seven days a week. The calendar gives you options. It's there to make regular posting achievable, not create another daily task you feel you have to complete.")) },
+
+      { title: "Making the Calendar Your Own",
+        body_html:
+          p("One of the most important things to understand about your Content Calendar is that it's a starting point, not a fixed schedule you have to follow.") +
+          p("We've already developed the ideas, written the captions and prepared the creative content, but you know your business and your audience better than anyone. That local knowledge is what makes the calendar more valuable.") +
+          p("<strong>Choose what works for you</strong>") +
+          p("You might love some of the ideas we've planned and decide that others aren't quite right for your audience. That's fine. You can use three posts one week, five the next, or replace a planned post with something you've created yourself. There's no requirement to use every piece of content.") +
+          p("<strong>Make the content relevant</strong>") +
+          p("Where possible, add your own knowledge, examples and experiences. A general post about preparing a property for sale might be stronger with a tip you've learned from working with sellers in your area. A reel about local amenities will be more meaningful when it features places your audience actually recognises.") +
+          p("And a post explaining your service should reflect how you genuinely work, rather than making claims that don't apply to your business. The templates give you a professional starting point. Your experience and personality make them relevant.") +
+          p("<strong>Think about the overall mix</strong>") +
+          p("If you're choosing only a handful of posts from the calendar, try not to select everything from the same content pillar. For example, three promotional posts might communicate what you offer, but they don't give people much opportunity to get to know you or benefit from your knowledge.") +
+          p("A personal reel, an educational carousel and a service-led post would give your audience a more rounded picture. You don't need to achieve a perfect balance every week. Just be mindful of what your content is communicating over time.") +
+          p("<strong>Plan around your business</strong>") +
+          p("Your social media should support what's happening in your agency. If you're launching several properties, those listings might take priority. If it's a quieter week, you might use more of the planned content to maintain your presence. And if something relevant happens in your local market, you can respond to it rather than waiting for a particular date in the calendar.") +
+          p("The aim is to use the calendar to support your marketing, rather than organising your marketing around the calendar.") },
+
+      { title: "Before You Start",
+        body_html:
+          p("A little preparation will make your Content Calendar much easier to use, particularly when you're personalising posts or getting several ready at once. Here are a few things we'd recommend checking before you begin.") +
+          p("<strong>Check your Brand Kit</strong>") +
+          p("Your Brand Kit holds the information used to personalise your marketing materials, including your name, contact details, logo and other relevant branding. Before editing your first post, open your Brand Kit in the Member Hub and check that everything is correct.") +
+          p("This is particularly important because the same details can appear across multiple designs. Correcting them at the source will save you having to make the same changes repeatedly.") +
+          ctaBox("Check your Brand Kit", "Review your contact details, logo and branding before editing your first post.", "/account/profile", "View your Brand Kit") +
+          p("<strong>Build a small library of your own content</strong>") +
+          p("Although we provide the designs, ideas and captions, some posts will need your own photographs or videos. Having a collection ready makes it much easier to personalise templates and create reels without having to film something from scratch every time. We'd recommend gathering:") +
+          cards([
+            ["Photographs of you", "A mixture of professional headshots and more natural lifestyle photographs."],
+            ["Local photographs and footage", "Recognisable streets, independent businesses, parks and other places within your area."],
+            ["Everyday working footage", "Short clips from your working day, such as arriving at a viewing, preparing marketing materials or travelling between appointments."],
+            ["Property footage", "Clips of homes you're marketing, including interesting features and spaces that work particularly well on video."],
+          ], 2) +
+          p("You don't need expensive equipment or professionally produced footage for every post. Natural, well-lit content filmed on your phone can work well, particularly for behind-the-scenes and personal reels.") +
+          p("If you'd prefer professional content, The Experts Group's Content Studio in Rugby and TMKE's property media services can help you build a library of photographs and videos.") +
+          p("<strong>Connect your social media accounts</strong>") +
+          p("If you're using Content Calendar Plus, or another plan that includes scheduling and posting, make sure your Instagram and Facebook accounts are connected before you begin. This allows you to schedule or publish your content directly from your calendar, rather than downloading each post and uploading it manually.") +
+          p("You'll find the instructions in our separate guide, Linking Your Social Media Accounts. If you're using the standard Content Calendar, you can still download your content and publish it yourself.") +
+          p("<strong>Set up your Planner</strong>") +
+          p("If you're using the Planner to organise your social media alongside your other commitments, we'd recommend connecting it to your work calendar. That way, you can see your planned content alongside your existing schedule and make time for filming, editing or preparing posts.") +
+          p("It's particularly useful if you're managing your social media yourself and want to set aside a little time each week rather than approaching every post individually.") +
+          p("<strong>Decide how often you want to post</strong>") +
+          p("Before your first month, choose a realistic posting routine. You might decide to use three planned posts each week, with space for your own property content when you have something to share. Once you've settled into that routine, you can increase or adjust it based on what works for your business. You can always change your approach as you go.") +
+          p("<strong>Ready to put it into practice?</strong>") +
+          p("Head to Course 1, Using Your Content Calendar, for a step-by-step guide to finding, editing and using your monthly posts.") },
+    ],
+  }),
+];
+
 /* ---- Print ---------------------------------------------------------------
    Your First Print Design: a canvassing card from the print pack, start to
    PDF. For The Experts Group's agents only (`audience: "teg"`, checked on the
