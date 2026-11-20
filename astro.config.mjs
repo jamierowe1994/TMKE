@@ -13,6 +13,9 @@ export default defineConfig({
       filter: (page) =>
         !/\/estate-agency(\/|$)/.test(page) &&
         !/\/deliver(\/|$)/.test(page) &&
+        // The blog editor's Preview page: a placeholder until someone opens it
+        // from the editor, so never something to advertise.
+        !/\/blog\/preview(\/|$)/.test(page) &&
         // The member hub and the admin centre: real pages, but empty until you
         // sign in, so there is nothing for a search engine to show. Listing
         // them spent Google's attention on blank shells instead of the pack

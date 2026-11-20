@@ -1364,9 +1364,19 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     }
     $save.addEventListener("click", () => save());
     $publishBtn.addEventListener("click", () => save({ publish: true }));
-    $previewBtn.addEventListener("click", async () => {
-      await save(); // ensure the latest draft is persisted
-      if ($slug.value) window.open(`/blog/${$slug.value}`, "_blank");
+    // Preview opens /blog/preview, the real article page, filled in with the
+    // article exactly as it stands here: saved or not, draft or published,
+    // public or Exclusive. It used to save and then open /blog/<slug>, but that
+    // page only exists once an article is published, so a draft (or a new
+    // article, or an Exclusive one) landed on the 404 page.
+    $previewBtn.addEventListener("click", () => {
+      try {
+        localStorage.setItem("tmke-blog-preview", JSON.stringify(gather()));
+      } catch (_) {
+        toast("Couldn't open the preview: this browser is blocking local storage.");
+        return;
+      }
+      window.open("/blog/preview", "_blank");
     });
 
     // ─── Delete ───

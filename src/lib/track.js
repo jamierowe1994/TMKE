@@ -93,8 +93,9 @@ function sessionId() {
 export async function track(name, props = {}) {
   // No non-essential storage / behavioural logging without consent (PECR).
   if (!name || !isConfigured || !analyticsAllowed() || trackingOff()) return;
-  // The admin centre is us at work, never a customer: not worth a row.
-  if (typeof location !== 'undefined' && /^\/admin(\/|$)/.test(location.pathname)) return;
+  // The admin centre is us at work, never a customer: not worth a row. So is
+  // /blog/preview, the page the blog editor's Preview button opens.
+  if (typeof location !== 'undefined' && /^\/(admin(\/|$)|blog\/preview\/?$)/.test(location.pathname)) return;
   try {
     let userId = null;
     try {

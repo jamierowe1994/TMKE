@@ -708,7 +708,10 @@ export function blogStyleCss(styles, scope, standSel) {
   return out.join("\n");
 }
 
-function rowToPost(row) {
+// Exported for /blog/preview: the blog editor's Preview button hands the page
+// the article exactly as it stands on screen (the same shape as a saved row),
+// and the page turns it into a post here, the way the build does for a real one.
+export function rowToPost(row) {
   const html = row.body_html && row.body_html.trim()
     ? row.body_html
     : renderMarkdown(row.body_markdown);

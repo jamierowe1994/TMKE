@@ -3,11 +3,27 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getPublishedPosts, blogStyleCss } from "../../data/blog.js";
 
 export async function getStaticPaths() {
-  const posts = await getPublishedPosts();
-  return posts.map((p) => ({ params: { slug: p.slug }, props: { post: p, posts } }));
+  // "preview" is reserved: it is the page the blog editor's Preview button
+  // opens. Articles only get a page here once they are published, so a draft
+  // (or a brand-new article, or an Exclusive one that lives in the hub) used
+  // to send the editor to a 404. This page is the real article template with
+  // a placeholder in it; the script at the foot fills it from whatever the
+  // editor handed over (see the "Preview" script below).
+  const posts = (await getPublishedPosts()).filter((p) => p.slug !== "preview");
+  const placeholder = {
+    slug: "preview", title: "Preview", eyebrow: "", category: "Insights",
+    standfirst: "", hero: "", heroAlt: "Preview", date: new Date().toISOString(),
+    readTime: 1, keywords: [], author: "The TMKE Desk",
+    body: "<p>Nothing to show yet. Open this from the Preview button in the blog editor.</p>",
+    styles: {}, seo: { title: "Preview", description: "", ogImage: "", canonical: null, noindex: true },
+  };
+  return [
+    ...posts.map((p) => ({ params: { slug: p.slug }, props: { post: p, posts, preview: false } })),
+    { params: { slug: "preview" }, props: { post: placeholder, posts, preview: true } },
+  ];
 }
 
-const { post, posts } = Astro.props;
+const { post, posts, preview } = Astro.props;
 // The article's own typography, scoped to its body so it cannot reach the rest
 // of the page. Inline styles from the editor toolbar sit above it.
 const bodyCss = blogStyleCss(post.styles, ".post-body", ".post-split-main .post-stand");
@@ -33,6 +49,7 @@ const related = posts
   description={(post.seo?.description) || post.standfirst}
   ogImage={(post.seo?.ogImage) || post.hero}
   canonical={(post.seo?.canonical) || undefined}
+  noindex={preview}
 >
   <article class="post post--split">
     <!-- Split: the image pins on the left while the article scrolls on the right. -->
@@ -554,6 +571,7 @@ const related = posts
     }}
   >
     (function () {
+      if (revalSlug === "preview") return; // the editor's Preview page fills itself (script below)
       if (!SB_URL || !SB_KEY) return; // dev / no Supabase — keep the static content
       var url = SB_URL.replace(/\/$/, "") +
         "/rest/v1/blog_posts?slug=eq." + encodeURIComponent(revalSlug) +
@@ -641,6 +659,51 @@ const related = posts
       };
       window.addEventListener("scroll", onScroll, { passive: true });
       setTimeout(() => mark("stayed"), 30000);
+    })();
+  </script>
+
+  <!-- Preview. The blog editor's Preview button stores the article exactly as it
+       stands on screen (saved or not) and opens /blog/preview, which is this
+       template with a placeholder in it. This fills the placeholder in using the
+       same functions the build uses for a real article, so the preview looks
+       like the live page: same fonts, spacing rules and layout. Does nothing
+       anywhere else. The import is dynamic so the extra code is only fetched
+       on the preview page. -->
+  <script>
+    (async function () {
+      if (!/^\/blog\/preview\/?$/.test(location.pathname)) return;
+      let row = null;
+      try { row = JSON.parse(localStorage.getItem("tmke-blog-preview") || "null"); } catch (_) {}
+      if (!row) return; // nothing handed over: keep the placeholder
+      const { rowToPost, blogStyleCss } = await import("../../data/blog.js");
+      // A brand-new article has no date yet; show today's, as publishing would.
+      const post = rowToPost({ ...row, publish_date: row.publish_date || new Date().toISOString().slice(0, 10) });
+      const q = (s) => document.querySelector(s);
+      const text = (s, v) => { const el = q(s); if (el) el.textContent = v; };
+      text(".post-title", post.title || "Untitled article");
+      text(".post-stand", post.standfirst);
+      text(".post-cat", post.category);
+      text(".post-eyebrow span:last-child", post.eyebrow);
+      const when = new Date(post.date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+      text(".post-author-role", `${when} · ${post.readTime} min read`);
+      const img = q(".post-split-img");
+      if (img) {
+        if (post.hero) { img.src = post.hero; img.alt = post.heroAlt; }
+        else { img.removeAttribute("src"); img.alt = ""; } // no cover yet: an empty space, not alt text
+      }
+      const style = q("#post-body-style");
+      if (style) style.textContent = blogStyleCss(post.styles, ".post-body", ".post-split-main .post-stand");
+      const body = q(".post-body");
+      if (body) body.innerHTML = post.body || "";
+      document.title = "Preview: " + (post.title || "Untitled article");
+      // So nobody mistakes it for the live page.
+      const tag = document.createElement("div");
+      tag.setAttribute("role", "status");
+      tag.textContent = "Preview of your article as it stands. Not published.";
+      tag.style.cssText = "position:fixed;left:16px;bottom:16px;z-index:2147482000;padding:8px 14px;border-radius:6px;"
+        + "background:#371e28;color:#F0EEEB;font:400 14px/1.3 'Darker Grotesque',system-ui,sans-serif;"
+        + "box-shadow:0 10px 30px rgba(28,29,34,0.18);pointer-events:none";
+      document.body.appendChild(tag);
     })();
   </script>
 </BaseLayout>
