@@ -708,6 +708,12 @@ import "../../styles/reel.css";
       } catch (_) { ALL = DEV ? SAMPLE : []; }
       // Built-in guides that ship with the site, unless the DB has its own copy.
       STATIC_GUIDES.forEach((g) => { if (!ALL.some((x) => x.slug === g.slug)) ALL.unshift(g); });
+      // The old guides each course replaced (TWIN_COURSE) are still published
+      // rows, so Getting Started listed every subject twice: "Getting around
+      // your hub" beside the Getting Around Your Hub course, and so on. The
+      // course is the one copy (Danielle, 20 Nov); the old guide is left out
+      // wherever its course is listed.
+      ALL = ALL.filter((g) => !(TWIN_COURSE[g.slug] && ALL.some((x) => x.slug === TWIN_COURSE[g.slug])));
       // Only the guides meant for this member (src/lib/guide-audience.js):
       // a TEG-only course is left out for anyone outside The Experts Group.
       try {
