@@ -69,12 +69,18 @@ const sbKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || "";
       return Promise.all(mine.slice(0, 30).map(function (p) { return gone(p).catch(function () { return false; }); }))
         .then(function (r) { return r.indexOf(true) !== -1; });
     }
-    function maybe(u) {
+    // `via` is which kind of signal raised it (preload, rejection, load_error,
+    // resource_404); see note() below for why that is recorded.
+    function maybe(u, via) {
       if (state.shown || state.checking) return;
       state.checking = true;
-      confirmGone(u).then(function (gone) { state.checking = false; if (gone) show(u); }, function () { state.checking = false; });
+      confirmGone(u).then(
+        function (gone) { state.checking = false; note(via, u, gone ? "gone" : "present"); if (gone) show(u); },
+        function () { state.checking = false; note(via, u, "check_failed"); }
+      );
     }
-    function log(u) {
+    function pieceName(u) { try { return u ? new URL(u).pathname.split("/").pop() : null; } catch (_) { return null; } }
+    function post(name, props) {
       try { if (localStorage.getItem("tmke-notrack") === "1") return; } catch (_) {}
       // A test copy on this computer rebuilds its code all the time, so its
       // "old page" moments are its own and never logged (Danielle, 12 Nov).
@@ -84,9 +90,27 @@ const sbKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || "";
         fetch(sbUrl + "/rest/v1/site_events", {
           method: "POST", keepalive: true,
           headers: { apikey: sbKey, Authorization: "Bearer " + sbKey, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ name: "stale_page", path: location.pathname, props: { piece: u ? new URL(u).pathname.split("/").pop() : null } }),
+          body: JSON.stringify({ name: name, path: location.pathname, props: props }),
         }).catch(function () {});
       } catch (_) {}
+    }
+    function log(u) { post("stale_page", { piece: pieceName(u) }); }
+    // Every time something on the page looks like a failed load, whether or not
+    // it proves to be a real "old page" (which is what shows the bar), log a
+    // `stale_check`: which kind of signal it was, and what the check found
+    // (gone = the file really is missing now, so the bar shows; present = it is
+    // there again, a blip; check_failed = could not tell). Site Health counted
+    // 127 not-found hits on old files since 11 Nov and the bar had never shown
+    // once. With this, no stale_check rows means pages never noticed (so the
+    // hits come from something that is not a person's open page: saved copies,
+    // link previews, crawlers), and stale_check rows saying "present" mean they
+    // noticed but the file was back. At most one per signal and result, per visit.
+    var noted = {};
+    function note(via, u, outcome) {
+      var k = (via || "?") + ":" + outcome;
+      if (noted[k]) return;
+      noted[k] = 1;
+      post("stale_check", { via: via || "?", outcome: outcome, piece: pieceName(u) });
     }
     function show(u) {
       if (state.shown) return;
@@ -115,25 +139,25 @@ const sbKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || "";
     }
 
     // A failed dynamic import, as Vite reports it.
-    window.addEventListener("vite:preloadError", function (e) { maybe(urlIn(e && e.payload && (e.payload.message || e.payload))); });
+    window.addEventListener("vite:preloadError", function (e) { maybe(urlIn(e && e.payload && (e.payload.message || e.payload)), "preload"); });
     // The same failure where nothing caught it.
     window.addEventListener("unhandledrejection", function (e) {
       var r = e && e.reason, m = r && (r.message || String(r));
-      if (/dynamically imported module|Importing a module script failed|error loading dynamically imported|Unable to preload CSS/i.test(m || "")) maybe(urlIn(m));
+      if (/dynamically imported module|Importing a module script failed|error loading dynamically imported|Unable to preload CSS/i.test(m || "")) maybe(urlIn(m), "rejection");
     });
     // A <script> or stylesheet from /_astro/ that would not load.
     window.addEventListener("error", function (e) {
       var t = e && e.target;
       if (!t || t === window || (t.tagName !== "SCRIPT" && t.tagName !== "LINK")) return;
       var u = chunkPath(t.src || t.href);
-      if (u) maybe(u);
+      if (u) maybe(u, "load_error");
     }, true);
     // And the ones the page's own code catches and carries on from, which
     // raise no event at all: the browser's own record of what it fetched.
     try {
       new PerformanceObserver(function (list) {
         list.getEntries().forEach(function (en) {
-          if (en.responseStatus === 404 && chunkPath(en.name)) maybe(en.name);
+          if (en.responseStatus === 404 && chunkPath(en.name)) maybe(en.name, "resource_404");
         });
       }).observe({ type: "resource", buffered: true });
     } catch (_) {}

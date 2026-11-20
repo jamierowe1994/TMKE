@@ -14646,7 +14646,7 @@ import { createResizeEngine } from "./resize-engine.js";
             pic.className = "ed-edge-pic";
             pic.style.background = bgc;
             const im = document.createElement("img");
-            im.src = el.src; im.alt = ""; im.draggable = false;
+            if (el.src) im.src = el.src; im.alt = ""; im.draggable = false; /* empty slot: no picture, not "null" */
             im.style.width = tw + "px"; im.style.height = th + "px";
             if (o[0]) {
               const u = "url(" + edgeMask(o[0], el.w, el.h).url + ")";
@@ -14819,8 +14819,15 @@ import { createResizeEngine } from "./resize-engine.js";
       const thumb = document.createElement("div");
       thumb.className = "ed-layer-thumb";
       if (el.type === "image" || (el.type === "screen" && el.src)) {
-        const img = document.createElement("img");
-        img.src = el.src; thumb.appendChild(img);
+        // An empty photo slot has no picture (el.src is null), and setting an
+        // image's src to null asks the server for a file called "null", which
+        // doesn't exist: Site Health counted 452 of those in a day (17 Nov),
+        // each one a broken-picture icon here. The thumbnail's own grey box
+        // stands in for the missing picture instead.
+        if (el.src) {
+          const img = document.createElement("img");
+          img.src = el.src; thumb.appendChild(img);
+        }
       } else if (el.type === "text") {
         thumb.textContent = "T";
       } else if (el.type === "screen") {
@@ -16421,7 +16428,7 @@ import { createResizeEngine } from "./resize-engine.js";
       pic.className = "ed-edge-pic";
       pic.style.background = bgc;
       const im = document.createElement("img");
-      im.src = el.src; im.alt = ""; im.draggable = false;
+      if (el.src) im.src = el.src; im.alt = ""; im.draggable = false; /* empty slot: no picture, not "null" */
       im.style.width = tw + "px"; im.style.height = th + "px";
       if (o[0]) {
         const u = "url(" + edgeMask(o[0], el.w, el.h).url + ")";
