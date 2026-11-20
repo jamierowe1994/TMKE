@@ -60,6 +60,23 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       <button type="button" class="gadm-addlesson" id="g-add-lesson">+ Add lesson</button>
     </section>
 
+    <!-- ───────── a built-in course: read only ───────── -->
+    <section class="gadm-edit" id="g-built" hidden>
+      <div class="gadm-bar">
+        <span class="gadm-status-pill" data-status="published" id="g-built-pill">Built in</span>
+        <span class="gadm-saved" id="g-built-note"></span>
+        <div class="gadm-bar-r">
+          <a class="gadm-btn gadm-btn--solid gadm-btn--link" id="g-built-open" href="#" target="_blank" rel="noopener">Open as a member sees it</a>
+        </div>
+      </div>
+      <div class="gadm-built-cover" id="g-built-cover" hidden></div>
+      <div class="gadm-built-h" id="g-built-title"></div>
+      <p class="gadm-built-sum" id="g-built-sum"></p>
+      <dl class="gadm-built-facts" id="g-built-facts"></dl>
+      <div class="gadm-lessons-head"><span class="gadm-sub">Lessons</span></div>
+      <ol class="gadm-built-lessons" id="g-built-lessons"></ol>
+    </section>
+
     <section class="gadm-empty" id="g-empty">
       <h2>Guides</h2>
       <p>Pick a guide on the left to edit it, or start a new one.</p>
@@ -128,6 +145,21 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .gadm-l-extras label { display: flex; flex-direction: column; gap: 4px; font-family: var(--sans); font-size: 11px; font-weight: 700; color: rgba(28,29,34,0.55); }
     .gadm-l-extras input, .gadm-l-extras select { font-family: var(--sans); font-size: 12.5px; padding: 7px 9px; border: 1px solid rgba(28,29,34,0.15); border-radius: 6px; background: #fff; }
     @media (max-width: 640px) { .gadm-l-extras { grid-template-columns: 1fr; } }
+    /* Built-in courses (the ones made with Claude, in the site's code): their own part of the list, read only. */
+    .gadm-group { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin: 12px 0 2px; padding-bottom: 6px; border-bottom: 1px solid rgba(28,29,34,0.12); }
+    .gadm-group:first-child { margin-top: 0; }
+    .gadm-btn--link { display: inline-flex; align-items: center; text-decoration: none; }
+    .gadm-built-cover { aspect-ratio: 16 / 7; border-radius: 10px; background: #e9e6e2 center / cover no-repeat; }
+    .gadm-built-h { font-family: var(--serif); font-weight: 400; font-size: 26px; line-height: 1.15; color: var(--ink); }
+    .gadm-built-sum { margin: 0; font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.7); }
+    .gadm-built-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 0; }
+    .gadm-built-facts div { display: flex; flex-direction: column; gap: 4px; }
+    .gadm-built-facts dt { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .gadm-built-facts dd { margin: 0; font-family: var(--sans); font-size: 14px; color: var(--ink); }
+    .gadm-built-lessons { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; counter-reset: l; }
+    .gadm-built-lessons li { counter-increment: l; display: flex; gap: 10px; align-items: baseline; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 10px 12px; background: #fbfaf8; font-family: var(--sans); font-size: 14px; color: var(--ink); }
+    .gadm-built-lessons li::before { content: "Lesson " counter(l); flex: 0 0 auto; font-size: 11px; font-weight: 700; color: var(--english-violet); }
+    .gadm-built-lessons a { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--english-violet); text-decoration: none; white-space: nowrap; }
     .gadm-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; font-family: var(--sans); font-size: 13px; z-index: 100; }
   </style>
 
@@ -137,6 +169,20 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     import { supabase, isConfigured } from "../../lib/supabase.js";
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { GUIDE_TOPIC_LABEL } from "../../data/guide-topics.js";
+    import { TRAINING_GUIDES, PRINT_GUIDES, CALENDAR_GUIDES } from "../../data/training-guides.js";
+    import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
+    import { PRINT_MATERIAL_GUIDES } from "../../data/print-materials.js";
+    /* The courses made with Claude live in the site's code, not the guides
+       table, so this list never showed them (Danielle, 20 Nov: "make sure the
+       ones we've designed here via Claude, you can also view them from the
+       admin center"). They are listed in their own group, read only, with the
+       link that opens each as a member sees it. Their words change in code. */
+    const BUILT_IN = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES, ...PRINT_MATERIAL_GUIDES, CONTENT_IDEAS_GUIDE]
+      .filter((g, i, a) => g && a.findIndex((x) => x.slug === g.slug) === i);
+    const AUDIENCE = { public: "Everyone (public)", members: "All members", teg: "The Experts Group agents (not Fine & Country)" };
+    const builtHref = (g, part) => g.href || `/account/guides/read?g=${encodeURIComponent(g.slug)}${part ? `&p=${part}` : ""}`;
+    const builtWhere = (g) => g.held ? "Held off Learn until it launches; opens by its link"
+      : (g.topic === "getting-started" ? "Learn, Getting Started" : "Learn, " + GUIDE_TOPIC_LABEL(g.topic));
 
     const $ = (s) => document.querySelector(s);
     const DEV = import.meta.env.DEV;
@@ -184,7 +230,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     function markDirty(){ if(booted){ dirty=true; $("#g-saved").textContent="Unsaved changes"; } }
 
     function showEditor(guide) {
-      $("#g-empty").hidden = true; $("#g-edit").hidden = false;
+      $("#g-empty").hidden = true; $("#g-built").hidden = true; $("#g-edit").hidden = false;
       cur = guide ? guide.id : null;
       curStatus = guide?.status || "draft";
       $("#g-title").value = guide?.title || "";
@@ -202,6 +248,33 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       dirty = false;
       document.querySelectorAll(".gadm-item").forEach((el) => el.classList.toggle("is-active", el.dataset.id === (cur||"")));
     }
+    function showBuilt(slug) {
+      const g = BUILT_IN.find((x) => x.slug === slug); if (!g) return;
+      if (dirty && !confirm("Leave without saving your changes?")) return;
+      cur = null; dirty = false;
+      $("#g-empty").hidden = true; $("#g-edit").hidden = true; $("#g-built").hidden = false;
+      const cover = g.cover_url || g.art || "";
+      const c = $("#g-built-cover"); c.hidden = !cover; c.style.backgroundImage = cover ? `url('${cover.replace(/'/g, "%27")}')` : "";
+      $("#g-built-title").textContent = g.title || "Untitled";
+      $("#g-built-sum").textContent = g.summary || "";
+      const lessons = Array.isArray(g.lessons) ? g.lessons : [];
+      const brands = Array.isArray(g.brands) && g.brands.length ? g.brands.join(", ") + " agents" : "";
+      const facts = [
+        ["Type", g.kind === "course" ? "Course" : "Article"],
+        ["Topic", GUIDE_TOPIC_LABEL(g.topic)],
+        ["Who sees it", brands || AUDIENCE[g.audience || "members"] || "All members"],
+        ["Where", builtWhere(g)],
+        ["Length", g.est_minutes ? `About ${g.est_minutes} minutes` : (lessons.length ? `${lessons.length} lessons` : "")],
+      ].filter((f) => f[1]);
+      $("#g-built-facts").innerHTML = facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("");
+      $("#g-built-note").textContent = list.some((x) => x.slug === g.slug) ? "A database guide has the same link and shows instead of this one" : "";
+      $("#g-built-open").href = builtHref(g);
+      $("#g-built-lessons").innerHTML = lessons.length
+        ? lessons.map((l, i) => `<li><span>${esc((l.title || "").replace(/<[^>]+>/g, "") || "Untitled lesson")}</span>${g.href ? "" : `<a href="${esc(builtHref(g, i + 1))}" target="_blank" rel="noopener">Open</a>`}</li>`).join("")
+        : `<li><span>Its own pages, opened with the button above</span></li>`;
+      document.querySelectorAll(".gadm-item").forEach((el) => el.classList.toggle("is-active", el.dataset.built === g.slug));
+    }
+
     ["g-title","g-slug","g-topic","g-kind","g-audience","g-level","g-mins","g-summary","g-cover"].forEach((id) => {
       const el = $("#"+id); const ev = el.tagName === "SELECT" ? "change" : "input";
       el.addEventListener(ev, () => { if(id==="g-title" && !$("#g-slug").value) $("#g-slug").value = slugify($("#g-title").value); if(id==="g-kind") updateTypeHint(); markDirty(); });
@@ -276,12 +349,18 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         .order("sort_order", { ascending: true }).order("updated_at", { ascending: false });
       if (error) { $("#g-items").innerHTML = '<p class="gadm-muted">Could not load guides.</p>'; return; }
       list = data || [];
-      $("#g-items").innerHTML = list.length ? list.map((g) => `
+      const builtHtml = BUILT_IN.map((g) => `
+        <button type="button" class="gadm-item" data-built="${esc(g.slug)}">
+          <span class="gadm-item-t">${esc(g.title || "Untitled")}${Array.isArray(g.brands) && g.brands.length ? ", " + esc(g.brands.join(", ")) : ""}</span>
+          <span class="gadm-item-m"><span class="gadm-dot ${g.held ? "is-draft" : "is-published"}"></span>${g.held ? "held" : "built in"} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${g.kind==="course"?"Course":"Article"}</span>
+        </button>`).join("");
+      $("#g-items").innerHTML = '<p class="gadm-group">Made with Claude</p>' + builtHtml + '<p class="gadm-group">Written here</p>' + (list.length ? list.map((g) => `
         <button type="button" class="gadm-item${g.id===cur?" is-active":""}" data-id="${g.id}">
           <span class="gadm-item-t">${esc(g.title || "Untitled")}</span>
           <span class="gadm-item-m"><span class="gadm-dot is-${g.status}"></span>${g.status} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${g.kind==="course"?"Course":"Article"}</span>
-        </button>`).join("") : '<p class="gadm-muted">No guides yet. Click “+ New”.</p>';
-      $("#g-items").querySelectorAll(".gadm-item").forEach((el) => el.addEventListener("click", async () => {
+        </button>`).join("") : '<p class="gadm-muted">No guides yet. Click “+ New”.</p>');
+      $("#g-items").querySelectorAll(".gadm-item[data-built]").forEach((el) => el.addEventListener("click", () => showBuilt(el.dataset.built)));
+      $("#g-items").querySelectorAll(".gadm-item[data-id]").forEach((el) => el.addEventListener("click", async () => {
         const { data } = await supabase.from("guides").select("*").eq("id", el.dataset.id).maybeSingle();
         if (data) showEditor(data);
       }));
