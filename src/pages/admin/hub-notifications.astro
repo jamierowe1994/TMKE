@@ -4,6 +4,10 @@
 // you set (supabase/member_broadcasts.sql; the Worker sends them).
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
+import { LINK_CHOICES } from "../../lib/hub-links.js";
+import { TRAINING_GUIDES, CALENDAR_GUIDES, PRINT_GUIDES } from "../../data/training-guides.js";
+// The courses that live in the code; the page adds the database ones.
+const COURSES = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES].map((g) => ({ slug: g.slug, title: g.title }));
 ---
 
 <AdminShell active="hub-notifications" title="Hub notifications" skin="hub">
@@ -12,7 +16,7 @@ import "../../styles/admin.css";
       <div class="page-header-left">
         <div>
           <div class="page-header-title">Hub notifications</div>
-          <div class="page-header-sub">Tell every member about something new, such as a pack, new templates in the demo pack or an update. It appears in the bell in their hub at the time you set.</div>
+          <div class="page-header-sub">Tell members about something new, such as a pack, new templates in the demo pack or an update. It appears in the bell in their hub at the time you set, for every member or just TEG, F&amp;C or External.</div>
         </div>
       </div>
     </div>
@@ -36,23 +40,36 @@ import "../../styles/admin.css";
             <label class="hn-field">
               <span>Takes them to</span>
               <select id="hn-link">
-                <option value="pack">A pack in the Studio</option>
-                <option value="/account/studio">The Studio</option>
-                <option value="/account">Their dashboard</option>
-                <option value="/account/guides">Learn</option>
-                <option value="/account/blog">Inside the Edit (blog)</option>
-                <option value="url">A web address</option>
+                {LINK_CHOICES.map((c) => <option value={c.kind} selected={c.kind === "pack"}>{c.label}</option>)}
               </select>
             </label>
             <label class="hn-field" id="hn-pack-wrap">
               <span>Pack</span>
               <select id="hn-pack"><option value="demo">Demo pack</option></select>
             </label>
+            <label class="hn-field" id="hn-course-wrap" hidden>
+              <span>Course</span>
+              <select id="hn-course">{COURSES.map((c) => <option value={c.slug}>{c.title}</option>)}</select>
+            </label>
+            <label class="hn-field" id="hn-day-wrap" hidden>
+              <span>Date</span>
+              <input type="date" id="hn-day" />
+            </label>
             <label class="hn-field" id="hn-url-wrap" hidden>
               <span>Web address</span>
               <input type="url" id="hn-url" placeholder="https://" />
             </label>
           </div>
+          <fieldset class="hn-field hn-who">
+            <span>Who gets it</span>
+            <div class="hn-when-opts">
+              <label><input type="checkbox" data-hn-who="all" checked /> Every member</label>
+              <label><input type="checkbox" data-hn-who="teg" /> TEG <em>(not F&amp;C)</em></label>
+              <label><input type="checkbox" data-hn-who="fc" /> F&amp;C</label>
+              <label><input type="checkbox" data-hn-who="external" /> External</label>
+            </div>
+            <small id="hn-who-note">Tick any mix, such as TEG and F&amp;C together. We always get a copy.</small>
+          </fieldset>
           <div class="hn-row">
             <fieldset class="hn-field hn-when">
               <span>When</span>
@@ -102,7 +119,7 @@ import "../../styles/admin.css";
       letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55);
     }
     .hn-field > span em { font-style: normal; font-weight: 500; color: rgba(28,29,34,0.4); letter-spacing: 0.04em; text-transform: none; }
-    .hn-field input[type="text"], .hn-field input[type="url"], .hn-field input[type="datetime-local"], .hn-field textarea, .hn-field select {
+    .hn-field input[type="text"], .hn-field input[type="url"], .hn-field input[type="datetime-local"], .hn-field input[type="date"], .hn-field textarea, .hn-field select {
       font-family: var(--sans); font-size: 14px; padding: 10px 12px;
       border: 1px solid rgba(var(--violet-rgb), 0.28); border-radius: 4px;
       background: #fff; color: var(--ink); width: 100%; box-sizing: border-box;
@@ -113,7 +130,8 @@ import "../../styles/admin.css";
     .hn-field small.is-over { color: #8a2a2a; }
     .hn-when-opts { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
     .hn-when-opts label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
-    .hn-when-opts input[type="radio"] { accent-color: #371e28; }
+    .hn-when-opts input[type="radio"], .hn-when-opts input[type="checkbox"] { accent-color: #371e28; }
+    .hn-when-opts label em { font-style: normal; color: var(--muted, #6b6670); }
     .hn-when-opts input[type="datetime-local"] { width: auto; }
     .hn-when-opts input:disabled { opacity: 0.45; }
     /* The bell item as members will see it. */
@@ -144,6 +162,7 @@ import "../../styles/admin.css";
   <script>
     import { supabase } from "../../lib/supabase.js";
     import { requireAdmin } from "../../lib/admin-gate.js";
+    import { LINK_CHOICES, linkHref } from "../../lib/hub-links.js";
 
     const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     let toastTimer = null;
@@ -179,26 +198,60 @@ import "../../styles/admin.css";
       sel.innerHTML = `<option value="demo">Demo pack</option>` + others.map((p) =>
         `<option value="${escapeHtml(p.id)}">${escapeHtml(p.title)}${p.status === "draft" ? " (draft)" : ""}</option>`).join("");
     }
+    // Courses: the built-in ones are on the page already; add the database
+    // ones (published only: members can't open a draft).
+    async function loadHubNoticeCourses() {
+      const { data } = await supabase.from("guides").select("slug, title, status").eq("status", "published").order("title", { ascending: true });
+      const sel = hnEl("hn-course");
+      const have = new Set([...sel.options].map((o) => o.value));
+      (data || []).filter((g) => g.slug && !have.has(g.slug)).forEach((g) => {
+        const o = document.createElement("option"); o.value = g.slug; o.textContent = g.title; sel.appendChild(o);
+      });
+    }
+    // Who gets it: Every member, or any mix of TEG, F&C and External.
+    const WHO_NAME = { teg: "TEG", fc: "F&C", external: "External" };
+    const whoBoxes = () => [...document.querySelectorAll("[data-hn-who]")];
+    function hnGroups() { return whoBoxes().filter((b) => b.checked && b.dataset.hnWho !== "all").map((b) => b.dataset.hnWho); }
+    const whoWords = (groups) => !groups || !groups.length || groups.length === 3 ? "every member" : groups.map((g) => WHO_NAME[g] || g).join(" and ");
+    whoBoxes().forEach((b) => b.addEventListener("change", () => {
+      const all = whoBoxes().find((x) => x.dataset.hnWho === "all");
+      if (b === all) { if (all.checked) whoBoxes().forEach((x) => { if (x !== all) x.checked = false; }); }
+      else if (b.checked) all.checked = false;
+      if (!hnGroups().length) all.checked = true;
+      hnSyncForm();
+    }));
     function hnTarget() {
       const kind = hnEl("hn-link").value;
+      const choice = LINK_CHOICES.find((c) => c.kind === kind) || {};
       if (kind === "pack") {
         const id = hnEl("hn-pack").value;
         const p = id === "demo" ? null : hnPacks.find((x) => x.id === id);
-        return { href: `/account/editor?pack=${encodeURIComponent(id)}`, label: p ? p.title : "Demo pack" };
+        return { href: linkHref("pack", id), label: p ? p.title : "Demo pack" };
+      }
+      if (kind === "course") {
+        const sel = hnEl("hn-course");
+        return { href: linkHref("course", sel.value), label: sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "A training course" };
+      }
+      if (kind === "day") {
+        const d = hnEl("hn-day").value;
+        return { href: linkHref("day", d), label: d ? "Content Calendar, " + new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "" };
       }
       if (kind === "url") {
         const u = hnEl("hn-url").value.trim();
         return { href: u, label: u };
       }
-      return { href: kind, label: hnEl("hn-link").selectedOptions[0].textContent };
+      return { href: linkHref(kind), label: choice.label || kind };
     }
     function hnSyncForm() {
       const kind = hnEl("hn-link").value;
       hnEl("hn-pack-wrap").hidden = kind !== "pack";
       hnEl("hn-url-wrap").hidden = kind !== "url";
+      hnEl("hn-course-wrap").hidden = kind !== "course";
+      hnEl("hn-day-wrap").hidden = kind !== "day";
       const later = document.querySelector('input[name="hn-when"]:checked').value === "later";
       hnEl("hn-at").disabled = !later;
-      hnEl("hn-send").textContent = later ? "Schedule for every member" : "Send to every member";
+      const who = whoWords(hnGroups());
+      hnEl("hn-send").textContent = (later ? "Schedule for " : "Send to ") + who;
       const t = hnEl("hn-title").value.trim(), m = hnEl("hn-text").value.trim();
       hnEl("hn-pv-title").textContent = t || "Your headline";
       hnEl("hn-pv-text").textContent = m.slice(0, 90);
@@ -206,8 +259,8 @@ import "../../styles/admin.css";
       c.textContent = m.length > 90 ? `${m.length} characters. The bell shows the first 90, so put the point first.` : "The bell shows the first 90 characters.";
       c.classList.toggle("is-over", m.length > 90);
     }
-    ["hn-title", "hn-text", "hn-url", "hn-at"].forEach((id) => hnEl(id).addEventListener("input", hnSyncForm));
-    ["hn-link", "hn-pack"].forEach((id) => hnEl(id).addEventListener("change", hnSyncForm));
+    ["hn-title", "hn-text", "hn-url", "hn-at", "hn-day"].forEach((id) => hnEl(id).addEventListener("input", hnSyncForm));
+    ["hn-link", "hn-pack", "hn-course"].forEach((id) => hnEl(id).addEventListener("change", hnSyncForm));
     document.querySelectorAll('input[name="hn-when"]').forEach((r) => r.addEventListener("change", () => {
       if (r.value === "later" && !hnEl("hn-at").value) {
         // Tomorrow at 9am to start from.
@@ -225,6 +278,10 @@ import "../../styles/admin.css";
       if (!title) { hnError("Add a headline."); hnEl("hn-title").focus(); return; }
       const target = hnTarget();
       if (hnEl("hn-link").value === "url" && !/^https?:\/\/\S+\.\S+/i.test(target.href)) { hnError("Add the full web address, starting https://"); hnEl("hn-url").focus(); return; }
+      if (hnEl("hn-link").value === "day" && !target.href) { hnError("Choose the date on the Content Calendar it opens."); hnEl("hn-day").focus(); return; }
+      if (hnEl("hn-link").value === "course" && !target.href) { hnError("Choose the course it opens."); return; }
+      const groups = hnGroups().length === 3 ? [] : hnGroups();
+      const who = whoWords(groups);
       const later = document.querySelector('input[name="hn-when"]:checked').value === "later";
       let sendAt = new Date();
       if (later) {
@@ -234,25 +291,26 @@ import "../../styles/admin.css";
         if (sendAt < new Date()) { hnError("That time has passed. Choose a later one, or send it now."); return; }
       }
       const ask = later
-        ? `Schedule "${title}" for every member's hub on ${hnWhen(sendAt)}?`
-        : `Send "${title}" to every member's hub now?`;
+        ? `Schedule "${title}" for ${who} on ${hnWhen(sendAt)}?`
+        : `Send "${title}" to ${who} now?`;
       if (!confirm(ask)) return;
       const btn = hnEl("hn-send");
       btn.disabled = true;
-      const { error } = await supabase.from("member_broadcasts").insert({
-        title, body: body || null, href: target.href, link_label: target.label, send_at: sendAt.toISOString(), status: "scheduled",
-      });
+      const row = { title, body: body || null, href: target.href, link_label: target.label, send_at: sendAt.toISOString(), status: "scheduled" };
+      if (groups.length) row.audience = groups;   // left off for everyone, so it works before the SQL has run
+      const { error } = await supabase.from("member_broadcasts").insert(row);
       btn.disabled = false;
+      if (error && /audience/i.test(error.message || "")) { hnError("Choosing who gets it needs supabase/member_broadcasts_audience.sql run in Supabase first. Every member works now."); return; }
       if (error) { hnError("Couldn't save it: " + error.message); return; }
       hnEl("hn-title").value = ""; hnEl("hn-text").value = "";
       hnSyncForm();
-      if (!later) { await hnNudge(); toast("Sent. It's in every member's bell."); }
+      if (!later) { await hnNudge(); toast(`Sent. It's in the bell for ${who}.`); }
       else toast(`Scheduled for ${hnWhen(sendAt)}.`);
       loadHubNotices();
     });
     async function loadHubNotices() {
       hnSyncForm();
-      if (!hnPacks.length) loadHubNoticePacks().then(hnSyncForm);
+      if (!hnPacks.length) { loadHubNoticePacks().then(hnSyncForm); loadHubNoticeCourses().catch(() => {}); }
       const { data, error } = await supabase.from("member_broadcasts").select("*").order("send_at", { ascending: false }).limit(20);
       const list = hnEl("hn-list");
       if (error) {
@@ -277,7 +335,7 @@ import "../../styles/admin.css";
         return `<div class="hn-item">
           <div class="hn-item-title">${escapeHtml(r.title)}</div>
           <div class="hn-item-side"><span class="hn-pill hn-pill--${tone}">${label}</span>${action}</div>
-          <div class="hn-item-meta">${escapeHtml(when)}${r.link_label ? " · Opens " + escapeHtml(r.link_label) : ""}${r.error ? " · " + escapeHtml(r.error) : ""}</div>
+          <div class="hn-item-meta">${escapeHtml(when)} · To ${escapeHtml(whoWords(r.audience))}${r.link_label ? " · Opens " + escapeHtml(r.link_label) : ""}${r.error ? " · " + escapeHtml(r.error) : ""}</div>
         </div>`;
       }).join("") : `<p class="demo-pack-empty">Nothing yet.</p>`;
       list.querySelectorAll("[data-hn-cancel]").forEach((b) => b.addEventListener("click", async () => {
@@ -287,11 +345,11 @@ import "../../styles/admin.css";
         loadHubNotices();
       }));
       list.querySelectorAll("[data-hn-withdraw]").forEach((b) => b.addEventListener("click", async () => {
-        if (!confirm("Take this out of every member's bell?")) return;
+        if (!confirm("Take this back out of the bell for everyone who got it?")) return;
         const { error: e } = await supabase.from("member_broadcasts").update({ status: "withdraw" }).eq("id", b.getAttribute("data-hn-withdraw")).eq("status", "sent");
         if (e) { hnError("Couldn't withdraw it: " + e.message); return; }
         await hnNudge();
-        toast("Withdrawn from every member's bell.");
+        toast("Withdrawn from the bell.");
         loadHubNotices();
       }));
     }

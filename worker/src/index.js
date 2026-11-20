@@ -7798,6 +7798,44 @@ async function runCommunityTopicDue(env) {
   } catch (_) {}
 }
 
+/* TEG, F&C or External for each account (Danielle, 20 Nov). F&C is anyone
+   with a live Fine & Country brand or the Network: Fine-and-Country tag;
+   TEG is any other live brand, the Network: TEG tag, or TEG management or
+   support. Someone can be both. External is neither. The contact is found
+   by its account, or by email when it isn't linked yet (as member_brands()
+   does). Null when the records can't be read. */
+async function broadcastGroups(env, users) {
+  const [contacts, profs, admins] = await Promise.all([
+    sbGetAll(env, "contacts", "select=id,user_id,email,tags"),
+    sbGetAll(env, "agent_profiles", "brand=not.is.null&left_at=is.null&select=contact_id,brand"),
+    sbGet(env, "admins", "select=user_id"),
+  ]);
+  if (!contacts || !profs) return null;
+  const isFc = (s) => String(s || "").toLowerCase().replace(/&/g, "and").replace(/[^a-z]/g, "") === "fineandcountry";
+  const byContact = new Map();
+  const mark = (cid, g) => { if (!byContact.has(cid)) byContact.set(cid, {}); byContact.get(cid)[g] = true; };
+  profs.forEach((p) => mark(p.contact_id, isFc(p.brand) ? "fc" : "teg"));
+  const byUser = new Map(), byEmail = new Map();
+  contacts.forEach((c) => {
+    const tags = c.tags || [];
+    if (tags.includes("Network: TEG") || tags.includes("TEG-Role: Management-or-Support")) mark(c.id, "teg");
+    if (tags.includes("Network: Fine-and-Country")) mark(c.id, "fc");
+    const g = byContact.get(c.id);
+    if (!g) return;
+    const into = (m, k) => { const cur = m.get(k) || {}; m.set(k, { ...cur, ...g }); };
+    if (c.user_id) into(byUser, c.user_id);
+    else if (c.email) into(byEmail, String(c.email).toLowerCase());
+  });
+  const email = new Map(users.map((u) => [u.id, u.email]));
+  return {
+    admin: new Set((admins || []).map((r) => r.user_id)),
+    of(uid) {
+      const g = { ...(byEmail.get(email.get(uid)) || {}), ...(byUser.get(uid) || {}) };
+      return { teg: !!g.teg, fc: !!g.fc, external: !g.teg && !g.fc };
+    },
+  };
+}
+
 async function runMemberBroadcasts(env) {
   if (!env.SUPABASE_SERVICE_ROLE) return;
   const H = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" };
@@ -7816,7 +7854,19 @@ async function runMemberBroadcasts(env) {
     const claimed = claim && claim.ok ? await claim.json().catch(() => []) : [];
     if (!claimed.length) continue;
     const { users, error: listError } = await listAccounts(env);
-    const ids = users.map((u) => u.id);
+    let ids = users.map((u) => u.id);
+    // Who it's for (Danielle, 20 Nov): any of TEG (every TEG brand but
+    // Fine & Country), F&C, External (neither). None ticked is everyone.
+    // Admins always get it, so we see what members see.
+    const groups = Array.isArray(b.audience) ? b.audience.filter((g) => ["teg", "fc", "external"].includes(g)) : [];
+    if (groups.length && groups.length < 3) {
+      const who = await broadcastGroups(env, users);
+      if (!who) {
+        await sbPatch(env, "member_broadcasts", `id=eq.${b.id}`, { status: "failed", sent_at: new Date().toISOString(), sent_count: 0, error: "Couldn't work out who is TEG, F&C or External, so it didn't go to anyone. Try again." });
+        continue;
+      }
+      ids = users.filter((u) => who.admin.has(u.id) || groups.some((g) => who.of(u.id)[g])).map((u) => u.id);
+    }
     let sent = 0, failed = 0;
     const meta = { broadcast_id: b.id };
     for (let i = 0; i < ids.length; i += 500) {
@@ -7824,7 +7874,7 @@ async function runMemberBroadcasts(env) {
       const r = await fetch(`${env.SUPABASE_URL}/rest/v1/member_notifications`, { method: "POST", headers: { ...H, Prefer: "return=minimal" }, body: JSON.stringify(rows) }).catch(() => null);
       if (r && r.ok) sent += rows.length; else failed += rows.length;
     }
-    const error = listError || (failed ? `${failed} account${failed === 1 ? "" : "s"} didn't get it.` : null);
+    const error = listError || (failed ? `${failed} account${failed === 1 ? "" : "s"} didn't get it.` : null) || (!ids.length ? "Nobody in the groups picked has an account." : null);
     await sbPatch(env, "member_broadcasts", `id=eq.${b.id}`, { status: sent ? "sent" : "failed", sent_at: new Date().toISOString(), sent_count: sent, error });
   }
 }
@@ -9038,7 +9088,7 @@ Plan the edit:
         const examples = (Array.isArray(b.examples) ? b.examples : []).slice(0, 4).map((e) => ({
           title: cap(e.title, 120), area: cap(e.area, 60), find_it: cap(e.find_it, 160), what: cap(e.what, 600), why: cap(e.why, 400), tip: cap(e.tip, 400),
         }));
-        const links = ["/account", "/account/studio", "/account/studio?inspo=trending", "/account/editor", "/account/profile", "/account/schedule", "/account/guides", "/account/blog"];
+        const links = ["/account", "/account/studio", "/account/studio?inspo=trending", "/account/editor", "/account/profile", "/account/schedule?view=all", "/account/schedule?view=posts", "/account/guides", "/account/blog"];
         const schema = {
           type: "object", additionalProperties: false,
           required: ["title", "area", "find_it", "what", "why", "tip", "link_href", "link_label", "notes"],
@@ -9058,7 +9108,7 @@ THE CARD
 - what: what it is, two sentences at most.
 - why: what it saves them or makes possible, one or two sentences.
 - tip: one practical pointer, one or two sentences.
-- link_href: where the button goes, one of ${links.join(", ")}, or "" for no button. /account/studio?inspo=trending opens the month's See what's working trends straight away: use it for a Trending month. link_label: the button words, e.g. "Open the Studio" ("" when no button).
+- link_href: where the button goes, one of ${links.join(", ")}, or "" for no button. /account/studio?inspo=trending opens the month's See what's working trends straight away: use it for a Trending month. /account/schedule?view=all is the Marketing Planner; /account/schedule?view=posts is the Content Calendar. (A pack or course update gets its own button from the editor, so pick the nearest place here.) link_label: the button words, e.g. "Open the Studio" ("" when no button).
 - notes: one sentence to the admin about anything you weren't sure of or couldn't find in the material. "" if nothing.
 
 VOICE

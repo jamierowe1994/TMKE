@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-(none)
+- [ ] supabase/member_broadcasts_audience.sql (20 Nov): Hub notifications can go to TEG, F&C or External, not only every member.
 
 ## Done
 

@@ -2651,6 +2651,16 @@ import "../../styles/account-sections.css";
 
     // A failure email links to /account/schedule?item=<id>: open that post.
     async function openItemFromUrl() {
+      // ?focus=YYYY-MM-DD&open=day (Danielle, 20 Nov): a hub notification or
+      // What's New button can land on one day of the calendar with it open.
+      { const q = new URLSearchParams(location.search);
+        const f = q.get('focus');
+        if (q.get('open') === 'day' && f && /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(f)) {
+          const u = new URL(location.href); u.searchParams.delete('open');
+          history.replaceState(null, '', u.pathname + u.search);
+          openDay(f);
+          return;
+        } }
       const id = new URLSearchParams(location.search).get('item');
       if (!id || !/^[0-9a-f-]{36}$/.test(id)) return;
       let it = items.find((i) => String(i.id) === id);
