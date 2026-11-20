@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-(none)
+- [ ] supabase/whats_new.sql — Member hub › What's new: the updates members step through from What's New in Your Member Hub, now kept in the database so you can write, edit, delete and choose who sees each one. Adds the seven updates already in the hub, so members see no change. Until it runs, the hub keeps showing those seven and the editor says to run this. Sends nothing (20 Nov)
 
 ## Done
 

@@ -1,0 +1,538 @@
+---
+// Admin › Member hub › What's new (Danielle, 20 Nov 2026).
+//
+// The updates members step through from "What's New in Your Member Hub" on
+// their dashboard. The latest five published show. Table: public.whats_new
+// (supabase/whats_new.sql). The hub pages are built ahead, so Publish, Take
+// down and deleting a live one ask the Worker to rebuild the site (/deploy,
+// the same as the blog); the hub shows the change once that build is live.
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+import { WHATS_NEW_COUNT } from "../../lib/whats-new-audience.js";
+import { BRAND_ORDER } from "../../data/brands.js";
+import { TRAINING_GUIDES, CALENDAR_GUIDES, PRINT_GUIDES } from "../../data/training-guides.js";
+
+// For "Write it with Claude": the courses that live in the code, as plain
+// text, and the hub's own "What's Where" as the map of where things are.
+const plain = (h) => String(h || "").replace(/<(br|\/p|\/li|\/h\d|\/div)[^>]*>/gi, "\n").replace(/<[^>]+>/g, " ")
+  .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&rsquo;|&lsquo;/g, "'").replace(/&ldquo;|&rdquo;/g, '"').replace(/&[a-z]+;/g, " ")
+  .replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
+const courseText = (g) => [g.title, g.summary, ...(g.lessons || []).map((l) => `## ${l.title || ""}\n${plain(l.body_html)}`)].filter(Boolean).join("\n\n");
+const BUILT_IN = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES].map((g) => ({ slug: g.slug, title: g.title, text: courseText(g).slice(0, 20000) }));
+const hubTour = TRAINING_GUIDES.find((g) => g.slug === "training-hub");
+const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
+---
+
+<AdminShell active="whats-new" title="What's new" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">What&rsquo;s new</div>
+          <div class="page-header-sub">The updates members step through from &ldquo;What&rsquo;s New in Your Member Hub&rdquo; on their dashboard. The latest {WHATS_NEW_COUNT} published show; publishing a new one retires the oldest.</div>
+        </div>
+      </div>
+      <div class="page-header-right">
+        <a class="admin-btn" href="/account?inspo=news" target="_blank" rel="noopener">See it in the hub &rarr;</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="wn">
+    <aside class="tadm-list">
+      <div class="tadm-list-head">
+        <h2>Updates</h2>
+        <button type="button" class="tadm-new" id="wn-new">+ New</button>
+      </div>
+      <div class="tadm-items" id="wn-items"><p class="tadm-muted">Loading&hellip;</p></div>
+    </aside>
+
+    <section class="tadm-edit" id="wn-edit" hidden>
+      <div class="tadm-bar">
+        <span class="tadm-status" id="wn-pill" data-status="draft">Draft</span>
+        <span class="tadm-muted wn-saved" id="wn-saved"></span>
+        <span class="tadm-bar-gap"></span>
+        <button type="button" class="tadm-btn" id="wn-save">Save draft</button>
+        <button type="button" class="tadm-btn" id="wn-down" hidden>Take down</button>
+        <button type="button" class="tadm-btn tadm-btn--solid" id="wn-publish">Publish</button>
+        <button type="button" class="tadm-btn tadm-btn--danger" id="wn-delete">Delete</button>
+      </div>
+
+      <div class="wn-ai">
+        <p class="wn-ai-h">Write it with Claude</p>
+        <div class="wn-ai-row">
+          <label class="tadm-f"><span>It&rsquo;s about</span>
+            <select id="ai-kind">
+              <option value="trending">A Trending month</option>
+              <option value="course">A Learn course</option>
+              <option value="pack">A pack</option>
+              <option value="blog">A blog post</option>
+              <option value="other">Something else: describe it below</option>
+            </select>
+          </label>
+          <label class="tadm-f" id="ai-pick-wrap"><span>Which one</span><select id="ai-pick"><option value="">Loading&hellip;</option></select></label>
+        </div>
+        <label class="tadm-f"><span id="ai-notes-l">Anything to point out (optional)</span><textarea id="ai-notes" rows="2" placeholder="e.g. Mention it's free for November. Or, for a new feature: what it does and where it is."></textarea></label>
+        <div class="wn-ai-go">
+          <button type="button" class="tadm-btn tadm-btn--solid" id="ai-go">Write it</button>
+          <span class="wn-stat" id="ai-stat"></span>
+        </div>
+      </div>
+
+      <div class="wn-grid">
+        <div class="wn-fields">
+          <label class="tadm-f"><span>Title: what members can now do</span><input id="f-title" maxlength="80" placeholder="e.g. Schedule Your Posts Straight From the Studio" /></label>
+          <div class="wn-two">
+            <label class="tadm-f"><span>Added</span><input id="f-date" type="date" /></label>
+            <label class="tadm-f"><span>Area</span><input id="f-area" maxlength="40" placeholder="e.g. Studio" /></label>
+          </div>
+          <label class="tadm-f"><span>Find it: the clicks to get there</span><input id="f-where" maxlength="120" placeholder="e.g. Studio → Start → Schedule" /></label>
+          <label class="tadm-f"><span>What&rsquo;s new: two sentences at most</span><textarea id="f-what" rows="4" placeholder="What it is and what it does."></textarea></label>
+          <label class="tadm-f"><span>Why it helps</span><textarea id="f-why" rows="3" placeholder="What it saves them or makes possible."></textarea></label>
+          <label class="tadm-f"><span>TMKE tip: one practical pointer</span><textarea id="f-tip" rows="3" placeholder="Shown in the wine box."></textarea></label>
+          <div class="wn-two">
+            <label class="tadm-f"><span>Button takes them to</span>
+              <select id="f-link">
+                <option value="">No button</option>
+                <option value="/account">Their dashboard</option>
+                <option value="/account/studio">The Studio</option>
+                <option value="/account/editor">The Studio editor</option>
+                <option value="/account/profile">Brand Kit</option>
+                <option value="/account/schedule">Marketing Planner</option>
+                <option value="/account/guides">Learn</option>
+                <option value="/account/blog">Inside the Edit (blog)</option>
+                <option value="custom">Another address</option>
+              </select>
+            </label>
+            <label class="tadm-f"><span>Button words</span><input id="f-label" maxlength="40" placeholder="e.g. Open the Studio" /></label>
+          </div>
+          <label class="tadm-f" id="f-href-wrap" hidden><span>Address</span><input id="f-href" placeholder="/account/… or https://…" /></label>
+          <fieldset class="tadm-f wn-aud">
+            <span>Who sees it</span>
+            <div class="wn-aud-opts">
+              <label><input type="radio" name="f-aud" value="all" checked /> Every member</label>
+              <label><input type="radio" name="f-aud" value="some" /> Only these</label>
+            </div>
+            <div class="wn-aud-brands" id="f-brands" hidden></div>
+          </fieldset>
+          <div class="wn-media">
+            <div class="wn-media-box" id="f-box">Portrait 4:5<br>1080 × 1350</div>
+            <div class="wn-media-side">
+              <label class="tadm-btn wn-upload">Upload a picture<input type="file" id="f-file" accept="image/*" /></label>
+              <label class="tadm-f"><span>or paste its address</span><input id="f-media" placeholder="https://assets.tmke.co.uk/…" /></label>
+              <span class="wn-stat" id="f-stat"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="wn-prev-col">
+          <p class="wn-prev-h">How members see it</p>
+          <div class="wn-prev" id="wn-prev"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tadm-empty" id="wn-empty">
+      <h2>What&rsquo;s new</h2>
+      <p>Pick an update on the left, or write a new one.</p>
+      <button type="button" class="tadm-btn tadm-btn--solid" id="wn-new-2">+ New update</button>
+    </section>
+  </div>
+
+  <p class="tadm-toast" id="wn-toast" hidden></p>
+  <script type="application/json" id="wn-cfg" set:html={JSON.stringify({ count: WHATS_NEW_COUNT, brands: BRAND_ORDER, builtIn: BUILT_IN, hubMap: HUB_MAP })}></script>
+
+  <style is:global>
+    .wn { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
+    .tadm-list { background: #fff; border: 1px solid var(--line, rgba(28,29,34,0.13)); border-radius: 6px; overflow: hidden; }
+    .tadm-list-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--line, rgba(28,29,34,0.13)); }
+    .tadm-list-head h2 { margin: 0; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.6); }
+    .tadm-new { border: 0; background: none; color: #371e28; font-family: var(--sans); font-size: 12px; font-weight: 700; cursor: pointer; }
+    .tadm-items { display: flex; flex-direction: column; }
+    .tadm-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; min-height: 62px; text-align: left; padding: 10px 14px; border: 0; border-bottom: 1px solid rgba(28,29,34,0.08); background: none; cursor: pointer; font-family: var(--sans); font-size: 14px; color: var(--ink); }
+    .tadm-item > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tadm-item:hover, .tadm-item.is-on { background: #eae5e1; }
+    .tadm-item small { font-size: 12px; color: #7e6765; }
+    .wn-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; white-space: nowrap; background: #eae5e1; color: #7e6765; }
+    .wn-tag.on { background: #371e28; color: #fff; }
+    .wn-tag.live { background: #c9bcb7; color: #371e28; }
+    .tadm-muted { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5); margin: 0; padding: 12px 14px; }
+    .wn-saved { padding: 0; }
+    .tadm-edit, .tadm-empty { background: #fff; border: 1px solid var(--line, rgba(28,29,34,0.13)); border-radius: 6px; padding: 18px 20px 24px; }
+    .tadm-empty { text-align: center; padding: 60px 20px; }
+    .tadm-empty h2 { font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 0 0 8px; letter-spacing: -0.05em; }
+    .tadm-empty p { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.6); margin: 0 0 16px; }
+    .tadm-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid rgba(28,29,34,0.1); }
+    .tadm-bar-gap { flex: 1; }
+    .tadm-status { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; background: #eae5e1; color: #7e6765; }
+    .tadm-status[data-status="published"] { background: #371e28; color: #fff; }
+    .tadm-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; height: 32px; padding: 0 14px; border-radius: 4px; border: 1px solid rgba(28,29,34,0.16); background: #fff; color: var(--ink); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; cursor: pointer; }
+    .tadm-btn:hover { border-color: #371e28; color: #371e28; }
+    .tadm-btn--solid { background: #371e28; border-color: #371e28; color: #fff; }
+    .tadm-btn--solid:hover { background: #2a1620; color: #fff; }
+    .tadm-btn--danger { color: #8a2a2a; }
+    .tadm-btn:disabled { opacity: .6; cursor: default; }
+    .hub-skin .tadm-f { display: flex; flex-direction: column; gap: 6px; margin: 0; font-family: var(--sans); min-width: 0; }
+    .hub-skin .tadm-f[hidden] { display: none; }
+    .hub-skin .tadm-f > span { display: block; margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .hub-skin .tadm-f input, .hub-skin .tadm-f textarea, .hub-skin .tadm-f select { width: 100%; box-sizing: border-box; height: 38px; min-height: 0; margin: 0; font-family: var(--sans); font-size: 14px; padding: 0 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 4px; background: #fff; color: var(--ink); }
+    .hub-skin .tadm-f textarea { height: auto; padding: 8px 10px; resize: vertical; line-height: 1.5; }
+    .hub-skin .tadm-f input:focus, .hub-skin .tadm-f textarea:focus, .hub-skin .tadm-f select:focus { outline: none; border-color: #371e28; box-shadow: 0 0 0 3px rgba(55,30,40,0.12); }
+    .wn-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+    .wn-fields { display: flex; flex-direction: column; gap: 14px; }
+    .wn-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .wn-media { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 14px; align-items: start; }
+    .wn-media-box { aspect-ratio: 4 / 5; border-radius: 4px; border: 1px dashed rgba(28,29,34,0.2); background: #f4f2f1 center / cover no-repeat; display: grid; place-items: center; text-align: center; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.45); }
+    .wn-media-box.has { border-style: solid; color: transparent; }
+    .wn-media-side { display: flex; flex-direction: column; gap: 10px; }
+    .wn-upload { align-self: flex-start; }
+    .wn-upload input { display: none; }
+    .wn-stat { font-family: var(--sans); font-size: 12px; color: #7e6765; min-height: 1em; }
+    .wn-prev-col { position: sticky; top: 16px; }
+    .wn-prev-h { margin: 0 0 8px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .wn-prev { border: 1px solid rgba(28,29,34,0.12); border-radius: 6px; background: #fff; padding: 18px; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; font-family: var(--sans); }
+    .wn-p-copy { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .wn-p-eye { margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #7e6765; }
+    .wn-p-h { font-family: var(--serif); font-weight: 400; font-size: 24px; line-height: 1.08; letter-spacing: -0.05em; color: #1c1d22; overflow-wrap: anywhere; }
+    .wn-p-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 8px 0; border-top: 1px solid #eae5e1; border-bottom: 1px solid #eae5e1; }
+    .wn-p-facts dt { font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .wn-p-facts dd { margin: 0; font-size: 12px; font-weight: 600; color: #1c1d22; overflow-wrap: anywhere; }
+    .wn-p-sec p { margin: 0; font-size: 13px; line-height: 1.45; color: rgba(28,29,34,0.72); white-space: pre-wrap; }
+    .wn-p-sec .wn-p-l { margin: 0 0 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #4a2a3c; }
+    .wn-p-btn { align-self: flex-start; display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid rgba(28,29,34,0.2); border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1c1d22; }
+    .wn-p-tip { padding: 12px 14px; border-radius: 4px; background: #4a2a3c; color: #fff; }
+    .wn-p-tip b { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.8; margin-bottom: 4px; }
+    .wn-p-tip p { margin: 0; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; }
+    .wn-p-media { aspect-ratio: 4 / 5; border-radius: 4px; background: #eae5e1 center / cover no-repeat; }
+    .wn-p-empty { color: rgba(28,29,34,0.35); }
+    .wn-ai { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; margin-bottom: 18px; border-radius: 6px; background: #f6f3f1; border: 1px solid #eae5e1; }
+    .wn-ai-h { margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #371e28; }
+    .wn-ai-row { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 14px; }
+    .wn-ai-go { display: flex; align-items: center; gap: 12px; }
+    .wn-aud { border: 0; padding: 0; }
+    .wn-aud-opts { display: flex; gap: 18px; font-family: var(--sans); font-size: 14px; }
+    .wn-aud-opts label, .wn-aud-brands label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .hub-skin .tadm-f.wn-aud input { accent-color: #371e28; width: auto; height: auto; margin: 0; padding: 0; }
+    .wn-aud-brands { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.12); border-radius: 4px; font-family: var(--sans); font-size: 14px; }
+    .wn-aud-brands[hidden] { display: none; }
+    .wn-who { font-size: 12px; color: #7e6765; }
+    .tadm-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px)); background: #1c1d22; color: #fff; font-family: var(--sans); font-size: 13px; line-height: 1.45; padding: 10px 16px; border-radius: 6px; z-index: 50; margin: 0; }
+    @media (max-width: 1200px) { .wn-grid { grid-template-columns: 1fr; } .wn-prev-col { position: static; } .wn-ai-row { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .wn { grid-template-columns: 1fr; } .wn-prev { grid-template-columns: 1fr; } }
+  </style>
+
+  <script>
+    import { supabase, isConfigured } from "../../lib/supabase.js";
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { audiencesMeet, NO_BRAND } from "../../lib/whats-new-audience.js";
+
+    const $ = (s) => document.querySelector(s);
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const CFG = JSON.parse($("#wn-cfg")?.textContent || "{}");
+    const COUNT = CFG.count || 5;
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    function toast(m, ms) { const t = $("#wn-toast"); t.textContent = m; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), ms || 3200); }
+    const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+    const dayLabel = (d) => { const x = new Date(String(d || "") + "T00:00:00"); return isNaN(x) ? "" : x.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); };
+    const NO_TABLE = /schema cache|does not exist|PGRST205|42P01/i;
+    const COLS = "id,status,live_on,title,area,find_it,what,why,tip,link_href,link_label,media_url,audience,created_at";
+
+    let list = [], cur = null, curStatus = "draft", dirty = false, booted = false;
+    const F = { title: "#f-title", date: "#f-date", area: "#f-area", where: "#f-where", what: "#f-what", why: "#f-why", tip: "#f-tip", label: "#f-label", href: "#f-href", media: "#f-media" };
+    const val = (k) => ($(F[k]).value || "").trim();
+    const markDirty = () => { if (booted) { dirty = true; $("#wn-saved").textContent = "Unsaved changes"; } preview(); };
+
+    // The five members see: the newest published, by date then when written.
+    // An update is live if fewer than five newer published ones reach any of
+    // the same members (each member sees the latest five meant for them).
+    const byDate = (a, b) => (a.live_on === b.live_on ? (a.created_at < b.created_at ? 1 : -1) : a.live_on < b.live_on ? 1 : -1);
+    function showing() {
+      const pub = list.filter((r) => r.status === "published").sort(byDate);
+      return new Set(pub.filter((r, i) => pub.slice(0, i).filter((o) => audiencesMeet(o.audience, r.audience)).length < COUNT).map((r) => r.id));
+    }
+
+    /* ---------- who sees it ---------- */
+    let BRANDS = (CFG.brands || []).slice();
+    function drawBrands(chosen) {
+      const pick = new Set(chosen || []);
+      $("#f-brands").innerHTML = BRANDS.map((b) => `<label><input type="checkbox" value="${esc(b)}"${pick.has(b) ? " checked" : ""} /> ${esc(b)}</label>`).join("")
+        + `<label><input type="checkbox" value="${NO_BRAND}"${pick.has(NO_BRAND) ? " checked" : ""} /> Members with no brand</label>`;
+    }
+    function setAudience(aud) {
+      const a = Array.isArray(aud) ? aud.filter(Boolean) : [];
+      a.forEach((b) => { if (b !== NO_BRAND && !BRANDS.includes(b)) BRANDS.push(b); });
+      document.querySelector(`input[name="f-aud"][value="${a.length ? "some" : "all"}"]`).checked = true;
+      drawBrands(a); $("#f-brands").hidden = !a.length;
+    }
+    const getAudience = () => document.querySelector('input[name="f-aud"]:checked').value === "all" ? [] : [...$("#f-brands").querySelectorAll("input:checked")].map((i) => i.value);
+    const whoLabel = (a) => !a || !a.length ? "" : a.map((b) => (b === NO_BRAND ? "No brand" : b)).join(", ");
+    document.querySelectorAll('input[name="f-aud"]').forEach((r) => r.addEventListener("change", () => { $("#f-brands").hidden = r.value === "all" && r.checked; markDirty(); }));
+    $("#f-brands").addEventListener("change", markDirty);
+    // Brands on agents' profiles that aren't in the usual list still show.
+    (async () => {
+      try {
+        const { data } = await supabase.from("agent_profiles").select("brand").is("left_at", null).limit(1000);
+        [...new Set((data || []).map((r) => String(r.brand || "").trim()).filter(Boolean))].forEach((b) => { if (!BRANDS.some((x) => x.toLowerCase() === b.toLowerCase())) BRANDS.push(b); });
+        if (!$("#wn-edit").hidden) drawBrands(getAudience());
+      } catch (_) {}
+    })();
+
+    function linkHref() { const k = $("#f-link").value; return k === "custom" ? val("href") : k; }
+    function setLink(href) {
+      const opts = [...$("#f-link").options].map((o) => o.value);
+      if (!href) { $("#f-link").value = ""; $("#f-href").value = ""; }
+      else if (opts.includes(href) && href !== "custom") { $("#f-link").value = href; $("#f-href").value = ""; }
+      else { $("#f-link").value = "custom"; $("#f-href").value = href; }
+      $("#f-href-wrap").hidden = $("#f-link").value !== "custom";
+    }
+    function setBox(url) {
+      const box = $("#f-box");
+      box.style.backgroundImage = url ? `url("${url.replace(/"/g, "%22")}")` : "";
+      box.classList.toggle("has", !!url);
+    }
+
+    function preview() {
+      const t = val("title"), d = val("date"), a = val("area"), w = val("where"), what = val("what"), why = val("why"), tip = val("tip"), m = val("media");
+      const href = linkHref(), label = val("label");
+      const fact = (l, v) => `<div><dt>${l}</dt><dd>${v ? esc(v) : '<span class="wn-p-empty">—</span>'}</dd></div>`;
+      const sec = (l, v) => v ? `<div class="wn-p-sec"><p class="wn-p-l">${l}</p><p>${esc(v)}</p></div>` : "";
+      $("#wn-prev").innerHTML = `
+        <div class="wn-p-copy">
+          <p class="wn-p-eye">What's new · In your Member Hub${getAudience().length ? ` · <span class="wn-who">Only ${esc(whoLabel(getAudience()))}</span>` : ""}</p>
+          <div class="wn-p-h">${t ? esc(t) : '<span class="wn-p-empty">Your title</span>'}</div>
+          <dl class="wn-p-facts">${fact("Added", d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" }) : "")}${fact("Area", a)}${fact("Find it", w)}</dl>
+          ${sec("What's new", what)}${sec("Why it helps", why)}
+          ${href ? `<span class="wn-p-btn">${esc(label || "Take a look")} &rarr;</span>` : ""}
+          ${tip ? `<div class="wn-p-tip"><b>TMKE tip</b><p>${esc(tip)}</p></div>` : ""}
+        </div>
+        <div class="wn-p-media" style="${m ? `background-image:url(&quot;${esc(m)}&quot;)` : ""}"></div>`;
+    }
+
+    function setPill(s) {
+      const p = $("#wn-pill"); p.dataset.status = s;
+      p.textContent = s === "published" ? (cur && showing().has(cur) ? "Live in the hub" : "Published, not in the latest " + COUNT) : "Draft";
+      $("#wn-down").hidden = s !== "published";
+      $("#wn-publish").textContent = s === "published" ? "Save and update the hub" : "Publish";
+      $("#wn-save").hidden = s === "published";
+    }
+
+    function showEditor(row) {
+      booted = false;
+      $("#wn-empty").hidden = true; $("#wn-edit").hidden = false;
+      cur = row ? row.id : null; curStatus = row?.status || "draft";
+      $(F.title).value = row?.title || ""; $(F.date).value = row ? String(row.live_on).slice(0, 10) : today();
+      $(F.area).value = row?.area || ""; $(F.where).value = row?.find_it || "";
+      $(F.what).value = row?.what || ""; $(F.why).value = row?.why || ""; $(F.tip).value = row?.tip || "";
+      $(F.label).value = row?.link_label || ""; setLink(row?.link_href || "");
+      $(F.media).value = row?.media_url || ""; setBox(row?.media_url || ""); $("#f-stat").textContent = "";
+      setAudience(row?.audience || []); $("#ai-stat").textContent = "";
+      setPill(curStatus);
+      $("#wn-saved").textContent = row ? "Saved" : "";
+      dirty = false; booted = true; preview();
+      document.querySelectorAll(".tadm-item").forEach((b) => b.classList.toggle("is-on", b.dataset.id === cur));
+    }
+    Object.values(F).forEach((s) => $(s).addEventListener("input", markDirty));
+    $(F.media).addEventListener("input", () => setBox(val("media")));
+    $("#f-link").addEventListener("change", () => {
+      $("#f-href-wrap").hidden = $("#f-link").value !== "custom";
+      if (!val("label") && $("#f-link").value && $("#f-link").value !== "custom") {
+        const words = { "/account": "Go to your dashboard", "/account/studio": "Open the Studio", "/account/editor": "Open the Studio", "/account/profile": "Update your Brand Kit", "/account/schedule": "Open your Marketing Planner", "/account/guides": "Go to Learn", "/account/blog": "Read Inside the Edit" };
+        $(F.label).value = words[$("#f-link").value] || "";
+      }
+      markDirty();
+    });
+    $("#f-file").addEventListener("change", async (e) => {
+      const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
+      const stat = $("#f-stat"); stat.textContent = "Uploading…";
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        const fd = new FormData(); fd.append("file", file);
+        const res = await fetch(`${WORKER}/admin/upload`, { method: "POST", headers: s?.access_token ? { Authorization: `Bearer ${s.access_token}` } : {}, body: fd });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.url) { stat.textContent = "Upload failed: " + (j.error || ("HTTP " + res.status)); return; }
+        $(F.media).value = j.url; setBox(j.url);
+        // Warn about the shape rather than crop it: the hub shows 4:5.
+        const img = new Image();
+        img.onload = () => { const r = img.naturalWidth / img.naturalHeight; stat.textContent = Math.abs(r - 0.8) > 0.03 ? `Uploaded. It's ${img.naturalWidth} × ${img.naturalHeight}; the hub shows 4:5 (1080 × 1350), so the edges will be cropped.` : "Uploaded."; };
+        img.onerror = () => { stat.textContent = "Uploaded."; };
+        img.src = j.url;
+        markDirty();
+      } catch (err) { stat.textContent = "Upload failed: " + (err.message || err); }
+    });
+
+    function gather() {
+      return {
+        title: val("title"), live_on: val("date") || today(), area: val("area") || null, find_it: val("where") || null,
+        what: val("what") || null, why: val("why") || null, tip: val("tip") || null,
+        link_href: linkHref() || null, link_label: linkHref() ? (val("label") || "Take a look") : null,
+        media_url: val("media") || null, audience: getAudience(), status: curStatus,
+      };
+    }
+
+    // The hub is built ahead, so a change members see needs a rebuild.
+    async function rebuild(done) {
+      if (!WORKER) { toast(done + " The live hub wasn't rebuilt: no Worker is set up here."); return; }
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        const res = await fetch(`${WORKER}/deploy`, { method: "POST", headers: { Authorization: `Bearer ${s?.access_token || ""}` } });
+        const out = await res.json().catch(() => ({}));
+        if (res.ok && out.ok) toast(done + " The hub updates in about five minutes, once the site has rebuilt.", 6000);
+        else toast(done + " But the hub didn't rebuild: " + (out.error || ("HTTP " + res.status)) + ". Publish again to retry.", 9000);
+      } catch (e) { toast(done + " But the hub didn't rebuild: couldn't reach the Worker. Publish again to retry.", 9000); }
+    }
+
+    async function save(newStatus) {
+      if (!isConfigured) { toast("Connect Supabase to save."); return; }
+      const was = curStatus;
+      const payload = gather();
+      if (newStatus) payload.status = newStatus;
+      if (!payload.title) { toast("Give it a title first."); $(F.title).focus(); return; }
+      if (document.querySelector('input[name="f-aud"]:checked').value === "some" && !payload.audience.length) { toast("Tick who sees it, or choose Every member."); return; }
+      if (payload.status === "published" && !payload.what) { toast("Add what's new before publishing."); $(F.what).focus(); return; }
+      if (payload.status === "published" && !payload.media_url && !confirm("There's no picture. The dashboard card uses the newest update's picture. Publish anyway?")) return;
+      document.querySelectorAll(".tadm-bar button").forEach((b) => (b.disabled = true));
+      const q = cur
+        ? supabase.from("whats_new").update(payload).eq("id", cur).select(COLS).maybeSingle()
+        : supabase.from("whats_new").insert(payload).select(COLS).maybeSingle();
+      const { data, error } = await q;
+      document.querySelectorAll(".tadm-bar button").forEach((b) => (b.disabled = false));
+      if (error || !data) { toast(error && NO_TABLE.test(error.message) ? "The table isn't there yet. Run supabase/whats_new.sql in the SQL editor." : "Couldn't save: " + ((error && error.message) || "nothing came back")); return; }
+      cur = data.id; curStatus = data.status; dirty = false; $("#wn-saved").textContent = "Saved";
+      await loadList();
+      setPill(curStatus);
+      if (curStatus === "published" || was === "published") await rebuild(curStatus === "published" ? (was === "published" ? "Saved." : "Published.") : "Taken down.");
+      else toast("Saved as a draft. Members can't see it.");
+    }
+    $("#wn-save").addEventListener("click", () => save());
+    $("#wn-publish").addEventListener("click", () => save("published"));
+    $("#wn-down").addEventListener("click", () => { if (confirm("Take this out of the hub? It stays here as a draft.")) save("draft"); });
+    $("#wn-delete").addEventListener("click", async () => {
+      if (!cur) { showEmpty(); return; }
+      const live = curStatus === "published";
+      if (!confirm(live ? "Delete this update? It comes out of the hub and can't be brought back." : "Delete this draft? It can't be brought back.")) return;
+      const { error } = await supabase.from("whats_new").delete().eq("id", cur);
+      if (error) { toast("Couldn't delete: " + error.message); return; }
+      showEmpty(); await loadList();
+      if (live) await rebuild("Deleted."); else toast("Deleted.");
+    });
+    function showEmpty() { $("#wn-edit").hidden = true; $("#wn-empty").hidden = false; cur = null; dirty = false; document.querySelectorAll(".tadm-item").forEach((b) => b.classList.remove("is-on")); }
+    const startNew = () => { if (dirty && !confirm("Discard unsaved changes?")) return; showEditor(null); };
+    $("#wn-new").addEventListener("click", startNew);
+    $("#wn-new-2").addEventListener("click", startNew);
+    window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+    /* ---------- write it with Claude ---------- */
+    const stripHtml = (h) => String(h || "").replace(/<(br|\/p|\/li|\/h\d|\/div)[^>]*>/gi, "\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&[a-z]+;/g, " ").replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
+    const monthName = (d) => new Date(String(d).slice(0, 10) + "T00:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    // Each kind: how to list them, and how to turn one into material to read.
+    const SOURCES = {
+      trending: {
+        list: async () => {
+          const { data } = await supabase.from("trending_months").select("id,month,status,intro,topics").order("month", { ascending: false }).limit(12);
+          return (data || []).map((r) => ({ id: r.id, label: `${monthName(r.month)}${r.status === "published" ? "" : " (draft)"}`, row: r }));
+        },
+        text: (o) => {
+          const r = o.row;
+          return `See what's working (the Trending month in the Studio): ${monthName(r.month)}. Members find it under Studio → See what's working, and in Learn.\n${r.intro || ""}\n\n` + (r.topics || []).map((t, i) => `Topic ${i + 1}: ${t.title || ""}\nFormat: ${t.format || ""} · Platform: ${t.platform || ""} · Length: ${t.length || ""} · Effort: ${t.effort || ""}\nWhat it is: ${t.what || ""}\nWhy it works: ${t.about || ""}\nTMKE tip: ${t.tip || ""}`).join("\n\n");
+        },
+      },
+      course: {
+        list: async () => {
+          const { data } = await supabase.from("guides").select("id,slug,title,summary,lessons,status,kind").neq("status", "archived").order("updated_at", { ascending: false }).limit(60);
+          const db = (data || []).map((r) => ({ id: "db:" + r.id, label: `${r.title}${r.status === "published" ? "" : " (draft)"}`, slug: r.slug, text: [r.title, r.summary, ...(Array.isArray(r.lessons) ? r.lessons : []).map((l) => `## ${l.title || ""}\n${stripHtml(l.body_html || l.body || "")}`)].filter(Boolean).join("\n\n") }));
+          const have = new Set(db.map((g) => g.slug));
+          const built = (CFG.builtIn || []).filter((g) => !have.has(g.slug)).map((g) => ({ id: "code:" + g.slug, label: g.title, text: g.text }));
+          return [...db, ...built];
+        },
+        text: (o) => `A Learn course (Training Studio → Learn).\n\n${o.text}`,
+      },
+      pack: {
+        list: async () => {
+          const { data } = await supabase.from("packs").select("*").neq("status", "archived").order("created_at", { ascending: false }).limit(60);
+          return (data || []).map((r) => ({ id: r.id, label: `${r.title}${r.demo ? " (demo pack)" : ""}${r.status === "draft" ? " (draft)" : ""}`, row: r }));
+        },
+        text: (o) => {
+          const r = o.row;
+          const keep = Object.entries(r).filter(([k, v]) => v != null && v !== "" && !/(^id$|_id$|_at$|url|image|cover|thumb|sort|stripe|sig|token|user_ids)/i.test(k) && (typeof v !== "object" || JSON.stringify(v).length < 4000));
+          return "A pack of templates in The Edit shop, used in the Studio.\n\n" + keep.map(([k, v]) => `${k}: ${typeof v === "string" ? stripHtml(v) : JSON.stringify(v)}`).join("\n");
+        },
+      },
+      blog: {
+        list: async () => {
+          const { data } = await supabase.from("blog_posts").select("id,title,standfirst,body_html,status,audience,publish_date").order("created_at", { ascending: false }).limit(40);
+          return (data || []).map((r) => ({ id: r.id, label: `${r.title}${r.status === "published" ? "" : " (draft)"}`, row: r }));
+        },
+        text: (o) => `A blog post${o.row.audience === "members" ? " for members only" : ""}, read in the hub under Inside the Edit (blog).\n\n${o.row.title}\n${o.row.standfirst || ""}\n\n${stripHtml(o.row.body_html)}`,
+      },
+    };
+    let aiItems = [];
+    async function loadPicks() {
+      const kind = $("#ai-kind").value, sel = $("#ai-pick");
+      $("#ai-pick-wrap").hidden = kind === "other";
+      $("#ai-notes-l").textContent = kind === "other" ? "Describe it: what it is, what it does and where members find it" : "Anything to point out (optional)";
+      if (kind === "other") return;
+      sel.innerHTML = '<option value="">Loading…</option>';
+      try { aiItems = await SOURCES[kind].list(); } catch (_) { aiItems = []; }
+      if ($("#ai-kind").value !== kind) return;
+      sel.innerHTML = aiItems.length ? aiItems.map((o) => `<option value="${esc(o.id)}">${esc(o.label)}</option>`).join("") : '<option value="">None found</option>';
+    }
+    $("#ai-kind").addEventListener("change", loadPicks);
+    $("#ai-go").addEventListener("click", async () => {
+      const kind = $("#ai-kind").value, notes = $("#ai-notes").value.trim();
+      const pick = kind === "other" ? null : aiItems.find((o) => o.id === $("#ai-pick").value);
+      if (kind === "other" && !notes) { $("#ai-stat").textContent = "Describe the feature first."; $("#ai-notes").focus(); return; }
+      if (kind !== "other" && !pick) { $("#ai-stat").textContent = "Choose which one."; return; }
+      if (["title", "what", "why", "tip"].some((k) => val(k)) && !confirm("Replace what's in the boxes with Claude's version?")) return;
+      const btn = $("#ai-go"); btn.disabled = true; $("#ai-stat").textContent = "Claude is reading it and writing the card…";
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        const examples = list.filter((r) => r.status === "published").sort(byDate).slice(0, 4).map((r) => ({ title: r.title, area: r.area, find_it: r.find_it, what: r.what, why: r.why, tip: r.tip }));
+        const res = await fetch(`${WORKER}/admin/whats-new/draft`, {
+          method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${s?.access_token || ""}` },
+          body: JSON.stringify({ kind: $("#ai-kind").selectedOptions[0].textContent, label: pick ? pick.label : "", material: pick ? SOURCES[kind].text(pick).slice(0, 24000) : "", notes, hub_map: CFG.hubMap || "", examples }),
+        });
+        const out = await res.json().catch(() => ({}));
+        if (!res.ok || !out.card) { $("#ai-stat").textContent = out.error || ("Claude didn't answer (HTTP " + res.status + ")."); return; }
+        const c = out.card;
+        $(F.title).value = c.title || ""; $(F.area).value = c.area || ""; $(F.where).value = c.find_it || "";
+        $(F.what).value = c.what || ""; $(F.why).value = c.why || ""; $(F.tip).value = c.tip || "";
+        setLink(c.link_href || ""); $(F.label).value = c.link_href ? (c.link_label || "") : "";
+        markDirty();
+        $("#ai-stat").textContent = c.notes ? "Written. Claude says: " + c.notes : "Written. Check it over, add a picture, then publish.";
+      } catch (e) { $("#ai-stat").textContent = "Couldn't reach Claude: " + (e.message || e); }
+      finally { btn.disabled = false; }
+    });
+
+    async function loadList() {
+      const wrap = $("#wn-items");
+      if (!isConfigured) { wrap.innerHTML = '<p class="tadm-muted">Connect Supabase to load the updates.</p>'; return; }
+      const { data, error } = await supabase.from("whats_new").select(COLS).order("live_on", { ascending: false }).order("created_at", { ascending: false });
+      if (error) {
+        wrap.innerHTML = `<p class="tadm-muted">${NO_TABLE.test(error.message) ? "The table isn't there yet. Run <code>supabase/whats_new.sql</code> in the SQL editor, then reload." : esc(error.message)}</p>`;
+        $("#wn-new").disabled = $("#wn-new-2").disabled = NO_TABLE.test(error.message);
+        return;
+      }
+      // Drafts first, then published newest first (the order members see).
+      list = (data || []).slice().sort((a, b) => (a.status === b.status ? 0 : a.status === "draft" ? -1 : 1));
+      const on = showing();
+      wrap.innerHTML = list.length
+        ? list.map((r) => {
+            const tag = r.status === "draft" ? '<span class="wn-tag">Draft</span>' : on.has(r.id) ? '<span class="wn-tag on">Live</span>' : '<span class="wn-tag live">Retired</span>';
+            return `<button type="button" class="tadm-item ${r.id === cur ? "is-on" : ""}" data-id="${r.id}"><span>${esc(r.title || "Untitled")}<br><small>${esc(dayLabel(r.live_on))}${r.area ? " · " + esc(r.area) : ""}${whoLabel(r.audience) ? " · " + esc(whoLabel(r.audience)) : ""}</small></span>${tag}</button>`;
+          }).join("")
+        : '<p class="tadm-muted">No updates yet. Write the first one.</p>';
+      wrap.querySelectorAll(".tadm-item").forEach((b) => b.addEventListener("click", () => {
+        if (b.dataset.id === cur) return;
+        if (dirty && !confirm("Discard unsaved changes?")) return;
+        showEditor(list.find((r) => r.id === b.dataset.id));
+      }));
+    }
+
+    (async () => {
+      const session = await requireAdmin("/admin/login");
+      if (!session) return;
+      await loadList();
+      loadPicks();
+    })();
+  </script>
+</AdminShell>

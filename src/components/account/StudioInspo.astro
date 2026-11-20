@@ -23,7 +23,7 @@
 // /account/studio?inspo=trending so the admin editor can link to a preview.
 import { templates } from "../../data/library.js";
 import { TRENDING_SAMPLE } from "../../data/trending-sample.js";
-import { whatsNewLatest } from "../../data/whats-new.js";
+import { whatsNewCarried } from "../../data/whats-new.js";
 
 // Fallback stills for the brand view when the templates table is empty.
 const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
@@ -44,7 +44,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   </section>
 </div>
 
-<script type="application/json" id="si-data" set:html={JSON.stringify({ sample: TRENDING_SAMPLE, thumbs: FALLBACK_THUMBS, news: whatsNewLatest() })}></script>
+<script type="application/json" id="si-data" set:html={JSON.stringify({ sample: TRENDING_SAMPLE, thumbs: FALLBACK_THUMBS, news: whatsNewCarried() })}></script>
 
 <style is:global>
   /* ---- shell ---- */
@@ -212,6 +212,8 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
 <script>
   import { supabase } from "../../lib/supabase.js";
   import { syncBrandCache } from "../../lib/brand-cache.js";
+  import { updatesFor } from "../../lib/whats-new-audience.js";
+  import { memberBrandsFor } from "../../lib/pack-access.js";
   // The kit is read when it's used (your tone of voice, your colours), so a
   // background fetch is enough for a device that hasn't cached it yet.
   syncBrandCache(supabase);
@@ -319,10 +321,18 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   /* ---------------- news ----------------
      What's new in the Member Hub: the same slide as a Trending topic, with
      the facts strip saying when and where, and a button to go and try it. */
-  function news() {
-    const items = Array.isArray(DATA.news) ? DATA.news : [];
+  // The updates meant for this member (Dani, 20 Nov): every member's, plus
+  // those for a brand they're in. Their brands are asked for once.
+  let newsBrands = null;
+  async function news() {
     eyebrow.textContent = "What's new";
     title.textContent = "In your Member Hub";
+    if (newsBrands === null) {
+      body.innerHTML = `<div class="si-empty"><p>Loading what's new&hellip;</p></div>`;
+      try { newsBrands = await memberBrandsFor(supabase); } catch (_) { newsBrands = undefined; }
+      if (openKind !== "news") return;
+    }
+    const items = updatesFor(DATA.news, newsBrands);
     if (!items.length) {
       body.innerHTML = `<div class="si-empty"><h3>Nothing new just yet</h3><p>Updates to the hub appear here as they go live.</p></div>`;
       return;

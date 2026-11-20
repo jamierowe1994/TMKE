@@ -1,12 +1,15 @@
 // What's new in the Member Hub - the dashboard's "What's new" card opens these
 // in the same step-through pop-out as the Trending month (StudioInspo, view
 // "news"). Newest first; only the latest WHATS_NEW_COUNT are shown, so adding
-// one at the top quietly retires the oldest.
+// one retires the oldest.
 //
-// When Dani says "add this to What's New", an entry goes at the TOP of this
-// list. Each one says where the thing is and what to do with it, in the hub's
-// plain voice:
+// Since 20 Nov 2026 these are written in Admin › Member hub › What's new (table
+// public.whats_new, supabase/whats_new.sql). The site reads the published rows
+// when it builds, and Publish there rebuilds the site. The list below is what
+// the table was seeded with; the build only uses it while the table isn't
+// there yet, or if Supabase can't be reached, and says so in the build log.
 //
+// Each entry, in the hub's plain voice:
 //   date   when it went live (YYYY-MM-DD)
 //   title  what you can now do, not what we built
 //   area   the part of the hub it's in
@@ -17,9 +20,13 @@
 //   link   { href, label } - where the button goes
 //   media  1080 x 1350 (4:5) image; the dashboard card uses the first entry's
 
-export const WHATS_NEW_COUNT = 5;
+import { WHATS_NEW_COUNT } from "../lib/whats-new-audience.js";
+export { WHATS_NEW_COUNT };
+// How many published updates the hub pages carry; each member's browser keeps
+// the latest five meant for them.
+const CARRIED = 30;
 
-export const WHATS_NEW = [
+const SEED = [
   {
     date: "2026-10-18",
     title: "Meet Your Marketing Planner",
@@ -99,4 +106,50 @@ export const WHATS_NEW = [
   },
 ];
 
-export const whatsNewLatest = () => WHATS_NEW.slice(0, WHATS_NEW_COUNT);
+// A database row in the shape the hub reads.
+export function whatsNewFromRow(r) {
+  return {
+    date: String(r.live_on || "").slice(0, 10),
+    title: r.title || "",
+    area: r.area || "",
+    where: r.find_it || "",
+    what: r.what || "",
+    why: r.why || "",
+    tip: r.tip || "",
+    link: r.link_href ? { href: r.link_href, label: r.link_label || "Take a look" } : null,
+    media: r.media_url || "",
+    audience: Array.isArray(r.audience) ? r.audience.filter(Boolean) : [],
+  };
+}
+
+async function load() {
+  const env = (typeof import.meta !== "undefined" && import.meta.env) || {};
+  const penv = (typeof process !== "undefined" && process.env) || {};
+  const base = String(env.PUBLIC_SUPABASE_URL || penv.PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
+  const key = env.PUBLIC_SUPABASE_ANON_KEY || penv.PUBLIC_SUPABASE_ANON_KEY || "";
+  if (!base || !key) return SEED;
+  const url = `${base}/rest/v1/whats_new?status=eq.published&select=live_on,title,area,find_it,what,why,tip,link_href,link_label,media_url,audience&order=live_on.desc,created_at.desc&limit=${CARRIED}`;
+  let why = "";
+  for (let tries = 0; tries < 3; tries++) {
+    try {
+      const res = await fetch(url, { headers: { apikey: key, Authorization: `Bearer ${key}` } });
+      if (res.ok) return (await res.json()).map(whatsNewFromRow);
+      const body = await res.text().catch(() => "");
+      if (res.status === 404 || /PGRST205|42P01|does not exist|schema cache/i.test(body)) {
+        console.warn("[whats-new] The whats_new table isn't there yet - run supabase/whats_new.sql. Using the list in src/data/whats-new.js.");
+        return SEED;
+      }
+      why = `HTTP ${res.status} ${body.slice(0, 160)}`;
+    } catch (e) { why = String((e && e.message) || e); }
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  console.warn(`[whats-new] COULDN'T READ What's New from Supabase (${why}). This build shows the list in src/data/whats-new.js; publish again to rebuild.`);
+  return SEED;
+}
+
+export const WHATS_NEW = await load();
+// Every carried update, for the member's browser to choose from by brand.
+export const whatsNewCarried = () => WHATS_NEW;
+// For a picture or card that every member sees: the newest update for everyone.
+export const whatsNewForEveryone = () => WHATS_NEW.find((t) => !(t.audience && t.audience.length)) || {};
+export const whatsNewLatest = () => WHATS_NEW.filter((t) => !(t.audience && t.audience.length)).slice(0, WHATS_NEW_COUNT);

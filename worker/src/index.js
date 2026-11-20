@@ -9023,6 +9023,78 @@ Plan the edit:
         return json({ ok: true, plan, model: out.model || null, usage: out.usage || null, stop: out.stop_reason || null }, 200, request, env);
       }
 
+      // ---- Admin: What's New, written by Claude (Danielle, 20 Nov 2026) ----
+      // The page sends what the update is about (a Trending month, a course,
+      // a pack, a blog post, or her own description of a feature), the map of
+      // the hub, and the updates already live for the voice. Claude writes the
+      // card's fields; nothing is saved here.
+      if (path.endsWith("/admin/whats-new/draft") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const cap = (v, n) => String(v || "").replace(/\s+\n/g, "\n").trim().slice(0, n);
+        const kind = cap(b.kind, 40), label = cap(b.label, 200), material = cap(b.material, 24000), notes = cap(b.notes, 3000), hubMap = cap(b.hub_map, 8000);
+        if (!material && !notes) return json({ error: "Pick what it's about, or describe it." }, 400, request, env);
+        const examples = (Array.isArray(b.examples) ? b.examples : []).slice(0, 4).map((e) => ({
+          title: cap(e.title, 120), area: cap(e.area, 60), find_it: cap(e.find_it, 160), what: cap(e.what, 600), why: cap(e.why, 400), tip: cap(e.tip, 400),
+        }));
+        const links = ["/account", "/account/studio", "/account/editor", "/account/profile", "/account/schedule", "/account/guides", "/account/blog"];
+        const schema = {
+          type: "object", additionalProperties: false,
+          required: ["title", "area", "find_it", "what", "why", "tip", "link_href", "link_label", "notes"],
+          properties: {
+            title: { type: "string" }, area: { type: "string" }, find_it: { type: "string" },
+            what: { type: "string" }, why: { type: "string" }, tip: { type: "string" },
+            link_href: { type: "string", enum: ["", ...links] }, link_label: { type: "string" },
+            notes: { type: "string" },
+          },
+        };
+        const prompt = `You write the "What's New in Your Member Hub" updates for TMKE (The Marketing Experts), a UK estate agency marketing company. Members are estate agents. Each update is one card they step through on their dashboard.
+
+THE CARD
+- title: what members can now do, not what we built. Title Case, no full stop, under 60 characters. e.g. "Preview Before You Post".
+- area: the part of the hub it's in, one to three words (Studio, Learn, Marketing Planner, Brand Kit...).
+- find_it: the clicks to reach it, with → between steps, e.g. "Studio → Guides → Safe zones". Only steps that exist in the hub map or the material.
+- what: what it is, two sentences at most.
+- why: what it saves them or makes possible, one or two sentences.
+- tip: one practical pointer, one or two sentences.
+- link_href: where the button goes, one of ${links.join(", ")}, or "" for no button. link_label: the button words, e.g. "Open the Studio" ("" when no button).
+- notes: one sentence to the admin about anything you weren't sure of or couldn't find in the material. "" if nothing.
+
+VOICE
+- Plain, warm and direct, speaking to the member as "you". British English, with contractions.
+- Say where and how. One idea a sentence. No aphorisms, no slogans, no hype words (unlock, elevate, game changer, seamless, powerful).
+- No em dashes. No exclamation marks.
+- Only facts from the material, the admin's notes and the hub map. Never invent a feature, number, place or button.
+
+THE HUB MAP
+${hubMap || "(not given)"}
+
+UPDATES ALREADY LIVE, FOR THE VOICE (don't repeat them)
+${examples.length ? JSON.stringify(examples, null, 1) : "(none)"}
+
+WHAT THIS UPDATE IS ABOUT${kind ? ` (${kind}${label ? `: ${label}` : ""})` : ""}
+${material || "(no material, only the admin's notes)"}
+
+THE ADMIN'S NOTES
+${notes || "(none)"}
+
+Write the card.`;
+        let aiRes;
+        try {
+          aiRes = await aiFetch(env, "admin", { max_tokens: 8000, output_config: { format: { type: "json_schema", schema } }, messages: [{ role: "user", content: prompt }] });
+        } catch (e) { return json({ error: "Couldn't reach Claude." }, 502, request, env); }
+        const out = await aiRes.json().catch(() => null);
+        if (!aiRes.ok || !out) return json({ error: aiFailMessage(aiRes.status, out && out.error && out.error.message) }, 502, request, env);
+        const text = (out.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+        let card = null;
+        try { card = JSON.parse(text); } catch (_) {}
+        if (!card) return json({ error: "Claude's draft couldn't be read. Please try again." }, 502, request, env);
+        // House rule, whatever came back: no em dashes.
+        for (const k of ["title", "area", "find_it", "what", "why", "tip", "link_label", "notes"]) card[k] = String(card[k] || "").replace(/\s*—\s*/g, ", ").trim();
+        return json({ ok: true, card }, 200, request, env);
+      }
+
       // ---- Admin: which Claude does which job, and is there credit left ----
       // GET reports the three models and asks the cheapest one for a single
       // token. POST {test:true} sends the "credit has run out" alert as a
