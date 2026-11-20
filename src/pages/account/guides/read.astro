@@ -492,6 +492,7 @@ const DEFAULT_COVER = (await getImage({
     import { GUIDE_TOPIC_MAP } from "../../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../../data/content-ideas-guide.js";
     import { TRAINING_GUIDES, PRINT_GUIDES, CALENDAR_GUIDES } from "../../../data/training-guides.js";
+    import { withBuiltIn } from "../../../lib/guide-merge.js";
     import { guideViewer, guideVisibleTo } from "../../../lib/guide-audience.js";
     import { startWalk } from "../../../lib/tour.js";
     import { WALKS } from "../../../data/walkthroughs.js";
@@ -895,7 +896,8 @@ const DEFAULT_COVER = (await getImage({
       try {
         const { data, error } = await supabase.from("guides").select("*").eq("slug", slug).eq("status","published").maybeSingle();
         if (error) throw error;
-        await renderFor(data || builtIn || (DEV ? devSample : null));
+        // A database copy of a built-in keeps the built-in's picture and settings (src/lib/guide-merge.js).
+        await renderFor((data ? withBuiltIn(data, builtIn) : builtIn) || (DEV ? devSample : null));
       } catch (_) { await renderFor(builtIn || (DEV ? devSample : null)); }
     })();
   </script>

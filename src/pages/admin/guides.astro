@@ -66,7 +66,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         <span class="gadm-status-pill" data-status="published" id="g-built-pill">Built in</span>
         <span class="gadm-saved" id="g-built-note"></span>
         <div class="gadm-bar-r">
-          <a class="gadm-btn gadm-btn--solid gadm-btn--link" id="g-built-open" href="#" target="_blank" rel="noopener">Open as a member sees it</a>
+          <a class="gadm-btn gadm-btn--link" id="g-built-open" href="#" target="_blank" rel="noopener">Open as a member sees it</a>
+          <button type="button" class="gadm-btn gadm-btn--solid" id="g-built-copy">Copy to edit</button>
         </div>
       </div>
       <div class="gadm-built-cover" id="g-built-cover" hidden></div>
@@ -148,6 +149,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     /* Built-in courses (the ones made with Claude, in the site's code): their own part of the list, read only. */
     .gadm-group { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin: 12px 0 2px; padding-bottom: 6px; border-bottom: 1px solid rgba(28,29,34,0.12); }
     .gadm-group:first-child { margin-top: 0; }
+    .gadm-copyall { align-self: flex-start; margin: 4px 0 2px; }
     .gadm-btn--link { display: inline-flex; align-items: center; text-decoration: none; }
     .gadm-built-cover { aspect-ratio: 16 / 7; border-radius: 10px; background: #e9e6e2 center / cover no-repeat; }
     .gadm-built-h { font-family: var(--serif); font-weight: 400; font-size: 26px; line-height: 1.15; color: var(--ink); }
@@ -172,6 +174,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     import { TRAINING_GUIDES, PRINT_GUIDES, CALENDAR_GUIDES } from "../../data/training-guides.js";
     import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
     import { PRINT_MATERIAL_GUIDES } from "../../data/print-materials.js";
+    import { copyRowFor } from "../../lib/guide-merge.js";
     /* The courses made with Claude live in the site's code, not the guides
        table, so this list never showed them (Danielle, 20 Nov: "make sure the
        ones we've designed here via Claude, you can also view them from the
@@ -179,6 +182,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
        link that opens each as a member sees it. Their words change in code. */
     const BUILT_IN = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES, ...PRINT_MATERIAL_GUIDES, CONTENT_IDEAS_GUIDE]
       .filter((g, i, a) => g && a.findIndex((x) => x.slug === g.slug) === i);
+    // The print materials guides are their own A4 pages, not lessons: nothing to copy.
+    const canCopy = (g) => !g.href;
     const AUDIENCE = { public: "Everyone (public)", members: "All members", teg: "The Experts Group agents (not Fine & Country)" };
     const builtHref = (g, part) => g.href || `/account/guides/read?g=${encodeURIComponent(g.slug)}${part ? `&p=${part}` : ""}`;
     const builtWhere = (g) => g.held ? "Held off Learn until it launches; opens by its link"
@@ -188,7 +193,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     const DEV = import.meta.env.DEV;
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;" }[c]));
     const slugify = (s) => String(s || "").toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 80);
-    function toast(m){ const t=$("#g-toast"); t.textContent=m; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2400); }
+    function toast(m){ const t=$("#g-toast"); t.textContent=m; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,Math.max(2400,String(m).length*70)); }
 
     let list = [];
     let cur = null;            // current guide id (null = new/unsaved)
@@ -248,6 +253,30 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       dirty = false;
       document.querySelectorAll(".gadm-item").forEach((el) => el.classList.toggle("is-active", el.dataset.id === (cur||"")));
     }
+    // Copy a built-in into the guides table, published with its own words, so
+    // nothing changes for members until it is edited here.
+    async function copyBuilt(slugs) {
+      if (!isConfigured) { toast("Connect Supabase to copy."); return null; }
+      const rows = BUILT_IN.filter((g) => slugs.includes(g.slug) && canCopy(g) && !list.some((x) => x.slug === g.slug)).map(copyRowFor);
+      if (!rows.length) return null;
+      toast("Copying…");
+      // One at a time, so one refusal (say the Experts Group audience before
+      // guides_audience_teg.sql has run) names itself and the rest still copy.
+      const done = [], failed = [];
+      for (const row of rows) {
+        const { data, error } = await supabase.from("guides").insert(row).select("id,slug").maybeSingle();
+        if (error || !data) failed.push(`${row.title}${error ? ` (${error.message})` : ""}`); else done.push(data);
+      }
+      await loadList();
+      if (failed.length) { toast(`Copied ${done.length} of ${rows.length}. Not copied: ${failed.join("; ")}`); return done; }
+      toast(rows.length === 1 ? "Copied. You can edit it now." : `${rows.length} courses copied. You can edit them now.`);
+      return done;
+    }
+    $("#g-built-copy").addEventListener("click", async (e) => {
+      const done = await copyBuilt([e.currentTarget.dataset.slug]);
+      if (done && done[0]) { const { data } = await supabase.from("guides").select("*").eq("id", done[0].id).maybeSingle(); if (data) showEditor(data); }
+    });
+
     function showBuilt(slug) {
       const g = BUILT_IN.find((x) => x.slug === slug); if (!g) return;
       if (dirty && !confirm("Leave without saving your changes?")) return;
@@ -269,6 +298,9 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       $("#g-built-facts").innerHTML = facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("");
       $("#g-built-note").textContent = list.some((x) => x.slug === g.slug) ? "A database guide has the same link and shows instead of this one" : "";
       $("#g-built-open").href = builtHref(g);
+      $("#g-built-copy").hidden = !canCopy(g);
+      $("#g-built-copy").dataset.slug = g.slug;
+      if (!canCopy(g)) $("#g-built-note").textContent = "Its own pages; its words change in the site's code";
       $("#g-built-lessons").innerHTML = lessons.length
         ? lessons.map((l, i) => `<li><span>${esc((l.title || "").replace(/<[^>]+>/g, "") || "Untitled lesson")}</span>${g.href ? "" : `<a href="${esc(builtHref(g, i + 1))}" target="_blank" rel="noopener">Open</a>`}</li>`).join("")
         : `<li><span>Its own pages, opened with the button above</span></li>`;
@@ -349,16 +381,19 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         .order("sort_order", { ascending: true }).order("updated_at", { ascending: false });
       if (error) { $("#g-items").innerHTML = '<p class="gadm-muted">Could not load guides.</p>'; return; }
       list = data || [];
-      const builtHtml = BUILT_IN.map((g) => `
+      const notCopied = BUILT_IN.filter((g) => !list.some((x) => x.slug === g.slug));
+      const copyable = notCopied.filter(canCopy);
+      const builtHtml = (copyable.length > 1 ? `<button type="button" class="gadm-new gadm-copyall" id="g-copy-all">Copy all ${copyable.length} to edit</button>` : "") + notCopied.map((g) => `
         <button type="button" class="gadm-item" data-built="${esc(g.slug)}">
           <span class="gadm-item-t">${esc(g.title || "Untitled")}${Array.isArray(g.brands) && g.brands.length ? ", " + esc(g.brands.join(", ")) : ""}</span>
           <span class="gadm-item-m"><span class="gadm-dot ${g.held ? "is-draft" : "is-published"}"></span>${g.held ? "held" : "built in"} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${g.kind==="course"?"Course":"Article"}</span>
         </button>`).join("");
-      $("#g-items").innerHTML = '<p class="gadm-group">Made with Claude</p>' + builtHtml + '<p class="gadm-group">Written here</p>' + (list.length ? list.map((g) => `
+      $("#g-items").innerHTML = (notCopied.length ? '<p class="gadm-group">Made with Claude, not copied yet</p>' + builtHtml : "") + '<p class="gadm-group">Editable here</p>' + (list.length ? list.map((g) => `
         <button type="button" class="gadm-item${g.id===cur?" is-active":""}" data-id="${g.id}">
           <span class="gadm-item-t">${esc(g.title || "Untitled")}</span>
-          <span class="gadm-item-m"><span class="gadm-dot is-${g.status}"></span>${g.status} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${g.kind==="course"?"Course":"Article"}</span>
+          <span class="gadm-item-m"><span class="gadm-dot is-${g.status}"></span>${g.status}${BUILT_IN.some((b) => b.slug === g.slug && b.held) ? " · held off Learn" : ""} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${g.kind==="course"?"Course":"Article"}</span>
         </button>`).join("") : '<p class="gadm-muted">No guides yet. Click “+ New”.</p>');
+      $("#g-copy-all")?.addEventListener("click", () => copyBuilt(copyable.map((g) => g.slug)));
       $("#g-items").querySelectorAll(".gadm-item[data-built]").forEach((el) => el.addEventListener("click", () => showBuilt(el.dataset.built)));
       $("#g-items").querySelectorAll(".gadm-item[data-id]").forEach((el) => el.addEventListener("click", async () => {
         const { data } = await supabase.from("guides").select("*").eq("id", el.dataset.id).maybeSingle();

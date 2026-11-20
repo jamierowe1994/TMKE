@@ -441,7 +441,8 @@ import "../../styles/reel.css";
     })();
     import { GUIDE_TOPIC_MAP } from "../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
-    import { TRAINING_GUIDES, PRINT_GUIDES } from "../../data/training-guides.js";
+    import { TRAINING_GUIDES, PRINT_GUIDES, CALENDAR_GUIDES } from "../../data/training-guides.js";
+    import { withBuiltIn } from "../../lib/guide-merge.js";
     import { TRENDING_SAMPLE as TRENDING_SAMPLE_JS } from "../../data/trending-sample.js";
     const TRENDING_SAMPLE_TOPICS = TRENDING_SAMPLE_JS.topics;
     import { guideViewer, guideVisibleTo } from "../../lib/guide-audience.js";
@@ -733,7 +734,13 @@ import "../../styles/reel.css";
         ALL = (data && data.length) ? data : (DEV ? SAMPLE : []);
       } catch (_) { ALL = DEV ? SAMPLE : []; }
       // Built-in guides that ship with the site, unless the DB has its own copy.
+      // A built-in copied into the database (to edit in admin) keeps the
+      // built-in's held / training / picture (src/lib/guide-merge.js).
+      const BUILT_BY_SLUG = Object.fromEntries([...STATIC_GUIDES, ...CALENDAR_GUIDES].map((g) => [g.slug, g]));
+      ALL = ALL.map((row) => withBuiltIn(row, BUILT_BY_SLUG[row.slug]));
       STATIC_GUIDES.forEach((g) => { if (!ALL.some((x) => x.slug === g.slug)) ALL.unshift(g); });
+      // Held until launch (the Content Calendar course): in the reader by its link, not on Learn.
+      ALL = ALL.filter((g) => !g.held);
       // The old guides each course replaced (TWIN_COURSE) are still published
       // rows, so Getting Started listed every subject twice: "Getting around
       // your hub" beside the Getting Around Your Hub course, and so on. The
