@@ -148,6 +148,8 @@ Staff can add `?as=free` (or any level) to see the hub as that level.
 
 ## Waiting on Danielle
 
+- **Late-month upgrades (Danielle, 23 Nov, to decide after her meeting):** at the moment an upgrade is charged a full month on the day (£14.40), then again on the 1st, so upgrading on 26 Nov means paying twice in a week. Her idea: once next month's calendar goes live (its go-live date, e.g. the 26th), an upgrade's first payment covers next month and the rest of this month is free. Not built; the Worker's ccStartUpgrade would change. (The December rule was switched on by Danielle on 23 Nov.)
+
 - Done For You prices (RRP and TEG price) for both options: the tier, and adding it on to a month. To agree 12 Nov. Decided 11 Nov: 10 spaces, TEG see the difference only, TEG-only in December, the waitlist reused for independents from February.
 
 - **Done For You: joining between the 21st and the 1st (to decide; Danielle will come back to it, 12 Nov).** Her leaning: if the team has room, they get the next month's posts anyway. Otherwise they wait about six weeks for their first posts, which feels too long. This needs a way to see whether there's room. Proposed: a number of Done For You clients the team can take each month, set in the admin centre. A late joiner gets next month only while that month is under the number; otherwise their first month is the one after. The sign-up says which before they pay.
