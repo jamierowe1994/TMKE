@@ -474,6 +474,80 @@ export const TRAINING_GUIDES = [
    Calendar and hidden from everyone else (src/lib/guide-level.js). TPE and
    PPE agents get that level when the December rule is switched on. */
 export const CALENDAR_GUIDES = [
+  /* Course 1, Using Your Content Calendar: Danielle's copy, 23 Nov, the how-to
+     before Course 2. Same level as Course 2, so the same members see it. Her
+     "Show me" cards are each lesson's walkthrough steps (walkthroughs.js),
+     added lesson by lesson as the walks are built. */
+  guide({
+    slug: "training-calendar-use",
+    title: "Using Your Content Calendar",
+    summary: "Find your monthly posts, personalise them in the Studio and plan or schedule your content.",
+    est_minutes: 10, sort_order: 5, training: false, topic: "content-calendar", level: "calendar",
+    lessons: [
+      { title: "Finding Your Content Calendar",
+        body_html:
+          p("Your Content Calendar gives you ready-made social media content for every weekday, with designs, captions and guidance to help you make each post your own.") +
+          p("This course takes you through finding your content, editing it in the Studio and adding it to your Planner. If you have Content Calendar Plus, you'll also learn how to schedule or publish directly to social media.") +
+          p("Your Content Calendar sits within the Planner, alongside your own planned marketing activities.") +
+          p("Each month, you'll find a collection of posts organised by date. Every post has a title and content pillar, helping you see what's planned and what each post is designed to achieve.") +
+          p("You can browse the month, open individual posts and decide which ones you'd like to use. You don't have to follow the suggested dates or use every post.") },
+
+      { title: "Opening a Post",
+        body_html:
+          p("Selecting a post opens its details, including the suggested posting date, content format, caption and our guidance on what to change.") +
+          p("Before opening the design, take a moment to read <strong>How to edit</strong>. This explains which details need personalising and whether you'll need to provide any photographs, information or footage of your own.") +
+          p("When you select <strong>Use This Template</strong>, the design opens in the Studio and creates your own copy in <strong>Your designs</strong>. You can then edit and save it without changing the original template.") },
+
+      { title: "Editing Your Design",
+        body_html:
+          p("Most of the editing you'll need to do is already organised for you.") +
+          p("When your design opens in the Studio, select <strong>Start</strong> from the left-hand menu. At the top, you'll find information about the post, followed by an <strong>Edit</strong> section containing the words and images you can change.") +
+          p("Rather than moving elements around the page, you can work through this section and update the relevant details. The layout stays in place, so you can focus on making the content suitable for your business.") +
+          p("<strong>What fills in automatically?</strong>") +
+          p("Where your Brand Kit contains the relevant information, the Studio can automatically populate details such as your name, contact information, area, logo and photographs.") +
+          p("This means some parts of your design may already be complete when you open it.") +
+          p("You should still check everything before saving, particularly where a post includes property details, local information or wording that needs to reflect your own experience.") +
+          p("<strong>Editing carousels</strong>") +
+          p("Carousels contain several slides, and each slide has its own content to review.") +
+          p("Use <strong>Pages</strong> on the left-hand menu to move between slides. As you select a different slide, the <strong>Edit</strong> section updates to show the words and images available on that particular page.") +
+          p("Make sure you work through every slide before saving the finished carousel.") },
+
+      { title: "Captions and Reels",
+        body_html:
+          p("Alongside your designs, we provide suggested captions to help you get your posts ready more quickly.") +
+          p("Where possible, captions include information from your Brand Kit, but some details will still need adding or changing. These might include a property address, a local recommendation, a personal experience or something specific to your business.") +
+          p("You can review and amend the caption when adding a post to your Planner or sharing it directly to social media.") +
+          p("<strong>How reels work</strong>") +
+          p("Reels work slightly differently from single-image posts and carousels.") +
+          p("For each reel, we provide an editable cover, a suggested caption and guidance on what to film. You'll need to create the video yourself.") +
+          p("You can film and edit your reel using your phone or your preferred video editing app.") +
+          p("Once it's ready, you have two options:") +
+          ul("Upload your finished video when adding the post to your Planner or scheduling it through Content Calendar Plus.",
+             "Download the reel cover and publish or schedule the video yourself through your chosen social media platform.") +
+          p("If you upload the video through the Studio, it can be kept together with the planned post, making it easier to manage everything in one place.") },
+
+      { title: "Adding Posts to Your Planner",
+        body_html:
+          p("If you're using the standard Content Calendar, you can add your finished designs to your Planner and organise when you'd like to publish them.") +
+          p("Adding a post to your Planner doesn't publish it to social media. It keeps your content organised and gives you the option to receive everything you need by email.") +
+          p("You can have the image and caption emailed to you immediately or set a reminder for the day you plan to publish.") +
+          p("When the email arrives, you'll have your content ready to upload to Instagram or Facebook, whether you're posting from your phone or desktop.") +
+          p("You can also sync your Planner with your usual work calendar, helping you see your social media activity alongside the rest of your schedule.") },
+
+      { title: "Scheduling With Content Calendar Plus",
+        body_html:
+          p("If you have Content Calendar Plus, you can go a step further and schedule or publish posts directly to Instagram, Facebook or both.") +
+          p("This means you can prepare your content in the Studio, choose when you'd like it to go out and let the scheduling feature handle the publishing.") +
+          p("Before you begin, make sure your social media accounts are linked under <strong>Your Account</strong> &rarr; <strong>Plan</strong> &rarr; <strong>Your social accounts</strong>.") +
+          p("You'll find step-by-step instructions in our separate guide, Linking Your Accounts.") +
+          p("<strong>Scheduling your content</strong>") +
+          p("Once your accounts are connected, select <strong>Share</strong> in the Studio and choose the platform you'd like to publish to.") +
+          p("You can review the caption, choose whether to post immediately or schedule for later, and select both platforms if you'd like to share the same content to Instagram and Facebook.") +
+          p("For reels, upload your finished video so it can be published alongside the cover you've prepared.") +
+          p("Scheduled posts will appear in your Planner, where you can check their status or make changes before they're published.") },
+    ],
+  }),
+
   guide({
     slug: "training-calendar-content",
     title: "Getting the Most From Your Content Calendar",

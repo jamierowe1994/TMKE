@@ -630,6 +630,8 @@ import "../../styles/reel.css";
     function openTopic(slug) {
       const topic = GUIDE_TOPIC_MAP[slug]; if (!topic || !sheet) return;
       const list = ALL.filter((g) => g.topic === slug);
+      // The Content Calendar's courses in their order: Course 1, the how-to, first.
+      if (slug === 'content-calendar') list.sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99));
       document.getElementById('lrn-sheet-h').innerHTML = topic.label;
       document.getElementById('lrn-sheet-sub').textContent = topic.blurb || '';
       document.getElementById('lrn-sheet-grid').innerHTML = slug === 'getting-started' ? groupedHtml(list) : list.map(cardHtml).join('');
