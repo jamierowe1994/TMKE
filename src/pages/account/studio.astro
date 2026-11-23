@@ -908,6 +908,12 @@ const inspo = [
         const { ownedPacks, freeUntilLabel } = await import('../../lib/pack-access.js');
         const owned = ownedPacks(allPacks, ownedIds, memberBrand)
           .filter((p) => !training || p.demo === true || p.kind === 'print');
+        /* Order (Danielle, 23 Nov): TMKE's free-for-a-while packs - the
+           Christmas and greeting cards - first while they're open, then the
+           newest pack first. Was the catalogue's sort order, so a new pack
+           landed at the back of the shelf. */
+        const limited = (p) => p.access === 'members' && !!p.available_until;
+        owned.sort((a, b) => (limited(b) - limited(a)) || String(b.created_at || '').localeCompare(String(a.created_at || '')));
         // A test pack sent from the Catalogue, first, so it's easy to find.
         if (session && !training) {
           const { testPacksFor } = await import('../../lib/pack-access.js');
