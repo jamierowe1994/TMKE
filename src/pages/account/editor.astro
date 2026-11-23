@@ -636,6 +636,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           </button>
           <div class="ed-ccpost-fields" id="ed-ccpost-fields" hidden></div>
         </div>
+        <!-- Reels only, for everyone (Danielle, 23 Nov): where their own video
+             goes. It's added in the Planner once the reel is planned. -->
+        <div class="ed-ccpost-capbox ed-ccpost-vidbox" id="ed-ccpost-video" hidden><b>Your Video</b><i>Once you've planned this reel, open it in your Planner to upload your video and schedule it from there. Or download the cover and post the reel yourself.</i></div>
         <div class="ed-ccpost-capbox" id="ed-ccpost-cap" hidden><b>Caption</b><i></i>
           <button type="button" class="ed-ccpost-copy" id="ed-ccpost-copy">Copy caption</button>
         </div>
@@ -1789,6 +1792,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-ccpost-capbox { margin: 0 0 10px; padding: 14px; border-radius: 4px; background: #eae5e1; font-family: var(--sans); }
     .ed-ccpost-capbox > b { display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #7e6765; }
     .ed-ccpost-capbox > i { display: block; margin-top: 6px; font-style: normal; font-size: var(--ws-t-meta); line-height: 1.55; color: #2b2226; white-space: pre-line; }
+    .ed-ccpost-vidbox { background: #fff; border: 1px solid #e2d9d4; }
     .ed-ccpost-capbox .ed-ccpost-copy { border-color: #c9bcb7; color: #371e28; }
     .ed-ccpost-capbox .ed-ccpost-copy:hover { background: #fff; border-color: #371e28; }
     .ed-ccpost-edit-tx { display: flex; flex-direction: column; gap: 2px; }
@@ -12080,6 +12084,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         (window as any).__TMKE_CC_CONTEXT__ = post ? { title: post.title || "", caption: ((post.captions || []).find((c) => c && c.trim())) || "", how_to_edit: post.how_to_edit || "" } : null;
         (window as any).__TMKE_RENDER_FIELDS__?.();
         const editBox = document.getElementById("ed-ccpost-edit");
+        const vidBox = document.getElementById("ed-ccpost-video");
+        if (vidBox) vidBox.hidden = !(post && post.post_type === "reel");
         if (!post) { box.hidden = true; if (editBox) editBox.hidden = true; editList(false); part("ed-ccpost-cap", ""); return; }
         const { monthPostsName, fmtPostDate, POST_TYPE_LABEL } = await import("../../lib/calendar-month.js");
         const month = (post.month && post.month.month) || (post.post_date ? post.post_date.slice(0, 7) + "-01" : "");
