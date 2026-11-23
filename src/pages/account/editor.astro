@@ -6280,6 +6280,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     /* How many sides this design has, on the picture rather than under it:
        it belongs to the thing shown, not to its name. */
     .ed-onboard-card-cover { position: relative; display: block; }
+    .ed-ob-front { position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); height: 100%; aspect-ratio: 148 / 210; max-width: 100%; border-radius: inherit; background-size: 200% 100%; background-position: right center; background-repeat: no-repeat; }
     /* The back, over the front, shown while the card is hovered. */
     .ed-onboard-card-back { position: absolute; inset: 0; border-radius: inherit; background-color: var(--platinum); background-size: contain; background-repeat: no-repeat; background-position: center; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
     .ed-onboard-card:hover .ed-onboard-card-back.is-ready,
@@ -10936,11 +10937,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       return r < 1 ? "Portrait" : "Other";
     }
 
+    /* A folded card shows its front only (Danielle, 23 Nov): the saved
+       picture is the flat outside, back left and front right. */
+    const foldedCanvas = (c) => !!(c && c.fold && Math.round(Number(c.width)) === 3508 && Math.round(Number(c.height)) === 2480);
     function savedCard(d) {
       return `
         <a class="ed-onboard-card" href="/account/editor?design=${encodeURIComponent(d.id)}" data-design="${escapeHtml(d.id)}">
           <button type="button" class="ed-ob-tick" data-tick="${escapeHtml(d.id)}" aria-label="Select ${escapeHtml(d.name || "design")}"></button>
-          <span class="ed-onboard-card-cover"${d.thumb_url ? ` style="background-image:url('${escapeHtml(d.thumb_url)}')"` : ""}></span>
+          ${foldedCanvas(d.canvas) && d.thumb_url
+            ? `<span class="ed-onboard-card-cover"><span class="ed-ob-front" style="background-image:url('${escapeHtml(d.thumb_url)}')"></span></span>`
+            : `<span class="ed-onboard-card-cover"${d.thumb_url ? ` style="background-image:url('${escapeHtml(d.thumb_url)}')"` : ""}></span>`}
           <span class="ed-onboard-card-body">
             <span class="ed-onboard-card-title">${escapeHtml(d.name || "Untitled design")}</span>
             <span class="ed-onboard-card-cat">${escapeHtml(formatOf(d))}${d.folder ? " · " + escapeHtml(d.folder) : ""}</span>

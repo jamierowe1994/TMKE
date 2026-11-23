@@ -383,6 +383,10 @@ const inspo = [
     .st-pack-count, .st-design-type { font-size: var(--ws-t-meta); color: var(--ws-faint); }
     /* The state pill on a design. Packs carry no overlay: the name sits under
        the card, and printing it twice only obscured the picture. */
+    /* A folded card's front: the right half of the flat outside, as tall as
+       the frame and the card's own shape (148 x 210), centred in it. */
+    .st-design-front { position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); height: 100%; aspect-ratio: 148 / 210; max-width: 100%; border-radius: inherit; background-size: 200% 100%; background-position: right center; background-repeat: no-repeat; }
+    .st-design-tag { z-index: 1; }
     .st-design-tag { position: absolute; left: 8px; top: 8px; padding: 3px 8px; border-radius: 3px; background: rgba(255,255,255,0.93); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-accent); }
 
     /* "Shop more packs" and "New design" — outlined, tinted, no picture. */
@@ -792,13 +796,20 @@ const inspo = [
           <a class="st-design st-design--all" href="/account/editor" data-seeall-card>
             <span class="st-design-new"><span class="st-plus">&rarr;</span><span>See all designs</span></span>
           </a>`;
+        /* A folded card shows its front only (Danielle, 23 Nov): the saved
+           picture is the flat outside, back on the left and front on the
+           right, and the shelf should look like the card. The canvas says
+           it's folded (A5 Folded Card: 297 x 210 mm at 300dpi, with `fold`). */
+        const folded = (c) => !!(c && c.fold && Math.round(Number(c.width)) === 3508 && Math.round(Number(c.height)) === 2480);
         const shapeOf = (d) => {
           const c = d && d.canvas, w = Number(c && c.width) || 0, h = Number(c && c.height) || 0;
-          return (w && h) ? ` style="--ar:${(w / h).toFixed(4)}"` : '';
+          return (w && h) ? ` style="--ar:${((folded(c) ? w / 2 : w) / h).toFixed(4)}"` : '';
         };
         const card = (d) => `
           <a class="st-design" href="/account/editor?design=${encodeURIComponent(d.id)}"${shapeOf(d)}>
-            <span class="st-design-img"${d.thumb_url ? ` style="background-image:url('${esc(d.thumb_url)}')"` : ''}><span class="st-design-tag">Saved</span></span>
+            ${folded(d.canvas) && d.thumb_url
+              ? `<span class="st-design-img st-design-img--card"><span class="st-design-front" style="background-image:url('${esc(d.thumb_url)}')"></span><span class="st-design-tag">Saved</span></span>`
+              : `<span class="st-design-img"${d.thumb_url ? ` style="background-image:url('${esc(d.thumb_url)}')"` : ''}><span class="st-design-tag">Saved</span></span>`}
             <span class="st-design-name">${esc(d.name || 'Untitled design')}</span>
             <span class="st-design-type">Your design</span>
           </a>`;
