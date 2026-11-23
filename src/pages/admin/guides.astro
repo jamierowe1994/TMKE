@@ -89,8 +89,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
           </div>
         </div>
         <div class="gle-tools" id="g-tools">
+          <span class="gle-tl">Text</span>
           <div class="gle-tg">
-            <span class="gle-tl">Words</span>
             <button type="button" class="gle-tb gle-tb--i" data-cmd="bold" title="Bold"><b>B</b></button>
             <button type="button" class="gle-tb gle-tb--i" data-cmd="italic" title="Italic"><i>I</i></button>
             <button type="button" class="gle-tb gle-tb--i" data-size="-1" title="Smaller">A&minus;</button>
@@ -99,24 +99,23 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
             <button type="button" class="gle-tb gle-tb--i" data-align="center" title="Centre"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M4 6.5h8M2 9.5h12M4 12.5h8"/></svg></button>
             <button type="button" class="gle-tb gle-tb--i" data-align="right" title="Right"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M6 6.5h8M2 9.5h12M6 12.5h8"/></svg></button>
             <button type="button" class="gle-tb gle-tb--i" data-align="justify" title="Justified"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M2 6.5h12M2 9.5h12M2 12.5h12"/></svg></button>
-          </div>
-          <div class="gle-tg">
-            <span class="gle-tl">Style</span>
+            <span class="gle-tl gle-tl--in">Style</span>
             <button type="button" class="gle-tb gle-tb--sw" data-tone="" title="White box" style="--sw:#ffffff"></button>
             <button type="button" class="gle-tb gle-tb--sw" data-tone="linen" title="Linen box" style="--sw:#eae5e1"></button>
             <button type="button" class="gle-tb gle-tb--sw" data-tone="stone" title="Stone box" style="--sw:#c9bcb7"></button>
             <button type="button" class="gle-tb gle-tb--sw" data-tone="wine" title="Wine box" style="--sw:#371e28"></button>
           </div>
+          <span class="gle-tl">Layout</span>
           <div class="gle-tg">
-            <span class="gle-tl" id="g-tool-kind">Box</span>
             <button type="button" class="gle-tb gle-tb--i" data-move="-1" title="Move up">&uarr;</button>
             <button type="button" class="gle-tb gle-tb--i" data-move="1" title="Move down">&darr;</button>
             <button type="button" class="gle-tb" data-dup title="Make a copy of the selected box, next to it">Copy</button>
             <button type="button" class="gle-tb" data-del title="Delete the selected box">Delete</button>
             <button type="button" class="gle-tb" data-outer title="Select the box this one sits inside">Select outer</button>
+            <span class="gle-tk" id="g-tool-kind"></span>
           </div>
+          <span class="gle-tl">Add</span>
           <div class="gle-tg">
-            <span class="gle-tl">Add</span>
             <button type="button" class="gle-tb" data-add="text">Text</button>
             <button type="button" class="gle-tb" data-add="heading">Heading</button>
             <button type="button" class="gle-tb" data-add="image">Picture</button>
@@ -124,8 +123,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
             <button type="button" class="gle-tb" data-add="3">3 boxes</button>
             <button type="button" class="gle-tb" data-add="check">Checklist</button>
             <input type="file" id="g-img-file" accept="image/jpeg,image/png,image/webp" hidden />
+            <button type="button" class="gle-tb gle-tb--undo" data-undo title="Put back the last move, copy, delete or add">Undo</button>
           </div>
-          <button type="button" class="gle-tb gle-tb--undo" data-undo title="Put back the last move, copy, delete or add">Undo</button>
         </div>
         <p class="gadm-muted gle-page-tip">Click any words to change them. Click a box to select it, then move, copy or delete it from the bar. New things go in under the selected box.</p>
         <div class="ws gle-ws">
@@ -340,18 +339,24 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .gle-lessons li::before { width: 64px; }
     .gadm .gle-l-open { margin-left: 0; }
     @media (max-width: 760px) { .gle-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    /* ---- The lesson's tools bar ---- */
-    .gle-tools { position: sticky; top: var(--gle-top, 0px); z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 8px 10px; background: #fff; border: 1px solid rgba(55,30,40,0.18); border-radius: 6px; box-shadow: 0 2px 10px rgba(28,29,34,0.06); }
-    .gle-tg { display: flex; align-items: center; gap: 4px; }
-    .gle-tl { margin-right: 4px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--english-violet); white-space: nowrap; }
-    .gle-tb { padding: 0 10px; }
-    .gle-tb--i { width: 30px; padding: 0; font-size: 13px; letter-spacing: 0; text-transform: none; }
+    /* ---- The lesson's tools bar: wine, so it reads as the toolbar; three rows
+       (Text, Layout, Add) whose buttons all start at the same point. ---- */
+    .gle-tools { position: sticky; top: var(--gle-top, 0px); z-index: 30; display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 6px 16px;
+      padding: 10px 12px 10px 16px; background: var(--english-violet); border-radius: 6px; box-shadow: 0 4px 14px rgba(28,29,34,0.14); }
+    .gle-tg { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+    .gle-tl { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #fff; white-space: nowrap; }
+    .gle-tl--in { margin: 0 6px 0 14px; padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.25); line-height: 30px; }
+    .gle-tk { margin-left: 10px; font-family: var(--sans); font-size: 13px; color: rgba(255,255,255,0.7); white-space: nowrap; }
+    .gle-tools .gle-tb { padding: 0 10px; background: transparent; border-color: rgba(255,255,255,0.3); color: #fff; }
+    .gle-tools .gle-tb:hover { background: rgba(255,255,255,0.14); border-color: #fff; color: #fff; }
+    .gle-tools .gle-tb:disabled { opacity: 0.38; background: transparent; border-color: rgba(255,255,255,0.3); color: #fff; }
+    .gle-tools .gle-tb--i { width: 30px; padding: 0; font-size: 13px; letter-spacing: 0; text-transform: none; }
     .gle-tb--i b { font-weight: 800; } .gle-tb--i i { font-family: Georgia, serif; font-size: 14px; }
     .gle-tb svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
-    .gle-tb--undo { margin-left: auto; }
-    .gle-tb--sw { width: 30px; padding: 0; }
-    .gle-tb--sw::before { content: ""; width: 16px; height: 16px; border-radius: 50%; background: var(--sw); border: 1px solid rgba(55,30,40,0.3); }
-    .gle-tb--sw.is-on { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
+    .gle-tools .gle-tb--undo { margin-left: auto; }
+    .gle-tools .gle-tb--sw { width: 30px; padding: 0; }
+    .gle-tb--sw::before { content: ""; width: 16px; height: 16px; border-radius: 50%; background: var(--sw); border: 1px solid rgba(255,255,255,0.6); }
+    .gle-tools .gle-tb--sw.is-on { border-color: #fff; box-shadow: inset 0 0 0 1px #fff; }
     .gle-body .bk-check-box { cursor: default; }
     .gle-body .gle-sel { outline: 1.5px solid var(--english-violet); outline-offset: 6px; border-radius: 3px; }
     .gle-body .gle-sel[contenteditable="true"]:focus { outline-width: 2px; outline-offset: 2px; }
@@ -609,7 +614,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       const tt = toneTargets(), tone = tt.length && tt.every((el) => toneOf(el) === toneOf(tt[0])) ? toneOf(tt[0]) : null;
       tools.querySelectorAll("[data-tone]").forEach((b) => { b.disabled = !tt.length; b.classList.toggle("is-on", tt.length > 0 && b.dataset.tone === tone); });
       tools.querySelector("[data-undo]").disabled = !undo.length;
-      $("#g-tool-kind").textContent = kindName(sel);
+      $("#g-tool-kind").textContent = sel ? "Selected: " + kindName(sel).toLowerCase() : "Click a box to select it";
     }
     function select(u) {
       if (sel && sel !== u) { sel.classList.remove("gle-sel"); if (!sel.getAttribute("class")) sel.removeAttribute("class"); }
