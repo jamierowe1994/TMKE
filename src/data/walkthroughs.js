@@ -759,11 +759,10 @@ export const WALKS = {
       { href: CC_PAGE, target: "#cc-tab", placement: "left", padding: 6, close: CC_SHUT_POST, tap: CC_OURS,
         eyebrow: "Two calendars", title: "Switch Between Calendars",
         body: "Select Your calendar to see your own planned activities. Choose the month's posts to return to the Content Calendar." },
-      /* The picker only shows with more than one edition, and the training
-         account has one: the line it sits on is lit instead. */
-      { href: CC_PAGE, target: ".cc-ours-head", placement: "bottom", padding: 8, close: CC_SHUT_POST, tap: CC_OURS,
-        eyebrow: "Editions", title: "Choose Your Edition",
-        body: "If you have access to more than one brand, use the Edition picker to choose the content you'd like to view." },
+      /* No Choose Your Edition step (Danielle, 23 Nov: "Is this a thing?").
+         The Edition picker is staff-only, for testing a month published for
+         several brands; a member sees one edition. Bring it back if agents
+         in two brands are ever given both. */
       // The shelf turned to its Content Calendar side, so the month's pack is the one in view.
       { href: "/account/studio", target: 'section[aria-labelledby="packs-h"]', placement: "top", tap: '.st-kind[data-kind="calendar"][aria-selected="false"]',
         eyebrow: "Studio", title: "Other Ways to Find It",
