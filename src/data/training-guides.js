@@ -483,23 +483,27 @@ export const CALENDAR_GUIDES = [
     title: "Using Your Content Calendar",
     summary: "Find your monthly posts, personalise them in the Studio and plan or schedule your content.",
     est_minutes: 10, sort_order: 5, training: false, topic: "content-calendar", level: "calendar",
-    // The course's own introduction, on its Overview (Danielle, 23 Nov: not part of lesson 1).
-    intro: [
-      "Your Content Calendar gives you ready-made social media content for every weekday, with designs, captions and guidance to help you make each post your own.",
-      "This course takes you through finding your content, editing it in the Studio and adding it to your Planner. If you have Content Calendar Plus, you'll also learn how to schedule or publish directly to social media.",
-    ],
     lessons: [
-      { title: "Finding Your Content Calendar", walk: "cc-find",
+      /* Lessons 1 and 2 as one part (Danielle, 23 Nov: "combine 1 and 2"),
+         titled Finding Your Templates. Her two intro lines open it, then two
+         cards side by side, each with its own Show me: finding the calendar,
+         and opening a post. So the Overview goes back to the card line. */
+      { title: "Finding Your Templates",
         body_html:
-          p("Your Content Calendar sits within the Planner, alongside your own planned marketing activities.") +
-          p("Each month, you'll find a collection of posts organised by date. Every post has a title and content pillar, helping you see what's planned and what each post is designed to achieve.") +
-          p("You can browse the month, open individual posts and decide which ones you'd like to use. You don't have to follow the suggested dates or use every post.") },
-
-      { title: "Opening a Post", walk: "cc-post",
-        body_html:
-          p("Selecting a post opens its details, including the suggested posting date, content format, caption and our guidance on what to change.") +
-          p("Before opening the design, take a moment to read <strong>How to edit</strong>. This explains which details need personalising and whether you'll need to provide any photographs, information or footage of your own.") +
-          p("When you select <strong>Use This Template</strong>, the design opens in the Studio and creates your own copy in <strong>Your designs</strong>. You can then edit and save it without changing the original template.") },
+          p("Your Content Calendar gives you ready-made social media content for every weekday, with designs, captions and guidance to help you make each post your own.") +
+          p("This course takes you through finding your content, editing it in the Studio and adding it to your Planner. If you have Content Calendar Plus, you'll also learn how to schedule or publish directly to social media.") +
+          toolCards([
+            ["Finding Your Content Calendar",
+              p("Your Content Calendar sits within the Planner, alongside your own planned marketing activities.") +
+              p("Each month, you'll find a collection of posts organised by date. Every post has a title and content pillar, helping you see what's planned and what each post is designed to achieve.") +
+              p("You can browse the month, open individual posts and decide which ones you'd like to use. You don't have to follow the suggested dates or use every post."),
+              "cc-find", 0, "Find your Content Calendar."],
+            ["Opening a Post",
+              p("Selecting a post opens its details, including the suggested posting date, content format, caption and our guidance on what to change.") +
+              p("Before opening the design, take a moment to read <strong>How to edit</strong>. This explains which details need personalising and whether you'll need to provide any photographs, information or footage of your own.") +
+              p("When you select <strong>Use This Template</strong>, the design opens in the Studio and creates your own copy in <strong>Your designs</strong>. You can then edit and save it without changing the original template."),
+              "cc-post", 0, "Open a post."],
+          ]) },
 
       { title: "Editing Your Design", walk: "cc-edit",
         body_html:
