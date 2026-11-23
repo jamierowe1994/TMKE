@@ -2617,7 +2617,8 @@ import "../../styles/account-sections.css";
     async function paintSched(p) {
       const sec = document.getElementById('post-sched'), body = document.getElementById('sch-body');
       const acct = await plannerStore();
-      if (!p || !acct || acct.blocked || !API_BASE || (demoOn() && !isTrainingDemo()) || !isPostItem(p)) { sec.hidden = true; return; }
+      // The training window's login is blocked, but its scheduling is pretend anyway (trainingSend).
+      if (!p || !acct || (acct.blocked && !acct.training) || !API_BASE || (demoOn() && !isTrainingDemo()) || !isPostItem(p)) { sec.hidden = true; return; }
       sec.hidden = false;
       const z = zernioOf(p);
       schState(z);
@@ -2707,6 +2708,30 @@ import "../../styles/account-sections.css";
         { id: 'training-facebook', platform: 'facebook', username: 'Rimberio Homes' },
       ] };
     }
+    // The training window's one scheduled post (see where items load). Kept
+    // for the visit, so Change or Don't post it stick while it's open.
+    const trainingSamples = new Map();
+    async function trainingSamplePost(fromYmd, toYmd) {
+      const key = ccMonthKey(viewMonth);
+      if (trainingSamples.has(key)) return trainingSamples.get(key);
+      const m = await loadPublishedMonth(supabase, key, null);
+      const tomorrow = ymd(new Date(Date.now() + 86400000));
+      const post = m && !m.preview && (m.posts || []).find((p) => p.post_date && p.post_date >= tomorrow
+        && p.post_date >= fromYmd && p.post_date <= toYmd && p.template && p.template.thumb_url);
+      if (!post) return null;
+      const at = `${post.post_date}T09:00:00`;
+      const s = {
+        id: 'training-sample-' + post.id, user_id: null, activity: 'social_post', status: 'scheduled',
+        title: post.title || 'Your post', caption: (post.captions || [])[0] || '',
+        scheduled_date: post.post_date, scheduled_time: '09:00', has_time: true, platform_hint: 'instagram',
+        asset_url: post.template.thumb_url, thumbnail_url: post.template.thumb_url, reminder: false,
+        details: { cc_post_id: post.id, cc_month: key, zernio: {
+          post_id: 'training-sample', training: true, status: 'scheduled',
+          scheduled_for: new Date(at).toISOString(), accounts: ['training-instagram', 'training-facebook'], at: new Date().toISOString() } },
+      };
+      trainingSamples.set(key, s);
+      return s;
+    }
     async function schCheck(acct, id, caption, platforms) {
       if (acct && acct.training) return { ok: true, problems: [] };
       return checkPost(acct.token, id, caption, platforms);
@@ -2720,12 +2745,15 @@ import "../../styles/account-sections.css";
         zernio.results = ids.map((id) => ({ account_id: String(id), platform: String(id).replace('training-', ''), status: 'posted' }));
       }
       const details = { ...(p.details || {}), zernio };
+      // The training window saves nothing: the change lives on the post for the visit.
+      if (!acct.db) return { ok: true, zernio };
       const { error } = await acct.db.from(acct.table).update({ details }).eq('id', p.id);
       if (error) throw new Error(error.message || "Couldn't save the post.");
       return { ok: true, zernio };
     }
     async function trainingUnsend(acct, p) {
       const { zernio, ...rest } = p.details || {};
+      if (!acct.db) return;
       const { error } = await acct.db.from(acct.table).update({ details: rest }).eq('id', p.id);
       if (error) throw new Error(error.message || "Couldn't take it back.");
     }
@@ -2795,7 +2823,8 @@ import "../../styles/account-sections.css";
       }
       // Save the row first: the Worker posts what's on it.
       const patch = { title, scheduled_date: date, scheduled_time: time, has_time: true, caption };
-      const { error } = await acct.db.from(acct.table).update(patch).eq('id', p.id);
+      // The training window has nowhere to save; the change stays on the post for the visit.
+      const { error } = acct.db ? await acct.db.from(acct.table).update(patch).eq('id', p.id) : { error: null };
       if (error) return fail(error.message || "Couldn't save the post.");
       Object.assign(p, patch);
       try {
@@ -2842,7 +2871,7 @@ import "../../styles/account-sections.css";
       if (!title) return fail('Give the post a short title.');
       if (!caption) return fail('Add a caption first.');
       btn.disabled = true; btn.textContent = 'Checking…';
-      const { error } = await acct.db.from(acct.table).update({ title, caption }).eq('id', p.id);
+      const { error } = acct.db ? await acct.db.from(acct.table).update({ title, caption }).eq('id', p.id) : { error: null };
       if (error) return fail(error.message || "Couldn't save the post.");
       Object.assign(p, { title, caption });
       try {
@@ -4461,6 +4490,15 @@ import "../../styles/account-sections.css";
             });
           });
         } catch (_) { /* the calendar is fine without them */ }
+      }
+
+      /* The walkthrough's training window has no login, so its Planner is
+         empty. Course 1's Check Your Post and Make Changes need a post that's
+         scheduled (Danielle, 23 Nov): one of the month's own posts, set to go
+         out to Rimberio Homes' pretend Instagram and Facebook. Made here,
+         held for the visit, never saved. */
+      if (window.__TMKE_TRAINING_WINDOW__ && !items.some(isPostItem)) {
+        try { const s = await trainingSamplePost(fromYmd, toYmd); if (s) items.push(s); } catch (_) {}
       }
 
       // Holidays — fall back silently to a small stub so the demo still

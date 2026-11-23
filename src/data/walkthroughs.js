@@ -43,6 +43,8 @@ const CC_PAGE = `/account/schedule?view=posts&focus=${CC_FOCUS}`;
 const CC_OURS = "#cc-ours[hidden] ~ #cc-tab";
 const CC_MINE = "#cc-ours:not([hidden]) ~ #cc-tab";
 const CC_SHUT_POST = "#ccp:not([hidden]) #ccp-x";
+// The Planner's day and post pop-outs: a click on the backdrop shuts each.
+const PL_SHUT = ["#post-modal:not([hidden])", "#day-modal:not([hidden])"];
 const ED_REEL = "/account/editor?ccpost=sample-reel";
 const ED_CAROUSEL = "/account/editor?ccpost=sample-carousel";
 // The Studio's Share menu and its pop-out, opened only when they aren't already.
@@ -900,10 +902,13 @@ export const WALKS = {
       { href: ED_REEL, target: '#ed-share-go [data-way="now"]', placement: "left", padding: 8, tap: IG_OPEN,
         eyebrow: "When", title: "Publish Immediately",
         body: "Choose Post now if you'd like your post to go out straight away." },
-      { href: CC_PAGE, target: "#cal-grid", placement: "top", close: CC_SHUT_POST, tap: CC_MINE,
+      /* The training window's pretend scheduled post (schedule.astro,
+         trainingSamplePost): one of the month's posts, set to go out. */
+      { href: CC_PAGE, target: ".cal-day:has(.cal-chip.is-zsched)", placement: "auto", padding: 6, close: [CC_SHUT_POST, ...PL_SHUT], tap: CC_MINE,
         eyebrow: "Planner", title: "Check Your Post",
         body: "Open your Planner to see whether a post is Scheduled, Posted or Failed." },
-      { href: CC_PAGE, target: "#cal-grid", placement: "top", close: CC_SHUT_POST, tap: CC_MINE,
+      { href: CC_PAGE, target: "#post-sched", placement: "left", padding: 8, close: CC_SHUT_POST,
+        tap: [CC_MINE, "body:has(#post-modal[hidden]) .cal-day:has(.cal-chip.is-zsched)", "#day-modal:not([hidden]) .day-item:has(.is-zsched)"],
         eyebrow: "Planner", title: "Make Changes",
         body: "Open the scheduled post in your Planner to change its details, publish it immediately or stop it from going out." },
     ],
