@@ -290,8 +290,9 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .gle-body [contenteditable="true"]:hover { outline-color: rgba(55,30,40,0.35); }
     .gle-body [contenteditable="true"]:focus { outline: 2px solid var(--english-violet); background: rgba(255,255,255,0.7); }
     .gle-body a, .gle-body button { cursor: text; }
-    .gle-body [contenteditable="true"]:empty { min-height: 1.6em; }
-    .gle-body [contenteditable="true"]:empty::before { content: "Type here"; color: rgba(28,29,34,0.35); }
+    .gle-body [contenteditable="true"]:empty, .gle-body .gle-empty { min-height: 1.6em; }
+    .gle-body [contenteditable="true"]:empty::before, .gle-body .gle-empty:not(:focus)::before { content: "Type here"; color: rgba(28,29,34,0.35); font-weight: 400; }
+    .gle-body .gle-empty { outline-color: rgba(55,30,40,0.35); }
     /* Parts members open by tapping a card are shown here so their words can be changed. */
     .gle-body .bk-open-body[hidden] { display: block; grid-column: 1 / -1; padding: 14px 16px; border: 1px dashed rgba(55,30,40,0.3); border-radius: 4px; background: rgba(255,255,255,0.6); }
     .gle-body .bk-open-body[hidden]::before { content: "Opens when they tap the card"; display: block; margin-bottom: 6px; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
@@ -434,18 +435,29 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         if (/^(IMG|SVG|VIDEO|IFRAME|BR|HR)$/i.test(el.tagName)) return;
         const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
         // An empty paragraph, heading or list item is a place to type, too.
-        const emptyLine = !el.children.length && !el.textContent.trim() && /^(P|H[1-6]|LI|BLOCKQUOTE|FIGCAPTION)$/.test(el.tagName);
+        // The browser leaves a <br> (or an emptied <strong>) in a box whose
+        // words were deleted: it's still an empty line, so it stays a place to
+        // type (Dani, 23 Nov: such boxes went uneditable and sat on the page
+        // unseen, adding gaps).
+        const emptyLine = !el.textContent.trim() && /^(P|H[1-6]|LI|BLOCKQUOTE|FIGCAPTION)$/.test(el.tagName)
+          && [...el.querySelectorAll("*")].every((k) => /^(BR|STRONG|B|EM|I|SPAN|U)$/.test(k.tagName));
         if (!(ownText || emptyLine) || el.querySelector(BLOCKS)) return;
         el.setAttribute("contenteditable", "true");
         el.setAttribute("spellcheck", "true");
       });
+      markEmpty(root);
+    }
+    // An empty box shows itself - a dashed outline and "Type here" - until
+    // it's typed in or deleted with the Delete tool or Backspace.
+    function markEmpty(root) {
+      root.querySelectorAll('[contenteditable="true"]').forEach((el) => el.classList.toggle("gle-empty", !el.textContent.trim() && !el.querySelector("img,video,iframe,svg")));
     }
     // Back to HTML without the editing marks.
     function pageHtml() {
       const c = $("#g-page-body").cloneNode(true);
       c.querySelectorAll("[contenteditable]").forEach((el) => { el.removeAttribute("contenteditable"); el.removeAttribute("spellcheck"); });
       c.querySelectorAll(".gr-subhead").forEach((el) => { el.classList.remove("gr-subhead"); if (!el.getAttribute("class")) el.removeAttribute("class"); });
-      c.querySelectorAll(".gle-sel").forEach((el) => { el.classList.remove("gle-sel"); if (!el.getAttribute("class")) el.removeAttribute("class"); });
+      c.querySelectorAll(".gle-sel, .gle-empty").forEach((el) => { el.classList.remove("gle-sel", "gle-empty"); if (!el.getAttribute("class")) el.removeAttribute("class"); });
       c.querySelectorAll('[style=""]').forEach((el) => el.removeAttribute("style"));
       return c.innerHTML;
     }
@@ -485,7 +497,11 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     }
     WALK_LIST.forEach((w) => { const o = document.createElement("option"); o.value = w.id; o.textContent = w.title; $("#g-page-walk").appendChild(o); });
     function syncPage() { if (pageAt < 0) return; markSubheads($("#g-page-body")); lessons[pageAt].body_html = pageHtml(); $("#g-page-html").value = lessons[pageAt].body_html; markDirty(); }
-    $("#g-page-body").addEventListener("input", syncPage);
+    $("#g-page-body").addEventListener("input", (e) => {
+      const b = e.target.closest && e.target.closest('[contenteditable="true"]');
+      if (b) b.classList.toggle("gle-empty", isBlank(b));
+      syncPage();
+    });
     // Links and buttons in the lesson are words to edit here, not places to go.
     $("#g-page-body").addEventListener("click", (e) => { if (e.target.closest("a,button")) e.preventDefault(); });
 
@@ -515,12 +531,9 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     }
     let redrawing = false;
     function quiet(fn) { redrawing = true; try { fn(); } finally { redrawing = false; } }
-    $("#g-page-body").addEventListener("focusout", (e) => {
-      if (redrawing) return;
-      const el = e.target.closest && e.target.closest('[contenteditable="true"]');
-      if (!el || !el.isConnected || !isBlank(el) || boxes().length < 2) return;
-      removeBox(el); syncPage(); updateTools();
-    });
+    // Clicking away from an empty box leaves it where it is (Dani, 23 Nov:
+    // it used to vanish, so a box added and not typed in straight away was
+    // lost). Delete or Backspace takes it out.
     $("#g-page-body").addEventListener("keydown", (e) => {
       const el = e.target.closest('[contenteditable="true"]');
       if (!el) return;
