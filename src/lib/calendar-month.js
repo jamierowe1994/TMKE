@@ -292,7 +292,24 @@ export async function loadPost(supabase, id) {
   } catch (_) { return null; }
 }
 
-export const POST_TYPE_LABEL = { single: "Single image", carousel: "Carousel", reel: "Reel" };
+/* A post to show in a walkthrough (Course 1, 23 Nov): the editor opens
+   ?ccpost=sample-reel (or -carousel, -single) as the first post of that kind
+   in the month that's out, this month or, before the first one, next month.
+   Any post with a design if there's none of that kind. Null when no month
+   can be read. */
+export async function samplePostId(supabase, type) {
+  const now = new Date();
+  for (let i = 0; i < 2; i++) {
+    const m = await loadPublishedMonth(supabase, monthKey(new Date(now.getFullYear(), now.getMonth() + i, 1)), null);
+    if (!m || m.preview || !m.posts.length) continue;
+    const ok = m.posts.filter((p) => p.template_id);
+    const p = ok.find((x) => !type || x.post_type === type) || ok[0];
+    if (p) return p.id;
+  }
+  return null;
+}
+
+export const POST_TYPE_LABEL ={ single: "Single image", carousel: "Carousel", reel: "Reel" };
 
 // "Monday 3 November".
 export function fmtPostDate(ymd) {

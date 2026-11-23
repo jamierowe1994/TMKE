@@ -489,19 +489,19 @@ export const CALENDAR_GUIDES = [
       "This course takes you through finding your content, editing it in the Studio and adding it to your Planner. If you have Content Calendar Plus, you'll also learn how to schedule or publish directly to social media.",
     ],
     lessons: [
-      { title: "Finding Your Content Calendar",
+      { title: "Finding Your Content Calendar", walk: "cc-find",
         body_html:
           p("Your Content Calendar sits within the Planner, alongside your own planned marketing activities.") +
           p("Each month, you'll find a collection of posts organised by date. Every post has a title and content pillar, helping you see what's planned and what each post is designed to achieve.") +
           p("You can browse the month, open individual posts and decide which ones you'd like to use. You don't have to follow the suggested dates or use every post.") },
 
-      { title: "Opening a Post",
+      { title: "Opening a Post", walk: "cc-post",
         body_html:
           p("Selecting a post opens its details, including the suggested posting date, content format, caption and our guidance on what to change.") +
           p("Before opening the design, take a moment to read <strong>How to edit</strong>. This explains which details need personalising and whether you'll need to provide any photographs, information or footage of your own.") +
           p("When you select <strong>Use This Template</strong>, the design opens in the Studio and creates your own copy in <strong>Your designs</strong>. You can then edit and save it without changing the original template.") },
 
-      { title: "Editing Your Design",
+      { title: "Editing Your Design", walk: "cc-edit",
         body_html:
           p("Most of the editing you'll need to do is already organised for you.") +
           p("When your design opens in the Studio, select <strong>Start</strong> from the left-hand menu. At the top, you'll find information about the post, followed by an <strong>Edit</strong> section containing the words and images you can change.") +
@@ -515,7 +515,7 @@ export const CALENDAR_GUIDES = [
           p("Use <strong>Pages</strong> on the left-hand menu to move between slides. As you select a different slide, the <strong>Edit</strong> section updates to show the words and images available on that particular page.") +
           p("Make sure you work through every slide before saving the finished carousel.") },
 
-      { title: "Captions and Reels",
+      { title: "Captions and Reels", walk: "cc-captions",
         body_html:
           p("Alongside your designs, we provide suggested captions to help you get your posts ready more quickly.") +
           p("Where possible, captions include information from your Brand Kit, but some details will still need adding or changing. These might include a property address, a local recommendation, a personal experience or something specific to your business.") +
@@ -529,7 +529,7 @@ export const CALENDAR_GUIDES = [
              "Download the reel cover and publish or schedule the video yourself through your chosen social media platform.") +
           p("If you upload the video through the Studio, it can be kept together with the planned post, making it easier to manage everything in one place.") },
 
-      { title: "Adding Posts to Your Planner",
+      { title: "Adding Posts to Your Planner", walk: "cc-plan",
         body_html:
           p("If you're using the standard Content Calendar, you can add your finished designs to your Planner and organise when you'd like to publish them.") +
           p("Adding a post to your Planner doesn't publish it to social media. It keeps your content organised and gives you the option to receive everything you need by email.") +
@@ -537,7 +537,7 @@ export const CALENDAR_GUIDES = [
           p("When the email arrives, you'll have your content ready to upload to Instagram or Facebook, whether you're posting from your phone or desktop.") +
           p("You can also sync your Planner with your usual work calendar, helping you see your social media activity alongside the rest of your schedule.") },
 
-      { title: "Scheduling With Content Calendar Plus",
+      { title: "Scheduling With Content Calendar Plus", walk: "cc-schedule",
         body_html:
           p("If you have Content Calendar Plus, you can go a step further and schedule or publish posts directly to Instagram, Facebook or both.") +
           p("This means you can prepare your content in the Studio, choose when you'd like it to go out and let the scheduling feature handle the publishing.") +

@@ -1513,6 +1513,25 @@ async function render(index) {
   /* `open` may be a list, clicked in turn (Dani's Planner walks, 18 Oct: a
      day, then Add activity, then the activity), so every step sets up its own
      pop-out from the page and stepping back still lands right. */
+  /* `close` and `tap` (Course 1's walks, 23 Nov): clicked only if they are
+     showing right now, with no waiting, `close` before `open` and `tap`
+     after it. A pop-out that may or may not be up already -- the Studio's
+     Share menu, a post's details -- is a toggle, and `open` would shut it
+     again on the step after the one that opened it. Write the selector so
+     it only matches in the state that needs the click, e.g.
+     '#ed-share[aria-expanded="false"]'. */
+  const tapShowing = async (list) => {
+    for (const sel of [].concat(list || [])) {
+      let el = null;
+      try { el = scope().querySelector(sel); } catch (_) {}
+      if (!rendered(el)) continue;
+      try { el.click(); } catch (_) {}
+      await new Promise((r) => setTimeout(r, 320));
+      if (renderCancelled(ticket)) return false;
+    }
+    return true;
+  };
+  if (step.close && !(await tapShowing(step.close))) return;
   if (step.open) {
     for (const sel of [].concat(step.open)) {
       const opener = await waitFor(sel, stageOn() ? 6000 : 2000);
@@ -1522,6 +1541,7 @@ async function render(index) {
       await new Promise((r) => setTimeout(r, 260));
     }
   }
+  if (step.tap && !(await tapShowing(step.tap))) return;
 
   // Wait for / validate the target. Skip the step cleanly if it never shows.
   if (step.target) {

@@ -9273,7 +9273,18 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         try {
           const acct = await plannerStore();
           info.acct = acct;
-          if (acct && !acct.blocked && !acct.training && API_BASE) {
+          /* The training account shares too, pretend (Course 1's walkthrough,
+             23 Nov), as the Planner's does: Rimberio Homes' Instagram and
+             Facebook, on Content Calendar Plus. Nothing is sent: shareSubmit
+             stops at the training account. */
+          if (acct && acct.training) {
+            info.access = { ok: true, calendar: true, scheduling: true };
+            info.open = true;
+            info.accounts = [
+              { id: "training-instagram", platform: "instagram", username: "rimberiohomes" },
+              { id: "training-facebook", platform: "facebook", username: "Rimberio Homes" },
+            ];
+          } else if (acct && !acct.blocked && API_BASE) {
             const { memberAccess } = await import("../../lib/calendar-month.js");
             info.access = await memberAccess(supabase).catch(() => null);
             if (info.access && info.access.scheduling) {
@@ -9605,6 +9616,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       }
       const acct = await plannerStore();
       if (!acct) return showError("You're signed out. Sign in again, then share it.");
+      // Its accounts are pretend (loadShareInfo): nothing goes anywhere.
+      if (acct.training) return showError("This is the training account, so nothing is shared to Instagram or Facebook.");
       if (acct.blocked) return showError(acct.reason);
       if (await askSameDay(acct, dateStr, platforms)) return;
       shareBusy = true;
@@ -12359,8 +12372,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const lift = () => document.documentElement.classList.remove("ed-direct");
       const giveUp = setTimeout(lift, 8000);
       (async () => {
-        const { loadPost, loadCalendarTemplate } = await import("../../lib/calendar-month.js");
-        const post = await loadPost(supabase, id);
+        const { loadPost, loadCalendarTemplate, samplePostId } = await import("../../lib/calendar-month.js");
+        // A walkthrough's ?ccpost=sample-reel: the month's first reel (Course 1, 23 Nov).
+        const sample = /^sample(?:-(single|carousel|reel))?$/.exec(id);
+        const postId = sample ? await samplePostId(supabase, sample[1] || null) : id;
+        const post = postId ? await loadPost(supabase, postId) : null;
         // Nothing to show this person (not published, or not theirs to see):
         // the Studio's own front page, rather than an empty canvas.
         if (!post || !post.template_id) { location.replace("/account/editor"); return; }

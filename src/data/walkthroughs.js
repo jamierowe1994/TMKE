@@ -27,6 +27,34 @@ const PL_MP = '.cal-view-btn[data-view="all"]';
 const PL_CC = '.cal-view-btn[data-view="posts"]';
 const PL_DAY = ".cal-day:not(.is-past):not(.is-other-month)";
 
+/* Course 1, Using Your Content Calendar (Danielle, 23 Nov). The cards are her
+   Show me cards, word for word. The Content Calendar starts in December 2026,
+   so until then the Planner opens on December: this month has no posts to
+   show. The Studio walks open one of the month's posts of the kind the lesson
+   is about (editor.astro: ?ccpost=sample-reel). */
+const CC_FIRST = "2026-12";
+const CC_FOCUS = (() => {
+  const d = new Date();
+  const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return ym < CC_FIRST ? CC_FIRST : ym;
+})();
+const CC_PAGE = `/account/schedule?view=posts&focus=${CC_FOCUS}`;
+// Back to the month's posts if the tab was left on their own calendar.
+const CC_OURS = "#cc-ours[hidden] ~ #cc-tab";
+const CC_MINE = "#cc-ours:not([hidden]) ~ #cc-tab";
+const CC_SHUT_POST = "#ccp:not([hidden]) #ccp-x";
+const ED_REEL = "/account/editor?ccpost=sample-reel";
+const ED_CAROUSEL = "/account/editor?ccpost=sample-carousel";
+// The Studio's Share menu and its pop-out, opened only when they aren't already.
+const SHARE_MENU = '#ed-share[aria-expanded="false"]';
+const SHARE_SHUT = "#ed-schedule-modal:not([hidden]) #ed-schedule-close";
+const MODAL_SHUT = 'body:has(#ed-schedule-modal[hidden]) ';
+const PLAN_OPEN = [MODAL_SHUT + SHARE_MENU, '#ed-share-menu:not([hidden]) [data-share="plan"]'];
+const IG_OPEN = [MODAL_SHUT + SHARE_MENU, '#ed-share-menu:not([hidden]) [data-share="instagram"]'];
+const EDIT_OPEN = '#ed-ccpost-edit-go[aria-expanded="false"]';
+const PAGES_ON = '#ed-pages-toggle[aria-pressed="false"]';
+const PAGES_OFF = '#ed-pages-toggle[aria-pressed="true"]';
+
 const DASHBOARD_STEPS = [
   // The whole bar, not the tab strip: on a phone the strip is hidden and the
   // sections live in the burger, and a hidden target skips the step.
@@ -710,6 +738,171 @@ export const WALKS = {
       { path: "/account/schedule", target: "#act-form .act-testi-out", placement: "top", open: [PL_MP, PL_DAY, "#day-plan", '[data-act="review_request"]', "#act-form [data-testi-tone]"],
         eyebrow: "Personalise and copy", title: "Ready to Send",
         body: "Add the client's name, check the review link from your Brand Kit, then copy the message and send it yourself." },
+    ],
+  },
+
+  /* ---- Course 1: Using Your Content Calendar (Danielle, 23 Nov) ---- */
+  "cc-find": {
+    title: "Finding Your Content Calendar",
+    lead: "Find your Content Calendar",
+    stage: CC_PAGE,
+    steps: [
+      { href: CC_PAGE, target: ".cal-view", placement: "bottom", close: CC_SHUT_POST, tap: CC_OURS,
+        eyebrow: "Planner", title: "Open Your Content Calendar",
+        body: "Select Calendar from the top navigation, then choose Content Calendar to see the month's posts." },
+      { href: CC_PAGE, target: "#cc-grid", placement: "top", close: CC_SHUT_POST, tap: CC_OURS,
+        eyebrow: "The month", title: "Browse the Month",
+        body: "Under Your Content Calendar, you'll find the planned posts for each weekday. Select a post to see more information." },
+      { href: CC_PAGE, target: ".cc-day:has(.cc-badge)", placement: "auto", padding: 6, close: CC_SHUT_POST, tap: CC_OURS,
+        eyebrow: "Labels", title: "Understand the Labels",
+        body: "Posts marked On this day relate to a particular date or occasion. If you've already added a post to your Planner, it will show On your calendar." },
+      { href: CC_PAGE, target: "#cc-tab", placement: "left", padding: 6, close: CC_SHUT_POST, tap: CC_OURS,
+        eyebrow: "Two calendars", title: "Switch Between Calendars",
+        body: "Select Your calendar to see your own planned activities. Choose the month's posts to return to the Content Calendar." },
+      /* The picker only shows with more than one edition, and the training
+         account has one: the line it sits on is lit instead. */
+      { href: CC_PAGE, target: ".cc-ours-head", placement: "bottom", padding: 8, close: CC_SHUT_POST, tap: CC_OURS,
+        eyebrow: "Editions", title: "Choose Your Edition",
+        body: "If you have access to more than one brand, use the Edition picker to choose the content you'd like to view." },
+      { href: "/account/studio", target: 'section[aria-labelledby="packs-h"]', placement: "top",
+        eyebrow: "Studio", title: "Other Ways to Find It",
+        body: "You can also access your Content Calendar through Your packs on the Studio homepage or the Seasonal content card on your dashboard." },
+    ],
+  },
+
+  "cc-post": {
+    title: "Opening a Post",
+    lead: "Open a post",
+    stage: CC_PAGE,
+    steps: [
+      { href: CC_PAGE, target: "#cc-grid .cc-post", placement: "auto", padding: 6, close: CC_SHUT_POST, tap: CC_OURS,
+        eyebrow: "The month", title: "Open a Post",
+        body: "Select any post from your Content Calendar to open its details." },
+      { href: CC_PAGE, target: ".ccp-facts", placement: "left", padding: 8, tap: [CC_OURS, "body:has(#ccp[hidden]) #cc-grid .cc-post"],
+        eyebrow: "Your post", title: "Check the Post Information",
+        body: "You'll see the suggested date, content pillar and format. Posts linked to a particular occasion will also be identified." },
+      { href: CC_PAGE, target: ".ccp-scroll", placement: "left", padding: 8, tap: [CC_OURS, "body:has(#ccp[hidden]) #cc-grid .cc-post"],
+        eyebrow: "Your post", title: "Read the Guidance",
+        body: "Look for How to edit to see what needs changing. For reels, What to film explains the video concept." },
+      { href: CC_PAGE, target: "#ccp-cap-wrap", placement: "left", padding: 8, tap: [CC_OURS, "body:has(#ccp[hidden]) #cc-grid .cc-post"],
+        eyebrow: "Your post", title: "Review the Caption",
+        body: "Under Caption, you'll find the suggested wording we've prepared for the post." },
+      { href: CC_PAGE, target: "#ccp-use", placement: "left", padding: 8, tap: [CC_OURS, "body:has(#ccp[hidden]) #cc-grid .cc-post"],
+        eyebrow: "Your post", title: "Open the Design",
+        body: "Select Use This Template to create your copy and open it in the Studio." },
+    ],
+  },
+
+  "cc-edit": {
+    title: "Editing Your Design",
+    lead: "Edit your design",
+    stage: ED_CAROUSEL,
+    steps: [
+      { target: "#ed-ccpost-edit", placement: "right", padding: 8, close: PAGES_OFF, open: '[data-tool="start"]',
+        eyebrow: "Start", title: "Find the Editing Options",
+        body: "Select Start on the left, then open Edit to see the words and images available to change." },
+      { target: "#ed-ccpost-fields", placement: "right", padding: 8, close: PAGES_OFF, open: '[data-tool="start"]', tap: EDIT_OPEN,
+        eyebrow: "Edit", title: "Change Text or Images",
+        body: "Work through the fields and update anything relevant. Use Change to replace an image or Add a picture where a space is empty." },
+      { target: "#ed-canvas-shadow", placement: "left", close: PAGES_OFF, open: '[data-tool="start"]', tap: EDIT_OPEN,
+        eyebrow: "Your details", title: "Check What's Already Yours",
+        body: "Review any details populated from your Brand Kit and make sure they're correct." },
+      { target: "#ed-pages", placement: "top", padding: 8, open: '[data-tool="start"]', tap: [EDIT_OPEN, PAGES_ON],
+        eyebrow: "Carousels", title: "Edit Carousel Slides",
+        body: "Select Pages and move through each slide, updating its content in the Edit section." },
+      { target: "#ed-save", placement: "bottom", padding: 8, close: PAGES_OFF,
+        eyebrow: "Save", title: "Save Your Design",
+        body: "Select Save in the top-right corner. You'll see Saved when your changes have been saved." },
+    ],
+  },
+
+  "cc-captions": {
+    title: "Captions and Reels",
+    lead: "Find your caption and reel guidance",
+    stage: ED_REEL,
+    steps: [
+      { target: "#ed-ccpost-cap", placement: "right", padding: 8, close: SHARE_SHUT, open: '[data-tool="start"]',
+        eyebrow: "Caption", title: "Find Your Caption",
+        body: "In the Studio, open Start and look for Caption. Select Copy caption if you'd like to use the wording elsewhere." },
+      { target: "#ed-ccpost-reel", placement: "right", padding: 8, close: SHARE_SHUT, open: '[data-tool="start"]', tap: '#ed-ccpost:not(.is-open) #ed-ccpost-toggle',
+        eyebrow: "Reels", title: "Read the Reel Guidance",
+        body: "For reel templates, look for For the Reel to see the filming concept and instructions." },
+      { target: "#ed-ccpost-video", placement: "right", padding: 8, close: SHARE_SHUT, open: '[data-tool="start"]',
+        eyebrow: "Reels", title: "Find Your Video Options",
+        body: "Open Edit and look for Your Video to see how your video can be used with the design." },
+      { target: "#ed-sched-video", placement: "left", padding: 8, tap: PLAN_OPEN,
+        eyebrow: "Reels", title: "Add Your Video",
+        body: "When planning or scheduling a reel, select Add your video and upload your finished MP4 or MOV file." },
+      { target: "#ed-sched-cap-field", placement: "left", padding: 8, tap: PLAN_OPEN,
+        eyebrow: "Caption", title: "Personalise Your Caption",
+        body: "When adding the post to your Planner or sharing it, review the caption and replace any placeholder information with your own details." },
+    ],
+  },
+
+  "cc-plan": {
+    title: "Adding Posts to Your Planner",
+    lead: "Add a post to your Planner",
+    stage: ED_REEL,
+    steps: [
+      { href: ED_REEL, target: '#ed-share-menu [data-share="plan"]', placement: "left", padding: 6, close: SHARE_SHUT, tap: SHARE_MENU,
+        eyebrow: "Share", title: "Add Your Post to the Planner",
+        body: "In the Studio, select Share, then Save to your Studio Planner." },
+      { href: ED_REEL, target: "#ed-sched-when", placement: "left", padding: 8, tap: PLAN_OPEN,
+        eyebrow: "Plan", title: "Choose Your Posting Date",
+        body: "The post will have a suggested date, but you can change it to suit your schedule." },
+      { href: ED_REEL, target: "#ed-sched-cap-field", placement: "left", padding: 8, tap: PLAN_OPEN,
+        eyebrow: "Plan", title: "Review Your Caption",
+        body: "Choose from the suggested captions and personalise the wording before planning your post." },
+      { href: ED_REEL, target: "#ed-sched-video", placement: "left", padding: 8, tap: PLAN_OPEN,
+        eyebrow: "Reels", title: "Include a Reel Video",
+        body: "If you're planning a reel, select Add your video to upload your finished footage alongside the cover and caption." },
+      { href: ED_REEL, target: "#ed-sched-remind-row", placement: "left", padding: 8, tap: PLAN_OPEN,
+        eyebrow: "Reminder", title: "Set an Email Reminder",
+        body: "Leave Send me an email reminder selected and choose when you'd like to receive your content." },
+      { href: ED_REEL, target: "#ed-schedule-emailnow", placement: "top", padding: 8, tap: PLAN_OPEN,
+        eyebrow: "Email", title: "Get Your Content Immediately",
+        body: "Select Email it to me now to receive the image and caption straight away." },
+      { href: ED_REEL, target: "#ed-schedule-submit", placement: "top", padding: 8, tap: PLAN_OPEN,
+        eyebrow: "Plan", title: "Add It to Your Calendar",
+        body: "Select Plan post. The post will now appear in your Planner for the date you've chosen." },
+      { href: CC_PAGE, target: "#cal-sync", placement: "bottom", padding: 8, close: CC_SHUT_POST,
+        eyebrow: "Your calendar", title: "Sync With Your Work Calendar",
+        body: "Select Sync to my calendar to connect your planned activities with a supported calendar, including Apple, Outlook or Google Calendar." },
+    ],
+  },
+
+  "cc-schedule": {
+    title: "Scheduling With Content Calendar Plus",
+    lead: "Schedule a post",
+    stage: ED_REEL,
+    steps: [
+      { href: "/account", target: ".ws-nav-right", placement: "bottom", padding: 8,
+        eyebrow: "Your Account", title: "Connect Your Accounts",
+        body: "Go to Your Account → Plan → Your social accounts and link your Instagram and Facebook accounts." },
+      { href: ED_REEL, target: "#ed-share-menu", placement: "left", padding: 6, close: SHARE_SHUT, tap: SHARE_MENU,
+        eyebrow: "Share", title: "Choose Where to Share",
+        body: "In the Studio, select Share, then Share to Instagram or Share to Facebook." },
+      { href: ED_REEL, target: "#ed-share-who", placement: "left", padding: 8, tap: IG_OPEN,
+        eyebrow: "Share", title: "Share to Both Platforms",
+        body: "Select Also share to Facebook or Also share to Instagram if you'd like to publish to both." },
+      { href: ED_REEL, target: "#ed-sched-cap-field", placement: "left", padding: 8, tap: IG_OPEN,
+        eyebrow: "Caption", title: "Review Your Caption",
+        body: "Check the suggested wording, personalise any missing details and make your final changes." },
+      { href: ED_REEL, target: "#ed-sched-video", placement: "left", padding: 8, tap: IG_OPEN,
+        eyebrow: "Reels", title: "Upload Your Reel",
+        body: "For video posts, select Add your video to include your finished reel." },
+      { href: ED_REEL, target: '#ed-share-go [data-way="schedule"]', placement: "left", padding: 8, tap: IG_OPEN,
+        eyebrow: "When", title: "Schedule Your Post",
+        body: "Under When should it go out?, choose Schedule it and select a date and time at least 10 minutes ahead." },
+      { href: ED_REEL, target: '#ed-share-go [data-way="now"]', placement: "left", padding: 8, tap: IG_OPEN,
+        eyebrow: "When", title: "Publish Immediately",
+        body: "Choose Post now if you'd like your post to go out straight away." },
+      { href: CC_PAGE, target: "#cal-grid", placement: "top", close: CC_SHUT_POST, tap: CC_MINE,
+        eyebrow: "Planner", title: "Check Your Post",
+        body: "Open your Planner to see whether a post is Scheduled, Posted or Failed." },
+      { href: CC_PAGE, target: "#cal-grid", placement: "top", close: CC_SHUT_POST, tap: CC_MINE,
+        eyebrow: "Planner", title: "Make Changes",
+        body: "Open the scheduled post in your Planner to change its details, publish it immediately or stop it from going out." },
     ],
   },
 };
