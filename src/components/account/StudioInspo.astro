@@ -213,7 +213,8 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   import { supabase } from "../../lib/supabase.js";
   import { syncBrandCache } from "../../lib/brand-cache.js";
   import { openingKit } from "../../lib/opening-kit.js";
-  import { updatesFor } from "../../lib/whats-new-audience.js";
+  import { updatesFor, needsAccess } from "../../lib/whats-new-audience.js";
+  import { memberAccess } from "../../lib/calendar-month.js";
   import { memberBrandsFor } from "../../lib/pack-access.js";
   // The kit is read when it's used (your tone of voice, your colours), so a
   // background fetch is enough for a device that hasn't cached it yet.
@@ -323,17 +324,28 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
      What's new in the Member Hub: the same slide as a Trending topic, with
      the facts strip saying when and where, and a button to go and try it. */
   // The updates meant for this member (Dani, 20 Nov): every member's, plus
-  // those for a brand they're in. Their brands are asked for once.
-  let newsBrands = null;
+  // those for a brand they're in. Their brands are asked for once. Since
+  // 23 Nov an update can also be for a subscription or for TEG / Fine &
+  // Country; those come from the Worker's /access/me, asked only when an
+  // update needs them. With no answer, those updates stay out.
+  let newsBrands = null, newsAccess;
   async function news() {
     eyebrow.textContent = "What's new";
     title.textContent = "In your Member Hub";
     if (newsBrands === null) {
       body.innerHTML = `<div class="si-empty"><p>Loading what's new&hellip;</p></div>`;
-      try { newsBrands = await memberBrandsFor(supabase); } catch (_) { newsBrands = undefined; }
+      const [brands, access] = await Promise.all([
+        memberBrandsFor(supabase).catch(() => undefined),
+        needsAccess(DATA.news) ? memberAccess(supabase).catch(() => null) : null,
+      ]);
+      newsBrands = brands; newsAccess = access;
       if (openKind !== "news") return;
     }
-    const items = updatesFor(DATA.news, newsBrands);
+    const items = updatesFor(DATA.news, {
+      brands: newsBrands,
+      levels: newsAccess && Array.isArray(newsAccess.course_levels) ? newsAccess.course_levels : undefined,
+      groups: newsAccess && newsAccess.groups ? newsAccess.groups : undefined,
+    });
     if (!items.length) {
       body.innerHTML = `<div class="si-empty"><h3>Nothing new just yet</h3><p>Updates to the hub appear here as they go live.</p></div>`;
       return;

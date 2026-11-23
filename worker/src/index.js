@@ -6610,12 +6610,31 @@ function accessMonth(offset) {
 async function memberAccess(env, user, asLevel) {
   // Their TEG brands, from the agent profiles on their contact record.
   let editions = [], primary = null;
+  // TEG or Fine & Country, by the same rule as hub notifications
+  // (broadcastGroups): a live brand, or the contact's Network tag. Used by
+  // What's New to decide who sees an update (Danielle, 23 Nov). Null when the
+  // records can't be read, so nothing shows on a guess.
+  let groups = null;
   try {
-    let c = ((await sbGet(env, "contacts", `user_id=eq.${encodeURIComponent(user.id)}&select=id&limit=1`)) || [])[0];
-    if (!c && user.email) c = ((await sbGet(env, "contacts", `email=eq.${encodeURIComponent(String(user.email).toLowerCase())}&select=id&limit=1`)) || [])[0];
+    const byUser = await sbGet(env, "contacts", `user_id=eq.${encodeURIComponent(user.id)}&select=id,tags&limit=1`);
+    let c = (byUser || [])[0], read = !!byUser;
+    if (!c && user.email) {
+      const byEmail = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(String(user.email).toLowerCase())}&select=id,tags&limit=1`);
+      c = (byEmail || [])[0]; read = read && !!byEmail;
+    }
+    // No contact record at all: an independent member, in neither group.
+    if (!c && read) groups = { teg: false, fc: false };
     if (c) {
-      const rows = (await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(c.id)}&left_at=is.null&select=brand,is_primary`)) || [];
-      rows.forEach((r) => {
+      const rows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(c.id)}&left_at=is.null&select=brand,is_primary`);
+      if (rows) {
+        const isFc = (s) => String(s || "").toLowerCase().replace(/&/g, "and").replace(/[^a-z]/g, "") === "fineandcountry";
+        const tags = Array.isArray(c.tags) ? c.tags : [];
+        groups = {
+          teg: rows.some((r) => r.brand && !isFc(r.brand)) || tags.includes("Network: TEG") || tags.includes("TEG-Role: Management-or-Support"),
+          fc: rows.some((r) => r.brand && isFc(r.brand)) || tags.includes("Network: Fine-and-Country"),
+        };
+      }
+      (rows || []).forEach((r) => {
         const ed = ACCESS_EDITION_OF_BRAND[r.brand];
         if (!ed) return;
         if (!editions.includes(ed)) editions.push(ed);
@@ -6656,6 +6675,7 @@ async function memberAccess(env, user, asLevel) {
   }
   return {
     ok: true, level, staff, teg,
+    groups,                                  // { teg, fc } for What's New; teg here is TEG without Fine & Country. null = couldn't be read
     edition: primary || editions[0], editions,
     source,                                  // staff | test | teg (brand pays) | none; later "card"
     calendar: L.calendar,
@@ -9195,7 +9215,7 @@ THE CARD
 - what: what it is, two sentences at most.
 - why: what it saves them or makes possible, one or two sentences.
 - tip: one practical pointer, one or two sentences.
-- link_href: where the button goes, one of ${links.join(", ")}, or "" for no button. /account/studio?inspo=trending opens the month's See what's working trends straight away: use it for a Trending month. /account/schedule?view=all is the Marketing Planner; /account/schedule?view=posts is the Content Calendar. (A pack or course update gets its own button from the editor, so pick the nearest place here.) link_label: the button words, e.g. "Open the Studio" ("" when no button).
+- link_href: where the button goes, one of ${links.join(", ")}, or "" for no button. /account/studio?inspo=trending opens the month's See what's working trends straight away: use it for a Trending month. /account/schedule?view=all is the Marketing Planner; /account/schedule?view=posts is the Content Calendar. (A pack, course or Content Calendar month update gets its own button from the editor, so pick the nearest place here.) link_label: the button words, e.g. "Open the Studio" ("" when no button).
 - notes: one sentence to the admin about anything you weren't sure of or couldn't find in the material. "" if nothing.
 
 VOICE
@@ -9203,6 +9223,12 @@ VOICE
 - Say where and how. One idea a sentence. No aphorisms, no slogans, no hype words (unlock, elevate, game changer, seamless, powerful).
 - No em dashes. No exclamation marks.
 - Only facts from the material, the admin's notes and the hub map. Never invent a feature, number, place or button.
+
+WHEN IT'S A CONTENT CALENDAR MONTH
+- The update tells members that month's posts are ready on their Content Calendar. Name the month in the title. area is "Content Calendar".
+- Say what the month holds, from the material: how many posts, the kinds (single images, carousels, reels), and two or three by name, including any tied to a date. Never list every post.
+- Post titles with [square brackets] have a gap the member fills in (their area, a property). Leave such a title as it's written, or pick a different post to name.
+- Mention captions, scheduling or anything else only if the material or the admin's notes do.
 
 THE HUB MAP
 ${hubMap || "(not given)"}

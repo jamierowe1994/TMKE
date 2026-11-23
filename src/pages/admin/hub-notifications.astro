@@ -51,6 +51,10 @@ const COURSES = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES].map((g
               <span>Course</span>
               <select id="hn-course">{COURSES.map((c) => <option value={c.slug}>{c.title}</option>)}</select>
             </label>
+            <label class="hn-field" id="hn-month-wrap" hidden>
+              <span>Month</span>
+              <select id="hn-month"></select>
+            </label>
             <label class="hn-field" id="hn-day-wrap" hidden>
               <span>Date</span>
               <input type="date" id="hn-day" />
@@ -165,7 +169,7 @@ const COURSES = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES].map((g
   <script>
     import { supabase } from "../../lib/supabase.js";
     import { requireAdmin } from "../../lib/admin-gate.js";
-    import { LINK_CHOICES, linkHref } from "../../lib/hub-links.js";
+    import { LINK_CHOICES, linkHref, monthChoices } from "../../lib/hub-links.js";
 
     const escapeHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     let toastTimer = null;
@@ -235,6 +239,10 @@ const COURSES = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES].map((g
         const sel = hnEl("hn-course");
         return { href: linkHref("course", sel.value), label: sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "A training course" };
       }
+      if (kind === "month") {
+        const m = hnEl("hn-month").value;
+        return { href: linkHref("month", m), label: m ? "Content Calendar, " + new Date(m + "-01T12:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" }) : "" };
+      }
       if (kind === "day") {
         const d = hnEl("hn-day").value;
         return { href: linkHref("day", d), label: d ? "Content Calendar, " + new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "" };
@@ -251,6 +259,7 @@ const COURSES = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES].map((g
       hnEl("hn-url-wrap").hidden = kind !== "url";
       hnEl("hn-course-wrap").hidden = kind !== "course";
       hnEl("hn-day-wrap").hidden = kind !== "day";
+      hnEl("hn-month-wrap").hidden = kind !== "month";
       const later = document.querySelector('input[name="hn-when"]:checked').value === "later";
       hnEl("hn-at").disabled = !later;
       const who = whoWords(hnGroups());
@@ -264,6 +273,7 @@ const COURSES = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES].map((g
     }
     ["hn-title", "hn-text", "hn-url", "hn-at", "hn-day"].forEach((id) => hnEl(id).addEventListener("input", hnSyncForm));
     ["hn-link", "hn-pack", "hn-course"].forEach((id) => hnEl(id).addEventListener("change", hnSyncForm));
+    hnEl("hn-month").innerHTML = monthChoices().map((m) => `<option value="${m.value}"${m.current ? " selected" : ""}>${m.label}</option>`).join("");
     document.querySelectorAll('input[name="hn-when"]').forEach((r) => r.addEventListener("change", () => {
       if (r.value === "later" && !hnEl("hn-at").value) {
         // Tomorrow at 9am to start from.

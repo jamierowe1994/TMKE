@@ -8,7 +8,7 @@
 // the same as the blog); the hub shows the change once that build is live.
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
-import { WHATS_NEW_COUNT } from "../../lib/whats-new-audience.js";
+import { WHATS_NEW_COUNT, AUDIENCE_LEVELS, AUDIENCE_GROUPS } from "../../lib/whats-new-audience.js";
 import { BRAND_ORDER } from "../../data/brands.js";
 import { LINK_CHOICES } from "../../lib/hub-links.js";
 import { TRAINING_GUIDES, CALENDAR_GUIDES, PRINT_GUIDES } from "../../data/training-guides.js";
@@ -65,6 +65,7 @@ const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
         <div class="wn-ai-row">
           <label class="tadm-f"><span>It&rsquo;s about</span>
             <select id="ai-kind">
+              <option value="calendar">A Content Calendar month</option>
               <option value="trending">A Trending month</option>
               <option value="course">A Learn course</option>
               <option value="pack">A pack</option>
@@ -104,14 +105,27 @@ const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
           <label class="tadm-f" id="f-href-wrap" hidden><span>Address</span><input id="f-href" placeholder="/account/… or https://…" /></label>
           <label class="tadm-f" id="f-pack-wrap" hidden><span>Pack</span><select id="f-pack"><option value="demo">Demo pack</option></select></label>
           <label class="tadm-f" id="f-course-wrap" hidden><span>Course</span><select id="f-course">{COURSE_PICKS.map((c) => <option value={c.slug}>{c.title}</option>)}</select></label>
+          <label class="tadm-f" id="f-month-wrap" hidden><span>Month on their Content Calendar</span><select id="f-month"></select></label>
           <label class="tadm-f" id="f-day-wrap" hidden><span>Date on their Content Calendar</span><input type="date" id="f-day" /></label>
           <fieldset class="tadm-f wn-aud">
             <span>Who sees it</span>
-            <div class="wn-aud-opts">
-              <label><input type="radio" name="f-aud" value="all" checked /> Every member</label>
-              <label><input type="radio" name="f-aud" value="some" /> Only these</label>
+            <div class="wn-two">
+              <label class="tadm-f"><span>Members</span>
+                <select id="f-who">
+                  <option value="all">Every member</option>
+                  {AUDIENCE_GROUPS.map((g) => <option value={g.key}>{g.label}</option>)}
+                  <option value="brands">Only these brands</option>
+                </select>
+              </label>
+              <label class="tadm-f"><span>Subscription</span>
+                <select id="f-level">
+                  <option value="">Any, or none</option>
+                  {AUDIENCE_LEVELS.map((l, i) => <option value={l.key}>{l.label}{i < AUDIENCE_LEVELS.length - 1 ? " and above" : ""}</option>)}
+                </select>
+              </label>
             </div>
             <div class="wn-aud-brands" id="f-brands" hidden></div>
+            <p class="wn-aud-says" id="f-aud-says"></p>
           </fieldset>
           <div class="wn-media">
             <div class="wn-media-box" id="f-box">Portrait 4:5<br>1080 × 1350</div>
@@ -209,12 +223,12 @@ const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
     .wn-ai-row { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 14px; }
     .wn-ai-go { display: flex; align-items: center; gap: 12px; }
     .wn-aud { border: 0; padding: 0; }
-    .wn-aud-opts { display: flex; gap: 18px; font-family: var(--sans); font-size: 14px; }
-    .wn-aud-opts label, .wn-aud-brands label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-    .hub-skin .tadm-f.wn-aud input { accent-color: #371e28; width: auto; height: auto; margin: 0; padding: 0; }
+    .wn-aud-brands label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .hub-skin .tadm-f.wn-aud .wn-aud-brands input { accent-color: #371e28; width: auto; height: auto; margin: 0; padding: 0; }
+    .wn-aud-says { margin: 0; font-family: var(--sans); font-size: 14px; font-weight: 400; color: #7e6765; }
     .wn-aud-brands { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.12); border-radius: 4px; font-family: var(--sans); font-size: 14px; }
     .wn-aud-brands[hidden] { display: none; }
-    .hub-skin .wn-aud label { margin: 0; font-family: var(--sans); font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink); }
+    .hub-skin .wn-aud .wn-aud-brands label { margin: 0; font-family: var(--sans); font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink); }
     .wn-who { font-size: 12px; color: #7e6765; }
     .tadm-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px)); background: #1c1d22; color: #fff; font-family: var(--sans); font-size: 13px; line-height: 1.45; padding: 10px 16px; border-radius: 6px; z-index: 50; margin: 0; }
     @media (max-width: 1200px) { .wn-grid { grid-template-columns: 1fr; } .wn-prev-col { position: static; } .wn-ai-row { grid-template-columns: 1fr; } }
@@ -224,8 +238,8 @@ const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
   <script>
     import { supabase, isConfigured } from "../../lib/supabase.js";
     import { requireAdmin } from "../../lib/admin-gate.js";
-    import { audiencesMeet, NO_BRAND } from "../../lib/whats-new-audience.js";
-    import { LINK_CHOICES, linkHref as hubHref, linkParse } from "../../lib/hub-links.js";
+    import { audiencesMeet, audienceParts, audienceLabel, AUDIENCE_LEVELS, AUDIENCE_GROUPS, NO_BRAND } from "../../lib/whats-new-audience.js";
+    import { LINK_CHOICES, linkHref as hubHref, linkParse, monthChoices } from "../../lib/hub-links.js";
 
     const $ = (s) => document.querySelector(s);
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -259,33 +273,55 @@ const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
       $("#f-brands").innerHTML = BRANDS.map((b) => `<label><input type="checkbox" value="${esc(b)}"${pick.has(b) ? " checked" : ""} /> ${esc(b)}</label>`).join("")
         + `<label><input type="checkbox" value="${NO_BRAND}"${pick.has(NO_BRAND) ? " checked" : ""} /> Members with no brand</label>`;
     }
+    // Who: every member, a group (TEG, TEG without F&C, F&C) or ticked brands.
+    // Subscription narrows it: that level or a higher one. Saved as one list
+    // (src/lib/whats-new-audience.js).
+    const tickedBrands = () => [...$("#f-brands").querySelectorAll("input:checked")].map((i) => i.value);
     function setAudience(aud) {
-      const a = Array.isArray(aud) ? aud.filter(Boolean) : [];
-      a.forEach((b) => { if (b !== NO_BRAND && !BRANDS.includes(b)) BRANDS.push(b); });
-      document.querySelector(`input[name="f-aud"][value="${a.length ? "some" : "all"}"]`).checked = true;
-      drawBrands(a); $("#f-brands").hidden = !a.length;
+      const p = audienceParts(aud);
+      p.brands.forEach((b) => { if (b !== NO_BRAND && !BRANDS.includes(b)) BRANDS.push(b); });
+      const group = p.groups.find((g) => AUDIENCE_GROUPS.some((x) => x.key === g));
+      $("#f-who").value = group || (p.brands.length ? "brands" : "all");
+      $("#f-level").value = AUDIENCE_LEVELS.some((x) => x.key === p.levels[0]) ? p.levels[0] : "";
+      drawBrands(p.brands); $("#f-brands").hidden = $("#f-who").value !== "brands";
+      sayWho();
     }
-    const getAudience = () => document.querySelector('input[name="f-aud"]:checked').value === "all" ? [] : [...$("#f-brands").querySelectorAll("input:checked")].map((i) => i.value);
-    const whoLabel = (a) => !a || !a.length ? "" : a.map((b) => (b === NO_BRAND ? "No brand" : b)).join(", ");
-    document.querySelectorAll('input[name="f-aud"]').forEach((r) => r.addEventListener("change", () => { $("#f-brands").hidden = r.value === "all" && r.checked; markDirty(); }));
-    $("#f-brands").addEventListener("change", markDirty);
+    function getAudience() {
+      const who = $("#f-who").value, lvl = $("#f-level").value;
+      const out = who === "all" ? [] : who === "brands" ? tickedBrands() : ["group:" + who];
+      if (lvl) out.push("level:" + lvl);
+      return out;
+    }
+    const whoLabel = (a) => audienceLabel(a);
+    // In a sentence, under the two choices.
+    function sayWho() {
+      const who = $("#f-who").value, lvl = AUDIENCE_LEVELS.find((x) => x.key === $("#f-level").value);
+      const people = who === "all" ? "Every member"
+        : who === "brands" ? (tickedBrands().length ? "Members in " + tickedBrands().map((b) => (b === NO_BRAND ? "no brand" : b)).join(", ") : "Nobody yet: tick the brands")
+        : { teg: "Everyone in TEG, Fine & Country included", teg_no_fc: "Everyone in TEG apart from Fine & Country", fc: "Fine & Country only" }[who];
+      $("#f-aud-says").textContent = people + (lvl ? ", if they have " + lvl.sees.replace(/ and (?!.* and )/, " or ") + "." : ".");
+    }
+    $("#f-who").addEventListener("change", () => { $("#f-brands").hidden = $("#f-who").value !== "brands"; sayWho(); markDirty(); });
+    $("#f-level").addEventListener("change", () => { sayWho(); markDirty(); });
+    $("#f-brands").addEventListener("change", () => { sayWho(); markDirty(); });
     // Brands on agents' profiles that aren't in the usual list still show.
     (async () => {
       try {
         const { data } = await supabase.from("agent_profiles").select("brand").is("left_at", null).limit(1000);
         [...new Set((data || []).map((r) => String(r.brand || "").trim()).filter(Boolean))].forEach((b) => { if (!BRANDS.some((x) => x.toLowerCase() === b.toLowerCase())) BRANDS.push(b); });
-        if (!$("#wn-edit").hidden) drawBrands(getAudience());
+        if (!$("#wn-edit").hidden) drawBrands(tickedBrands());
       } catch (_) {}
     })();
 
     // The button's address: a place, or a pack, course, date or address
     // picked beside it (src/lib/hub-links.js, shared with Hub notifications).
-    const PICK_FIELD = { pack: "#f-pack", course: "#f-course", day: "#f-day", url: "#f-href" };
+    const PICK_FIELD = { pack: "#f-pack", course: "#f-course", month: "#f-month", day: "#f-day", url: "#f-href" };
+    $("#f-month").innerHTML = monthChoices().map((m) => `<option value="${m.value}"${m.current ? " selected" : ""}>${m.label}</option>`).join("");
     function linkHref() { const k = $("#f-link").value; return hubHref(k, PICK_FIELD[k] ? $(PICK_FIELD[k]).value : ""); }
     function showPick() {
       const k = $("#f-link").value;
       $("#f-href-wrap").hidden = k !== "url"; $("#f-pack-wrap").hidden = k !== "pack";
-      $("#f-course-wrap").hidden = k !== "course"; $("#f-day-wrap").hidden = k !== "day";
+      $("#f-course-wrap").hidden = k !== "course"; $("#f-day-wrap").hidden = k !== "day"; $("#f-month-wrap").hidden = k !== "month";
     }
     // A pick that isn't in its list yet (packs load after the page) keeps its value.
     function setPick(sel, value) {
@@ -299,6 +335,11 @@ const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
       ["#f-href", "#f-day"].forEach((s) => { $(s).value = ""; });
       if (kind === "pack") setPick($("#f-pack"), value);
       else if (kind === "course") setPick($("#f-course"), value);
+      else if (kind === "month") {
+        const sel = $("#f-month");
+        if (![...sel.options].some((o) => o.value === value)) sel.insertAdjacentHTML("afterbegin", `<option value="${esc(value)}">${esc(monthName(value + "-01"))}</option>`);
+        sel.value = value;
+      }
       else if (kind === "day") $("#f-day").value = value;
       else if (kind === "url") $("#f-href").value = value;
       showPick();
@@ -370,7 +411,7 @@ const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
       if (!val("label") && c && c.words) $(F.label).value = c.words;
       markDirty();
     });
-    ["#f-pack", "#f-course", "#f-day"].forEach((s) => { $(s).addEventListener("change", markDirty); $(s).addEventListener("input", markDirty); });
+    ["#f-pack", "#f-course", "#f-month", "#f-day"].forEach((s) => { $(s).addEventListener("change", markDirty); $(s).addEventListener("input", markDirty); });
     $("#f-file").addEventListener("change", async (e) => {
       const file = e.target.files?.[0]; e.target.value = ""; if (!file) return;
       const stat = $("#f-stat"); stat.textContent = "Uploading…";
@@ -417,7 +458,7 @@ const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
       const payload = gather();
       if (newStatus) payload.status = newStatus;
       if (!payload.title) { toast("Give it a title first."); $(F.title).focus(); return; }
-      if (document.querySelector('input[name="f-aud"]:checked').value === "some" && !payload.audience.length) { toast("Tick who sees it, or choose Every member."); return; }
+      if ($("#f-who").value === "brands" && !tickedBrands().length) { toast("Tick the brands that see it, or choose Every member."); return; }
       if (payload.status === "published" && !payload.what) { toast("Add what's new before publishing."); $(F.what).focus(); return; }
       if (payload.status === "published" && !payload.media_url && !confirm("There's no picture. The dashboard card uses the newest update's picture. Publish anyway?")) return;
       document.querySelectorAll(".tadm-bar button").forEach((b) => (b.disabled = true));
@@ -455,7 +496,28 @@ const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
     const stripHtml = (h) => String(h || "").replace(/<(br|\/p|\/li|\/h\d|\/div)[^>]*>/gi, "\n").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&[a-z]+;/g, " ").replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
     const monthName = (d) => new Date(String(d).slice(0, 10) + "T00:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
     // Each kind: how to list them, and how to turn one into material to read.
+    const EDITION = { property: "The Property Experts", prestige: "Prestige Property Experts", lettings: "The Letting Experts", independent: "Independent agents" };
+    const POST_KIND = { single: "Single image", carousel: "Carousel", reel: "Reel" };
     const SOURCES = {
+      // A month of the Content Calendar (Danielle, 23 Nov): one row per month
+      // and edition. Its posts are read when she presses Write it.
+      calendar: {
+        list: async () => {
+          const { data } = await supabase.from("content_months").select("id,month,edition,status,intro").order("month", { ascending: false }).order("edition").limit(40);
+          return (data || []).map((r) => ({ id: r.id, label: `${monthName(r.month)} · ${EDITION[r.edition] || r.edition}${r.status === "published" ? "" : " (draft)"}`, row: r }));
+        },
+        text: async (o) => {
+          const r = o.row;
+          const { data, error } = await supabase.from("content_month_posts").select("post_date,title,post_type,pillar,date_tied,occasion,sort_order").eq("month_id", r.id).order("post_date").order("sort_order").limit(200);
+          if (error) throw new Error("Couldn't read that month's posts: " + error.message);
+          const posts = data || [];
+          const count = (k) => posts.filter((p) => p.post_type === k).length;
+          const day = (d) => d ? new Date(String(d).slice(0, 10) + "T12:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "No date";
+          return `The Content Calendar for ${monthName(r.month)} (the ${EDITION[r.edition] || r.edition} edition): a month of ready-made posts for members with a Content Calendar subscription. They open it from their Content Calendar, where each day's post opens with its design and captions.\n${r.intro || ""}\n\n`
+            + `${posts.length} posts: ${count("single")} single images, ${count("carousel")} carousels, ${count("reel")} reels.\n`
+            + posts.map((p) => `- ${day(p.post_date)} · ${POST_KIND[p.post_type] || p.post_type} · ${p.pillar || "no pillar"} · ${p.title || "Untitled"}${p.date_tied ? ` (tied to its day${p.occasion ? ": " + p.occasion : ""})` : ""}`).join("\n");
+        },
+      },
       trending: {
         list: async () => {
           const { data } = await supabase.from("trending_months").select("id,month,status,intro,topics").order("month", { ascending: false }).limit(12);
@@ -517,9 +579,11 @@ const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
         const examples = list.filter((r) => r.status === "published").sort(byDate).slice(0, 4).map((r) => ({ title: r.title, area: r.area, find_it: r.find_it, what: r.what, why: r.why, tip: r.tip }));
+        // A calendar month reads its posts now, so this can wait on the database.
+        const material = pick ? String(await SOURCES[kind].text(pick)).slice(0, 24000) : "";
         const res = await fetch(`${WORKER}/admin/whats-new/draft`, {
           method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${s?.access_token || ""}` },
-          body: JSON.stringify({ kind: $("#ai-kind").selectedOptions[0].textContent, label: pick ? pick.label : "", material: pick ? SOURCES[kind].text(pick).slice(0, 24000) : "", notes, hub_map: CFG.hubMap || "", examples }),
+          body: JSON.stringify({ kind: $("#ai-kind").selectedOptions[0].textContent, label: pick ? pick.label : "", material, notes, hub_map: CFG.hubMap || "", examples }),
         });
         const out = await res.json().catch(() => ({}));
         if (!res.ok || !out.card) { $("#ai-stat").textContent = out.error || ("Claude didn't answer (HTTP " + res.status + ")."); return; }
@@ -527,12 +591,17 @@ const HUB_MAP = hubTour ? courseText(hubTour).slice(0, 8000) : "";
         $(F.title).value = c.title || ""; $(F.area).value = c.area || ""; $(F.where).value = c.find_it || "";
         $(F.what).value = c.what || ""; $(F.why).value = c.why || ""; $(F.tip).value = c.tip || "";
         setLink(c.link_href || ""); $(F.label).value = c.link_href ? (c.link_label || "") : "";
-        // A pack or course gets a button straight to it; a Trending month to its trends.
+        // A pack or course gets a button straight to it; a Trending month to its
+        // trends; a Content Calendar month to that month on their calendar.
         const own = kind === "pack" ? hubHref("pack", pick.id) : kind === "course" ? hubHref("course", pick.slug || String(pick.id).replace(/^code:/, ""))
-          : kind === "trending" ? "/account/studio?inspo=trending" : "";
+          : kind === "trending" ? "/account/studio?inspo=trending" : kind === "calendar" ? hubHref("month", String(pick.row.month).slice(0, 7)) : "";
         if (own) { setLink(own); $(F.label).value = (LINK_CHOICES.find((x) => x.kind === linkParse(own).kind) || {}).words || $(F.label).value; }
+        // Only subscribers have the month, so a calendar update starts out for
+        // them. She can change it under Who sees it.
+        let narrowed = "";
+        if (kind === "calendar" && !$("#f-level").value) { $("#f-level").value = "calendar"; sayWho(); narrowed = " Who sees it is now Content Calendar and above."; }
         markDirty();
-        $("#ai-stat").textContent = c.notes ? "Written. Claude says: " + c.notes : "Written. Check it over, add a picture, then publish.";
+        $("#ai-stat").textContent = (c.notes ? "Written. Claude says: " + c.notes : "Written. Check it over, add a picture, then publish.") + narrowed;
       } catch (e) { $("#ai-stat").textContent = "Couldn't reach Claude: " + (e.message || e); }
       finally { btn.disabled = false; }
     });
