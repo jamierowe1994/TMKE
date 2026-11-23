@@ -334,8 +334,11 @@ import "../../styles/account-sections.css";
     const gbp2 = (p) => '£' + (Number(p || 0) / 100).toFixed(2);
     const day = (iso) => { try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'Europe/London' }); } catch (_) { return ''; } };
     const dayY = (iso) => { try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' }); } catch (_) { return ''; } };
-    // Stripe's period ends at midnight on the 1st; the member keeps it through the day before.
-    const lastDay = (iso) => { try { return day(new Date(new Date(iso).getTime() - 86400000).toISOString()); } catch (_) { return ''; } };
+    /* The last day of a paid month. It ends at the time of day they first paid
+       (billing is on that date each month, Danielle, 23 Nov), so it is the day
+       the period ends on. One second off, so a period that ends at midnight
+       exactly (the old rule, the 1st) still gives the day before. */
+    const lastDay = (iso) => { try { return day(new Date(new Date(iso).getTime() - 1000).toISOString()); } catch (_) { return ''; } };
     const monthY = (iso) => { try { return new Date(iso).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'Europe/London' }); } catch (_) { return ''; } };
     // Label at the top, the value and its small line at the foot (Dani, 11 Nov:
     // "I don't like it when everything is top-heavy in a box").
@@ -539,17 +542,18 @@ import "../../styles/account-sections.css";
             <p class="ya-blurb">Your Content Calendar is included in your ${esc(brand || 'brand')} licence, so there's nothing to cancel or pay here.</p>
             <p class="ya-blurb">A ready-made post for every weekday, ready to make your own.</p>
           </div>`;
-        const month = new Date().toLocaleDateString('en-GB', { month: 'long', timeZone: 'Europe/London' });
+        // Upgrading on the 29th, 30th or 31st: some months have no such date (copywriter, 23 Nov).
+        const lateDay = Number(new Date().toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'Europe/London' })) >= 29;
         right = `<div class="ya-box ya-mp-next">${eyebrow('Take it further')}
             <p class="ya-name">Meet Content Calendar Plus.</p>
             <p class="ya-blurb">Why stop at creating your content? With Content Calendar Plus, you can publish directly to Instagram and Facebook or schedule posts to go out automatically, all from the Studio.</p>
             ${offer.launch_offer ? '<span class="ya-tag" style="margin-top:14px;align-self:flex-start">Launch Offer</span>' : ''}
             <div class="ya-price"${offer.launch_offer ? '' : ' style="margin-top:14px"'}><b>+${esc(gbpFromPence(offer.price_pence))}</b><span>/month + VAT</span></div>
-            <p class="ya-small">${esc(gbp2(offer.total_pence))} a month including VAT. Your first payment is taken today, then on the 1st of each month.</p>
+            <p class="ya-small">${esc(gbp2(offer.total_pence))} a month including VAT. Your first payment is taken today, then on the same date each month.${lateDay ? " If a month doesn't have that date, your payment is taken on the last day of that month." : ''}</p>
             <p class="ya-small">${brand ? `Your Content Calendar is already part of your ${esc(brand)} licence, so you only pay for posting and scheduling.` : 'Everything in your Content Calendar, plus posting and scheduling.'}</p>
             <div class="ya-acts" id="ya-up-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-up-go">Upgrade to Plus ${ARROW}</button></div>
             <div class="ya-confirm" id="ya-up-confirm" hidden>
-              <span><strong>${esc(gbp2(offer.total_pence))} today</strong> for ${esc(month)}, then ${esc(gbp2(offer.total_pence))} on the 1st of each month.</span>
+              <span><strong>${esc(gbp2(offer.total_pence))} today</strong> for your first month, then ${esc(gbp2(offer.total_pence))} on the same date each month.</span>
               <div class="ya-acts"><button type="button" class="ws-btn ws-btn--primary" id="ya-up-yes">Continue to payment</button><button type="button" class="ws-btn ws-btn--ghost" id="ya-up-no">Not now</button></div>
             </div>
             <p class="ya-small is-bad" id="ya-up-msg" hidden></p>
@@ -759,14 +763,14 @@ import "../../styles/account-sections.css";
       } else if (up && up.renews_on) {
         const monthly = Math.round(up.price_pence * (1 + vat / 100));
         cards.push(fact('Next payment', `${esc(gbp2(monthly))} on ${esc(day(up.renews_on))}`, `Scheduling ${esc(gbp2(up.price_pence))} + VAT ${esc(gbp2(monthly - up.price_pence))}`));
-        brief.pay = [`${gbp2(monthly)} on ${new Date(up.renews_on).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`, card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'by card'];
+        brief.pay = [`${gbp2(monthly)} on ${new Date(up.renews_on).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' })}`, card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'by card'];
       } else {
         cards.push(up && up.ends_on ? fact('Next payment', 'No further payments', `Scheduling ends ${esc(lastDay(up.ends_on))}`) : fact('Next payment', 'Nothing due'));
         brief.pay = up && up.status === 'cancelling' ? ['Cancelled', 'nothing to pay'] : ['Nothing to pay', card ? `${BRAND[card.brand] || 'Card'} ending ${card.last4}` : 'no card on file'];
       }
       cards.push(access && access.source === 'teg'
         ? fact('Content Calendar', `Included with your ${esc(EDITION_LABEL[access.edition] || 'brand')} licence`, 'No additional cost')
-        : fact('When you pay', '1st of each month', 'For the month ahead'));
+        : fact('When you pay', 'Same date each month', 'The date you first paid, for the month ahead'));
       $('ya-pay').innerHTML = cards.join('');
       $('ya-card-go')?.addEventListener('click', updateCard);
       paintCards(inv);

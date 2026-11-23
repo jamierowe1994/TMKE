@@ -6762,13 +6762,16 @@ function dfyWaitlistEmail(r, place, spaces, reserve) {
 }
 /* ==== Card subscriptions: the Scheduling upgrade (Danielle, 11 Nov 2026) ====
    member_subscriptions.sql. TEG agents' brands pay for the calendar; an agent
-   pays the difference for Scheduling by card. Billed on the 1st for that month:
-   the first month in full on joining (a one-off line), then the subscription
-   anchored on the next 1st with no part-month prices. A failed payment gets
-   one more try, then it ends and they're back on the brand-paid calendar.
-   Cancelling runs to the end of the paid month. Test logins use Stripe's test
-   mode (STRIPE_TEST_SECRET_KEY, a test clock each so the 1st can be reached
-   now); everyone else live. */
+   pays the difference for Scheduling by card. Billed on the monthly
+   anniversary of the first payment (Danielle, 23 Nov 2026; it was the 1st, for
+   the calendar month, so upgrading on the 26th meant paying again five days
+   later): the first month in full on joining (a one-off line), then the
+   subscription anchored one month on, the same UK date and time (ccNextMonthly),
+   with no part-month prices. A failed payment gets one more try, then it ends
+   and they're back on the brand-paid calendar. Cancelling runs to the end of
+   the paid month. Test logins use Stripe's test mode (STRIPE_TEST_SECRET_KEY,
+   a test clock each so the next payment date can be reached now); everyone
+   else live. */
 // PRICES: STAND-IN until agreed (Danielle, 11-12 Nov). The standard Scheduling
 // difference is Overview's TEG price for Scheduling (content_levels.price_teg);
 // the launch offer is below. Change them here and on Overview, nowhere else.
@@ -6834,7 +6837,9 @@ async function ccActiveUpgrade(env, userId, mode) {
   if (!row) return null;
   // Cancelled and past the end of the paid month: over, even if a webhook was missed.
   if (row.status === "cancelling" && row.current_period_end && new Date(row.current_period_end).getTime() < Date.now()) return null;
-  const day = row.current_period_end ? row.current_period_end.slice(0, 10) : null;
+  // The moment itself, not a UTC date cut from it: the paid month can end at
+  // any time of day now, and the pages name the day in UK time.
+  const day = row.current_period_end || null;
   return { id: row.id, level: row.level, status: row.status, price_pence: row.price_pence, launch_offer: !!row.launch_offer,
     renews_on: row.status === "cancelling" ? null : day, ends_on: row.status === "cancelling" ? day : null };
 }
@@ -6902,10 +6907,44 @@ async function ccNow(env, mode, cust) {
   }
   return Date.now();
 }
-// The next 1st, midnight UTC, after a moment.
-function ccNextFirst(ms) {
-  const d = new Date(ms);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1, 0, 0, 0);
+/* One month on from a payment: the same UK date and time next month. That is
+   the next payment date (Danielle, 23 Nov 2026: the monthly anniversary of the
+   first payment, not the 1st). A date the next month doesn't have (the 29th,
+   30th or 31st) becomes that month's last day, and Stripe keeps to that day
+   from then on. Worked in UK time so a payment just after midnight in summer
+   isn't dated the day before. */
+function ccLondonWall(ms) {
+  const p = {};
+  new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+    .formatToParts(new Date(ms)).forEach((x) => { if (x.type !== "literal") p[x.type] = Number(x.value); });
+  return p;   // { year, month (1-12), day, hour, minute, second }
+}
+function ccLondonToUtc(y, mo, d, h, mi, s) {
+  const want = Date.UTC(y, mo - 1, d, h, mi, s);
+  let ms = want;
+  // Twice: the first pass can land the other side of a clock change.
+  for (let i = 0; i < 2; i++) {
+    const p = ccLondonWall(ms);
+    ms -= Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - want;
+  }
+  return ms;
+}
+function ccNextMonthly(ms) {
+  const p = ccLondonWall(ms);
+  let y = p.year, mo = p.month + 1;
+  if (mo > 12) { mo = 1; y += 1; }
+  const last = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  return ccLondonToUtc(y, mo, Math.min(p.day, last), p.hour, p.minute, p.second);
+}
+// "26 December", UK time.
+function ccDayMonth(ms) {
+  return new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "Europe/London" });
+}
+/* The month a payment is for, said to the member by the day it starts: it is
+   no longer a calendar month, so "December" would name a month they had mostly
+   paid for already. Stripe's own labels (ccPayLabel) still go by month. */
+function ccPaidMonthName(startSec) {
+  return `the month starting ${ccDayMonth(startSec * 1000)}`;   // copywriter, 23 Nov
 }
 // Turn a Stripe subscription into our row's fields.
 function ccSubFields(sub) {
@@ -7001,7 +7040,7 @@ async function ccEndSubscription(env, row, subId, mode, reason) {
         const line = inv.lines && inv.lines.data && inv.lines.data[0];
         const start = (line && line.period && line.period.start) || inv.period_end || inv.created;
         owed.amount = `£${((Number(inv.amount_due) || 0) / 100).toFixed(2)}`;
-        owed.month = new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+        owed.month = ccPaidMonthName(start);
       }
       // How it ended, for Billing's label (Danielle, 11 Nov): Unpaid when the two
     // tries failed and we ended it, Cancelled when they cancelled it themselves.
@@ -7033,12 +7072,12 @@ async function ccBillingEvent(env, event, mode) {
     if (!row) return true;
     if (row.status !== "pending") return true;   // Stripe retried: already done
     if (o.payment_status !== "paid") return true;
-    // This month is paid: they have it now, to the next 1st.
+    // A month is paid from today: they have it now, to the same date next month.
     const cust = ((await sbGet(env, "member_billing", `user_id=eq.${row.user_id}&mode=eq.${mode}&select=stripe_customer_id,test_clock_id`)) || [])[0] || { stripe_customer_id: o.customer };
-    const anchor = ccNextFirst(await ccNow(env, mode, cust));
+    const anchor = ccNextMonthly(await ccNow(env, mode, cust));
     await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { status: "active", stripe_customer_id: o.customer || row.stripe_customer_id,
       current_period_end: new Date(anchor).toISOString(), started_at: new Date().toISOString(), updated_at: new Date().toISOString() });
-    // Then the monthly charge from the 1st, on the card they just used.
+    // Then the monthly charge from that date, on the card they just used.
     try {
       const pi = await ccStripe(env, mode, "GET", `payment_intents/${typeof o.payment_intent === "string" ? o.payment_intent : o.payment_intent.id}`);
       const pm = typeof pi.payment_method === "string" ? pi.payment_method : pi.payment_method && pi.payment_method.id;
@@ -7081,7 +7120,7 @@ async function ccBillingEvent(env, event, mode) {
     const f = ccSubFields(o);
     if (f.status === "pending") return true;
     await sbPatch(env, "member_subscriptions", `id=eq.${row.id}`, { ...f, stripe_subscription_id: o.id });
-    if (row.status !== "cancelling" && f.status === "cancelling") await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: row.level, to_level: row.level, source: "card", reason: `Cancelled; keeps ${CC_LEVEL_NAME[row.level]} until ${String(f.current_period_end || "").slice(0, 10)}` });
+    if (row.status !== "cancelling" && f.status === "cancelling") await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: row.level, to_level: row.level, source: "card", reason: `Cancelled; keeps ${CC_LEVEL_NAME[row.level]} until ${f.current_period_end ? ccDayMonth(new Date(f.current_period_end).getTime()) : "the end of the paid month"}` });
     if (row.status === "cancelling" && f.status === "active") await ccLogLevel(env, { user_id: row.user_id, email: row.email, mode, from_level: row.level, to_level: row.level, source: "card", reason: "Cancellation undone" });
     return true;
   }
@@ -7139,7 +7178,7 @@ async function ccBillingEvent(env, event, mode) {
         const start = (line && line.period && line.period.start) || o.period_end || o.created;
         await ccTellMember(env, row, "failed", {
           amount: `£${((Number(o.amount_due) || 0) / 100).toFixed(2)}`,
-          month: new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }),
+          month: ccPaidMonthName(start),
           retry: o.next_payment_attempt ? ccDayName(o.next_payment_attempt * 1000) : "in a few days",
         });
       } catch (e) { console.warn("cc tell failed", e && e.message); }
@@ -7153,7 +7192,7 @@ async function ccBillingEvent(env, event, mode) {
   return false;
 }
 
-// Start a card upgrade: a Stripe Checkout page, billed on the 1st. Returns its address.
+// Start a card upgrade: a Stripe Checkout page, then billed on the same date each month. Returns its address.
 async function ccStartUpgrade(env, user, mode, level, back) {
   const vat = await ccVatRate(env);
   const c0 = ((await sbGet(env, "contacts", `user_id=eq.${user.id}&select=first_name,last_name&limit=1`)) || [])[0];
@@ -7162,17 +7201,18 @@ async function ccStartUpgrade(env, user, mode, level, back) {
   const price = await ccUpgradePrice(env, level, now);
   if (price.pence == null) { const e = new Error("The price for this isn't set yet."); e.status = 503; throw e; }
   const tax = await ccTaxRate(env, mode, vat);
-  const anchor = ccNextFirst(now);
+  const anchor = ccNextMonthly(now);
   const monthLabel = new Date(now).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
   const ins = await sbPost(env, "member_subscriptions", { user_id: user.id, email: user.email || null, mode, level, basis: "teg_upgrade",
     price_pence: price.pence, vat_rate: vat, launch_offer: price.launch_offer, stripe_customer_id: cust.stripe_customer_id, status: "pending" }, "return=representation");
   if (!ins || !ins.ok) { const e = new Error("Run member_subscriptions.sql first. It's on the SQL to run list."); e.status = 503; throw e; }
   const row = ((await ins.json().catch(() => [])) || [])[0];
   const name = CC_LEVEL_NAME[level];
-  // Stripe won't take a whole first month and anchor a subscription on the
-  // 1st in one Checkout, so Checkout takes this month and keeps the card;
-  // the subscription from the next 1st is made on that card once it's paid
-  // (ccBillingEvent). To the member it's one payment page.
+  // Checkout takes the first month and keeps the card; the subscription from
+  // the same date next month is made on that card once it's paid
+  // (ccBillingEvent). To the member it's one payment page. Built in two steps
+  // when billing was on the 1st, which one Checkout couldn't do; kept as it is
+  // the flow that was tested, with only the date changed (23 Nov).
   const gbp = (p) => `£${(p / 100).toFixed(2)}`;
   let sess;
   try {
@@ -7188,7 +7228,7 @@ async function ccStartUpgrade(env, user, mode, level, back) {
       "invoice_creation[invoice_data][description]": ccPayLabel(level, monthLabel, "first", "teg_upgrade"),
       "invoice_creation[enabled]": "true",
       "invoice_creation[invoice_data][metadata][kind]": "cc_upgrade",
-      "custom_text[submit][message]": `Then ${gbp(price.pence)} + VAT on the 1st of each month, from ${new Date(anchor).toLocaleDateString("en-GB", { day: "numeric", month: "long", timeZone: "UTC" })}. Cancel anytime, and you'll keep access until the end of your paid month.`,
+      "custom_text[submit][message]": `Then ${gbp(price.pence)} + VAT on the same date each month, next on ${ccDayMonth(anchor)}. Cancel anytime, and you'll keep access until the end of your paid month.`,
       "metadata[kind]": "cc_upgrade", "metadata[sub_row]": row.id, "metadata[level]": level,
       success_url: `${back}${back.includes("?") ? "&" : "?"}upgrade=done`, cancel_url: `${back}${back.includes("?") ? "&" : "?"}upgrade=cancelled`,
     });
@@ -10060,7 +10100,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
               if (inv) {
                 const line = inv.lines && inv.lines.data && inv.lines.data[0];
                 const start = (line && line.period && line.period.start) || inv.period_end || inv.created;
-                due = { amount_pence: inv.amount_due, month: new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }), retry_on: inv.next_payment_attempt ? new Date(inv.next_payment_attempt * 1000).toISOString() : null };
+                due = { amount_pence: inv.amount_due, month: ccPaidMonthName(start), retry_on: inv.next_payment_attempt ? new Date(inv.next_payment_attempt * 1000).toISOString() : null };
               }
             } catch (_) {}
             if (!due) due = { amount_pence: null, month: null, retry_on: null };
@@ -10079,7 +10119,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
                   const line = inv.lines && inv.lines.data && inv.lines.data[0];
                   const start = (line && line.period && line.period.start) || inv.period_end || inv.created;
                   ended.amount_pence = inv.amount_due;
-                  ended.month = new Date(start * 1000).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+                  ended.month = ccPaidMonthName(start);
                 }
               } catch (_) {}
             }
@@ -10089,7 +10129,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
               level: "scheduling", name: CC_LEVEL_NAME.scheduling,
               price_pence: price.pence, vat_rate: vat, total_pence: Math.round(price.pence * (1 + vat / 100)),
               standard_pence: price.standard_pence, launch_offer: price.launch_offer, offer_until: price.offer_until,
-              billed: "On the 1st of each month. The first month is paid in full today.",
+              billed: "On the same date each month. The first month is paid in full today.",
             } : null,
             why_not: canUpgrade ? null : live ? "You already have it." : a.staff ? "Staff logins can't subscribe." : "Upgrades open to independent agents in February." }, 200, request, env);
         }
@@ -10314,9 +10354,9 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         return json({ ok: true }, 200, request, env);
       }
 
-      // Staff: move a test login's Stripe clock to just past its next billing
-      // date, so the 1st (renewal, a failed card, the end of a cancelled month)
-      // can be tried now. Test mode only.
+      // Staff: move a test login's Stripe clock to just past its next payment
+      // date, so that day (renewal, a failed card, the end of a cancelled
+      // month) can be tried now. Test mode only.
       if (path.endsWith("/billing/test-clock") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !user._isAdmin) return json({ error: "Staff only." }, 403, request, env);
@@ -10328,7 +10368,14 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         try {
           const c = await ccStripe(env, "test", "GET", `test_helpers/test_clocks/${cust.test_clock_id}`);
           if (c.status !== "ready") return json({ error: "Stripe is still moving that clock. Try again in a minute." }, 409, request, env);
-          const to = ccNextFirst(c.frozen_time * 1000) + 2 * 3600 * 1000;
+          /* Their paid month's end, as the subscription holds it; if the clock
+             is already past that (a payment failed, or it has ended), a month
+             on from where the clock is. Two hours over, so Stripe has made
+             and tried the invoice. */
+          const now = c.frozen_time * 1000;
+          const sub = ((await sbGet(env, "member_subscriptions", `user_id=eq.${encodeURIComponent(b.user_id)}&mode=eq.test&status=in.(active,past_due,cancelling)&select=current_period_end&order=created_at.desc&limit=1`)) || [])[0];
+          const due = sub && sub.current_period_end ? new Date(sub.current_period_end).getTime() : 0;
+          const to = (due > now ? due : ccNextMonthly(now)) + 2 * 3600 * 1000;
           await ccStripe(env, "test", "POST", `test_helpers/test_clocks/${cust.test_clock_id}/advance`, { frozen_time: Math.floor(to / 1000) });
           return json({ ok: true, now: new Date(to).toISOString() }, 200, request, env);
         } catch (e) { return json({ error: `Couldn't move the clock: ${e.message}` }, 502, request, env); }

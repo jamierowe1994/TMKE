@@ -3,8 +3,9 @@
 --
 -- December: TEG agents' brands pay for the Content Calendar, and an agent can
 -- upgrade to Content Calendar + Scheduling, paying the difference by card.
--- Billed on the 1st for that calendar month: the first month in full on the
--- day they join, then on the 1st. A failed payment gets one more try, then
+-- Billed on the monthly anniversary of the first payment (Danielle, 23 Nov
+-- 2026; it was the 1st for the calendar month): the first month in full on the
+-- day they join, then the same date each month. A failed payment gets one more try, then
 -- they go back to the brand-paid calendar. Cancelling runs to the end of the
 -- paid month. The test logins pay in Stripe's test mode; everyone else live.
 --
