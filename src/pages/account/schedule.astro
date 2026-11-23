@@ -2422,7 +2422,7 @@ import "../../styles/account-sections.css";
       }
       if (!isReel || String(openPostId) !== String(p.id)) return;
       const acct = await plannerStore();
-      const canAdd = !!(acct && !acct.blocked && !acct.training && API_BASE);
+      const canAdd = !!(acct && !acct.blocked && API_BASE);
       const vid = document.getElementById('reel-video');
       if (v) {
         if (vid.getAttribute('src') !== v.url) { vid.src = v.url; }
@@ -2470,7 +2470,7 @@ import "../../styles/account-sections.css";
       if (facts && facts.duration && facts.duration < 3) return reelError('The video is under 3 seconds. Instagram needs at least 3.');
       if (facts && facts.duration && facts.duration > 900) return reelError('The video is over 15 minutes. Instagram takes up to 15.');
       const acct = await plannerStore();
-      if (!acct || acct.blocked || acct.training) return reelError(acct && acct.reason ? acct.reason : 'Sign in again to add a video.');
+      if (!acct || acct.blocked) return reelError(acct && acct.reason ? acct.reason : 'Sign in again to add a video.');
       reelBusy = true; reelProgress(0); paintReel(p);
       let started = null;
       try {
@@ -2584,7 +2584,7 @@ import "../../styles/account-sections.css";
     async function paintSched(p) {
       const sec = document.getElementById('post-sched'), body = document.getElementById('sch-body');
       const acct = await plannerStore();
-      if (!p || !acct || acct.blocked || acct.training || !API_BASE || (demoOn() && !isTrainingDemo()) || !isPostItem(p)) { sec.hidden = true; return; }
+      if (!p || !acct || acct.blocked || !API_BASE || (demoOn() && !isTrainingDemo()) || !isPostItem(p)) { sec.hidden = true; return; }
       sec.hidden = false;
       const z = zernioOf(p);
       schState(z);
@@ -2595,7 +2595,7 @@ import "../../styles/account-sections.css";
       // no upgrade they can buy yet.
       if (!access || (!access.calendar && !access.scheduling)) { sec.hidden = true; return; }
       // Row 6: on the calendar without Scheduling, locked, pointing to the upgrade.
-      if (!access.scheduling) {
+      if (!access.scheduling && !acct.training) {
         body.innerHTML = `<p class="sch-note">Schedule this post to go out on Instagram and Facebook by itself. Included in Content Calendar Plus. <a href="${PLAN_LINK}">See your plan &rarr;</a></p>`;
         return;
       }
@@ -2605,7 +2605,7 @@ import "../../styles/account-sections.css";
       }
       body.innerHTML = '<p class="sch-note">Checking your accounts&hellip;</p>';
       let status;
-      try { status = await schedStatus(acct); } catch (e) { body.innerHTML = `<p class="sch-note">${escapeHtml(e.message)}</p>`; return; }
+      try { status = acct.training ? trainingAccounts() : await schedStatus(acct); } catch (e) { body.innerHTML = `<p class="sch-note">${escapeHtml(e.message)}</p>`; return; }
       if (openPostId !== p.id) return;
       const accs = (status.accounts || []).filter((a) => SCH_PLATS[a.platform]);
       schedAccsShown = accs;
@@ -2660,6 +2660,43 @@ import "../../styles/account-sections.css";
       if (!done) liveCheck(p);
     }
 
+    /* Pretend scheduling for the training account (Danielle, 23 Nov: "we are
+       going to need to demonstrate scheduling anyway"). Alex Mercer of
+       Rimberio Homes shows Post it for me as a Content Calendar Plus member
+       would, with his Instagram and Facebook linked. Schedule, Post now and
+       Don't post it change the post on his calendar only: nothing here ever
+       calls the Worker's scheduling routes, so nothing reaches Zernio,
+       Instagram or Facebook. memberAccess still says scheduling is off for
+       him, so Your Account never links a real account. */
+    function trainingAccounts() {
+      return { open: true, training: true, accounts: [
+        { id: 'training-instagram', platform: 'instagram', username: 'rimberiohomes' },
+        { id: 'training-facebook', platform: 'facebook', username: 'Rimberio Homes' },
+      ] };
+    }
+    async function schCheck(acct, id, caption, platforms) {
+      if (acct && acct.training) return { ok: true, problems: [] };
+      return checkPost(acct.token, id, caption, platforms);
+    }
+    async function trainingSend(acct, p, ids, now) {
+      const at = new Date().toISOString();
+      const when = now ? at : new Date(`${p.scheduled_date}T${String(p.scheduled_time || '09:00').slice(0, 5)}:00`).toISOString();
+      const zernio = { post_id: `training-${Date.now()}`, training: true, status: now ? 'posted' : 'scheduled', scheduled_for: when, accounts: ids.map(String), at };
+      if (now) {
+        zernio.notified_at = at;
+        zernio.results = ids.map((id) => ({ account_id: String(id), platform: String(id).replace('training-', ''), status: 'posted' }));
+      }
+      const details = { ...(p.details || {}), zernio };
+      const { error } = await acct.db.from(acct.table).update({ details }).eq('id', p.id);
+      if (error) throw new Error(error.message || "Couldn't save the post.");
+      return { ok: true, zernio };
+    }
+    async function trainingUnsend(acct, p) {
+      const { zernio, ...rest } = p.details || {};
+      const { error } = await acct.db.from(acct.table).update({ details: rest }).eq('id', p.id);
+      if (error) throw new Error(error.message || "Couldn't take it back.");
+    }
+
     // Row 7: what Instagram and Facebook won't take, said before sending.
     function tickedAccounts() {
       const ids = [...document.querySelectorAll('#sch-body [data-acc]:checked')].map((i) => i.value);
@@ -2673,7 +2710,7 @@ import "../../styles/account-sections.css";
         if (!platforms.length) { schMsg(''); return; }
         const acct = await plannerStore();
         try {
-          const out = await checkPost(acct.token, p.id, $postCaption.value || '', platforms);
+          const out = await schCheck(acct, p.id, $postCaption.value || '', platforms);
           if (openPostId !== p.id) return;
           const probs = out.problems || [];
           schMsg(probs.length ? probs.map((x) => `<li>${escapeHtml(x.message)}</li>`).join('') : '');
@@ -2729,7 +2766,7 @@ import "../../styles/account-sections.css";
       if (error) return fail(error.message || "Couldn't save the post.");
       Object.assign(p, patch);
       try {
-        const chk = await checkPost(acct.token, p.id, caption, platforms);
+        const chk = await schCheck(acct, p.id, caption, platforms);
         if ((chk.problems || []).length) {
           btn.disabled = false; btn.textContent = label;
           schMsg(chk.problems.map((x) => `<li>${escapeHtml(x.message)}</li>`).join(''));
@@ -2749,7 +2786,7 @@ import "../../styles/account-sections.css";
           return;
         }
         btn.textContent = 'Scheduling…';
-        const out = await schedulePost(acct.token, p.id, ids);
+        const out = acct.training ? await trainingSend(acct, p, ids, false) : await schedulePost(acct.token, p.id, ids);
         p.details = { ...(p.details || {}), zernio: out.zernio };
         renderCalendar(); refreshDayUnder();
         showPostError(`Scheduled for ${schWhen(out.zernio.scheduled_for)}.`, true);
@@ -2776,7 +2813,7 @@ import "../../styles/account-sections.css";
       if (error) return fail(error.message || "Couldn't save the post.");
       Object.assign(p, { title, caption });
       try {
-        const chk = await checkPost(acct.token, p.id, caption, platforms);
+        const chk = await schCheck(acct, p.id, caption, platforms);
         if ((chk.problems || []).length) { btn.disabled = false; btn.textContent = label; schMsg(chk.problems.map((x) => `<li>${escapeHtml(x.message)}</li>`).join('')); return; }
       } catch (e) { return fail(e.message); }
       btn.disabled = false; btn.textContent = label;
@@ -2790,12 +2827,15 @@ import "../../styles/account-sections.css";
       const acct = await plannerStore();
       const { ids } = tickedAccounts();
       try {
-        const res = await fetch(`${API_BASE}/schedule/post`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${acct.token}` },
-          body: JSON.stringify({ item_id: p.id, accountIds: ids, now: true }),
-        });
-        const out = await res.json().catch(() => ({}));
-        if (!res.ok || !out.ok) throw new Error(out.error || "It didn't post. Try again in a moment.");
+        const out = acct.training ? await trainingSend(acct, p, ids, true) : await (async () => {
+          const res = await fetch(`${API_BASE}/schedule/post`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${acct.token}` },
+            body: JSON.stringify({ item_id: p.id, accountIds: ids, now: true }),
+          });
+          const o = await res.json().catch(() => ({}));
+          if (!res.ok || !o.ok) throw new Error(o.error || "It didn't post. Try again in a moment.");
+          return o;
+        })();
         p.details = { ...(p.details || {}), zernio: out.zernio };
         renderCalendar(); refreshDayUnder();
         const st = out.zernio && out.zernio.status;
@@ -2833,7 +2873,7 @@ import "../../styles/account-sections.css";
       btn.disabled = true; btn.textContent = 'Taking it back…';
       const acct = await plannerStore();
       try {
-        await cancelPost(acct.token, p.id);
+        if (acct.training) await trainingUnsend(acct, p); else await cancelPost(acct.token, p.id);
         const { zernio, ...rest } = p.details || {};
         p.details = rest;
         renderCalendar(); refreshDayUnder();
