@@ -5,10 +5,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 ## Waiting
 
 - [ ] supabase/library_social_shares.sql (23 Nov): Creative Studio › Library › Mark as shared. Keeps which files have been shared on social and where. Until it runs, the button says it needs this file.
-- [ ] supabase/guides_level_lock.sql (23 Nov): Guides › Details › Without the level. Lets a levelled course show locked to members who don't have the level. Until it runs, "They see it locked" can't be saved and levelled courses are hidden from them.
 - [ ] supabase/member_broadcasts_audience.sql (20 Nov): Hub notifications can go to TEG, F&C or External, not only every member.
 
 ## Done
+
+- [x] supabase/guides_level_lock.sql (23 Nov): Guides › Details › Without the level. Lets a levelled course show locked to members who don't have the level. Until it runs, "They see it locked" can't be saved and levelled courses are hidden from them. Ran 23 Nov.
 
 - [x] supabase/whats_new.sql — Member hub › What's new: the updates members step through from What's New in Your Member Hub, now kept in the database so you can write, edit, delete and choose who sees each one. Adds the seven updates already in the hub, so members see no change. Until it runs, the hub keeps showing those seven and the editor says to run this. Sends nothing (20 Nov; ran 20 Nov)
 - [x] supabase/test_pack_designs.sql — Catalogue test packs: a test pack opened empty on the test login (and Sam's) because a pack's designs stayed hidden until its free date (Santa Baby... opens 20 Nov 8am). Anyone the test pack was sent to now sees its designs straight away; nobody else's view changes. Changes no pack or design. Sends nothing (18 Nov; ran 18 Nov)
