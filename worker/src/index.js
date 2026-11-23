@@ -7286,6 +7286,42 @@ async function zernioProfile(env, user) {
   return null;
 }
 // A calendar entry's London date and time as the instant Zernio schedules for.
+// Reels (Danielle, 20 Nov): a member's own video on a reel post. Instagram
+// takes MP4 or MOV, up to 300 MB and 3 seconds to 15 minutes (Zernio's
+// Instagram page); a Facebook Page video takes far more, so Instagram's limits
+// are the ones held to. Upright 9:16 is what a reel looks best at.
+const REEL_TYPES = ["video/mp4", "video/quicktime"];
+const REEL_MAX_BYTES = 300 * 1024 * 1024;
+const REEL_MIN_SECONDS = 3, REEL_MAX_SECONDS = 15 * 60;
+function reelFileUrl(env, url, key) {
+  const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
+  return `${base}/reel/file/${key.split("/").map(encodeURIComponent).join("/")}`;
+}
+async function reelUploadAllowed(env, user) {
+  if (user._isAdmin || isAdminEmail(user)) return true;
+  try { const a = await memberAccess(env, user); return !!(a.calendar || a.scheduling); } catch (_) { return false; }
+}
+// The post's video, only if it's in this member's own folder.
+function reelOf(item, userId) {
+  const v = item && item.details && item.details.video;
+  const key = v && String(v.key || "");
+  if (!key || !key.startsWith(`member-reels/${userId}/`)) return null;
+  return { ...v, key };
+}
+// Plain-words problems for a reel's video. Instagram's limits; Facebook takes more.
+async function reelProblems(env, video, platforms) {
+  const out = [];
+  const head = await env.BUCKET.head(video.key).catch(() => null);
+  if (!head) { platforms.forEach((p) => out.push({ platform: p, field: "video", message: "We can't find the video. Add it again." })); return { problems: out, video: null }; }
+  const info = { bytes: head.size, type: (head.httpMetadata && head.httpMetadata.contentType) || null, duration: Number(video.duration) || null, width: Number(video.width) || null, height: Number(video.height) || null };
+  if (platforms.includes("instagram")) {
+    const add = (message) => out.push({ platform: "instagram", field: "video", message });
+    if (info.bytes > REEL_MAX_BYTES) add(`The video is ${(info.bytes / 1048576).toFixed(0)} MB and Instagram takes up to 300 MB.`);
+    if (info.duration && info.duration < REEL_MIN_SECONDS) add("The video is under 3 seconds, and Instagram needs at least 3.");
+    if (info.duration && info.duration > REEL_MAX_SECONDS) add("The video is over 15 minutes, and Instagram takes up to 15.");
+  }
+  return { problems: out, video: info };
+}
 function londonToUtcIso(date, time) {
   const [y, m, d] = String(date).split("-").map(Number);
   const [hh, mm] = String(time || "09:00").split(":").map(Number);
@@ -10371,6 +10407,94 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const r = await zernio(env, `/accounts/${encodeURIComponent(b.accountId)}`, { method: "DELETE" });
         return json(r.ok ? { ok: true } : { error: "Couldn't disconnect it just now." }, r.ok ? 200 : 502, request, env);
       }
+      /* ---- Reel upload (Danielle, 20 Nov, needed before the calendar launches) ----
+         A member adds their own video to a reel post. Videos are too big for
+         the planner's file uploads, so they go to R2 in parts, under
+         member-reels/<their id>/, through these routes (named so they never
+         match the videography /create /part /complete routes further down).
+         The post keeps its designed cover as asset_url; the video sits on
+         details.video, and /schedule/post sends it as the reel with the cover. */
+      if (path.endsWith("/reel/upload-start") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        if (!(await reelUploadAllowed(env, user))) return json({ error: "Adding videos comes with the Content Calendar." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const type = String(b.type || "").toLowerCase();
+        const name = String(b.name || "reel.mp4");
+        if (!REEL_TYPES.includes(type) && !/\.(mp4|mov)$/i.test(name)) return json({ error: "Use an MP4 or MOV video." }, 400, request, env);
+        if (Number(b.bytes) > REEL_MAX_BYTES) return json({ error: "The video is over 300 MB. Instagram takes up to 300 MB." }, 400, request, env);
+        const ext = /\.mov$/i.test(name) || type === "video/quicktime" ? "mov" : "mp4";
+        const base = name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "reel";
+        const key = `member-reels/${user.id}/${Date.now()}-${base}.${ext}`;
+        const mp = await env.BUCKET.createMultipartUpload(key, { httpMetadata: { contentType: ext === "mov" ? "video/quicktime" : "video/mp4" } });
+        return json({ ok: true, key, uploadId: mp.uploadId }, 200, request, env);
+      }
+      if (path.endsWith("/reel/upload-chunk") && request.method === "PUT") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        const key = url.searchParams.get("key") || "", uploadId = url.searchParams.get("uploadId") || "";
+        const n = parseInt(url.searchParams.get("partNumber") || "0", 10);
+        if (!key.startsWith(`member-reels/${user.id}/`) || !uploadId || !(n >= 1 && n <= 100)) return json({ error: "That upload isn't yours." }, 403, request, env);
+        const part = await env.BUCKET.resumeMultipartUpload(key, uploadId).uploadPart(n, await request.arrayBuffer());
+        return json({ ok: true, partNumber: n, etag: part.etag }, 200, request, env);
+      }
+      if (path.endsWith("/reel/upload-finish") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        const b = await request.json().catch(() => ({}));
+        const key = String(b.key || "");
+        if (!key.startsWith(`member-reels/${user.id}/`) || !b.uploadId || !Array.isArray(b.parts)) return json({ error: "That upload isn't yours." }, 403, request, env);
+        const obj = await env.BUCKET.resumeMultipartUpload(key, String(b.uploadId)).complete(b.parts.map((p) => ({ partNumber: Number(p.partNumber), etag: String(p.etag) })));
+        if (obj.size > REEL_MAX_BYTES) { await env.BUCKET.delete(key); return json({ error: "The video is over 300 MB. Instagram takes up to 300 MB." }, 400, request, env); }
+        return json({ ok: true, key, bytes: obj.size, url: reelFileUrl(env, url, key) }, 200, request, env);
+      }
+      if (path.endsWith("/reel/upload-cancel") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        const b = await request.json().catch(() => ({}));
+        const key = String(b.key || "");
+        if (!key.startsWith(`member-reels/${user.id}/`)) return json({ error: "That video isn't yours." }, 403, request, env);
+        if (b.uploadId) { try { await env.BUCKET.resumeMultipartUpload(key, String(b.uploadId)).abort(); } catch (_) {} }
+        else await env.BUCKET.delete(key);
+        return json({ ok: true }, 200, request, env);
+      }
+      // The video itself, open to anyone with the link: Zernio fetches it from
+      // here to post it, and the planner plays it. Ranges answered so it plays
+      // and scrubs without arriving whole.
+      if ((request.method === "GET" || request.method === "HEAD") && path.includes("/reel/file/member-reels/")) {
+        const key = decodeURIComponent(path.slice(path.indexOf("/reel/file/") + "/reel/file/".length));
+        if (!/^member-reels\/[0-9a-f-]{36}\/[^/]+\.(mp4|mov)$/.test(key)) return json({ error: "Not found" }, 404, request, env);
+        if (request.method === "HEAD") {
+          const h = await env.BUCKET.head(key);
+          if (!h) return new Response(null, { status: 404 });
+          const headers = new Headers(corsHeaders(request, env));
+          h.writeHttpMetadata(headers);
+          headers.set("accept-ranges", "bytes"); headers.set("content-length", String(h.size)); headers.set("etag", h.httpEtag);
+          return new Response(null, { headers });
+        }
+        const m = /^bytes=(\d*)-(\d*)$/.exec((request.headers.get("Range") || "").trim());
+        let range;
+        if (m) {
+          if (m[1] === "" && m[2] !== "") range = { suffix: Number(m[2]) };
+          else if (m[1] !== "") range = { offset: Number(m[1]), ...(m[2] !== "" ? { length: Number(m[2]) - Number(m[1]) + 1 } : {}) };
+        }
+        const obj = await env.BUCKET.get(key, range ? { range } : undefined);
+        if (!obj) return json({ error: "Not found" }, 404, request, env);
+        const headers = new Headers(corsHeaders(request, env));
+        obj.writeHttpMetadata(headers);
+        headers.set("etag", obj.httpEtag);
+        headers.set("accept-ranges", "bytes");
+        headers.set("Cache-Control", "public, max-age=86400");
+        if (obj.range && typeof obj.range.offset === "number" && obj.size) {
+          const start = obj.range.offset;
+          const end = start + (obj.range.length || obj.size - start) - 1;
+          headers.set("content-range", `bytes ${start}-${end}/${obj.size}`);
+          headers.set("content-length", String(end - start + 1));
+          return new Response(obj.body, { status: 206, headers });
+        }
+        headers.set("content-length", String(obj.size));
+        return new Response(obj.body, { headers });
+      }
       // Schedule a calendar post to the accounts they pick, at its date and
       // time (UK time), with its picture and caption. Kept on the entry as
       // details.zernio so it can be cancelled or shown as scheduled.
@@ -10384,7 +10508,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const rows = await sbGet(env, "calendar_items", `select=*&id=eq.${id}&user_id=eq.${user.id}`);
         const item = rows && rows[0];
         if (!item) return json({ error: "That post isn't on your calendar." }, 404, request, env);
-        if (!item.asset_url) return json({ error: "Add the design to this post first." }, 400, request, env);
+        const reel = reelOf(item, user.id);
+        if (!item.asset_url && !reel) return json({ error: "Add the design to this post first." }, 400, request, env);
         // Post now (Danielle, 11 Nov): { now: true } publishes straight away,
         // after the member confirms in the pop-out. Otherwise at the post's own
         // date and time, at least ten minutes ahead (Danielle, 11 Nov).
@@ -10398,7 +10523,12 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const picked = (Array.isArray(b.accountIds) ? b.accountIds : []).map(String);
         let targets = owned.filter((a) => picked.includes(a._id || a.id)).map((a) => ({ platform: a.platform, accountId: a._id || a.id }));
         if (!targets.length) return json({ error: "Pick at least one of your connected accounts." }, 400, request, env);
-        const isVideo = /\.(mp4|mov|m4v|webm)(\?|$)/i.test(item.asset_url);
+        // A reel: their video, with the designed cover as Instagram's cover
+        // picture when there is one (a picture, not another video).
+        const cover = item.asset_url && !/\.(mp4|mov|m4v|webm)(\?|$)/i.test(item.asset_url) ? item.asset_url : null;
+        const media = reel
+          ? { type: "video", url: reelFileUrl(env, url, reel.key), ...(cover ? { instagramThumbnail: cover } : {}) }
+          : { type: /\.(mp4|mov|m4v|webm)(\?|$)/i.test(item.asset_url) ? "video" : "image", url: item.asset_url };
         // Change re-sends to the same Zernio post while it's still waiting. Try
         // again after it's gone out (failed, partial, posted) is a new post,
         // since Zernio won't edit a finished one; a partial one goes only to
@@ -10411,7 +10541,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           if (failed.length) targets = targets.filter((t) => failed.includes(String(t.accountId)));
           if (!targets.length) return json({ error: "Those accounts already have this post." }, 400, request, env);
         }
-        const body = { content: String(item.caption || ""), profileId: prof._id, platforms: targets, mediaItems: [{ type: isVideo ? "video" : "image", url: item.asset_url }] };
+        const body = { content: String(item.caption || ""), profileId: prof._id, platforms: targets, mediaItems: [media] };
         if (now) body.publishNow = true; else body.scheduledFor = when;
         let prev = !finished && was && was.post_id;
         // Posting now something already scheduled: take the scheduled one back first.
@@ -10445,10 +10575,18 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const b = await request.json().catch(() => ({}));
         const id = String(b.item_id || "");
         if (!/^[0-9a-f-]{36}$/.test(id)) return json({ error: "Which post?" }, 400, request, env);
-        const item = ((await sbGet(env, "calendar_items", `select=id,asset_url,caption&id=eq.${id}&user_id=eq.${user.id}`)) || [])[0];
+        const item = ((await sbGet(env, "calendar_items", `select=id,asset_url,caption,details&id=eq.${id}&user_id=eq.${user.id}`)) || [])[0];
         if (!item) return json({ error: "That post isn't on your calendar." }, 404, request, env);
         const platforms = (Array.isArray(b.platforms) && b.platforms.length ? b.platforms : ["instagram", "facebook"]).map(String).filter((p) => SCHEDULE_RULES[p]);
         const caption = typeof b.caption === "string" ? b.caption : String(item.caption || "");
+        // A reel is checked on its video; its cover isn't held to the feed
+        // picture rules, since it's a reel's cover, not a post of its own.
+        const reel = reelOf(item, user.id);
+        if (reel) {
+          const cap = scheduleProblems(null, caption, platforms);
+          const rv = await reelProblems(env, reel, platforms);
+          return json({ ok: true, problems: [...rv.problems, ...cap.problems], picture: null, video: rv.video, caption: cap.caption, rules: SCHEDULE_RULES }, 200, request, env);
+        }
         const picture = item.asset_url ? await schedulePicture(item.asset_url) : { error: "Add the design to this post first." };
         const out = scheduleProblems(picture, caption, platforms);
         return json({ ok: true, problems: out.problems, picture, caption: out.caption, rules: SCHEDULE_RULES }, 200, request, env);
