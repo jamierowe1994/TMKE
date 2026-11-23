@@ -803,6 +803,12 @@ export const WALKS = {
     lead: "Edit your design",
     stage: ED_CAROUSEL,
     steps: [
+      /* First (Danielle, 23 Nov): read how to edit it and get together what
+         the post needs, before changing anything. The post's card under
+         Start holds How to edit, opened if it was folded away. */
+      { target: "#ed-ccpost", placement: "right", padding: 8, close: PAGES_OFF, open: '[data-tool="start"]', tap: '#ed-ccpost:not(.is-open) #ed-ccpost-toggle',
+        eyebrow: "Start", title: "Read How to Edit",
+        body: "Understand how to edit the template and gather any resources needed for the post, such as images, videos or locations." },
       { target: "#ed-ccpost-edit", placement: "right", padding: 8, close: PAGES_OFF, open: '[data-tool="start"]',
         eyebrow: "Start", title: "Find the Editing Options",
         body: "Select Start on the left, then open Edit to see the words and images available to change." },
