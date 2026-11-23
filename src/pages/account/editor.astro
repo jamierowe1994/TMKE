@@ -637,8 +637,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           <div class="ed-ccpost-fields" id="ed-ccpost-fields" hidden></div>
         </div>
         <!-- Reels only, for everyone (Danielle, 23 Nov): where their own video
-             goes. It's added in the Planner once the reel is planned. -->
-        <div class="ed-ccpost-capbox ed-ccpost-vidbox" id="ed-ccpost-video" hidden><b>Your Video</b><i>Once you've planned this reel, open it in your Planner to upload your video and schedule it from there. Or download the cover and post the reel yourself.</i></div>
+             goes. It's added in Add to Your Planner or Share (#ed-sched-video). -->
+        <div class="ed-ccpost-capbox ed-ccpost-vidbox" id="ed-ccpost-video" hidden><b>Your Video</b><i>Add your video when you plan or share this reel, and your design becomes its cover. Or download the cover and post the reel yourself.</i></div>
         <div class="ed-ccpost-capbox" id="ed-ccpost-cap" hidden><b>Caption</b><i></i>
           <button type="button" class="ed-ccpost-copy" id="ed-ccpost-copy">Copy caption</button>
         </div>
@@ -1625,6 +1625,20 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             <span class="ed-sched-caps" id="ed-sched-caps" hidden></span>
             <textarea id="ed-sched-caption" rows="4" maxlength="2200" placeholder="The copy you'll post alongside the image. Or generate one with AI — hashtags, mentions and calls to action, ready to go."></textarea>
           </label>
+
+          <!-- A reel's own video (Danielle, 23 Nov): added here, as part of
+               planning or sharing it, not afterwards. It uploads while they
+               fill in the rest; the design becomes the reel's cover. -->
+          <div class="ed-sched-field ed-sched-video" id="ed-sched-video" hidden>
+            <span class="ed-sched-label">Your video</span>
+            <div class="ed-vid-row">
+              <label class="ed-sched-cancel ed-vid-add" id="ed-vid-add"><input type="file" id="ed-vid-file" accept="video/mp4,video/quicktime,.mp4,.mov" /><span id="ed-vid-add-l">Add your video</span></label>
+              <span class="ed-vid-name" id="ed-vid-name"></span>
+              <button type="button" class="ed-vid-remove" id="ed-vid-remove" hidden>Remove</button>
+            </div>
+            <div class="ed-vid-bar" id="ed-vid-bar" hidden><span id="ed-vid-fill"></span></div>
+            <span class="ed-sched-hint" id="ed-vid-hint"></span>
+          </div>
 
           <!-- Share: when it goes out. The date and time move in under this. -->
           <div class="ed-share-go" id="ed-share-go" hidden>
@@ -5970,6 +5984,15 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       transition: background 0.2s, color 0.2s, border-color 0.2s;
     }
     .ed-sched-cancel:hover { background: rgba(28,29,34,0.06); color: var(--ink); }
+    .ed-sched-video[hidden], .ed-vid-bar[hidden] { display: none; }
+    .ed-vid-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .ed-vid-add { position: relative; display: inline-flex; align-items: center; }
+    .ed-vid-add input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+    .ed-vid-add.is-busy { opacity: 0.6; pointer-events: none; }
+    .ed-vid-name { font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+    .ed-vid-remove { appearance: none; border: 0; background: none; padding: 0; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--english-violet); text-decoration: underline; cursor: pointer; }
+    .ed-vid-bar { height: 6px; border-radius: 3px; background: #eae5e1; overflow: hidden; }
+    .ed-vid-bar span { display: block; height: 100%; width: 0; background: var(--english-violet); transition: width 0.2s; }
     /* Email-now sits on the left; cancel + plan stay grouped on the right. */
     .ed-sched-emailnow {
       appearance: none;
@@ -8640,6 +8663,93 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       $error.textContent = "";
     }
 
+    /* ===== A reel's own video (Danielle, 23 Nov) =====
+       "Nobody is going to go out, then go back into their planner to upload
+       it": a reel's video is chosen here, in Add to Your Planner and in Share.
+       It uploads straight away (src/lib/reel-upload.js), and rides on the row
+       as details.video when they press Plan post or Schedule it. Closing
+       without planning throws the upload away. */
+    let reelVideo = null, reelBusy = false, reelUsed = false;
+    const $vid = document.getElementById("ed-sched-video");
+    function paintReel(msg) {
+      if (!$vid) return;
+      const isReel = !!(ccPlanPost && ccPlanPost.post_type === "reel");
+      $vid.hidden = !isReel;
+      if (!isReel) return;
+      const add = document.getElementById("ed-vid-add");
+      add.classList.toggle("is-busy", reelBusy);
+      document.getElementById("ed-vid-add-l").textContent = reelBusy ? "Uploading…" : (reelVideo ? "Change video" : "Add your video");
+      document.getElementById("ed-vid-name").textContent = reelVideo ? reelVideo.name : "";
+      document.getElementById("ed-vid-remove").hidden = !reelVideo || reelBusy;
+      document.getElementById("ed-vid-hint").textContent = msg || (reelVideo
+        ? "Your design becomes the reel's cover."
+        : "Film it upright (9:16). MP4 or MOV, 3 seconds to 15 minutes, up to 300 MB. Your design becomes the reel's cover. No video? Your design posts as a picture.");
+    }
+    function reelBar(f) {
+      const bar = document.getElementById("ed-vid-bar");
+      if (!bar) return;
+      bar.hidden = f == null;
+      document.getElementById("ed-vid-fill").style.width = `${Math.round((f || 0) * 100)}%`;
+    }
+    async function resetReel() {
+      if (reelVideo && !reelUsed) {
+        const acct = await plannerStore().catch(() => null);
+        const { removeReel } = await import("../../lib/reel-upload.js");
+        if (acct && acct.token) removeReel(acct.token, reelVideo.key);
+      }
+      reelVideo = null; reelUsed = false; reelBar(null);
+      if ($vid) $vid.hidden = true;
+    }
+    // What a new row's details start with: the month's post, and the video.
+    function rowDetails() {
+      const d = {};
+      if (ccPlanPost) { d.cc_post_id = String(ccPlanPost.id); d.cc_month = (ccPlanPost.month && ccPlanPost.month.month) || null; }
+      if (reelVideo) { d.video = reelVideo; reelUsed = true; }
+      return Object.keys(d).length ? { details: d } : {};
+    }
+    // An existing row (a content-plan post, or a share waiting to go out).
+    async function attachReel(acct, id) {
+      const { data } = await acct.db.from(acct.table).select("details").eq("id", id).maybeSingle();
+      const before = data && data.details && data.details.video;
+      const details = { ...((data && data.details) || {}), video: reelVideo };
+      const { error } = await acct.db.from(acct.table).update({ details }).eq("id", id);
+      if (error) throw new Error(error.message || "Couldn't add the video to your post.");
+      reelUsed = true;
+      if (shareItem && String(shareItem.id) === String(id)) shareItem.details = details;
+      if (before && before.key && before.key !== reelVideo.key) {
+        const { removeReel } = await import("../../lib/reel-upload.js");
+        removeReel(acct.token, before.key);
+      }
+    }
+    document.getElementById("ed-vid-file")?.addEventListener("change", async (e) => {
+      const input = e.currentTarget as HTMLInputElement;
+      const file = input.files && input.files[0];
+      input.value = "";
+      if (!file || reelBusy) return;
+      clearError();
+      const { reelProblem, uploadReel, removeReel } = await import("../../lib/reel-upload.js");
+      const check = await reelProblem(file);
+      if (check.error) { paintReel(); return showError(check.error); }
+      const acct = await plannerStore();
+      if (!acct || acct.blocked) return showError(acct ? acct.reason : "You're signed out. Sign in again, then add your video.");
+      reelBusy = true; reelBar(0); paintReel();
+      try {
+        const v = await uploadReel(acct.token, file, check.facts, reelBar);
+        if (reelVideo && !reelUsed) removeReel(acct.token, reelVideo.key);
+        reelVideo = v; reelUsed = false;
+      } catch (err) { showError((err && err.message) || "The video didn't upload. Try again."); }
+      reelBusy = false; reelBar(null); paintReel();
+    });
+    document.getElementById("ed-vid-remove")?.addEventListener("click", async () => {
+      if (!reelVideo || reelBusy) return;
+      if (!reelUsed) {
+        const acct = await plannerStore().catch(() => null);
+        const { removeReel } = await import("../../lib/reel-upload.js");
+        if (acct && acct.token) removeReel(acct.token, reelVideo.key);
+      }
+      reelVideo = null; reelUsed = false; paintReel();
+    });
+
     /* Plan It for a Content Calendar post (Dani, 11 Nov; the plan's "Captions
        and dates"): the post's own date, its three captions to choose from with
        {tags} filled from the brand kit, and two checks before it goes on the
@@ -8734,9 +8844,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       clearWarn();
       $caps.hidden = true;
       ccPlanPost = null;
+      resetReel();
       ccPostForPlan().then((post) => {
         if (!post || $modal.hidden) return;
         ccPlanPost = post;
+        paintReel();
         if (post.title) $title.value = post.title;
         const q = new URLSearchParams(location.search);
         const todayStr = ymd(new Date());
@@ -8757,6 +8869,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     }
     function closeModal() {
       $modal.hidden = true;
+      if (!reelBusy) resetReel();
       $pick.hidden = true; pickOpen = null;
       try { paintBar(); } catch (_) {}
       $submit.disabled = false;
@@ -8825,6 +8938,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     $form.addEventListener("submit", async (ev) => {
       ev.preventDefault();
       clearError();
+      if (reelBusy) return showError("Your video is still uploading. It'll be ready in a moment.");
       if (mode === "share") return shareSubmit();
 
       const title    = ($title.value || "").trim();
@@ -8878,6 +8992,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             reminder: wantsReminder,
           }).eq("id", planPost).eq("user_id", acct.uid).select("id");
           if (updErr) throw new Error(updErr.message || "Couldn't save to your calendar.");
+          if (upd && upd.length && reelVideo) await attachReel(acct, planPost);
           if (upd && upd.length) {
             closeModal();
             const q = new URLSearchParams(location.search);
@@ -8901,7 +9016,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           status: "scheduled",
           reminder: wantsReminder,
           // From the month's posts: the calendar marks that post On your calendar.
-          ...(ccPlanPost ? { details: { cc_post_id: String(ccPlanPost.id), cc_month: (ccPlanPost.month && ccPlanPost.month.month) || null } } : {}),
+          ...rowDetails(),
         });
         if (insErr) {
           if (/relation .* does not exist/i.test(insErr.message)) {
@@ -9350,6 +9465,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     }
     async function shareRow(acct, fields) {
       if (shareItem && (await freshDetails(acct, shareItem).catch(() => null))?.status === "scheduled") {
+        if (reelVideo) await attachReel(acct, shareItem.id);
         const { error } = await acct.db.from(acct.table).update(fields).eq("id", shareItem.id).eq("user_id", acct.uid);
         if (error) throw new Error(error.message || "Couldn't save it to your calendar.");
         Object.assign(shareItem, fields);
@@ -9357,7 +9473,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       }
       const row = {
         user_id: acct.uid, status: "scheduled", reminder: false, ...fields,
-        ...(ccPlanPost ? { details: { cc_post_id: String(ccPlanPost.id), cc_month: (ccPlanPost.month && ccPlanPost.month.month) || null } } : {}),
+        ...rowDetails(),
       };
       let { data, error } = await acct.db.from(acct.table).insert(row).select("id, details").single();
       // Before the reminder column is migrated, as Plan It does: without it.
