@@ -816,22 +816,35 @@ export const WALKS = {
         eyebrow: "Edit", title: "Update Your Design",
         body: "Work through the fields and update anything relevant. Check that all pre-filled text is correct, and select Change to replace an image." },
       { target: "#ed-pages", placement: "top", padding: 8, open: '[data-tool="start"]', tap: [EDIT_OPEN, PAGES_ON],
-        eyebrow: "Carousels", title: "Edit Carousel Slides",
-        body: "Select Pages and move through each slide, updating its content in the Edit section." },
+        eyebrow: "Carousels", title: "Edit Each Carousel Slide",
+        body: "Select Pages to move through each slide, updating its content in the Edit section." },
       { target: "#ed-save", placement: "bottom", padding: 8, close: PAGES_OFF,
         eyebrow: "Save", title: "Save Your Design",
         body: "Select Save in the top-right corner. You'll see Saved when your changes have been saved." },
     ],
   },
 
+  /* Captions and reels split (Danielle, 23 Nov): reels are a part of their
+     own; captions open the part that goes on to the Planner and sharing. */
   "cc-captions": {
-    title: "Captions and Reels",
-    lead: "Find your caption and reel guidance",
+    title: "Captions",
+    lead: "Find and personalise your caption",
     stage: ED_REEL,
     steps: [
       { target: "#ed-ccpost-cap", placement: "right", padding: 8, close: SHARE_SHUT, open: '[data-tool="start"]',
         eyebrow: "Caption", title: "Find Your Caption",
         body: "In the Studio, open Start and look for Caption. Select Copy caption if you'd like to use the wording elsewhere." },
+      { target: "#ed-sched-cap-field", placement: "left", padding: 8, tap: PLAN_OPEN,
+        eyebrow: "Caption", title: "Personalise Your Caption",
+        body: "When adding the post to your Planner or sharing it, review the caption and replace any placeholder information with your own details." },
+    ],
+  },
+
+  "cc-reels": {
+    title: "Reels",
+    lead: "See how reels work",
+    stage: ED_REEL,
+    steps: [
       { target: "#ed-ccpost-reel", placement: "right", padding: 8, close: SHARE_SHUT, open: '[data-tool="start"]', tap: '#ed-ccpost:not(.is-open) #ed-ccpost-toggle',
         eyebrow: "Reels", title: "Read the Reel Guidance",
         body: "For reel templates, look for For the Reel to see the filming concept and instructions." },
@@ -841,9 +854,6 @@ export const WALKS = {
       { target: "#ed-sched-video", placement: "left", padding: 8, tap: PLAN_OPEN,
         eyebrow: "Reels", title: "Add Your Video",
         body: "When planning or scheduling a reel, select Add your video and upload your finished MP4 or MOV file." },
-      { target: "#ed-sched-cap-field", placement: "left", padding: 8, tap: PLAN_OPEN,
-        eyebrow: "Caption", title: "Personalise Your Caption",
-        body: "When adding the post to your Planner or sharing it, review the caption and replace any placeholder information with your own details." },
     ],
   },
 
@@ -880,7 +890,7 @@ export const WALKS = {
   },
 
   "cc-schedule": {
-    title: "Scheduling With Content Calendar Plus",
+    title: "Share to Socials With Content Calendar Plus",
     lead: "Schedule a post",
     stage: ED_REEL,
     steps: [
