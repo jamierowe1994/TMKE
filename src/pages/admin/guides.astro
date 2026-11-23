@@ -98,6 +98,14 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
             <button type="button" class="gle-tb gle-tb--i" data-align="left" title="Left"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M2 6.5h8M2 9.5h12M2 12.5h8"/></svg></button>
             <button type="button" class="gle-tb gle-tb--i" data-align="center" title="Centre"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M4 6.5h8M2 9.5h12M4 12.5h8"/></svg></button>
             <button type="button" class="gle-tb gle-tb--i" data-align="right" title="Right"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M6 6.5h8M2 9.5h12M6 12.5h8"/></svg></button>
+            <button type="button" class="gle-tb gle-tb--i" data-align="justify" title="Justified"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M2 6.5h12M2 9.5h12M2 12.5h12"/></svg></button>
+          </div>
+          <div class="gle-tg">
+            <span class="gle-tl">Style</span>
+            <button type="button" class="gle-tb gle-tb--sw" data-tone="" title="White box" style="--sw:#ffffff"></button>
+            <button type="button" class="gle-tb gle-tb--sw" data-tone="linen" title="Linen box" style="--sw:#eae5e1"></button>
+            <button type="button" class="gle-tb gle-tb--sw" data-tone="stone" title="Stone box" style="--sw:#c9bcb7"></button>
+            <button type="button" class="gle-tb gle-tb--sw" data-tone="wine" title="Wine box" style="--sw:#371e28"></button>
           </div>
           <div class="gle-tg">
             <span class="gle-tl" id="g-tool-kind">Box</span>
@@ -114,6 +122,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
             <button type="button" class="gle-tb" data-add="image">Picture</button>
             <button type="button" class="gle-tb" data-add="2">2 boxes</button>
             <button type="button" class="gle-tb" data-add="3">3 boxes</button>
+            <button type="button" class="gle-tb" data-add="check">Checklist</button>
             <input type="file" id="g-img-file" accept="image/jpeg,image/png,image/webp" hidden />
           </div>
           <button type="button" class="gle-tb gle-tb--undo" data-undo title="Put back the last move, copy, delete or add">Undo</button>
@@ -340,6 +349,10 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .gle-tb--i b { font-weight: 800; } .gle-tb--i i { font-family: Georgia, serif; font-size: 14px; }
     .gle-tb svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
     .gle-tb--undo { margin-left: auto; }
+    .gle-tb--sw { width: 30px; padding: 0; }
+    .gle-tb--sw::before { content: ""; width: 16px; height: 16px; border-radius: 50%; background: var(--sw); border: 1px solid rgba(55,30,40,0.3); }
+    .gle-tb--sw.is-on { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
+    .gle-body .bk-check-box { cursor: default; }
     .gle-body .gle-sel { outline: 1.5px solid var(--english-violet); outline-offset: 6px; border-radius: 3px; }
     .gle-body .gle-sel[contenteditable="true"]:focus { outline-width: 2px; outline-offset: 2px; }
     .gle-body > *, .gle-body .bk-card, .gle-body .bk-format, .gle-body li { cursor: pointer; }
@@ -430,7 +443,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     }
     function drawPageBody() {
       const body = $("#g-page-body");
-      body.innerHTML = (lessons[pageAt].body_html || "").trim() || "<p></p>";
+      // Taking a focused box off the page fires its blur; the tidy-up below must not run on a half-drawn page.
+      quiet(() => { body.innerHTML = (lessons[pageAt].body_html || "").trim() || "<p></p>"; });
       makeEditable(body);
       sel = null; curBox = null; updateTools();
     }
@@ -491,7 +505,10 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       while (n.parentElement && n.parentElement.id !== "g-page-body" && n.parentElement.children.length === 1 && isBlank(n.parentElement)) n = n.parentElement;
       n.remove();
     }
+    let redrawing = false;
+    function quiet(fn) { redrawing = true; try { fn(); } finally { redrawing = false; } }
     $("#g-page-body").addEventListener("focusout", (e) => {
+      if (redrawing) return;
       const el = e.target.closest && e.target.closest('[contenteditable="true"]');
       if (!el || !el.isConnected || !isBlank(el) || boxes().length < 2) return;
       removeBox(el); syncPage(); updateTools();
@@ -537,6 +554,17 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     // A "box" is the nearest thing that can be moved: a card in a set, an item
     // in a list, or a whole block of the page. ----
     const SETS = ".bk-cards,.bk-formats,.ci-pillars,.ci-grid,.bk-tools,ul,ol";
+    // Boxes that can take a colour (src/styles/guide-reader.css, .bk-tone--*).
+    const TONEABLE = ".bk-card,.bk-provide,.bk-panel,.bk-cta,.bk-check > li";
+    const TONES = ["linen", "stone", "wine"];
+    function toneTargets() {
+      if (!sel) return [];
+      if (sel.matches(TONEABLE)) return [sel];
+      const inside = [...sel.querySelectorAll(TONEABLE)];
+      if (inside.length) return inside;
+      const up = sel.closest(TONEABLE); return up ? [up] : [];
+    }
+    const toneOf = (el) => TONES.find((t) => el.classList.contains("bk-tone--" + t)) || "";
     const bodyEl = $("#g-page-body"), tools = $("#g-tools");
     let sel = null, curBox = null, undo = [];
     function unitOf(node) {
@@ -552,6 +580,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       if (!u) return "Box";
       if (isPic(u)) return "Picture";
       if (u.matches(".bk-cards,.bk-formats,.ci-pillars,.ci-grid,.bk-tools,.bk-open-grid")) return "Set of boxes";
+      if (u.matches(".bk-check")) return "Checklist";
+      if (u.matches(".bk-check > li")) return "Checklist item";
       if (u.tagName === "LI") return "List item";
       if (/^(UL|OL)$/.test(u.tagName)) return "List";
       if (u.parentElement !== bodyEl || u.matches(".bk-panel,.bk-card,.bk-provide,.bk-eg")) return "Box";
@@ -576,6 +606,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       const words = wordTargets().length > 0, pic = isPic(sel);
       tools.querySelectorAll("[data-cmd]").forEach((b) => { b.disabled = !curBox; });
       tools.querySelectorAll("[data-size],[data-align]").forEach((b) => { b.disabled = !(words || pic); });
+      const tt = toneTargets(), tone = tt.length && tt.every((el) => toneOf(el) === toneOf(tt[0])) ? toneOf(tt[0]) : null;
+      tools.querySelectorAll("[data-tone]").forEach((b) => { b.disabled = !tt.length; b.classList.toggle("is-on", tt.length > 0 && b.dataset.tone === tone); });
       tools.querySelector("[data-undo]").disabled = !undo.length;
       $("#g-tool-kind").textContent = kindName(sel);
     }
@@ -642,10 +674,15 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       if (d.cmd) { if (curBox) { curBox.focus(); document.execCommand(d.cmd); syncPage(); } return; }
       if (d.size) { resize(+d.size); return; }
       if (d.align) { align(d.align); return; }
+      if ("tone" in d) {
+        snap();
+        toneTargets().forEach((el) => { TONES.forEach((t) => el.classList.remove("bk-tone--" + t)); if (d.tone) el.classList.add("bk-tone--" + d.tone); if (!el.getAttribute("class")) el.removeAttribute("class"); });
+        syncPage(); updateTools(); return;
+      }
       if (d.move) {
         const sib = +d.move < 0 ? sel.previousElementSibling : sel.nextElementSibling; if (!sib) return;
         const had = curBox && sel.contains(curBox) ? curBox : null;
-        snap(); if (+d.move < 0) sib.before(sel); else sib.after(sel);
+        snap(); quiet(() => { if (+d.move < 0) sib.before(sel); else sib.after(sel); });
         settle(); sel.scrollIntoView({ block: "nearest" }); if (had) had.focus({ preventScroll: true });
         return;
       }
@@ -653,7 +690,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       if ("del" in d) {
         snap();
         let n = sel; while (n.parentElement !== bodyEl && n.parentElement.children.length === 1) n = n.parentElement;
-        n.remove(); sel = null; if (!bodyEl.children.length) bodyEl.innerHTML = "<p></p>";
+        quiet(() => n.remove()); sel = null; if (!bodyEl.children.length) bodyEl.innerHTML = "<p></p>";
         settle(); toast("Deleted. Undo puts it back."); return;
       }
       if ("outer" in d) { const o = outerOf(sel); if (o) { curBox = null; if (document.activeElement && bodyEl.contains(document.activeElement)) document.activeElement.blur(); select(o); } return; }
@@ -661,6 +698,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       if (d.add === "text") { const n = insertBlock("<p></p>"); n.focus(); return; }
       if (d.add === "heading") { const n = insertBlock("<p><strong>Heading</strong></p>"); selectWords(n.querySelector("strong")); return; }
       if (d.add === "image") { $("#g-img-file").click(); return; }
+      if (d.add === "check") { const n = insertBlock(`<ol class="bk-check">${'<li><button type="button" class="bk-check-box" aria-label="Tick when done"></button><div class="bk-check-b"><strong>Something to do</strong><p>What it involves.</p></div></li>'.repeat(3)}</ol>`); selectWords(n.querySelector("strong")); return; }
       if (d.add === "2" || d.add === "3") { const n = insertBlock(BOXES(+d.add)); selectWords(n.querySelector("strong")); return; }
     });
     bodyEl.addEventListener("click", (e) => select(unitOf(e.target)));

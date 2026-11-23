@@ -33,6 +33,10 @@ const cards = (items, cols = 3) => `<div class="bk-cards bk-cards--${cols}">${it
 // so the pair moves and stacks together.
 const formats = (items) => `<div class="bk-formats">${items.map(([t, b, w]) =>
   `<div class="bk-format"><div class="bk-card bk-card--mid"><strong>${t}</strong><span>${b}</span></div><div class="bk-provide"><strong>What we provide:</strong> ${w}</div></div>`).join("")}</div>`;
+// A checklist: one box per thing to do, each with a tick the reader can press
+// (kept on their device by the reader). `body` is HTML: paragraphs, cards, a link.
+const checklist = (items) => `<ol class="bk-check">${items.map(([t, body]) =>
+  `<li><button type="button" class="bk-check-box" aria-label="Tick when done"></button><div class="bk-check-b"><strong>${t}</strong>${body}</div></li>`).join("")}</ol>`;
 // A quiet panel for an aside that is not an instruction.
 const panel = (h, body) => `<div class="bk-panel">${h ? `<strong>${h}</strong>` : ""}${body}</div>`;
 // Something to go and read, at the end of a lesson.
@@ -545,30 +549,27 @@ export const CALENDAR_GUIDES = [
       { title: "Before You Start",
         body_html:
           p("A little preparation will make your Content Calendar much easier to use, particularly when you're personalising posts or getting several ready at once. Here are a few things we'd recommend checking before you begin.") +
-          p("<strong>Check your Brand Kit</strong>") +
-          p("Your Brand Kit holds the information used to personalise your marketing materials, including your name, contact details, logo and other relevant branding. Before editing your first post, open your Brand Kit in the Member Hub and check that everything is correct.") +
-          p("This is particularly important because the same details can appear across multiple designs. Correcting them at the source will save you having to make the same changes repeatedly.") +
-          ctaBox("Check your Brand Kit", "Review your contact details, logo and branding before editing your first post.", "/account/profile", "View your Brand Kit") +
-          p("<strong>Build a small library of your own content</strong>") +
-          p("Although we provide the designs, ideas and captions, some posts will need your own photographs or videos. Having a collection ready makes it much easier to personalise templates and create reels without having to film something from scratch every time. We'd recommend gathering:") +
-          cards([
-            ["Photographs of you", "A mixture of professional headshots and more natural lifestyle photographs."],
-            ["Local photographs and footage", "Recognisable streets, independent businesses, parks and other places within your area."],
-            ["Everyday working footage", "Short clips from your working day, such as arriving at a viewing, preparing marketing materials or travelling between appointments."],
-            ["Property footage", "Clips of homes you're marketing, including interesting features and spaces that work particularly well on video."],
-          ], 2) +
-          p("You don't need expensive equipment or professionally produced footage for every post. Natural, well-lit content filmed on your phone can work well, particularly for behind-the-scenes and personal reels.") +
-          p("If you'd prefer professional content, The Experts Group's Content Studio in Rugby and TMKE's property media services can help you build a library of photographs and videos.") +
-          p("<strong>Connect your social media accounts</strong>") +
-          p("If you're using Content Calendar Plus, or another plan that includes scheduling and posting, make sure your Instagram and Facebook accounts are connected before you begin. This allows you to schedule or publish your content directly from your calendar, rather than downloading each post and uploading it manually.") +
-          p("You'll find the instructions in our separate guide, Linking Your Social Media Accounts. If you're using the standard Content Calendar, you can still download your content and publish it yourself.") +
-          p("<strong>Set up your Planner</strong>") +
-          p("If you're using the Planner to organise your social media alongside your other commitments, we'd recommend connecting it to your work calendar. That way, you can see your planned content alongside your existing schedule and make time for filming, editing or preparing posts.") +
-          p("It's particularly useful if you're managing your social media yourself and want to set aside a little time each week rather than approaching every post individually.") +
-          p("<strong>Decide how often you want to post</strong>") +
-          p("Before your first month, choose a realistic posting routine. You might decide to use three planned posts each week, with space for your own property content when you have something to share. Once you've settled into that routine, you can increase or adjust it based on what works for your business. You can always change your approach as you go.") +
-          p("<strong>Ready to put it into practice?</strong>") +
-          p("Head to Course 1, Using Your Content Calendar, for a step-by-step guide to finding, editing and using your monthly posts.") },
+          checklist([
+            ["Check your Brand Kit",
+              p("Your Brand Kit holds the information used to personalise your marketing materials, including your name, contact details, logo and other relevant branding. Before editing your first post, open your Brand Kit in the Member Hub and check that everything is correct.") + p("This is particularly important because the same details can appear across multiple designs. Correcting them at the source will save you having to make the same changes repeatedly.") +
+              `<a class="bk-check-go" href="/account/profile">View your Brand Kit &rarr;</a>`],
+            ["Build a small library of your own content",
+              p("Although we provide the designs, ideas and captions, some posts will need your own photographs or videos. Having a collection ready makes it much easier to personalise templates and create reels without having to film something from scratch every time. We'd recommend gathering:") +
+              cards([
+                ["Photographs of you", "A mixture of professional headshots and more natural lifestyle photographs."],
+                ["Local photographs and footage", "Recognisable streets, independent businesses, parks and other places within your area."],
+                ["Everyday working footage", "Short clips from your working day, such as arriving at a viewing, preparing marketing materials or travelling between appointments."],
+                ["Property footage", "Clips of homes you're marketing, including interesting features and spaces that work particularly well on video."],
+              ], 2).replaceAll('class="bk-card"', 'class="bk-card bk-tone--linen"') +
+              p("You don't need expensive equipment or professionally produced footage for every post. Natural, well-lit content filmed on your phone can work well, particularly for behind-the-scenes and personal reels.") + p("If you'd prefer professional content, The Experts Group's Content Studio in Rugby and TMKE's property media services can help you build a library of photographs and videos.")],
+            ["Connect your social media accounts",
+              p("If you're using Content Calendar Plus, or another plan that includes scheduling and posting, make sure your Instagram and Facebook accounts are connected before you begin. This allows you to schedule or publish your content directly from your calendar, rather than downloading each post and uploading it manually.") + p("You'll find the instructions in our separate guide, Linking Your Social Media Accounts. If you're using the standard Content Calendar, you can still download your content and publish it yourself.")],
+            ["Set up your Planner",
+              p("If you're using the Planner to organise your social media alongside your other commitments, we'd recommend connecting it to your work calendar. That way, you can see your planned content alongside your existing schedule and make time for filming, editing or preparing posts.") + p("It's particularly useful if you're managing your social media yourself and want to set aside a little time each week rather than approaching every post individually.")],
+            ["Decide how often you want to post",
+              p("Before your first month, choose a realistic posting routine. You might decide to use three planned posts each week, with space for your own property content when you have something to share. Once you've settled into that routine, you can increase or adjust it based on what works for your business. You can always change your approach as you go.")],
+          ]) +
+          `<div class="bk-panel bk-tone--wine"><strong>Ready to put it into practice?</strong>${p("Head to Course 1, Using Your Content Calendar, for a step-by-step guide to finding, editing and using your monthly posts.")}</div>` },
     ],
   }),
 ];

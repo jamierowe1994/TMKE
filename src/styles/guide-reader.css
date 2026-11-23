@@ -79,8 +79,12 @@ body[data-dashboard] { background: var(--ws-bg); }
    words centred), a small gap, then a row of boxes (one height, words at the
    top). A card and its box are one .bk-format sharing the rows by subgrid, so
    narrow screens stack each card with its own box. */
-.bk-formats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 14px; row-gap: 8px; margin: 20px 0 22px; }
-.bk-format { display: grid; grid-row: span 2; grid-template-rows: subgrid; row-gap: 8px; min-width: 0; }
+.bk-formats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 14px; row-gap: 14px; margin: 20px 0 22px; }
+.bk-format { display: grid; grid-row: span 2; grid-template-rows: subgrid; row-gap: 14px; min-width: 0; }
+/* One set of boxes straight after another reads as one grid: the gap between
+   the two rows is the gap between the columns (Danielle, 23 Nov). The negative
+   margin collapses with the 22px under the first set, leaving 14. */
+.gr-body :is(.bk-cards, .bk-formats) + :is(.bk-cards, .bk-formats) { margin-top: -8px; }
 .bk-card--mid { justify-content: center; }
 .bk-provide { padding: 14px 22px; background: var(--ws-card, #fff); border: 1px solid var(--ws-line); border-radius: var(--ws-r);
   font-size: 14px; line-height: 1.6; color: var(--ws-tx); }
@@ -415,3 +419,38 @@ body.gr-fixed .gr-main { padding-bottom: 0; }
 /* A picture added in the guide editor: full width unless sized or set to one side there. */
 .gr-body .gr-pic { margin: 20px 0; max-width: 100%; }
 .gr-body .gr-pic img { display: block; width: 100%; height: auto; margin: 0; }
+
+/* ---- Box styles (Danielle, 23 Nov): a box can be told apart by colour.
+   Palette only: linen, stone and wine, on white. Chosen in Admin › Guides. */
+.gr-body .bk-tone--linen { background: #eae5e1; border-color: #eae5e1; }
+.gr-body .bk-tone--stone { background: #c9bcb7; border-color: #c9bcb7; }
+.gr-body .bk-tone--stone :is(span, p, li) { color: rgba(28, 29, 34, 0.82); }
+.gr-body .bk-tone--wine { background: #371e28; border-color: #371e28; color: #fff; }
+.gr-body .bk-tone--wine :is(strong, h3, h4, b) { color: #fff; }
+.gr-body .bk-tone--wine :is(span, p, li) { color: rgba(255, 255, 255, 0.84); }
+.gr-body .bk-tone--wine :is(.bk-cta-go, .bk-check-go, a) { color: #fff; }
+.gr-body .bk-tone--wine .bk-check-box { border-color: #fff; }
+.gr-body .bk-tone--wine.is-done .bk-check-box { background: #fff; }
+.gr-body .bk-tone--wine.is-done .bk-check-box::after { border-color: #371e28; }
+.gr-body .bk-panel:is(.bk-tone--linen, .bk-tone--stone) { border-left-color: var(--ws-accent); }
+
+/* ---- A checklist: one box per thing to do, a tick the reader can press
+   (kept on their device), a bold line and what it means. ---- */
+.gr-body .bk-check { list-style: none; margin: 22px 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.gr-body .bk-check > li { display: grid; grid-template-columns: 26px minmax(0, 1fr); column-gap: 16px; align-items: start; margin: 0; padding: 20px 22px;
+  background: var(--ws-card, #fff); border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+.gr-body .bk-check > li::marker { content: none; }
+.bk-check-box { position: relative; width: 24px; height: 24px; margin: -1px 0 0; padding: 0; border-radius: 50%; border: 1.5px solid var(--ws-accent, #371e28);
+  background: transparent; cursor: pointer; transition: background 0.15s; }
+.bk-check-box::after { content: ""; position: absolute; left: 7.5px; top: 3.5px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); opacity: 0; }
+.bk-check > li.is-done .bk-check-box { background: var(--ws-accent, #371e28); }
+.bk-check > li.is-done .bk-check-box::after { opacity: 1; }
+.bk-check-b { min-width: 0; }
+.bk-check-b > strong { display: block; font-family: var(--sans); font-size: 14px; font-weight: 700; line-height: 1.5; color: var(--ws-ink); margin-bottom: 4px; }
+.gr-body .bk-check-b p { margin: 0 0 10px; max-width: none; }
+.gr-body .bk-check-b > :last-child { margin-bottom: 0; }
+.gr-body .bk-check-b .bk-cards { margin: 14px 0; }
+.bk-check-go { display: inline-block; margin-top: 2px; font-family: var(--sans); font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ws-accent); text-decoration: none; }
+.bk-check-go:hover { text-decoration: underline; }
+@media (max-width: 620px) { .gr-body .bk-check > li { padding: 16px; column-gap: 12px; } }

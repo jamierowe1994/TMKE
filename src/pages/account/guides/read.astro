@@ -95,6 +95,20 @@ const DEFAULT_COVER = (await getImage({
     import { isDemo as demoOn, lock } from "../../../lib/demo.js";
     import { supabase } from "../../../lib/supabase.js";
     import { markSubheads, subheadsHtml } from "../../../lib/guide-subheads.js";
+    // Checklists (.bk-check): a tick stays ticked on this device, per guide.
+    const ckKey = (slug, li) => `tmke-check:${slug}:${(li.querySelector("strong")?.textContent || "").trim().slice(0, 60)}`;
+    const ckSet = (li, on) => { li.classList.toggle("is-done", on); li.querySelector(".bk-check-box")?.setAttribute("aria-pressed", on ? "true" : "false"); };
+    function ckRestore(root, slug) {
+      if (!root) return;
+      root.dataset.ck = slug || "";
+      root.querySelectorAll(".bk-check > li").forEach((li) => { let on = false; try { on = localStorage.getItem(ckKey(slug, li)) === "1"; } catch (_) {} ckSet(li, on); });
+    }
+    document.addEventListener("click", (e) => {
+      const b = (e.target as any).closest?.(".bk-check-box"); if (!b) return;
+      const li = b.closest("li"), root = b.closest("[data-ck]"); if (!li || !root) return;
+      const on = !li.classList.contains("is-done"); ckSet(li, on);
+      try { if (on) localStorage.setItem(ckKey(root.dataset.ck, li), "1"); else localStorage.removeItem(ckKey(root.dataset.ck, li)); } catch (_) {}
+    });
     import { logUsage } from "../../../lib/usage-log.js";
     import { GUIDE_TOPIC_MAP } from "../../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../../data/content-ideas-guide.js";
@@ -204,6 +218,7 @@ const DEFAULT_COVER = (await getImage({
         : lessons.map((l)=> (l.title ? `<h2>${esc(l.title)}</h2>` : "") + (l.body_html || "")).join("");
       $("#ar-body").innerHTML = html;
       markSubheads($("#ar-body"));
+      ckRestore($("#ar-body"), guide.slug);
 
       // An article is a single short read — opening it counts as done.
       saveProgress(guide.slug, { furthest: 1, total: 0, completed: true });
@@ -359,6 +374,7 @@ const DEFAULT_COVER = (await getImage({
         if (pos === 0)      stage.innerHTML = introHtml();
         else if (pos === LAST) stage.innerHTML = doneHtml();
         else                stage.innerHTML = partHtml(pos);
+        ckRestore(stage, guide.slug);
 
         // Vertically centre content parts + the completion slide (deck feel);
         // keep the overview top-aligned.
