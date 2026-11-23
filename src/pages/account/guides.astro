@@ -600,10 +600,19 @@ import "../../styles/reel.css";
       host.setAttribute('aria-busy', 'false');
     }
 
+    /* The Content Calendar courses are in both places (Danielle, 23 Nov: Using
+       Your Content Calendar wasn't in the training section). Course 1 is filed
+       under Content Calendar and Course 2 under Getting Started, so each
+       showed in only one. Wherever either is filed, both list under Getting
+       Started's Content Calendar heading and in the Content Calendar topic. */
+    const CC_TOPICS = ['getting-started', 'content-calendar'];
+    const CC_COURSE = (g) => /^training-calendar-/.test(String((g && g.slug) || ''));
+    const inTopic = (g, t) => g.topic === t || (CC_COURSE(g) && CC_TOPICS.includes(t));
+
     function renderGrid(query) {
       if (!grid) return;
       let list = ALL.filter((g) => !g.training && !TRAINING_GUIDES.some((t) => t.slug === g.slug));
-      if (activeTopic) list = list.filter((g) => g.topic === activeTopic);
+      if (activeTopic) list = list.filter((g) => inTopic(g, activeTopic));
       if (query) { const q = query.toLowerCase(); list = list.filter((g) => (g.title||'').toLowerCase().includes(q) || (g.summary||'').toLowerCase().includes(q)); }
       grid.innerHTML = list.map(cardHtml).join('');
       grid.setAttribute('aria-busy', 'false');
@@ -615,7 +624,9 @@ import "../../styles/reel.css";
 
     function hydrateCounts() {
       const counts = {};
-      ALL.forEach((g) => { counts[g.topic] = (counts[g.topic] || 0) + 1; });
+      ALL.forEach((g) => {
+        new Set([g.topic, ...(CC_COURSE(g) ? CC_TOPICS : [])]).forEach((t) => { counts[t] = (counts[t] || 0) + 1; });
+      });
       document.querySelectorAll('.lrn-topic-count[data-count]').forEach((el) => {
         el.textContent = String(counts[el.dataset.count] || 0);
       });
@@ -629,7 +640,7 @@ import "../../styles/reel.css";
     const sheet = document.getElementById('lrn-sheet');
     function openTopic(slug) {
       const topic = GUIDE_TOPIC_MAP[slug]; if (!topic || !sheet) return;
-      const list = ALL.filter((g) => g.topic === slug);
+      const list = ALL.filter((g) => inTopic(g, slug));
       // The Content Calendar's courses in their order: Course 1, the how-to, first.
       if (slug === 'content-calendar') list.sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99));
       document.getElementById('lrn-sheet-h').innerHTML = topic.label;
@@ -652,6 +663,7 @@ import "../../styles/reel.css";
       const parts = START_GROUPS.map((grp) => {
         const items = list.filter((g) => !used.has(g) && (grp.slugs ? grp.slugs.includes(g.slug) : grp.test(g)));
         if (grp.slugs) items.sort((a, b) => grp.slugs.indexOf(a.slug) - grp.slugs.indexOf(b.slug));
+        else if (grp.label === 'Content Calendar') items.sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99));   // Course 1 first
         else items.sort((a, b) => (a.slug === 'print-first-design' ? -1 : 0) - (b.slug === 'print-first-design' ? -1 : 0));
         items.forEach((g) => used.add(g));
         return items.length ? `<p class="lrn-sheet-group">${grp.label}</p>` + items.map(cardHtml).join('') : '';
