@@ -92,7 +92,7 @@ const DEFAULT_COVER = (await getImage({
 
   <script type="application/json" id="gr-defaults" set:html={JSON.stringify({ cover: DEFAULT_COVER })}></script>
   <script>
-    import { isDemo as demoOn, lock } from "../../../lib/demo.js";
+    import { isDemo as demoOn, isTrainingDemo, lock } from "../../../lib/demo.js";
     import { supabase } from "../../../lib/supabase.js";
     import { markSubheads, subheadsHtml } from "../../../lib/guide-subheads.js";
     import { memberCourseLevels, levelGate, LEVEL_NAME, LEVEL_WITH } from "../../../lib/guide-level.js";
@@ -470,7 +470,8 @@ const DEFAULT_COVER = (await getImage({
 
     function render(guide){
 
-      if (demoOn() && guide && guide.topic && guide.topic !== "getting-started") { lock("That guide is for members.", "The demo includes the Getting Started guides. Members have the whole Learning Centre."); guide = null; }
+      // The public demo reads Getting Started only; the training account (ours) reads everything (Danielle, 23 Nov).
+      if (demoOn() && !isTrainingDemo() && guide && guide.topic && guide.topic !== "getting-started") { lock("That guide is for members.", "The demo includes the Getting Started guides. Members have the whole Learning Centre."); guide = null; }
       $("#gr-loading").hidden = true;
       if (!guide) { $("#gr-empty").hidden = false; $("#gr").setAttribute("aria-busy","false"); return; }
       $("#gr").setAttribute("aria-busy","false");
