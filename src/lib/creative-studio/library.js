@@ -126,7 +126,7 @@ function drawFolder() {
   const title = (o.meta && o.meta.title) || o.prefix.slice(ROOT.length, -1);
   const inPortals = (o.meta && o.meta.portals) || [];
   const match = (f) => L.kind === "all" || (L.kind === "photo" ? isPhoto(f) : isFilm(f));
-  const tile = (f) => `<div class="cs-file${L.sel.has(f.key) ? " sel" : ""}" data-key="${esc(f.key)}">${f.thumbUrl ? `<img src="${esc(f.thumbUrl)}" alt="" loading="lazy">` : ""}<button type="button" class="cs-tk" data-t="${esc(f.key)}" aria-label="Select ${esc(cleanName(f.name))}" aria-pressed="${L.sel.has(f.key)}"></button>${isFilm(f) ? `<span class="cs-kind">${chip("Film", "w")}</span>` : ""}</div>`;
+  const tile = (f) => `<div class="cs-file${L.sel.has(f.key) ? " sel" : ""}" data-key="${esc(f.key)}">${f.thumbUrl ? `<img src="${esc(f.thumbUrl)}" alt="" loading="lazy">` : ""}<button type="button" class="cs-tk" data-t="${esc(f.key)}" aria-label="Select ${esc(cleanName(f.name))}" aria-pressed="${L.sel.has(f.key)}"></button>${isFilm(f) ? `<span class="cs-kind">${chip("Film", "w")}</span>` : ""}<span class="cs-nm">${esc(cleanName(f.name).replace(/\.[a-z0-9]{2,5}$/i, ""))}</span></div>`;
   const shown = o.parts.map((p) => ({ p, files: o.files.filter((f) => f.part === p && match(f)) })).filter((s) => s.files.length || (s.p && !o.files.some((f) => f.part === s.p)));
   const strips = shown.length > 1;
   const section = (s) => {

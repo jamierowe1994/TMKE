@@ -469,15 +469,16 @@ export const TRAINING_GUIDES = [
 /* ---- Content Calendar ----------------------------------------------------
    Course 2, Getting the Most From Your Content Calendar: Dani's copy, 20 Nov,
    laid out the house way (labelled points are cards, a mid-lesson heading is
-   a bold line). Held back until the calendar launches: it is in the reader
-   (read?g=training-calendar-content) but not on Learn, because CALENDAR_GUIDES
-   is only added to the reader's list. At launch, add it to Learn too. */
+   a bold line). No longer held (Danielle, 23 Nov): its level does the gating,
+   so it is on Learn and in the reader for members who have the Content
+   Calendar and hidden from everyone else (src/lib/guide-level.js). TPE and
+   PPE agents get that level when the December rule is switched on. */
 export const CALENDAR_GUIDES = [
   guide({
     slug: "training-calendar-content",
     title: "Getting the Most From Your Content Calendar",
     summary: "The thinking behind your monthly posts, and how to make them work for your business.",
-    est_minutes: 12, sort_order: 6, training: false, held: true, topic: "content-calendar", level: "calendar",
+    est_minutes: 12, sort_order: 6, training: false, topic: "content-calendar", level: "calendar",
     lessons: [
       { title: "Understanding the Different Formats",
         body_html:
