@@ -7202,10 +7202,13 @@ async function ccStartUpgrade(env, user, mode, level, back) {
 
 /* A month published ahead of its go-live date (Danielle, 18 Nov): until that
    day (UK time) members see it blurred, "locked and loaded", and can't open a
-   post or design. Staff see it as normal, unless they're looking with ?as=. */
+   post or design. Staff see it as normal, unless they're looking with ?as=.
+   So do test logins (Danielle, 23 Nov: "for the test accounts ... I should be
+   able to see the actual content calendar still"). */
 function ccWaiting(a, m) {
   if (!m || !m.goes_live_on) return false;
   if (a.staff && !a.viewing_as) return false;
+  if (a.test) return false;
   return String(m.goes_live_on).slice(0, 10) > londonParts(new Date()).ymd;
 }
 async function ccOpenMonthRow(env, a, monthId) {

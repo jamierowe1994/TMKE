@@ -12049,10 +12049,17 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         box.classList.toggle("is-open", open);
         toggle.setAttribute("aria-expanded", String(open));
       });
+      /* The caption with their details in (Danielle, 23 Nov: "fill that in if
+         we're using the merge tags"): {company name} and the rest read from the
+         Brand Kit as the planner box does. Filled again on Copy, in case the
+         kit arrived after the card. */
       let caption = "";
+      const tagsIn = (t) => { try { return (window as any).__TMKE_APPLY_TAGS__ ? (window as any).__TMKE_APPLY_TAGS__(t) : t; } catch (_) { return t; } };
       document.getElementById("ed-ccpost-copy").addEventListener("click", async (e) => {
         const b = e.currentTarget as HTMLButtonElement;
-        try { await navigator.clipboard.writeText(caption); b.textContent = "Copied"; }
+        const filled = tagsIn(caption);
+        part("ed-ccpost-cap", filled);
+        try { await navigator.clipboard.writeText(filled); b.textContent = "Copied"; }
         catch (_) { b.textContent = "Couldn't copy"; }
         setTimeout(() => { b.textContent = "Copy caption"; }, 1600);
       });
@@ -12086,7 +12093,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         document.getElementById("ed-ccpost-meta").innerHTML = (post.post_date ? `<span>${esc(fmtPostDate(post.post_date))}</span>` : "") + chips;
         part("ed-ccpost-howto", post.how_to_edit);
         caption = ((post.captions || []).find((c) => c && c.trim())) || "";
-        part("ed-ccpost-cap", caption);
+        part("ed-ccpost-cap", tagsIn(caption));
         part("ed-ccpost-reel", post.post_type === "reel" ? post.reel_prompt : "");
         box.hidden = false;
         if (editBox) editBox.hidden = false;

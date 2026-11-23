@@ -1951,6 +1951,22 @@ import "../../styles/account-sections.css";
       }
       return undefined;                  // not read yet
     }
+    /* The locked box starts level with the top of the red Your calendar tab
+       (Danielle, 23 Nov), then sticks as the month scrolls. The tab sits a
+       set distance down the block, the box at the top of the grid, so the
+       gap is measured rather than guessed. On a phone the tab is in the
+       flow, and the box keeps its place. */
+    function alignLock() {
+      const lock = document.getElementById('cc-lock');
+      if (!lock || lock.hidden || !$ccTab || $ccTab.hidden) return;
+      lock.style.top = '';
+      if (getComputedStyle($ccTab).position !== 'absolute') return;
+      // The grid's top, not the box's: the box may already be stuck mid-screen.
+      const gap = $ccTab.getBoundingClientRect().top - $ccGrid.getBoundingClientRect().top;
+      // `top` on the relative box: a margin would carry the grid down with it.
+      if (gap > 0) lock.style.top = Math.round(gap) + 'px';
+    }
+    window.addEventListener('resize', () => requestAnimationFrame(alignLock));
     function paintOurs() {
       if (!$ours || !$cal) return;
       const m = calView === 'posts' ? ccFor(viewMonth) : null;
@@ -1964,6 +1980,7 @@ import "../../styles/account-sections.css";
       const lock = document.getElementById('cc-lock');
       if (lock) {
         lock.hidden = !m.preview;
+        if (m.preview) requestAnimationFrame(alignLock);
         const mName = new Date(String(m.month.month).slice(0, 7) + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long' });
         // Two reasons a month is blurred (Danielle, 18 Nov): published but before its
         // go-live date, so it's on its way; or no Content Calendar in their plan.
