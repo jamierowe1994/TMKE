@@ -8750,6 +8750,69 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       reelVideo = null; reelUsed = false; paintReel();
     });
 
+    /* ===== Already a post that day (Danielle, 23 Nov) =====
+       Planning or sharing a post for a platform that already has one that
+       day: say what's there and ask, Replace it or Keep both. People forget
+       they've done one, make it again and post it twice. Replace it puts this
+       post in that one's place (a scheduled one is changed, not sent twice);
+       Keep both goes ahead. Asked once per day and platform. */
+    let replaceTarget = null, sameDayOk = "";
+    const PLAT_NAME = { instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok" };
+    async function askSameDay(acct, dateStr, platforms) {
+      const key = `${dateStr}|${platforms.join(",")}`;
+      if (replaceTarget || sameDayOk === key || !dateStr) return false;
+      const skip = new Set([new URLSearchParams(location.search).get("post"), shareItem && shareItem.id].filter(Boolean).map(String));
+      let rows = [];
+      try {
+        const { data } = await acct.db.from(acct.table).select("id, title, platform_hint, status, details, scheduled_time, has_time, activity, asset_url, caption")
+          .eq("user_id", acct.uid).eq("scheduled_date", dateStr).neq("status", "cancelled");
+        rows = (data || []).filter((r) => (!r.activity || r.activity === "social_post") && !skip.has(String(r.id))
+          && platforms.includes(r.platform_hint || "instagram"));
+      } catch (_) { return false; }
+      if (!rows.length) return false;
+      const r = rows[0];
+      const z = (r.details && r.details.zernio) || null;
+      const gone = z && ["posted", "posting", "partial"].includes(z.status);
+      const day = new Date(dateStr + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+      const plat = PLAT_NAME[r.platform_hint || "instagram"] || "Instagram";
+      const what = gone ? `already gone out on ${plat}` : z && z.status === "scheduled" ? `scheduled for ${plat} at ${amIso(z.scheduled_for)}` : `planned for ${plat}`;
+      const esc = (t) => String(t || "").replace(/[&<>"]/g, (x) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[x]));
+      const more = rows.length > 1 ? ` You have ${rows.length} posts for ${plat} that day.` : "";
+      $warn.innerHTML = `<p>You've already got “${esc(r.title || "A post")}” ${what} on ${day}.${more} ${gone ? "Post this one as well?" : "Replace it with this one, or keep both?"}</p>
+        <div class="ed-share-acts">${gone ? "" : '<button type="button" class="ed-sched-submit" data-same="replace">Replace it</button>'}<button type="button" class="ed-sched-cancel" data-same="keep">${gone ? "Yes, post this too" : "Keep both"}</button></div>`;
+      $warn.hidden = false;
+      const go = () => { $warn.hidden = true; $warn.innerHTML = ""; if (mode === "share") shareSubmit(); else $form.requestSubmit(); };
+      $warn.querySelector('[data-same="replace"]')?.addEventListener("click", () => { replaceTarget = r; go(); });
+      $warn.querySelector('[data-same="keep"]')?.addEventListener("click", () => { sameDayOk = key; go(); });
+      return true;
+    }
+    /* The replaced post's details: its scheduling kept (so it's changed in
+       place), the month's post and video now this one's. resend: a planned
+       post that was already scheduled is sent again with the new version. */
+    async function replaceDetails(acct, id, resend) {
+      const { data } = await acct.db.from(acct.table).select("details").eq("id", id).maybeSingle();
+      const old = (data && data.details) || {};
+      const { cc_post_id, cc_month, video, ...keep } = old;
+      const details = { ...keep };
+      if (ccPlanPost) { details.cc_post_id = String(ccPlanPost.id); details.cc_month = (ccPlanPost.month && ccPlanPost.month.month) || null; }
+      if (reelVideo) { details.video = reelVideo; reelUsed = true; }
+      const { error } = await acct.db.from(acct.table).update({ details }).eq("id", id);
+      if (error) throw new Error(error.message || "Couldn't replace the post.");
+      if (shareItem && String(shareItem.id) === String(id)) shareItem.details = details;
+      if (video && video.key && (!reelVideo || video.key !== reelVideo.key)) {
+        const { removeReel } = await import("../../lib/reel-upload.js");
+        removeReel(acct.token, video.key);
+      }
+      if (resend && details.zernio && details.zernio.status === "scheduled") {
+        try {
+          const { schedulePost } = await import("../../lib/schedule-sync.js");
+          await schedulePost(acct.token, id, details.zernio.accounts || []);
+        } catch (_) {
+          (window as any).__TMKE_TOAST__?.("Replaced on your calendar, but the scheduled post didn't update. Open it in your Planner and press Change.", 7000);
+        }
+      }
+    }
+
     /* Plan It for a Content Calendar post (Dani, 11 Nov; the plan's "Captions
        and dates"): the post's own date, its three captions to choose from with
        {tags} filled from the brand kit, and two checks before it goes on the
@@ -8845,6 +8908,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       $caps.hidden = true;
       ccPlanPost = null;
       resetReel();
+      replaceTarget = null; sameDayOk = "";
       ccPostForPlan().then((post) => {
         if (!post || $modal.hidden) return;
         ccPlanPost = post;
@@ -8969,6 +9033,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const acct = await plannerStore();
       if (!acct) return showError("You're signed out. Sign in again, then re-open Schedule.");
       if (acct.blocked) return showError(acct.reason);
+      if (await askSameDay(acct, dateStr, [platform])) return;
 
       $submit.disabled = true;
       if ($emailNow) $emailNow.disabled = true;
@@ -8984,7 +9049,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         /* From a content plan (?post=<id>, /account/content-plan): the post
            is already on the calendar, waiting to be made, so this design
            fills it in rather than adding a second one. */
-        const planPost = new URLSearchParams(location.search).get("post");
+        const planPost = replaceTarget ? String(replaceTarget.id) : new URLSearchParams(location.search).get("post");
         if (planPost && /^[0-9a-f-]{36}$/i.test(planPost)) {
           const { data: upd, error: updErr } = await acct.db.from(acct.table).update({
             scheduled_date: dateStr, scheduled_time: timeStr, title, caption: caption || null,
@@ -8992,7 +9057,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             reminder: wantsReminder,
           }).eq("id", planPost).eq("user_id", acct.uid).select("id");
           if (updErr) throw new Error(updErr.message || "Couldn't save to your calendar.");
-          if (upd && upd.length && reelVideo) await attachReel(acct, planPost);
+          if (upd && upd.length && replaceTarget) await replaceDetails(acct, planPost, true);
+          else if (upd && upd.length && reelVideo) await attachReel(acct, planPost);
           if (upd && upd.length) {
             closeModal();
             const q = new URLSearchParams(location.search);
@@ -9464,6 +9530,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       return (item.details && item.details.zernio) || null;
     }
     async function shareRow(acct, fields) {
+      if (replaceTarget) {
+        const { error } = await acct.db.from(acct.table).update(fields).eq("id", replaceTarget.id).eq("user_id", acct.uid);
+        if (error) throw new Error(error.message || "Couldn't save it to your calendar.");
+        shareItem = { ...replaceTarget, ...fields };
+        await replaceDetails(acct, replaceTarget.id, false);
+        return shareItem;
+      }
       if (shareItem && (await freshDetails(acct, shareItem).catch(() => null))?.status === "scheduled") {
         if (reelVideo) await attachReel(acct, shareItem.id);
         const { error } = await acct.db.from(acct.table).update(fields).eq("id", shareItem.id).eq("user_id", acct.uid);
@@ -9513,6 +9586,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const acct = await plannerStore();
       if (!acct) return showError("You're signed out. Sign in again, then share it.");
       if (acct.blocked) return showError(acct.reason);
+      if (await askSameDay(acct, dateStr, platforms)) return;
       shareBusy = true;
       $submit.disabled = true; $submit.textContent = "Checking…";
       $confirm.hidden = true; $foot.hidden = false;
