@@ -350,6 +350,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 
   <script>
     import { supabase, isConfigured } from "../../lib/supabase.js";
+    import { markSubheads } from "../../lib/guide-subheads.js";
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { GUIDE_TOPIC_LABEL } from "../../data/guide-topics.js";
     import { TRAINING_GUIDES, PRINT_GUIDES, CALENDAR_GUIDES } from "../../data/training-guides.js";
@@ -406,6 +407,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     // picture or a layout can't be broken by a stray Backspace.
     const BLOCKS = "div,figure,img,ul,ol,p,h1,h2,h3,h4,h5,h6,blockquote,table,section,video,iframe,svg,figcaption,li,button";
     function makeEditable(root) {
+      markSubheads(root);
       root.querySelectorAll("*").forEach((el) => {
         if (el.closest('[contenteditable="true"]')) return;
         if (/^(IMG|SVG|VIDEO|IFRAME|BR|HR)$/i.test(el.tagName)) return;
@@ -421,6 +423,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     function pageHtml() {
       const c = $("#g-page-body").cloneNode(true);
       c.querySelectorAll("[contenteditable]").forEach((el) => { el.removeAttribute("contenteditable"); el.removeAttribute("spellcheck"); });
+      c.querySelectorAll(".gr-subhead").forEach((el) => { el.classList.remove("gr-subhead"); if (!el.getAttribute("class")) el.removeAttribute("class"); });
       c.querySelectorAll(".gle-sel").forEach((el) => { el.classList.remove("gle-sel"); if (!el.getAttribute("class")) el.removeAttribute("class"); });
       c.querySelectorAll('[style=""]').forEach((el) => el.removeAttribute("style"));
       return c.innerHTML;
@@ -459,7 +462,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       $("#g-page-walknote").textContent = w ? `The "Show me" box for ${w.title} sits here.` : "";
     }
     WALK_LIST.forEach((w) => { const o = document.createElement("option"); o.value = w.id; o.textContent = w.title; $("#g-page-walk").appendChild(o); });
-    function syncPage() { if (pageAt < 0) return; lessons[pageAt].body_html = pageHtml(); $("#g-page-html").value = lessons[pageAt].body_html; markDirty(); }
+    function syncPage() { if (pageAt < 0) return; markSubheads($("#g-page-body")); lessons[pageAt].body_html = pageHtml(); $("#g-page-html").value = lessons[pageAt].body_html; markDirty(); }
     $("#g-page-body").addEventListener("input", syncPage);
     // Links and buttons in the lesson are words to edit here, not places to go.
     $("#g-page-body").addEventListener("click", (e) => { if (e.target.closest("a,button")) e.preventDefault(); });

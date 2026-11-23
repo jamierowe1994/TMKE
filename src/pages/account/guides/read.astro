@@ -94,6 +94,7 @@ const DEFAULT_COVER = (await getImage({
   <script>
     import { isDemo as demoOn, lock } from "../../../lib/demo.js";
     import { supabase } from "../../../lib/supabase.js";
+    import { markSubheads, subheadsHtml } from "../../../lib/guide-subheads.js";
     import { logUsage } from "../../../lib/usage-log.js";
     import { GUIDE_TOPIC_MAP } from "../../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../../data/content-ideas-guide.js";
@@ -202,6 +203,7 @@ const DEFAULT_COVER = (await getImage({
         ? (lessons[0]?.body_html || "<p>This article has no content yet.</p>")
         : lessons.map((l)=> (l.title ? `<h2>${esc(l.title)}</h2>` : "") + (l.body_html || "")).join("");
       $("#ar-body").innerHTML = html;
+      markSubheads($("#ar-body"));
 
       // An article is a single short read — opening it counts as done.
       saveProgress(guide.slug, { furthest: 1, total: 0, completed: true });
@@ -281,7 +283,7 @@ const DEFAULT_COVER = (await getImage({
       };
       const partHtml = (i) => {
         const l = lessons[i-1];
-        let body = l.body_html || "", trailingTip = "", inlineWalk = false;
+        let body = subheadsHtml(l.body_html || ""), trailingTip = "", inlineWalk = false;
         // <!--WALK--> in the copy puts the "Show me" box exactly there, in the
         // middle of the lesson, rather than at the end of it.
         if (body.indexOf("<!--WALK-->") !== -1) {
