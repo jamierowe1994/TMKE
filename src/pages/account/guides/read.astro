@@ -255,7 +255,10 @@ const DEFAULT_COVER = (await getImage({
           <div class="gc-intro-card">
             <a class="gr-topic" href="/account/guides#${esc(guide.topic||"")}">${esc(topicLabel(guide.topic))}</a>
             <h1 class="gc-intro-title">${esc(guide.title || "Untitled")}</h1>
-            ${guide.summary ? `<p class="gc-intro-sum">${esc(guide.summary)}</p>` : ""}
+            ${Array.isArray(guide.intro) && guide.intro.length
+              // A course's own introduction (training-guides.js `intro`) in place of its card line.
+              ? guide.intro.map((t) => `<p class="gc-intro-sum">${esc(t)}</p>`).join("")
+              : guide.summary ? `<p class="gc-intro-sum">${esc(guide.summary)}</p>` : ""}
             <div class="gc-intro-meta">${chips.join("")}</div>
             <div class="gc-intro-start"><button type="button" class="ws-btn ws-btn--primary" data-next>Start course
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>

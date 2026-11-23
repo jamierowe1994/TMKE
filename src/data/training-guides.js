@@ -483,11 +483,14 @@ export const CALENDAR_GUIDES = [
     title: "Using Your Content Calendar",
     summary: "Find your monthly posts, personalise them in the Studio and plan or schedule your content.",
     est_minutes: 10, sort_order: 5, training: false, topic: "content-calendar", level: "calendar",
+    // The course's own introduction, on its Overview (Danielle, 23 Nov: not part of lesson 1).
+    intro: [
+      "Your Content Calendar gives you ready-made social media content for every weekday, with designs, captions and guidance to help you make each post your own.",
+      "This course takes you through finding your content, editing it in the Studio and adding it to your Planner. If you have Content Calendar Plus, you'll also learn how to schedule or publish directly to social media.",
+    ],
     lessons: [
       { title: "Finding Your Content Calendar",
         body_html:
-          p("Your Content Calendar gives you ready-made social media content for every weekday, with designs, captions and guidance to help you make each post your own.") +
-          p("This course takes you through finding your content, editing it in the Studio and adding it to your Planner. If you have Content Calendar Plus, you'll also learn how to schedule or publish directly to social media.") +
           p("Your Content Calendar sits within the Planner, alongside your own planned marketing activities.") +
           p("Each month, you'll find a collection of posts organised by date. Every post has a title and content pillar, helping you see what's planned and what each post is designed to achieve.") +
           p("You can browse the month, open individual posts and decide which ones you'd like to use. You don't have to follow the suggested dates or use every post.") },
