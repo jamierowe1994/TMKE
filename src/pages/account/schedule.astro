@@ -263,11 +263,16 @@ import "../../styles/account-sections.css";
           <div class="post-error" id="post-error" hidden></div>
         </div>
       </div>
-      <footer class="day-foot post-foot">
-        <button type="button" class="post-btn post-btn--danger" id="post-delete">Remove</button>
-        <button type="button" class="post-btn post-btn--ghost" id="post-email">Email it to me now</button>
-        <button type="button" class="post-btn post-btn--ghost" id="post-mycal" data-mycal>Add to my calendar</button>
-        <a class="post-btn post-btn--ghost" id="post-edit" href="#" hidden>Edit design</a>
+      <!-- The secondary buttons share one row, as wide as the cards above,
+           with Save changes under them ending where the cards end
+           (Danielle, 23 Nov). -->
+      <footer class="day-foot post-foot post-foot--split">
+        <div class="post-foot-row">
+          <button type="button" class="post-btn post-btn--danger" id="post-delete">Remove</button>
+          <button type="button" class="post-btn post-btn--ghost" id="post-email">Email it to me now</button>
+          <button type="button" class="post-btn post-btn--ghost" id="post-mycal" data-mycal>Add to my calendar</button>
+          <a class="post-btn post-btn--ghost" id="post-edit" href="#" hidden>Edit design</a>
+        </div>
         <button type="button" class="post-btn post-btn--primary" id="post-save">Save changes</button>
       </footer>
     </aside>
@@ -1409,6 +1414,14 @@ import "../../styles/account-sections.css";
       .post-btn--primary { margin-left: 0; }
       .post-foot .post-btn { flex: 1 1 auto; }
     }
+    /* The planned post's foot (Danielle, 23 Nov): the secondary buttons
+       stretch to share the cards' width equally, wrapping two and one when
+       the panel is too narrow for their words; Save changes goes underneath,
+       its right edge on the cards' right edge. */
+    .post-foot--split { flex-direction: column; align-items: stretch; gap: 10px; }
+    .post-foot-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .post-foot-row .post-btn { flex: 1 1 0; min-width: max-content; }
+    .post-foot--split > .post-btn--primary { align-self: flex-end; margin-left: 0; }
 
     /* ---- The month's posts (Content Calendar subscription) ----
        Our post for each weekday, 3:4 like the post itself, full size in its
@@ -1550,6 +1563,24 @@ import "../../styles/account-sections.css";
     import { CATEGORIES, ACTIVITIES, PLATFORMS, activityOf, categoryOf, entryTitle } from '../../data/marketing-activities.js';
     import { planUrl, postIsMade, monthKey, monthName as planMonthName, plannedMonths } from '../../lib/content-plan.js';
     import { undoToast } from '../../lib/undo-toast.js';
+
+    /* The planned post's buttons end where its cards end (Danielle, 23 Nov).
+       The cards sit in a body that scrolls, so on a screen that shows scroll
+       bars they stop short by the bar's width; the foot is given the same. */
+    (() => {
+      const body = document.querySelector('#post-modal .post-body');
+      const foot = document.querySelector('#post-modal .post-foot--split');
+      if (!body || !foot || typeof ResizeObserver === 'undefined') return;
+      const match = () => {
+        foot.style.paddingRight = '';
+        const bar = body.offsetWidth - body.clientWidth;
+        if (bar > 0) foot.style.paddingRight = `calc(${getComputedStyle(foot).paddingRight} + ${bar}px)`;
+      };
+      // The body and what's in it: a scroll bar appearing narrows the contents.
+      const ro = new ResizeObserver(match);
+      ro.observe(body);
+      [...body.children].forEach((c) => ro.observe(c));
+    })();
 
     /* The three boxes in the header, following the view (Dani, 18 Oct). From
        the same account the calendar shows: the member's, or training's. Read
