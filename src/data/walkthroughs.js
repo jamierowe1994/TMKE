@@ -840,20 +840,32 @@ export const WALKS = {
     ],
   },
 
+  /* Danielle's order (23 Nov): guidance, film, upload options, cover, then
+     the video after the caption, then share or schedule. Cards 5 and 6 say
+     what happens on the Planner route and on the share-to-socials route. */
   "cc-reels": {
     title: "Reels",
     lead: "See how reels work",
     stage: ED_REEL,
     steps: [
       { target: "#ed-ccpost-reel", placement: "right", padding: 8, close: SHARE_SHUT, open: '[data-tool="start"]', tap: '#ed-ccpost:not(.is-open) #ed-ccpost-toggle',
-        eyebrow: "Reels", title: "Read the Reel Guidance",
-        body: "For reel templates, look for For the Reel to see the filming concept and instructions." },
+        eyebrow: "Start", title: "Read the Guidance",
+        body: "Open Start and look for For the Reel on your post card. It gives you the filming concept and instructions for what to film." },
+      { target: null, placement: "center", close: SHARE_SHUT,
+        eyebrow: "Film", title: "Film Your Reel",
+        body: "Film your video upright (9:16), on your phone or in your preferred video editing app. Save it as an MP4 or MOV between 3 seconds and 15 minutes long, and no larger than 300 MB." },
       { target: "#ed-ccpost-video", placement: "right", padding: 8, close: SHARE_SHUT, open: '[data-tool="start"]',
-        eyebrow: "Reels", title: "Find Your Video Options",
-        body: "Open Edit and look for Your Video to see how your video can be used with the design." },
+        eyebrow: "Edit", title: "Check Your Upload Options",
+        body: "Open Edit and look for Your Video. You can add your video when you plan or share the reel, so your design becomes its cover, or download the cover and post the reel yourself." },
+      { target: "#ed-ccpost-fields", placement: "right", padding: 8, close: SHARE_SHUT, open: '[data-tool="start"]', tap: EDIT_OPEN,
+        eyebrow: "Cover", title: "Update the Cover",
+        body: "Your design is the reel's cover. Work through the fields under Edit to update it, and select Change to replace an image." },
       { target: "#ed-sched-video", placement: "left", padding: 8, tap: PLAN_OPEN,
-        eyebrow: "Reels", title: "Add Your Video",
-        body: "When planning or scheduling a reel, select Add your video and upload your finished MP4 or MOV file." },
+        eyebrow: "Your video", title: "Add Your Video",
+        body: "Once you've updated the caption in the Share pop-out, select Add your video below it. If you save to your Studio Planner, the video is kept with the caption and cover on that day, and if you share to Instagram or Facebook, it goes out as your reel. If you don't add a video, your design posts as a picture." },
+      { target: "#ed-share-menu", placement: "left", padding: 6, close: SHARE_SHUT, tap: SHARE_MENU,
+        eyebrow: "Share", title: "Share or Schedule Your Post",
+        body: "Plan post saves the reel to your Planner without publishing it, and with Send me an email reminder ticked, you'll be emailed the image and caption at your chosen time so you can post it yourself. With Content Calendar Plus, Share to Instagram or Share to Facebook lets you choose Schedule it or Post now, and the reel goes out on its own. It also shows in your Planner, where you can check it's Scheduled or Posted, change it or select Don't post it." },
     ],
   },
 
