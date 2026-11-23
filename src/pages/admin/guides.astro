@@ -58,6 +58,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         <input class="gle-h" id="g-title" placeholder="Course title" aria-label="Title" />
         <textarea class="gle-sum" id="g-summary" rows="1" placeholder="One line that sells it. It shows on the cards in Learn." aria-label="Summary"></textarea>
 
+        <span class="gadm-sub gle-sec">Details</span>
         <dl class="gadm-built-facts gle-facts">
           <div><dt>Type</dt><dd><select id="g-kind" aria-label="Type"><option value="guide">Article</option><option value="course">Course</option></select></dd></div>
           <div><dt>Topic</dt><dd><select id="g-topic" aria-label="Topic">{GUIDE_TOPICS.map((t) => (<option value={t.slug}>{t.label}</option>))}</select></dd></div>
@@ -69,7 +70,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         <p class="gadm-muted gadm-typehint" id="g-type-hint"></p>
 
         <div class="gadm-lessons-head">
-          <span class="gadm-sub">Lessons</span>
+          <span class="gadm-sub gle-sec">Lessons</span>
           <span class="gadm-muted" id="g-lessons-hint">Click a lesson to read it as members see it and change its words.</span>
         </div>
         <ol class="gadm-built-lessons gle-lessons" id="g-lessons"></ol>
@@ -87,7 +88,37 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
             <button type="button" class="gadm-btn gadm-btn--danger" id="g-page-del">Remove lesson</button>
           </div>
         </div>
-        <p class="gadm-muted gle-page-tip">Click any words to change them. Pictures, cards and layout stay as they are; change those in the HTML below.</p>
+        <div class="gle-tools" id="g-tools">
+          <div class="gle-tg">
+            <span class="gle-tl">Words</span>
+            <button type="button" class="gle-tb gle-tb--i" data-cmd="bold" title="Bold"><b>B</b></button>
+            <button type="button" class="gle-tb gle-tb--i" data-cmd="italic" title="Italic"><i>I</i></button>
+            <button type="button" class="gle-tb gle-tb--i" data-size="-1" title="Smaller">A&minus;</button>
+            <button type="button" class="gle-tb gle-tb--i" data-size="1" title="Bigger">A+</button>
+            <button type="button" class="gle-tb gle-tb--i" data-align="left" title="Left"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M2 6.5h8M2 9.5h12M2 12.5h8"/></svg></button>
+            <button type="button" class="gle-tb gle-tb--i" data-align="center" title="Centre"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M4 6.5h8M2 9.5h12M4 12.5h8"/></svg></button>
+            <button type="button" class="gle-tb gle-tb--i" data-align="right" title="Right"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h12M6 6.5h8M2 9.5h12M6 12.5h8"/></svg></button>
+          </div>
+          <div class="gle-tg">
+            <span class="gle-tl" id="g-tool-kind">Box</span>
+            <button type="button" class="gle-tb gle-tb--i" data-move="-1" title="Move up">&uarr;</button>
+            <button type="button" class="gle-tb gle-tb--i" data-move="1" title="Move down">&darr;</button>
+            <button type="button" class="gle-tb" data-dup title="Make a copy of the selected box, next to it">Copy</button>
+            <button type="button" class="gle-tb" data-del title="Delete the selected box">Delete</button>
+            <button type="button" class="gle-tb" data-outer title="Select the box this one sits inside">Select outer</button>
+          </div>
+          <div class="gle-tg">
+            <span class="gle-tl">Add</span>
+            <button type="button" class="gle-tb" data-add="text">Text</button>
+            <button type="button" class="gle-tb" data-add="heading">Heading</button>
+            <button type="button" class="gle-tb" data-add="image">Picture</button>
+            <button type="button" class="gle-tb" data-add="2">2 boxes</button>
+            <button type="button" class="gle-tb" data-add="3">3 boxes</button>
+            <input type="file" id="g-img-file" accept="image/jpeg,image/png,image/webp" hidden />
+          </div>
+          <button type="button" class="gle-tb gle-tb--undo" data-undo title="Put back the last move, copy, delete or add">Undo</button>
+        </div>
+        <p class="gadm-muted gle-page-tip">Click any words to change them. Click a box to select it, then move, copy or delete it from the bar. New things go in under the selected box.</p>
         <div class="ws gle-ws">
           <div class="gc-slide gc-slide--part gle-slide">
             <span class="gc-part" id="g-page-part"></span>
@@ -101,7 +132,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
           <label><span>Show me walkthrough</span><select id="g-page-walk"><option value="">None</option></select></label>
         </div>
         <details class="gle-html" id="g-page-htmlbox">
-          <summary>Edit the HTML (for pictures, cards and layout)</summary>
+          <summary>Edit the HTML</summary>
           <textarea id="g-page-html" rows="14" spellcheck="false"></textarea>
           <p class="gadm-lesson-hint">Paragraphs &lt;p&gt;, sub-heads &lt;h3&gt;, lists &lt;ul&gt;&lt;li&gt;, bold &lt;strong&gt;, links &lt;a href&gt;. The page above updates when you click out of the box.</p>
         </details>
@@ -226,7 +257,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .gadm .gle-h:focus, .gadm .gle-sum:focus, .gadm .gle-ltitle:focus { outline: none; border-color: var(--english-violet); background: #fff; box-shadow: 0 0 0 3px rgba(55,30,40,0.08); }
     .gadm .gle-h { font-family: var(--serif); font-weight: 400; font-size: 26px; line-height: 1.15; letter-spacing: -0.05em; color: var(--ink); }
     .gadm .gle-sum { font-family: var(--sans); font-size: 14px; line-height: 1.5; color: rgba(28,29,34,0.7); }
-    .gadm .gle-ltitle { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.4vw, 40px); line-height: 1.08; letter-spacing: -0.05em; color: var(--ws-ink); margin-bottom: 6px; }
+    .gadm .gle-ltitle { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.4vw, 40px); line-height: 1.08; letter-spacing: -0.05em; color: var(--ws-ink); margin-bottom: 14px; }
     .gle-facts dd { display: flex; align-items: center; gap: 4px; }
     .gadm .gle-facts select, .gadm .gle-facts input { font-family: var(--sans); font-size: 14px; color: var(--ink); border: 1px solid transparent; border-radius: 4px; background: transparent; padding: 3px 6px; margin-left: -7px; max-width: 100%; min-width: 0; cursor: pointer; }
     .gadm .gle-facts select:hover, .gadm .gle-facts input:hover { border-color: rgba(28,29,34,0.14); }
@@ -259,6 +290,59 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .gle-walk-note[hidden] { display: none; }
     .gle-html summary { cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); }
     .gadm .gle-html textarea { width: 100%; box-sizing: border-box; margin-top: 8px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; line-height: 1.5; }
+    /* ---- House buttons (Danielle, 23 Nov): the admin centre's own, 30px,
+       small caps, square-ish corners, on every control in the editor. ---- */
+    .gadm .gadm-btn, .gadm .gadm-new, .gadm .gadm-addlesson, .gadm .gle-photo-btn, .gle-tb {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; box-sizing: border-box; padding: 0 14px; margin: 0;
+      border-radius: 4px; border: 1px solid rgba(55,30,40,0.22); background: #fff; color: var(--ink); cursor: pointer; text-decoration: none; white-space: nowrap;
+      font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; }
+    .gadm .gadm-btn:hover, .gadm .gadm-new:hover, .gadm .gadm-addlesson:hover, .gadm .gle-photo-btn:hover, .gle-tb:hover { background: #fff; border-color: var(--english-violet); color: var(--english-violet); }
+    .gadm .gadm-btn--solid { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .gadm .gadm-btn--solid:hover { background: #2a1620; border-color: #2a1620; color: #fff; }
+    .gadm .gadm-btn--danger { color: var(--ink); }
+    .gadm .gadm-btn--danger:hover { border-color: #a05a3c; color: #a05a3c; }
+    .gadm .gadm-btn:disabled, .gle-tb:disabled { opacity: 0.4; cursor: default; border-color: rgba(55,30,40,0.22); color: var(--ink); }
+    .gadm .gadm-addlesson { align-self: flex-start; }
+    .gadm-bar-r { gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .gadm .gadm-mini { width: 30px; height: 30px; padding: 0; border-radius: 4px; border: 1px solid rgba(55,30,40,0.22); color: var(--ink); font-size: 13px; }
+    .gadm .gadm-mini:disabled { opacity: 0.35; cursor: default; }
+    /* ---- The course front: less air, fields that look like fields ---- */
+    .gle-course { gap: 12px; }
+    .gle-cover { aspect-ratio: auto; height: 220px; }
+    .gle-cover:not(.has-img) { height: 64px; align-items: center; padding: 0 14px; background: transparent; border: 1px dashed rgba(55,30,40,0.3); }
+    .gle-cover:not(.has-img) .gle-cover-empty { position: static; transform: none; margin-right: auto; text-align: left; order: -1; }
+    .gadm .gle-h, .gadm .gle-sum { margin: 0; padding: 8px 12px; border-color: rgba(55,30,40,0.16); background: #fff; }
+    .gadm .gle-h { font-size: 28px; }
+    .gadm .gle-h:hover, .gadm .gle-sum:hover { border-color: rgba(55,30,40,0.4); }
+    .gle-sec { display: block; margin-top: 10px; font-size: 12px; letter-spacing: 0.1em; color: var(--english-violet); }
+    .gle-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 14px; }
+    .gle-facts div { gap: 5px; min-width: 0; }
+    .gle-facts dt { font-size: 11px; letter-spacing: 0.1em; color: var(--ink); }
+    .gle-facts dd { gap: 8px; height: 36px; min-width: 0; }
+    .gadm .gle-facts select, .gadm .gle-facts input { flex: 1; width: 100%; height: 36px; box-sizing: border-box; margin: 0; padding: 0 10px; border: 1px solid rgba(55,30,40,0.22); background: #fff; font-size: 14px; font-weight: 400; }
+    .gadm .gle-facts select:hover, .gadm .gle-facts input:hover { border-color: var(--english-violet); }
+    .gadm .gle-mins input { flex: 0 0 64px; width: 64px; }
+    .gle-facts .gle-mins, .gle-facts .gle-slug { font-size: 14px; color: rgba(28,29,34,0.6); white-space: nowrap; }
+    .gadm .gadm-typehint { margin: -2px 0 0; }
+    .gadm-lessons-head { margin-top: 0; }
+    .gadm-lessons-head .gle-sec { margin-top: 10px; }
+    .gle-lessons { gap: 6px; }
+    .gle-lessons li { border-radius: 4px; padding: 8px 8px 8px 14px; background: #fff; gap: 8px; }
+    .gle-lessons li::before { width: 64px; }
+    .gadm .gle-l-open { margin-left: 0; }
+    @media (max-width: 760px) { .gle-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    /* ---- The lesson's tools bar ---- */
+    .gle-tools { position: sticky; top: var(--gle-top, 0px); z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 8px 10px; background: #fff; border: 1px solid rgba(55,30,40,0.18); border-radius: 6px; box-shadow: 0 2px 10px rgba(28,29,34,0.06); }
+    .gle-tg { display: flex; align-items: center; gap: 4px; }
+    .gle-tl { margin-right: 4px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--english-violet); white-space: nowrap; }
+    .gle-tb { padding: 0 10px; }
+    .gle-tb--i { width: 30px; padding: 0; font-size: 13px; letter-spacing: 0; text-transform: none; }
+    .gle-tb--i b { font-weight: 800; } .gle-tb--i i { font-family: Georgia, serif; font-size: 14px; }
+    .gle-tb svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+    .gle-tb--undo { margin-left: auto; }
+    .gle-body .gle-sel { outline: 1.5px solid var(--english-violet); outline-offset: 6px; border-radius: 3px; }
+    .gle-body .gle-sel[contenteditable="true"]:focus { outline-width: 2px; outline-offset: 2px; }
+    .gle-body > *, .gle-body .bk-card, .gle-body .bk-format, .gle-body li { cursor: pointer; }
     .gadm-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; font-family: var(--sans); font-size: 13px; z-index: 100; }
   </style>
 
@@ -308,7 +392,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
           <span class="gle-l-t${plainTitle(l.title) ? "" : " is-empty"}">${esc(plainTitle(l.title) || "Untitled lesson")}</span>
           <button type="button" class="gadm-mini" data-up="${i}" ${i===0?"disabled":""} title="Move up">↑</button>
           <button type="button" class="gadm-mini" data-down="${i}" ${i===lessons.length-1?"disabled":""} title="Move down">↓</button>
-          <span class="gle-l-open">Open</span>
+          <span class="gadm-btn gle-l-open">Open</span>
         </li>`).join("");
       wrap.querySelectorAll("[data-open]").forEach((li) => li.addEventListener("click", (e) => { if (e.target.closest("[data-up],[data-down]")) return; openPage(+li.dataset.open); }));
       wrap.querySelectorAll("[data-up]").forEach((b) => b.addEventListener("click", () => { const i=+b.dataset.up; [lessons[i-1],lessons[i]]=[lessons[i],lessons[i-1]]; renderLessons(); markDirty(); }));
@@ -337,12 +421,15 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     function pageHtml() {
       const c = $("#g-page-body").cloneNode(true);
       c.querySelectorAll("[contenteditable]").forEach((el) => { el.removeAttribute("contenteditable"); el.removeAttribute("spellcheck"); });
+      c.querySelectorAll(".gle-sel").forEach((el) => { el.classList.remove("gle-sel"); if (!el.getAttribute("class")) el.removeAttribute("class"); });
+      c.querySelectorAll('[style=""]').forEach((el) => el.removeAttribute("style"));
       return c.innerHTML;
     }
     function drawPageBody() {
       const body = $("#g-page-body");
       body.innerHTML = (lessons[pageAt].body_html || "").trim() || "<p></p>";
       makeEditable(body);
+      sel = null; curBox = null; updateTools();
     }
     function openPage(i) {
       if (i < 0 || i >= lessons.length) return;
@@ -357,6 +444,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       $("#g-page-walk").value = l.walk || "";
       $("#g-page-prev").disabled = i === 0; $("#g-page-next").disabled = i === n - 1;
       $("#g-page-html").value = l.body_html || "";
+      undo = [];
       drawPageBody(); walkNote();
       const slug = $("#g-slug").value.trim();
       $("#g-open").href = slug ? `/account/guides/read?g=${encodeURIComponent(slug)}&p=${i + 1}` : "#";
@@ -403,7 +491,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     $("#g-page-body").addEventListener("focusout", (e) => {
       const el = e.target.closest && e.target.closest('[contenteditable="true"]');
       if (!el || !el.isConnected || !isBlank(el) || boxes().length < 2) return;
-      removeBox(el); syncPage();
+      removeBox(el); syncPage(); updateTools();
     });
     $("#g-page-body").addEventListener("keydown", (e) => {
       const el = e.target.closest('[contenteditable="true"]');
@@ -416,7 +504,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         e.preventDefault();
         if (prev) caretTo(prev, true); else if (all[i + 1]) caretTo(all[i + 1], false);
         removeBox(el);
-        syncPage(); return;
+        syncPage(); updateTools(); return;
       }
       // Only paragraph into paragraph (or heading into the same heading), side by side.
       if (!prev || el.previousElementSibling !== prev || prev.tagName !== el.tagName) return;
@@ -439,6 +527,144 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       if (!e.target.closest('[contenteditable="true"]')) return;
       e.preventDefault(); document.execCommand("insertText", false, (e.clipboardData || window.clipboardData).getData("text/plain"));
     });
+
+    // ---- The lesson's tools (Danielle, 23 Nov): move, copy and delete boxes,
+    // format words, add text, pictures and sets of boxes. Everything builds on
+    // the lesson's own blocks and classes, so the formatting stays as it is.
+    // A "box" is the nearest thing that can be moved: a card in a set, an item
+    // in a list, or a whole block of the page. ----
+    const SETS = ".bk-cards,.bk-formats,.ci-pillars,.ci-grid,.bk-tools,ul,ol";
+    const bodyEl = $("#g-page-body"), tools = $("#g-tools");
+    let sel = null, curBox = null, undo = [];
+    function unitOf(node) {
+      const el = node && (node.nodeType === 1 ? node : node.parentElement);
+      if (!el || el === bodyEl || !bodyEl.contains(el)) return null;
+      let top = el; while (top.parentElement !== bodyEl) top = top.parentElement;
+      for (let n = el; n !== top; n = n.parentElement) if (n.parentElement.matches(SETS)) return n;
+      return top;
+    }
+    const outerOf = (u) => (!u || u.parentElement === bodyEl ? null : unitOf(u.parentElement));
+    const isPic = (u) => !!u && (u.tagName === "IMG" || (u.tagName === "FIGURE" && !!u.querySelector("img") && !u.textContent.trim()));
+    function kindName(u) {
+      if (!u) return "Box";
+      if (isPic(u)) return "Picture";
+      if (u.matches(".bk-cards,.bk-formats,.ci-pillars,.ci-grid,.bk-tools,.bk-open-grid")) return "Set of boxes";
+      if (u.tagName === "LI") return "List item";
+      if (/^(UL|OL)$/.test(u.tagName)) return "List";
+      if (u.parentElement !== bodyEl || u.matches(".bk-panel,.bk-card,.bk-provide,.bk-eg")) return "Box";
+      return "Text";
+    }
+    // What the Words buttons act on: the box the caret is in, or every text box in the selection.
+    function wordTargets() {
+      if (!sel) return [];
+      if (curBox && curBox.isConnected && sel.contains(curBox)) return [curBox];
+      return sel.matches('[contenteditable="true"]') ? [sel] : [...sel.querySelectorAll('[contenteditable="true"]')];
+    }
+    function updateTools() {
+      if (sel && !sel.isConnected) sel = null;
+      if (curBox && !curBox.isConnected) curBox = null;
+      const sideways = !!sel && sel.parentElement !== bodyEl && !/^(UL|OL)$/.test(sel.parentElement.tagName);
+      const back = tools.querySelector('[data-move="-1"]'), on = tools.querySelector('[data-move="1"]');
+      back.innerHTML = sideways ? "&larr;" : "&uarr;"; back.title = sideways ? "Move left" : "Move up";
+      on.innerHTML = sideways ? "&rarr;" : "&darr;"; on.title = sideways ? "Move right" : "Move down";
+      back.disabled = !sel || !sel.previousElementSibling; on.disabled = !sel || !sel.nextElementSibling;
+      tools.querySelector("[data-dup]").disabled = !sel; tools.querySelector("[data-del]").disabled = !sel;
+      tools.querySelector("[data-outer]").disabled = !outerOf(sel);
+      const words = wordTargets().length > 0, pic = isPic(sel);
+      tools.querySelectorAll("[data-cmd]").forEach((b) => { b.disabled = !curBox; });
+      tools.querySelectorAll("[data-size],[data-align]").forEach((b) => { b.disabled = !(words || pic); });
+      tools.querySelector("[data-undo]").disabled = !undo.length;
+      $("#g-tool-kind").textContent = kindName(sel);
+    }
+    function select(u) {
+      if (sel && sel !== u) { sel.classList.remove("gle-sel"); if (!sel.getAttribute("class")) sel.removeAttribute("class"); }
+      sel = u || null;
+      if (sel) sel.classList.add("gle-sel");
+      updateTools();
+    }
+    const snap = () => { undo.push(pageHtml()); if (undo.length > 40) undo.shift(); };
+    const settle = () => { makeEditable(bodyEl); syncPage(); updateTools(); };
+    function tidyStyle(el) { if (!el.getAttribute("style")) el.removeAttribute("style"); }
+    function selectWords(el) { el.focus(); const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+    // New blocks go in under the selected one (under its whole set, if it is in one), or at the end.
+    function insertBlock(html) {
+      snap();
+      const t = document.createElement("template"); t.innerHTML = html.trim();
+      const node = t.content.firstElementChild;
+      let top = sel; while (top && top.parentElement !== bodyEl) top = top.parentElement;
+      if (top) top.after(node); else bodyEl.appendChild(node);
+      settle(); select(node); node.scrollIntoView({ block: "center", behavior: "smooth" });
+      return node;
+    }
+    const WORD_SIZES = [12, 13, 0, 16, 18, 22, 28], PIC_SIZES = [33, 50, 66, 100];
+    function resize(step) {
+      snap();
+      if (isPic(sel)) {
+        const at = PIC_SIZES.indexOf(parseInt(sel.style.width, 10) || 100), to = PIC_SIZES[Math.max(0, Math.min(PIC_SIZES.length - 1, (at < 0 ? 3 : at) + step))];
+        sel.style.width = to === 100 ? "" : to + "%"; tidyStyle(sel);
+      } else wordTargets().forEach((el) => {
+        const at = WORD_SIZES.indexOf(parseInt(el.style.fontSize, 10) || 0), to = WORD_SIZES[Math.max(0, Math.min(WORD_SIZES.length - 1, (at < 0 ? 2 : at) + step))];
+        el.style.fontSize = to ? to + "px" : ""; tidyStyle(el);
+      });
+      syncPage(); updateTools();
+    }
+    function align(side) {
+      snap();
+      if (isPic(sel)) {
+        sel.style.marginLeft = side === "left" ? "" : "auto"; sel.style.marginRight = side === "right" ? "0" : side === "center" ? "auto" : ""; tidyStyle(sel);
+      } else wordTargets().forEach((el) => { el.style.textAlign = side === "left" ? "" : side; tidyStyle(el); });
+      syncPage(); updateTools();
+    }
+    const BOXES = (n) => `<div class="bk-cards bk-cards--${n}">${'<div class="bk-card"><strong>Title</strong><span>Write here.</span></div>'.repeat(n)}</div>`;
+    async function addPicture(file) {
+      if (!WORKER) { toast("Uploads need the site's Worker address."); return; }
+      toast("Uploading…");
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        const fd = new FormData(); fd.append("file", file);
+        const res = await fetch(`${WORKER}/admin/upload`, { method: "POST", headers: s?.access_token ? { Authorization: `Bearer ${s.access_token}` } : {}, body: fd });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.url) { toast("Upload failed: " + (j.error || ("HTTP " + res.status))); return; }
+        if (pageAt < 0) return;
+        insertBlock(`<figure class="gr-pic"><img src="${esc(j.url)}" alt="" loading="lazy"></figure>`);
+        toast("Picture added. A− and A+ change its size.");
+      } catch (err) { toast("Upload failed: " + (err.message || err)); }
+    }
+    $("#g-img-file").addEventListener("change", (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) addPicture(file); });
+    // Pressing a tool mustn't take the caret out of the words.
+    tools.addEventListener("mousedown", (e) => { if (e.target.closest("button")) e.preventDefault(); });
+    tools.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b || b.disabled || pageAt < 0) return;
+      const d = b.dataset;
+      if (d.cmd) { if (curBox) { curBox.focus(); document.execCommand(d.cmd); syncPage(); } return; }
+      if (d.size) { resize(+d.size); return; }
+      if (d.align) { align(d.align); return; }
+      if (d.move) {
+        const sib = +d.move < 0 ? sel.previousElementSibling : sel.nextElementSibling; if (!sib) return;
+        const had = curBox && sel.contains(curBox) ? curBox : null;
+        snap(); if (+d.move < 0) sib.before(sel); else sib.after(sel);
+        settle(); sel.scrollIntoView({ block: "nearest" }); if (had) had.focus({ preventScroll: true });
+        return;
+      }
+      if ("dup" in d) { snap(); const c = sel.cloneNode(true); c.classList.remove("gle-sel"); c.removeAttribute("id"); c.querySelectorAll("[id]").forEach((x) => x.removeAttribute("id")); sel.after(c); settle(); select(c); return; }
+      if ("del" in d) {
+        snap();
+        let n = sel; while (n.parentElement !== bodyEl && n.parentElement.children.length === 1) n = n.parentElement;
+        n.remove(); sel = null; if (!bodyEl.children.length) bodyEl.innerHTML = "<p></p>";
+        settle(); toast("Deleted. Undo puts it back."); return;
+      }
+      if ("outer" in d) { const o = outerOf(sel); if (o) { curBox = null; if (document.activeElement && bodyEl.contains(document.activeElement)) document.activeElement.blur(); select(o); } return; }
+      if ("undo" in d) { const html = undo.pop(); if (html == null) return; lessons[pageAt].body_html = html; $("#g-page-html").value = html; drawPageBody(); markDirty(); return; }
+      if (d.add === "text") { const n = insertBlock("<p></p>"); n.focus(); return; }
+      if (d.add === "heading") { const n = insertBlock("<p><strong>Heading</strong></p>"); selectWords(n.querySelector("strong")); return; }
+      if (d.add === "image") { $("#g-img-file").click(); return; }
+      if (d.add === "2" || d.add === "3") { const n = insertBlock(BOXES(+d.add)); selectWords(n.querySelector("strong")); return; }
+    });
+    bodyEl.addEventListener("click", (e) => select(unitOf(e.target)));
+    bodyEl.addEventListener("focusin", (e) => { const b = e.target.closest && e.target.closest('[contenteditable="true"]'); if (b) { curBox = b; if (!sel || !sel.contains(b)) select(unitOf(b)); else updateTools(); } });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && pageAt >= 0 && sel) { select(null); } });
+    updateTools();
+
     $("#g-page-html").addEventListener("change", () => { if (pageAt < 0) return; lessons[pageAt].body_html = $("#g-page-html").value; drawPageBody(); markDirty(); });
     $("#g-page-title").addEventListener("input", () => { if (pageAt < 0) return; lessons[pageAt].title = $("#g-page-title").value; markDirty(); });
     $("#g-page-video").addEventListener("input", () => { if (pageAt < 0) return; lessons[pageAt].video_url = $("#g-page-video").value; markDirty(); });

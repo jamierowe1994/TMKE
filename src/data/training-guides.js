@@ -29,10 +29,10 @@ const cards = (items, cols = 3) => `<div class="bk-cards bk-cards--${cols}">${it
   `<div class="bk-card${kind ? ` bk-card--${kind}` : ""}"><strong>${t}</strong><span>${b}</span></div>`).join("")}</div>`;
 // Three cards side by side, each with a small "What we provide" box under it:
 // cards one height with the words centred, boxes one height with the words at
-// the top. Pairs stack card-then-box on narrow screens.
-const formats = (items) => `<div class="bk-formats">${items.map(([t, b], i) =>
-  `<div class="bk-card bk-card--mid" style="--i:${i}"><strong>${t}</strong><span>${b}</span></div>`).join("")}${items.map(([, , w], i) =>
-  `<div class="bk-provide" style="--i:${i}"><strong>What we provide:</strong> ${w}</div>`).join("")}</div>`;
+// the top. Each card and its box are one .bk-format (rows shared by subgrid),
+// so the pair moves and stacks together.
+const formats = (items) => `<div class="bk-formats">${items.map(([t, b, w]) =>
+  `<div class="bk-format"><div class="bk-card bk-card--mid"><strong>${t}</strong><span>${b}</span></div><div class="bk-provide"><strong>What we provide:</strong> ${w}</div></div>`).join("")}</div>`;
 // A quiet panel for an aside that is not an instruction.
 const panel = (h, body) => `<div class="bk-panel">${h ? `<strong>${h}</strong>` : ""}${body}</div>`;
 // Something to go and read, at the end of a lesson.
