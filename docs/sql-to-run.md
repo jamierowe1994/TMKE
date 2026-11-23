@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/member_broadcasts_audience_calendar.sql (23 Nov): Hub notifications › Who gets it gains Content Calendar subscribers (everyone with the calendar, on any level). Until it runs, sending to them is refused and the page says so; the other choices work as before. Changes no notification and sends nothing.
 - [ ] supabase/guides_kind_article.sql (23 Nov): Guides › Details › Type gains Article beside Guide and Course. Until it runs, saving a guide as an Article is refused and the editor says so.
 
 ## Done

@@ -7943,6 +7943,45 @@ async function broadcastGroups(env, users) {
   };
 }
 
+/* Everyone who has the Content Calendar on any level, for a hub notification
+   to "Content Calendar subscribers" (Danielle, 23 Nov). memberAccess's rule,
+   worked out for every account at once: a live brand whose edition is in
+   CC_TEG_EDITIONS once the December rule is on, a test login, or a card
+   subscription still running. It grows by itself as CC_TEG_EDITIONS and the
+   subscriptions do; if memberAccess gains another way in, add it here too.
+   Null when the records can't be read. */
+async function calendarHolders(env, users) {
+  const [S, contacts, profs, subs, admins] = await Promise.all([
+    ccSettings(env, true),
+    sbGetAll(env, "contacts", "select=id,user_id,email&order=id"),
+    sbGetAll(env, "agent_profiles", "brand=not.is.null&left_at=is.null&select=contact_id,brand&order=contact_id"),
+    sbGetAll(env, "member_subscriptions", "mode=eq.live&status=in.(active,past_due,cancelling)&select=user_id,status,current_period_end&order=user_id"),
+    sbGet(env, "admins", "select=user_id"),
+  ]);
+  if (!S.ready || !contacts || !profs || !subs) return null;
+  const has = new Set(S.test_user_ids);
+  if (S.teg_live) {
+    const paid = new Set(profs.filter((p) => CC_TEG_EDITIONS.includes(ACCESS_EDITION_OF_BRAND[p.brand])).map((p) => p.contact_id));
+    // The contact is found by its account, or by email when no contact is
+    // linked to the account, as memberAccess does.
+    const byUser = new Map(), byEmail = new Map();
+    contacts.forEach((c) => {
+      if (c.user_id) byUser.set(c.user_id, byUser.get(c.user_id) || paid.has(c.id));
+      if (c.email) { const k = String(c.email).toLowerCase(); byEmail.set(k, byEmail.get(k) || paid.has(c.id)); }
+    });
+    users.forEach((u) => {
+      const mine = byUser.has(u.id) ? byUser.get(u.id) : byEmail.get(String(u.email || "").toLowerCase());
+      if (mine) has.add(u.id);
+    });
+  }
+  subs.forEach((r) => {
+    // Cancelled and past the end of the paid month is over (ccActiveUpgrade).
+    if (r.status === "cancelling" && r.current_period_end && new Date(r.current_period_end).getTime() < Date.now()) return;
+    has.add(r.user_id);
+  });
+  return { admin: new Set((admins || []).map((r) => r.user_id)), has: (uid) => has.has(uid) };
+}
+
 async function runMemberBroadcasts(env) {
   if (!env.SUPABASE_SERVICE_ROLE) return;
   const H = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" };
@@ -7966,7 +8005,16 @@ async function runMemberBroadcasts(env) {
     // Fine & Country), F&C, External (neither). None ticked is everyone.
     // Admins always get it, so we see what members see.
     const groups = Array.isArray(b.audience) ? b.audience.filter((g) => ["teg", "fc", "external"].includes(g)) : [];
-    if (groups.length && groups.length < 3) {
+    // "calendar" (23 Nov): everyone with the Content Calendar on any level.
+    // It goes on its own, not mixed with the groups.
+    if (Array.isArray(b.audience) && b.audience.includes("calendar")) {
+      const cal = await calendarHolders(env, users);
+      if (!cal) {
+        await sbPatch(env, "member_broadcasts", `id=eq.${b.id}`, { status: "failed", sent_at: new Date().toISOString(), sent_count: 0, error: "Couldn't work out who has the Content Calendar, so it didn't go to anyone. Try again." });
+        continue;
+      }
+      ids = users.filter((u) => cal.admin.has(u.id) || cal.has(u.id)).map((u) => u.id);
+    } else if (groups.length && groups.length < 3) {
       const who = await broadcastGroups(env, users);
       if (!who) {
         await sbPatch(env, "member_broadcasts", `id=eq.${b.id}`, { status: "failed", sent_at: new Date().toISOString(), sent_count: 0, error: "Couldn't work out who is TEG, F&C or External, so it didn't go to anyone. Try again." });

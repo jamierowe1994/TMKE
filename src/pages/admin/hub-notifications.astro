@@ -68,11 +68,12 @@ const COURSES = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES].map((g
             <span>Who gets it</span>
             <div class="hn-when-opts">
               <label><input type="checkbox" data-hn-who="all" checked /> Every member</label>
+              <label><input type="checkbox" data-hn-who="calendar" /> Content Calendar subscribers</label>
               <label><input type="checkbox" data-hn-who="teg" /> TEG <em>(not F&amp;C)</em></label>
               <label><input type="checkbox" data-hn-who="fc" /> F&amp;C</label>
               <label><input type="checkbox" data-hn-who="external" /> External</label>
             </div>
-            <small id="hn-who-note">Tick any mix, such as TEG and F&amp;C together. We always get a copy.</small>
+            <small id="hn-who-note">Content Calendar subscribers is everyone with the calendar, on any level. Or tick any mix of TEG, F&amp;C and External. We always get a copy.</small>
           </fieldset>
           <div class="hn-row">
             <fieldset class="hn-field hn-when">
@@ -215,15 +216,17 @@ const COURSES = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES].map((g
         const o = document.createElement("option"); o.value = g.slug; o.textContent = g.title; sel.appendChild(o);
       });
     }
-    // Who gets it: Every member, or any mix of TEG, F&C and External.
-    const WHO_NAME = { teg: "TEG", fc: "F&C", external: "External" };
+    // Who gets it: Every member, everyone with the Content Calendar (23 Nov,
+    // on its own), or any mix of TEG, F&C and External.
+    const WHO_NAME = { teg: "TEG", fc: "F&C", external: "External", calendar: "Content Calendar subscribers" };
     const whoBoxes = () => [...document.querySelectorAll("[data-hn-who]")];
     function hnGroups() { return whoBoxes().filter((b) => b.checked && b.dataset.hnWho !== "all").map((b) => b.dataset.hnWho); }
     const whoWords = (groups) => !groups || !groups.length || groups.length === 3 ? "every member" : groups.map((g) => WHO_NAME[g] || g).join(" and ");
     whoBoxes().forEach((b) => b.addEventListener("change", () => {
       const all = whoBoxes().find((x) => x.dataset.hnWho === "all");
-      if (b === all) { if (all.checked) whoBoxes().forEach((x) => { if (x !== all) x.checked = false; }); }
-      else if (b.checked) all.checked = false;
+      const alone = (x) => x.dataset.hnWho === "all" || x.dataset.hnWho === "calendar";
+      // Every member and Content Calendar subscribers each stand alone.
+      if (b.checked) whoBoxes().forEach((x) => { if (x !== b && (alone(b) || alone(x))) x.checked = false; });
       if (!hnGroups().length) all.checked = true;
       hnSyncForm();
     }));
@@ -313,7 +316,12 @@ const COURSES = [...TRAINING_GUIDES, ...CALENDAR_GUIDES, ...PRINT_GUIDES].map((g
       if (groups.length) row.audience = groups;   // left off for everyone, so it works before the SQL has run
       const { error } = await supabase.from("member_broadcasts").insert(row);
       btn.disabled = false;
-      if (error && /audience/i.test(error.message || "")) { hnError("Choosing who gets it needs supabase/member_broadcasts_audience.sql run in Supabase first. Every member works now."); return; }
+      if (error && /audience/i.test(error.message || "")) {
+        hnError(groups.includes("calendar")
+          ? "Content Calendar subscribers needs supabase/member_broadcasts_audience_calendar.sql run in Supabase first. The other choices work now."
+          : "Choosing who gets it needs supabase/member_broadcasts_audience.sql run in Supabase first. Every member works now.");
+        return;
+      }
       if (error) { hnError("Couldn't save it: " + error.message); return; }
       hnEl("hn-title").value = ""; hnEl("hn-text").value = "";
       hnSyncForm();
