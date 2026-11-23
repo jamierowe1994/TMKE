@@ -46,6 +46,36 @@ function lessonPage() {
   } catch (_) { return null; }
 }
 
+/* The training account (Alex Mercer of Rimberio Homes, /demo?go=1&brand=demo)
+   has no member login: its pages see nobody signed in, and its saving goes
+   through Danielle's admin-centre login (design-store.js account()). So did
+   nothing here, and it had no December (Danielle, 23 Nov). It now reads the
+   month with that admin login too, and is shown it the way a member of The
+   Property Experts would see it: no staff flag, one edition. Null when this
+   isn't the training account or the admin login isn't in this browser. */
+const TRAINING_EDITION = "property";
+let trainingTokenP = null;
+async function trainingToken() {
+  if (trainingTokenP) return trainingTokenP;
+  trainingTokenP = (async () => {
+    try {
+      const { isTrainingDemo } = await import("./demo.js");
+      if (!isTrainingDemo()) return null;
+      const { account } = await import("./design-store.js");
+      const a = await account();
+      return a && a.training && !a.blocked && a.token ? a.token : null;
+    } catch (_) { return null; }
+  })();
+  return trainingTokenP;
+}
+// Whose login asks the Worker: the member's, or the training account's.
+async function workerToken(supabase) {
+  const t = await trainingToken();
+  if (t) return { token: t, training: true };
+  const { data: { session } } = await supabase.auth.getSession();
+  return session ? { token: session.access_token, training: false } : null;
+}
+
 /* What this member gets, from the Worker's /access/me (worked out on the
    server: their level, and which edition's month is theirs). Read once a
    page. Anything short of an answer is no access: a month never shows on a
@@ -61,12 +91,15 @@ export function memberAccess(supabase) {
       return a && a.ok ? a : null;
     }
     const base = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!base || !session) return null;
-    const res = await fetch(`${base}/access/me${asParam()}`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+    const who = await workerToken(supabase);
+    if (!base || !who) return null;
+    const res = await fetch(`${base}/access/me${who.training ? "" : asParam()}`, { headers: { Authorization: `Bearer ${who.token}` } });
     if (!res.ok) return null;
-    const a = await res.json();
+    let a = await res.json();
     if (!a || !a.ok) return null;
+    // Content Calendar, not Plus: the training account never links an account
+    // or posts anything (scheduling stays off wherever it is asked).
+    if (who.training) a = { ...a, staff: false, test: false, level: "calendar", source: "training", scheduling: false, done_for_you: false, upgrade: null, edition: TRAINING_EDITION, editions: [TRAINING_EDITION] };
     if (EDITION_ORDER.includes(a.edition)) accessEdition = a.edition;
     return a;
   })().catch(() => null);
@@ -95,17 +128,21 @@ async function calendarGet(supabase, route, params) {
   const lesson = lessonPage();
   if (lesson) return (await lesson.__tmkeContent("cc-get", { route, params }).catch(() => null)) || null;
   const base = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!base || !session) return null;
+  const who = await workerToken(supabase);
+  if (!base || !who) return null;
   const q = new URLSearchParams();
   Object.entries(params || {}).forEach(([k, v]) => { if (v != null && v !== "") q.set(k, v); });
-  try {
-    const as = new URLSearchParams(location.search).get("as");
-    if (as && /^[a-z_]+$/.test(as)) q.set("as", as);
-  } catch (_) {}
-  const res = await fetch(`${base}/calendar/${route}?${q}`, { headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => null);
+  if (who.training) q.set("edition", TRAINING_EDITION);
+  else {
+    try {
+      const as = new URLSearchParams(location.search).get("as");
+      if (as && /^[a-z_]+$/.test(as)) q.set("as", as);
+    } catch (_) {}
+  }
+  const res = await fetch(`${base}/calendar/${route}?${q}`, { headers: { Authorization: `Bearer ${who.token}` } }).catch(() => null);
   if (!res || !res.ok) return null;
   const out = await res.json().catch(() => null);
+  if (out && out.ok && who.training && route === "month" && out.month) out.editions = [out.month.edition];
   return out && out.ok ? out : null;
 }
 
