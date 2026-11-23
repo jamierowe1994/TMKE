@@ -1531,6 +1531,10 @@ async function render(index) {
     }
     return true;
   };
+  /* `ready`: wait for this before any of it, so a `tap` that depends on the
+     page's own loading (the Planner's month and its tab) isn't tried too
+     early and silently skipped. */
+  if (step.ready) { await waitFor(step.ready, stageOn() ? 9000 : 4000); if (renderCancelled(ticket)) return; }
   if (step.close && !(await tapShowing(step.close))) return;
   if (step.open) {
     for (const sel of [].concat(step.open)) {
