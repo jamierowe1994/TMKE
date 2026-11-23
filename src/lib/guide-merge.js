@@ -41,6 +41,7 @@ export function copyRowFor(g) {
     est_minutes: g.est_minutes || null,
     audience: g.audience || 'members',
     sort_order: g.sort_order || 0,
+    level: g.level || 'free',
     status: 'published',
   };
 }

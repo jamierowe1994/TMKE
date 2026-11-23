@@ -95,6 +95,7 @@ const DEFAULT_COVER = (await getImage({
     import { isDemo as demoOn, lock } from "../../../lib/demo.js";
     import { supabase } from "../../../lib/supabase.js";
     import { markSubheads, subheadsHtml } from "../../../lib/guide-subheads.js";
+    import { memberCourseLevels, levelGate, LEVEL_NAME, LEVEL_WITH } from "../../../lib/guide-level.js";
     // Checklists (.bk-check): a tick stays ticked on this device, per guide.
     const ckKey = (slug, li) => `tmke-check:${slug}:${(li.querySelector("strong")?.textContent || "").trim().slice(0, 60)}`;
     const ckSet = (li, on) => { li.classList.toggle("is-done", on); li.querySelector(".bk-check-box")?.setAttribute("aria-pressed", on ? "true" : "false"); };
@@ -508,6 +509,21 @@ const DEFAULT_COVER = (await getImage({
             render({ slug: g.slug, kind: "article", title: g.title, topic: g.topic,
               summary: "This course is for agents of The Experts Group.",
               lessons: [{ title: g.title, body_html: "<p>It uses the print templates made for The Experts Group's brands. Head back to Learn for the guides and courses available to you.</p>" }] });
+            return;
+          }
+        }
+        /* Above their level (src/lib/guide-level.js): set to show locked, a
+           short note with what it comes with; otherwise it isn't there. */
+        if (g && g.level && g.level !== "free") {
+          const { levels, access } = await memberCourseLevels(supabase);
+          const gate = levelGate(g, levels);
+          if (gate === "hidden") { render(null); return; }
+          if (gate === "locked") {
+            const name = LEVEL_WITH[g.level] || LEVEL_NAME[g.level], what = g.kind === "course" ? "course" : "guide";
+            const plan = access && access.calendar ? `<p><a href="/account/settings">See your plan</a></p>` : "";
+            render({ slug: g.slug, kind: "article", title: g.title, topic: g.topic, cover_url: g.cover_url, art: g.art,
+              summary: `This ${what} comes with ${name}.`,
+              lessons: [{ title: g.title, body_html: `${g.summary ? `<p>${esc(g.summary)}</p>` : ""}<p>It opens for members who have ${name}.</p>${plan}` }] });
             return;
           }
         }

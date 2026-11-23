@@ -477,7 +477,7 @@ export const CALENDAR_GUIDES = [
     slug: "training-calendar-content",
     title: "Getting the Most From Your Content Calendar",
     summary: "The thinking behind your monthly posts, and how to make them work for your business.",
-    est_minutes: 12, sort_order: 6, training: false, held: true,
+    est_minutes: 12, sort_order: 6, training: false, held: true, topic: "content-calendar", level: "calendar",
     lessons: [
       { title: "Understanding the Different Formats",
         body_html:

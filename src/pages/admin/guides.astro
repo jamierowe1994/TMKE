@@ -60,10 +60,11 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 
         <span class="gadm-sub gle-sec">Details</span>
         <dl class="gadm-built-facts gle-facts">
-          <div><dt>Type</dt><dd><select id="g-kind" aria-label="Type"><option value="guide">Article</option><option value="course">Course</option></select></dd></div>
+          <div><dt>Type</dt><dd><select id="g-kind" aria-label="Type"><option value="guide">Guide</option><option value="course">Course</option></select></dd></div>
           <div><dt>Topic</dt><dd><select id="g-topic" aria-label="Topic">{GUIDE_TOPICS.map((t) => (<option value={t.slug}>{t.label}</option>))}</select></dd></div>
           <div><dt>Who sees it</dt><dd><select id="g-audience" aria-label="Who sees it"><option value="members">All members</option><option value="public">Everyone (public)</option><option value="teg">The Experts Group agents (not Fine &amp; Country)</option></select></dd></div>
-          <div title="Which Content Calendar level includes it. Everything is Free until the subscription launches."><dt>Level</dt><dd><select id="g-level" aria-label="Level"><option value="free">Free</option><option value="calendar">Content Calendar</option><option value="scheduling">Content Calendar Plus</option><option value="done_for_you">Done For You</option></select></dd></div>
+          <div title="The Content Calendar level it comes with. Members on that level or a higher one get it; Free is for everyone in Who sees it."><dt>Level</dt><dd><select id="g-level" aria-label="Level"><option value="free">Free</option><option value="calendar">Content Calendar</option><option value="scheduling">Content Calendar Plus</option><option value="done_for_you">Done For You</option></select></dd></div>
+          <div title="What members without that level see. Hidden: it isn't listed and its link doesn't open. Locked: it is listed with a padlock and the level it comes with."><dt>Without the level</dt><dd><select id="g-lock" aria-label="Without the level"><option value="hide">They don't see it</option><option value="locked">They see it locked</option></select></dd></div>
           <div><dt>Length</dt><dd class="gle-mins">About <input id="g-mins" type="number" min="1" max="240" placeholder="6" aria-label="Minutes" /> minutes</dd></div>
           <div><dt>Link</dt><dd class="gle-slug">/guides/<input id="g-slug" placeholder="its-link" aria-label="Link" /></dd></div>
         </dl>
@@ -323,7 +324,9 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .gadm .gle-h { font-size: 28px; }
     .gadm .gle-h:hover, .gadm .gle-sum:hover { border-color: rgba(55,30,40,0.4); }
     .gle-sec { display: block; margin-top: 10px; font-size: 12px; letter-spacing: 0.1em; color: var(--english-violet); }
-    .gle-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 14px; }
+    .gle-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px; }
+    .gle-facts > div:last-child { grid-column: span 2; }
+    .gadm .gle-facts select:disabled { opacity: 0.45; cursor: default; }
     .gle-facts div { gap: 5px; min-width: 0; }
     .gle-facts dt { font-size: 11px; letter-spacing: 0.1em; color: var(--ink); }
     .gle-facts dd { gap: 8px; height: 36px; min-width: 0; }
@@ -770,6 +773,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       $("#g-kind").value = guide?.kind || "guide";
       $("#g-audience").value = guide?.audience || "members";
       $("#g-level").value = guide?.level || "free";
+      $("#g-lock").value = guide?.level_lock === "locked" ? "locked" : "hide";
+      lockState();
       $("#g-mins").value = guide?.est_minutes ?? "";
       $("#g-summary").value = guide?.summary || "";
       $("#g-cover").value = guide?.cover_url || "";
@@ -818,7 +823,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       const lessons = Array.isArray(g.lessons) ? g.lessons : [];
       const brands = Array.isArray(g.brands) && g.brands.length ? g.brands.join(", ") + " agents" : "";
       const facts = [
-        ["Type", g.kind === "course" ? "Course" : "Article"],
+        ["Type", g.kind === "course" ? "Course" : "Guide"],
         ["Topic", GUIDE_TOPIC_LABEL(g.topic)],
         ["Who sees it", brands || AUDIENCE[g.audience || "members"] || "All members"],
         ["Where", builtWhere(g)],
@@ -836,7 +841,10 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       document.querySelectorAll(".gadm-item").forEach((el) => el.classList.toggle("is-active", el.dataset.built === g.slug));
     }
 
-    ["g-title","g-slug","g-topic","g-kind","g-audience","g-level","g-mins","g-summary","g-cover"].forEach((id) => {
+    // The lock only means something on a guide with a level.
+    function lockState() { $("#g-lock").disabled = $("#g-level").value === "free"; }
+    $("#g-level").addEventListener("change", lockState);
+    ["g-title","g-slug","g-topic","g-kind","g-audience","g-level","g-lock","g-mins","g-summary","g-cover"].forEach((id) => {
       const el = $("#"+id); const ev = el.tagName === "SELECT" ? "change" : "input";
       el.addEventListener(ev, () => { if(id==="g-title" && !cur && !$("#g-slug").value) $("#g-slug").value = slugify($("#g-title").value); if(id==="g-kind") updateTypeHint(); if(id==="g-cover") drawCover(); if(id==="g-slug") setOpenLink(); markDirty(); });
     });
@@ -846,7 +854,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       const isCourse = $("#g-kind").value === "course";
       $("#g-type-hint").textContent = isCourse
         ? "Course — plays as a click-through mini-deck: one lesson per slide, with a progress bar members can resume."
-        : "Article — one flowing page, like a quick how-to read.";
+        : "Guide — one flowing page, like a quick how-to read.";
     }
 
     function gather() {
@@ -861,6 +869,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         slug: slugify($("#g-slug").value || $("#g-title").value || "guide-" + Date.now()),
         topic: $("#g-topic").value, kind: $("#g-kind").value, audience: $("#g-audience").value,
         level: $("#g-level").value,
+        level_lock: $("#g-lock").value === "locked" ? "locked" : "hide",
         est_minutes: $("#g-mins").value ? Number($("#g-mins").value) : null,
         summary: ($("#g-summary").value || "").trim() || null,
         cover_url: ($("#g-cover").value || "").trim() || null,
@@ -877,6 +886,16 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         ? supabase.from("guides").update(payload).eq("id", cur).select().maybeSingle()
         : supabase.from("guides").insert(payload).select().maybeSingle();
       let { data, error } = await q;
+      // Before supabase/guides_level_lock.sql has run there is no level_lock
+      // column. The rest is saved, and she is told the choice wasn't.
+      let lockMissing = false;
+      if (error && /level_lock/i.test(error.message || "")) {
+        lockMissing = payload.level_lock === "locked";
+        delete payload.level_lock;
+        ({ data, error } = await (cur
+          ? supabase.from("guides").update(payload).eq("id", cur).select().maybeSingle()
+          : supabase.from("guides").insert(payload).select().maybeSingle()));
+      }
       // Before supabase/content_calendar_months.sql has run there is no level column.
       if (error && /level/i.test(error.message || "")) {
         delete payload.level;
@@ -886,7 +905,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       }
       if (error) { toast("Save failed: " + error.message); return; }
       cur = data.id; dirty = false; $("#g-saved").textContent = "All changes saved";
-      toast(newStatus === "published" ? "Published ✓" : "Saved ✓");
+      toast(lockMissing ? "Saved, but \"They see it locked\" can't be kept until guides_level_lock.sql has run. For now it is hidden from members without the level." : newStatus === "published" ? "Published ✓" : "Saved ✓");
+      if (lockMissing) { $("#g-lock").value = "hide"; }
       await loadList();
       document.querySelectorAll(".gadm-item").forEach((el) => el.classList.toggle("is-active", el.dataset.id === cur));
     }

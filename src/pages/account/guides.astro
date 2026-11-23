@@ -61,7 +61,7 @@ import "../../styles/reel.css";
         </header>
         <nav class="lrn-topic-pills" id="lrn-topics" aria-label="Topics">
           {GUIDE_TOPICS.map((t) => (
-            <a class="lrn-topic" href={`?topic=${t.slug}`} data-topic={t.slug}><span set:html={t.label}></span> <span class="lrn-topic-count" data-count={t.slug}></span></a>
+            <a class="lrn-topic" href={`?topic=${t.slug}`} data-topic={t.slug} hidden={t.hideEmpty}><span set:html={t.label}></span> <span class="lrn-topic-count" data-count={t.slug}></span></a>
           ))}
         </nav>
       </section>
@@ -116,7 +116,7 @@ import "../../styles/reel.css";
             <p class="lrn-wn-label">Explore</p>
             <nav class="lrn-topic-pills" aria-label="Topics">
               {GUIDE_TOPICS.map((t) => (
-                <a class="lrn-topic" href={`?topic=${t.slug}`} data-topic={t.slug}><span set:html={t.label}></span> <span class="lrn-topic-count" data-count={t.slug}></span></a>
+                <a class="lrn-topic" href={`?topic=${t.slug}`} data-topic={t.slug} hidden={t.hideEmpty}><span set:html={t.label}></span> <span class="lrn-topic-count" data-count={t.slug}></span></a>
               ))}
             </nav>
           </div>
@@ -221,6 +221,12 @@ import "../../styles/reel.css";
     .lrn-topic { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid rgba(55,30,40,0.45); border-radius: 6px; font-family: var(--sans); font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); text-decoration: none; transition: background 0.2s var(--ws-ease), color 0.2s var(--ws-ease), border-color 0.2s; }
     .lrn-topic:hover { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     .lrn-topic-count { opacity: 0.6; letter-spacing: 0.04em; }
+    .lrn-topic[hidden] { display: none !important; }
+    /* A course above the member's level, shown so they know it exists (guide-level.js). */
+    .lrn-gcard.is-locked .lrn-gcard-art { position: relative; filter: grayscale(1); opacity: 0.55; }
+    .lrn-gcard.is-locked .lrn-gcard-title, .lrn-gcard.is-locked .lrn-gcard-sum { opacity: 0.7; }
+    .lrn-gcard-meta.lrn-lock { display: inline-flex; align-items: center; gap: 6px; color: var(--ws-accent); font-weight: 700; }
+    .lrn-gcard-meta.lrn-lock svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     /* At the top: across the full width, every button one size (Dani, 17 Oct). */
     #lrn-topics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
     #lrn-topics .lrn-topic { height: 40px; justify-content: center; padding: 0 10px; letter-spacing: 0.08em; white-space: nowrap; overflow: hidden; }
@@ -443,6 +449,7 @@ import "../../styles/reel.css";
     import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
     import { TRAINING_GUIDES, PRINT_GUIDES, CALENDAR_GUIDES } from "../../data/training-guides.js";
     import { withBuiltIn } from "../../lib/guide-merge.js";
+    import { memberCourseLevels, levelGate, LEVEL_NAME, LEVEL_WITH } from "../../lib/guide-level.js";
     import { TRENDING_SAMPLE as TRENDING_SAMPLE_JS } from "../../data/trending-sample.js";
     const TRENDING_SAMPLE_TOPICS = TRENDING_SAMPLE_JS.topics;
     import { guideViewer, guideVisibleTo } from "../../lib/guide-audience.js";
@@ -514,7 +521,10 @@ import "../../styles/reel.css";
       // back usually means wanting something from it. Part-way: where they
       // left off (Dani, 17 Oct).
       const finished = p && (p.completed || (p.total > 0 && p.furthest >= p.total));
-      if (finished) {
+      const locked = g._gate === 'locked';
+      if (locked) {
+        footer = `<span class="lrn-gcard-meta lrn-lock"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>Comes with ${esc(LEVEL_WITH[g.level] || LEVEL_NAME[g.level] || 'a higher plan')}</span>`;
+      } else if (finished) {
         footer = `<span class="lrn-gcard-meta lrn-done">${TICK} Completed</span>`;
       } else if (p && g.kind === 'course' && p.total > 0 && p.furthest >= 1) {
         const at = Math.min(p.furthest, p.total);
@@ -525,7 +535,7 @@ import "../../styles/reel.css";
         footer = `<span class="lrn-gcard-meta">${meta}</span>`;
       }
 
-      return `<a class="lrn-gcard" href="${href}">
+      return `<a class="lrn-gcard${locked ? ' is-locked' : ''}" href="${href}">
         <span class="lrn-gcard-art" ${art}></span>
         <span class="lrn-gcard-body">
           <span class="lrn-gcard-kind">${g.kind === 'course' ? 'Course' : 'Guide'}${topic ? ' · ' + esc(topic.label) : ''}</span>
@@ -568,7 +578,7 @@ import "../../styles/reel.css";
     function renderLatest() {
       const host = document.getElementById('lrn-latest'); if (!host) return;
       const inSeries = (g) => TRAINING_GUIDES.some((t) => t.slug === g.slug && t.topic === 'getting-started');
-      const list = ALL.filter((g) => !inSeries(g))
+      const list = ALL.filter((g) => !inSeries(g) && g._gate !== 'locked')
         .map((g, i) => ({ g, t: Date.parse(g.created_at || '') || 0, i }))
         .sort((a, b) => (b.t - a.t) || (a.i - b.i)).slice(0, 2).map((x) => x.g);
       // Pinned first: What's New in the hub, opening its pop-out.
@@ -608,6 +618,10 @@ import "../../styles/reel.css";
       ALL.forEach((g) => { counts[g.topic] = (counts[g.topic] || 0) + 1; });
       document.querySelectorAll('.lrn-topic-count[data-count]').forEach((el) => {
         el.textContent = String(counts[el.dataset.count] || 0);
+      });
+      // A topic kept out of sight until this member has something in it.
+      document.querySelectorAll('.lrn-topic[data-topic]').forEach((el) => {
+        if ((GUIDE_TOPIC_MAP[el.dataset.topic] || {}).hideEmpty) el.hidden = !counts[el.dataset.topic];
       });
     }
 
@@ -727,9 +741,16 @@ import "../../styles/reel.css";
 
       try {
         let data = await fromLesson('guides'), error = null;
-        if (data === undefined || data === null) ({ data, error } = await supabase.from('guides')
-          .select('slug,title,topic,kind,summary,cover_url,lessons,est_minutes,audience,created_at')
-          .eq('status', 'published').order('sort_order', { ascending: true }).order('created_at', { ascending: false }));
+        // level_lock arrives with supabase/guides_level_lock.sql; until then the
+        // list is read without it and a levelled guide is hidden, never open.
+        const COLS = 'slug,title,topic,kind,summary,cover_url,lessons,est_minutes,audience,created_at';
+        const read = (cols) => supabase.from('guides').select(cols)
+          .eq('status', 'published').order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+        if (data === undefined || data === null) {
+          ({ data, error } = await read(COLS + ',level,level_lock'));
+          if (error) ({ data, error } = await read(COLS + ',level'));
+          if (error) ({ data, error } = await read(COLS));
+        }
         if (error) throw error;
         ALL = (data && data.length) ? data : (DEV ? SAMPLE : []);
       } catch (_) { ALL = DEV ? SAMPLE : []; }
@@ -753,6 +774,13 @@ import "../../styles/reel.css";
         const viewer = await guideViewer(supabase);   // nobody signed in: no brands, so no TEG-only guides
         ALL = ALL.filter((g) => guideVisibleTo(g, viewer));
       } catch (_) { ALL = ALL.filter((g) => g.audience !== 'teg'); }
+      // And only what their level includes: a course above it is left out, or
+      // listed locked when that is what it's set to (src/lib/guide-level.js).
+      // Their level is only asked for when something here has one.
+      if (ALL.some((g) => g.level && g.level !== 'free')) {
+        const { levels } = await memberCourseLevels(supabase);
+        ALL = ALL.map((g) => ({ ...g, _gate: levelGate(g, levels) })).filter((g) => g._gate !== 'hidden');
+      }
 
       // Completion state for the signed-in member (RLS returns only their rows).
       if (session) {
