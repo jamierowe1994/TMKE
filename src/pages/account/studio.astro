@@ -915,23 +915,6 @@ const inspo = [
           if (tests.length) { await fillPackCovers(supabase, tests); owned.unshift(...tests); }
         }
         window.__ST_OWNED__ = owned;   // for the Your packs pop-out
-        if (!owned.length) { row.innerHTML = shopTile; done(); return; } // no packs → just the shop tile
-        // The demo pack is marked so the "Opening a template" walk can point at
-        // the one every member has, not at whichever pack happens to be first.
-        const tile = (p) => `
-          <a class="st-pack"${p.demo ? ' data-demo-pack' : ''}${p.cover_image_url ? ` data-cover="${esc(p.cover_image_url)}"` : ''} href="/account/editor?pack=${encodeURIComponent(p.id)}">
-            <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}></span>
-            <span class="st-pack-name">${esc(p.title)}</span>
-            <span class="st-pack-count">${p.test ? 'Test pack' : freeUntilLabel(p) ? esc(freeUntilLabel(p)) : 'Open pack &rarr;'}</span>
-          </a>`;
-
-        /* Print and social are different jobs — different sizes, different
-           rules — and a member reaching for one is not half-thinking about the
-           other. One shelf, with a toggle over it, rather than two shelves:
-           the shelf stays the length of the screen and nobody scrolls past a
-           row they did not want. No print packs, no toggle. */
-        const printPacks  = owned.filter((p) => p.kind === 'print');
-        const socialPacks = owned.filter((p) => p.kind !== 'print');
         /* The Content Calendar tab (Danielle, 12 Nov): the calendar's months
            as packs, the ones their level opens. /access/me's library says
            how far back (last month and this; four months; every month) and
@@ -951,6 +934,25 @@ const inspo = [
             }
           } catch (_) { calPacks = []; }
         }
+        /* Read before the no-packs check (23 Nov): a member with the calendar
+           but no packs used to stop here and never saw the Content Calendar tab. */
+        if (!owned.length && !calPacks.length) { row.innerHTML = shopTile; done(); return; } // no packs → just the shop tile
+        // The demo pack is marked so the "Opening a template" walk can point at
+        // the one every member has, not at whichever pack happens to be first.
+        const tile = (p) => `
+          <a class="st-pack"${p.demo ? ' data-demo-pack' : ''}${p.cover_image_url ? ` data-cover="${esc(p.cover_image_url)}"` : ''} href="/account/editor?pack=${encodeURIComponent(p.id)}">
+            <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}></span>
+            <span class="st-pack-name">${esc(p.title)}</span>
+            <span class="st-pack-count">${p.test ? 'Test pack' : freeUntilLabel(p) ? esc(freeUntilLabel(p)) : 'Open pack &rarr;'}</span>
+          </a>`;
+
+        /* Print and social are different jobs — different sizes, different
+           rules — and a member reaching for one is not half-thinking about the
+           other. One shelf, with a toggle over it, rather than two shelves:
+           the shelf stays the length of the screen and nobody scrolls past a
+           row they did not want. No print packs, no toggle. */
+        const printPacks  = owned.filter((p) => p.kind === 'print');
+        const socialPacks = owned.filter((p) => p.kind !== 'print');
         /* The Print and Content Calendar tabs have no "Shop more packs" card
            (Dani, 13 Oct). */
         const draw = (list, print, noShop) => {
@@ -1046,6 +1048,9 @@ const inspo = [
           rail.parentNode.insertBefore(bar, rail);
           mountBrands(bar, 'print');
           await draw(forBrand(owned), true);
+        } else if (!owned.length && calPacks.length) {
+          // Only the calendar's months: the shelf is them, no shop card.
+          await draw(calPacks, false, true);
         } else {
           await draw(owned, !socialPacks.length && printPacks.length > 0);
         }
