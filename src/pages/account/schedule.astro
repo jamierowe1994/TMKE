@@ -213,6 +213,19 @@ import "../../styles/account-sections.css";
       <div class="day-body post-body">
         <figure class="post-preview"><img id="post-img" alt="Your post design" /></figure>
         <div class="act-files-list post-files" id="post-files" style="--cat: var(--violet-deep)"></div>
+        <!-- Reel upload (Danielle, 20 Nov): a reel post takes the member's own
+             video. The design above stays as the reel's cover. Filled by paintReel(). -->
+        <section class="sch reel" id="post-reel" hidden aria-labelledby="reel-h">
+          <div class="sch-head"><span class="post-label" id="reel-h">Your reel video</span></div>
+          <video class="reel-video" id="reel-video" controls playsinline preload="metadata" hidden></video>
+          <p class="sch-note" id="reel-note"></p>
+          <div class="reel-bar" id="reel-bar" hidden><span id="reel-bar-fill"></span></div>
+          <p class="reel-error" id="reel-error" hidden></p>
+          <div class="reel-actions">
+            <label class="ws-btn ws-btn--primary reel-add" id="reel-add"><input type="file" id="reel-file" accept="video/mp4,video/quicktime,.mp4,.mov" /><span id="reel-add-label">Add your video</span></label>
+            <button type="button" class="ws-btn ws-btn--ghost" id="reel-remove" hidden>Remove video</button>
+          </div>
+        </section>
         <a class="post-plan" id="post-plan" href="/account/content-plan" hidden>Make it from your content plan &rarr;</a>
         <div class="post-fields">
           <label class="post-field">
@@ -1297,6 +1310,18 @@ import "../../styles/account-sections.css";
     .sch-body { display: flex; flex-direction: column; gap: 10px; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.45; color: var(--ink); }
     .sch-note { margin: 0; color: rgba(28,29,34,0.64); }
     .sch-note a, .sch-link { color: var(--violet-deep); font-weight: 600; }
+    /* Reel upload: the video plays upright, no taller than the panel can hold. */
+    .reel-video { display: block; width: 100%; max-height: 460px; background: var(--violet-deep); border-radius: 4px; }
+    .reel-video[hidden] { display: none; }
+    .reel-bar { height: 6px; border-radius: 3px; background: #eae5e1; overflow: hidden; }
+    .reel-bar[hidden] { display: none; }
+    .reel-bar span { display: block; height: 100%; width: 0; background: var(--english-violet); transition: width 0.2s; }
+    .reel-error { margin: 0; color: #8a3f3f; font-family: var(--sans); font-size: var(--ws-t-body); }
+    .reel-error[hidden] { display: none; }
+    .reel-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .reel-add { position: relative; cursor: pointer; }
+    .reel-add input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
+    .reel-add.is-busy { opacity: 0.6; pointer-events: none; }
     /* The accounts, one a row, as the Studio's Share pop-out lists them:
        the round wine tick, the picture, the name, the platform on the right. */
     .sch-accs { display: flex; flex-direction: column; gap: 8px; }
@@ -2320,6 +2345,7 @@ import "../../styles/account-sections.css";
       $postDelete.disabled = false; $postDelete.textContent = 'Remove';
       $postMycal.hidden = (demoOn() && !isTrainingDemo()) || calSynced;
       paintPostEdit(p);
+      paintReel(p);
       schedWarned = false;
       paintSched(p);
       $postModal.hidden = false;
@@ -2351,6 +2377,7 @@ import "../../styles/account-sections.css";
     let postCloseTimer;
     function closePost() {
       openPostId = null;
+      try { document.getElementById('reel-video').pause(); } catch (_) {}
       if (!$postModal.classList.contains('is-open')) { $postModal.hidden = true; return; }
       $postModal.classList.remove('is-open');
       clearTimeout(postCloseTimer);
@@ -2361,6 +2388,151 @@ import "../../styles/account-sections.css";
       }, 540);
     }
 
+
+    /* ====== Reel upload (Danielle, 20 Nov, needed before launch) ======
+       A reel post from the Content Calendar takes the member's own video.
+       It goes to the Worker in parts (/reel/upload-*, kept in R2 under their
+       own folder), and sits on the post as details.video. The design stays as
+       asset_url, so the calendar, emails and reminders keep showing it, and
+       Post it for me sends the video with the design as the reel's cover.
+       Instagram's limits: MP4 or MOV, 3 seconds to 15 minutes, 300 MB. */
+    const REEL_MAX = 300 * 1024 * 1024, REEL_PART = 20 * 1024 * 1024;
+    const reelVideoOf = (p) => { const v = p && p.details && p.details.video; return v && v.key && v.url ? v : null; };
+    const $reel = document.getElementById('post-reel');
+    let reelBusy = false;
+    function reelError(msg) { const e = document.getElementById('reel-error'); e.textContent = msg || ''; e.hidden = !msg; }
+    function reelProgress(f) {
+      const bar = document.getElementById('reel-bar');
+      bar.hidden = f == null;
+      document.getElementById('reel-bar-fill').style.width = `${Math.round((f || 0) * 100)}%`;
+    }
+    async function paintReel(p) {
+      $reel.hidden = true;
+      reelError(''); if (!reelBusy) reelProgress(null);
+      if (!p || !isPostItem(p) || (demoOn() && !isTrainingDemo())) return;
+      const v = reelVideoOf(p);
+      let isReel = !!v;
+      const ccId = p.details && p.details.cc_post_id;
+      if (!isReel && ccId) {
+        try { const cp = await loadCcPost(supabase, ccId); isReel = !!(cp && cp.post_type === 'reel'); } catch (_) {}
+      }
+      if (!isReel || String(openPostId) !== String(p.id)) return;
+      const acct = await plannerStore();
+      const canAdd = !!(acct && !acct.blocked && !acct.training && API_BASE);
+      const vid = document.getElementById('reel-video');
+      if (v) {
+        if (vid.getAttribute('src') !== v.url) { vid.src = v.url; }
+        if (p.asset_url) vid.poster = p.asset_url; else vid.removeAttribute('poster');
+        vid.hidden = false;
+      } else { vid.pause(); vid.removeAttribute('src'); vid.removeAttribute('poster'); vid.load(); vid.hidden = true; }
+      const upright = v && v.width && v.height ? v.height / v.width : null;
+      document.getElementById('reel-note').innerHTML = v
+        ? `${escapeHtml(v.name || 'Your video')}${v.duration ? ` &middot; ${fmtSecs(v.duration)}` : ''}. ${p.asset_url ? 'Your design above is the reel’s cover.' : 'Add a design to choose the reel’s cover, or Instagram uses a frame from the video.'}${upright && upright < 1.5 ? ' This video isn’t upright, so it shows with bars or cropped in Reels. Film upright (9:16) next time.' : ''}`
+        : (canAdd
+          ? 'Film it upright (9:16). MP4 or MOV, from 3 seconds to 15 minutes, up to 300 MB. Your design above becomes the reel’s cover.'
+          : 'Add your own video to this reel from your own login.');
+      document.getElementById('reel-add').hidden = !canAdd;
+      document.getElementById('reel-add-label').textContent = reelBusy ? 'Uploading…' : (v ? 'Change video' : 'Add your video');
+      document.getElementById('reel-add').classList.toggle('is-busy', reelBusy);
+      document.getElementById('reel-remove').hidden = !(v && canAdd) || reelBusy;
+      $reel.hidden = false;
+    }
+    function fmtSecs(t) { t = Math.round(t); return t < 60 ? `${t} seconds` : `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; }
+    // Length and size of a video before it's sent, read by the browser.
+    function videoFacts(file) {
+      return new Promise((resolve) => {
+        const u = URL.createObjectURL(file), v = document.createElement('video');
+        const done = (out) => { clearTimeout(t); URL.revokeObjectURL(u); v.removeAttribute('src'); v.load(); resolve(out); };
+        const t = setTimeout(() => done(null), 15000);
+        v.preload = 'metadata'; v.muted = true;
+        v.onloadedmetadata = () => done({ duration: v.duration, width: v.videoWidth, height: v.videoHeight });
+        v.onerror = () => done(null);
+        v.src = u;
+      });
+    }
+    async function reelApi(acct, path, init) {
+      const res = await fetch(`${API_BASE}${path}`, { ...init, headers: { Authorization: `Bearer ${acct.token}`, ...(init && init.body && !(init.body instanceof Blob) ? { 'Content-Type': 'application/json' } : {}), ...((init && init.headers) || {}) } }).catch(() => null);
+      const out = res ? await res.json().catch(() => null) : null;
+      if (!res || !res.ok || !out || !out.ok) throw new Error((out && out.error) || 'The video didn’t upload. Check your connection and try again.');
+      return out;
+    }
+    async function uploadReel(file) {
+      const p = items.find((i) => String(i.id) === String(openPostId));
+      if (!p || reelBusy) return;
+      reelError('');
+      if (!/^video\/(mp4|quicktime)$/.test(file.type) && !/\.(mp4|mov)$/i.test(file.name)) return reelError('Use an MP4 or MOV video. Most phones save one of these.');
+      if (file.size > REEL_MAX) return reelError(`The video is ${Math.round(file.size / 1048576)} MB. Instagram takes up to 300 MB, so trim it or export it smaller.`);
+      const facts = await videoFacts(file);
+      if (facts && facts.duration && facts.duration < 3) return reelError('The video is under 3 seconds. Instagram needs at least 3.');
+      if (facts && facts.duration && facts.duration > 900) return reelError('The video is over 15 minutes. Instagram takes up to 15.');
+      const acct = await plannerStore();
+      if (!acct || acct.blocked || acct.training) return reelError(acct && acct.reason ? acct.reason : 'Sign in again to add a video.');
+      reelBusy = true; reelProgress(0); paintReel(p);
+      let started = null;
+      try {
+        started = await reelApi(acct, '/reel/upload-start', { method: 'POST', body: JSON.stringify({ name: file.name, type: file.type, bytes: file.size }) });
+        const parts = [];
+        const count = Math.max(1, Math.ceil(file.size / REEL_PART));
+        for (let n = 1; n <= count; n++) {
+          const chunk = file.slice((n - 1) * REEL_PART, Math.min(file.size, n * REEL_PART));
+          const q = `?key=${encodeURIComponent(started.key)}&uploadId=${encodeURIComponent(started.uploadId)}&partNumber=${n}`;
+          let got = null;
+          for (let tries = 0; tries < 3 && !got; tries++) {
+            try { got = await reelApi(acct, '/reel/upload-chunk' + q, { method: 'PUT', body: chunk }); } catch (e) { if (tries === 2) throw e; }
+          }
+          parts.push({ partNumber: n, etag: got.etag });
+          reelProgress(n / count);
+        }
+        const fin = await reelApi(acct, '/reel/upload-finish', { method: 'POST', body: JSON.stringify({ key: started.key, uploadId: started.uploadId, parts }) });
+        started = null;
+        const before = reelVideoOf(p);
+        const video = { key: fin.key, url: fin.url, name: file.name, bytes: fin.bytes, type: file.type || null, duration: facts ? Math.round(facts.duration * 10) / 10 : null, width: facts ? facts.width : null, height: facts ? facts.height : null, at: new Date().toISOString() };
+        const patch = { details: { ...(p.details || {}), video } };
+        // No design yet: a frame from the video becomes its picture, so the
+        // calendar and reminders have something to show.
+        if (!p.asset_url) {
+          try {
+            const { thumbFromVideo } = await import('../../lib/thumbs.js');
+            const frame = await thumbFromVideo(file);
+            if (frame) {
+              const path = `${acct.uid}/posts/${Date.now().toString(36)}-reel-cover.jpg`;
+              const { error } = await acct.db.storage.from('calendar-assets').upload(path, frame, { contentType: 'image/jpeg', upsert: false });
+              if (!error) { const u = acct.db.storage.from('calendar-assets').getPublicUrl(path).data.publicUrl; patch.asset_url = u; patch.thumbnail_url = u; }
+            }
+          } catch (_) {}
+        }
+        const { error } = await acct.db.from(acct.table).update(patch).eq('id', p.id);
+        if (error) throw new Error(error.message || 'The video uploaded, but it didn’t save to your post. Try again.');
+        Object.assign(p, patch);
+        if (before && before.key !== video.key) reelApi(acct, '/reel/upload-cancel', { method: 'POST', body: JSON.stringify({ key: before.key }) }).catch(() => {});
+        reelBusy = false; reelProgress(null);
+        // Already scheduled: the scheduler gets the video too.
+        if (isScheduled(p)) { try { await resendIfScheduled(acct, p, ['asset_url']); } catch (e) { reelError(e.message); } }
+        renderCalendar();
+        if (String(openPostId) === String(p.id)) { paintReel(p); schedWarned = false; paintSched(p); }
+      } catch (e) {
+        if (started) reelApi(acct, '/reel/upload-cancel', { method: 'POST', body: JSON.stringify({ key: started.key, uploadId: started.uploadId }) }).catch(() => {});
+        reelBusy = false; reelProgress(null);
+        if (String(openPostId) === String(p.id)) paintReel(p);
+        reelError(e.message);
+      }
+    }
+    async function removeReel() {
+      const p = items.find((i) => String(i.id) === String(openPostId));
+      const v = reelVideoOf(p);
+      if (!p || !v || reelBusy) return;
+      const acct = await plannerStore();
+      if (!acct || acct.blocked) return;
+      const { video: _gone, ...rest } = p.details || {};
+      const { error } = await acct.db.from(acct.table).update({ details: rest }).eq('id', p.id);
+      if (error) return reelError(error.message || 'Couldn’t remove the video. Try again.');
+      p.details = rest;
+      reelApi(acct, '/reel/upload-cancel', { method: 'POST', body: JSON.stringify({ key: v.key }) }).catch(() => {});
+      if (isScheduled(p)) { try { await resendIfScheduled(acct, p, ['asset_url']); } catch (e) { reelError(e.message); } }
+      paintReel(p); schedWarned = false; paintSched(p);
+    }
+    document.getElementById('reel-file').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) uploadReel(f); });
+    document.getElementById('reel-remove').addEventListener('click', removeReel);
 
     /* ====== Post it for me: scheduling to Instagram and Facebook ======
        Content Calendar build list, Phase 4 rows 2, 3, 4, 6 and 7 (Danielle,
@@ -2423,7 +2595,7 @@ import "../../styles/account-sections.css";
         body.innerHTML = `<p class="sch-note">Schedule this post to go out on Instagram and Facebook by itself. Included in Content Calendar Plus. <a href="${PLAN_LINK}">See your plan &rarr;</a></p>`;
         return;
       }
-      if (!p.asset_url) {
+      if (!p.asset_url && !reelVideoOf(p)) {
         body.innerHTML = '<p class="sch-note">Add the design to this post, then you can schedule it.</p>';
         return;
       }
