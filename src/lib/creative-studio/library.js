@@ -40,7 +40,7 @@ function markShared(list) {
   if (L.sharedOff) { toast(L.sharedOff); return; }
   const marked = list.filter((f) => L.shared.has(f.key)), first = marked.length ? L.shared.get(marked[0].key) : null;
   const one = list.length === 1, on = (k) => first && !first.all_platforms && first.platforms.includes(k);
-  pop({ eyebrow: "Library · " + folderInfo().title, title: "Shared On Social.",
+  pop({ fit: true, eyebrow: "Library · " + folderInfo().title, title: "Shared On Social.",
     body: `<p>${one ? esc(cleanName(list[0].name)) : `${list.length} files`}. Tick where ${one ? "it has" : "they have"} been shared, or leave them all unticked to mark ${one ? "it" : "them"} as shared without saying where.</p>
       <div class="cs-box"><div class="cs-strip">Shared on</div>
         <label class="cs-shrow"><span>Every platform</span><input type="checkbox" id="sh-all" ${first && first.all_platforms ? "checked" : ""}></label>

@@ -30,9 +30,11 @@ export function toast(text) {
   clearTimeout(toastT); toastT = setTimeout(() => (e.hidden = true), 4200);
 }
 
-/* One pop-out: one size, beside the sidebar. */
-export function pop({ eyebrow, title, chipHtml = "", body, foot = "" }) {
-  $("#cs-popup").innerHTML = `<div class="cs-scrim"></div><div class="cs-popw"><div class="cs-pop" role="dialog" aria-label="${esc(title)}"><div class="cs-pop-h"><div>${esc(eyebrow)}</div><div class="cs-pop-t">${esc(title)}</div>${chipHtml}</div><div class="cs-pop-b" data-lenis-prevent>${body}</div><div class="cs-pop-f">${foot}<button type="button" class="cs-btn" id="cs-pop-x">Close</button></div></div></div>`;
+/* One pop-out: one size, beside the sidebar. A pop-out that only ever holds a
+   few lines can ask to fit them instead (Danielle, 23 Nov: Shared On Social). */
+export function pop({ eyebrow, title, chipHtml = "", body, foot = "", fit = false }) {
+  // fit: only as tall as what's in it (a short list of ticks), not the full-height box.
+  $("#cs-popup").innerHTML = `<div class="cs-scrim"></div><div class="cs-popw${fit ? " cs-popw-fit" : ""}"><div class="cs-pop" role="dialog" aria-label="${esc(title)}"><div class="cs-pop-h"><div>${esc(eyebrow)}</div><div class="cs-pop-t">${esc(title)}</div>${chipHtml}</div><div class="cs-pop-b" data-lenis-prevent>${body}</div><div class="cs-pop-f">${foot}<button type="button" class="cs-btn" id="cs-pop-x">Close</button></div></div></div>`;
   $("#cs-pop-x").onclick = closePop; $(".cs-scrim").onclick = closePop;
 }
 export function closePop() { $("#cs-popup").innerHTML = ""; }
