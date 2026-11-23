@@ -69,8 +69,8 @@ const example = (body, note) => `<div class="bk-eg"><span class="bk-eg-l">For ex
 // of the pop-out cards, which the reader page wires up the same way. The
 // reader replaces <!--WALK--> with the lesson's own walk box; this is for the
 // ones that need a second, or a different, walk in the middle of the copy.
-const showMe = (id, part, line) => `<div class="gr-walk">
-  <span class="gr-walk-tx"><strong>See it on the page</strong><span>${line || "A guided look at the real thing. Finish brings you back here."}</span></span>
+const showMe = (id, part, line, lead) => `<div class="gr-walk">
+  <span class="gr-walk-tx"><strong>${lead || "See it on the page"}</strong><span>${line || "A guided look at the real thing. Finish brings you back here."}</span></span>
   <button type="button" class="ws-btn ws-btn--primary ws-btn--sm" data-walk="${id}" data-part="${part}">Show me &rarr;</button>
 </div>`;
 // A picture that deserves a proper look: a wide button in the lesson, the
@@ -553,7 +553,7 @@ export const CALENDAR_GUIDES = [
               p("If you have Content Calendar Plus, you can go a step further and schedule or publish posts directly to Instagram, Facebook or both.") +
               p("This means you can prepare your content in the Studio, choose when you'd like it to go out and let the scheduling feature handle the publishing.") +
               p("Before you begin, make sure your social media accounts are linked under <strong>Your Account</strong> &rarr; <strong>Plan</strong> &rarr; <strong>Your social accounts</strong>.") +
-              p("You'll find step-by-step instructions in our separate guide, Linking Your Accounts.") +
+              p("You'll find step-by-step instructions in our separate guide, <a href=\"/account/guides/read?g=training-calendar-link-accounts\">Linking Your Accounts</a>.") +
               p("<strong>Scheduling your content</strong>") +
               p("Once your accounts are connected, select <strong>Share</strong> in the Studio and choose the platform you'd like to publish to.") +
               p("You can review the caption, choose whether to post immediately or schedule for later, and select both platforms if you'd like to share the same content to Instagram and Facebook.") +
@@ -661,6 +661,42 @@ export const CALENDAR_GUIDES = [
               p("Before your first month, choose a realistic posting routine. You might decide to use three planned posts each week, with space for your own property content when you have something to share. Once you've settled into that routine, you can increase or adjust it based on what works for your business. You can always change your approach as you go.")],
           ]) +
           `<div class="bk-panel bk-tone--wine"><strong>Ready to put it into practice?</strong>${p("Head to Course 1, Using Your Content Calendar, for a step-by-step guide to finding, editing and using your monthly posts.")}</div>` },
+    ],
+  }),
+
+  /* Linking Your Accounts (Danielle, 23 Nov), the guide Course 1 points to.
+     One page for Content Calendar Plus: what sharing does, where to connect,
+     what Instagram and Facebook ask, Zernio and the access given. Its Show
+     me stops at Your Account: the rest happens on Instagram's and Facebook's
+     own pages. Copy by the copywriter from her brief, with the wording
+     already agreed on Your Account. Listed locked for anyone without Plus. */
+  guide({
+    slug: "training-calendar-link-accounts",
+    title: "Linking Your Accounts",
+    kind: "guide",
+    summary: "Connect your Instagram and Facebook accounts so you can share and schedule posts straight from the Studio.",
+    est_minutes: 4, sort_order: 7, training: false, topic: "content-calendar", level: "scheduling", level_lock: "locked",
+    lessons: [
+      { title: "Linking Your Accounts",
+        body_html:
+          p("<strong>What sharing to socials does</strong>") +
+          p("With Content Calendar Plus, you can share posts from the Studio straight to Instagram, Facebook or both. You won't need to download a design and upload it yourself. Select <strong>Share</strong>, then choose <strong>Share to Instagram</strong> or <strong>Share to Facebook</strong>, and select <strong>Also share to Facebook</strong> or <strong>Also share to Instagram</strong> if you'd like the post on both. Once you've reviewed your caption, select <strong>Schedule it</strong> to choose a date and time at least 10 minutes ahead, or select <strong>Post now</strong>. If you're sharing a reel, add your video as you share and your design becomes its cover.") +
+          p("<strong>Your Planner keeps track</strong>") +
+          p("Every post you share or schedule is added to your Planner automatically, so you don't need to add it yourself. In the Planner, you can see whether a post is Scheduled, Posted or Failed. You can also change it, publish it straight away, or select <strong>Don't post it</strong> to stop it going out.") +
+          p("<strong>Where to connect</strong>") +
+          p("Before you can share, you'll need to link your accounts. Open <strong>Your Account</strong> from the menu at the top right, go to the <strong>Plan</strong> tab and find <strong>Your social accounts</strong>. You connect Instagram and Facebook separately, using <strong>Connect Instagram</strong> and <strong>Connect Facebook</strong>.") +
+          showMe("cc-link", 0, "A guided look at Your Account. Finish brings you back here.", "See where to connect") +
+          p("<strong>What happens next</strong>") +
+          p("Both buttons take you to Instagram's or Facebook's own sign-in pages, and you finish the setup there. Each one asks for something slightly different:") +
+          ul("<strong>Instagram:</strong> Sign in directly through Instagram using your Business or Creator account. Personal accounts aren't supported.",
+             "<strong>Facebook:</strong> Sign in with your personal Facebook account, then select the business Page you'd like to connect. You'll need full control of the Page.",
+             "<strong>Switching accounts:</strong> If Facebook asks you to switch accounts, select <strong>Continue</strong> to return to your personal account.") +
+          p("When you've finished, you'll come back to <strong>Your Account</strong>, which confirms the account is connected.") +
+          p("<strong>What you're giving access to</strong>") +
+          p("We use Zernio to securely connect your social accounts, so you may see their name during setup. Connecting your accounts allows us to publish the posts you choose and see how they perform. We can't access your private messages, reply to comments or manage your advertising.") +
+          p("<strong>Disconnecting</strong>") +
+          p("You can disconnect an account at any time under <strong>Your social accounts</strong>. Once you disconnect, any posts scheduled to that account will no longer be published.") +
+          p("If you don't publish or schedule anything for 30 days, we'll disconnect your accounts automatically. You can reconnect at any time.") },
     ],
   }),
 ];

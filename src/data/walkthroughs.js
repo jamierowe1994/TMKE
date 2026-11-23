@@ -938,6 +938,36 @@ export const WALKS = {
         body: "Open the scheduled post in your Planner to change its details, publish it immediately or stop it from going out." },
     ],
   },
+
+  /* Linking Your Accounts (Danielle, 23 Nov): as far as Your Account goes.
+     Connect opens Instagram's or Facebook's own pages, which the walkthrough
+     can't show, so it ends there. The training account's Plan tab shows Your
+     social accounts unlinked (settings.astro, paintTrainingPlan). */
+  "cc-link": {
+    title: "Linking Your Accounts",
+    lead: "See where to connect",
+    stage: "/account/settings?tab=plan",
+    steps: [
+      { href: "/account", target: ".ws-nav-right", placement: "bottom", padding: 8,
+        eyebrow: "Your Account", title: "Open Your Account",
+        body: "You connect your social accounts from Your Account, in the menu at the top right of the hub." },
+      { href: "/account/settings?tab=plan", target: "#ya-acc-block", placement: "top", padding: 8,
+        eyebrow: "Plan tab", title: "Find Your Social Accounts",
+        body: "Open the Plan tab and find Your social accounts. You connect Instagram and Facebook separately, so there's a button for each." },
+      { href: "/account/settings?tab=plan", target: '[data-link="instagram"]', placement: "bottom", padding: 8,
+        eyebrow: "Instagram", title: "Connect Instagram",
+        body: "Selecting Connect Instagram takes you to Instagram's own sign-in page. You'll need a Business or Creator account, because personal accounts aren't supported." },
+      { href: "/account/settings?tab=plan", target: '[data-link="facebook"]', placement: "bottom", padding: 8,
+        eyebrow: "Facebook", title: "Connect Facebook",
+        body: "Select Connect Facebook, sign in with your personal Facebook account, then choose the business Page you'd like to connect. You'll need full control of the Page." },
+      { href: "/account/settings?tab=plan", target: "#ya-acc-note", placement: "top", padding: 8,
+        eyebrow: "Your access", title: "What You're Giving Access To",
+        body: "We use Zernio to securely connect your accounts, so you may see their name during setup. Connecting lets us publish the posts you choose and see how they perform, but we can't access your private messages, reply to comments or manage your advertising." },
+      { href: "/account/settings?tab=plan", target: null, placement: "center",
+        eyebrow: "Next", title: "Finish in Instagram or Facebook",
+        body: "Next, you'll carry on in Instagram's or Facebook's own pages, which we can't show in this walkthrough. When you've finished, you'll come back to Your Account, which confirms the account is connected." },
+    ],
+  },
 };
 
 export const WALK_LIST = Object.keys(WALKS).map((id) => ({ id, title: WALKS[id].title }));

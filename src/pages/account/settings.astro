@@ -113,6 +113,8 @@ import "../../styles/account-sections.css";
               <!-- Asked for only posting and post insights (ZERNIO_MEMBER_SCOPES in the Worker, 11 Nov). -->
               <p class="ya-sum" style="margin-top:18px">What access are you giving us?</p>
               <p class="ya-blurb">Connecting your accounts allows us to publish the posts you choose and see how they perform. We can't access your private messages, reply to comments or manage your advertising.</p>
+              <!-- The full guide (Danielle, 23 Nov). -->
+              <p class="ya-blurb" style="margin-top:12px"><a class="ya-link" href="/account/guides/read?g=training-calendar-link-accounts">Read the Linking Your Accounts guide &rarr;</a></p>
             </div>
           </section>
           <section class="ws-block" aria-labelledby="ya-up-h" id="ya-up-block" hidden>
@@ -909,10 +911,33 @@ import "../../styles/account-sections.css";
         : '<p class="ya-state">No template packs yet. When you buy one from The Edit, its receipt will live here.</p>';
     }
 
+    /* The training account's Plan tab (Danielle, 23 Nov: the Linking Your
+       Accounts walkthrough shows this page, then they carry on in Instagram
+       or Facebook). Nobody is signed in there, so the page stopped before
+       painting anything. It shows Your social accounts as a Content Calendar
+       Plus member sees it before linking. Connect goes nowhere: nothing is
+       ever linked to the training account. */
+    function paintTrainingPlan() {
+      $('ya-plan').innerHTML = fact('Your plan', 'Content Calendar Plus', '');
+      const block = $('ya-acc-block'), box = $('ya-acc'), st = $('ya-acc-status');
+      block.hidden = false;
+      st.textContent = 'Connect your accounts'; st.hidden = false;
+      box.innerHTML = PLATS.map(([k, name, ic]) => `<div class="ya-fc"><span class="ya-k">${ic}${name}</span><div class="ya-fb">
+          <p class="ya-v">Not connected</p>
+          <p class="ya-s"><button type="button" class="ws-btn ws-btn--primary" data-link="${k}">Connect ${name}</button></p></div></div>`).join('')
+        + `<div class="ya-fc ya-fc--todo ya-fc--wide"><span class="ya-k">Next step</span><div class="ya-fb"><p class="ya-v">Connect your social accounts</p><p class="ya-s">Connect Instagram or Facebook to publish posts immediately or schedule them for later.</p></div></div>`;
+      $('ya-acc-note').hidden = false;
+      box.querySelectorAll('[data-link]').forEach((b) => b.addEventListener('click', () => {
+        const name = b.textContent.replace(/^Connect /, '');
+        flash(`This is the training account, so nothing is connected. As a member, ${name}'s own sign-in opens here.`);
+      }));
+    }
+
     /* ---------------- start ---------------- */
     (async () => {
       const isDemo = import.meta.env.DEV || isTrainingDemo();
       ({ data: { session } } = await supabase.auth.getSession());
+      if (!session && isTrainingDemo()) { paintTrainingPlan(); return; }
       if (!session) { if (!isDemo) location.replace('/login?next=' + encodeURIComponent(HERE + location.search)); return; }
       const { data: { user }, error } = await supabase.auth.getUser();
       if (!user || error) { if (!isDemo) location.replace('/login?next=' + encodeURIComponent(HERE + location.search)); return; }

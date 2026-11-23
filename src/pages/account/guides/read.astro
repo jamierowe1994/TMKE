@@ -221,6 +221,13 @@ const DEFAULT_COVER = (await getImage({
       markSubheads($("#ar-body"));
       ckRestore($("#ar-body"), guide.slug);
 
+      /* A Show me box in a guide's copy (Linking Your Accounts, Danielle,
+         23 Nov): the same walkthrough a course part opens, back here after. */
+      $("#ar-body").addEventListener("click", (e) => {
+        const w = e.target.closest("[data-walk]"); if (!w) return;
+        startWalk(w.dataset.walk, { returnTo: `/account/guides/read?g=${encodeURIComponent(guide.slug)}` });
+      });
+
       // An article is a single short read — opening it counts as done.
       saveProgress(guide.slug, { furthest: 1, total: 0, completed: true });
     }
