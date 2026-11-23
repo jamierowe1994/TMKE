@@ -764,7 +764,8 @@ export const WALKS = {
       { href: CC_PAGE, target: ".cc-ours-head", placement: "bottom", padding: 8, close: CC_SHUT_POST, tap: CC_OURS,
         eyebrow: "Editions", title: "Choose Your Edition",
         body: "If you have access to more than one brand, use the Edition picker to choose the content you'd like to view." },
-      { href: "/account/studio", target: 'section[aria-labelledby="packs-h"]', placement: "top",
+      // The shelf turned to its Content Calendar side, so the month's pack is the one in view.
+      { href: "/account/studio", target: 'section[aria-labelledby="packs-h"]', placement: "top", tap: '.st-kind[data-kind="calendar"][aria-selected="false"]',
         eyebrow: "Studio", title: "Other Ways to Find It",
         body: "You can also access your Content Calendar through Your packs on the Studio homepage or the Seasonal content card on your dashboard." },
     ],
