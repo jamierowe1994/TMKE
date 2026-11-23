@@ -60,7 +60,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 
         <span class="gadm-sub gle-sec">Details</span>
         <dl class="gadm-built-facts gle-facts">
-          <div><dt>Type</dt><dd><select id="g-kind" aria-label="Type"><option value="guide">Guide</option><option value="course">Course</option></select></dd></div>
+          <div><dt>Type</dt><dd><select id="g-kind" aria-label="Type"><option value="guide">Guide</option><option value="article">Article</option><option value="course">Course</option></select></dd></div>
           <div><dt>Topic</dt><dd><select id="g-topic" aria-label="Topic">{GUIDE_TOPICS.map((t) => (<option value={t.slug}>{t.label}</option>))}</select></dd></div>
           <div><dt>Who sees it</dt><dd><select id="g-audience" aria-label="Who sees it"><option value="members">All members</option><option value="public">Everyone (public)</option><option value="teg">The Experts Group agents (not Fine &amp; Country)</option></select></dd></div>
           <div title="The Content Calendar level it comes with. Members on that level or a higher one get it; Free is for everyone in Who sees it."><dt>Level</dt><dd><select id="g-level" aria-label="Level"><option value="free">Free</option><option value="calendar">Content Calendar</option><option value="scheduling">Content Calendar Plus</option><option value="done_for_you">Done For You</option></select></dd></div>
@@ -373,7 +373,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     import { supabase, isConfigured } from "../../lib/supabase.js";
     import { markSubheads } from "../../lib/guide-subheads.js";
     import { requireAdmin } from "../../lib/admin-gate.js";
-    import { GUIDE_TOPIC_LABEL } from "../../data/guide-topics.js";
+    import { GUIDE_TOPIC_LABEL, GUIDE_KIND_LABEL } from "../../data/guide-topics.js";
     import { TRAINING_GUIDES, PRINT_GUIDES, CALENDAR_GUIDES } from "../../data/training-guides.js";
     import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
     import { PRINT_MATERIAL_GUIDES } from "../../data/print-materials.js";
@@ -823,7 +823,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       const lessons = Array.isArray(g.lessons) ? g.lessons : [];
       const brands = Array.isArray(g.brands) && g.brands.length ? g.brands.join(", ") + " agents" : "";
       const facts = [
-        ["Type", g.kind === "course" ? "Course" : "Guide"],
+        ["Type", GUIDE_KIND_LABEL(g.kind)],
         ["Topic", GUIDE_TOPIC_LABEL(g.topic)],
         ["Who sees it", brands || AUDIENCE[g.audience || "members"] || "All members"],
         ["Where", builtWhere(g)],
@@ -851,10 +851,12 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 
     // One-line reminder of what the chosen Type gives you in the hub.
     function updateTypeHint() {
-      const isCourse = $("#g-kind").value === "course";
-      $("#g-type-hint").textContent = isCourse
+      const kind = $("#g-kind").value;
+      $("#g-type-hint").textContent = kind === "course"
         ? "Course — plays as a click-through mini-deck: one lesson per slide, with a progress bar members can resume."
-        : "Guide — one flowing page, like a quick how-to read.";
+        : kind === "article"
+          ? "Article — one flowing page, like a Guide, labelled Article on Learn. For a read rather than a how-to."
+          : "Guide — one flowing page, like a quick how-to read.";
     }
 
     function gather() {
@@ -886,6 +888,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         ? supabase.from("guides").update(payload).eq("id", cur).select().maybeSingle()
         : supabase.from("guides").insert(payload).select().maybeSingle();
       let { data, error } = await q;
+      // Before supabase/guides_kind_article.sql has run the table refuses "article". Nothing is saved; she is told why.
+      if (error && /guides_kind_check/i.test(error.message || "")) { toast("Not saved: the Article type needs guides_kind_article.sql running first. Choose Guide for now, or run that file."); return; }
       // Before supabase/guides_level_lock.sql has run there is no level_lock
       // column. The rest is saved, and she is told the choice wasn't.
       let lockMissing = false;
@@ -935,12 +939,12 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       const builtHtml = (copyable.length > 1 ? `<button type="button" class="gadm-new gadm-copyall" id="g-copy-all">Copy all ${copyable.length} to edit</button>` : "") + notCopied.map((g) => `
         <button type="button" class="gadm-item" data-built="${esc(g.slug)}">
           <span class="gadm-item-t">${esc(g.title || "Untitled")}${Array.isArray(g.brands) && g.brands.length ? ", " + esc(g.brands.join(", ")) : ""}</span>
-          <span class="gadm-item-m"><span class="gadm-dot ${g.held ? "is-draft" : "is-published"}"></span>${g.held ? "held" : "built in"} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${g.kind==="course"?"Course":"Article"}</span>
+          <span class="gadm-item-m"><span class="gadm-dot ${g.held ? "is-draft" : "is-published"}"></span>${g.held ? "held" : "built in"} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${GUIDE_KIND_LABEL(g.kind)}</span>
         </button>`).join("");
       $("#g-items").innerHTML = (notCopied.length ? '<p class="gadm-group">Made with Claude, not copied yet</p>' + builtHtml : "") + '<p class="gadm-group">Editable here</p>' + (list.length ? list.map((g) => `
         <button type="button" class="gadm-item${g.id===cur?" is-active":""}" data-id="${g.id}">
           <span class="gadm-item-t">${esc(g.title || "Untitled")}</span>
-          <span class="gadm-item-m"><span class="gadm-dot is-${g.status}"></span>${g.status}${BUILT_IN.some((b) => b.slug === g.slug && b.held) ? " · held off Learn" : ""} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${g.kind==="course"?"Course":"Article"}</span>
+          <span class="gadm-item-m"><span class="gadm-dot is-${g.status}"></span>${g.status}${BUILT_IN.some((b) => b.slug === g.slug && b.held) ? " · held off Learn" : ""} · ${esc(GUIDE_TOPIC_LABEL(g.topic))} · ${GUIDE_KIND_LABEL(g.kind)}</span>
         </button>`).join("") : '<p class="gadm-muted">No guides yet. Click “+ New”.</p>');
       $("#g-copy-all")?.addEventListener("click", () => copyBuilt(copyable.map((g) => g.slug)));
       $("#g-items").querySelectorAll(".gadm-item[data-built]").forEach((el) => el.addEventListener("click", () => showBuilt(el.dataset.built)));

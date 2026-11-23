@@ -22,5 +22,9 @@ export const GUIDE_TOPICS = [
     icon: '<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>' },
 ];
 
+// A guide's type as members read it. Guide and Article are both one flowing
+// page; Course is the click-through deck. (guides.kind; Article since 23 Nov 2026.)
+export const GUIDE_KIND_LABEL = (kind) => (kind === "course" ? "Course" : kind === "article" ? "Article" : "Guide");
+
 export const GUIDE_TOPIC_MAP = Object.fromEntries(GUIDE_TOPICS.map((t) => [t.slug, t]));
 export const GUIDE_TOPIC_LABEL = (slug) => (GUIDE_TOPIC_MAP[slug] || {}).label || "Guides";

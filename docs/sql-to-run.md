@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-Nothing waiting.
+- [ ] supabase/guides_kind_article.sql (23 Nov): Guides › Details › Type gains Article beside Guide and Course. Until it runs, saving a guide as an Article is refused and the editor says so.
 
 ## Done
 

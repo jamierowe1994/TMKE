@@ -29,7 +29,7 @@ export function copyRowFor(g) {
     slug: g.slug,
     title: g.title,
     topic: g.topic || 'getting-started',
-    kind: g.kind === 'course' ? 'course' : 'guide',
+    kind: g.kind === 'course' ? 'course' : g.kind === 'article' ? 'article' : 'guide',
     summary: g.summary || null,
     cover_url: g.cover_url || g.art || null,
     lessons: (g.lessons || []).map((l) => {

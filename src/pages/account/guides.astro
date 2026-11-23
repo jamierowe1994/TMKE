@@ -445,7 +445,7 @@ import "../../styles/reel.css";
       const reel = document.getElementById('lrn-reel');
       if (reel && !(await fillPostReel(supabase, reel))) reel.closest('section').hidden = true;
     })();
-    import { GUIDE_TOPIC_MAP } from "../../data/guide-topics.js";
+    import { GUIDE_TOPIC_MAP, GUIDE_KIND_LABEL } from "../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
     import { TRAINING_GUIDES, PRINT_GUIDES, CALENDAR_GUIDES } from "../../data/training-guides.js";
     import { withBuiltIn } from "../../lib/guide-merge.js";
@@ -502,7 +502,7 @@ import "../../styles/reel.css";
     function cardHtml(g) {
       const topic = GUIDE_TOPIC_MAP[g.topic];
       const lessons = Array.isArray(g.lessons) ? g.lessons.length : 0;
-      const meta = g.kind === 'course' ? `${lessons} lesson${lessons===1?'':'s'}` : (g.est_minutes ? `~${g.est_minutes} min read` : 'Guide');
+      const meta = g.kind === 'course' ? `${lessons} lesson${lessons===1?'':'s'}` : (g.est_minutes ? `~${g.est_minutes} min read` : GUIDE_KIND_LABEL(g.kind));
       /* The picture, in order of who should own it: the guide's own cover, then
          the `art` a built-in guide carries, then the built-in of the same slug
          — a published row with no cover of its own still gets the picture its
@@ -538,7 +538,7 @@ import "../../styles/reel.css";
       return `<a class="lrn-gcard${locked ? ' is-locked' : ''}" href="${href}">
         <span class="lrn-gcard-art" ${art}></span>
         <span class="lrn-gcard-body">
-          <span class="lrn-gcard-kind">${g.kind === 'course' ? 'Course' : 'Guide'}${topic ? ' · ' + esc(topic.label) : ''}</span>
+          <span class="lrn-gcard-kind">${GUIDE_KIND_LABEL(g.kind)}${topic ? ' · ' + esc(topic.label) : ''}</span>
           <span class="lrn-gcard-title">${esc(g.title || 'Untitled')}</span>
           ${g.summary ? `<span class="lrn-gcard-sum">${esc(g.summary)}</span>` : ''}
           ${footer}
@@ -591,10 +591,10 @@ import "../../styles/reel.css";
         const topic = GUIDE_TOPIC_MAP[g.topic];
         const cover = g.cover_url || g.art || (STATIC_BY_SLUG[g.slug] || {}).cover_url || (STATIC_BY_SLUG[g.slug] || {}).art || twinArt(g.slug) || '';
         const lessons = Array.isArray(g.lessons) ? g.lessons.length : 0;
-        const meta = g.kind === 'course' ? `${lessons} lesson${lessons === 1 ? '' : 's'}` : (g.est_minutes ? `~${g.est_minutes} min read` : 'Guide');
+        const meta = g.kind === 'course' ? `${lessons} lesson${lessons === 1 ? '' : 's'}` : (g.est_minutes ? `~${g.est_minutes} min read` : GUIDE_KIND_LABEL(g.kind));
         return `<a class="lrn-card" href="${esc(g.href || `/account/guides/read?g=${encodeURIComponent(g.slug)}`)}">
           <span class="lrn-card-art"${cover ? ` style="background-image:url('${esc(cover)}')"` : ''}></span>
-          <span class="lrn-card-tx"><span class="lrn-card-flag">${g.kind === 'course' ? 'Course' : 'Guide'}${topic ? ' \u00b7 ' + topic.label.replace(/<[^>]+>/g, '') : ''}</span><strong class="lrn-card-h">${esc(g.title || 'Untitled')}</strong>${g.summary ? `<span class="lrn-card-sum">${esc(g.summary)}</span>` : ''}<span class="lrn-card-meta">${esc(meta)}</span></span>
+          <span class="lrn-card-tx"><span class="lrn-card-flag">${GUIDE_KIND_LABEL(g.kind)}${topic ? ' \u00b7 ' + topic.label.replace(/<[^>]+>/g, '') : ''}</span><strong class="lrn-card-h">${esc(g.title || 'Untitled')}</strong>${g.summary ? `<span class="lrn-card-sum">${esc(g.summary)}</span>` : ''}<span class="lrn-card-meta">${esc(meta)}</span></span>
         </a>`;
       }).join('');
       host.setAttribute('aria-busy', 'false');
