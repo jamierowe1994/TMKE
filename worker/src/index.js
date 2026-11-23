@@ -4218,11 +4218,19 @@ function reminderHtml(item, platform, caption) {
     ...files.map((x) => `<a href="${esc(x.url)}" style="color:#371e28">${esc(x.name || "File")}</a>`),
     ...links.map((u) => `<a href="${esc(u)}" style="color:#371e28">${esc(String(u).replace(/^https?:\/\//, ""))}</a>`),
   ].join("<br>")}</p>` : "";
+  /* A reel's own video (Danielle, 23 Nov: "the video should also be included
+     in the reminder email"). Too big to attach (up to 300 MB), so a button
+     that saves it from /reel/file/; the design, attached, is its cover. */
+  const vid = d.video && /^member-reels\//.test(String(d.video.key || "")) && /^https:\/\//.test(String(d.video.url || "")) ? d.video : null;
+  const vidBtn = vid ? `<p style="margin:20px 0 0"><a href="${esc(vid.url)}?download=1" style="${EM_BTN}">Download your video &darr;</a></p>` : "";
   return `<div style="${EM_WRAP}">
     <h1 style="${EM_H1}">Your post is ready to go out</h1>
-    <p style="${EM_P}">Here's your planned <strong>${esc(platform)}</strong> post${item.title ? ` - &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached, and there's a download button below - copy your caption and you're set.</p>
+    <p style="${EM_P}">${vid
+      ? `Here's your planned <strong>${esc(platform)}</strong> reel${item.title ? ` - &ldquo;${esc(item.title)}&rdquo;` : ""}. Your video and its cover are below to download, and the cover is attached - copy your caption and you're set.`
+      : `Here's your planned <strong>${esc(platform)}</strong> post${item.title ? ` - &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached, and there's a download button below - copy your caption and you're set.`}</p>
     ${cap ? `<div style="${EM_QUOTE_TEXT}">${cap}</div>` : `<p style="${EM_P}">No caption saved for this post.</p>`}
-    ${asset ? `<p style="margin:20px 0 0"><a href="${asset}" style="${EM_BTN}">Download the image &darr;</a></p><p style="${EM_SMALL}">Tip: open this on your phone and tap Download to save it to your camera roll.</p>` : (files.length || links.length ? "" : `<p style="${EM_P}">No image is saved with this post.</p>`)}
+    ${vidBtn}
+    ${asset ? `<p style="margin:${vid ? "12px" : "20px"} 0 0"><a href="${asset}" style="${EM_BTN}">${vid ? "Download the cover" : "Download the image"} &darr;</a></p><p style="${EM_SMALL}">Tip: open this on your phone and tap Download to save it to your camera roll.</p>` : (files.length || links.length || vid ? "" : `<p style="${EM_P}">No image is saved with this post.</p>`)}
     ${extra}
     <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#371e28">View your calendar</a></p>
   </div>`;
@@ -10532,6 +10540,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         headers.set("etag", obj.httpEtag);
         headers.set("accept-ranges", "bytes");
         headers.set("Cache-Control", "public, max-age=86400");
+        // ?download=1 (the reminder email's button): saved as a file, not played.
+        if (url.searchParams.get("download")) headers.set("content-disposition", `attachment; filename="${key.split("/").pop().replace(/^\d+-/, "").replace(/"/g, "")}"`);
         if (obj.range && typeof obj.range.offset === "number" && obj.size) {
           const start = obj.range.offset;
           const end = start + (obj.range.length || obj.size - start) - 1;
