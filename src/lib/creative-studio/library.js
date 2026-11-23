@@ -6,7 +6,73 @@ import { makeThumb, putThumb, thumbKeyFor, isBlackPicture } from "../thumbs.js";
 import { $, $$, esc, api, token, toast, pop, closePop, confirmPop, chip, rowsOf, fmtD, fmtSize, cleanName, isFilm, isPhoto, isEditable, saveFile, hooks, WORKER, ROOT, MONTHS } from "./common.js";
 
 const TYPES = ["Event coverage", "Content Studio", "Property shoots", "New starter", "Agent shoots", "Our own"];
-const L = { folders: null, error: "", filter: "all", when: "all", q: "", open: null, kind: "all", sel: new Set() };
+const L = { folders: null, error: "", filter: "all", when: "all", q: "", open: null, kind: "all", used: "all", sel: new Set(), shared: new Map(), sharedOff: "" };
+
+/* ---------- Shared on social (Danielle for Abigail, 23 Nov 2026) ----------
+   A file the team has used is marked from the action bar and carries a chip
+   on its tile: the platforms' icons when they were chosen, "All" for
+   everywhere, or just "Shared". Kept in library_social_shares
+   (supabase/library_social_shares.sql), team only; clients never see it. */
+const ICON = (inner, fill) => `<svg viewBox="0 0 24 24" aria-hidden="true" class="${fill ? "f" : ""}">${inner}</svg>`;
+const SOCIAL = [
+  ["instagram", "Instagram", ICON('<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="3.8"/><circle cx="17.2" cy="6.8" r="0.6"/>')],
+  ["facebook", "Facebook", ICON('<path d="M13.6 21v-8h2.6l.5-3.2h-3.1V7.9c0-.9.4-1.5 1.6-1.5h1.6V3.6c-.5-.1-1.4-.2-2.4-.2-2.5 0-4 1.5-4 4.2v2.2H7.8V13h2.6v8z"/>', true)],
+  ["tiktok", "TikTok", ICON('<path d="M13.5 3.5v10.8a3.2 3.2 0 1 1-3.2-3.2"/><path d="M13.5 3.5c.3 2.3 1.9 4 4.4 4.3"/>')],
+  ["linkedin", "LinkedIn", ICON('<path d="M4.6 9.3h3.1V19H4.6zM6.2 4.4a1.8 1.8 0 1 1 0 3.6 1.8 1.8 0 0 1 0-3.6zM10 9.3h3v1.4c.5-.9 1.6-1.7 3.2-1.7 3 0 3.5 2 3.5 4.4V19h-3.1v-5c0-1.2-.2-2.3-1.6-2.3s-1.9 1-1.9 2.3v5H10z"/>', true)],
+  ["youtube", "YouTube", ICON('<rect x="2.5" y="6" width="19" height="12" rx="4"/><path d="M10.2 9.4l4.6 2.6-4.6 2.6z" class="f"/>')],
+];
+const SOCIAL_NAME = Object.fromEntries(SOCIAL.map(([k, n]) => [k, n]));
+const teamName = (n) => String(n || "").replace(/^Abbie\b/, "Abigail");
+const sharedWords = (r) => r.all_platforms ? "every platform" : r.platforms.length ? r.platforms.map((p) => SOCIAL_NAME[p] || p).join(", ") : "social";
+function sharedChip(f) {
+  const r = L.shared.get(f.key); if (!r) return "";
+  const tip = `Shared on ${sharedWords(r)}${r.marked_by_name ? `, marked by ${teamName(r.marked_by_name)}` : ""}${r.marked_at ? ` on ${fmtD(r.marked_at)}` : ""}`;
+  const inner = r.all_platforms ? "Shared: all" : r.platforms.length ? SOCIAL.filter(([k]) => r.platforms.includes(k)).map(([, , svg]) => svg).join("") : "Shared";
+  return `<span class="cs-chip cs-chip-s cs-shared" title="${esc(tip)}">${inner}</span>`;
+}
+async function loadShared(prefix) {
+  L.shared = new Map(); L.sharedOff = "";
+  const { data, error } = await supabase.from("library_social_shares").select("file_key,platforms,all_platforms,marked_by_name,marked_at").eq("folder", prefix);
+  if (error) { L.sharedOff = /library_social_shares|schema cache|does not exist/i.test(error.message || "") ? "Marking as shared needs library_social_shares.sql running first." : "Couldn't read what's been shared: " + error.message; return; }
+  (data || []).forEach((r) => L.shared.set(r.file_key, { ...r, platforms: r.platforms || [] }));
+}
+function markShared(list) {
+  if (L.sharedOff) { toast(L.sharedOff); return; }
+  const marked = list.filter((f) => L.shared.has(f.key)), first = marked.length ? L.shared.get(marked[0].key) : null;
+  const one = list.length === 1, on = (k) => first && !first.all_platforms && first.platforms.includes(k);
+  pop({ eyebrow: "Library · " + folderInfo().title, title: "Shared On Social.",
+    body: `<p>${one ? esc(cleanName(list[0].name)) : `${list.length} files`}. Tick where ${one ? "it has" : "they have"} been shared, or leave them all unticked to mark ${one ? "it" : "them"} as shared without saying where.</p>
+      <div class="cs-box"><div class="cs-strip">Shared on</div>
+        <label class="cs-shrow"><span>Every platform</span><input type="checkbox" id="sh-all" ${first && first.all_platforms ? "checked" : ""}></label>
+        ${SOCIAL.map(([k, n, svg]) => `<label class="cs-shrow"><span class="cs-soc">${svg}${esc(n)}</span><input type="checkbox" data-sh="${k}" ${on(k) ? "checked" : ""}></label>`).join("")}
+      </div>`,
+    foot: `${marked.length ? `<button type="button" class="cs-btn" id="sh-clear">Not shared</button>` : ""}<button type="button" class="cs-btn cs-pri" id="sh-save">Mark as shared</button>` });
+  const all = $("#sh-all"), ticks = $$("[data-sh]");
+  const sync = () => ticks.forEach((t) => { t.disabled = all.checked; if (all.checked) t.checked = false; });
+  all.onchange = sync; sync();
+  $("#sh-save").onclick = async () => {
+    $("#sh-save").disabled = true;
+    const { data: u } = await supabase.auth.getUser();
+    const who = (u && u.user && ((u.user.user_metadata && (u.user.user_metadata.full_name || u.user.user_metadata.name)) || "")) || "";
+    const platforms = all.checked ? [] : ticks.filter((t) => t.checked).map((t) => t.dataset.sh);
+    const rows = list.map((f) => ({ file_key: f.key, folder: L.open.prefix, platforms, all_platforms: all.checked, marked_by_name: who || null, marked_at: new Date().toISOString() }));
+    const { data, error } = await supabase.from("library_social_shares").upsert(rows, { onConflict: "file_key" }).select("file_key,platforms,all_platforms,marked_by_name,marked_at");
+    // Marked only when every row came back.
+    if (error || !data || data.length !== rows.length) { $("#sh-save").disabled = false; toast("That didn't save" + (error ? ": " + error.message : ". Please try again.")); return; }
+    data.forEach((r) => L.shared.set(r.file_key, { ...r, platforms: r.platforms || [] }));
+    closePop(); L.sel.clear(); drawFolder();
+    toast(one ? "Marked as shared." : `${rows.length} files marked as shared.`);
+  };
+  if ($("#sh-clear")) $("#sh-clear").onclick = async () => {
+    $("#sh-clear").disabled = true;
+    const keys = marked.map((f) => f.key);
+    const { error } = await supabase.from("library_social_shares").delete().in("file_key", keys);
+    if (error) { $("#sh-clear").disabled = false; toast("That didn't save: " + error.message); return; }
+    keys.forEach((k) => L.shared.delete(k));
+    closePop(); L.sel.clear(); drawFolder();
+    toast(keys.length === 1 ? "No longer marked as shared." : `${keys.length} files no longer marked as shared.`);
+  };
+}
 const shapes = new Map();
 const host = () => $("#cs-v-library");
 const dateOf = (f) => f.date || new Date().toISOString().slice(0, 10);
@@ -99,7 +165,7 @@ function shapeOf(f) {
   });
 }
 export async function openFolder(prefix, keepKind) {
-  L.open = { prefix, loading: true }; L.sel.clear(); if (!keepKind) L.kind = "all";
+  L.open = { prefix, loading: true }; L.sel.clear(); if (!keepKind) { L.kind = "all"; L.used = "all"; }
   setQuery(prefix);
   host().innerHTML = loadingLine("Opening the folder…");
   let data;
@@ -111,6 +177,8 @@ export async function openFolder(prefix, keepKind) {
   const queue = data.files.slice(), say = () => { const t = $("#cs-load-t"); if (t) t.textContent = `Loading ${n} of ${data.files.length}…`; };
   say();
   await Promise.all(Array.from({ length: Math.min(8, queue.length) }, async () => { while (queue.length) { await shapeOf(queue.shift()); n += 1; say(); } }));
+  if (!L.open || L.open.prefix !== prefix) return;
+  await loadShared(prefix);
   if (!L.open || L.open.prefix !== prefix) return;
   L.open = { prefix, files: data.files, parts: data.parts, meta: allFolders().find((f) => f.prefix === prefix) };
   drawFolder();
@@ -125,8 +193,8 @@ function drawFolder() {
   if (!o || o.loading) return;
   const title = (o.meta && o.meta.title) || o.prefix.slice(ROOT.length, -1);
   const inPortals = (o.meta && o.meta.portals) || [];
-  const match = (f) => L.kind === "all" || (L.kind === "photo" ? isPhoto(f) : isFilm(f));
-  const tile = (f) => `<div class="cs-file${L.sel.has(f.key) ? " sel" : ""}" data-key="${esc(f.key)}">${f.thumbUrl ? `<img src="${esc(f.thumbUrl)}" alt="" loading="lazy">` : ""}<button type="button" class="cs-tk" data-t="${esc(f.key)}" aria-label="Select ${esc(cleanName(f.name))}" aria-pressed="${L.sel.has(f.key)}"></button>${isFilm(f) ? `<span class="cs-kind">${chip("Film", "w")}</span>` : ""}<span class="cs-nm">${esc(cleanName(f.name).replace(/\.[a-z0-9]{2,5}$/i, ""))}</span></div>`;
+  const match = (f) => (L.kind === "all" || (L.kind === "photo" ? isPhoto(f) : isFilm(f))) && (L.used === "all" || (L.used === "shared") === L.shared.has(f.key));
+  const tile = (f) => `<div class="cs-file${L.sel.has(f.key) ? " sel" : ""}" data-key="${esc(f.key)}">${f.thumbUrl ? `<img src="${esc(f.thumbUrl)}" alt="" loading="lazy">` : ""}<button type="button" class="cs-tk" data-t="${esc(f.key)}" aria-label="Select ${esc(cleanName(f.name))}" aria-pressed="${L.sel.has(f.key)}"></button><span class="cs-kind">${sharedChip(f)}${isFilm(f) ? chip("Film", "w") : ""}</span><span class="cs-nm">${esc(cleanName(f.name).replace(/\.[a-z0-9]{2,5}$/i, ""))}</span></div>`;
   const shown = o.parts.map((p) => ({ p, files: o.files.filter((f) => f.part === p && match(f)) })).filter((s) => s.files.length || (s.p && !o.files.some((f) => f.part === s.p)));
   const strips = shown.length > 1;
   const section = (s) => {
@@ -134,10 +202,11 @@ function drawFolder() {
     return `<section class="cs-part" data-part="${esc(s.p)}">${strips ? `<div class="cs-strip">${esc(s.p || "Main")}<span>${plural(s.files.length, "file")}<button type="button" data-upin="${esc(s.p)}">Upload here</button></span></div>` : ""}${land.length ? `<div class="cs-files">${land.map(tile).join("")}</div>` : ""}${port.length ? `<div class="cs-files pt">${port.map(tile).join("")}</div>` : ""}</section>`;
   };
   v.innerHTML = `<div class="cs-bar"><div class="cs-crumbs"><button type="button" id="cs-back">Library</button><span class="cs-muted">/</span><span>${esc(title)}</span></div><span class="cs-grow"></span>${inPortals.length ? chip("In " + inPortals.join(", ")) : chip("Not in a portal")}<button type="button" class="cs-btn" id="cs-toportal">Add to portal</button><button type="button" class="cs-btn" id="cs-new">New folder</button><button type="button" class="cs-btn cs-pri" id="cs-up">Upload</button></div>
-  <div class="cs-bar" style="margin-bottom:12px"><div class="cs-seg" id="cs-kind">${[["all", "All"], ["photo", "Photos"], ["film", "Films"]].map(([k, t]) => `<button type="button" data-k="${k}" class="${L.kind === k ? "on" : ""}">${t}</button>`).join("")}</div><span class="cs-muted" id="cs-count"></span><span class="cs-grow"></span><span id="cs-acts" class="cs-btns"></span></div>
+  <div class="cs-bar" style="margin-bottom:12px"><div class="cs-seg" id="cs-kind">${[["all", "All"], ["photo", "Photos"], ["film", "Films"]].map(([k, t]) => `<button type="button" data-k="${k}" class="${L.kind === k ? "on" : ""}">${t}</button>`).join("")}</div><div class="cs-seg" id="cs-used">${[["all", "All"], ["unused", "Not shared"], ["shared", "Shared"]].map(([k, t]) => `<button type="button" data-u="${k}" class="${L.used === k ? "on" : ""}">${t}</button>`).join("")}</div><span class="cs-muted" id="cs-count"></span><span class="cs-grow"></span><span id="cs-acts" class="cs-btns"></span></div>
   <div class="cs-drop" id="cs-drop">${shown.map(section).join("") || `<p class="cs-muted">This folder is empty. Drag files in, or use Upload.</p>`}</div><div id="cs-uploads"></div>`;
   $("#cs-back").onclick = backToLibrary;
   $$("#cs-kind button").forEach((b) => (b.onclick = () => { L.kind = b.dataset.k; drawFolder(); }));
+  $$("#cs-used button").forEach((b) => (b.onclick = () => { L.used = b.dataset.u; drawFolder(); }));
   $$(".cs-file", v).forEach((el) => (el.onclick = () => openFile(o.files.find((f) => f.key === el.dataset.key))));
   $$(".cs-tk", v).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const k = b.dataset.t; L.sel.has(k) ? L.sel.delete(k) : L.sel.add(k); b.parentElement.classList.toggle("sel", L.sel.has(k)); b.setAttribute("aria-pressed", L.sel.has(k)); drawActs(); }));
   $$("[data-upin]", v).forEach((b) => (b.onclick = () => pickFiles(b.dataset.upin ? `${o.prefix}${b.dataset.upin}/` : o.prefix)));
@@ -153,11 +222,12 @@ function drawFolder() {
 const needsThumb = (f) => (isFilm(f) && !f.hasThumb) || f.blackThumb;
 function drawActs() {
   const o = L.open, picked = o.files.filter((f) => L.sel.has(f.key)), ph = picked.filter(isEditable), todo = o.files.filter(needsThumb);
-  const visible = o.files.filter((f) => L.kind === "all" || (L.kind === "photo" ? isPhoto(f) : isFilm(f)));
+  const visible = o.files.filter((f) => (L.kind === "all" || (L.kind === "photo" ? isPhoto(f) : isFilm(f))) && (L.used === "all" || (L.used === "shared") === L.shared.has(f.key)));
   $("#cs-count").textContent = picked.length ? `${picked.length} selected` : "Tick files to act on them";
-  $("#cs-acts").innerHTML = `${todo.length ? `<button type="button" class="cs-btn" id="a-th">Make ${plural(todo.length, "thumbnail")}</button>` : ""}<button type="button" class="cs-btn" id="a-all">${picked.length === visible.length && picked.length ? "Clear" : "Select all"}</button><button type="button" class="cs-btn" id="a-dl" ${picked.length ? "" : "disabled"}>Download</button><button type="button" class="cs-btn" id="a-ed" ${ph.length ? "" : "disabled"}>Edit photos</button><button type="button" class="cs-btn" id="a-del" ${picked.length ? "" : "disabled"}>Delete</button>`;
+  $("#cs-acts").innerHTML = `${todo.length ? `<button type="button" class="cs-btn" id="a-th">Make ${plural(todo.length, "thumbnail")}</button>` : ""}<button type="button" class="cs-btn" id="a-all">${picked.length === visible.length && picked.length ? "Clear" : "Select all"}</button><button type="button" class="cs-btn" id="a-dl" ${picked.length ? "" : "disabled"}>Download</button><button type="button" class="cs-btn" id="a-sh" ${picked.length ? "" : "disabled"}>Mark as shared</button><button type="button" class="cs-btn" id="a-ed" ${ph.length ? "" : "disabled"}>Edit photos</button><button type="button" class="cs-btn" id="a-del" ${picked.length ? "" : "disabled"}>Delete</button>`;
   $("#a-all").onclick = () => { if (picked.length === visible.length) L.sel.clear(); else visible.forEach((f) => L.sel.add(f.key)); drawFolder(); };
   $("#a-dl").onclick = () => downloadFiles(picked);
+  $("#a-sh").onclick = () => markShared(picked);
   $("#a-ed").onclick = () => hooks.editPhotos(ph, folderInfo());
   $("#a-del").onclick = () => deleteFiles(picked);
   if ($("#a-th")) $("#a-th").onclick = () => makeThumbs(todo);
@@ -169,10 +239,11 @@ function openFile(f) {
   const media = film ? `<video controls playsinline src="${esc(f.url)}" style="display:block;max-height:46vh;max-width:100%;margin:0 auto"></video>`
     : isPhoto(f) ? `<img src="${esc(f.previewUrl || f.url)}" alt="" style="display:block;max-height:46vh;max-width:100%;margin:0 auto">` : "";
   pop({ eyebrow: "Library · " + title, title: name, chipHtml: chip(film ? "Film" : isPhoto(f) ? "Photo" : "File"),
-    body: `${media}<div class="cs-box"><div class="cs-strip">Details</div>${rowsOf([["Folder", title], ["Size", fmtSize(f.size)], ["Added", fmtD(f.uploaded)], ["In a portal", (o.meta && o.meta.portals.join(", ")) || "No"]])}</div>`,
-    foot: `<button type="button" class="cs-btn" id="f-del">Delete</button><a class="cs-btn" href="${esc(f.downloadUrl)}" download="${esc(name)}">Download</a><button type="button" class="cs-btn" id="f-pt">Add to portal</button>${isEditable(f) ? `<button type="button" class="cs-btn cs-pri" id="f-go">Edit photo</button>` : ""}` });
+    body: `${media}<div class="cs-box"><div class="cs-strip">Details</div>${rowsOf([["Folder", title], ["Size", fmtSize(f.size)], ["Added", fmtD(f.uploaded)], ["In a portal", (o.meta && o.meta.portals.join(", ")) || "No"], ["Shared", L.shared.has(f.key) ? (() => { const r = L.shared.get(f.key); return `On ${sharedWords(r)}${r.marked_by_name ? `, marked by ${teamName(r.marked_by_name)}` : ""}${r.marked_at ? `, ${fmtD(r.marked_at)}` : ""}`; })() : "No"]])}</div>`,
+    foot: `<button type="button" class="cs-btn" id="f-del">Delete</button><a class="cs-btn" href="${esc(f.downloadUrl)}" download="${esc(name)}">Download</a><button type="button" class="cs-btn" id="f-sh">${L.shared.has(f.key) ? "Change shared" : "Mark as shared"}</button><button type="button" class="cs-btn" id="f-pt">Add to portal</button>${isEditable(f) ? `<button type="button" class="cs-btn cs-pri" id="f-go">Edit photo</button>` : ""}` });
   $("#f-pt").onclick = () => addToPortal();
   $("#f-del").onclick = () => deleteFiles([f]);
+  $("#f-sh").onclick = () => markShared([f]);
   if ($("#f-go")) $("#f-go").onclick = () => { closePop(); hooks.editPhotos([f], folderInfo()); };
 }
 
@@ -193,7 +264,10 @@ function deleteFiles(list) {
     text: `${one ? `Delete ${cleanName(list[0].name)}?` : `Delete these ${list.length} files?`} This removes the only copy and can't be undone.`, yes: "Delete",
     onYes: async () => {
       let failed = 0;
-      for (const f of list) { try { await api(`/object?key=${encodeURIComponent(f.key)}`, { method: "DELETE" }); } catch (_) { failed += 1; } }
+      const gone = [];
+      for (const f of list) { try { await api(`/object?key=${encodeURIComponent(f.key)}`, { method: "DELETE" }); gone.push(f.key); } catch (_) { failed += 1; } }
+      // A deleted file's shared mark goes with it.
+      if (gone.some((k) => L.shared.has(k))) { try { await supabase.from("library_social_shares").delete().in("file_key", gone); } catch (_) {} }
       closePop();
       toast(failed ? `${failed} couldn't be deleted. Please try again.` : one ? "Deleted." : `${list.length} files deleted.`);
       await refresh();

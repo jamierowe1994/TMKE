@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/library_social_shares.sql (23 Nov): Creative Studio › Library › Mark as shared. Keeps which files have been shared on social and where. Until it runs, the button says it needs this file.
 - [ ] supabase/guides_level_lock.sql (23 Nov): Guides › Details › Without the level. Lets a levelled course show locked to members who don't have the level. Until it runs, "They see it locked" can't be saved and levelled courses are hidden from them.
 - [ ] supabase/member_broadcasts_audience.sql (20 Nov): Hub notifications can go to TEG, F&C or External, not only every member.
 
