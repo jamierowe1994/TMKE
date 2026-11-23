@@ -24,9 +24,9 @@ import { TRAINING_WINDOW, clearTrainingWindow } from './training.js';
    reached it, and the Training Studio there showed the stand-in month and was
    short of guides. Dani, 17 Oct. The lesson page around it is signed in, so it
    reads that content and hands it over. Nothing of the member's own goes in:
-   only these two, the same for every member. */
+   only content that is the same for every member. */
 if (typeof window !== 'undefined' && !window.__TMKE_TRAINING_WINDOW__) {
-  window.__tmkeContent = async (what) => {
+  window.__tmkeContent = async (what, arg) => {
     try {
       if (what === 'trending') {
         const { data } = await supabase.from('trending_months').select('month, intro, topics').eq('status', 'published').order('month', { ascending: false }).limit(1).maybeSingle();
@@ -37,6 +37,21 @@ if (typeof window !== 'undefined' && !window.__TMKE_TRAINING_WINDOW__) {
           .select('slug,title,topic,kind,summary,cover_url,lessons,est_minutes,audience,created_at')
           .eq('status', 'published').order('sort_order', { ascending: true }).order('created_at', { ascending: false });
         return error ? null : (data || []);
+      }
+      /* The Content Calendar month for the Show me walkthroughs (Danielle,
+         23 Nov): what this login may see, read with this login. Staff are
+         handed a member's view: no staff flag, one edition. */
+      if (what === 'cc-access') {
+        const { memberAccess } = await import('./calendar-month.js');
+        const a = await memberAccess(supabase);
+        return a ? { ...a, staff: false, test: false } : null;
+      }
+      if (what === 'cc-get' && arg && typeof arg.route === 'string') {
+        const { memberAccess, calendarGetForWindow } = await import('./calendar-month.js');
+        const out = await calendarGetForWindow(supabase, arg.route, arg.params || {});
+        const a = await memberAccess(supabase);
+        if (out && a && a.staff && arg.route === 'month' && out.month) out.editions = [out.month.edition];
+        return out ? JSON.parse(JSON.stringify(out)) : null;
       }
     } catch (_) {}
     return null;

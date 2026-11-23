@@ -29,6 +29,23 @@ export function preferredEdition() {
   return accessEdition || "property";
 }
 
+/* Inside a walkthrough's training window (Danielle, 23 Nov: "start on the
+   sample month"). Nobody is signed in there, so the month never reached it and
+   the Content Calendar course's Show me walkthroughs had nothing to show. The
+   lesson page around the window is signed in: it reads the month the same way
+   it would for itself and hands it over (tour.js __tmkeContent "cc-access",
+   "cc-get"). Only the month, the same for every member of an edition, goes in;
+   nothing of the member's own (their planned posts stay out, and the window
+   saves nothing). Inside, the posts open in the training account's Brand Kit,
+   so they read as Rimberio Homes'. */
+function lessonPage() {
+  try {
+    const w = typeof window !== "undefined" ? window : null;
+    if (!w || !w.__TMKE_TRAINING_WINDOW__ || w.parent === w) return null;
+    return typeof w.parent.__tmkeContent === "function" ? w.parent : null;
+  } catch (_) { return null; }
+}
+
 /* What this member gets, from the Worker's /access/me (worked out on the
    server: their level, and which edition's month is theirs). Read once a
    page. Anything short of an answer is no access: a month never shows on a
@@ -37,6 +54,12 @@ let accessP = null;
 export function memberAccess(supabase) {
   if (accessP) return accessP;
   accessP = (async () => {
+    const lesson = lessonPage();
+    if (lesson) {
+      const a = await lesson.__tmkeContent("cc-access");
+      if (a && EDITION_ORDER.includes(a.edition)) accessEdition = a.edition;
+      return a && a.ok ? a : null;
+    }
     const base = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const { data: { session } } = await supabase.auth.getSession();
     if (!base || !session) return null;
@@ -69,6 +92,8 @@ function asParam() {
    agent's month comes from /calendar/*, where memberAccess decides and the
    service key reads. Null when the Worker can't be reached or says no. */
 async function calendarGet(supabase, route, params) {
+  const lesson = lessonPage();
+  if (lesson) return (await lesson.__tmkeContent("cc-get", { route, params }).catch(() => null)) || null;
   const base = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   const { data: { session } } = await supabase.auth.getSession();
   if (!base || !session) return null;
@@ -82,6 +107,14 @@ async function calendarGet(supabase, route, params) {
   if (!res || !res.ok) return null;
   const out = await res.json().catch(() => null);
   return out && out.ok ? out : null;
+}
+
+/* For the lesson page around a training window (tour.js): the same read, with
+   the lesson page's own login. Only the routes the month needs. */
+const WINDOW_ROUTES = new Set(["month", "months", "templates", "template", "post"]);
+export async function calendarGetForWindow(supabase, route, params) {
+  if (!WINDOW_ROUTES.has(route)) return null;
+  return calendarGet(supabase, route, params);
 }
 
 export function setPreferredEdition(v) {
