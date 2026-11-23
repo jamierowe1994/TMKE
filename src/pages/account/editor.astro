@@ -7836,6 +7836,17 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
               const { error } = await DB.from(DT).update(row).eq('id', currentDesignId).eq('user_id', memberUid);
               return error ? { ok: false, reason: why(error) } : { ok: true, id: currentDesignId };
             }
+            /* A design that has never had anything on it isn't saved
+               (Danielle, 23 Nov): opening New design and leaving again put
+               an empty "Untitled" in Your designs every time. Nothing on any
+               page - no words, pictures or shapes, no background picture or
+               pattern - and no row yet: wait. The first thing added saves it
+               as usual. A design that was saved once stays saved, even if
+               it's emptied later. */
+            const pagesOf = Array.isArray(payload.pages) && payload.pages.length ? payload.pages : [{ canvas: payload.canvas, elements: payload.elements }];
+            const blank = pagesOf.every((pg) => !(pg && Array.isArray(pg.elements) && pg.elements.length)
+              && !(pg && pg.canvas && (pg.canvas.backgroundImage || pg.canvas.bgPattern)));
+            if (blank) return { ok: true };
             row.source_template_id = payload.templateId || null;
             const { data, error } = await DB.from(DT).insert(row).select('id').single();
             if (error || !data) return { ok: false, reason: why(error) };
