@@ -371,11 +371,68 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       $("#g-page-walknote").textContent = w ? `The "Show me" box for ${w.title} sits here.` : "";
     }
     WALK_LIST.forEach((w) => { const o = document.createElement("option"); o.value = w.id; o.textContent = w.title; $("#g-page-walk").appendChild(o); });
-    $("#g-page-body").addEventListener("input", () => { if (pageAt < 0) return; lessons[pageAt].body_html = pageHtml(); $("#g-page-html").value = lessons[pageAt].body_html; markDirty(); });
+    function syncPage() { if (pageAt < 0) return; lessons[pageAt].body_html = pageHtml(); $("#g-page-html").value = lessons[pageAt].body_html; markDirty(); }
+    $("#g-page-body").addEventListener("input", syncPage);
     // Links and buttons in the lesson are words to edit here, not places to go.
     $("#g-page-body").addEventListener("click", (e) => { if (e.target.closest("a,button")) e.preventDefault(); });
+
+    // Emptied boxes go, and Backspace at the start of a paragraph joins it to
+    // the one above (a line break, no paragraph gap; Backspace again puts it
+    // on the same line). The page always keeps one box to type in.
+    const boxes = () => [...$("#g-page-body").querySelectorAll('[contenteditable="true"]')];
+    const isBlank = (el) => !el.textContent.trim() && !el.querySelector("img,video,iframe,svg");
+    function caretAtStart(el) {
+      const s = getSelection();
+      if (!s.rangeCount || !s.isCollapsed) return false;
+      const r = s.getRangeAt(0), pre = document.createRange();
+      pre.selectNodeContents(el); pre.setEnd(r.startContainer, r.startOffset);
+      const f = pre.cloneContents();
+      return !f.textContent.length && !f.querySelector("br,img");
+    }
+    function caretTo(el, atEnd) {
+      el.focus();
+      const r = document.createRange(); r.selectNodeContents(el); r.collapse(!atEnd);
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    }
+    // Takes a wrapper with it when the box was all it held (a card left with nothing in it).
+    function removeBox(el) {
+      let n = el;
+      while (n.parentElement && n.parentElement.id !== "g-page-body" && n.parentElement.children.length === 1 && isBlank(n.parentElement)) n = n.parentElement;
+      n.remove();
+    }
+    $("#g-page-body").addEventListener("focusout", (e) => {
+      const el = e.target.closest && e.target.closest('[contenteditable="true"]');
+      if (!el || !el.isConnected || !isBlank(el) || boxes().length < 2) return;
+      removeBox(el); syncPage();
+    });
     $("#g-page-body").addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && e.target.closest('[contenteditable="true"]')) { e.preventDefault(); document.execCommand("insertLineBreak"); }
+      const el = e.target.closest('[contenteditable="true"]');
+      if (!el) return;
+      if (e.key === "Enter") { e.preventDefault(); document.execCommand("insertLineBreak"); return; }
+      if (e.key !== "Backspace" || !caretAtStart(el)) return;
+      const all = boxes(), i = all.indexOf(el), prev = all[i - 1];
+      if (isBlank(el)) {
+        if (all.length < 2) return;
+        e.preventDefault();
+        if (prev) caretTo(prev, true); else if (all[i + 1]) caretTo(all[i + 1], false);
+        removeBox(el);
+        syncPage(); return;
+      }
+      // Only paragraph into paragraph (or heading into the same heading), side by side.
+      if (!prev || el.previousElementSibling !== prev || prev.tagName !== el.tagName) return;
+      e.preventDefault();
+      if (prev.lastChild && prev.lastChild.nodeName === "BR") prev.lastChild.remove();
+      const br = document.createElement("br"), first = el.firstChild;
+      prev.appendChild(br);
+      while (el.firstChild) prev.appendChild(el.firstChild);
+      prev.focus(); // before the box goes, or focus falls to the page
+      el.remove();
+      // Caret inside the moved words, so a second Backspace takes the line break.
+      const r = document.createRange();
+      if (first && first.nodeType === 3) r.setStart(first, 0); else r.setStartAfter(br);
+      r.collapse(true);
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      syncPage();
     });
     // Pasted words come in plain, so nothing from Word or a web page sneaks in.
     $("#g-page-body").addEventListener("paste", (e) => {

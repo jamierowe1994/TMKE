@@ -27,6 +27,12 @@ const go = (items) => items.map(([t, b, href, img], i) => `<a class="ci-go" href
 // three reasons, the four parts of a brand, and the four payoffs at the end.
 const cards = (items, cols = 3) => `<div class="bk-cards bk-cards--${cols}">${items.map(([t, b, kind]) =>
   `<div class="bk-card${kind ? ` bk-card--${kind}` : ""}"><strong>${t}</strong><span>${b}</span></div>`).join("")}</div>`;
+// Three cards side by side, each with a small "What we provide" box under it:
+// cards one height with the words centred, boxes one height with the words at
+// the top. Pairs stack card-then-box on narrow screens.
+const formats = (items) => `<div class="bk-formats">${items.map(([t, b], i) =>
+  `<div class="bk-card bk-card--mid" style="--i:${i}"><strong>${t}</strong><span>${b}</span></div>`).join("")}${items.map(([, , w], i) =>
+  `<div class="bk-provide" style="--i:${i}"><strong>What we provide:</strong> ${w}</div>`).join("")}</div>`;
 // A quiet panel for an aside that is not an instruction.
 const panel = (h, body) => `<div class="bk-panel">${h ? `<strong>${h}</strong>` : ""}${body}</div>`;
 // Something to go and read, at the end of a lesson.
@@ -475,11 +481,14 @@ export const CALENDAR_GUIDES = [
           p("Each month, we plan a mix of content formats, topics and ideas to help you build a recognisable presence, demonstrate your expertise and stay connected with your local audience. This course explains the thinking behind that approach and how to make the most of what we've created.") +
           p("<strong>Not every message is best delivered in the same way.</strong>") +
           p("That's why your Content Calendar includes three different formats: single-image posts, carousels and reels. Each has a different purpose, and understanding those differences will help you choose the right content for your audience.") +
-          cards([
-            ["Single-image posts", "A single-image post communicates one main message through a designed graphic or photograph. They're particularly useful when you want someone to understand something quickly, whether that's a property tip, a local announcement, a seasonal message or a reminder about your services.<br><br><strong>What we provide:</strong> An editable design and a ready-written caption that you can personalise before posting."],
-            ["Carousels", "A carousel brings several images or slides together in one post, allowing people to swipe through the content. They're particularly useful for explaining something in more detail, breaking information into smaller sections or telling a story across several slides.<br><br>But carousels don't always need lots of text. They can also be highly visual, showcasing a property's interiors, exploring different design styles or sharing a collection of photographs that give people a better sense of who you are.<br><br><strong>What we provide:</strong> A complete set of editable slides and a caption to accompany the post."],
-            ["Reels", "Reels are short-form videos that give your audience a different way to engage with your content. They're particularly effective for introducing yourself, showcasing properties, sharing local knowledge or giving people a glimpse into your working day.<br><br>Video allows you to show things that photographs alone can't always capture, from the flow of a property and its standout features to your personality and approach as an agent. Reels can also help your content reach people who don't already follow you, although reach will depend on the content and how people respond to it.<br><br><strong>What we provide:</strong> A reel cover, a suggested filming concept, guidance on what to capture and a ready-written caption. You'll need to film and assemble the video yourself."],
-          ], 3) +
+          formats([
+            ["Single-image posts", "A single-image post communicates one main message through a designed graphic or photograph. They're particularly useful when you want someone to understand something quickly, whether that's a property tip, a local announcement, a seasonal message or a reminder about your services.",
+              "An editable design and a ready-written caption that you can personalise before posting."],
+            ["Carousels", "A carousel brings several images or slides together in one post, allowing people to swipe through the content. They're particularly useful for explaining something in more detail, breaking information into smaller sections or telling a story across several slides.<br><br>But carousels don't always need lots of text. They can also be highly visual, showcasing a property's interiors, exploring different design styles or sharing a collection of photographs that give people a better sense of who you are.",
+              "A complete set of editable slides and a caption to accompany the post."],
+            ["Reels", "Reels are short-form videos that give your audience a different way to engage with your content. They're particularly effective for introducing yourself, showcasing properties, sharing local knowledge or giving people a glimpse into your working day.<br><br>Video allows you to show things that photographs alone can't always capture, from the flow of a property and its standout features to your personality and approach as an agent. Reels can also help your content reach people who don't already follow you, although reach will depend on the content and how people respond to it.",
+              "A reel cover, a suggested filming concept, guidance on what to capture and a ready-written caption. You'll need to film and assemble the video yourself."],
+          ]) +
           p("<strong>Why we use all three</strong>") +
           p("Variety isn't just about making your feed look different. Some messages need only a few seconds of attention. Others deserve a little more explanation. And some are far more effective when they come directly from you.") +
           p("By using different formats, you can communicate in ways that suit the subject, rather than trying to make every idea fit the same type of post. You don't need to use every format equally, but we'd encourage you to include a mixture over the course of the month.") },
