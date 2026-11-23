@@ -1469,6 +1469,9 @@ import "../../styles/account-sections.css";
     .cc-post, .cc-slot { flex: none; aspect-ratio: 4 / 5; width: 100%; }
     .cc-post { container-type: inline-size; position: relative; display: block; padding: 0; border: 0; border-radius: 2px; overflow: hidden; background: rgba(var(--violet-rgb), 0.06); cursor: pointer; text-align: left; font: inherit; }
     .cc-post img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    /* A reel's cover is 9:16: it fills the 4:5 box, its top and bottom cut
+       off, rather than sitting in it with grey either side (Danielle, 23 Nov). */
+    .cc-post--reel img { object-fit: cover; }
     .cc-post-card { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: min(4px, 2.5cqi); padding: min(10px, 7cqi); background: #fff; border: 1px solid rgba(28,29,34,0.14); opacity: 0; transition: opacity 0.18s ease; }
     .cc-post:hover .cc-post-card, .cc-post:focus-visible .cc-post-card { opacity: 1; }
     /* The hover card's words shrink with the post (Danielle, 23 Nov): on a
@@ -2097,7 +2100,7 @@ import "../../styles/account-sections.css";
         const post = other ? null : (byDate.get(key) || [])[0];
         const img = post && post.template && post.template.thumb_url;
         const cls = ['cc-day', other ? 'is-other-month' : '', key === todayKey ? 'is-today' : ''].filter(Boolean).join(' ');
-        const pic = post ? `<button type="button" class="cc-post" data-cc-post="${escapeHtml(post.id)}" aria-label="${escapeHtml(post.title || 'Post')}"${m.preview ? ' tabindex="-1" aria-hidden="true"' : ''}>${img ? `<img src="${escapeHtml(img)}" alt="" loading="lazy">` : ''}${post.date_tied ? '<span class="cc-badge">On this day</span>' : ''}${planned.has(String(post.id)) ? '<span class="cc-mine">On your calendar</span>' : ''}<span class="cc-post-card">${post.pillar ? `<span class="cc-post-k">${escapeHtml(post.pillar)}</span>` : ''}<span class="cc-post-h">${escapeHtml(post.title || (post.template && post.template.name) || 'Post')}</span><span class="cc-post-go">See it full size</span></span></button>` : '<span class="cc-slot" aria-hidden="true"></span>';
+        const pic = post ? `<button type="button" class="cc-post${post.post_type === 'reel' ? ' cc-post--reel' : ''}" data-cc-post="${escapeHtml(post.id)}" aria-label="${escapeHtml(post.title || 'Post')}"${m.preview ? ' tabindex="-1" aria-hidden="true"' : ''}>${img ? `<img src="${escapeHtml(img)}" alt="" loading="lazy">` : ''}${post.date_tied ? '<span class="cc-badge">On this day</span>' : ''}${planned.has(String(post.id)) ? '<span class="cc-mine">On your calendar</span>' : ''}<span class="cc-post-card">${post.pillar ? `<span class="cc-post-k">${escapeHtml(post.pillar)}</span>` : ''}<span class="cc-post-h">${escapeHtml(post.title || (post.template && post.template.name) || 'Post')}</span><span class="cc-post-go">See it full size</span></span></button>` : '<span class="cc-slot" aria-hidden="true"></span>';
         return `<div class="${cls}"><span class="cc-num">${d.getDate()}</span>${pic}</div>`;
       }).join('');
     }
