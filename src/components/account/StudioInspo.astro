@@ -212,6 +212,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
 <script>
   import { supabase } from "../../lib/supabase.js";
   import { syncBrandCache } from "../../lib/brand-cache.js";
+  import { openingKit } from "../../lib/opening-kit.js";
   import { updatesFor } from "../../lib/whats-new-audience.js";
   import { memberBrandsFor } from "../../lib/pack-access.js";
   // The kit is read when it's used (your tone of voice, your colours), so a
@@ -516,9 +517,10 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
 
   /* ---------------- brand ---------------- */
   // The kit as the editor stores it: colours may be strings or {hex, name}.
-  function readKit() {
-    let kit = null;
-    try { kit = JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) {}
+  function rawKit() {
+    try { return JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) { return null; }
+  }
+  function readKit(kit = rawKit()) {
     if (!kit) return null;
     const colors = (Array.isArray(kit.colors) ? kit.colors : []).map((c) => (c && typeof c === "object" ? c.hex : c)).filter((c) => typeof c === "string" && /^#?[0-9a-f]{3,8}$/i.test(c)).map((c) => (c.startsWith("#") ? c : "#" + c));
     const logos = Array.isArray(kit.logos) ? kit.logos.filter((l) => l && l.src) : [];
@@ -547,6 +549,8 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
     });
     return frameReady;
   }
+  // The main brand's kit, when it isn't the one this browser holds (see brand()).
+  let opening = null;
   let seq = 0;
   function renderBranded(t) {
     return new Promise(async (resolve) => {
@@ -555,7 +559,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
       const id = "r" + (++seq);
       const onMsg = (e) => { if (e.origin === location.origin && e.data?.type === "tmke-rendered-branded" && e.data.id === id) { window.removeEventListener("message", onMsg); resolve(e.data.thumb || null); } };
       window.addEventListener("message", onMsg);
-      f.contentWindow.postMessage({ type: "tmke-render-branded", id, canvas: t.canvas, elements: t.elements }, location.origin);
+      f.contentWindow.postMessage({ type: "tmke-render-branded", id, canvas: t.canvas, elements: t.elements, kit: opening?.kit, brand: opening?.brand }, location.origin);
       setTimeout(() => { window.removeEventListener("message", onMsg); resolve(null); }, 20000);
     });
   }
@@ -563,7 +567,14 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   async function brand() {
     eyebrow.textContent = "Brand inspo";
     title.textContent = "Our templates, your brand";
-    const kit = readKit();
+    /* Someone in two brands has a kit for each, and this browser holds the
+       one they last looked at on the Brand Kit page. Their designs open in
+       their main brand, so this does too (Danielle, 23 Nov 2026: Sam's main
+       brand is The Property Experts and this showed Letting Experts). */
+    const raw = rawKit();
+    opening = await openingKit(supabase, raw);
+    if (openKind !== "brand") return;
+    const kit = readKit(opening ? opening.kit : raw);
     if (!kit || (!kit.colors.length && !kit.logo)) {
       body.innerHTML = `<div class="si-empty"><h3>Set up your brand kit first</h3><p>Add your colours, fonts and logo once, and this space shows our templates the way they'd look as yours.</p><a class="si-btn si-btn--primary" href="/account/profile">Set up your brand kit &rarr;</a></div>`;
       return;
@@ -575,11 +586,25 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
       // Not the Content Calendar's templates (collection 'calendar'): those
       // are the subscription's, never a pack's. Before that column exists
       // the filter fails, so ask again without it.
-      const q = () => supabase.from("templates").select("id, name, thumb_url, pack_id, canvas, elements").eq("status", "active").order("sort_order", { ascending: true }).limit(80);
-      let { data, error } = await q().or("collection.is.null,collection.neq.calendar");
-      if (error) ({ data } = await q());
+      // Digital designs only (Danielle, 23 Nov 2026). A TEG agent can read
+      // their brand's print packs, so postcards and stationery were turning
+      // up here, cropped into portrait tiles. A pack says what it is (kind),
+      // so the packs are asked first and only the digital ones' designs are
+      // fetched. Then only post shapes (4:5 and 3:4), which fill the tile:
+      // a 9:16 story would lose its top and bottom.
+      // Never the demo pack: its designs are copies kept for /demo.
+      const { data: packs } = await supabase.from("packs").select("id, kind, demo").eq("status", "active");
+      const digital = (packs || []).filter((p) => (p.kind || "social") !== "print" && p.demo !== true).map((p) => p.id);
+      const postShape = (c) => { const w = Number(c?.width), h = Number(c?.height); return w > 0 && h / w >= 1.2 && h / w <= 1.4; };
+      let data = [];
+      if (digital.length) {
+        const q = () => supabase.from("templates").select("id, name, thumb_url, pack_id, canvas, elements").eq("status", "active").in("pack_id", digital).order("sort_order", { ascending: true }).limit(80);
+        let res = await q().or("collection.is.null,collection.neq.calendar");
+        if (res.error) res = await q();
+        data = res.data || [];
+      }
       const perPack = {};
-      (data || []).forEach((t) => { if (!t.thumb_url) return; const k = t.pack_id || "none"; (perPack[k] = perPack[k] || []); if (perPack[k].length < 2) perPack[k].push(t); });
+      data.forEach((t) => { if (!t.thumb_url || !postShape(t.canvas)) return; (perPack[t.pack_id] = perPack[t.pack_id] || []); if (perPack[t.pack_id].length < 2) perPack[t.pack_id].push(t); });
       tpls = Object.values(perPack).flat().slice(0, 8);
     } catch (_) {}
     const canRender = tpls.length > 0;

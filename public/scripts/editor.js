@@ -20473,6 +20473,12 @@ import { createResizeEngine } from "./resize-engine.js";
     window.addEventListener("message", async function (e) {
       const d = e.data || {};
       if (e.origin !== location.origin || d.type !== "tmke-render-branded") return;
+      /* Brand inspo names the brand to draw in when it isn't the kit this
+         browser holds: someone in two brands who last looked at the other
+         one's kit still sees their main brand (Danielle, 23 Nov 2026). */
+      if (d.kit && d.brand && _brandName !== d.brand) {
+        try { window.__TMKE_SET_BRAND_KIT__(d.kit, d.brand); } catch (_) {}
+      }
       const thumb = await window.__TMKE_RENDER_BRANDED__(d.canvas, d.elements);
       try { e.source.postMessage({ type: "tmke-rendered-branded", id: d.id, thumb: thumb }, e.origin); } catch (_) {}
     });

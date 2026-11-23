@@ -6940,6 +6940,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
   -->
   <script>
     import { syncBrandCache, freeStudioDrafts } from '../../lib/brand-cache.js';
+    import { openingBrand } from '../../lib/opening-kit.js';
     import { supabase } from '../../lib/supabase.js';
     import { loadBrandFonts } from '../../lib/brand-fonts.js';
     /* Housekeeping (Danielle, 12 Nov): the Studio's own back-up copies of
@@ -8006,10 +8007,27 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             if (pick.value === wantBrand) return;
             applyKit(wantBrand, true);
           };
-          pick.value = want || first.brand || brands[0];
+          /* The kit this browser holds is whichever brand they last picked on
+             the Brand Kit page ("pick one to see and edit it"): the page makes
+             that brand's kit the saved one and names it in activeBrand. So
+             "what they'd get anyway" is that brand, not always their main one.
+             Sam's main brand is The Property Experts, she had looked at her
+             Letting Experts kit, and every new design then opened in Letting
+             colours under a chip that said Property (Danielle, 23 Nov 2026).
+             A new design now opens in the brand the three answers above give,
+             whatever was last looked at. A saved design with no brand on it
+             was drawn in the kit that is on, so it keeps it and the chip says
+             so; nothing of theirs is redrawn. */
+          let shown = null;
+          try { shown = (JSON.parse(localStorage.getItem('tmke.brand') || 'null') || {}).activeBrand || null; } catch (_) {}
+          const opens = openingBrand({ want, shown, main: first.brand, brands, savedDesign: !!params.get('design') });
+          pick.value = opens.target;
           if (chipName) chipName.textContent = pick.value;
-          // Only apply on load when it isn't already what they'd get anyway.
-          if (want && want !== first.brand) await applyKit(want, true);
+          if (opens.apply) {
+            // editor.js loads beside this; give it a moment to be there.
+            for (let i = 0; i < 40 && typeof (window as any).__TMKE_SET_BRAND_KIT__ !== 'function'; i++) await new Promise((r) => setTimeout(r, 100));
+            await applyKit(opens.target, true);
+          }
           pick.addEventListener('change', () => { applyKit(pick.value); });
         }
       }
