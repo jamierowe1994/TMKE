@@ -94,7 +94,7 @@ const DEFAULT_COVER = (await getImage({
   <script>
     import { isDemo as demoOn, isTrainingDemo, lock } from "../../../lib/demo.js";
     import { supabase } from "../../../lib/supabase.js";
-    import { markSubheads, subheadsHtml } from "../../../lib/guide-subheads.js";
+    import { markSubheads, subheadsHtml, READER_TIDY } from "../../../lib/guide-subheads.js";
     import { memberCourseLevels, levelGate, LEVEL_NAME, LEVEL_WITH } from "../../../lib/guide-level.js";
     // Checklists (.bk-check): a tick stays ticked on this device, per guide.
     const ckKey = (slug, li) => `tmke-check:${slug}:${(li.querySelector("strong")?.textContent || "").trim().slice(0, 60)}`;
@@ -218,7 +218,7 @@ const DEFAULT_COVER = (await getImage({
         ? (lessons[0]?.body_html || "<p>This article has no content yet.</p>")
         : lessons.map((l)=> (l.title ? `<h2>${esc(l.title)}</h2>` : "") + (l.body_html || "")).join("");
       $("#ar-body").innerHTML = html;
-      markSubheads($("#ar-body"));
+      markSubheads($("#ar-body"), READER_TIDY);
       ckRestore($("#ar-body"), guide.slug);
 
       /* A Show me box in a guide's copy (Linking Your Accounts, Danielle,
