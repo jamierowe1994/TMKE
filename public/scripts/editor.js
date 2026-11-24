@@ -16791,6 +16791,76 @@ import { createResizeEngine } from "./resize-engine.js";
     const t = _fontTargetId && getEl(_fontTargetId);
     return (t && t.type === "text" && !memberLock(t)) ? t : null;
   }
+  /* Fonts by look (Danielle, 24 Nov: "There are so many, and at the minute,
+     I have no idea which one is which"). The groups come from Google's own
+     style tags (src/data/google-font-groups.js), most popular first. */
+  const FB_GROUPS = [["", "All"], ["h", "Handwriting"], ["c", "Calligraphy"], ["b", "Bold"], ["m", "Minimal"], ["s", "Classic"]];
+  const FONT_GROUP_LISTS = (function () {
+    try { return JSON.parse((document.getElementById("ed-font-groups-data") || {}).textContent || "{}"); } catch (_) { return {}; }
+  })();
+  let _fbGroup = "";
+  const FB_SCRIPTS = new Set([].concat(FONT_GROUP_LISTS.h || [], FONT_GROUP_LISTS.c || []));
+  /* Each name in its own font. Only the letters of the names are fetched
+     (Google's text= option, a few KB a font), under a family name of our own
+     so a part-font never stands in for the real one on the design. Rows ask
+     as they scroll into view; asks are batched. */
+  const _fbPv = new Map();   // family -> "wait" | "ok" | "no"
+  let _fbPvQueue = [], _fbPvTimer = null;
+  function fbPvFamily(name) { return "tmke-pv " + name; }
+  function fbPvFetch(names) {
+    const chars = Array.from(new Set(names.join("").split(""))).join("");
+    const url = "https://fonts.googleapis.com/css2?" + names.map(function (n) { return "family=" + encodeURIComponent(n).replace(/%20/g, "+"); }).join("&") +
+      "&text=" + encodeURIComponent(chars) + "&display=block";
+    return fetch(url).then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); }).then(function (css) {
+      names.forEach(function (n) {
+        css = css.split("font-family: '" + n + "'").join("font-family: '" + fbPvFamily(n) + "'");
+      });
+      const st = document.createElement("style");
+      st.textContent = css;
+      document.head.appendChild(st);
+      names.forEach(function (n) { _fbPv.set(n, "ok"); });
+      fbPvPaint(names);
+    });
+  }
+  function fbPvFlush() {
+    _fbPvTimer = null;
+    const batch = _fbPvQueue.splice(0, _fbPvQueue.length);
+    for (let i = 0; i < batch.length; i += 12) {
+      const part = batch.slice(i, i + 12);
+      // One family Google won't serve sinks the whole batch, so try those one by one.
+      fbPvFetch(part).catch(function () {
+        part.forEach(function (n) { fbPvFetch([n]).catch(function () { _fbPv.set(n, "no"); }); });
+      });
+    }
+  }
+  function fbPvPaint(names) {
+    document.querySelectorAll(".ed-fb-name[data-pv]").forEach(function (b) {
+      if (names.indexOf(b.dataset.pv) !== -1) b.style.fontFamily = '"' + fbPvFamily(b.dataset.pv) + '", var(--sans)';
+    });
+  }
+  let _fbPvObs = null;
+  function fbPreviewName(btn, f) {
+    if (!f) return;
+    // Scripts run small at the list's size, so their names show a little larger.
+    if (FB_SCRIPTS.has(f.name)) btn.style.fontSize = "18px";
+    if (!f.isGoogle) { btn.style.fontFamily = f.stack; return; }   // brand, uploaded and system fonts are already here
+    if (_loadedGoogleFonts.has(f.name)) { btn.style.fontFamily = f.stack; return; }
+    btn.dataset.pv = f.name;
+    if (_fbPv.get(f.name) === "ok") { btn.style.fontFamily = '"' + fbPvFamily(f.name) + '", var(--sans)'; return; }
+    if (_fbPv.has(f.name) || typeof IntersectionObserver !== "function") return;
+    if (!_fbPvObs) _fbPvObs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        _fbPvObs.unobserve(en.target);
+        const n = en.target.dataset.pv;
+        if (!n || _fbPv.has(n)) return;
+        _fbPv.set(n, "wait");
+        _fbPvQueue.push(n);
+        if (!_fbPvTimer) _fbPvTimer = setTimeout(fbPvFlush, 120);
+      });
+    }, { rootMargin: "200px 0px" });
+    _fbPvObs.observe(btn);
+  }
   function fbSignature() {
     const el = fontTextTarget();
     return (el ? el.font + "|" + (el.weight || 400) : "none") + "|" + getFavFonts().join(",");
@@ -16831,6 +16901,28 @@ import { createResizeEngine } from "./resize-engine.js";
       mount.appendChild(wsec);
     }
 
+    // Pick a look: Handwriting, Calligraphy, Bold, Minimal, Classic.
+    const gsec = document.createElement("div"); gsec.className = "ed-fb-groups";
+    const gt = document.createElement("div"); gt.className = "ed-fb-title"; gt.textContent = "Style";
+    gsec.appendChild(gt);
+    const gchips = document.createElement("div"); gchips.className = "ed-fb-chips";
+    FB_GROUPS.forEach(function (g) {
+      const c = document.createElement("button");
+      c.type = "button";
+      c.className = "ed-fb-chip" + (_fbGroup === g[0] ? " is-on" : "");
+      c.textContent = g[1];
+      c.setAttribute("aria-pressed", String(_fbGroup === g[0]));
+      c.addEventListener("click", function () {
+        _fbGroup = g[0];
+        gchips.querySelectorAll(".ed-fb-chip").forEach(function (x, i) { const on = FB_GROUPS[i][0] === _fbGroup; x.classList.toggle("is-on", on); x.setAttribute("aria-pressed", String(on)); });
+        build(search.value);
+        listWrap.scrollTop = 0;
+      });
+      gchips.appendChild(c);
+    });
+    gsec.appendChild(gchips);
+    mount.appendChild(gsec);
+
     // The list is its own scroll area (CSS max-height + overflow) so the panel
     // stays compact instead of growing into a giant nav.
     const listWrap = document.createElement("div");
@@ -16846,6 +16938,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const name = document.createElement("button");
       name.type = "button"; name.className = "ed-fb-name"; name.textContent = f.name;
       if (preview) { name.style.fontFamily = f.stack; loadGoogleFont(f.name); }
+      else fbPreviewName(name, f);   // the name in its own font, fetched as it scrolls into view
       // Don't let pressing a font name take focus off the words first.
       name.addEventListener("mousedown", function (e) { if (el && editingInnerFor(el)) e.preventDefault(); });
       name.addEventListener("click", function () {
@@ -16875,6 +16968,22 @@ import { createResizeEngine } from "./resize-engine.js";
     function build(query) {
       listWrap.innerHTML = "";
       const q = (query || "").trim().toLowerCase();
+      // A style picked: that group only, most popular first (searchable too).
+      if (_fbGroup) {
+        let n = 0;
+        (FONT_GROUP_LISTS[_fbGroup] || []).forEach(function (nm) {
+          if (q && nm.toLowerCase().indexOf(q) === -1) return;
+          const f = findFont(nm);
+          if (!f) return;
+          listWrap.appendChild(rowFor(f, false)); n++;
+        });
+        if (!n) {
+          const e = document.createElement("div"); e.className = "ed-fb-empty";
+          e.textContent = q ? 'No ' + FB_GROUPS.find(function (g) { return g[0] === _fbGroup; })[1].toLowerCase() + ' fonts matching "' + q + '".' : "Loading fonts…";
+          listWrap.appendChild(e);
+        }
+        return;
+      }
       // While searching, show one flat filtered list — sections only add noise.
       if (q) {
         let n = 0;
@@ -16913,7 +17022,7 @@ import { createResizeEngine } from "./resize-engine.js";
       }
       sectionTitle("All fonts");
       FONTS.forEach(function (f) {
-        listWrap.appendChild(rowFor(f, false)); // names in UI font — avoids loading 100s of webfonts
+        listWrap.appendChild(rowFor(f, false)); // each name fetched in its own font as it scrolls into view
       });
     }
     build("");
