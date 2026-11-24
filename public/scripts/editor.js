@@ -10514,6 +10514,13 @@ import { createResizeEngine } from "./resize-engine.js";
   function wfPath(q) { return "M" + q.map((pt) => pt[0].toFixed(1) + "," + pt[1].toFixed(1)).join("L") + "Z"; }
   var _wfCache = null;
   var _wfLineOpen = false;   // the frame panel's line fold-out, as last left
+  /* "Fill with a pattern" folds away (Danielle, 24 Nov): open on a shape that
+     has a pattern, otherwise as it was last left. */
+  var _patFoldOpen = false;
+  function patFoldHtml(el, mount) {
+    const open = (el && el.fillPattern) || _patFoldOpen;
+    return '<details class="ed-pat-fold" data-pat-fold' + (open ? " open" : "") + '><summary class="ed-xp-h">Fill with a pattern</summary><div data-mount="' + mount + '"></div></details>';
+  }
   function wfGeom(el) {
     const w = Math.max(20, el.w || 0), h = Math.max(20, el.h || 0);
     const lw = el.lineW > 0 ? el.lineW : 16, paint = el.paint != null ? el.paint : 6;
@@ -11503,7 +11510,7 @@ import { createResizeEngine } from "./resize-engine.js";
             ' <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>' +
           '<div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>' +
           (el.fillSrc ? '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-wf-nopic" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Use the colour instead</button>' : "") +
-          '<div class="ed-xp-h">Fill with a pattern</div><div data-mount="wf-pattern"></div>' : "") +
+          patFoldHtml(el, "wf-pattern") : "") +
         '<div data-mount="wf-width"></div><div data-mount="wf-height"></div>' +
         // Folded away (Dani, 18 Nov), the way a box's individual corners are.
         '<details class="ed-corner-details"' + (_wfLineOpen ? " open" : "") + ' data-wf-line><summary>Line thickness and brush</summary>' +
@@ -11511,6 +11518,7 @@ import { createResizeEngine } from "./resize-engine.js";
       '</div>';
   }
   function wireWfPanel(body, el) {
+    body.querySelectorAll("details[data-pat-fold]").forEach(function (d) { d.addEventListener("toggle", function () { _patFoldOpen = d.open; }); });
       const tgt = () => getEl(el.id) || el;
       body.querySelectorAll(".ed-wf-shape").forEach((b) => {
         b.querySelector(".pic").innerHTML = wframeSvg({ id: "pick-" + b.dataset.wfshape, shape: b.dataset.wfshape, mode: "lines", stroke: "currentColor", w: 120, h: 170, lineW: 7, paint: 6 });
@@ -11815,7 +11823,7 @@ import { createResizeEngine } from "./resize-engine.js";
       html.push(`<div class="ed-props-section"><h4>Fill</h4>
         <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="fill-color"></span><label style="margin:0">Colour</label></div>
         <div data-mount="fill-opacity"></div>
-        ${el.type !== "line" ? '<div class="ed-xp-h">Fill with a pattern</div><div data-mount="shape-pattern"></div>' : ""}
+        ${el.type !== "line" ? patFoldHtml(el, "shape-pattern") : ""}
       </div>`);
       if (el.type === "rect") {
         html.push(cornerRadiusSectionHtml());
@@ -12229,6 +12237,7 @@ import { createResizeEngine } from "./resize-engine.js";
     }
 
     if (el.type === "wframe") wireWfPanel(body, el);
+    body.querySelectorAll("details[data-pat-fold]").forEach(function (d) { d.addEventListener("toggle", function () { _patFoldOpen = d.open; }); });
     const shapePat = body.querySelector('[data-mount="shape-pattern"]');
     if (shapePat) shapePat.appendChild(xpPicker(function () { const t = getEl(el.id) || el; return t.fillPattern ? JSON.parse(JSON.stringify(t.fillPattern)) : null; }, function (v, live) {
       const t = getEl(el.id) || el;
