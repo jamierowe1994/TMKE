@@ -3579,6 +3579,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
   // ---------- Rendering ----------
   function fullRender() {
+    orderShapeTexts();
     canvasEl.style.width = state.canvas.width + "px";
     canvasEl.style.height = state.canvas.height + "px";
     canvasEl.style.background = state.canvas.background;
@@ -3720,6 +3721,7 @@ import { createResizeEngine } from "./resize-engine.js";
     }
 
     autosizeTextElements();
+    seatShapeTexts();
     renderHandles();
     renderLayers();
     renderContextBar();
@@ -3950,6 +3952,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const node = canvasEl.querySelector('[data-id="' + el.id + '"]');
     if (!node) return;
     applyElementStyles(node, el);
+    if (SHAPE_TEXT_TYPES.indexOf(el.type) !== -1) { const t = shapeTextFor(el); if (t) seatShapeText(t); }
     // For text, re-apply type styles so live changes (e.g. font scaling on a
     // corner resize) show immediately, not only after a full render.
     if (el.type === "text") {
@@ -5675,6 +5678,18 @@ import { createResizeEngine } from "./resize-engine.js";
       if (node.classList.contains("is-editing-viewpoint")) return;
       ev.stopPropagation();
 
+      // Words in a shape: a press picks the shape, unless the words are the
+      // thing already picked (then a second click puts the caret in them).
+      const inShape = el.type === "text" && shapeOfText(el);
+      if (inShape && !state.selectedIds.includes(el.id)) {
+        const sNode = canvasEl.querySelector('.ed-element[data-id="' + inShape.id + '"]');
+        if (sNode) sNode.dispatchEvent(new PointerEvent("pointerdown", {
+          bubbles: true, cancelable: true, clientX: ev.clientX, clientY: ev.clientY, button: 0, buttons: 1,
+          pointerId: ev.pointerId, shiftKey: ev.shiftKey, metaKey: ev.metaKey, ctrlKey: ev.ctrlKey, altKey: ev.altKey,
+        }));
+        return;
+      }
+
       const multi = isAddToSelection(ev);
       const ids = groupIdsFor(el); // the whole group if el is grouped
       state.selectedGuideId = null; // selecting an element drops any guide selection
@@ -5722,6 +5737,13 @@ import { createResizeEngine } from "./resize-engine.js";
       }
     });
 
+    if (SHAPE_TEXT_TYPES.indexOf(el.type) !== -1 && el.role !== "gradient") {
+      node.addEventListener("dblclick", (ev) => {
+        ev.stopPropagation();
+        editShapeText(getEl(el.id) || el);
+      });
+    }
+
     if (el.type === "text") {
       node.addEventListener("dblclick", (ev) => {
         ev.stopPropagation();
@@ -5730,6 +5752,8 @@ import { createResizeEngine } from "./resize-engine.js";
            selects the whole box instead - which is what made a highlight
            turn into everything the moment you let go. */
         if (node.classList.contains("is-editing")) return;
+        const sh = shapeOfText(el);
+        if (sh && !state.selectedIds.includes(el.id)) { editShapeText(sh); return; }
         startTextEdit(node, el);
       });
       // Click-to-edit: the first click selects (a full re-render replaces this
@@ -5755,7 +5779,10 @@ import { createResizeEngine } from "./resize-engine.js";
     _dragMoved = false;
     const startX = ev.clientX, startY = ev.clientY;
     // Locked elements stay put, even when dragged along with others.
-    const initial = selectedElements().filter((e) => !isPinned(e)).map((e) => ({ id: e.id, x: e.x, y: e.y }));
+    // Dragging words in a shape drags the shape; the words follow it.
+    const movers = [];
+    selectedElements().forEach((e) => { const m = shapeOfText(e) || e; if (movers.indexOf(m) === -1) movers.push(m); });
+    const initial = movers.filter((e) => !isPinned(e)).map((e) => ({ id: e.id, x: e.x, y: e.y }));
     let moved = false;
 
     function onMove(e) {
@@ -6746,6 +6773,93 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   // ---------- Text editing ----------
+  /* ---------- Words in a shape (Danielle, 24 Nov) ----------
+     Double-click a rectangle or circle and type: the shape becomes a button
+     or a label, one thing rather than a shape with a text box laid over it.
+
+     The words are an ordinary text box (so every text control, the export
+     and the thumbnails already know what to do with it) tied to its shape by
+     `inShape`. The shape decides where it sits: full width less a margin,
+     centred top to bottom, turned with it, always just above it. A click on
+     the words picks the shape; a double-click goes back into the words.
+     Delete or duplicate the shape and its words go with it. */
+  const SHAPE_TEXT_TYPES = ["rect", "ellipse"];
+  function shapeTextFor(shape) {
+    return shape ? state.elements.find((e) => e.type === "text" && e.inShape === shape.id) || null : null;
+  }
+  function shapeOfText(t) {
+    const s = t && t.inShape ? getEl(t.inShape) : null;
+    return s && SHAPE_TEXT_TYPES.indexOf(s.type) !== -1 ? s : null;
+  }
+  function shapeTextPad(s) {
+    const base = Math.min(s.w, s.h);
+    return Math.max(6, Math.round(s.type === "ellipse" ? s.w * 0.15 : Math.min(base * 0.3, s.w * 0.08)));
+  }
+  // Words go just above their shape in the stack. Data only: runs before drawing.
+  function orderShapeTexts() {
+    state.elements.filter((e) => e.type === "text" && e.inShape).forEach((t) => {
+      const sh = shapeOfText(t);
+      if (!sh) { delete t.inShape; return; }
+      const ti = state.elements.indexOf(t);
+      if (ti === state.elements.indexOf(sh) + 1) return;
+      state.elements.splice(ti, 1);
+      state.elements.splice(state.elements.indexOf(sh) + 1, 0, t);
+    });
+  }
+  // Put the words where their shape says, measured as they are drawn.
+  function seatShapeText(t) {
+    const sh = shapeOfText(t);
+    if (!sh) return;
+    const pad = shapeTextPad(sh);
+    t.x = Math.round(sh.x + pad);
+    t.w = Math.max(20, Math.round(sh.w - pad * 2));
+    t.rotation = sh.rotation || 0;
+    const node = canvasEl.querySelector('.ed-element[data-id="' + t.id + '"]');
+    if (node) {
+      node.style.width = t.w + "px";
+      const inner = node.querySelector(".ed-text-inner");
+      const h = inner ? Math.ceil(inner.offsetHeight) : 0;
+      if (h > 0 && lockState(t) !== "light") t.h = h;
+    }
+    t.y = Math.round(sh.y + (sh.h - t.h) / 2);
+    if (node) applyElementStyles(node, t);
+  }
+  function seatShapeTexts() {
+    state.elements.forEach((e) => { if (e.type === "text" && e.inShape) seatShapeText(e); });
+  }
+  function isDarkFill(c) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(c || "").trim());
+    if (!m) return false;
+    const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    return (0.299 * r + 0.587 * g + 0.114 * b) < 150;
+  }
+  function editShapeText(shape) {
+    if (!shape || SHAPE_TEXT_TYPES.indexOf(shape.type) === -1) return;
+    if (memberLock(shape) === "dead") { toast("That part is fixed in this template."); return; }
+    let t = shapeTextFor(shape);
+    if (!t) {
+      if (ccLocked()) { ccRefuse("New text boxes"); return; }
+      const kf = !isAdminMode() && kitFontFor("body");
+      const font = kf || "Darker Grotesque";
+      loadGoogleFont(font);
+      const size = Math.max(10, Math.min(72, Math.round(Math.min(shape.h * 0.35, shape.w * 0.1))));
+      t = {
+        id: uid("text"), type: "text", inShape: shape.id, fontRole: "body",
+        text: "Add text", font: font, size: size, weight: 400, italic: false,
+        color: isDarkFill(shape.fill) ? "#FFFFFF" : "#1c1d22",
+        align: "center", letterSpacing: 0, lineHeight: 1.2,
+        x: shape.x, y: shape.y, w: shape.w, h: Math.round(size * 1.2),
+        rotation: shape.rotation || 0, opacity: 1,
+      };
+      state.elements.splice(state.elements.indexOf(shape) + 1, 0, t);
+      pushHistory();
+    }
+    state.selectedIds = [t.id];
+    fullRender();
+    const node = canvasEl.querySelector('.ed-element[data-id="' + t.id + '"]');
+    if (node) startTextEdit(node, t);
+  }
+
   function startTextEdit(node, el, point) {
     const inner = node.querySelector(".ed-text-inner");
     if (!inner) return;
@@ -6783,6 +6897,9 @@ import { createResizeEngine } from "./resize-engine.js";
       if (h > 0 && h !== el.h) {
         el.h = h;
         node.style.height = h + "px";
+        // Words in a shape stay centred top to bottom as lines come and go.
+        const sh = shapeOfText(el);
+        if (sh) { el.y = Math.round(sh.y + (sh.h - el.h) / 2); applyElementStyles(node, el); }
         renderHandles();
       }
     }
@@ -8269,7 +8386,8 @@ import { createResizeEngine } from "./resize-engine.js";
         return;
       }
     }
-    state.elements = state.elements.filter((e) => !state.selectedIds.includes(e.id));
+    const gone = state.selectedIds;
+    state.elements = state.elements.filter((e) => !gone.includes(e.id) && !(e.inShape && gone.includes(e.inShape)));
     state.selectedIds = [];
     pushHistory();
     fullRender();
@@ -8279,11 +8397,24 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!state.selectedIds.length) return;
     if (lockBlocks()) return;
     if (ccLocked() && selectedElements().some((e) => e.type === "text")) { ccRefuse("New text boxes"); return; }
+    const idMap = {};
     const copies = selectedElements().map((e) => {
       const c = deep(e);
       c.id = uid(c.type);
+      idMap[e.id] = c.id;
       c.x += 20; c.y += 20;
       return c;
+    });
+    // A shape's words come with it; words copied without their shape are a
+    // free text box.
+    selectedElements().forEach((e) => {
+      const t = shapeTextFor(e);
+      if (t && !idMap[t.id]) { const c = deep(t); c.id = uid("text"); idMap[t.id] = c.id; copies.push(c); }
+    });
+    copies.forEach((c) => {
+      if (!c.inShape) return;
+      if (idMap[c.inShape]) c.inShape = idMap[c.inShape];
+      else delete c.inShape;
     });
     state.elements.push(...copies);
     state.selectedIds = copies.map((c) => c.id);
@@ -11411,10 +11542,8 @@ import { createResizeEngine } from "./resize-engine.js";
         </div>`);
       } else {
         html.push(`<div class="ed-props-section"><h4>Stroke</h4>
-          <div class="ed-props-row">
-            <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="stroke-color"></span><label style="margin:0">Colour</label></div>
-            <div class="ed-props-field"><label>Width</label><input type="number" min="0" max="40" data-prop="strokeWidth" value="${el.strokeWidth||0}"></div>
-          </div>
+          <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="stroke-color"></span><label style="margin:0">Colour</label></div>
+          <div data-mount="stroke-width"></div>
         </div>`);
       }
     }
@@ -11792,6 +11921,20 @@ import { createResizeEngine } from "./resize-engine.js";
 
     // Line weight — slider + typed number bound to the element height (its
     // visible thickness). 1px = thinnest.
+    /* Stroke width: the same slider, − + and px as every other size in the
+       panel (Danielle, 24 Nov: it was the only plain box). */
+    const strokeWMount = body.querySelector('[data-mount="stroke-width"]');
+    if (strokeWMount) {
+      strokeWMount.appendChild(sliderNumberRow("Width", "px", 0, 40, 1,
+        function () { return Math.round((getEl(el.id) || el).strokeWidth || 0); },
+        function (v) {
+          const t = getEl(el.id) || el;
+          t.strokeWidth = v;
+          if (v > 0 && (!t.stroke || t.stroke === "transparent")) t.stroke = "#000000";
+        },
+        function () { partialRenderElement(getEl(el.id) || el); renderHandles(); }));
+    }
+
     const lineWeightMount = body.querySelector('[data-mount="line-weight"]');
     if (lineWeightMount && el.type === "line") {
       lineWeightMount.appendChild(lineThicknessRow(el));
