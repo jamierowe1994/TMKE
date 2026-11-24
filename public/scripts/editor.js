@@ -4757,7 +4757,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const inner = document.createElement("div");
       inner.style.width = "100%";
       inner.style.height = "100%";
-      inner.style.clipPath = "polygon(50% 0%, 100% 100%, 0% 100%)";
+      inner.style.clipPath = triClip(el);
       inner.style.background = el.fill;
       if (el.fillPattern) { const xpT2 = xpTile(el.fillPattern, xpScaleK(el.fillPattern, state.canvas)); if (xpT2) { inner.style.backgroundImage = 'url("' + xpT2.url + '")'; inner.style.backgroundSize = xpT2.w.toFixed(2) + "px " + xpT2.h.toFixed(2) + "px"; } }
       inner.style.opacity = el.opacity;
@@ -6783,6 +6783,45 @@ import { createResizeEngine } from "./resize-engine.js";
      centred top to bottom, turned with it, always just above it. A click on
      the words picks the shape; a double-click goes back into the words.
      Delete or duplicate the shape and its words go with it. */
+  /* Triangles (Danielle, 24 Nov: photo corners need "a right-angle
+     triangle"): the usual point-up one, or a right angle in whichever corner
+     of its box you pick, so the four corners of a photo need no flipping.
+     el.tri is "" (point up), "tl", "tr", "bl" or "br": where the square corner sits. */
+  var TRI_SHAPES = [["", "Triangle"], ["tl", "Square corner top left"], ["tr", "Square corner top right"], ["bl", "Square corner bottom left"], ["br", "Square corner bottom right"]];
+  function triPoints(el) {
+    switch (el && el.tri) {
+      case "tl": return [[0, 0], [1, 0], [0, 1]];
+      case "tr": return [[0, 0], [1, 0], [1, 1]];
+      case "bl": return [[0, 0], [0, 1], [1, 1]];
+      case "br": return [[1, 0], [1, 1], [0, 1]];
+      default: return [[0.5, 0], [1, 1], [0, 1]];
+    }
+  }
+  function triClip(el) { return "polygon(" + triPoints(el).map(function (p) { return p[0] * 100 + "% " + p[1] * 100 + "%"; }).join(", ") + ")"; }
+  function triPicker(el) {
+    const row = document.createElement("div");
+    row.className = "ed-tri-opts";
+    TRI_SHAPES.forEach(function (t) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ed-tri-opt";
+      b.title = t[1];
+      b.setAttribute("aria-label", t[1]);
+      b.setAttribute("aria-pressed", String((el.tri || "") === t[0]));
+      const i = document.createElement("span");
+      i.style.clipPath = triClip({ tri: t[0] });
+      b.appendChild(i);
+      b.addEventListener("click", function () {
+        const e = getEl(el.id) || el;
+        if (t[0]) e.tri = t[0]; else delete e.tri;
+        row.querySelectorAll(".ed-tri-opt").forEach(function (x, k) { x.setAttribute("aria-pressed", String(TRI_SHAPES[k][0] === t[0])); });
+        pushHistory();
+        fullRender();
+      });
+      row.appendChild(b);
+    });
+    return row;
+  }
   const SHAPE_TEXT_TYPES = ["rect", "ellipse", "star"];   // stars too, not triangles (Danielle, 24 Nov)
   function shapeTextFor(shape) {
     return shape ? state.elements.find((e) => e.type === "text" && e.inShape === shape.id) || null : null;
@@ -7067,6 +7106,7 @@ import { createResizeEngine } from "./resize-engine.js";
     else if (shape === "ellipse") addElement(Object.assign({ type: "ellipse" }, common));
     else if (shape === "rounded") addElement(Object.assign({ type: "rect" }, common, { radius: 100 }));
     else if (shape === "triangle") addElement(Object.assign({ type: "triangle" }, common));
+    else if (shape === "rtriangle") addElement(Object.assign({ type: "triangle", tri: "tl" }, common));
     else if (shape === "star") addElement(Object.assign({ type: "star" }, common));
     /* Shapes' "Line" and the two rules are the same thing - a line - so they
        start the same colour too. This one was the only one taking the shapes
@@ -9105,9 +9145,7 @@ import { createResizeEngine } from "./resize-engine.js";
       } else if (el.type === "triangle") {
         ctx.fillStyle = shapeCanvasFill(ctx, el);
         ctx.beginPath();
-        ctx.moveTo(el.w / 2, 0);
-        ctx.lineTo(el.w, el.h);
-        ctx.lineTo(0, el.h);
+        triPoints(el).forEach(function (p, k) { ctx[k ? "lineTo" : "moveTo"](p[0] * el.w, p[1] * el.h); });
         ctx.closePath();
         ctx.fill();
       } else if (el.type === "star") {
@@ -11603,6 +11641,7 @@ import { createResizeEngine } from "./resize-engine.js";
       // Same rich panel the swatch on the toolbar opens — Stroke below has
       // always used it, so a native colour box here meant two different
       // pickers for the same job in one panel.
+      if (el.type === "triangle") html.push('<div class="ed-props-section"><h4>Shape</h4><div data-mount="tri-shape"></div></div>');
       html.push(`<div class="ed-props-section"><h4>Fill</h4>
         <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="fill-color"></span><label style="margin:0">Colour</label></div>
         <div data-mount="fill-opacity"></div>
@@ -12000,6 +12039,8 @@ import { createResizeEngine } from "./resize-engine.js";
     // visible thickness). 1px = thinnest.
     /* Stroke width: the same slider, − + and px as every other size in the
        panel (Danielle, 24 Nov: it was the only plain box). */
+    const triMount = body.querySelector('[data-mount="tri-shape"]');
+    if (triMount && el) triMount.appendChild(triPicker(el));
     const strokeWMount = body.querySelector('[data-mount="stroke-width"]');
     if (strokeWMount) {
       strokeWMount.appendChild(sliderNumberRow("Width", "px", 0, 40, 1,
@@ -16297,7 +16338,7 @@ import { createResizeEngine } from "./resize-engine.js";
         if (tile) { mini.style.backgroundColor = (el.fillPattern.cols && el.fillPattern.cols.ground) || solid || ""; mini.style.backgroundImage = 'url("' + tile.url + '")'; mini.style.backgroundSize = tile.w.toFixed(1) + "px " + tile.h.toFixed(1) + "px"; }
         else if (grad) mini.style.backgroundImage = grad;
         if (el.type === "ellipse") mini.style.borderRadius = "50%";
-        if (el.type === "triangle") mini.style.clipPath = "polygon(50% 0%, 100% 100%, 0% 100%)";
+        if (el.type === "triangle") mini.style.clipPath = triClip(el);
         if (el.type === "star") mini.style.clipPath = "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)";
       }
       thumb.appendChild(mini);
