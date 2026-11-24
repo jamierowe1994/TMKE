@@ -16835,7 +16835,7 @@ import { createResizeEngine } from "./resize-engine.js";
   /* Fonts by look (Danielle, 24 Nov: "There are so many, and at the minute,
      I have no idea which one is which"). The groups come from Google's own
      style tags (src/data/google-font-groups.js), most popular first. */
-  const FB_GROUPS = [["", "All"], ["h", "Handwriting"], ["c", "Calligraphy"], ["b", "Bold"], ["m", "Minimal"], ["s", "Classic"]];
+  const FB_GROUPS = [["", "All"], ["h", "Handwriting"], ["c", "Calligraphy"], ["b", "Bold"], ["m", "Minimal"], ["s", "Classic"], ["p", "Playful"], ["v", "Vintage"]];
   const FONT_GROUP_LISTS = (function () {
     try { return JSON.parse((document.getElementById("ed-font-groups-data") || {}).textContent || "{}"); } catch (_) { return {}; }
   })();
@@ -16946,16 +16946,17 @@ import { createResizeEngine } from "./resize-engine.js";
     const gsec = document.createElement("div"); gsec.className = "ed-fb-groups";
     const gt = document.createElement("div"); gt.className = "ed-fb-title"; gt.textContent = "Style";
     gsec.appendChild(gt);
-    const gchips = document.createElement("div"); gchips.className = "ed-fb-chips";
+    // One box of even cells, two rows of four (Danielle, 24 Nov), not loose bubbles.
+    const gchips = document.createElement("div"); gchips.className = "ed-fb-seg";
     FB_GROUPS.forEach(function (g) {
       const c = document.createElement("button");
       c.type = "button";
-      c.className = "ed-fb-chip" + (_fbGroup === g[0] ? " is-on" : "");
+      c.className = "ed-fb-seg-btn" + (_fbGroup === g[0] ? " is-on" : "");
       c.textContent = g[1];
       c.setAttribute("aria-pressed", String(_fbGroup === g[0]));
       c.addEventListener("click", function () {
         _fbGroup = g[0];
-        gchips.querySelectorAll(".ed-fb-chip").forEach(function (x, i) { const on = FB_GROUPS[i][0] === _fbGroup; x.classList.toggle("is-on", on); x.setAttribute("aria-pressed", String(on)); });
+        gchips.querySelectorAll(".ed-fb-seg-btn").forEach(function (x, i) { const on = FB_GROUPS[i][0] === _fbGroup; x.classList.toggle("is-on", on); x.setAttribute("aria-pressed", String(on)); });
         build(search.value);
         listWrap.scrollTop = 0;
       });
@@ -16969,6 +16970,18 @@ import { createResizeEngine } from "./resize-engine.js";
     const listWrap = document.createElement("div");
     listWrap.className = "ed-fb-list";
     mount.appendChild(listWrap);
+    /* The list runs down to near the foot of the window (Danielle, 24 Nov: it
+       stopped three-quarters of the way down). Desktop only: on a phone the
+       panel is the bottom sheet and keeps its own size. */
+    function fitFontList() {
+      if (!listWrap.isConnected || !window.matchMedia("(min-width: 900px)").matches) return;
+      const top = listWrap.getBoundingClientRect().top;
+      if (!top) return;
+      listWrap.style.maxHeight = Math.max(360, Math.round(window.innerHeight - top - 40)) + "px";
+    }
+    requestAnimationFrame(fitFontList);
+    if (!window.__tmkeFbFit) { window.__tmkeFbFit = true; window.addEventListener("resize", function () { const l = document.querySelector("#ed-font-browser .ed-fb-list"); if (l && l._fit) l._fit(); }); }
+    listWrap._fit = fitFontList;
 
     function fontByName(nm) {
       return findFont(nm) || { name: nm, stack: '"' + nm + '", sans-serif' };
