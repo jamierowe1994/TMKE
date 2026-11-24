@@ -9872,6 +9872,12 @@ import { createResizeEngine } from "./resize-engine.js";
       body += '<rect width="' + tw + '" height="' + th + '" filter="url(#gl' + tid + ')" opacity="' + (o.lightOp || 0.16) + '"/>' +
         '<rect width="' + tw + '" height="' + th + '" filter="url(#gd' + tid + ')" opacity="' + (o.darkOp || 0.22) + '"/>';
     }
+    if (o.mottle) {
+      // Soft patches of lighter and darker, like paper fibres or heathered wool.
+      defs += '<filter id="mo' + tid + '" x="0" y="0" width="100%" height="100%" filterUnits="userSpaceOnUse"><feTurbulence type="fractalNoise" baseFrequency="' + o.mottle + '" numOctaves="3" seed="11" stitchTiles="stitch"/>' +
+        '<feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -1.6 0 0 0 0.8"/></filter>';
+      body += '<rect width="' + tw + '" height="' + th + '" filter="url(#mo' + tid + ')" opacity="' + (o.mottleOp || 0.12) + '"/>';
+    }
     return (defs ? "<defs>" + defs + "</defs>" : "") + body;
   }
   // Each pattern: a tile size, its colour slots (with suggested colours), and what's in the tile.
@@ -9925,16 +9931,17 @@ import { createResizeEngine } from "./resize-engine.js";
       return star(4, 4, 2.4) + star(12, 12, 2.4) + star(-4, 12, 2.4) + star(20, 4, 2.4) + star(12, -4, 2.4) + star(4, 20, 2.4) +
         [[12, 4], [4, 12]].map(([x, y]) => '<circle cx="' + x + '" cy="' + y + '" r="0.55" fill="' + c.c2 + '"/>').join(""); } },
     /* Fabric patterns for the festive pack (Danielle, 24 Nov: "less
-       illustration, more real world patterns"): a woven stripe, a muted tartan
-       and a wool windowpane check, each with a woven or grain texture (fxTex). */
-    { key: "fstripe", name: "Woven stripe", tw: 28, th: 28, cols: { ground: "#A9BDC9", c1: "#4B2E22", c2: "#F1EBDF" }, draw(c) {
+       illustration, more real world patterns"): a stripe on paper, a muted
+       tartan and a wool windowpane check, each with its own texture (fxTex).
+       Same day: the stripe given a paper grain, the wool's speckle softened. */
+    { key: "fstripe", name: "Paper stripe", tw: 28, th: 28, cols: { ground: "#A9BDC9", c1: "#4B2E22", c2: "#F1EBDF" }, draw(c) {
       // A wide stripe, a pale hairline either side, and a thin line of the stripe colour inside the ground.
       return '<rect x="0" y="0" width="11" height="28" fill="' + c.c1 + '"/>' +
         '<rect x="11" y="0" width="0.5" height="28" fill="' + c.c2 + '" opacity="0.8"/>' +
         '<rect x="27.5" y="0" width="0.5" height="28" fill="' + c.c2 + '" opacity="0.8"/>' +
         '<rect x="12.6" y="0" width="0.4" height="28" fill="' + c.c1 + '" opacity="0.45"/>' +
         '<rect x="26" y="0" width="0.4" height="28" fill="' + c.c1 + '" opacity="0.45"/>' +
-        fxTex(28, 28, { twill: 0.7, twillOp: 0.05, grain: "2.2 0.9", grainK: 4, lightOp: 0.07, darkOp: 0.09 });
+        fxTex(28, 28, { grain: "2.4 2.4", grainK: 2.6, lightOp: 0.12, darkOp: 0.12, mottle: "0.9", mottleOp: 0.07 });
     } },
     { key: "ftartan", name: "Woven tartan", tw: 44, th: 44, cols: { ground: "#4E4C33", c1: "#2E2A1D", c2: "#7C7A55" }, draw(c) {
       // A muted sett: broad dark bands that deepen where they cross, fine pale lines over them.
@@ -9945,8 +9952,8 @@ import { createResizeEngine } from "./resize-engine.js";
     { key: "fcheck", name: "Wool check", tw: 40, th: 40, cols: { ground: "#2C2622", c1: "#5A4F47", c2: "#3A322D" }, draw(c) {
       // A windowpane check: a fine pale line on a dark wool ground, a fainter one beside it.
       const ln = (p, w, col, op) => '<rect x="' + p + '" y="0" width="' + w + '" height="40" fill="' + col + '" opacity="' + op + '"/><rect x="0" y="' + p + '" width="40" height="' + w + '" fill="' + col + '" opacity="' + op + '"/>';
-      return ln(17, 7, c.c2, 0.4) + ln(20.2, 0.55, c.c1, 0.7) + ln(21.2, 0.25, c.c1, 0.35) +
-        fxTex(40, 40, { twill: 0.8, twillOp: 0.10, grain: "0.8 0.8", grainK: 3.5, lightOp: 0.07, darkOp: 0.14 });
+      return ln(16, 9, c.c2, 0.16) + ln(18, 5, c.c2, 0.2) + ln(19.4, 2.2, c.c2, 0.2) + ln(20.2, 0.55, c.c1, 0.7) + ln(21.2, 0.25, c.c1, 0.35) +
+        fxTex(40, 40, { twill: 0.6, twillOp: 0.13, grain: "1.8 1.8", grainK: 1.8, lightOp: 0.09, darkOp: 0.10, mottle: "0.5", mottleOp: 0.12 });
     } },
   ];
 
