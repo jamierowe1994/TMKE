@@ -18,6 +18,10 @@ import { PILLARS } from "./content-months.js";
 
 const PACK_IMAGES_BUCKET = "pack-images";
 const STAGES = [[1, "Initial planning"], [2, "Creation"], [3, "Prompts and guidance"], [4, "Final checks"], [5, "Shop listing"]];
+// A brand designer's last step isn't a shop: their packs go to their own
+// brand, once we've checked them (Danielle, 24 Nov 2026).
+const DESIGNER_STAGES = [...STAGES.slice(0, 4), [5, "Details and approval"]];
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 const TYPES = { single: "Single image", carousel: "Carousel", story: "Story", reel: "Reel" };
 const CATEGORIES = ["On the Market", "Educate and Inform", "Behind the Brand", "In Season", "Local Life", "Service and Standards", "Starter Pack", "Complimentary"];
 const TPL_COLS = "id, name, thumb_url, status, canvas, pages, pack_id, sort_order, collection";
@@ -31,6 +35,17 @@ const dayLabel = (iso) => { const d = iso ? new Date(iso) : null; return d && !i
 
 export function initBuilder(ctx) {
   const { supabase, rebuildSite, toast, openGift, openResults, gbpFromPence } = ctx;
+  /* Who's here. ctx.who is filled in by the page once the sign-in is known,
+     before start(). A designer (src/lib/admin-gate.js) sees and changes their
+     own packs only, for their own brands, and sends a finished pack to us
+     instead of putting it live. supabase/designers.sql enforces all of it. */
+  const D = () => (ctx.who && ctx.who.designer) || null;
+  const myId = () => (ctx.who && ctx.who.userId) || null;
+  const stages = () => (D() ? DESIGNER_STAGES : STAGES);
+  // To the team: whose pack this is, when a designer made it.
+  let MAKERS = new Map();
+  const makerOf = (p) => (p && p.created_by && MAKERS.get(p.created_by)) || "";
+  const asked = (p) => !!(p && p.review_requested_at && p.status === "draft");
   const $ = (id) => document.getElementById(id);
   const main = $("pb-main"), pop = $("pb-pop");
 
@@ -45,11 +60,15 @@ export function initBuilder(ctx) {
 
   /* ---------------- Loading ---------------- */
   async function loadAll() {
-    const [packsRes, plansRes, rowsRes] = await Promise.all([
-      supabase.from("packs").select("*").order("sort_order", { ascending: true }).order("created_at", { ascending: false }),
+    const packsQ = supabase.from("packs").select("*");
+    const [packsRes, plansRes, rowsRes, makersRes] = await Promise.all([
+      (D() ? packsQ.eq("created_by", myId()) : packsQ).order("sort_order", { ascending: true }).order("created_at", { ascending: false }),
       supabase.from("pack_plans").select("pack_id, stage, about"),
       supabase.from("pack_plan_rows").select("pack_id, template_id"),
+      D() ? Promise.resolve({ data: [] }) : supabase.from("designers").select("user_id, full_name, email"),
     ]);
+    // Before supabase/designers.sql has run there's no such table: nobody is one.
+    MAKERS = new Map(((makersRes && makersRes.data) || []).map((d) => [d.user_id, d.full_name || d.email || "A designer"]));
     if (packsRes.error) { main.innerHTML = `<p class="pb-state">Couldn't load the packs: ${esc(packsRes.error.message)}</p>`; return false; }
     PACKS = (packsRes.data || []).filter((p) => p.demo !== true);
     ctx.setPacks(packsRes.data || []);
@@ -64,7 +83,8 @@ export function initBuilder(ctx) {
     // How many designs each pack has, paged past the 1,000-row cap.
     COUNTS = new Map();
     for (let from = 0; ; from += 1000) {
-      const { data, error } = await supabase.from("templates").select("pack_id").not("pack_id", "is", null).range(from, from + 999);
+      const tq = supabase.from("templates").select("pack_id").not("pack_id", "is", null);
+      const { data, error } = await (D() ? tq.eq("created_by", myId()) : tq).range(from, from + 999);
       if (error || !data) break;
       data.forEach((t) => COUNTS.set(t.pack_id, (COUNTS.get(t.pack_id) || 0) + 1));
       if (data.length < 1000) break;
@@ -97,12 +117,16 @@ export function initBuilder(ctx) {
       S.show === "all" ? p.status !== "archived" : S.show === "progress" ? isBuilding(p) : S.show === "live" ? isLive(p) : p.status === "archived");
     const chip = (p) => isLive(p) ? '<span class="chip good">Live</span>'
       : p.status === "archived" ? '<span class="chip wait">Out of the shop</span>'
+      : asked(p) ? `<span class="chip wait">${D() ? "Sent for approval" : "Waiting for approval"}</span>`
       : PLANS.get(p.id) ? `<span class="chip plain">Stage ${PLANS.get(p.id).stage} of 5</span>` : '<span class="chip plain">Draft</span>';
+    // The last line of a box: the price; who it's for, to a designer; and
+    // who made it, to us, when a designer did.
+    const last = (p) => D() ? ["For", (p.brands || []).join(", ") || "No brand yet"] : makerOf(p) ? ["Made by", makerOf(p)] : ["Price", priceLabel(p)];
     const card = (p) => {
       const pc = PLAN_COUNTS.get(p.id);
       const rows = isLive(p) || p.status === "archived"
-        ? [[isLive(p) ? "Live since" : "Created", dayLabel(p.launched_at || p.created_at)], ["Designs", COUNTS.get(p.id) || 0], ["Price", priceLabel(p)]]
-        : [["Step", STAGES[stageOf(p) - 1][1]], ["Designs made", pc ? `${pc.made} of ${pc.n}` : String(COUNTS.get(p.id) || 0)], ["Price", priceLabel(p)]];
+        ? [[isLive(p) ? "Live since" : "Created", dayLabel(p.launched_at || p.created_at)], ["Designs", COUNTS.get(p.id) || 0], last(p)]
+        : [["Step", stages()[stageOf(p) - 1][1]], ["Designs made", pc ? `${pc.made} of ${pc.n}` : String(COUNTS.get(p.id) || 0)], last(p)];
       return `<button type="button" class="pb-card" data-pack="${esc(p.id)}">${p.cover_image_url ? `<img src="${esc(p.cover_image_url)}" alt="" loading="lazy">` : ""}<div class="pb-card-h"><div><div class="pb-card-t">${esc(p.title)}</div><div class="pb-card-k">${p.kind === "print" ? "Print pack" : "Social pack"}</div></div>${chip(p)}</div><dl>${rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${esc(b)}</dd></div>`).join("")}</dl></button>`;
     };
     const pressed = (k, v) => `aria-pressed="${S[k] === v}"`;
@@ -113,10 +137,10 @@ export function initBuilder(ctx) {
       <div class="pb-acts"><button type="button" class="mbtn primary" data-new>Start new pack</button></div>
     </div>
     <div class="pb-cards" id="pb-cards">${list.map(card).join("") || `<div class="pb-empty">${S.show === "all" ? "No packs here yet. Start new pack makes one." : "None here."}</div>`}</div>
-    ${S.show === "all" && list.length > 1 ? '<p class="pb-hint pb-foot">Drag a box to change the order packs show in the shop and the Studio.</p>' : ""}`;
+    ${S.show === "all" && list.length > 1 && !D() ? '<p class="pb-hint pb-foot">Drag a box to change the order packs show in the shop and the Studio.</p>' : ""}`;
     if (homeSortable) { homeSortable.destroy(); homeSortable = null; }
     const Sortable = window.Sortable;
-    if (Sortable && S.show === "all" && list.length > 1) {
+    if (Sortable && S.show === "all" && list.length > 1 && !D()) {
       homeSortable = Sortable.create($("pb-cards"), { animation: 180, draggable: ".pb-card", ghostClass: "sortable-ghost", onEnd: saveHomeOrder });
     }
   }
@@ -183,18 +207,21 @@ export function initBuilder(ctx) {
     PLAN = { pack_id: P.id, stage: n, about: (PLAN && PLAN.about) || null };
     PLANS.set(P.id, PLAN);
     drawPack();
+    // A designer looking back through a pack that's live: nothing to save.
+    if (D() && P.status !== "draft") return;
     const { error } = await supabase.from("pack_plans").upsert({ pack_id: P.id, stage: n, about: PLAN.about, updated_at: new Date().toISOString() });
     if (error) { PLAN = was; if (was) PLANS.set(P.id, was); else PLANS.delete(P.id); drawPack(); toast("Couldn't save the step: " + error.message); }
   }
 
   function timeline() {
-    const n = STAGES.length, st = stage(), fill = (st - 1) / (n - 1) * 100;
-    return `<div class="pb-tl"><div class="pb-tl-track"><div style="width:${fill}%"></div></div>${STAGES.map(([s, l], i) => `<button type="button" class="pb-tl-step${i === 0 ? " first" : ""}${i === n - 1 ? " last" : ""}${s <= st ? " done" : ""}${s === st ? " cur" : ""}" style="left:${i / (n - 1) * 100}%" data-stage="${s}"><span class="pb-tl-dot"></span><span>${l}</span></button>`).join("")}</div>`;
+    const n = stages().length, st = stage(), fill = (st - 1) / (n - 1) * 100;
+    return `<div class="pb-tl"><div class="pb-tl-track"><div style="width:${fill}%"></div></div>${stages().map(([s, l], i) => `<button type="button" class="pb-tl-step${i === 0 ? " first" : ""}${i === n - 1 ? " last" : ""}${s <= st ? " done" : ""}${s === st ? " cur" : ""}" style="left:${i / (n - 1) * 100}%" data-stage="${s}"><span class="pb-tl-dot"></span><span>${l}</span></button>`).join("")}</div>`;
   }
   function callout() {
     const n = ROWS.length, st = stage(), item = (ok, t) => `<li class="${ok ? "ok" : ""}">${t}</li>`;
     const box = (title, items, acts, hint) => `<div class="pb-call"><div><h4>${title}</h4><ul>${items.join("")}</ul>${hint ? `<p>${hint}</p>` : ""}</div><div class="pb-call-acts">${acts}</div></div>`;
-    const copy = '<button type="button" class="mbtn" data-copy>Copy designs from another pack</button>';
+    // Copying from another pack is ours only: it would put our own packs' designs in a brand's.
+    const copy = D() ? "" : '<button type="button" class="mbtn" data-copy>Copy designs from another pack</button>';
     const add = '<button type="button" class="mbtn" data-add>Add a design</button>';
     const set = '<button type="button" class="mbtn" data-set>See them together</button>';
     if (st === 1) {
@@ -203,11 +230,16 @@ export function initBuilder(ctx) {
     }
     if (st === 2) {
       const made = cnt((r) => r.template_id);
-      return box("Creation", [item(n > 0 && made === n, `${made} of ${n} designs made`)], add + copy + set, "Make each design in the Studio, choose one you already have, or copy one from another pack or a Content Calendar month.");
+      return box("Creation", [item(n > 0 && made === n, `${made} of ${n} designs made`)], add + copy + set, D() ? "Make each design in the Studio, or choose one you've already made that isn't in a pack." : "Make each design in the Studio, choose one you already have, or copy one from another pack or a Content Calendar month.");
     }
     if (st === 3) {
       const f = cnt((r) => r.fields_ok), c = cnt((r) => capOf(tplFor(r))), a = cnt((r) => aiOf(tplFor(r)) && aiOf(tplFor(r)).on);
       return box("Prompts and guidance", [item(n > 0 && f === n, `${f} of ${n} with editing fields set up`), item(true, `${c} with a caption prompt (optional)`), item(true, `AI helper on ${a} design${a === 1 ? "" : "s"}`)], "", "Each design's editing fields are what members fill in on the Edit tab, so every text box needs naming. The caption prompt and AI helper are optional and come from the design itself: change them in the Studio and they show here.");
+    }
+    if (st === 4 && D()) {
+      const t = cnt((r) => r.preview_ok);
+      return box("Final checks", [item(n > 0 && t === n, `${t} of ${n} previews made`)], set,
+        "Open each design in the Studio and save it once it's finished, so its preview picture is up to date, then tick Preview made. We try every design as a member before the pack goes live, so you don't need to.");
     }
     if (st === 4) {
       const t = cnt((r) => r.preview_ok), m = cnt((r) => r.member_ok);
@@ -221,10 +253,22 @@ export function initBuilder(ctx) {
       return box("Final checks", [item(n > 0 && t === n, `${t} of ${n} previews made`), item(n > 0 && m === n, `${m} of ${n} tested as a member`)], acts + set, lead + "Preview made: the design has been saved, so its preview picture in the Studio and the shop is up to date. Tested as a member: opened on the test login and edited the way an agent would, so the brand kit fills in, photos swap and the words fit.");
     }
     const live = isLive(P);
+    if (D()) {
+      const made = cnt((r) => r.template_id);
+      const items = [item(!!P.cover_image_url, "Cover image"), item((P.brands || []).length > 0, "Who it's for"), item(!!(P.description || "").trim(), "Description"), item(made > 0, "Designs in order")];
+      if (P.status !== "draft") return box("Details and approval", items, "", live
+        ? "This pack is live, so it's in the Studio for everyone it's for. It can't be changed here now. If something needs changing, ask The Marketing Experts."
+        : "This pack has been taken down. Ask The Marketing Experts if it should come back.");
+      return box("Details and approval", items,
+        `<button type="button" class="mbtn" data-save>Save</button><button type="button" class="mbtn primary" data-approve>${asked(P) ? "Send again" : "Send for approval"}</button>`,
+        asked(P)
+          ? `Sent for approval on ${dayLabel(P.review_requested_at)}. The Marketing Experts check every design works as it should, then put the pack live. You can keep making changes until then.`
+          : "When the pack is finished, send it for approval. The Marketing Experts check every design works as it should, then put it live for the brands you've chosen. Nothing goes to agents until then.");
+    }
     return box("Shop listing", [item(!!P.cover_image_url, "Cover image"), item(P.access !== "buy" || (P.price_pence || 0) > 0, "Price"), item(!!(P.description || "").trim(), "Description"), item(cnt((r) => r.template_id) > 0, "Designs in order")],
       live ? '<button type="button" class="mbtn primary" data-save>Save changes</button><button type="button" class="mbtn" data-unpublish>Take out of the shop</button>'
         : '<button type="button" class="mbtn" data-save>Save</button><button type="button" class="mbtn primary" data-publish>Publish to the shop</button>',
-      "Everything buyers see. The words down the left; the cover, hover gallery and preview order down the right.");
+      (makerOf(P) ? `Made by ${esc(makerOf(P))}${asked(P) ? `, who sent it for approval on ${dayLabel(P.review_requested_at)}` : ""}. It only goes live when you publish it. ` : "") + "Everything buyers see. The words down the left; the cover, hover gallery and preview order down the right.");
   }
   function table() {
     const st = stage(), yes = (v) => `<span class="pb-tick${v ? " ok" : ""}"></span>`;
@@ -250,13 +294,15 @@ export function initBuilder(ctx) {
     if (!P) return;
     const st = stage(), made = cnt((r) => r.template_id), live = isLive(P);
     const back = st > 1 ? '<button type="button" class="pb-vbtn" data-step="-1">Move back a step</button>' : "";
-    const next = st < 5 ? `<button type="button" class="pb-vbtn primary" data-step="1">Next: ${STAGES[st][1]} →</button>` : "";
-    const tag = live ? `Live since ${dayLabel(P.launched_at || P.created_at)}` : P.status === "archived" ? "Out of the shop" : "Draft";
+    const next = st < 5 ? `<button type="button" class="pb-vbtn primary" data-step="1">Next: ${stages()[st][1]} →</button>` : "";
+    const tag = live ? `Live since ${dayLabel(P.launched_at || P.created_at)}` : P.status === "archived" ? "Out of the shop" : asked(P) ? (D() ? "Sent for approval" : "Waiting for approval") : "Draft";
+    // A designer's pack that isn't a draft any more is read-only to them.
+    const shut = !!D() && P.status !== "draft";
     main.innerHTML = `<button type="button" class="pb-back" data-home>&lsaquo; All packs</button>
     <div class="pb-banner"${P.cover_image_url ? ` style="background-image:url('${esc(P.cover_image_url)}')"` : ""}>
-      <div class="pb-tags"><span>${esc(tag)}</span><span>${P.kind === "print" ? "Print pack" : "Social pack"}</span><span>Stage ${st} of 5</span>${(P.test_user_ids || []).length ? "<span>Test pack sent</span>" : ""}</div>
+      <div class="pb-tags"><span>${esc(tag)}</span><span>${P.kind === "print" ? "Print pack" : "Social pack"}</span><span>Stage ${st} of 5</span>${(P.test_user_ids || []).length && !D() ? "<span>Test pack sent</span>" : ""}${makerOf(P) ? `<span>Made by ${esc(makerOf(P))}</span>` : ""}</div>
       <div class="pb-ban-row"><div><h2>${esc(P.title)}</h2><p>${ROWS.length} design${ROWS.length === 1 ? "" : "s"} planned · ${made} made</p></div>
-        <div class="pb-ban-acts">${live ? '<button type="button" class="pb-vbtn" data-insights>Insights</button><button type="button" class="pb-vbtn primary" data-gift>Gift the pack</button>'
+        <div class="pb-ban-acts">${shut ? "" : live ? '<button type="button" class="pb-vbtn" data-insights>Insights</button><button type="button" class="pb-vbtn primary" data-gift>Gift the pack</button>'
           : `<button type="button" class="pb-vbtn" data-delete>Delete pack</button>${back}${next}`}</div></div>
     </div>
     <div class="pb-prog">${timeline()}${callout()}</div>
@@ -264,6 +310,8 @@ export function initBuilder(ctx) {
     ${st === 5 ? listing() : table()}`;
     wireRows();
     if (st === 5) wireListing();
+    // Live, so read-only to its designer: the details show but don't change.
+    if (shut) main.querySelectorAll(".pb-shop input, .pb-shop select, .pb-shop textarea, .pb-shop button, #pb-about").forEach((el) => { el.disabled = true; });
   }
 
   let rowSortable = null;
@@ -331,8 +379,8 @@ export function initBuilder(ctx) {
       <div class="pb-two"><label class="pb-field"><span>Content pillar</span><select data-f="pillar"><option value="">Choose a pillar</option>${PILLARS.map((x) => `<option${x === r.pillar ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></label><label class="pb-field"><span>Format</span><select data-f="post_type">${Object.entries(TYPES).map(([k, l]) => `<option value="${k}"${k === r.post_type ? " selected" : ""}>${l}</option>`).join("")}</select></label></div>`;
     if (st >= 2) {
       b += `<div class="pb-dz">${t && t.thumb_url ? `<div class="pb-dz-pic" style="background-image:url('${esc(t.thumb_url)}')"></div>` : `<div class="pb-dz-pic none">${t ? esc(t.name) : "No design yet"}</div>`}
-        <div class="pb-dz-r"><p class="pb-hint">${!t ? "Make it in the Studio, choose one you already have, or copy one from another pack." : r.copied_from ? `${esc(t.name)}. Copied from ${esc(r.copied_from)}; changes here don't touch the original.` : esc(t.name)}</p>
-        <div class="pb-dz-acts">${!t ? '<button type="button" class="mbtn primary" data-make>Create a design</button><button type="button" class="mbtn" data-choose>Choose a design</button><button type="button" class="mbtn" data-copy>Copy from another pack</button>'
+        <div class="pb-dz-r"><p class="pb-hint">${!t ? (D() ? "Make it in the Studio, or choose one you've already made." : "Make it in the Studio, choose one you already have, or copy one from another pack.") : r.copied_from ? `${esc(t.name)}. Copied from ${esc(r.copied_from)}; changes here don't touch the original.` : esc(t.name)}</p>
+        <div class="pb-dz-acts">${!t ? '<button type="button" class="mbtn primary" data-make>Create a design</button><button type="button" class="mbtn" data-choose>Choose a design</button>' + (D() ? "" : '<button type="button" class="mbtn" data-copy>Copy from another pack</button>')
           : `<a class="mbtn primary" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Open in the Studio</a><button type="button" class="mbtn" data-unlink>Choose a different one</button>`}</div></div></div>`;
     }
     b += `<label class="pb-field"><span>Note <em>(team only)</em></span><textarea data-f="note" rows="3" placeholder="Anything whoever makes it needs to know">${esc(r.note)}</textarea></label>`;
@@ -343,9 +391,9 @@ export function initBuilder(ctx) {
       <div class="pb-field"><span>AI helper <em>(from the design)</em></span><p class="pb-ro">${ai && ai.on ? "On." + (ai.brief ? " " + esc(ai.brief) : "") : "Off."}</p></div>
       <p class="pb-hint">To change the caption prompt or the AI helper, open the design in the Studio. What you save there shows here.</p>`;
     }
-    if (st === 4) b += `<label class="pb-check"><input type="checkbox" data-f="preview_ok"${r.preview_ok ? " checked" : ""}> Preview made: saved, so its picture in the Studio and the shop is up to date</label><label class="pb-check"><input type="checkbox" data-f="member_ok"${r.member_ok ? " checked" : ""}> Tested as a member: opened on the test login and edited as an agent would</label>`;
+    if (st === 4) b += `<label class="pb-check"><input type="checkbox" data-f="preview_ok"${r.preview_ok ? " checked" : ""}> Preview made: saved, so its picture in the Studio and the shop is up to date</label>${D() ? "" : `<label class="pb-check"><input type="checkbox" data-f="member_ok"${r.member_ok ? " checked" : ""}> Tested as a member: opened on the test login and edited as an agent would</label>`}`;
     const foot = `<button type="button" class="mbtn" data-remove style="margin-right:auto">Remove from pack</button>${st === 3 && t ? `<a class="mbtn" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Open in the Studio</a>` : ""}<button type="button" class="mbtn" data-go="${i - 1}"${i ? "" : " disabled"}>&lsaquo; Previous</button><button type="button" class="mbtn" data-go="${i + 1}"${i < ROWS.length - 1 ? "" : " disabled"}>Next &rsaquo;</button><button type="button" class="mbtn primary" data-close>Done</button>`;
-    showPop(esc(r.idea || "Untitled design"), `Design ${i + 1} of ${ROWS.length} · ${STAGES[st - 1][1]}`, b, foot);
+    showPop(esc(r.idea || "Untitled design"), `Design ${i + 1} of ${ROWS.length} · ${stages()[st - 1][1]}`, b, foot);
     pop.dataset.row = r.id;
   }
   const openRowObj = () => ROWS.find((r) => r.id === pop.dataset.row);
@@ -382,7 +430,8 @@ export function initBuilder(ctx) {
   /* Choose a design that isn't in a pack yet. */
   async function openChoose(r) {
     showPop("Choose a design", "Designs not in a pack", '<p class="pb-hint">Loading…</p>', '<button type="button" class="mbtn" data-close>Cancel</button>', true);
-    const { data } = await supabase.from("templates").select("id, name, thumb_url, status, collection").is("pack_id", null).neq("status", "archived").order("updated_at", { ascending: false }).limit(300);
+    const cq = supabase.from("templates").select("id, name, thumb_url, status, collection").is("pack_id", null).neq("status", "archived");
+    const { data } = await (D() ? cq.eq("created_by", myId()) : cq).order("updated_at", { ascending: false }).limit(300);
     const list = (data || []).filter((t) => t.collection !== "calendar");
     const body = pop.querySelector(".pb-pop-b");
     body.innerHTML = `<input type="search" class="pb-search" id="pb-choose-q" placeholder="Search…"><p class="pb-hint">Designs already in a pack or a Content Calendar month: use Copy from another pack.</p><div class="pb-pick" id="pb-choose-grid">${list.map((t) => `<button type="button" data-pick="${esc(t.id)}" data-name="${esc((t.name || "").toLowerCase())}"><span class="pb-pick-pic"${t.thumb_url ? ` style="background-image:url('${esc(t.thumb_url)}')"` : ""}></span><span>${esc(t.name)}</span></button>`).join("") || '<p class="pb-hint">No loose designs.</p>'}</div>`;
@@ -571,7 +620,15 @@ export function initBuilder(ctx) {
     const taken = new Set(PACKS.map((p) => p.slug));
     let slug = slugify(title); while (taken.has(slug)) slug = slugify(title) + "-" + Math.random().toString(36).slice(2, 5);
     const top = Math.min(0, ...PACKS.map((p) => p.sort_order ?? 0)) - 1;
-    const { data: pack, error } = await supabase.from("packs").insert({ title, slug, kind, access: kind === "print" ? "brands" : "buy", brands: [], status: "draft", price_pence: 0, contents: [], sort_order: top }).select("*").single();
+    // A designer's pack is for their brands from the start; with one brand it's already chosen.
+    const d = D();
+    const row = { title, slug, kind, access: d || kind === "print" ? "brands" : "buy", brands: d && d.brands.length === 1 ? [...d.brands] : [], status: "draft", price_pence: 0, contents: [], sort_order: top };
+    let { data: pack, error } = await supabase.from("packs").insert(row).select("*").single();
+    // A designer can't see our packs, so the name may already be someone's web address.
+    if (error && /duplicate|unique/i.test(error.message || "")) {
+      row.slug = slugify(title).slice(0, 64) + "-" + Math.random().toString(36).slice(2, 6);
+      ({ data: pack, error } = await supabase.from("packs").insert(row).select("*").single());
+    }
     if (error) { btn.disabled = false; return toast("Couldn't start it: " + error.message); }
     await supabase.from("pack_plans").insert({ pack_id: pack.id, stage: 1 });
     if (fromId) {
@@ -595,7 +652,9 @@ export function initBuilder(ctx) {
         from: ymd(P.available_from), until: ymd(P.available_until, true) };
     }
     const sel = (o, v) => o.map(([k, l]) => `<option value="${esc(k)}"${k === v ? " selected" : ""}>${esc(l)}</option>`).join("");
-    const brands = [...new Set([...BRAND_ORDER, ...L.brands])].sort((a, b) => brandRank(a) - brandRank(b) || a.localeCompare(b));
+    // A designer's pack is always for chosen brands, and only theirs.
+    if (D()) L.access = "brands";
+    const brands = [...new Set(D() ? D().brands : [...BRAND_ORDER, ...L.brands])].sort((a, b) => brandRank(a) - brandRank(b) || a.localeCompare(b));
     const made = ROWS.filter((r) => tplFor(r));
     const priced = L.kind !== "print" && L.access === "buy";
     return `<div class="pb-shop">
@@ -603,7 +662,8 @@ export function initBuilder(ctx) {
         <div class="strip"><span class="strip-t">The pack</span></div>
         <div class="pb-two">
           <label class="pb-field"><span>Kind</span><select data-l="kind">${sel([["social", "Social: posts and stories"], ["print", "Print: boards, brochures, cards"]], L.kind)}</select></label>
-          <label class="pb-field"><span>Who gets it</span><select data-l="access">${sel([["buy", "Anyone who buys it"], ["members", "Every member, free"], ["brands", "Only chosen brands"]], L.access)}</select></label>
+          ${D() ? '<div class="pb-field"><span>Who gets it</span><p class="pb-ro">Only the brands you tick below, free.</p></div>'
+            : `<label class="pb-field"><span>Who gets it</span><select data-l="access">${sel([["buy", "Anyone who buys it"], ["members", "Every member, free"], ["brands", "Only chosen brands"]], L.access)}</select></label>`}
         </div>
         ${L.access === "brands" ? `<div class="pb-field"><span>Brands</span><div class="pb-brands">${brands.map((b) => `<label class="pb-check"><input type="checkbox" data-brand value="${esc(b)}"${L.brands.includes(b) ? " checked" : ""}> ${esc(b)}</label>`).join("")}</div><p class="pb-hint">Only agents with one of these brands on their profile see the pack.</p></div>` : ""}
         ${L.access === "members" ? `<div class="pb-two"><label class="pb-field"><span>Free from <em>(optional)</em></span><input type="date" data-l="from" value="${esc(L.from)}"></label><label class="pb-field"><span>Free until <em>(optional)</em></span><input type="date" data-l="until" value="${esc(L.until)}"></label></div><p class="pb-hint">A promotional pack, free for a time. It goes live at 8am on the first day with a bell notice, and goes at midnight on the last. Leave both empty to keep it free.</p>` : ""}
@@ -621,7 +681,7 @@ export function initBuilder(ctx) {
         <label class="pb-field"><span>Contents <em>(one bullet per line)</em></span><textarea data-l="contents" rows="4" placeholder="20 Instagram post templates">${esc(L.contents)}</textarea></label>
         ${L.kind === "print" ? "" : `<div class="strip"><span class="strip-t">Price and category</span></div>
         <div class="pb-three">
-          <label class="pb-field"><span>Price (£)</span><input type="number" min="0" step="0.01" data-l="price" value="${priced ? esc(L.price) : "0"}"${priced ? "" : " disabled"}></label>
+          ${D() ? "" : `<label class="pb-field"><span>Price (£)</span><input type="number" min="0" step="0.01" data-l="price" value="${priced ? esc(L.price) : "0"}"${priced ? "" : " disabled"}></label>`}
           <label class="pb-field"><span>Category</span><select data-l="category"><option value="">None</option>${sel(CATEGORIES.map((c) => [c, c]), L.category)}</select></label>
           <label class="pb-field"><span>Unlocked before buying</span><input type="number" min="0" max="24" data-l="reveal" value="${esc(L.reveal)}"></label>
         </div>`}
@@ -684,13 +744,14 @@ export function initBuilder(ctx) {
   }
   function listingError(msg) { const e = $("pb-err"); if (e) { e.textContent = msg; e.hidden = !msg; if (msg) e.scrollIntoView({ block: "center" }); } else toast(msg); }
 
-  async function saveListing(publish, unpublish) {
+  async function saveListing(publish, unpublish, quiet) {
+    if (D()) { publish = false; unpublish = false; L.access = "brands"; }
     listingError("");
     const title = L.title.trim(), slug = L.slug.trim();
     if (!title) return listingError("The pack needs a title.");
     if (!/^[a-z0-9-]+$/.test(slug)) return listingError("The slug can only have lowercase letters, numbers and hyphens.");
     if (PACKS.some((p) => p.id !== P.id && p.slug === slug)) return listingError("Another pack already uses that slug.");
-    if (L.access === "brands" && !L.brands.length) return listingError("Tick at least one brand, or change who gets it.");
+    if (L.access === "brands" && !L.brands.length) return listingError(D() ? "Tick the brand this pack is for." : "Tick at least one brand, or change who gets it.");
     if (L.from && L.until && L.until < L.from) return listingError("Free until can't be before Free from.");
     const priced = L.kind !== "print" && L.access === "buy";
     if (publish && priced && !(Number(L.price) > 0)) return listingError("Set a price before it goes in the shop.");
@@ -714,7 +775,10 @@ export function initBuilder(ctx) {
     if (btn) { btn.disabled = true; btn.textContent = publish ? "Publishing…" : unpublish ? "Taking it out…" : "Saving…"; }
     const wasFree = P.access === "members";
     const { data, error } = await supabase.from("packs").update(payload).eq("id", P.id).select("*").single();
-    if (error) { if (btn) btn.disabled = false; drawPack(); return listingError("Couldn't save: " + error.message); }
+    if (error) {
+      if (btn) btn.disabled = false; drawPack();
+      return listingError(/duplicate|unique/i.test(error.message || "") ? "Another pack already uses that slug. Change it and save again." : "Couldn't save: " + error.message);
+    }
     Object.assign(P, data);
     if (publish) {
       try { await supabase.from("packs").update({ launched_at: new Date().toISOString() }).eq("id", P.id).is("launched_at", null); } catch (_) {}
@@ -728,7 +792,32 @@ export function initBuilder(ctx) {
     const m = shopChanged ? await rebuildSite(supabase) : "";
     L = null;
     drawPack();
-    toast([publish ? `${P.title} is in the shop.` : unpublish ? `${P.title} is out of the shop. Members who bought it keep it.` : "Saved.", bell, m].filter(Boolean).join(" "));
+    if (!quiet) toast([publish ? `${P.title} is in the shop.` : unpublish ? `${P.title} is out of the shop. Members who bought it keep it.` : "Saved.", bell, m].filter(Boolean).join(" "));
+    return true;
+  }
+
+  /* A designer's last step (Danielle, 24 Nov 2026): save it, then tell us
+     it's ready. The Worker checks it's theirs, marks the pack and puts a
+     notification in our bell. Only one of us can put it live. */
+  async function sendForApproval() {
+    if (!D()) return;
+    if (!ROWS.some((r) => r.template_id)) return listingError("Make at least one design before sending the pack for approval.");
+    if (!L.brands.length) return listingError("Tick the brand this pack is for.");
+    if (!(await saveListing(false, false, true))) return;
+    const btn = main.querySelector("[data-approve]");
+    if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${WORKER}/designer/submit`, { method: "POST", headers: { Authorization: `Bearer ${session ? session.access_token : ""}`, "Content-Type": "application/json" }, body: JSON.stringify({ pack_id: P.id }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.error || "Couldn't send it.");
+      P.review_requested_at = d.review_requested_at || new Date().toISOString();
+      drawPack();
+      toast(`Sent. The Marketing Experts will check ${P.title} and put it live.`);
+    } catch (err) {
+      drawPack();
+      listingError(err.message || "Couldn't send it. Try again.");
+    }
   }
 
   /* A free pack's bell notice, booked for the moment it goes live (as the
@@ -780,6 +869,7 @@ export function initBuilder(ctx) {
     if (c("[data-insights]")) return openResults(P);
     if ((b = c("[data-delete]"))) return deletePack(b);
     if (c("[data-save]")) return saveListing(false, false);
+    if (c("[data-approve]")) return sendForApproval();
     if (c("[data-publish]")) return saveListing(true, false);
     if (c("[data-unpublish]")) return saveListing(false, true);
     if (c("[data-pickcover]")) return pickImage("cover");

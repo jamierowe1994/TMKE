@@ -22,6 +22,9 @@ const TABS = [
   { key: "fonts",     label: "Uploaded fonts", href: "/admin/fonts" },
   { key: "illustrator", label: "Illustrator", href: "/admin/illustrator" },
 ];
+// A brand designer (src/lib/admin-gate.js) gets the two tabs designs are made
+// on. The rest are ours: they change things for every member.
+const DESIGNER_TABS = ["templates", "print"];
 ---
 
 <section class="studio-bar">
@@ -32,7 +35,7 @@ const TABS = [
   <div class="studio-bar-row">
     <nav class="studio-tabs">
       {TABS.map((t) => (
-        <a class={`studio-tab${t.key === active ? " is-on" : ""}`} href={t.href} data-tab={t.key}>{t.label}</a>
+        <a class={`studio-tab${t.key === active ? " is-on" : ""}`} href={t.href} data-tab={t.key} data-team={DESIGNER_TABS.includes(t.key) ? undefined : ""}>{t.label}</a>
       ))}
     </nav>
     <div class="studio-bar-actions"><slot name="actions" /></div>
@@ -145,6 +148,8 @@ const TABS = [
 </script>
 
 <style is:global>
+  /* A brand designer: the design tabs only, and nothing marked ours. */
+  html.is-designer .studio-tab[data-team], html.is-designer [data-team-only], html.is-designer .sfb { display: none !important; }
   .sfb { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid rgba(160,90,60,0.35); background: rgba(160,90,60,0.07); border-radius: 6px; font-family: var(--sans); font-size: 13px; color: #7a3f27; }
   .sfb[hidden] { display: none; }
   .sfb-text { flex: 1 1 320px; }

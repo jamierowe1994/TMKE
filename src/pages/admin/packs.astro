@@ -16,10 +16,10 @@ import "../../styles/catalogue-builder.css";
         <div>
           <p class="mo-eye">Studio</p>
           <div class="mo-title">Catalogue</div>
-          <p class="mo-sub">Every pack from the first idea to the shop: plan it, make the designs, write the prompts and guidance, check it, then list it.</p>
+          <p class="mo-sub" id="pb-sub">Every pack from the first idea to the shop: plan it, make the designs, write the prompts and guidance, check it, then list it.</p>
         </div>
       </section>
-      <nav class="pb-tabs" aria-label="Catalogue">
+      <nav class="pb-tabs" aria-label="Catalogue" data-team-only>
         <button type="button" data-tab="packs" class="on">Packs</button>
         <button type="button" data-tab="demo">Demo pack</button>
       </nav>
@@ -808,7 +808,12 @@ import "../../styles/catalogue-builder.css";
       if (unlinked) dpNote("Added, but as a copy: run supabase/templates_follow_source.sql so the Demo pack follows its originals.");
     }
 
+    /* A brand designer (src/lib/admin-gate.js) sees their own packs only, and
+       sends a finished one to us to check; it's filled in before the builder
+       starts. No Demo pack, gifting or insights for them. */
+    const who = { designer: null, userId: null };
     const builder = initBuilder({
+      who,
       supabase, rebuildSite, toast, gbpFromPence,
       setPacks: (list) => { allPacks = list || []; },
       openGift: (id) => openGift(id),
@@ -818,6 +823,14 @@ import "../../styles/catalogue-builder.css";
     (async () => {
       const session = await requireAdmin();
       if (!session) return;
+      who.designer = session.designer || null;
+      who.userId = session.user.id;
+      if (who.designer) {
+        const sub = document.getElementById("pb-sub");
+        if (sub) sub.textContent = "Your packs, from the first idea to ready: plan it, make the designs, set up what members fill in, then send it to The Marketing Experts to check and put live.";
+        await builder.start();
+        return;
+      }
       await builder.start();
       loadDemoPack();
       loadCustomerEmails();

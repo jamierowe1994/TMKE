@@ -84,6 +84,12 @@ const activeGroup = (NAV.find((g) => g.key === active || (g.items || []).some((i
 ---
 
 <BaseLayout title={`${title} — TMKE admin`} description="TMKE internal admin." hideNav hideFooter>
+  <!-- A brand designer's sidebar is the Studio's two pages and nothing else
+       (src/lib/admin-gate.js). Set from the last sign-in on this browser,
+       before anything is drawn, so the full menu never flashes up first. -->
+  <script is:inline>
+    try { if (localStorage.getItem("tmke.admin.level") === "designer") document.documentElement.classList.add("is-designer"); } catch (_) {}
+  </script>
   <div class="ash" id="ash" data-active={active}>
     <div class="ash-scrim" id="ash-scrim"></div>
 
@@ -347,7 +353,7 @@ const activeGroup = (NAV.find((g) => g.key === active || (g.items || []).some((i
       }
       palDraw();
     }
-    function palOpen() { if (!pal) return; pal.hidden = false; palQ.value = ""; palSel = 0; palAnswer = ""; palDraw(); setTimeout(() => palQ.focus(), 0); }
+    function palOpen() { if (!pal || document.documentElement.classList.contains("is-designer")) return; pal.hidden = false; palQ.value = ""; palSel = 0; palAnswer = ""; palDraw(); setTimeout(() => palQ.focus(), 0); }
     function palClose() { if (pal) pal.hidden = true; }
     document.getElementById("ash-find")?.addEventListener("click", palOpen);
     palQ?.addEventListener("input", () => { palSel = 0; palAnswer = ""; palDraw(); });
@@ -389,20 +395,25 @@ const activeGroup = (NAV.find((g) => g.key === active || (g.items || []).some((i
     (async () => {
       // In local dev the admin area renders without a login so it's previewable;
       // production stays gated by requireAdmin (which redirects when signed out).
-      let session;
-      if (import.meta.env.DEV) {
-        session = (await supabase.auth.getSession()).data.session || { user: { email: "dev-preview@tmke.co.uk", id: "dev" } };
-      } else {
-        session = await requireAdmin();
-        if (!session) return;
-      }
+      // (requireAdmin hands back a stand-in sign-in in dev, and is what knows
+      // a brand designer from one of us.)
+      const session = await requireAdmin();
+      if (!session) return;
       const email = session.user.email || "admin";
+      // A brand designer: the Studio group only, open, and home is the Catalogue.
+      const designer = session.designer || null;
+      if (designer) {
+        const g = document.querySelector('.ash-group[data-group="studio"]');
+        if (g) { g.classList.add("is-open"); g.querySelector("[data-toggle]")?.setAttribute("aria-expanded", "true"); }
+        document.querySelector(".ash-logo")?.setAttribute("href", "/admin/packs");
+      }
 
       /* Notifications. RLS only ever hands back the ones addressed to this
          person, so there is no filtering to do here and no way to read
          somebody else's list by accident. Read state is per person, which is
          why marking read appends rather than flips a flag. */
       (function notifications() {
+        if (designer) return;   // none are ever addressed to a designer; the bell is hidden
         document.getElementById("ash-refresh")?.addEventListener("click", async (e) => {
           const b = e.currentTarget; b.disabled = true; b.classList.add("is-busy");
           try {
@@ -598,8 +609,8 @@ const activeGroup = (NAV.find((g) => g.key === active || (g.items || []).some((i
         profile = data;
       } catch (_) { /* table may not exist yet */ }
 
-      const name = (profile && profile.full_name) || email.split("@")[0];
-      const role = (profile && profile.role) || "Admin";
+      const name = (profile && profile.full_name) || (designer && designer.full_name) || email.split("@")[0];
+      const role = designer ? "Designer" : (profile && profile.role) || "Admin";
       const nameEl = document.getElementById("ash-user-name");
       const roleEl = document.getElementById("ash-user-role");
       const avatarEl = document.getElementById("ash-avatar");
@@ -615,7 +626,7 @@ const activeGroup = (NAV.find((g) => g.key === active || (g.items || []).some((i
       }
       // Dev preview counts as management too, so the fuller Dashboard view is
       // what you see by default when building against it locally.
-      const isManagement = import.meta.env.DEV ? true : await isManagementUser(session.user);
+      const isManagement = designer ? false : import.meta.env.DEV ? true : await isManagementUser(session.user);
 
       // Money is management-only: Payments (Stripe) and the parts of Invoicing
       // that show the ledger. Hidden here as well as refused by the Worker, so
@@ -633,7 +644,7 @@ const activeGroup = (NAV.find((g) => g.key === active || (g.items || []).some((i
       }
 
       // Let pages react once auth + profile are ready.
-      document.dispatchEvent(new CustomEvent("ash:ready", { detail: { session, profile, isManagement } }));
+      document.dispatchEvent(new CustomEvent("ash:ready", { detail: { session, profile, isManagement, designer } }));
     })();
   </script>
 </BaseLayout>

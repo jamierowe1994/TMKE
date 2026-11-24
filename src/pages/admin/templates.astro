@@ -41,11 +41,11 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
     <Fragment slot="actions">
       <!-- The words for each brand's "Your Print Materials" guide (Danielle,
            30 Oct 2026); on the Print tab only. -->
-      <a href="/admin/print-materials" id="pm-btn" class="admin-btn admin-btn-ghost" hidden>Print materials</a>
-      <button type="button" id="seed-btn" class="admin-btn admin-btn-ghost" hidden>Seed from default library</button>
+      <a href="/admin/print-materials" id="pm-btn" class="admin-btn admin-btn-ghost" data-team-only hidden>Print materials</a>
+      <button type="button" id="seed-btn" class="admin-btn admin-btn-ghost" data-team-only hidden>Seed from default library</button>
       <!-- Every template's preview, re-rendered from its saved design (Danielle,
            12 Oct 2026). Runs in the editor, which has the renderer. -->
-      <a href="/account/editor?mode=admin&regenall=1" class="admin-btn admin-btn-ghost" title="Re-draw every template's preview from its saved design. Designs are not changed.">Regenerate all previews</a>
+      <a href="/account/editor?mode=admin&regenall=1" class="admin-btn admin-btn-ghost" data-team-only title="Re-draw every template's preview from its saved design. Designs are not changed.">Regenerate all previews</a>
       <button type="button" id="new-btn" class="admin-btn admin-btn-primary">+ New template</button>
     </Fragment>
   </StudioBar>
@@ -64,7 +64,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
   <div class="tpl-bulkbar" id="tpl-bulkbar" hidden>
     <span class="tpl-bulk-count" id="tpl-bulk-count">0 selected</span>
     <button type="button" class="admin-btn admin-btn-ghost" id="tpl-bulk-duplicate">Duplicate</button>
-    <button type="button" class="admin-btn admin-btn-ghost" id="tpl-bulk-archive">Archive</button>
+    <button type="button" class="admin-btn admin-btn-ghost" id="tpl-bulk-archive" data-team-only>Archive</button>
     <button type="button" class="admin-btn admin-btn-danger" id="tpl-bulk-delete">Delete selected</button>
     <button type="button" class="admin-btn admin-btn-ghost" id="tpl-bulk-cancel">Cancel</button>
   </div>
@@ -312,6 +312,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
     }
     .tpl-status.is-draft { background: #8a7a36; }
     .tpl-status.is-archived { background: rgba(28,29,34,0.5); }
+    .tpl-status.is-active { background: var(--english-violet, #371e28); }
     .tpl-body {
       padding: 14px 16px 8px;
       display: flex;
@@ -467,6 +468,10 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
     // from this + the current search text + filter, so searching/filtering never
     // needs another round-trip to Supabase.
     let ALL = [];
+    /* A brand designer (src/lib/admin-gate.js): their own designs and packs
+       only, and none of the buttons that put a design in front of members.
+       The database refuses those anyway (supabase/designers.sql). */
+    let DESIGNER = null, MY_ID = null;
     // Flipped off if the contact-block migration hasn't been run yet.
     let HAS_BLOCKS = true;
     // The packs that are print packs, and which half of the studio is on show.
@@ -541,8 +546,9 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       const cv = t.canvas || {};
       const bx = (t.kind === 'block' && t.block_box) ? t.block_box : null;
       const arW = Number(bx ? bx.w : cv.width) || 1080, arH = Number(bx ? bx.h : cv.height) || 1440;
+      // To a designer "active" is the news: it's live, so it's locked.
       const statusBadge = t.status === 'active'
-        ? ''
+        ? (DESIGNER ? '<span class="tpl-status is-active">Live</span>' : '')
         : `<span class="tpl-status is-${t.status}">${t.status}</span>`;
       return `
         <article class="tpl-card is-${t.status}" data-id="${escapeHtml(t.id)}">
@@ -554,7 +560,10 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
               <div class="tpl-meta">${t.kind === 'block' ? escapeHtml(VARIANT_LABEL[t.block_variant] || 'Contact block') : [t.category, t.pack_id ? (PACK_TITLES[t.pack_id] || 'Pack') : 'Not in a pack'].filter(Boolean).map(escapeHtml).join(' · ')} · #${t.sort_order ?? 0}</div>
             </div>
           </a>
-          <div class="tpl-actions">
+          ${DESIGNER ? `<div class="tpl-actions">
+            <a class="admin-btn admin-btn-ghost" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">${t.status === 'active' ? 'Open' : 'Edit'}</a>
+            <a class="admin-btn admin-btn-ghost" href="/admin/sizes?id=${encodeURIComponent(t.id)}" title="See how this lands on every size a member can resize it to">Check the sizes</a>
+          </div>` : `<div class="tpl-actions">
             <button class="admin-btn admin-btn-ghost" data-block="${escapeHtml(t.id)}" title="${t.kind === 'block' ? 'Change which footer this is, or turn it back into a template' : 'Save this design as a footer members can drop into their own designs'}">${t.kind === 'block' ? 'Block settings' : 'Make a contact block'}</button>
             <a class="admin-btn admin-btn-ghost" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Edit</a>
             <a class="admin-btn admin-btn-ghost" href="/admin/sizes?id=${encodeURIComponent(t.id)}" title="See how this lands on every size a member can resize it to">Check the sizes</a>
@@ -568,7 +577,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
                    pack was empty. */
                 : `<button class="admin-btn admin-btn-primary" data-activate="${escapeHtml(t.id)}" title="Put this design in front of members">Make it live</button>
                    <button class="admin-btn admin-btn-ghost" data-archive="${escapeHtml(t.id)}">Archive</button>`}
-          </div>
+          </div>`}
         </article>
       `;
     }
@@ -588,18 +597,16 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       // load the page without them rather than showing an error — the block
       // controls then say what to run.
       const BASE = 'id, name, category, thumb_url, canvas, elements, status, sort_order, updated_at, pack_id';
-      let { data, error } = await supabase
-        .from('templates')
-        .select(BASE + ', kind, block_variant, block_box')
-        .order('status', { ascending: true })
-        .order('sort_order', { ascending: true });
+      const read = (cols) => {
+        const q = supabase.from('templates').select(cols);
+        return (DESIGNER ? q.eq('created_by', MY_ID) : q)
+          .order('status', { ascending: true })
+          .order('sort_order', { ascending: true });
+      };
+      let { data, error } = await read(BASE + ', kind, block_variant, block_box');
       if (error && /kind|block_variant|block_box|column/i.test(error.message || '')) {
         HAS_BLOCKS = false;
-        ({ data, error } = await supabase
-          .from('templates')
-          .select(BASE)
-          .order('status', { ascending: true })
-          .order('sort_order', { ascending: true }));
+        ({ data, error } = await read(BASE));
       }
 
       els.loading.hidden = true;
@@ -619,8 +626,11 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       CAL_TPLS = tpls.filter((t) => CALENDAR_IDS.has(t.id));
       tpls = ALL;
       const active = tpls.filter((t) => t.status === 'active').length;
-      els.count.textContent = `${active} active · ${tpls.length} total`;
+      els.count.textContent = DESIGNER
+        ? `${tpls.length} design${tpls.length === 1 ? '' : 's'}${active ? ` · ${active} live` : ''}`
+        : `${active} active · ${tpls.length} total`;
       els.seedBtn.hidden = tpls.length !== 0 || defaultLibrary.length === 0;
+      if (DESIGNER && els.empty) els.empty.innerHTML = '<p><strong>No designs yet.</strong></p><p>Click <strong>+ New template</strong> to start one, or start a pack in the Catalogue and make its designs from there.</p>';
       applyView();
     }
 
@@ -677,9 +687,11 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       if (!els.pack) return;
       let packs = [];
       try {
-        let { data, error } = await supabase.from('packs').select('id, title, kind, demo').order('title');
+        let q = supabase.from('packs').select('id, title, kind, demo');
+        if (DESIGNER) q = q.eq('created_by', MY_ID);
+        let { data, error } = await q.order('title');
         // Before print_packs.sql has run there is no kind column.
-        if (error) ({ data } = await supabase.from('packs').select('id, title').order('title'));
+        if (error && !DESIGNER) ({ data } = await supabase.from('packs').select('id, title').order('title'));
         packs = data || [];
       } catch (_) { }
       // Which packs are print, so the Print tab knows what belongs to it.
@@ -692,6 +704,11 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       const print = packs.filter((p) => p.demo !== true && p.kind === 'print');
       // Every Content Calendar month is a pack here too, newest first.
       CC_MONTHS = new Map();
+      if (DESIGNER) {
+        els.pack.innerHTML = '<option value="">All your designs</option><option value="__none__">Not in a pack</option>'
+          + group('Your packs', packs.map(opt));
+        return;
+      }
       try {
         const { data: months } = await supabase.from('content_months')
           .select('id, month, edition, status').order('month', { ascending: false });
@@ -1017,10 +1034,10 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
     }
 
     (async () => {
-      if (!DEV) {
-        const session = await requireAdmin();
-        if (!session) return;
-      }
+      const session = await requireAdmin();
+      if (!session) return;
+      DESIGNER = session.designer || null;
+      MY_ID = session.user.id;
       // Packs first: restoreView can only re-select a pack once the options
       // it is choosing from exist.
       await loadPackFilter();

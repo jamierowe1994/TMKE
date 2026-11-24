@@ -43,6 +43,55 @@ export async function isAdminUser(user) {
   return false;
 }
 
+/* A brand designer (Danielle, 24 Nov 2026): someone on a brand's own
+   marketing team who makes that brand's designs here. Not an admin. They get
+   the Catalogue and the Design studio and nothing else, can only make packs
+   for the brands named on their row, and can't put anything live. The
+   database enforces all of it (supabase/designers.sql); this only decides
+   which screens to draw. RLS lets a person read their own row and no other. */
+const DESIGNER_PAGES = /^\/admin\/(packs|templates|sizes)\/?$/;
+export const DESIGNER_HOME = '/admin/packs';
+const LEVEL_KEY = 'tmke.admin.level';
+
+/** Was the last person signed in on this browser a designer? Known before
+    the sign-in has been checked, so the page can start out drawn for them. */
+export function designerHint() {
+  try { return localStorage.getItem(LEVEL_KEY) === 'designer'; } catch (_) { return false; }
+}
+function setLevelHint(designer) {
+  try { if (designer) localStorage.setItem(LEVEL_KEY, 'designer'); else localStorage.removeItem(LEVEL_KEY); } catch (_) {}
+  try { document.documentElement.classList.toggle('is-designer', !!designer); } catch (_) {}
+}
+
+const designerAsked = new Map();
+/** Their designer row, { brands, full_name }, or null. Asked once per page. */
+export function designerFor(user) {
+  if (!user || !user.id) return Promise.resolve(null);
+  if (!designerAsked.has(user.id)) {
+    designerAsked.set(user.id, (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('designers')
+          .select('user_id, brands, full_name')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (error || !data) return null;
+        return { user_id: data.user_id, brands: Array.isArray(data.brands) ? data.brands : [], full_name: data.full_name || '' };
+      } catch (_) { return null; }   // the table isn't there yet: nobody is one
+    })());
+  }
+  return designerAsked.get(user.id);
+}
+
+/** Who this is to the admin centre: { level: 'admin' }, { level: 'designer',
+    designer } or null. One of us is always an admin, even if also listed. */
+export async function accessFor(user) {
+  if (!user) return null;
+  if (await isAdminUser(user)) return { level: 'admin', designer: null };
+  const d = await designerFor(user);
+  return d ? { level: 'designer', designer: d } : null;
+}
+
 /**
  * Management check for a signed-in admin (finer-grained than isAdminUser —
  * every admin can see operational data, but only management sees rolled-up
@@ -71,6 +120,9 @@ export async function isManagementUser(user) {
  *  - No session            → bounce to the admin login (remembering where we were).
  *  - Session but not admin → bounce to the admin login with ?denied=1 (a customer
  *                            must never see the admin area, even when signed in).
+ *  - A brand designer      → let through on the Catalogue and the Design studio
+ *                            only, with session.designer set; sent to the
+ *                            Catalogue from any other admin page.
  * Returns the resolved session, or null if redirecting.
  */
 export async function requireAdmin(loginPath = '/admin/login') {
@@ -87,10 +139,34 @@ export async function requireAdmin(loginPath = '/admin/login') {
     location.replace(`${loginPath}?next=${next}`);
     return null;
   }
-  if (!(await isAdminUser(session.user))) {
+  let who = await accessFor(session.user);
+  // Local preview only: ?as=designer draws the pages as a designer for The
+  // Letting Experts would see them (remembered for the tab; ?as=admin undoes
+  // it). There is no real sign-in here, so nothing can be saved either way.
+  if (import.meta.env.DEV) {
+    try {
+      const as = new URLSearchParams(location.search).get('as');
+      if (as) sessionStorage.setItem('tmke.dev.as', as);
+      if (sessionStorage.getItem('tmke.dev.as') === 'designer') {
+        who = { level: 'designer', designer: { user_id: session.user.id, brands: ['The Letting Experts', 'The Letting Experts Scotland'], full_name: 'Dev Designer' } };
+      }
+    } catch (_) {}
+  }
+  if (!who) {
     location.replace(`${loginPath}?denied=1`);
     return null;
   }
+  if (who.level === 'designer') {
+    setLevelHint(true);
+    // Their two pages; anything else in the admin centre sends them home.
+    if (!DESIGNER_PAGES.test(location.pathname)) {
+      location.replace(DESIGNER_HOME);
+      return null;
+    }
+    // A copy: the sign-in itself is the library's to keep, and store, as it is.
+    return { ...session, designer: who.designer };
+  }
+  setLevelHint(false);
   return session;
 }
 

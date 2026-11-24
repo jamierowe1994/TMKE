@@ -1754,6 +1754,10 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        Replace the mauve wash with a calm off-white "desk" so the white canvas +
        panels read as bright and airy. Scoped to .editor-light, so the admin
        authoring studio (?mode=admin, no class) keeps its current look. ===== */
+    /* A brand designer in the admin Studio (src/lib/admin-gate.js): no
+       publishing, no catalogue-wide tools. Saving is all they need; a pack
+       goes live when one of us publishes it from the Catalogue. */
+    html.is-designer #ed-publish, html.is-designer #ed-regen, html.is-designer #ed-canva-import { display: none !important; }
     html.editor-light .editor { background: var(--paper); }
     html.editor-light .ed-onboard { background: var(--paper); }
     /* A touch more lift on the canvas so it floats cleanly on the lighter desk. */
@@ -7015,7 +7019,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       (window as any).__TMKE_REPORT_FALLBACK__ = onFallback;
       ((window as any).__TMKE_FALLBACK_Q__ || []).splice(0).forEach(onFallback);
     }
-    import { isAdminUser } from '../../lib/admin-gate.js';
+    import { accessFor, designerHint } from '../../lib/admin-gate.js';
     import { designStore } from '../../lib/design-store.js';
 
     // ---- Externalise embedded images before writing to Supabase ----------
@@ -7065,7 +7069,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        which any admin can write (supabase/studio_admin_shared_uploads.sql),
        and an image put in a folder shows there for every admin. Members'
        notes stay in their own folder. */
-    const UPLOADS_SHARED = new URLSearchParams(location.search).get('mode') === 'admin';
+    const UPLOADS_SHARED = new URLSearchParams(location.search).get('mode') === 'admin' && !designerHint();
     const SHARED_DIR = 'admin-shared';
     window.__TMKE_UPLOADS_SHARED__ = UPLOADS_SHARED;
     function _uploadKey(uid, dataUrl, mime) {
@@ -7341,15 +7345,23 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     if (wantAdmin) {
       const { data: { session } } = await supabase.auth.getSession();
       const DEV = import.meta.env.DEV;
+      let adminWho: any = null;
       if (!session && !DEV) {
         // Not signed in — bounce to admin login, preserve where we wanted to go.
         const next = encodeURIComponent(location.pathname + location.search);
         location.replace(`/admin/login?next=${next}`);
-      } else if (session && !DEV && !(await isAdminUser(session.user))) {
+      } else if (session && !DEV && !(adminWho = await accessFor(session.user))) {
         // Signed in but not an admin (e.g. a customer poking at ?mode=admin) —
         // never load the admin studio chrome or templates for them.
         location.replace('/admin/login?denied=1');
       } else {
+        /* A brand designer (src/lib/admin-gate.js): the same Studio, on their
+           own designs only. Nothing here can put a design in front of
+           members, so the buttons that do are hidden; the database refuses
+           them anyway (supabase/designers.sql). */
+        const designer = adminWho && adminWho.level === 'designer' ? adminWho.designer : null;
+        document.documentElement.classList.toggle('is-designer', !!designer);
+        try { if (designer) localStorage.setItem('tmke.admin.level', 'designer'); else if (adminWho) localStorage.removeItem('tmke.admin.level'); } catch (_) {}
         // The brand picker at the top of the Brand pane, once we know they're
         // staff. It waits for the design so a template opens in the brand it
         // was drawn for.
@@ -7698,9 +7710,10 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         //    is exactly what made opening a template take 15-30s. Fire it and let
         //    it refresh the switcher grid whenever it lands; the requested design
         //    has already been pinned + booted above, so the editor paints now.
-        supabase
+        const listQ = supabase
           .from('templates')
-          .select('id, name, category, thumb_url, status, sort_order, updated_at')
+          .select('id, name, category, thumb_url, status, sort_order, updated_at');
+        (designer ? listQ.eq('created_by', session.user.id) : listQ)
           .order('status', { ascending: true })
           .order('sort_order', { ascending: true })
           .then(({ data: rows, error }) => {

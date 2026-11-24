@@ -100,7 +100,7 @@ import AdminBack from "../../components/AdminBack.astro";
 
   <script>
     import { supabase, AUTH_STORAGE_KEY } from '../../lib/supabase.js';
-    import { isAdminUser } from '../../lib/admin-gate.js';
+    import { accessFor, DESIGNER_HOME } from '../../lib/admin-gate.js';
 
     const form = document.getElementById('login-form');
     const errEl = document.getElementById('login-error');
@@ -123,8 +123,10 @@ import AdminBack from "../../components/AdminBack.astro";
       // before forwarding, or a revoked one bounces you back into /admin.
       const { data: { user }, error } = await supabase.auth.getUser();
       if (!user || error) return;
-      if (await isAdminUser(data.session.user)) {
-        location.replace(params.get('next') || '/admin');
+      const who = await accessFor(data.session.user);
+      if (who) {
+        // A brand designer has the Catalogue and the Design studio only.
+        location.replace(params.get('next') || (who.level === 'designer' ? DESIGNER_HOME : '/admin'));
       } else {
         showDenied();
       }
@@ -156,7 +158,8 @@ import AdminBack from "../../components/AdminBack.astro";
       }
       // Valid credentials, but not an admin → sign back out so a customer can't
       // sit on an admin session, and tell them why.
-      if (!(await isAdminUser(signInData.user))) {
+      const who = await accessFor(signInData.user);
+      if (!who) {
         await supabase.auth.signOut({ scope: 'local' });   // this side only: their hub login is theirs
         submitBtn.removeAttribute('disabled');
         labelEl.textContent = 'Sign in';
@@ -173,7 +176,7 @@ import AdminBack from "../../components/AdminBack.astro";
         showError("You're signed in, but this browser won't keep it: its storage is full or blocked. Try a private window, or clear this site's data in the browser settings.");
         return;
       }
-      location.replace(params.get('next') || '/admin');
+      location.replace(params.get('next') || (who.level === 'designer' ? DESIGNER_HOME : '/admin'));
     });
 
     // Microsoft SSO (works once the Azure provider is enabled in Supabase).

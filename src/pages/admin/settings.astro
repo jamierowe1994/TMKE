@@ -86,6 +86,27 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         <p class="set-team-empty" id="team-empty">Loading team…</p>
       </div>
     </section>
+
+    <!-- Brand designers (Danielle, 24 Nov 2026): a brand's own marketing
+         person who makes that brand's designs. Not an admin: the Catalogue
+         and the Design studio only, for the brands ticked, and nothing they
+         make goes live until one of us publishes it. supabase/designers.sql. -->
+    <section class="set-team" id="set-designers">
+      <h2 class="set-team-h">Brand designers</h2>
+      <p class="set-team-intro">For someone on a brand's own marketing team who makes that brand's designs. They get the <strong>Catalogue</strong> and the <strong>Design studio</strong> and nothing else in the admin centre. They can only make packs for the brands you tick, their packs never go in the shop, and they can't put one live: they send it for approval, and it goes live when one of us publishes it from the Catalogue.</p>
+
+      <form id="des-form" class="set-team-form">
+        <label class="set-field"><span>Full name</span><input name="full_name" placeholder="e.g. Alex Morgan" autocomplete="off" /></label>
+        <label class="set-field"><span>Email</span><input name="email" type="email" placeholder="name@example.com" autocomplete="off" /></label>
+        <button type="submit" class="set-save" id="des-add">Add designer</button>
+        <div class="des-brands" id="des-brands" role="group" aria-label="Brands they can design for"></div>
+      </form>
+      <p class="set-msg" id="des-msg" hidden></p>
+
+      <div class="set-team-list" id="des-list">
+        <p class="set-team-empty">Loading designers…</p>
+      </div>
+    </section>
   </div>
 
   <!-- ============ Pop-out: Client report settings ============ -->
@@ -311,11 +332,18 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .team-btn.team-save-name:hover { opacity: 0.9; }
     .team-remove:hover { background: rgba(200,70,50,0.08); border-color: rgba(200,70,50,0.4); color: #a3372b; }
     .team-remove:disabled, .team-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .des-brands { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 18px; }
+    .des-brands label, .des-edit label { display: inline-flex; align-items: center; gap: 7px; font-family: var(--sans); font-size: 14px; color: var(--ink); cursor: pointer; }
+    .des-brands input, .des-edit input { accent-color: var(--english-violet); }
+    .des-edit { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 8px; }
+    #des-msg { margin-top: 14px; }
+    #des-msg code { font-family: ui-monospace, Menlo, monospace; font-weight: 700; background: rgba(255,255,255,0.6); border: 1px solid rgba(28,29,34,0.14); border-radius: 6px; padding: 1px 7px; }
     .team-you { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.4); flex: none; padding-right: 4px; }
   </style>
 
   <script>
     import { supabase } from "../../lib/supabase.js";
+    import { BRAND_ORDER } from "../../data/brands.js";
     import { REPORT_FIELD_GROUPS, REPORT_FIELD_KEYS, defaultClientVisibility, resolveVisibility } from "../../lib/report-fields.js";
 
     let uid = null, currentAvatar = null;
@@ -376,7 +404,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         $("report-card")?.removeAttribute("hidden");
       } else {
         ["brand-card", "report-card", "pop-report", "pop-brand"].forEach((id) => $(id)?.setAttribute("hidden", ""));
-        document.querySelector(".set-team")?.setAttribute("hidden", "");
+        document.querySelectorAll(".set-team").forEach((el) => el.setAttribute("hidden", ""));
       }
     });
 
@@ -597,6 +625,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         teamAdmins = d.admins || [];
         editingId = null;
         renderTeam();
+        teamDesigners = Array.isArray(d.designers) ? d.designers : null;
+        desEditing = null;
+        renderDesigners();
       } catch (err) { wrap.innerHTML = `<p class="set-team-empty">${esc(err.message || "Couldn't load the team.")}</p>`; }
     }
 
@@ -611,6 +642,133 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       const row = teamAdmins.find((a) => a.user_id === userId);
       if (row) row.full_name = newName;
     }
+
+    /* ---- Brand designers ----
+       A brand's own marketing person: the Catalogue and the Design studio,
+       for the brands ticked here, and nothing goes live without one of us.
+       The list is null until supabase/designers.sql has run. */
+    let teamDesigners = null, desEditing = null;
+    const DES_BRANDS = BRAND_ORDER.slice();
+    const brandTicks = (picked) => DES_BRANDS.map((b) => `<label><input type="checkbox" value="${esc(b)}"${picked.includes(b) ? " checked" : ""}> ${esc(b)}</label>`).join("");
+    if ($("des-brands")) $("des-brands").innerHTML = brandTicks([]);
+    function desMsg(text, ok) { const m = $("des-msg"); m.innerHTML = text; m.className = "set-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
+
+    function renderDesigners() {
+      const wrap = $("des-list");
+      if (!wrap) return;
+      if (teamDesigners === null) { wrap.innerHTML = '<p class="set-team-empty">Designers aren\'t set up on the database yet. Run <code>supabase/designers.sql</code> in the Supabase SQL editor, then reload this page.</p>'; return; }
+      if (!teamDesigners.length) { wrap.innerHTML = '<p class="set-team-empty">No designers yet. Add one above.</p>'; return; }
+      wrap.innerHTML = teamDesigners.map((a) => {
+        const name = a.full_name || (a.email || "").split("@")[0];
+        const brands = Array.isArray(a.brands) ? a.brands : [];
+        const when = a.created_at ? new Date(a.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
+        if (a.user_id === desEditing) {
+          return `<div class="team-row" data-des="${esc(a.user_id)}">
+            <div class="team-meta">
+              <div class="team-name">${esc(name)}</div>
+              <div class="des-edit">${brandTicks(brands)}</div>
+            </div>
+            <button type="button" class="team-btn team-save-name des-save">Save</button>
+            <button type="button" class="team-btn des-cancel">Cancel</button>
+          </div>`;
+        }
+        return `<div class="team-row" data-des="${esc(a.user_id)}">
+          <div class="team-meta">
+            <div class="team-name">${esc(name)} · Designer</div>
+            <div class="team-sub">${esc(a.email)}${when ? ` — added ${when}` : ""}</div>
+            <div class="team-sub">Designs for: ${esc(brands.join(", ") || "no brand")}</div>
+          </div>
+          <button type="button" class="team-btn des-brands-btn">Change brands</button>
+          <button type="button" class="team-btn des-reset" data-name="${esc(name)}">Reset password</button>
+          <button type="button" class="team-remove des-remove" data-name="${esc(name)}">Remove</button>
+        </div>`;
+      }).join("");
+    }
+
+    $("des-form")?.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      if (!WORKER) return;
+      const f = ev.target; const btn = $("des-add");
+      const email = f.email.value.trim(); const full_name = f.full_name.value.trim();
+      const brands = [...$("des-brands").querySelectorAll("input:checked")].map((x) => x.value);
+      if (!email) { desMsg("Enter their email address.", false); return; }
+      if (!brands.length) { desMsg("Tick at least one brand they can design for.", false); return; }
+      btn.disabled = true; btn.textContent = "Adding…";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/admin/team`, {
+          method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ email, full_name, level: "designer", brands }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Couldn't add them.");
+        desMsg(d.temp_password
+          ? `<strong>${esc(email)}</strong> can now design for ${esc(brands.join(", "))}. We've emailed them how to sign in. Temporary password (share if the email doesn't arrive): <code>${esc(d.temp_password)}</code>`
+          : `<strong>${esc(email)}</strong> can now design for ${esc(brands.join(", "))}. We've emailed them; they sign in with the password they already have.`, true);
+        f.reset();
+        loadTeam();
+      } catch (err) { desMsg(esc(err.message || "Couldn't add them."), false); }
+      finally { btn.disabled = false; btn.textContent = "Add designer"; }
+    });
+
+    $("des-list")?.addEventListener("click", async (ev) => {
+      const row = ev.target.closest("[data-des]");
+      if (!row) return;
+      const uidD = row.getAttribute("data-des");
+      if (ev.target.closest(".des-brands-btn")) { desEditing = uidD; renderDesigners(); return; }
+      if (ev.target.closest(".des-cancel")) { desEditing = null; renderDesigners(); return; }
+      const save = ev.target.closest(".des-save");
+      if (save) {
+        const brands = [...row.querySelectorAll(".des-edit input:checked")].map((x) => x.value);
+        if (!brands.length) { desMsg("A designer needs at least one brand. Remove them instead if they shouldn't design at all.", false); return; }
+        save.disabled = true; save.textContent = "Saving…";
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER}/admin/team`, {
+            method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: uidD, designer_brands: brands }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(d.error || "Couldn't change their brands.");
+          const r = teamDesigners.find((a) => a.user_id === uidD); if (r) r.brands = d.brands || brands;
+          desEditing = null; renderDesigners();
+          desMsg("Brands saved. Packs they've already made keep the brands they were given.", true);
+        } catch (err) { desMsg(esc(err.message || "Couldn't change their brands."), false); save.disabled = false; save.textContent = "Save"; }
+        return;
+      }
+      const reset = ev.target.closest(".des-reset");
+      if (reset) {
+        const nameR = reset.getAttribute("data-name") || "this person";
+        if (!confirm(`Send ${nameR} a new temporary password? Their current password will stop working.`)) return;
+        reset.disabled = true; reset.textContent = "Resetting…";
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER}/admin/team/reset`, {
+            method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: uidD }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(d.error || "Couldn't reset the password.");
+          desMsg(`New password set for <strong>${esc(nameR)}</strong> and emailed to them. Temporary password (share if the email doesn't arrive): <code>${esc(d.temp_password)}</code>`, true);
+        } catch (err) { desMsg(esc(err.message || "Couldn't reset the password."), false); }
+        finally { reset.disabled = false; reset.textContent = "Reset password"; }
+        return;
+      }
+      const rm = ev.target.closest(".des-remove");
+      if (rm) {
+        const nameX = rm.getAttribute("data-name") || "this person";
+        if (!confirm(`Remove ${nameX} as a designer? They'll no longer be able to open the Catalogue or the Design studio. The packs and designs they made stay.`)) return;
+        rm.disabled = true; rm.textContent = "Removing…";
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER}/admin/team?designer=1&user_id=${encodeURIComponent(uidD)}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(d.error || "Couldn't remove them.");
+          desMsg(`${esc(nameX)} is no longer a designer.`, true);
+          loadTeam();
+        } catch (err) { desMsg(esc(err.message || "Couldn't remove them."), false); rm.disabled = false; rm.textContent = "Remove"; }
+      }
+    });
 
     $("team-form")?.addEventListener("submit", async (ev) => {
       ev.preventDefault();

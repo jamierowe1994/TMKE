@@ -2642,6 +2642,28 @@ function isOwner(user) {
   return !!e && OWNER_EMAILS.includes(e);
 }
 
+/* A brand designer (Danielle, 24 Nov 2026): someone on a brand's own marketing
+   team who makes that brand's designs in the Studio. A row in `designers`
+   (supabase/designers.sql), never in `admins`, so every admin-only endpoint
+   here stays shut to them. Returns their row { user_id, email, full_name,
+   brands } or null. One of us is never a designer, even if also listed.
+   Fails closed: if the table can't be read, nobody is one. */
+async function designerRow(env, user) {
+  if (!user || !user.id || isAdminEmail(user)) return null;
+  if (user._designer !== undefined) return user._designer;
+  let row = null;
+  try {
+    const rows = await sbGet(env, "designers", `user_id=eq.${encodeURIComponent(user.id)}&select=user_id,email,full_name,brands&limit=1`);
+    row = (rows && rows[0]) || null;
+    if (row && !Array.isArray(row.brands)) row.brands = [];
+  } catch (_) { row = null; }
+  user._designer = row;
+  return row;
+}
+function cleanBrandList(v) {
+  return [...new Set((Array.isArray(v) ? v : []).map((b) => String(b || "").trim()).filter((b) => b && b.length <= 80 && b !== "__studio__"))].slice(0, 20);
+}
+
 /* Management: the narrow tier inside the admin list, held on
    admins.is_management (see supabase/admins_management_flag.sql). Every admin
    can operate the site; only management sees the money in aggregate — the
@@ -16216,10 +16238,45 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         return json({ ok: true }, 200, request, env);
       }
 
+      /* ---- A designer's pack is ready for us to check ------------------------
+         (Danielle, 24 Nov 2026.) A brand designer can't put a pack live; this
+         is how they say it's finished. Checks the pack is theirs and still a
+         draft, stamps it, and puts a notification in the bell. Putting it
+         live stays with us, from the Catalogue. */
+      if (path.endsWith("/designer/submit") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in first." }, 401, request, env);
+        const designer = await designerRow(env, user);
+        if (!designer) return json({ error: "This is for brand designers." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.pack_id) || "").trim();
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Which pack?" }, 400, request, env);
+        const pack = ((await sbGet(env, "packs", `id=eq.${id}&select=id,title,status,created_by,brands&limit=1`)) || [])[0];
+        if (!pack || pack.created_by !== user.id) return json({ error: "That pack isn't one of yours." }, 404, request, env);
+        if (pack.status !== "draft") return json({ error: "This pack isn't a draft any more, so there's nothing to send." }, 409, request, env);
+        const made = (await sbGet(env, "templates", `pack_id=eq.${id}&select=id&limit=1`)) || [];
+        if (!made.length) return json({ error: "Make at least one design before sending the pack for approval." }, 400, request, env);
+        const at = new Date().toISOString();
+        const res = await sbPatch(env, "packs", `id=eq.${id}`, { review_requested_at: at });
+        if (!res || !res.ok) return json({ error: "Couldn't send it. Try again." }, 502, request, env);
+        const who = designer.full_name || String(user.email || "").split("@")[0] || "A designer";
+        const forWhom = (Array.isArray(pack.brands) && pack.brands.length) ? pack.brands.join(", ") : "no brand yet";
+        await notifyAdmins(env, {
+          area: "hub", event: "designer_pack_submitted",
+          title: `${who} sent a pack for approval`,
+          body: `${pack.title}, for ${forWhom}. Check every design works, then publish it from the Catalogue.`,
+          href: `/admin/packs?pack=${id}`,
+          key: `${id}:${at.slice(0, 10)}`,
+        });
+        return json({ ok: true, review_requested_at: at }, 200, request, env);
+      }
+
       // ---- Admin: team access (who can use the admin centre) -----------------
       // Anyone on the @tmke.co.uk domain (or the named allowlist) is an admin via
       // SSO and never appears here. This manages the `admins` table — the way to
       // grant admin access to anyone OUTSIDE the domain, and to revoke it.
+      // Brand designers (the `designers` table) are added and removed here too:
+      // the Catalogue and the Design studio only, for the brands named.
 
       // List everyone who's been granted admin access via the table.
       if (path.endsWith("/admin/team") && request.method === "GET") {
@@ -16240,7 +16297,11 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           full_name: (pm[r.user_id] || {}).full_name || null, role: (pm[r.user_id] || {}).role || null,
           is_management: !!mm[r.user_id],
         }));
-        return json({ ok: true, admins, self: user.id }, 200, request, env);
+        // Brand designers, listed apart. null before supabase/designers.sql has
+        // run, so the page can say what to run instead of showing an empty list.
+        let designers = null;
+        try { designers = await sbGet(env, "designers", "select=user_id,email,full_name,brands,created_at&order=created_at.asc"); } catch (_) {}
+        return json({ ok: true, admins, designers, self: user.id }, 200, request, env);
       }
 
       // Grant admin access: create their login if new, add them to `admins`,
@@ -16272,6 +16333,44 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           }
         }
         if (!u || !u.id) return json({ error: "Couldn't resolve that account." }, 502, request, env);
+
+        /* A brand designer, not an admin: a row in `designers` and nothing in
+           `admins`, so the Catalogue and the Design studio are all they get. */
+        if (String((b && b.level) || "") === "designer") {
+          const brands = cleanBrandList(b.brands);
+          if (!brands.length) return json({ error: "Tick at least one brand they can design for." }, 400, request, env);
+          if (emailLooksAdmin({ email })) return json({ error: "That's one of our own addresses, which already has the whole admin centre." }, 400, request, env);
+          const already = await sbGet(env, "admins", `user_id=eq.${encodeURIComponent(u.id)}&select=user_id`);
+          if (already && already.length) return json({ error: "They already have full admin access. Remove that first if they should only be a designer." }, 400, request, env);
+          const dr = await fetch(`${env.SUPABASE_URL}/rest/v1/designers?on_conflict=user_id`, {
+            method: "POST",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+            body: JSON.stringify({ user_id: u.id, email, full_name: fullName || null, brands }),
+          });
+          if (!dr.ok) {
+            const detail = await dr.text().catch(() => "");
+            return json({ error: /designers/i.test(detail) && /(not exist|schema cache|find the table)/i.test(detail)
+              ? "Designers haven't been set up on the database yet. Run supabase/designers.sql first."
+              : "Couldn't add them as a designer. " + detail.slice(0, 160) }, 502, request, env);
+          }
+          const dWho = fullName ? fullName.split(" ")[0] : "there";
+          const dCred = tempPassword
+            ? `<p style="${EM_P}">Sign in with your email and this temporary password:</p>
+               <p style="margin:0 0 18px;"><span style="display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;letter-spacing:0.04em;background:#f4f2f1;border:1px solid #e4ded9;border-radius:8px;padding:9px 14px;color:#371e28;">${tempPassword}</span></p>
+               <p style="${EM_P}">Please change it once you're in (Forgot password on the sign-in screen).</p>`
+            : `<p style="${EM_P}">Sign in with the email and password you already use for the Member Hub.</p>`;
+          const dHtml = `<div style="${EM_WRAP}">
+            <div style="font-size:24px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
+            <p style="${EM_P}">Hi ${dWho},</p>
+            <p style="${EM_P}">You've been set up to make designs for <strong>${brands.map((x) => String(x).replace(/</g, "&lt;")).join(", ")}</strong> in The Marketing Experts' Design Studio.</p>
+            <p style="${EM_P}">You'll find two pages: the <strong>Catalogue</strong>, where you plan a pack and its designs, and the <strong>Design studio</strong>, where you make them. When a pack is finished, send it for approval. We check every design works as it should, then put it live for your agents.</p>
+            ${dCred}
+            <p style="margin:0 0 22px;"><a href="https://tmke.co.uk/admin/login" style="${EM_BTN}">Open the Catalogue</a></p>
+            <p style="${EM_SMALL}">If you weren't expecting this, you can ignore this email.</p>
+          </div>`;
+          try { await sendEmail(env, { to: email, subject: "Your design access is ready.", html: await wrapInBrandedBase(env, dHtml) }); } catch (_) {}
+          return json({ ok: true, created, temp_password: tempPassword, designer: { user_id: u.id, email, full_name: fullName || null, brands } }, 200, request, env);
+        }
 
         // Grant admin (idempotent upsert on the primary key).
         await fetch(`${env.SUPABASE_URL}/rest/v1/admins?on_conflict=user_id`, {
@@ -16316,6 +16415,15 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const userId = (url.searchParams.get("user_id") || "").trim();
         if (!userId) return json({ error: "Missing user_id" }, 400, request, env);
         if (userId === user.id) return json({ error: "You can't remove your own access." }, 400, request, env);
+        // A designer: their row goes, so the Catalogue and Design studio shut.
+        // Their login, and the packs and designs they made, stay.
+        if (url.searchParams.get("designer") === "1") {
+          const dd = await fetch(`${env.SUPABASE_URL}/rest/v1/designers?user_id=eq.${encodeURIComponent(userId)}`, {
+            method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+          });
+          if (!dd.ok) return json({ error: "Couldn't remove them." }, 502, request, env);
+          return json({ ok: true }, 200, request, env);
+        }
         await fetch(`${env.SUPABASE_URL}/rest/v1/admins?user_id=eq.${encodeURIComponent(userId)}`, {
           method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
         });
@@ -16330,6 +16438,15 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const userId = String((b && b.user_id) || "").trim();
         const fullName = String((b && b.full_name) || "").trim();
         if (!userId) return json({ error: "Missing user_id" }, 400, request, env);
+
+        // Which brands a designer makes for: its own shape too.
+        if (Array.isArray(b.designer_brands)) {
+          const brands = cleanBrandList(b.designer_brands);
+          if (!brands.length) return json({ error: "A designer needs at least one brand. Remove them instead if they shouldn't design at all." }, 400, request, env);
+          const rows = await sbPatchReturn(env, "designers", `user_id=eq.${encodeURIComponent(userId)}`, { brands });
+          if (!rows || !rows.length) return json({ error: "Couldn't change their brands." }, 502, request, env);
+          return json({ ok: true, brands }, 200, request, env);
+        }
 
         // Level change: its own shape, so the name is not required alongside.
         // Owner-gated like everything else on this endpoint — an admin cannot
@@ -16815,8 +16932,28 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
 
       if (path.endsWith("/studio/brand-kits") && request.method === "GET") {
         const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        // A brand designer gets the kits of the brands they make for, and no others.
+        const designer = user && !isAdminEmail(user) ? await designerRow(env, user) : null;
+        if (!user || (!isAdminEmail(user) && !designer)) return json({ error: "Admins only." }, 403, request, env);
         const rows = await sbGet(env, "brand_profiles", "select=*&order=brand") || [];
+        if (designer) {
+          const low = (v) => String(v || "").toLowerCase();
+          const si0 = ((rows.find((r) => r.brand === "__studio__") || {}).stand_ins) || {};
+          return json({
+            ok: true,
+            studio: null,
+            // A brand that shares another's kit (Scotland, The Letting Experts) shows that kit.
+            brands: designer.brands.map((name) => {
+              const kitRow = rows.find((x) => low(x.brand) === low(kitBrandOf(name))) || rows.find((x) => low(x.brand) === low(name));
+              return kitRow ? { brand: name, kit: brandHalf(kitRow, name) } : null;
+            }).filter(Boolean),
+            standIns: {
+              female: si0.female || "/images/stand-in-female-2.webp",
+              male: si0.male || "/images/stand-in-male-2.webp",
+              ghost: "/images/agent-photo-ghost.svg",
+            },
+          }, 200, request, env);
+        }
         const studioRow = rows.find((r) => r.brand === "__studio__") || null;
         const si = (studioRow && studioRow.stand_ins) || {};
         // Two we ship with the site, so the toggle has somebody to show
