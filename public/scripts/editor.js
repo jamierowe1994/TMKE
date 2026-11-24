@@ -6783,7 +6783,7 @@ import { createResizeEngine } from "./resize-engine.js";
      centred top to bottom, turned with it, always just above it. A click on
      the words picks the shape; a double-click goes back into the words.
      Delete or duplicate the shape and its words go with it. */
-  const SHAPE_TEXT_TYPES = ["rect", "ellipse"];
+  const SHAPE_TEXT_TYPES = ["rect", "ellipse", "star"];   // stars too, not triangles (Danielle, 24 Nov)
   function shapeTextFor(shape) {
     return shape ? state.elements.find((e) => e.type === "text" && e.inShape === shape.id) || null : null;
   }
@@ -6793,6 +6793,8 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   function shapeTextPad(s) {
     const base = Math.min(s.w, s.h);
+    // A star's points leave only its middle for words.
+    if (s.type === "star") return Math.max(6, Math.round(s.w * 0.3));
     return Math.max(6, Math.round(s.type === "ellipse" ? s.w * 0.15 : Math.min(base * 0.3, s.w * 0.08)));
   }
   // Words go just above their shape in the stack. Data only: runs before drawing.
@@ -16095,7 +16097,7 @@ import { createResizeEngine } from "./resize-engine.js";
       name.type = "text";
       name.className = "ed-field-name";
       name.value = state.canvas.bgFieldLabel || "";
-      name.placeholder = hasBgPattern() ? "e.g. Pick your background" : cardColours() ? "e.g. Pick the colour of your card" : "e.g. This is where the photo of the house goes";
+      name.placeholder = hasBgPattern() ? "e.g. Pick your background" : cardColours() ? "e.g. Pick the colour of your card" : state.canvas.backgroundImage ? "e.g. This is where the photo of the house goes" : "e.g. Change the background to suit your brand";
       name.addEventListener("change", function () {
         state.canvas.bgFieldLabel = name.value.trim() || null;
         pushHistory();
@@ -16110,7 +16112,7 @@ import { createResizeEngine } from "./resize-engine.js";
     } else {
       const lbl = document.createElement("label");
       lbl.className = "ed-field-label";
-      lbl.textContent = state.canvas.bgFieldLabel || (hasBgPattern() ? "Your background" : cardColours() ? "Card colour" : "The background picture");
+      lbl.textContent = state.canvas.bgFieldLabel || (hasBgPattern() ? "Your background" : cardColours() ? "Card colour" : state.canvas.backgroundImage ? "The background picture" : "Background");
       head.appendChild(lbl);
     }
     row.appendChild(head);
@@ -16145,13 +16147,17 @@ import { createResizeEngine } from "./resize-engine.js";
     box.className = "ed-field-pic";
     const thumb = document.createElement("span");
     thumb.className = "ed-field-thumb";
+    /* Shows the background as it is: its picture, or its colour. It was a
+       grey box saying "Add a picture" on a plain coloured background, which
+       read as a missing photo (Danielle, 24 Nov). */
     if (state.canvas.backgroundImage) thumb.style.backgroundImage = "url(" + JSON.stringify(state.canvas.backgroundImage) + ")";
+    else if (state.canvas.background) thumb.style.background = state.canvas.background;
     else thumb.classList.add("is-empty");
     box.appendChild(thumb);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "ed-field-change";
-    btn.textContent = state.canvas.backgroundImage ? "Change" : "Add a picture";
+    btn.textContent = "Change background";
     btn.addEventListener("click", function () { openTool("background"); });
     box.appendChild(btn);
     row.appendChild(box);
