@@ -1104,6 +1104,21 @@ import { createResizeEngine } from "./resize-engine.js";
         box.appendChild(_spacingRow("Line spacing", "", 0.8, 3, 0.05,
           function () { return el.lineHeight != null ? el.lineHeight : 1.3; },
           function (v) { el.lineHeight = v; }, el));
+        box.appendChild(_sliderRow("Curve", "", -100, 100, 1,
+          function () { return el.curve || 0; },
+          function (v) {
+            if (v && !el.curve) el.curveFlatW = el.w;   // the straight width, for when it's put back
+            if (v) { el.curve = v; return; }
+            if (!el.curve) return;
+            // Its straight width, or, saved curved, the words' own width on one line.
+            const flat = el.curveFlatW || Math.ceil(curveLayout(el).W) + 8;
+            delete el.curve;
+            const cx = el.x + el.w / 2;
+            el.w = Math.max(20, flat);
+            el.x = Math.round(cx - el.w / 2);
+            delete el.curveFlatW;
+          },
+          function () { partialRenderElement(el); if (!el.curve) fitTextHeight(el); renderHandles(); }, "0 0 7px"));
         if (isAdminMode()) box.appendChild(_canvaHeightRow(el));
         return box;
       },
@@ -3953,9 +3968,19 @@ import { createResizeEngine } from "./resize-engine.js";
     } catch (_) {}
   }
 
+  // The stand-in is capped at 200 x 75 until the slot is sized by hand; from
+  // then on it fills the slot's box (Danielle, 24 Nov).
+  function sizeLogoStandIn(sub, el) {
+    const cap = !isPrintDesign() && !el.logoBox;
+    sub.style.maxWidth = cap ? Math.min(el.w, LOGO_MAX_W) + "px" : "";
+    sub.style.maxHeight = cap ? Math.min(el.h, LOGO_MAX_H) + "px" : "";
+  }
   function partialRenderElement(el) {
     const node = canvasEl.querySelector('[data-id="' + el.id + '"]');
     if (!node) return;
+    const standIn = node.querySelector(":scope > .ed-logostandin");
+    if (standIn) sizeLogoStandIn(standIn, el);
+    if (el.type === "text" && el.curve) curveFitBox(el);
     applyElementStyles(node, el);
     if (SHAPE_TEXT_TYPES.indexOf(el.type) !== -1) { const t = shapeTextFor(el); if (t) seatShapeText(t); }
     // For text, re-apply type styles so live changes (e.g. font scaling on a
@@ -3963,6 +3988,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (el.type === "text") {
       const inner = node.querySelector(".ed-text-inner");
       if (inner) applyTextStyles(inner, el);
+      syncCurveCanvas(node, el);
     }
     // For frames, also re-apply the inner image transform — a resize
     // changes the cover-fit base, and a viewpoint drag changes the offsets.
@@ -4545,6 +4571,7 @@ import { createResizeEngine } from "./resize-engine.js";
     node.className = "ed-element";
     node.dataset.id = el.id;
     node.dataset.type = el.type;
+    if (el.type === "text" && el.curve) curveFitBox(el);   // a new font or size changes the curve's size
     applyElementStyles(node, el);
 
     if (el.type === "text") {
@@ -4555,6 +4582,7 @@ import { createResizeEngine } from "./resize-engine.js";
       setTextInnerContent(inner, el);
       applyTextStyles(inner, el);
       node.appendChild(inner);
+      syncCurveCanvas(node, el);
     } else if (el.type === "image") {
       /* An admin's stand-in is drawn exactly as a real cut-out would be -
          contained, on the floor, moved by the slot's offset and grown by its
@@ -4814,10 +4842,7 @@ import { createResizeEngine } from "./resize-engine.js";
       sub.className = "ed-logostandin";
       sub.alt = ""; sub.draggable = false;
       sub.src = tone != null && tone < 0.5 ? "/images/tmke-logo-light.png" : "/images/tmke-logo-dark.png";
-      if (!isPrintDesign() && !el.logoBox) {
-        sub.style.maxWidth = Math.min(el.w, LOGO_MAX_W) + "px";
-        sub.style.maxHeight = Math.min(el.h, LOGO_MAX_H) + "px";
-      }
+      sizeLogoStandIn(sub, el);
       node.classList.add("has-logostandin");
       node.appendChild(sub);
     }
@@ -5847,6 +5872,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!node) return;
     const inner = node.querySelector(".ed-text-inner");
     if (!inner) return;
+    if (el.curve) return;   // a curve's box is its own shape (curveFitBox)
     // A light-locked box keeps its height; the words fit it instead.
     if (lockState(el) === "light") { fitLockedText(el, inner, true); return; }
     const h = Math.ceil(inner.offsetHeight);
@@ -6017,10 +6043,16 @@ import { createResizeEngine } from "./resize-engine.js";
     const aspect = o.w / o.h;
     // Images and ellipses always keep their proportions; the toggle turns that
     // on for everything else too.
-    const lockAspect = ratioLocked || el.type === "image" || el.type === "ellipse";
+    /* A logo slot sizes like a picture whatever it holds (Danielle, 24 Nov):
+       the corners scale its box in proportion, and that box is the logo's
+       size from then on (rememberLogoBox), for the author and for members.
+       Its placeholder is text, which used to scale as words and collapse the
+       box to one line, so the logo snapped back to 200 wide. */
+    const logoSlot = el.brandRole === "logo";
+    const lockAspect = ratioLocked || logoSlot || el.type === "image" || el.type === "ellipse";
     // Text + corner handle → Canva-style scale: the font grows/shrinks with the
     // box (and the box width follows), so you size by dragging, not guessing.
-    const textScale = (el.type === "text" && handle.length === 2);
+    const textScale = (el.type === "text" && !logoSlot && handle.length === 2);
 
     function onMove(e) {
       let dx = (e.clientX - startX) / state.zoom;
@@ -6068,9 +6100,10 @@ import { createResizeEngine } from "./resize-engine.js";
       el.x = Math.round(nx); el.y = Math.round(ny);
       el.w = Math.round(nw); el.h = Math.round(nh);
       snapResize(el, handle);   // same as dragging: always on, no modifier
+      if (logoSlot) rememberLogoBox(el);   // the stand-in follows the box as it is dragged
       partialRenderElement(el);
       // Wider or narrower, the words rewrap, so the box's height follows them.
-      if (el.type === "text" && (handle === "e" || handle === "w")) fitTextHeight(el);
+      if (el.type === "text" && !logoSlot && (handle === "e" || handle === "w")) fitTextHeight(el);
       renderHandles();
     }
     function onUp() {
@@ -6938,6 +6971,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // Grow (or shrink) the box live as lines are added/removed, and keep the
     // selection outline glued to it.
     function grow() {
+      if (el.curve) return;   // edited straight, drawn curved: the box stays the curve's
       if (lockState(el) === "light") { fitLockedText(el, inner, true); return; }
       const h = Math.ceil(inner.offsetHeight);
       if (h > 0 && h !== el.h) {
@@ -9415,7 +9449,138 @@ import { createResizeEngine } from "./resize-engine.js";
     return out;
   }
 
+  /* ---------- Curved text (Danielle, 24 Nov) ----------
+     "Curve this out-of-office text so that it sits on top of that oval."
+     el.curve runs from -100 to 100: up arches the words like a rainbow, down
+     bends them into a smile, and 100 takes them all the way round a circle.
+     The words go on one line, letter by letter round the arc. The Studio
+     draws them with the same function the download uses, onto a canvas laid
+     over the box, so what is on screen is what downloads. A gradient fill and
+     the highlight box stay on straight text only; curved text takes the
+     colour, outline and shadow. */
+  const _curveCtx = document.createElement("canvas").getContext("2d");
+  function curveText(el) {
+    const t = hasRuns(el) ? el.runs.map(function (r) { return r.text || ""; }).join("") : (el.text || "");
+    return String(t).replace(/\s*\n\s*/g, " ");
+  }
+  function curveFont(el) {
+    return (el.italic ? "italic " : "") + (el.weight || 400) + " " + (el.size || 16) + "px " + canvasStack(el.font);
+  }
+  function curveLayout(el) {
+    const ctx = _curveCtx, size = el.size || 16;
+    ctx.font = curveFont(el);
+    try { ctx.letterSpacing = "0px"; } catch (_) {}
+    const ls = Number(el.letterSpacing) || 0;
+    const glyphs = [];
+    let s = 0, prev = 0, acc = "";
+    Array.from(curveText(el)).forEach(function (ch) {
+      acc += ch;
+      const w = ctx.measureText(acc).width;   // the run so far, so pairs keep their kerning
+      glyphs.push({ ch: ch, gw: w - prev, s: s });
+      s += (w - prev) + ls; prev = w;
+    });
+    const W = Math.max(1, s - ls);
+    const c = Math.max(-100, Math.min(100, Number(el.curve) || 0));
+    const theta = Math.abs(c) / 100 * 2 * Math.PI;
+    const r = theta > 0.0001 ? W / theta : 0, up = c > 0, hh = size * 0.62;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    glyphs.forEach(function (g) {
+      const t = g.s + g.gw / 2 - W / 2;
+      if (!r) { g.x = t; g.y = 0; g.rot = 0; }
+      else {
+        const u = t / r;
+        g.x = r * Math.sin(u);
+        g.y = (up ? 1 : -1) * r * (1 - Math.cos(u));
+        g.rot = up ? u : -u;
+      }
+      const cs = Math.cos(g.rot), sn = Math.sin(g.rot);
+      [[-g.gw / 2, -hh], [g.gw / 2, -hh], [g.gw / 2, hh], [-g.gw / 2, hh]].forEach(function (p) {
+        const px = g.x + p[0] * cs - p[1] * sn, py = g.y + p[0] * sn + p[1] * cs;
+        if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+      });
+    });
+    if (!glyphs.length) { x0 = -W / 2; x1 = W / 2; y0 = -hh; y1 = hh; }
+    return { glyphs: glyphs, font: ctx.font, x0: x0, y0: y0, x1: x1, y1: y1, W: W };
+  }
+  // The box hugs the curve, round the same middle, so the handles sit on it.
+  function curveFitBox(el) {
+    if (!el || el.type !== "text" || !el.curve) return;
+    const L = curveLayout(el);
+    const w = Math.max(8, Math.ceil(L.x1 - L.x0)), h = Math.max(8, Math.ceil(L.y1 - L.y0));
+    if (Math.abs(w - el.w) < 2 && Math.abs(h - el.h) < 2) return;
+    const cx = el.x + el.w / 2, cy = el.y + el.h / 2;
+    el.w = w; el.h = h;
+    el.x = Math.round(cx - w / 2); el.y = Math.round(cy - h / 2);
+  }
+  function drawCurvedText(ctx, el) {
+    const L = curveLayout(el);
+    const ox = el.w / 2 - (L.x0 + L.x1) / 2, oy = el.h / 2 - (L.y0 + L.y1) / 2;
+    // Shadows are drawn in screen pixels whatever the scale, so scale them.
+    let sc = 1;
+    try { const m = ctx.getTransform(); sc = Math.hypot(m.a, m.b) || 1; } catch (_) {}
+    ctx.save();
+    ctx.font = L.font;
+    try { ctx.letterSpacing = "0px"; } catch (_) {}
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const sh = el.textShadow && el.textShadow.enabled ? el.textShadow : null;
+    const ol = el.textOutline && el.textOutline.width > 0 ? el.textOutline : null;
+    const glyph = function (g, fn) {
+      ctx.save();
+      ctx.translate(ox + g.x, oy + g.y);
+      ctx.rotate(g.rot);
+      fn(g.ch);
+      ctx.restore();
+    };
+    if (ol) {
+      ctx.lineWidth = ol.width * 2;
+      ctx.strokeStyle = ol.color || "#1c1d22";
+      ctx.lineJoin = "round";
+      L.glyphs.forEach(function (g) { glyph(g, function (ch) { ctx.strokeText(ch, 0, 0); }); });
+    }
+    if (sh) {
+      ctx.shadowColor = hexToRgba(sh.color || "#000000", sh.opacity != null ? sh.opacity : 0.45);
+      ctx.shadowBlur = (sh.blur || 0) * sc;
+      ctx.shadowOffsetX = (sh.offsetX || 0) * sc;
+      ctx.shadowOffsetY = (sh.offsetY || 0) * sc;
+    }
+    ctx.fillStyle = el.color || "#1c1d22";
+    L.glyphs.forEach(function (g) { glyph(g, function (ch) { ctx.fillText(ch, 0, 0); }); });
+    ctx.restore();
+  }
+  // On screen: the same drawing on a canvas over the box, a little bigger
+  // than it so an outline or shadow isn't cut off.
+  const _curveFontsAsked = {};
+  function syncCurveCanvas(node, el) {
+    const old = node.querySelector(":scope > .ed-text-curve");
+    if (old) old.remove();
+    node.classList.toggle("is-curved", !!(el.type === "text" && el.curve));
+    if (el.type !== "text" || !el.curve) return;
+    const font = curveFont(el);
+    try {
+      if (document.fonts && !document.fonts.check(font) && !_curveFontsAsked[font]) {
+        _curveFontsAsked[font] = true;
+        document.fonts.load(font).then(function () { fullRender(); }).catch(function () {});
+      }
+    } catch (_) {}
+    const sh = el.textShadow && el.textShadow.enabled ? el.textShadow : null;
+    const pad = Math.ceil((el.size || 16) * 0.5 + (el.textOutline ? (el.textOutline.width || 0) * 2 : 0)
+      + (sh ? (sh.blur || 0) * 2 + Math.max(Math.abs(sh.offsetX || 0), Math.abs(sh.offsetY || 0)) : 0));
+    const k = Math.min(4, Math.max(1, (state.zoom || 1) * (window.devicePixelRatio || 1)));
+    const W = el.w + pad * 2, H = el.h + pad * 2;
+    const cv = document.createElement("canvas");
+    cv.className = "ed-text-curve";
+    cv.width = Math.max(1, Math.ceil(W * k)); cv.height = Math.max(1, Math.ceil(H * k));
+    cv.style.cssText = "position:absolute;left:" + (-pad) + "px;top:" + (-pad) + "px;width:" + W + "px;height:" + H + "px;pointer-events:none;";
+    const ctx = cv.getContext("2d");
+    ctx.scale(k, k);
+    ctx.translate(pad, pad);
+    drawCurvedText(ctx, el);
+    node.appendChild(cv);
+  }
+
   function drawTextElementToCanvas(ctx, el) {
+    if (el.curve) { drawCurvedText(ctx, el); return; }
     const font = canvasStack(el.font);
     /* Measured from the DOM (print): draw the lines the browser produced, at
        the baselines it put them on, and skip every computation below. */
@@ -15796,18 +15961,21 @@ import { createResizeEngine } from "./resize-engine.js";
   // least say which part of the design it is.
   // The example in an empty name box, by what the item is (Danielle, 18 Nov).
   function fieldPlaceholderFor(el) {
+    // The logo slot is text ({brand name}) until a logo fills it, but it is
+    // the logo that goes there, not the name (Danielle, 24 Nov).
+    if (el.brandRole === "logo") return "Your logo goes here";
     if (el.type === "text") return "e.g. This is where the town goes";
     if (el.type === "wframe") return "e.g. Change the frame round your message";
     if (/^(rect|ellipse|triangle|star)$/.test(el.type) && !el.src) return "e.g. Pick the colour of the box behind your name";
     if (el.brandRole === "qr") return "e.g. Where your QR code takes people";
     if (el.brandRole === "photo" || el.brandRole === "headshot") return "e.g. This is where the photo of you goes";
-    if (el.brandRole === "logo") return "e.g. Your logo";
     if (isIllustrationPicture(el)) return "e.g. Choose your Christmas picture";
     return "e.g. This is where the photo of the house goes";
   }
   function fieldLabelFor(el) {
     const named = (el.fieldLabel || "").trim();
     if (named) return named;
+    if (el.brandRole === "logo") return "Your logo goes here";
     if (el.type === "text") {
       const words = (el.text || "").replace(/\s+/g, " ").trim();
       if (words) return words.length > 42 ? words.slice(0, 42) + "…" : words;
@@ -15815,7 +15983,6 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     if (el.brandRole === "photo") return "Photograph of you";
     if (el.brandRole === "headshot") return "Your headshot";
-    if (el.brandRole === "logo") return "Your logo";
     if (el.brandRole === "qr") return "Your QR code";
     if (el.type === "wframe") return "The frame";
     if (/^(rect|ellipse|triangle|star)$/.test(el.type) && !el.src) return "Box colour";
@@ -15921,7 +16088,7 @@ import { createResizeEngine } from "./resize-engine.js";
         const name = document.createElement("input");
         name.type = "text";
         name.className = "ed-field-name";
-        name.value = el.fieldLabel || "";
+        name.value = el.fieldLabel || (el.brandRole === "logo" ? "Your logo goes here" : "");
         name.placeholder = fieldPlaceholderFor(el);
         name.addEventListener("change", function () {
           el.fieldLabel = name.value.trim() || null;
@@ -16367,7 +16534,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
   // The thing you actually change: words for text, a picture for a picture.
   function fieldControlFor(el, admin) {
-    if (el.type === "text") {
+    if (el.type === "text" && el.brandRole !== "logo") {
       const ta = document.createElement("textarea");
       ta.className = "ed-field-input";
       ta.rows = Math.min(4, Math.max(1, String(el.text || "").split("\n").length));
@@ -16380,7 +16547,8 @@ import { createResizeEngine } from "./resize-engine.js";
     box.className = "ed-field-pic";
     const thumb = document.createElement("span");
     thumb.className = "ed-field-thumb";
-    const src = el.src || (el.brandRole === "photo" ? null : null);
+    // An empty logo slot shows the TMKE stand-in, as the design does.
+    const src = el.src || (el.brandRole === "logo" && isAdminMode() ? "/images/tmke-logo-dark.png" : null);
     if (src) thumb.style.backgroundImage = "url(" + JSON.stringify(src) + ")";
     else thumb.classList.add("is-empty");
     box.appendChild(thumb);
