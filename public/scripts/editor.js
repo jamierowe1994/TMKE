@@ -2280,7 +2280,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const els = selectedElements();
     if (!els.length) return;
     if (lockBlocks(els)) return;
-    state.clipboard = els.map(deep);
+    state.clipboard = withShapeWords(els).map(deep);
     state.clipboardAt = Date.now();
     writeSharedClipboard(state.clipboard);
     toast(els.length + " copied");
@@ -8501,12 +8501,19 @@ import { createResizeEngine } from "./resize-engine.js";
     return (shared.at || 0) > (state.clipboardAt || 0) ? tag(shared.els, shared.page) : tag(state.clipboard, state.clipboardPage);
   }
 
+  /* A shape is copied with its words (Danielle, 24 Nov), like Duplicate. */
+  function withShapeWords(els) {
+    const out = els.slice();
+    els.forEach((e) => { const t = shapeTextFor(e); if (t && out.indexOf(t) === -1) out.push(t); });
+    return out;
+  }
   function copySelected() {
     if (lockBlocks()) return;
-    state.clipboard = selectedElements().map(deep);
+    const picked = selectedElements();
+    state.clipboard = withShapeWords(picked).map(deep);
     state.clipboardAt = Date.now();
     writeSharedClipboard(state.clipboard);
-    toast("Copied " + state.clipboard.length + " element(s)");
+    toast("Copied " + picked.length + " element(s)");
   }
   /* Pasted where it was copied from. It used to land 20px right and down
      every time, which only makes sense on top of the original; pasted onto
@@ -8542,14 +8549,23 @@ import { createResizeEngine } from "./resize-engine.js";
       Math.abs(o.w - e.w) < 0.5 && Math.abs(o.h - e.h) < 0.5));
     let shift = 0;
     while (shift < 400 && taken(shift)) shift += 20;
+    const idMap = {};
     const copies = clip.map((e) => {
       const c = deep(e);
       c.id = uid(c.type);
+      if (e.id) idMap[e.id] = c.id;
       c.x += bx + shift; c.y += by + shift;
       return c;
     });
+    // Words come back tied to the pasted shape; without it, a free text box.
+    copies.forEach((c) => {
+      if (!c.inShape) return;
+      if (idMap[c.inShape]) c.inShape = idMap[c.inShape];
+      else delete c.inShape;
+    });
     state.elements.push(...copies);
-    state.selectedIds = copies.map((c) => c.id);
+    // The shape is what's picked, as it would be with a click.
+    state.selectedIds = copies.filter((c) => !(c.inShape && copies.some((o) => o.id === c.inShape))).map((c) => c.id);
     pushHistory();
     fullRender();
   }
