@@ -14857,9 +14857,9 @@ import { createResizeEngine } from "./resize-engine.js";
     ctxEl.appendChild(positionWrap);
 
     // Effects — text-label popover trigger. Reuses renderEffectsSection so
-    // the markup matches what the right panel used to show. Skipped for
-    // line elements (no useful shadow on a 1-axis line).
-    if (el.type !== "line") {
+    // the markup matches what the right panel used to show. Lines too since
+    // 24 Nov (Danielle: "add an effect, like a shadow, to lines as well").
+    {
       const effectsWrap = popoverIconButton({
         icon: '<span class="ed-ctx-poplabel">Effects</span>',
         title: "Effects",
@@ -15017,7 +15017,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // element you just clicked. Recolouring or nudging several items in a row
     // is the common case, so the panel is dismissed deliberately rather than
     // by the act of selecting the next thing. If the new element has no such
-    // control (no Effects on a line, say) it simply stays closed.
+    // control it simply stays closed.
     if (_reopenPopoverKey) {
       const want = _reopenPopoverKey;
       const entry = _livePopovers.filter(function (p) { return p.key === want; })[0];
