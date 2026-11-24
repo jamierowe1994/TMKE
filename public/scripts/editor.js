@@ -3763,6 +3763,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const a = (xpTwo(v) || {}).accent || xpAccent(v);
       if (a) (state.elements || []).forEach(function (o) { if (o && o.type === "wframe" && !o.fillPattern) o.stroke = a; });
     }
+    retoneLogos(function () { fullRender(); });   // light logo on a dark pattern, dark on a light one
     if (!live) pushHistory();   // the colour button and the slider record their own
     fullRender();
     if (!live && typeof refreshPageThumbs === "function") refreshPageThumbs();
@@ -3774,6 +3775,10 @@ import { createResizeEngine } from "./resize-engine.js";
     const sig = xpBgSig();
     if (!force && sig === _xpBgSig) return;
     _xpBgSig = sig;
+    // The Patterns fold: open on a page that has one, shut on one that
+    // doesn't. Only when the page or design changes, never under a click.
+    const fold = document.getElementById("ed-bg-pattern-fold");
+    if (fold && !force) fold.open = !!state.canvas.bgPattern;
     const get = bgPatGet, set = bgPatSet;
     mounts.forEach(function (mount) {
       mount.innerHTML = "";
@@ -4804,7 +4809,7 @@ import { createResizeEngine } from "./resize-engine.js";
        size follows the member's rule: the slot's own box on print, at most
        200 x 75 elsewhere. */
     if (el.brandRole === "logo" && isAdminMode() && (el.type === "text" || (el.type === "image" && !el.src))) {
-      const tone = hexTone(colourBehind(el, { elements: state.elements, canvas: state.canvas }));
+      const tone = toneBehind(el, { elements: state.elements, canvas: state.canvas }, function () { fullRender(); });
       const sub = document.createElement("img");
       sub.className = "ed-logostandin";
       sub.alt = ""; sub.draggable = false;
@@ -13266,7 +13271,9 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   function loadLogoTones() { return Promise.all(kitLogos().map(function (l) { return measureLogoTone(l.src); })); }
   function hexTone(hex) {
-    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+    let s = String(hex || "").trim().replace(/^#/, "");
+    if (/^[0-9a-f]{3}$/i.test(s)) s = s.replace(/./g, "$&$&");
+    const m = /^([0-9a-f]{6})(?:[0-9a-f]{2})?$/i.exec(s);
     if (!m) return null;
     const n = parseInt(m[1], 16);
     return (0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255)) / 255;
@@ -13285,6 +13292,68 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     return pg.canvas && pg.canvas.background;
   }
+  /* How light the pattern is overall, 0 to 1 (Danielle, 24 Nov: the TMKE
+     logo came out dark on the olive tartan). The background's own colour
+     sits under the pattern and is usually white, so it said "light". Each
+     pattern is drawn once, small, and its pixels averaged; until that is
+     done its ground colour stands in. */
+  const _patTone = {};
+  function patternTone(fill, after) {
+    const p = fill && xpPattern(fill.key);
+    if (!p) return null;
+    const cols = Object.assign({}, p.cols, fill.cols || {});
+    const sig = fill.key + "|" + JSON.stringify(cols);
+    const got = _patTone[sig];
+    if (typeof got === "number") return got;
+    if (!got) {
+      _patTone[sig] = new Promise(function (resolve) {
+        const t = xpTile({ key: fill.key, cols: cols }, 64 / Math.max(p.tw, p.th));
+        const im = new Image();
+        im.onload = function () {
+          let tone = null;
+          try {
+            const c = document.createElement("canvas");
+            c.width = t.w; c.height = t.h;
+            const g = c.getContext("2d");
+            g.drawImage(im, 0, 0, t.w, t.h);
+            const d = g.getImageData(0, 0, t.w, t.h).data;
+            let sum = 0, n = 0;
+            for (let i = 0; i < d.length; i += 4) { sum += (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255; n++; }
+            tone = n ? sum / n : null;
+          } catch (_) { tone = null; }
+          _patTone[sig] = tone != null ? tone : hexTone(cols.ground);
+          resolve();
+        };
+        im.onerror = function () { _patTone[sig] = hexTone(cols.ground); resolve(); };
+        im.src = t.url;
+      });
+    }
+    if (after) _patTone[sig].then(after);
+    return hexTone(cols.ground);
+  }
+  // The same question as colourBehind, answered as a lightness, so a
+  // patterned background or a patterned box counts as what it looks like.
+  function toneBehind(slot, pg, after) {
+    const els = pg.elements || [];
+    const cx = slot.x + slot.w / 2, cy = slot.y + slot.h / 2;
+    for (let i = els.indexOf(slot) - 1; i >= 0; i--) {
+      const o = els[i];
+      if (!o || o.hidden || (o.type !== "rect" && o.type !== "ellipse")) continue;
+      if ((o.opacity != null ? o.opacity : 1) < 0.5 || o.rotation) continue;
+      if (!(cx >= o.x && cx <= o.x + o.w && cy >= o.y && cy <= o.y + o.h)) continue;
+      if (o.fillPattern && xpPattern(o.fillPattern.key)) return patternTone(o.fillPattern, after);
+      if (!o.fill || o.fill === "transparent" || (o.fillGradient && o.fillGradient.enabled)) continue;
+      return hexTone(o.fill);
+    }
+    const cv = pg.canvas || {};
+    if (cv.bgPattern && xpPattern(cv.bgPattern.key)) {
+      // A folded card's outside can carry the pattern on one half only.
+      const area = isFolded(cv) && cv.fold !== "inside" ? (cv.bgPattern.area || "both") : "both";
+      const onRight = cx > (cv.width || 0) / 2;
+      if (area === "both" || (area === "front") === onRight) return patternTone(cv.bgPattern, after);
+    }
+    return hexTone(cv.background);
+  }
   const LOGO_STANDS_OUT = 0.35;
   // Swaps logos already measured; true if any changed. Starts measuring any
   // that aren't and, once they are, runs again (then = after a change).
@@ -13302,7 +13371,7 @@ import { createResizeEngine } from "./resize-engine.js";
       (pg.elements || []).forEach(function (el) {
         if (!el || el.brandRole !== "logo" || el.type !== "image" || !el.src) return;
         if (!el.autoLogo && kitSrcs.indexOf(el.src) < 0) return;   // a picture they put there themselves
-        const bg = hexTone(colourBehind(el, pg));
+        const bg = toneBehind(el, pg, then ? function () { if (retoneLogos()) then(); } : null);
         if (bg == null) return;
         const cur = _logoTone[el.src];
         if (cur != null && Math.abs(cur - bg) >= LOGO_STANDS_OUT) return;

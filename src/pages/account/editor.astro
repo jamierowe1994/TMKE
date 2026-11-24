@@ -1276,10 +1276,12 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         </div>
 
         <!-- ===== Christmas patterns (Dani, 18 Nov): editor.js xpPicker ===== -->
-        <div class="ed-bg-sec">
-          <div class="ed-section-title">Patterns</div>
+        <!-- Folds away (Danielle, 24 Nov). Closed unless the page already
+             has a pattern; editor.js syncBgPatterns opens it then. -->
+        <details class="ed-bg-sec ed-pat-fold" id="ed-bg-pattern-fold">
+          <summary class="ed-section-title">Patterns</summary>
           <div id="ed-bg-pattern-mount"></div>
-        </div>
+        </details>
 
         <!-- ===== Image ===== -->
         <div class="ed-bg-sec">
@@ -2722,6 +2724,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-stock-search input[type="search"]:focus {
       border-color: var(--english-violet);
     }
+    /* Patterns in the Background pane: a fold, the arrow on the right. */
+    .ed-pat-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+    .ed-pat-fold > summary::-webkit-details-marker { display: none; }
+    .ed-pat-fold > summary::after { content: ""; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); margin: -3px 4px 0 0; transition: transform 0.2s; }
+    .ed-pat-fold[open] > summary::after { transform: rotate(-135deg); margin-top: 3px; }
+    .ed-pat-fold > summary:hover { color: var(--english-violet); }
+    /* Same gap above as the other section titles (the first-of-type rule would zero it). */
+    .ed-panel details.ed-pat-fold.ed-bg-sec > summary.ed-section-title:first-child { margin-top: 24px; }
     /* Your templates (admin): a fold like the others in the panel. */
     .ed-tplimg { margin-top: 22px; }
     .ed-tplimg > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
