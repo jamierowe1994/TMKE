@@ -14808,6 +14808,19 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   // ---------- Layers ----------
+  /* Run a redraw without the panel following the selection off Layers. The
+     redraw may still switch panes on the way (text goes to Text, a frame to
+     Christmas); Layers is put back straight after, in the same frame, so
+     nothing flickers and its scroll position comes back with it. */
+  let _layerClick = { id: null, t: 0 };
+  function stayOnLayers(fn) {
+    const onLayers = activeToolPane === "layers";
+    fn();
+    if (!onLayers || activeToolPane === "layers" && document.querySelector('.ed-panel-pane.is-active[data-pane="layers"]')) return;
+    const btn = document.querySelector('.ed-rail-btn[data-tool="layers"]');
+    if (btn) btn.click();
+  }
+
   function renderLayers() {
     layersEl.innerHTML = "";
     for (let i = state.elements.length - 1; i >= 0; i--) {
@@ -14882,11 +14895,32 @@ import { createResizeEngine } from "./resize-engine.js";
       li.appendChild(hideBtn);
       li.appendChild(lockBtn);
 
-      li.addEventListener("click", () => {
+      /* Picking in Layers keeps you in Layers (Danielle, 24 Nov): a wrong
+         pick costs nothing, and Cmd/Ctrl-click (or Shift) adds or removes a
+         layer so several can be picked and grouped with the bar over them.
+         A double-click on a row opens that item's controls, the same as
+         clicking it on the design. The row is redrawn on every click, so the
+         double-click is counted here rather than left to the browser. */
+      li.addEventListener("click", (e) => {
         if (li._dragged) { li._dragged = false; return; }   // a drag, not a click
         if (memberLock(el) === "dead") { toast("That part is fixed in this template."); return; }
-        state.selectedIds = [el.id];
-        fullRender();
+        const now = Date.now();
+        const twice = _layerClick.id === el.id && now - _layerClick.t < 450 && !(e.metaKey || e.ctrlKey || e.shiftKey);
+        _layerClick = twice ? { id: null, t: 0 } : { id: el.id, t: now };
+        if (twice) {
+          state.selectedIds = [el.id];
+          _paneFollowClick = true;
+          fullRender();
+          return;
+        }
+        if (e.metaKey || e.ctrlKey || e.shiftKey) {
+          state.selectedIds = state.selectedIds.includes(el.id)
+            ? state.selectedIds.filter((x) => x !== el.id)
+            : state.selectedIds.concat(el.id);
+        } else {
+          state.selectedIds = [el.id];
+        }
+        stayOnLayers(fullRender);
       });
 
       li.dataset.id = el.id;
@@ -19962,16 +19996,58 @@ import { createResizeEngine } from "./resize-engine.js";
     const t = (dt && dt.types) || [];
     return (t.indexOf ? t.indexOf("text/uri-list") !== -1 || t.indexOf("text/plain") !== -1 : false);
   }
+  /* A picture dragged in from Images or Uploads and let go over a photo that
+     is on the page swaps that photo, the way a frame takes one (Danielle, 24
+     Nov: people place a photo, then find a better one). Same box, same place,
+     cropped to fill it. Only a drag from the panels does this: moving a photo
+     on the page is a pointer drag, never a drop, so one photo can't swallow
+     another. Plain photos only: not a logo, an agent photo or an
+     illustration, nothing hidden, nothing the template fixes. */
+  function swapTargetAt(cx, cy) {
+    const nodes = document.elementsFromPoint(cx, cy);
+    for (const n of nodes) {
+      const node = n.closest && n.closest(".ed-element[data-id]");
+      if (!node || !canvasEl.contains(node)) continue;
+      const el = getEl(node.dataset.id);
+      if (!el) continue;
+      if (el.type !== "image" || el.brandRole || el.hidden || memberLock(el)) return null;
+      return { el, node };
+    }
+    return null;
+  }
+  let _swapNode = null;
+  function markSwap(node) {
+    if (_swapNode === node) return;
+    if (_swapNode) _swapNode.classList.remove("is-drop-target");
+    _swapNode = node;
+    if (node) node.classList.add("is-drop-target");
+  }
   canvasEl.addEventListener("dragover", function (e) {
     if (!_dtHasUri(e.dataTransfer)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
+    const hit = swapTargetAt(e.clientX, e.clientY);
+    markSwap(hit ? hit.node : null);
+  });
+  canvasEl.addEventListener("dragleave", function (e) {
+    if (!e.relatedTarget || !canvasEl.contains(e.relatedTarget)) markSwap(null);
   });
   canvasEl.addEventListener("drop", function (e) {
+    markSwap(null);
     if (!e.dataTransfer) return;
     const src = droppedImageSrc(e.dataTransfer);
     if (!src) return;
     e.preventDefault();
+    const hit = swapTargetAt(e.clientX, e.clientY);
+    if (hit) {
+      const el = hit.el;
+      el.src = src;
+      delete el.imgPosX; delete el.imgPosY; delete el.imgZoom;   // a new picture starts centred
+      state.selectedIds = [el.id];
+      pushHistory();
+      fullRender();
+      return;
+    }
     const rect = canvasEl.getBoundingClientRect();
     const x = (e.clientX - rect.left) / state.zoom;
     const y = (e.clientY - rect.top) / state.zoom;
