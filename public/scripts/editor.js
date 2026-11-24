@@ -1104,21 +1104,6 @@ import { createResizeEngine } from "./resize-engine.js";
         box.appendChild(_spacingRow("Line spacing", "", 0.8, 3, 0.05,
           function () { return el.lineHeight != null ? el.lineHeight : 1.3; },
           function (v) { el.lineHeight = v; }, el));
-        box.appendChild(_sliderRow("Curve", "", -100, 100, 1,
-          function () { return el.curve || 0; },
-          function (v) {
-            if (v && !el.curve) el.curveFlatW = el.w;   // the straight width, for when it's put back
-            if (v) { el.curve = v; return; }
-            if (!el.curve) return;
-            // Its straight width, or, saved curved, the words' own width on one line.
-            const flat = el.curveFlatW || Math.ceil(curveLayout(el).W) + 8;
-            delete el.curve;
-            const cx = el.x + el.w / 2;
-            el.w = Math.max(20, flat);
-            el.x = Math.round(cx - el.w / 2);
-            delete el.curveFlatW;
-          },
-          function () { partialRenderElement(el); if (!el.curve) fitTextHeight(el); renderHandles(); }, "0 0 7px"));
         if (isAdminMode()) box.appendChild(_canvaHeightRow(el));
         return box;
       },
@@ -5835,6 +5820,7 @@ import { createResizeEngine } from "./resize-engine.js";
         if (!el) return;
         el.x = Math.round(m.x + dx);
         el.y = Math.round(m.y + dy);
+        if (el.type === "text" && el.curve && initial.length === 1) showCurveGuide(el);
         partialRenderElement(el);
       });
 
@@ -9466,6 +9452,48 @@ import { createResizeEngine } from "./resize-engine.js";
   function curveFont(el) {
     return (el.italic ? "italic " : "") + (el.weight || 400) + " " + (el.size || 16) + "px " + canvasStack(el.font);
   }
+  /* Round a circle or an oval (25 Nov). Free, the Bend sets how much of the
+     path the words cover and the Oval squashes or stretches it; fitted to a
+     shape (el.curveFit), the path is that shape's own oval, pushed out by a
+     gap, and stays put however long the words get. */
+  function _ellPerim(a, b) {
+    const h = Math.pow(a - b, 2) / Math.pow(a + b, 2);
+    return Math.PI * (a + b) * (1 + 3 * h / (10 + Math.sqrt(4 - 3 * h)));
+  }
+  function curveOvalQ(el) {
+    const o = Number(el.curveOval);
+    return o > 0 ? Math.max(0.2, Math.min(3, o / 100)) : 1;
+  }
+  function curveRadii(el, W) {
+    const f = el.curveFit;
+    if (f && f.rx > 0 && f.ry > 0) {
+      const g = Number(f.gap) || 0;
+      return { Rx: Math.max(4, f.rx + g), Ry: Math.max(4, f.ry + g) };
+    }
+    const c = Math.min(100, Math.abs(Number(el.curve) || 0));
+    if (c < 0.01) return null;
+    const q = curveOvalQ(el);
+    const Rx = W / (c / 100 * _ellPerim(1, q));
+    return { Rx: Rx, Ry: Rx * q };
+  }
+  // Distance along the path → angle round it, from a table of the oval.
+  function _arcTable(Rx, Ry) {
+    const N = 720, L = new Float64Array(N + 1);
+    let px = 0, py = 0;
+    for (let i = 1; i <= N; i++) {
+      const p = i / N * 2 * Math.PI, x = Rx * Math.sin(p), y = Ry * (1 - Math.cos(p));
+      L[i] = L[i - 1] + Math.hypot(x - px, y - py); px = x; py = y;
+    }
+    return L;
+  }
+  function _phiAt(L, s) {
+    const N = L.length - 1, T = L[N];
+    if (s >= T) return 2 * Math.PI * (1 + (s - T) / T);
+    let lo = 0, hi = N;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (L[m] <= s) lo = m; else hi = m; }
+    const f = (s - L[lo]) / ((L[hi] - L[lo]) || 1);
+    return (lo + f) / N * 2 * Math.PI;
+  }
   function curveLayout(el) {
     const ctx = _curveCtx, size = el.size || 16;
     ctx.font = curveFont(el);
@@ -9480,18 +9508,19 @@ import { createResizeEngine } from "./resize-engine.js";
       s += (w - prev) + ls; prev = w;
     });
     const W = Math.max(1, s - ls);
-    const c = Math.max(-100, Math.min(100, Number(el.curve) || 0));
-    const theta = Math.abs(c) / 100 * 2 * Math.PI;
-    const r = theta > 0.0001 ? W / theta : 0, up = c > 0, hh = size * 0.62;
+    const R = curveRadii(el, W), up = (Number(el.curve) || 0) >= 0, hh = size * 0.62;
+    const tab = R ? _arcTable(R.Rx, R.Ry) : null;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     glyphs.forEach(function (g) {
       const t = g.s + g.gw / 2 - W / 2;
-      if (!r) { g.x = t; g.y = 0; g.rot = 0; }
+      if (!R) { g.x = t; g.y = 0; g.rot = 0; }
       else {
-        const u = t / r;
-        g.x = r * Math.sin(u);
-        g.y = (up ? 1 : -1) * r * (1 - Math.cos(u));
-        g.rot = up ? u : -u;
+        const u = (t < 0 ? -1 : 1) * _phiAt(tab, Math.abs(t));
+        let rot = Math.atan2(R.Ry * Math.sin(u), R.Rx * Math.cos(u));
+        if (u > Math.PI) rot += 2 * Math.PI; else if (u < -Math.PI) rot -= 2 * Math.PI;
+        g.x = R.Rx * Math.sin(u);
+        g.y = (up ? 1 : -1) * R.Ry * (1 - Math.cos(u));
+        g.rot = up ? rot : -rot;
       }
       const cs = Math.cos(g.rot), sn = Math.sin(g.rot);
       [[-g.gw / 2, -hh], [g.gw / 2, -hh], [g.gw / 2, hh], [-g.gw / 2, hh]].forEach(function (p) {
@@ -9500,17 +9529,138 @@ import { createResizeEngine } from "./resize-engine.js";
       });
     });
     if (!glyphs.length) { x0 = -W / 2; x1 = W / 2; y0 = -hh; y1 = hh; }
-    return { glyphs: glyphs, font: ctx.font, x0: x0, y0: y0, x1: x1, y1: y1, W: W };
+    // How far round the path the words reach, as the Bend slider reads it.
+    const bend = R ? (up ? 1 : -1) * Math.min(100, W / _ellPerim(R.Rx, R.Ry) * 100) : 0;
+    return { glyphs: glyphs, font: ctx.font, x0: x0, y0: y0, x1: x1, y1: y1, W: W,
+      Rx: R ? R.Rx : 0, Ry: R ? R.Ry : 0, up: up, bend: bend };
   }
-  // The box hugs the curve, round the same middle, so the handles sit on it.
+  // Where the middle of the words (the top of an arch, the bottom of a smile)
+  // sits inside the box, which is drawn centred on the curve.
+  function curveApexIn(L, w, h) {
+    return { x: w / 2 - (L.x0 + L.x1) / 2, y: h / 2 - (L.y0 + L.y1) / 2 };
+  }
+  /* The box hugs the curve, so the handles sit on it. Free, it keeps its
+     middle; fitted to a shape, it keeps the middle of the words where they
+     are, so the words stay on the oval when they're changed. */
   function curveFitBox(el) {
     if (!el || el.type !== "text" || !el.curve) return;
     const L = curveLayout(el);
     const w = Math.max(8, Math.ceil(L.x1 - L.x0)), h = Math.max(8, Math.ceil(L.y1 - L.y0));
+    const f = el.curveFit;
+    if (f) {
+      const a = curveApexIn(L, w, h);
+      if (f.ox == null) { const a0 = curveApexIn(L, el.w, el.h); f.ox = a0.x; f.oy = a0.y; }
+      if (w === el.w && h === el.h && Math.abs(a.x - f.ox) < 0.25 && Math.abs(a.y - f.oy) < 0.25) return;
+      const ax = el.x + f.ox, ay = el.y + f.oy;
+      el.w = w; el.h = h;
+      el.x = Math.round((ax - a.x) * 100) / 100; el.y = Math.round((ay - a.y) * 100) / 100;
+      f.ox = a.x; f.oy = a.y;
+      return;
+    }
     if (Math.abs(w - el.w) < 2 && Math.abs(h - el.h) < 2) return;
     const cx = el.x + el.w / 2, cy = el.y + el.h / 2;
     el.w = w; el.h = h;
     el.x = Math.round(cx - w / 2); el.y = Math.round(cy - h / 2);
+  }
+  // Puts the middle of the words at a point on the page.
+  function curvePlaceApex(el, ax, ay) {
+    const L = curveLayout(el);
+    const w = Math.max(8, Math.ceil(L.x1 - L.x0)), h = Math.max(8, Math.ceil(L.y1 - L.y0));
+    const a = curveApexIn(L, w, h);
+    el.w = w; el.h = h;
+    el.x = Math.round((ax - a.x) * 100) / 100; el.y = Math.round((ay - a.y) * 100) / 100;
+    if (el.curveFit) { el.curveFit.ox = a.x; el.curveFit.oy = a.y; }
+  }
+  // Shapes the words can follow: anything drawn as an oval or a circle.
+  function isOvalShape(e) {
+    if (!e || e.hidden) return false;
+    return e.type === "ellipse" || isOvalSlot(e) || e.frameShape === "circle"
+      || (e.type === "wframe" && e.shape === "wavyoval");
+  }
+  /* Fit the words round the nearest oval: over its top, or under its bottom.
+     Danielle, 25 Nov: Canva's curve only follows a circle and is never quite
+     on the line; this follows the oval itself. Returns false when there's no
+     oval to follow. */
+  function curveOntoShape(el, under) {
+    const cx = el.x + el.w / 2, cy = el.y + el.h / 2;
+    let best = null, bd = Infinity;
+    (state.elements || []).forEach(function (e) {
+      if (e === el || !isOvalShape(e)) return;
+      const px = e.x + e.w / 2, py = under ? e.y + e.h : e.y;
+      const d = Math.hypot(px - cx, py - cy);
+      if (d < bd) { bd = d; best = e; }
+    });
+    if (!best) return false;
+    if (!el.curve) el.curveFlatW = el.w;
+    const gap = el.curveFit && el.curveFit.gap != null ? el.curveFit.gap : Math.round((el.size || 16) * 0.6);
+    el.curveFit = { rx: best.w / 2, ry: best.h / 2, gap: gap };
+    el.curve = under ? -1 : 1;
+    el.rotation = best.rotation || 0;
+    // The middle of the words, out from the oval by the gap. A turned oval
+    // turns the words with it, round the oval's centre.
+    const ocx = best.x + best.w / 2, ocy = best.y + best.h / 2;
+    let ax = ocx, ay = under ? best.y + best.h + gap : best.y - gap;
+    curvePlaceApex(el, ax, ay);
+    if (el.rotation) {
+      // Turning the box turns it round its own middle; move that middle so
+      // the words turn round the oval's centre instead.
+      const r = el.rotation * Math.PI / 180, bx = el.x + el.w / 2 - ocx, by = el.y + el.h / 2 - ocy;
+      const nx = ocx + bx * Math.cos(r) - by * Math.sin(r), ny = ocy + bx * Math.sin(r) + by * Math.cos(r);
+      el.x = Math.round((nx - el.w / 2) * 100) / 100; el.y = Math.round((ny - el.h / 2) * 100) / 100;
+    }
+    return true;
+  }
+  // Leaving a fit for a free curve keeps the curve as it is: same bend, same oval.
+  function curveUnfit(el) {
+    if (!el.curveFit) return;
+    const L = curveLayout(el);
+    el.curveOval = Math.round(Math.max(20, Math.min(300, L.Ry / L.Rx * 100)));
+    el.curve = Math.round(L.bend) || (L.up ? 1 : -1);
+    delete el.curveFit;
+  }
+  // Back to straight words, at the width they had before.
+  function curveOff(el) {
+    if (!el.curve) return;
+    const flat = el.curveFlatW || Math.ceil(curveLayout(el).W) + 8;
+    delete el.curve; delete el.curveFit; delete el.curveOval;
+    const cx = el.x + el.w / 2;
+    el.w = Math.max(20, flat);
+    el.x = Math.round(cx - el.w / 2);
+    delete el.curveFlatW;
+  }
+  /* The path the words follow, shown dashed while the curve is being changed
+     or the words moved, the way Canva shows its circle. Gone 1.5s after. */
+  let _curveGuideId = null, _curveGuideT = 0;
+  function showCurveGuide(el) {
+    _curveGuideId = el.id;
+    clearTimeout(_curveGuideT);
+    _curveGuideT = setTimeout(function () {
+      const e = getEl(_curveGuideId);
+      _curveGuideId = null;
+      if (e) partialRenderElement(e);
+    }, 1500);
+  }
+  function drawCurveGuide(node, el) {
+    const L = curveLayout(el);
+    if (!L.Rx) return;
+    const a = curveApexIn(L, el.w, el.h);
+    const cx = a.x, cy = a.y + (L.up ? L.Ry : -L.Ry);
+    const z = state.zoom || 1, sw = 1.5 / z, pad = sw * 2;
+    const NS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("class", "ed-curve-guide");
+    const W = L.Rx * 2 + pad * 2, H = L.Ry * 2 + pad * 2;
+    svg.setAttribute("width", W); svg.setAttribute("height", H);
+    svg.style.cssText = "position:absolute;left:" + (cx - L.Rx - pad) + "px;top:" + (cy - L.Ry - pad) + "px;overflow:visible;pointer-events:none;";
+    const e = document.createElementNS(NS, "ellipse");
+    e.setAttribute("cx", L.Rx + pad); e.setAttribute("cy", L.Ry + pad);
+    e.setAttribute("rx", L.Rx); e.setAttribute("ry", L.Ry);
+    e.setAttribute("fill", "none");
+    e.setAttribute("stroke", "var(--ed-select, #371e28)");
+    e.setAttribute("stroke-width", sw);
+    e.setAttribute("stroke-dasharray", (6 / z) + " " + (5 / z));
+    svg.appendChild(e);
+    node.appendChild(svg);
   }
   function drawCurvedText(ctx, el) {
     const L = curveLayout(el);
@@ -9552,8 +9702,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // than it so an outline or shadow isn't cut off.
   const _curveFontsAsked = {};
   function syncCurveCanvas(node, el) {
-    const old = node.querySelector(":scope > .ed-text-curve");
-    if (old) old.remove();
+    node.querySelectorAll(":scope > .ed-text-curve, :scope > .ed-curve-guide").forEach(function (n) { n.remove(); });
     node.classList.toggle("is-curved", !!(el.type === "text" && el.curve));
     if (el.type !== "text" || !el.curve) return;
     const font = curveFont(el);
@@ -9577,6 +9726,7 @@ import { createResizeEngine } from "./resize-engine.js";
     ctx.translate(pad, pad);
     drawCurvedText(ctx, el);
     node.appendChild(cv);
+    if (_curveGuideId === el.id) drawCurveGuide(node, el);
   }
 
   function drawTextElementToCanvas(ctx, el) {
@@ -12611,6 +12761,7 @@ import { createResizeEngine } from "./resize-engine.js";
       if (el.textOutline && el.textOutline.width > 0) return true;
       if (el.textBg && el.textBg.enabled) return true;
       if (el.textGradient && el.textGradient.enabled) return true;
+      if (el.curve) return true;
     }
     if (el.fillGradient && el.fillGradient.enabled) return true;
     return false;
@@ -14543,6 +14694,28 @@ import { createResizeEngine } from "./resize-engine.js";
           '</div>' +
         '</div>';
 
+      /* Curve, moved here from Spacing on 25 Nov (Danielle: "I was thinking
+         it was going to go here within effects", as in Canva). */
+      const cv = !!el.curve, fit = el.curveFit;
+      const L = cv ? curveLayout(el) : null;
+      const bendV = cv ? Math.round(L.bend) || (L.up ? 1 : -1) : 40;
+      const ovalV = fit ? Math.round(L.Ry / L.Rx * 100) : Math.round(curveOvalQ(el) * 100);
+      out +=
+        '<label class="ed-fx-toggle"><input type="checkbox" data-fx="curve-enabled"' + (cv ? " checked" : "") + '><span>Curve text</span></label>' +
+        '<div class="ed-fx-controls" data-fx-group="curve"' + (cv ? "" : ' hidden') + '>' +
+          '<div class="ed-props-row">' +
+            '<div class="ed-props-field"><label>Bend</label><input type="range" min="-100" max="100" step="1" data-curve="bend" value="' + bendV + '"></div>' +
+            '<div class="ed-props-field"><label>Oval</label><input type="range" min="30" max="250" step="1" data-curve="oval" value="' + Math.max(30, Math.min(250, ovalV)) + '"></div>' +
+          '</div>' +
+          '<div class="ed-props-field"><label>Follow the nearest oval or circle</label>' +
+            '<div class="ed-fx-preset-grid" style="grid-template-columns:1fr 1fr;margin:4px 0 8px;">' +
+              '<button type="button" class="ed-fx-preset' + (fit && L.up ? " is-current" : "") + '" data-curve-fit="top">On top</button>' +
+              '<button type="button" class="ed-fx-preset' + (fit && !L.up ? " is-current" : "") + '" data-curve-fit="under">Underneath</button>' +
+            '</div>' +
+          '</div>' +
+          (fit ? '<div class="ed-props-field"><label>Gap from the oval</label><input type="range" min="-60" max="200" step="1" data-curve="gap" value="' + (fit.gap || 0) + '"></div>' : '') +
+        '</div>';
+
       // The merge-tag picker used to live here too, but it's now rendered
       // as its own right-panel section (see renderProps) — keeps admins
       // from having to open a popover to insert a token.
@@ -14581,8 +14754,57 @@ import { createResizeEngine } from "./resize-engine.js";
       } else if (key === "grad") {
         const g = ensureGroup(el, "grad");
         g.enabled = on;
+      } else if (key === "curve") {
+        if (on && !el.curve) { el.curveFlatW = el.w; el.curve = 40; }
+        else if (!on) curveOff(el);
       }
     }
+
+    // Curve: Bend, Oval and Gap repaint the one element, with the path
+    // showing; the fit buttons rebuild the panel so the Gap appears.
+    body.querySelectorAll("[data-curve]").forEach(function (input) {
+      input.addEventListener("input", function () {
+        const el = tgt(); if (!el || el.type !== "text" || !el.curve) return;
+        const k = input.getAttribute("data-curve"), v = parseFloat(input.value);
+        if (!isFinite(v)) return;
+        if (k === "gap" && el.curveFit) {
+          // Out from the oval's centre, so the words stay round the same oval.
+          const L = curveLayout(el), a = curveApexIn(L, el.w, el.h);
+          const ax = el.x + a.x, ay = el.y + a.y;
+          const oy = ay + (L.up ? L.Ry : -L.Ry);
+          el.curveFit.gap = v;
+          const L2 = curveLayout(el);
+          curvePlaceApex(el, ax, oy - (L2.up ? L2.Ry : -L2.Ry));
+        } else if (k === "bend") {
+          curveUnfit(el);
+          el.curve = v || (v < 0 || el.curve < 0 ? -1 : 1);
+        } else if (k === "oval") {
+          curveUnfit(el);
+          el.curveOval = v;
+        }
+        showCurveGuide(el);
+        partialRenderElement(el);
+        renderHandles();
+      });
+      input.addEventListener("change", function () {
+        pushHistory();
+        // Leaving a fit takes the Gap away and lights neither fit button.
+        const el = tgt();
+        if (el && !el.curveFit && body.querySelector('[data-curve="gap"]')) fullRender();
+      });
+    });
+    body.querySelectorAll("[data-curve-fit]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const el = tgt(); if (!el || el.type !== "text") return;
+        if (!curveOntoShape(el, btn.getAttribute("data-curve-fit") === "under")) {
+          toast("There's no oval or circle on this page to follow.");
+          return;
+        }
+        showCurveGuide(el);
+        pushHistory();
+        fullRender();
+      });
+    });
 
     // Shadow preset grid
     body.querySelectorAll("[data-shadow-preset]").forEach(function (btn) {
