@@ -44,3 +44,12 @@ export function kitBrandOf(brand) {
   const k = Object.keys(KIT_SHARED_WITH).find((b) => norm(b) === norm(brand));
   return k ? KIT_SHARED_WITH[k] : brand;
 }
+
+/* Colour slots in a brand kit. Six for everybody; The Letting Experts has
+   seven colours in its palette, so its kit (and Scotland's, which shares it)
+   gets a seventh slot (Danielle, 24 Nov). Only theirs: an odd one out on
+   every other kit would just be an empty box. */
+const SEVEN_COLOUR_KITS = ["The Letting Experts"];
+export function colourSlotsFor(brand) {
+  return SEVEN_COLOUR_KITS.some((b) => norm(b) === norm(kitBrandOf(brand || ""))) ? 7 : 6;
+}

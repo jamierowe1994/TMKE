@@ -244,16 +244,19 @@ import "../../styles/account-sections.css";
               <div class="eyebrow">04</div>
               <h2>Brand Colours</h2>
             </div>
-            <p>Pick up to six. These appear as quick-swatches inside the editor.</p>
+            <p id="colour-count">Pick up to six. These appear as quick-swatches inside the editor.</p>
           </header>
 
+          <!-- A seventh slot for The Letting Experts only, whose palette has
+               seven colours (Danielle, 24 Nov). Hidden until the kit on screen
+               is theirs or already holds seven. -->
           <div class="colour-grid" id="colour-grid">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div class="colour-slot" data-i={i}>
+            {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+              <div class={i === 6 ? "colour-slot is-empty" : "colour-slot"} data-i={i} hidden={i === 6} data-extra={i === 6 ? "" : undefined}>
                 <button type="button" class="colour-tile" data-colour-pick={i} aria-label={`Choose colour ${i + 1}`}>
-                  <span class="colour-tile-fill" data-colour-fill={i} style={`background:${["#1c1d22","var(--english-violet)","#B9826A","#DFDCDE","#f4f2f1","#FFFFFF"][i]}`}></span>
+                  <span class="colour-tile-fill" data-colour-fill={i} style={`background:${["#1c1d22","var(--english-violet)","#B9826A","#DFDCDE","#f4f2f1","#FFFFFF","transparent"][i]}`}></span>
                 </button>
-                <input type="text" class="colour-hex" data-colour-hex={i} maxlength="7" value={["#1c1d22","var(--english-violet)","#B9826A","#DFDCDE","#f4f2f1","#FFFFFF"][i]} />
+                <input type="text" class="colour-hex" data-colour-hex={i} maxlength="7" value={["#1c1d22","var(--english-violet)","#B9826A","#DFDCDE","#f4f2f1","#FFFFFF",""][i]} />
                 <input type="text" class="colour-name" data-colour-name={i} placeholder={`Colour 0${i+1}`} />
                 <button type="button" class="colour-clear" data-colour-clear={i} title="Clear">&times;</button>
               </div>
@@ -608,11 +611,21 @@ import "../../styles/account-sections.css";
     .font-picker-empty { padding: 18px 12px; font-family: var(--sans); font-size: var(--ws-t-body); color: rgba(28,29,34,0.5); }
 
     /* Colour grid */
+    /* Even rows by the card's own width: one row when there's room (six, or
+       seven on The Letting Experts' kit), else 3+3 or 4+3. Was auto-fill,
+       which left the sixth on a row of its own (Danielle, 24 Nov). */
+    #sec-colours { container-type: inline-size; }
     .colour-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
       gap: 10px;
+      --cols: 3;
     }
+    .colour-grid.is-seven { --cols: 4; }
+    @container (min-width: 820px) { .colour-grid { --cols: 6; } }
+    @container (min-width: 940px) { .colour-grid.is-seven { --cols: 7; } }
+    .colour-grid .colour-hex, .colour-grid .colour-name { min-width: 0; width: 100%; box-sizing: border-box; }
+    .colour-slot[hidden] { display: none; }
     .colour-slot {
       position: relative;
       display: flex;
@@ -1025,9 +1038,22 @@ import "../../styles/account-sections.css";
       try { brand = JSON.parse(localStorage.getItem(BRAND_KEY) || "null"); } catch (_) {}
       if (!brand) firstrun.hidden = false;
 
+      /* Six slots; a seventh for The Letting Experts (colourSlotsFor). A kit
+         already holding seven opens with it showing, so nothing is dropped;
+         otherwise the brand check further down reveals it for their kit. */
+      const kitSlots = (brand && brand.colors && brand.colors.length > 6) ? 7 : 6;
       const initialColours = (brand && brand.colors && brand.colors.length)
-        ? brand.colors.concat(Array(Math.max(0, 6 - brand.colors.length)).fill(null)).slice(0, 6)
+        ? brand.colors.concat(Array(Math.max(0, kitSlots - brand.colors.length)).fill(null)).slice(0, kitSlots)
         : DEFAULT_COLOURS.slice(0, 6);
+      function showSeventhColour() {
+        const extra = grid.querySelector(".colour-slot[data-extra]");
+        if (extra) extra.hidden = false;
+        grid.classList.add("is-seven");
+        const count = document.getElementById("colour-count");
+        if (count) count.textContent = "Pick up to seven. These appear as quick-swatches inside the editor.";
+      }
+      window.__TMKE_BK_SEVEN__ = showSeventhColour;
+      if (kitSlots === 7) showSeventhColour();
 
       const initialHeading = (brand && brand.fonts && brand.fonts.heading) || "Cormorant Garamond";
       const initialBody = (brand && brand.fonts && brand.fonts.body) || "Darker Grotesque";
@@ -1408,9 +1434,9 @@ import "../../styles/account-sections.css";
       window.__TMKE_BK_COLLECT__ = () => collect();
       function collect() {
         const colours = [];
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < 7; i++) {
           const slot = grid.querySelector('.colour-slot[data-i="' + i + '"]');
-          if (!slot || slot.classList.contains("is-empty")) continue;
+          if (!slot || slot.hidden || slot.classList.contains("is-empty")) continue;
           const hex = slot.querySelector('[data-colour-hex]').value.trim();
           if (!/^#?[0-9a-f]{6}$/i.test(hex)) continue;
           colours.push({
@@ -1817,6 +1843,11 @@ import "../../styles/account-sections.css";
             if (localKit && kitMatchesBrand(localKit, out.kit)) onTheirBrands = true;
           }
           // For the header: a kit their brand supplies, and they are on it.
+          // The Letting Experts' kit gets its seventh colour slot.
+          if (out && out.ok && out.brand) {
+            const { colourSlotsFor } = await import("../../data/brands.js");
+            if (colourSlotsFor(out.brand) === 7 && typeof window.__TMKE_BK_SEVEN__ === "function") window.__TMKE_BK_SEVEN__();
+          }
           window.__BK_BRAND__ = (out && out.ok && out.brand && out.hasKit && onTheirBrands) ? { brand: out.brand } : null;
           window.dispatchEvent(new CustomEvent("bk-brand"));
           if (out && out.ok && out.brand && out.hasKit && !onTheirBrands) {

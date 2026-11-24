@@ -9,7 +9,7 @@ import { openColourPop } from './colour-pop.js';
 
 const LOGO_BUCKET = 'pack-images';   // public already, and already holds artwork
 
-export function fillForm(root, row) {
+export function fillForm(root, row, { slots = 6 } = {}) {
   const r = row || {};
   const set = (f, v) => {
     const el = root.querySelector(`[data-f="${f}"]`);
@@ -23,7 +23,7 @@ export function fillForm(root, row) {
   set('font_heading', fonts.heading || '');
   set('font_subheading', fonts.subheading || '');
   set('font_body', fonts.body || '');
-  drawColors(root, Array.isArray(r.colors) ? r.colors : []);
+  drawColors(root, Array.isArray(r.colors) ? r.colors : [], slots);
   drawLogos(root, Array.isArray(r.logos) ? r.logos : []);
 }
 
@@ -48,11 +48,16 @@ export function readForm(root, brand) {
 
 /* ---- colours ---- */
 
-function drawColors(root, colors) {
+/* Six slots, seven for The Letting Experts (colourSlotsFor in data/brands.js).
+   Never fewer than the kit already holds, so opening and saving can't drop one. */
+function drawColors(root, colors, slots = 6) {
   const box = root.querySelector('[data-colors]');
   if (!box) return;
-  const six = colors.concat(Array(6).fill('')).slice(0, 6);
-  box.innerHTML = six.map((hex, i) => `
+  const n = Math.max(slots, colors.length);
+  const wells = colors.concat(Array(n).fill('')).slice(0, n);
+  const help = root.querySelector('[data-colors-help]');
+  if (help) help.textContent = `${n === 7 ? 'Seven' : n === 6 ? 'Six' : n} wells, in order. The first is the one the Studio reaches for first. Empty a hex box to drop that colour.`;
+  box.innerHTML = wells.map((hex, i) => `
     <div class="bkf-swatch">
       <button type="button" class="bkf-well" data-color="${i}" style="background:${hex || '#ffffff'}" aria-label="Choose colour ${i + 1}"></button>
       <input type="text" data-hex="${i}" value="${hex || ''}" placeholder="—" maxlength="7" aria-label="Colour ${i + 1} hex" />
