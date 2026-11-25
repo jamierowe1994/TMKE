@@ -6,7 +6,7 @@ import "../../../styles/admin.css";
 <AdminShell active="automations" title="Automation builder" skin="hub">
   <div class="ash-panel ash-page af-page">
     <section class="af-bar">
-      <a href="/admin/automations" class="admin-btn admin-btn-ghost">&larr; Automations</a>
+      <a href="/admin/automations" class="admin-btn admin-btn-ghost" id="af-back">&larr; Automations</a>
       <input id="af-name" class="af-name" placeholder="Automation name" />
       <div class="af-bar-right">
         <div class="af-dd">
@@ -286,6 +286,7 @@ import "../../../styles/admin.css";
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase } from "../../../lib/supabase.js";
     import { TRIGGERS, NODE_TYPES, NODE_LABELS, emptyGraph } from "../../../lib/automations.js";
+    import { kindOf } from "../../../lib/email-campaigns.js";
     import { TAG_GROUPS, TAG_NOTES, loadPackTagGroup, withPackTags, tagLabel } from "../../../lib/contact-tags.js";
 
     const DEV = import.meta.env.DEV;
@@ -857,6 +858,9 @@ import "../../../styles/admin.css";
       triggerConfig = data.trigger_config || {};
       graph = (data.graph && data.graph.nodes && data.graph.nodes.length) ? data.graph : emptyGraph();
       $("af-kind").value = (graph.meta && graph.meta.kind) === "marketing" ? "marketing" : "service";
+      // Marketing funnels are listed under Email › Campaigns, the rest under
+      // Email › Automations (Danielle, 25 Nov 2026): go back to the right one.
+      if (kindOf(data) === "marketing") { const back = $("af-back"); if (back) { back.href = "/admin/email/campaigns"; back.innerHTML = "&larr; Campaigns"; } }
       renderTriggerExtras();
       render();
       applyLifecycle();

@@ -1,0 +1,423 @@
+---
+// Email › Campaigns (Danielle, 25 Nov 2026; agreed on the "TMKE OS Email"
+// mock-up). The marketing half of the old Automations page: emails we plan and
+// send to a group. Running ones get a card; old drafts and finished campaigns
+// are compact rows underneath, so tests never bury the live work.
+//
+// A campaign is still an `automations` row, opened in the same step builder
+// and audited on the same page. What is new is how they are listed, the area
+// of the business each one is about (graph.meta.area), and "previous": see
+// src/lib/email-campaigns.js for the rules.
+import AdminShell from "../../../components/admin/AdminShell.astro";
+import EmailTabs from "../../../components/admin/EmailTabs.astro";
+import "../../../styles/money-os.css";
+---
+
+<AdminShell active="campaigns" title="Campaigns" skin="hub">
+  <div class="ash-panel ash-page">
+    <div class="mo" id="ec">
+      <section class="mo-head">
+        <div>
+          <p class="mo-eye">Email</p>
+          <div class="mo-title">Campaigns</div>
+          <p class="mo-sub">Emails we plan and send to a group. Open one to change its steps, or to see who is in it and what they did.</p>
+        </div>
+        <div class="mo-acts"><button type="button" class="mbtn primary" id="ec-new">New campaign</button></div>
+      </section>
+      <EmailTabs active="campaigns" />
+      <div class="bar">
+        <label class="find">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
+          <input type="search" id="ec-q" placeholder="Search campaigns" aria-label="Search campaigns" />
+        </label>
+        <select id="ec-area" class="ec-pick" aria-label="Filter by area of the business"></select>
+        <span class="ec-count" id="ec-count"></span>
+      </div>
+      <p class="state" id="ec-state">Reading the campaigns.</p>
+      <div id="ec-main" hidden></div>
+      <div id="ec-pop"></div>
+      <div class="toast" id="ec-toast" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <style is:global>
+    #ec .mo-head { margin-bottom: 14px; }
+    #ec .ec-count { margin-left: auto; color: var(--tx); }
+    #ec select.ec-pick, #ec select.ec-area {
+      appearance: none; -webkit-appearance: none; cursor: pointer; font-family: var(--sans); font-weight: 400; letter-spacing: 0; text-transform: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23371e28' stroke-width='1.5'><path d='M2.5 4.5 6 8l3.5-3.5'/></svg>");
+      background-repeat: no-repeat; background-position: right 8px center;
+    }
+    #ec select.ec-pick { height: 30px; padding: 0 28px 0 12px; border: 1px solid var(--edge); border-radius: 4px; background-color: #fff; color: var(--ink); font-size: 14px; }
+    #ec select.ec-pick.has { border-color: var(--wine); color: var(--wine); }
+    #ec select.ec-area { height: 24px; max-width: 190px; padding: 0 24px 0 8px; border: 0; border-radius: 4px; background-color: var(--linen); color: var(--wine); font-size: 13px; }
+    #ec select.ec-area.none { background-color: #fff; color: var(--tx); box-shadow: inset 0 0 0 1px var(--stone); }
+    #ec .ec-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    #ec .ec-card { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 18px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; }
+    #ec .ec-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    #ec .blk { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 104px; height: 24px; border-radius: 4px; font-size: 13px; white-space: nowrap; }
+    #ec .blk.run { background: var(--good-l); color: var(--good); }
+    #ec .blk.pause { background: var(--stone); color: var(--wine); }
+    #ec .blk.plan { background: #fff; color: var(--tx); box-shadow: inset 0 0 0 1px var(--edge); }
+    #ec .ec-id { display: grid; gap: 3px; min-width: 0; }
+    #ec .ec-name { font-size: 18px; line-height: 1.2; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+    #ec .ec-name:hover { color: var(--wine); text-decoration: underline; text-underline-offset: 3px; }
+    #ec .ec-who { font-size: 13px; color: var(--tx); }
+    #ec .ec-segs { display: flex; gap: 4px; min-height: 6px; }
+    #ec .ec-segs i { flex: 1; height: 6px; border-radius: 3px; background: var(--wine); }
+    #ec .ec-segs i.ready { background: var(--stone); }
+    #ec .ec-segs i.todo { background: #fff; box-shadow: inset 0 0 0 1px var(--stone); }
+    #ec .ec-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    #ec .ec-facts div { display: grid; gap: 2px; align-content: start; min-width: 0; }
+    #ec .ec-facts span { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--tx); }
+    #ec .ec-warn { padding: 8px 10px; border-radius: 4px; background: var(--bad-l); color: var(--bad); }
+    #ec .ec-foot { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
+    #ec .mbtn.small { height: 26px; padding: 0 10px; }
+    #ec .strip.soft { background: var(--linen); }
+    #ec .strip.soft .strip-t { color: var(--wine); }
+    #ec .strip.soft .strip-t span { color: var(--tx); }
+    #ec .ec-old { border-bottom: 1px solid var(--linen); }
+    #ec .ec-old summary { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 2px; cursor: pointer; list-style: none; color: var(--wine); text-decoration: underline; text-underline-offset: 3px; }
+    #ec .ec-old summary::-webkit-details-marker { display: none; }
+    #ec .ec-rowname { display: grid; gap: 2px; line-height: 1.2; padding: 8px 0; white-space: normal; }
+    #ec .ec-rowname a { font-size: 16px; color: var(--ink); text-decoration: none; }
+    #ec .ec-rowname a:hover { color: var(--wine); text-decoration: underline; text-underline-offset: 3px; }
+    #ec .ec-rowname span { font-size: 13px; color: var(--tx); }
+    #ec td.ec-acts { text-align: right; }
+    #ec td.ec-acts .mbtn { margin-left: 6px; }
+    #ec table.ec-tbl td { height: 56px; }
+    #ec .pop { height: 380px; }
+    #ec .pop-b p { margin: 0; color: var(--tx); }
+    #ec .pop-b p.err { color: var(--bad); }
+    @media (max-width: 1100px) { #ec .ec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 720px) { #ec .ec-grid { grid-template-columns: minmax(0, 1fr); } #ec .ec-count { margin-left: 0; flex: 1 0 100%; } }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+    import { supabase } from "../../../lib/supabase.js";
+    import { TRIGGER_LABELS, emptyGraph } from "../../../lib/automations.js";
+    import { AREAS, kindOf, areaOf, sendSteps, isWritten, isPrevious, stepWhen, audienceLine, todayLondon } from "../../../lib/email-campaigns.js";
+
+    const DEV = import.meta.env.DEV;
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const fmtDate = (d) => { try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
+    const OLD_DRAFT_DAYS = 30;
+
+    let ALL = [];             // marketing funnels only
+    let LIVE = new Map();     // automation id -> enrolments in it now
+    let SENT = new Map();     // automation id -> Map(step id -> emails sent)
+    let AUTO_SENT = new Map();// automation id -> emails sent, any step
+    let PEOPLE = new Map();   // automation id -> everyone who has ever been in it
+    let q = "";
+    let area = "all";
+
+    function toast(msg) {
+      const t = $("ec-toast"); if (!t) return;
+      t.textContent = msg; t.classList.add("on");
+      clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("on"), 2600);
+    }
+
+    // What each email in a campaign has done so far. Sends are counted per
+    // step from email_events. Sends logged before each event knew its step
+    // (email_events_step.sql) have no step, so for those a dated email counts
+    // as sent once its date has passed.
+    function steps(a) {
+      const m = SENT.get(a.id) || new Map();
+      const anyByStep = [...m.values()].some((c) => c > 0);
+      const byDate = !anyByStep && (AUTO_SENT.get(a.id) || 0) > 0;
+      const today = todayLondon();
+      return sendSteps(a).map((n) => {
+        const c = m.get(n.id) || 0;
+        const on = String((n.config && n.config.send_on) || "");
+        const passed = /^\d{4}-\d{2}-\d{2}$/.test(on) && on < today;
+        return { n, count: c, sent: c > 0 || (byDate && passed), written: isWritten(n) };
+      });
+    }
+
+    // The next email to go: the earliest moment anyone waiting at a send step
+    // moves on, else the next dated email that hasn't gone.
+    function nextSend(a, st) {
+      const live = LIVE.get(a.id) || [];
+      const sendIds = new Set(st.map((s) => s.n.id));
+      const at = live.filter((e) => sendIds.has(e.current_node_id) && e.next_run_at);
+      if (a.status === "active" && at.length) {
+        const first = at.reduce((m, e) => (e.next_run_at < m ? e.next_run_at : m), at[0].next_run_at);
+        if (new Date(first) <= new Date()) return "Sending now";
+        return new Date(first).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
+      }
+      const today = todayLondon();
+      const dated = st.find((s) => !s.sent && s.n.config && s.n.config.send_on && s.n.config.send_on >= today);
+      if (dated) return stepWhen(dated.n);
+      if (st.length && st.every((s) => s.sent)) return "Nothing more to send";
+      if (!st.length) return "No emails yet";
+      return a.status === "draft" ? "Not scheduled" : "When someone joins";
+    }
+
+    // Dated emails still to come in a live campaign that has nobody in it:
+    // nobody will get them. The Autumn Edit's email 3 was missed this way.
+    function warning(a, st) {
+      if (a.status !== "active" || (LIVE.get(a.id) || []).length) return "";
+      const today = todayLondon();
+      const i = st.findIndex((s) => !s.sent && s.n.config && s.n.config.send_on && s.n.config.send_on >= today);
+      if (i < 0) return "";
+      return `<p class="ec-warn">Nobody left for email ${i + 1}. It's due ${esc(stepWhen(st[i].n))}, but nobody is in this campaign to receive it.</p>`;
+    }
+
+    function areaSelect(a) {
+      const cur = areaOf(a);
+      return `<select class="ec-area${cur ? "" : " none"}" data-area="${esc(a.id)}" aria-label="Area of the business for ${esc(a.name)}">
+        <option value=""${cur ? "" : " selected"}>No area yet</option>
+        ${AREAS.map((x) => `<option${x === cur ? " selected" : ""}>${esc(x)}</option>`).join("")}
+      </select>`;
+    }
+
+    function card(a) {
+      const st = steps(a);
+      const live = (LIVE.get(a.id) || []).length;
+      const sent = st.filter((s) => s.sent).length;
+      const written = st.filter((s) => s.written).length;
+      const draft = a.status === "draft";
+      const blk = draft ? ["plan", "Being planned"] : a.status === "paused" ? ["pause", "Paused"] : ["run", "Running"];
+      const emails = !st.length ? "None yet" : draft ? `${written} of ${st.length} written` : `${sent} of ${st.length} sent`;
+      const segs = st.map((s) => `<i class="${s.sent ? "" : s.written ? "ready" : "todo"}"></i>`).join("");
+      const open = `/admin/automations/edit?id=${encodeURIComponent(a.id)}`;
+      return `
+        <article class="ec-card">
+          <div class="ec-top">${areaSelect(a)}<span class="blk ${blk[0]}">${blk[1]}</span></div>
+          <div class="ec-id"><a class="ec-name" href="${open}">${esc(a.name)}</a><span class="ec-who">${esc(audienceLine(a, TRIGGER_LABELS))}</span></div>
+          <div class="ec-segs" role="img" aria-label="${esc(emails)}">${segs}</div>
+          <div class="ec-facts">
+            <div><span>Emails</span>${esc(emails)}</div>
+            <div><span>In it now</span>${live}</div>
+            <div><span>Next send</span>${esc(nextSend(a, st))}</div>
+          </div>
+          ${warning(a, st)}
+          <div class="ec-foot">
+            <a class="mbtn small primary" href="${open}">${draft ? "Carry on" : "Open"}</a>
+            ${draft ? "" : `<a class="mbtn small" href="/admin/automations/audit?id=${encodeURIComponent(a.id)}">Who is in it</a>`}
+            <button type="button" class="mbtn small" data-dup="${esc(a.id)}">Duplicate</button>
+            ${draft ? `<button type="button" class="mbtn small danger" data-del="${esc(a.id)}">Delete</button>` : ""}
+          </div>
+        </article>`;
+    }
+
+    // "Sept to Oct 2026" from a campaign's dated emails, else from when it ran.
+    function ran(a) {
+      const dates = sendSteps(a).map((n) => n.config && n.config.send_on).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ""))).sort();
+      const meta = (a.graph && a.graph.meta) || {};
+      const from = dates[0] || (meta.went_live_at || "").slice(0, 10);
+      const to = dates[dates.length - 1] || (meta.archived_at || a.updated_at || "").slice(0, 10);
+      if (!from) return to ? fmtDate(to) : "";
+      const m = (d, y) => new Date(`${d}T12:00:00`).toLocaleDateString("en-GB", y ? { month: "short", year: "numeric" } : { month: "short" });
+      if (!to || from.slice(0, 7) === to.slice(0, 7)) return m(from, true);
+      return `${m(from, from.slice(0, 4) !== to.slice(0, 4))} to ${m(to, true)}`;
+    }
+
+    function previousRow(a) {
+      const st = steps(a);
+      const people = PEOPLE.get(a.id);
+      const id = encodeURIComponent(a.id);
+      return `<tr>
+        <td><div class="ec-rowname"><a href="/admin/automations/audit?id=${id}">${esc(a.name)}</a><span>${esc(plural(st.length, "email", "emails"))}${a.status === "archived" ? " · archived" : ""}</span></div></td>
+        <td>${areaSelect(a)}</td>
+        <td class="tx">${esc(ran(a))}</td>
+        <td>${people == null ? "" : esc(plural(people, "person", "people"))}</td>
+        <td class="ec-acts">
+          <a class="mbtn small" href="/admin/automations/audit?id=${id}">Insights</a><a class="mbtn small" href="/admin/automations/edit?id=${id}">Open</a><button type="button" class="mbtn small" data-dup="${esc(a.id)}">Duplicate</button>
+        </td>
+      </tr>`;
+    }
+
+    function draftRow(a) {
+      const id = encodeURIComponent(a.id);
+      return `<tr>
+        <td><div class="ec-rowname"><a href="/admin/automations/edit?id=${id}">${esc(a.name)}</a></div></td>
+        <td class="tx">Edited ${esc(fmtDate(a.updated_at))}</td>
+        <td class="ec-acts"><a class="mbtn small" href="/admin/automations/edit?id=${id}">Open</a><button type="button" class="mbtn small danger" data-del="${esc(a.id)}">Delete</button></td>
+      </tr>`;
+    }
+
+    function render() {
+      const match = (a) => (!q || (a.name || "").toLowerCase().includes(q) || audienceLine(a, TRIGGER_LABELS).toLowerCase().includes(q))
+        && (area === "all" || (area === "none" ? !areaOf(a) : areaOf(a) === area));
+      const cutoff = Date.now() - OLD_DRAFT_DAYS * 864e5;
+      const isOld = (a) => a.status === "draft" && new Date(a.updated_at).getTime() < cutoff;
+      const prev = ALL.filter((a) => isPrevious(a, (LIVE.get(a.id) || []).length));
+      const prevIds = new Set(prev.map((a) => a.id));
+      const old = ALL.filter((a) => isOld(a));
+      const active = ALL.filter((a) => !prevIds.has(a.id) && !isOld(a));
+      // Running first, then paused, then the ones being planned; newest edit first within each.
+      const rank = { active: 0, paused: 1, draft: 2 };
+      active.sort((x, y) => (rank[x.status] ?? 3) - (rank[y.status] ?? 3) || String(y.updated_at).localeCompare(String(x.updated_at)));
+
+      $("ec-count").textContent = `${active.length} active · ${prev.length} previous`;
+      const fa = active.filter(match), fo = old.filter(match), fp = prev.filter(match);
+      const filtering = q || area !== "all";
+      const none = (text) => `<div class="empty">${text}</div>`;
+
+      let html = `<div class="section"><div class="strip"><span class="strip-t">Active<span>${fa.length}</span></span></div>`;
+      html += fa.length ? `<div class="ec-grid">${fa.map(card).join("")}</div>`
+        : none(filtering ? "No active campaign matches that." : "Nothing is running or being planned. Press New campaign to start one.");
+      if (fo.length) {
+        html += `<details class="ec-old"><summary>${esc(plural(fo.length, "old draft", "old drafts"))}, not touched for ${OLD_DRAFT_DAYS} days or more. Tidy them up</summary>
+          <div class="tablewrap"><table class="ec-tbl"><tbody>${fo.map(draftRow).join("")}</tbody></table></div></details>`;
+      }
+      html += `</div>`;
+      html += `<div class="section"><div class="strip soft"><span class="strip-t">Previous<span>${fp.length}</span></span></div>`;
+      html += fp.length ? `<div class="tablewrap"><table class="ec-tbl"><thead><tr><th>Campaign</th><th>Area</th><th>Ran</th><th>People</th><th></th></tr></thead><tbody>${fp.map(previousRow).join("")}</tbody></table></div>`
+        : none(filtering ? "No previous campaign matches that." : "Finished and archived campaigns are kept here.");
+      html += `</div>`;
+      $("ec-main").innerHTML = html;
+    }
+
+    // Supabase stops every read at 1,000 rows, so counts are asked for as
+    // counts (no rows come back), one small request each.
+    async function count(table, build) {
+      try {
+        const { count: c, error } = await build(supabase.from(table).select("id", { count: "exact", head: true }));
+        return error ? null : (c || 0);
+      } catch (_) { return null; }
+    }
+
+    async function loadEnrollments() {
+      const { data } = await supabase.from("automation_enrollments")
+        .select("automation_id, current_node_id, next_run_at, status").in("status", ["active", "waiting"]).order("next_run_at", { ascending: true });
+      LIVE = new Map();
+      (data || []).forEach((r) => { const l = LIVE.get(r.automation_id) || []; l.push(r); LIVE.set(r.automation_id, l); });
+    }
+
+    async function loadCounts() {
+      const jobs = [];
+      ALL.filter((a) => a.status !== "draft").forEach((a) => {
+        const m = new Map(); SENT.set(a.id, m);
+        sendSteps(a).forEach((n) => jobs.push(count("email_events", (x) => x.eq("automation_id", a.id).eq("node_id", n.id).eq("event", "sent")).then((c) => { if (c != null) m.set(n.id, c); })));
+        jobs.push(count("email_events", (x) => x.eq("automation_id", a.id).eq("event", "sent")).then((c) => { if (c != null) AUTO_SENT.set(a.id, c); }));
+        jobs.push(count("automation_enrollments", (x) => x.eq("automation_id", a.id)).then((c) => { if (c != null) PEOPLE.set(a.id, c); }));
+      });
+      await Promise.all(jobs);
+    }
+
+    async function load() {
+      const { data, error } = await supabase.from("automations").select("*").order("updated_at", { ascending: false });
+      if (error) { $("ec-state").textContent = "Couldn't read the campaigns: " + error.message; $("ec-state").classList.add("bad"); return; }
+      ALL = (data || []).filter((a) => kindOf(a) === "marketing");
+      if (DEV && !ALL.length && new URLSearchParams(location.search).has("demo")) demo();
+      else { try { await loadEnrollments(); } catch (_) {} try { await loadCounts(); } catch (_) {} }
+      $("ec-state").hidden = true;
+      $("ec-main").hidden = false;
+      render();
+    }
+
+    // Example rows for looking at the page on a development copy, where the
+    // database hands a signed-out visitor nothing. Never runs on the live site.
+    function demo() {
+      const send = (id, on, tpl) => ({ id, type: "send_email", config: { body_mode: "template", template_id: tpl ? "t" : "", send_on: on, send_at: "07:00" } });
+      const g = (areaName, sends) => ({ meta: { kind: "marketing", area: areaName }, nodes: [{ id: "trigger", type: "trigger" }, ...sends], edges: [] });
+      const day = (n) => new Date(Date.now() + n * 864e5).toLocaleDateString("en-CA");
+      ALL = [
+        { id: "d1", name: "The Winter Edit", status: "active", trigger_type: "audience", trigger_config: { tags: ["Network: TEG"] }, updated_at: new Date().toISOString(), graph: g("The Edit", [send("a", day(-13), 1), send("b", day(-6), 1), send("c", day(1), 1), send("d", day(8), 1), send("e", day(15), 0)]) },
+        { id: "d2", name: "TMKE - TPE/PPE Print Studio Launch", status: "paused", trigger_type: "audience", trigger_config: { tags: ["TPE", "PPE"] }, updated_at: new Date().toISOString(), graph: g("The Studio", [send("a", day(-19), 1), send("b", day(6), 1)]) },
+        { id: "d3", name: "Christmas at the Studio", status: "draft", trigger_type: "audience", trigger_config: { tags: ["TMKE-Account-Member"] }, updated_at: new Date().toISOString(), graph: g("", [send("a", day(10), 1), send("b", day(17), 0), send("c", day(24), 0)]) },
+        { id: "d4", name: "Test", status: "draft", trigger_type: null, trigger_config: {}, updated_at: "2026-09-16T10:00:00Z", graph: g("", []) },
+        { id: "d5", name: "The Autumn Edit", status: "active", trigger_type: "audience", trigger_config: { tags: ["Network: TEG"] }, updated_at: "2026-09-29T10:00:00Z", graph: g("The Edit", [send("a", "2026-09-15", 1), send("b", "2026-09-22", 1), send("c", "2026-09-30", 1), send("d", "2026-10-06", 1), send("e", "2026-10-13", 1)]) },
+      ];
+      LIVE = new Map([["d1", [{ current_node_id: "c", next_run_at: new Date(Date.now() + 864e5).toISOString() }, { current_node_id: "c", next_run_at: new Date(Date.now() + 864e5).toISOString() }]]]);
+      SENT = new Map([["d1", new Map([["a", 112], ["b", 112]])], ["d2", new Map([["a", 48]])]]);
+      AUTO_SENT = new Map([["d5", 540]]);
+      PEOPLE = new Map([["d5", 110]]);
+    }
+
+    // The area of the business, changed straight from the card. The saved
+    // steps are read first, so a change made in the builder since this page
+    // loaded is never written over.
+    async function saveArea(id, value, el) {
+      const row = ALL.find((a) => a.id === id); if (!row) return;
+      el.disabled = true;
+      try {
+        if (!(DEV && id.length < 4)) {
+          const { data, error } = await supabase.from("automations").select("graph").eq("id", id).single();
+          if (error) throw error;
+          const graph = (data && data.graph && typeof data.graph === "object") ? data.graph : emptyGraph();
+          graph.meta = { ...(graph.meta || {}) };
+          if (value) graph.meta.area = value; else delete graph.meta.area;
+          const up = await supabase.from("automations").update({ graph }).eq("id", id);
+          if (up.error) throw up.error;
+          row.graph = graph;
+        } else { row.graph.meta = { ...(row.graph.meta || {}), area: value }; }
+        toast(value ? `Area set to ${value}.` : "Area cleared.");
+      } catch (e) { toast("Couldn't save the area: " + (e && e.message || e)); }
+      render();
+    }
+
+    async function duplicate(id) {
+      const src = ALL.find((a) => a.id === id); if (!src) return;
+      // A copy is a brand-new campaign: a draft, with none of the original's
+      // life story (went live, paused, archived) carried across.
+      const copy = JSON.parse(JSON.stringify(src.graph || emptyGraph()));
+      if (copy.meta) ["went_live_at", "paused_at", "archived_at", "reactivated_at"].forEach((k) => delete copy.meta[k]);
+      const { error } = await supabase.from("automations").insert({ name: src.name + " (copy)", trigger_type: src.trigger_type, trigger_config: src.trigger_config, graph: copy, status: "draft" });
+      if (error) { toast("Couldn't duplicate: " + error.message); return; }
+      toast("Copied. The copy is a draft under Active.");
+      await load();
+    }
+
+    async function remove(id) {
+      const row = ALL.find((a) => a.id === id); if (!row) return;
+      if (!confirm(`Delete "${row.name}"? This can't be undone.`)) return;
+      const { error } = await supabase.from("automations").delete().eq("id", id);
+      if (error) { toast("Couldn't delete: " + error.message); return; }
+      toast("Deleted.");
+      await load();
+    }
+
+    // New campaign: a name and an area, then straight into the step builder.
+    function openNew() {
+      $("ec-pop").innerHTML = `<div class="scrim" id="ec-scrim"><div class="pop" role="dialog" aria-modal="true" aria-labelledby="ec-pop-t">
+        <div class="pop-h"><div><p class="mo-eye">Email</p><div class="pop-title" id="ec-pop-t">New campaign</div></div><button type="button" class="x" data-close aria-label="Close">×</button></div>
+        <div class="pop-b">
+          <label class="field"><span>Campaign name</span><input type="text" id="ec-n-name" maxlength="120" autocomplete="off" /></label>
+          <label class="field"><span>What area of the business is it about?</span><select id="ec-n-area"><option value="">Choose an area</option>${AREAS.map((x) => `<option>${esc(x)}</option>`).join("")}</select></label>
+          <p class="err" id="ec-n-err" hidden></p>
+        </div>
+        <div class="pop-f"><button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" id="ec-n-go">Create and build the steps</button></div>
+      </div></div>`;
+      const close = () => { $("ec-pop").innerHTML = ""; $("ec-new").focus(); };
+      $("ec-scrim").addEventListener("click", (e) => { if (e.target === e.currentTarget || e.target.closest("[data-close]")) close(); });
+      $("ec-scrim").addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+      $("ec-n-name").focus();
+      $("ec-n-go").addEventListener("click", async () => {
+        const name = $("ec-n-name").value.trim();
+        const err = $("ec-n-err");
+        if (!name) { err.textContent = "Give the campaign a name."; err.hidden = false; $("ec-n-name").focus(); return; }
+        const meta = { kind: "marketing" };
+        if ($("ec-n-area").value) meta.area = $("ec-n-area").value;
+        $("ec-n-go").disabled = true;
+        const { data, error } = await supabase.from("automations").insert({ name, graph: { ...emptyGraph(), meta } }).select("id").single();
+        if (error) { err.textContent = "Couldn't create it: " + error.message; err.hidden = false; $("ec-n-go").disabled = false; return; }
+        location.href = `/admin/automations/edit?id=${data.id}`;
+      });
+    }
+
+    $("ec-area").innerHTML = `<option value="all">All areas</option>${AREAS.map((x) => `<option>${esc(x)}</option>`).join("")}<option value="none">No area yet</option>`;
+    $("ec-area").addEventListener("change", (e) => { area = e.target.value; e.target.classList.toggle("has", area !== "all"); render(); });
+    $("ec-q").addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); render(); });
+    $("ec-new").addEventListener("click", openNew);
+    $("ec-main").addEventListener("change", (e) => {
+      const el = e.target;
+      if (el instanceof HTMLSelectElement && el.dataset.area) saveArea(el.dataset.area, el.value, el);
+    });
+    $("ec-main").addEventListener("click", (e) => {
+      const t = e.target instanceof HTMLElement ? e.target.closest("[data-dup], [data-del]") : null;
+      if (!t) return;
+      if (t.dataset.dup) duplicate(t.dataset.dup); else if (t.dataset.del) remove(t.dataset.del);
+    });
+
+    (async () => {
+      if (!DEV) { const s = await requireAdmin(); if (!s) return; }
+      await load();
+    })();
+  </script>
+</AdminShell>

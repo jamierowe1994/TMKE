@@ -1,275 +1,158 @@
 ---
+// Email › Automations (Danielle, 25 Nov 2026; agreed on the "TMKE OS Email"
+// mock-up). Emails that send themselves when something happens: the system
+// workflows built in the step builder, and the built-in emails the platform
+// sends. Marketing funnels moved to Email › Campaigns
+// (/admin/email/campaigns); which page a funnel is on is the builder's own
+// Marketing / Service answer (src/lib/email-campaigns.js).
 import AdminShell from "../../../components/admin/AdminShell.astro";
-import "../../../styles/admin.css";
+import EmailTabs from "../../../components/admin/EmailTabs.astro";
+import "../../../styles/money-os.css";
+import { EMAIL_CATALOG, EMAIL_GROUPS } from "../../../lib/email-catalog.js";
+
+const builtIn = EMAIL_GROUPS.map((group) => {
+  const items = EMAIL_CATALOG.filter((e) => e.group === group);
+  return { group, count: items.length, names: items.slice(0, 3).map((e) => e.name).join(", ") + (items.length > 3 ? ", and more" : "") };
+}).filter((g) => g.count);
+const builtInTotal = builtIn.reduce((n, g) => n + g.count, 0);
 ---
 
 <AdminShell active="automations" title="Automations" skin="hub">
-  <div class="page-header">
-    <div class="page-header-top">
-      <div class="page-header-left">
-        <div>
-          <div class="page-header-title">Automations</div>
-          <div class="page-header-sub">Marketing funnels and system workflows, built from triggers and steps.</div>
-        </div>
-      </div>
-    </div>
-  </div>
   <div class="ash-panel ash-page">
-    <section class="admin-bar">
-      <div class="admin-bar-top">
-        <span class="admin-bar-count" id="auto-count">…</span>
-        <div class="admin-bar-tools">
-          <input class="auto-search" id="auto-search" type="search" placeholder="Search automations…" aria-label="Search automations" />
-          <div class="auto-seg" id="auto-kind" role="group" aria-label="Marketing or system">
-            <button type="button" data-kind="all" class="is-on">All</button>
-            <button type="button" data-kind="marketing">Marketing</button>
-            <button type="button" data-kind="system">System</button>
-          </div>
-          <select class="auto-filter" id="auto-filter" aria-label="Filter automations">
-            <option value="all">Any status</option>
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="paused">Paused</option>
-            <option value="archived">Archived</option>
-          </select>
-          <button type="button" class="admin-btn admin-btn-ghost" id="auto-sync" title="Pull new Pro/Academy starters from the TEG sheet and enrol them">↻ Sync new starters</button>
-          <button type="button" class="admin-btn admin-btn-primary" id="auto-new">+ New automation</button>
+    <div class="mo" id="ea">
+      <section class="mo-head">
+        <div>
+          <p class="mo-eye">Email</p>
+          <div class="mo-title">Automations</div>
+          <p class="mo-sub">Emails that send themselves when something happens in the Studio or the business. Nobody presses send.</p>
+        </div>
+        <div class="mo-acts">
+          <a class="mbtn" href="/admin/email/styles">Email styles</a>
+          <button type="button" class="mbtn" id="ea-sync" title="Pull new Pro/Academy starters from the TEG sheet and enrol them">Sync new starters</button>
+          <button type="button" class="mbtn primary" id="ea-new">New automation</button>
+        </div>
+      </section>
+      <EmailTabs active="automations" />
+
+      <div class="section">
+        <div class="strip"><span class="strip-t">Automations you built<span id="ea-n"></span></span></div>
+        <p class="state" id="ea-state">Reading the automations.</p>
+        <div id="ea-main" hidden></div>
+      </div>
+
+      <div class="section">
+        <div class="strip"><span class="strip-t">Built-in emails<span>{builtInTotal}</span></span><a class="ea-all" href="/admin/email/automated">See them all</a></div>
+        <div class="tablewrap">
+          <table class="ea-tbl">
+            <tbody>
+              {builtIn.map((g) => (
+                <tr>
+                  <td><div class="ea-rowname"><b>{g.group}</b><span>{g.names}</span></div></td>
+                  <td class="tx">{g.count} {g.count === 1 ? "email" : "emails"}</td>
+                  <td class="ea-acts"><a class="mbtn small" href="/admin/email/automated">View</a></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-    </section>
 
-    <section class="auto-list" id="auto-list">
-      <p class="auto-loading" id="auto-loading">Loading automations…</p>
-      <div class="auto-empty" id="auto-empty" hidden>
-        <p><strong>No automations yet.</strong></p>
-        <p>Build your first customer journey — e.g. a welcome series when someone signs up, or a purchase confirmation when they buy a pack.</p>
-      </div>
-      <div id="auto-sections"></div>
-    </section>
+      <div class="toast" id="ea-toast" role="status" aria-live="polite"></div>
+    </div>
   </div>
 
   <style is:global>
-    .admin-bar { display: flex; flex-direction: column; align-items: stretch; gap: 16px; max-width: 1360px; margin: 0 auto; padding: 40px 0 22px; border-bottom: 1px solid rgba(55,30,40,0.14); }
-    .admin-bar-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-    .admin-bar-tools { display: flex; align-items: center; gap: 10px; }
-    .admin-bar-count { font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.6); font-weight: 600; }
-    .auto-filter {
-      appearance: none; -webkit-appearance: none;
-      background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23371e28' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 12px center;
-      border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 9px 32px 9px 14px; cursor: pointer;
-      font-family: var(--sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--english-violet);
-    }
-    .auto-list { max-width: 1360px; margin: 0 auto; padding: 28px 0 160px; }
-    .auto-loading { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 24px 0; }
-    .auto-empty { font-family: var(--sans); color: rgba(28,29,34,0.7); padding: 24px 0; line-height: 1.6; }
-    .auto-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-    .auto-card { display: flex; flex-direction: column; gap: 12px; padding: 20px 22px; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; text-decoration: none; color: var(--ink); transition: transform 0.2s, box-shadow 0.2s; }
-    .auto-card:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -18px rgba(55,30,40,0.4); }
-    .auto-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-    .auto-card-name { font-family: var(--serif); font-size: 19px; font-weight: 500; color: var(--ink); letter-spacing: -0.05em; }
-    .auto-badge { flex: none; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
-    .auto-badge.active { color: #2c7a4b; background: rgba(44,122,75,0.12); }
-    .auto-badge.draft { color: rgba(28,29,34,0.55); background: rgba(28,29,34,0.08); }
-    .auto-badge.paused { color: #b78a2e; background: rgba(183,138,46,0.14); }
-    .auto-badge.archived { color: rgba(28,29,34,0.4); background: rgba(28,29,34,0.06); }
-    .auto-card-meta { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); line-height: 1.5; }
-    .auto-next { margin-top: -4px; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); }
-    .auto-next strong { color: var(--english-violet); }
-    .auto-card-meta strong { color: var(--english-violet); font-weight: 700; }
-    .auto-card-foot { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
-    .auto-rowbtn { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid rgba(28,29,34,0.2); background: transparent; color: var(--english-violet); border-radius: 5px; padding: 6px 10px; cursor: pointer; }
-    /* Who's currently in this funnel — proof it's actually running. */
-    .auto-who { align-self: flex-start; margin: 2px 0 0; }
-    .auto-enrolled { margin: 8px 0 0; border-top: 1px solid rgba(28,29,34,0.1); padding-top: 8px; display: flex; flex-direction: column; gap: 5px; }
-    .auto-enrolled[hidden] { display: none; }
-    .auto-enrolled-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-    .auto-enrolled-name { font-family: var(--sans); font-size: 12.5px; color: var(--ink); }
-    .auto-enrolled-when { font-family: var(--sans); font-size: 10.5px; color: rgba(28,29,34,0.5); white-space: nowrap; }
-    .auto-rowbtn.del { color: #a05a3c; border-color: #a05a3c; }
-    .auto-rowbtn:hover { background: rgba(28,29,34,0.05); }
-    /* .ash-content.hub-skin prefix beats hub-tokens.css's ".hub-skin input
-       {padding:9px 12px}" baseline (0,1,1 beats a bare .auto-search's 0,1,0)
-       regardless of cascade order. */
-    .ash-content.hub-skin .auto-search { font-family: var(--sans); font-size: 12.5px; height: 28px; box-sizing: border-box; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; padding: 0 14px; min-width: 170px; background: #fff; color: var(--ink); }
-    .auto-seg { display: inline-flex; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; overflow: hidden; background: #fff; }
-    .auto-seg button { font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; border: 0; background: none; color: rgba(28,29,34,0.6); padding: 9px 14px; cursor: pointer; }
-    .auto-seg button.is-on { background: var(--english-violet); color: #fff; }
-    .auto-sec-h { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 26px 0 12px; }
-    .auto-sec-h:first-child { margin-top: 0; }
-    .auto-kindbadge { flex: none; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; color: rgba(28,29,34,0.55); background: rgba(28,29,34,0.07); }
-    .auto-kindbadge.marketing { color: var(--english-violet); background: rgba(55,30,40,0.1); }
-    .auto-collapsed { border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; background: rgba(255,255,255,0.6); margin-top: 26px; }
-    .auto-warn { margin: 10px 0 0; padding: 10px 12px; border-radius: 8px; background: #fbf4e4; border: 1px solid #ecd9a8; font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: #6b4d05; }
-    .auto-warn strong { color: #5a3f00; }
-    .auto-collapsed summary { cursor: pointer; list-style: none; padding: 14px 18px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
-    .auto-collapsed summary::-webkit-details-marker { display: none; }
-    .auto-collapsed summary::after { content: " ▾"; }
-    .auto-collapsed[open] summary::after { content: " ▴"; }
-    .auto-collapsed .auto-grid { padding: 0 18px 18px; }
+    #ea .mo-head { margin-bottom: 14px; }
+    #ea .strip .ea-all { color: #fff; text-underline-offset: 3px; }
+    #ea .blk { display: inline-flex; align-items: center; justify-content: center; width: 104px; height: 24px; border-radius: 4px; font-size: 13px; white-space: nowrap; }
+    #ea .blk.run { background: var(--good-l); color: var(--good); }
+    #ea .blk.pause { background: var(--stone); color: var(--wine); }
+    #ea .blk.plan, #ea .blk.end { background: #fff; color: var(--tx); box-shadow: inset 0 0 0 1px var(--edge); }
+    #ea table.ea-tbl td { height: 56px; }
+    #ea .ea-rowname { display: grid; gap: 2px; line-height: 1.2; padding: 8px 0; white-space: normal; }
+    #ea .ea-rowname a, #ea .ea-rowname b { font-size: 16px; font-weight: 400; color: var(--ink); text-decoration: none; }
+    #ea .ea-rowname a:hover { color: var(--wine); text-decoration: underline; text-underline-offset: 3px; }
+    #ea .ea-rowname span { font-size: 13px; color: var(--tx); }
+    #ea .ea-k { display: block; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--tx); }
+    #ea td.ea-acts { text-align: right; }
+    #ea td.ea-acts .mbtn { margin-left: 6px; }
+    #ea .mbtn.small { height: 26px; padding: 0 10px; }
+    #ea .state { padding: 26px 0; }
   </style>
 
   <script>
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase } from "../../../lib/supabase.js";
-    import { TRIGGER_LABELS } from "../../../lib/automations.js";
+    import { TRIGGER_LABELS, emptyGraph } from "../../../lib/automations.js";
+    import { kindOf } from "../../../lib/email-campaigns.js";
 
     const DEV = import.meta.env.DEV;
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     const fmtDate = (d) => { try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
-    const fmtDateTime = (d) => { try { return new Date(d).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch (_) { return ""; } };
 
-    let ALL = [];
-    let filter = "all";
-    let kindFilter = "all";
-    let q = "";
+    let ALL = [];           // system workflows only
+    let LIVE = new Map();   // automation id -> how many are in it now
 
-    // Marketing vs system: the funnel-level answer from the builder, falling
-    // back to "any send step flagged marketing" for funnels saved before the
-    // setup questions existed.
-    function kindOf(a) {
-      const meta = a.graph && a.graph.meta;
-      if (meta && meta.kind === "marketing") return "marketing";
-      const nodes = (a.graph && a.graph.nodes) || [];
-      return nodes.some((n) => n.type === "send_email" && n.config && n.config.send_kind === "marketing") ? "marketing" : "system";
+    function toast(msg) {
+      const t = $("ea-toast"); if (!t) return;
+      t.textContent = msg; t.classList.add("on");
+      clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("on"), 2600);
     }
 
-    // Dated emails still to come in a live funnel that has nobody in it:
-    // nobody will get them. The Autumn Edit's email 3 was missed this way.
-    function emptyFunnelWarning(a, live) {
-      if (a.status !== "active" || live.length) return "";
-      const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
-      const sends = ((a.graph && a.graph.nodes) || []).filter((n) => n.type === "send_email" && n.config && /^\d{4}-\d{2}-\d{2}$/.test(String(n.config.send_on || "")))
-        .sort((x, y) => String(x.config.send_on).localeCompare(String(y.config.send_on)));
-      const next = sends.find((n) => n.config.send_on >= today);
-      if (!next) return "";
-      const when = new Date(`${next.config.send_on}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-      return `<div class="auto-warn"><strong>Nobody left for email ${sends.indexOf(next) + 1}.</strong> It's due ${esc(when)}${next.config.send_at ? ` at ${esc(next.config.send_at)}` : ""}, but nobody is in this funnel to receive it.</div>`;
-    }
+    const BLK = { active: ["run", "Running"], paused: ["pause", "Paused"], draft: ["plan", "Draft"], archived: ["end", "Archived"] };
 
-    /* The next email this funnel sends: the earliest moment anyone waiting at
-       a send step moves on (Danielle, 26 Oct). Times are re-checked against
-       each email's date and time on every run, so this is when it goes. */
-    function nextSendLine(a, live) {
-      const sendIds = new Set(((a.graph && a.graph.nodes) || []).filter((n) => n.type === "send_email").map((n) => n.id));
-      const at = live.filter((e) => e.status === "active" && sendIds.has(e.current_node_id) && e.next_run_at);
-      if (!at.length || a.status !== "active") return "";
-      const first = at.reduce((m, e) => (e.next_run_at < m ? e.next_run_at : m), at[0].next_run_at);
-      const same = at.filter((e) => Math.abs(new Date(e.next_run_at) - new Date(first)) < 60000).length;
-      const due = new Date(first) <= new Date();
-      const when = new Date(first).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
-      return `<div class="auto-next">${due ? "<strong>Sending now</strong>" : `Next send <strong>${esc(when)}</strong>`} · ${same} ${same === 1 ? "person" : "people"}</div>`;
-    }
-
-    function card(a) {
-      const live = LIVE.get(a.id) || [];
-      const kind = kindOf(a);
-      return `
-        <a class="auto-card" href="/admin/automations/edit?id=${esc(a.id)}">
-          <div class="auto-card-top">
-            <span class="auto-card-name">${esc(a.name)}</span>
-            <span style="display:flex; gap:6px; flex:none">
-              <span class="auto-kindbadge ${kind}">${kind === "marketing" ? "Marketing" : "System"}</span>
-              <span class="auto-badge ${esc(a.status)}">${esc(a.status)}</span>
-            </span>
-          </div>
-          <div class="auto-card-meta">
-            Trigger: <strong>${esc(TRIGGER_LABELS[a.trigger_type] || "Not set")}</strong><br>
-            <strong>${live.length}</strong> in the funnel now · edited ${esc(fmtDate(a.updated_at))}
-          </div>
-          ${nextSendLine(a, live)}
-          ${emptyFunnelWarning(a, live)}
-          ${live.length ? `
-          <button type="button" class="auto-rowbtn auto-who" data-who="${esc(a.id)}">See who &darr;</button>
-          <div class="auto-enrolled" data-enrolled="${esc(a.id)}" hidden>
-            ${live.map((e) => `
-              <div class="auto-enrolled-row">
-                <span class="auto-enrolled-name">${esc(e.name)}</span>
-                <span class="auto-enrolled-when">${e.next_run_at ? "next " + esc(fmtDateTime(e.next_run_at)) : esc(e.status)}</span>
-              </div>`).join("")}
-          </div>` : ""}
-          <div class="auto-card-foot">
-            <button type="button" class="auto-rowbtn" data-audit="${esc(a.id)}">Audit</button>
-            <button type="button" class="auto-rowbtn" data-dup="${esc(a.id)}">Duplicate</button>
-            <button type="button" class="auto-rowbtn del" data-del="${esc(a.id)}">Delete</button>
-          </div>
-        </a>`;
+    function row(a) {
+      const id = encodeURIComponent(a.id);
+      const blk = BLK[a.status] || BLK.draft;
+      const stopped = a.status !== "active";
+      return `<tr>
+        <td><div class="ea-rowname"><a href="/admin/automations/edit?id=${id}">${esc(a.name)}</a><span>Edited ${esc(fmtDate(a.updated_at))}</span></div></td>
+        <td><span class="ea-k">Starts when</span>${esc(TRIGGER_LABELS[a.trigger_type] || "Not set up yet")}</td>
+        <td><span class="ea-k">In it now</span>${LIVE.get(a.id) || 0}</td>
+        <td><span class="blk ${blk[0]}">${blk[1]}</span></td>
+        <td class="ea-acts">
+          <a class="mbtn small" href="/admin/automations/edit?id=${id}">Open</a><a class="mbtn small" href="/admin/automations/audit?id=${id}">Who is in it</a><button type="button" class="mbtn small" data-dup="${esc(a.id)}">Duplicate</button>${stopped ? `<button type="button" class="mbtn small danger" data-del="${esc(a.id)}">Delete</button>` : ""}
+        </td>
+      </tr>`;
     }
 
     function render() {
-      const rows = ALL
-        .filter((a) => filter === "all" || a.status === filter)
-        .filter((a) => kindFilter === "all" || kindOf(a) === kindFilter)
-        .filter((a) => !q || (a.name || "").toLowerCase().includes(q) || (TRIGGER_LABELS[a.trigger_type] || "").toLowerCase().includes(q));
-      $("auto-count").textContent = `${ALL.filter((a) => a.status === "active").length} active · ${ALL.length} total`;
-      $("auto-empty").hidden = ALL.length !== 0;
-      // Running funnels first, then the ones being built, with archived tucked
-      // into a collapsed drawer so a long history never buries the live work.
-      const running = rows.filter((a) => a.status === "active");
-      // Paused is a live funnel on hold, not one being built - its own group.
-      const paused = rows.filter((a) => a.status === "paused");
-      const building = rows.filter((a) => a.status === "draft");
-      const archived = rows.filter((a) => a.status === "archived");
-      const section = (title, items) => items.length ? `<div class="auto-sec-h">${title} (${items.length})</div><div class="auto-grid">${items.map(card).join("")}</div>` : "";
-      $("auto-sections").innerHTML =
-        section("Running", running)
-        + section("Paused", paused)
-        + section("Drafts", building)
-        + (archived.length ? `<details class="auto-collapsed"><summary>Archived (${archived.length})</summary><div class="auto-grid">${archived.map(card).join("")}</div></details>` : "")
-        + (!rows.length && ALL.length ? '<p class="auto-loading">Nothing matches that filter.</p>' : "");
-    }
-
-    // Live enrolments per automation. NB automations.enrolled_count is a stale
-    // column that nothing ever increments — it always reads 0 — so count the
-    // real enrolment rows instead. LIVE = the ones actually in the funnel now.
-    let LIVE = new Map();     // automation_id -> [{ contact_id, status, next_run_at, name, email }]
-    async function loadEnrollments() {
-      const { data: enr } = await supabase
-        .from("automation_enrollments")
-        .select("automation_id, contact_id, status, current_node_id, next_run_at")
-        .in("status", ["active", "waiting"])
-        .order("next_run_at", { ascending: true });
-      const rows = enr || [];
-      const ids = Array.from(new Set(rows.map((r) => r.contact_id))).filter(Boolean);
-      let byId = new Map();
-      if (ids.length) {
-        const { data: cs } = await supabase.from("contacts").select("id, first_name, last_name, email").in("id", ids);
-        (cs || []).forEach((c) => byId.set(c.id, c));
-      }
-      LIVE = new Map();
-      rows.forEach((r) => {
-        const c = byId.get(r.contact_id) || {};
-        const list = LIVE.get(r.automation_id) || [];
-        list.push({
-          ...r,
-          name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email || "Someone",
-          email: c.email || "",
-        });
-        LIVE.set(r.automation_id, list);
-      });
+      const rank = { active: 0, paused: 1, draft: 2, archived: 3 };
+      const rows = [...ALL].sort((x, y) => (rank[x.status] ?? 4) - (rank[y.status] ?? 4) || String(y.updated_at).localeCompare(String(x.updated_at)));
+      $("ea-n").textContent = String(rows.length);
+      $("ea-main").innerHTML = rows.length
+        ? `<div class="tablewrap"><table class="ea-tbl"><tbody>${rows.map(row).join("")}</tbody></table></div>`
+        : `<div class="empty">No automations yet. Press New automation to build one, for example a welcome email when someone signs up.</div>`;
     }
 
     async function load() {
       const { data, error } = await supabase.from("automations").select("*").order("updated_at", { ascending: false });
-      $("auto-loading").hidden = true;
-      if (error) { $("auto-loading").hidden = false; $("auto-loading").textContent = "Couldn't load automations: " + error.message; return; }
-      ALL = data || [];
-      try { await loadEnrollments(); } catch (_) {}
+      if (error) { $("ea-state").textContent = "Couldn't read the automations: " + error.message; $("ea-state").classList.add("bad"); return; }
+      ALL = (data || []).filter((a) => kindOf(a) !== "marketing");
+      LIVE = new Map();
+      try {
+        // Only the ids come back, a thousand at a time, so a busy workflow is still counted in full.
+        for (let from = 0; from < 20000; from += 1000) {
+          const r = await supabase.from("automation_enrollments").select("automation_id").in("status", ["active", "waiting"]).order("id", { ascending: true }).range(from, from + 999);
+          if (r.error) break;
+          (r.data || []).forEach((e) => LIVE.set(e.automation_id, (LIVE.get(e.automation_id) || 0) + 1));
+          if ((r.data || []).length < 1000) break;
+        }
+      } catch (_) {}
+      if (DEV && !ALL.length && new URLSearchParams(location.search).has("demo")) {
+        // An example row for a development copy, where a signed-out visitor is handed nothing.
+        ALL = [{ id: "d1", name: "TEG Pro / Academy Videography", status: "active", trigger_type: "new_starter_videography", updated_at: "2026-07-12T10:00:00Z", graph: emptyGraph() },
+          { id: "d2", name: "Untitled automation", status: "draft", trigger_type: null, updated_at: "2026-09-07T10:00:00Z", graph: emptyGraph() }];
+      }
+      $("ea-state").hidden = true;
+      $("ea-main").hidden = false;
       render();
     }
 
-    $("auto-filter")?.addEventListener("change", (e) => { filter = e.target.value; render(); });
-    $("auto-search")?.addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); render(); });
-    $("auto-kind")?.addEventListener("click", (e) => {
-      const b = e.target.closest("[data-kind]"); if (!b) return;
-      kindFilter = b.getAttribute("data-kind");
-      $("auto-kind").querySelectorAll("button").forEach((x) => x.classList.toggle("is-on", x === b));
-      render();
-    });
-
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
-    $("auto-sync")?.addEventListener("click", async () => {
-      const btn = $("auto-sync");
+    $("ea-sync")?.addEventListener("click", async () => {
+      const btn = $("ea-sync");
       if (!WORKER) { alert("Worker URL not set (PUBLIC_R2_WORKER_URL)."); return; }
       const prev = btn.textContent; btn.disabled = true; btn.textContent = "Syncing…";
       try {
@@ -303,7 +186,7 @@ import "../../../styles/admin.css";
       finally { btn.disabled = false; btn.textContent = prev; }
     });
 
-    $("auto-new")?.addEventListener("click", async () => {
+    $("ea-new")?.addEventListener("click", async () => {
       const name = (prompt("Name your automation:", "Untitled automation") || "").trim();
       if (!name) return;
       const { data, error } = await supabase.from("automations").insert({ name }).select("id").single();
@@ -311,42 +194,27 @@ import "../../../styles/admin.css";
       location.href = `/admin/automations/edit?id=${data.id}`;
     });
 
-    // Duplicate / delete live inside the card link, so stop the navigation.
-    $("auto-sections")?.addEventListener("click", async (e) => {
-      const t = e.target;
-      if (!(t instanceof HTMLElement)) return;
-      // "See who" — reveal the contacts currently in this funnel.
-      const who = t.getAttribute("data-who");
-      if (who) {
-        e.preventDefault();
-        const box = document.querySelector(`[data-enrolled="${who}"]`);
-        if (box) { box.hidden = !box.hidden; t.innerHTML = box.hidden ? "See who &darr;" : "Hide &uarr;"; }
-        return;
-      }
-      const audit = t.getAttribute("data-audit");
-      if (audit) { e.preventDefault(); location.href = "/admin/automations/audit?id=" + encodeURIComponent(audit); return; }
-      const dup = t.getAttribute("data-dup");
-      const del = t.getAttribute("data-del");
-      if (!dup && !del) return;
-      e.preventDefault();
-      if (dup) {
-        const src = ALL.find((a) => a.id === dup);
-        if (!src) return;
-        // A copy is a brand-new funnel: a draft, with none of the original's
+    $("ea-main")?.addEventListener("click", async (e) => {
+      const t = e.target instanceof HTMLElement ? e.target.closest("[data-dup], [data-del]") : null;
+      if (!t) return;
+      const id = t.dataset.dup || t.dataset.del;
+      const src = ALL.find((a) => a.id === id);
+      if (!src) return;
+      if (t.dataset.dup) {
+        // A copy is a brand-new automation: a draft, with none of the original's
         // life story (went live, paused, archived) carried across.
-        const graphCopy = JSON.parse(JSON.stringify(src.graph || { nodes: [], edges: [] }));
-        if (graphCopy.meta) { ["went_live_at", "paused_at", "archived_at", "reactivated_at"].forEach((k) => delete graphCopy.meta[k]); }
-        const { error } = await supabase.from("automations").insert({
-          name: src.name + " (copy)", trigger_type: src.trigger_type, trigger_config: src.trigger_config, graph: graphCopy, status: "draft",
-        });
-        if (error) { alert("Couldn't duplicate: " + error.message); return; }
-        await load();
-      } else if (del) {
-        if (!confirm("Delete this automation? Active enrolments will stop. This can't be undone.")) return;
-        const { error } = await supabase.from("automations").delete().eq("id", del);
-        if (error) { alert("Couldn't delete: " + error.message); return; }
-        await load();
+        const copy = JSON.parse(JSON.stringify(src.graph || emptyGraph()));
+        if (copy.meta) ["went_live_at", "paused_at", "archived_at", "reactivated_at"].forEach((k) => delete copy.meta[k]);
+        const { error } = await supabase.from("automations").insert({ name: src.name + " (copy)", trigger_type: src.trigger_type, trigger_config: src.trigger_config, graph: copy, status: "draft" });
+        if (error) { toast("Couldn't duplicate: " + error.message); return; }
+        toast("Copied. The copy is a draft.");
+      } else {
+        if (!confirm(`Delete "${src.name}"? This can't be undone.`)) return;
+        const { error } = await supabase.from("automations").delete().eq("id", id);
+        if (error) { toast("Couldn't delete: " + error.message); return; }
+        toast("Deleted.");
       }
+      await load();
     });
 
     (async () => {
