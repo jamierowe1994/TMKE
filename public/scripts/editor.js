@@ -16657,10 +16657,56 @@ import { createResizeEngine } from "./resize-engine.js";
     if (isIllustrationPicture(el)) return "e.g. Choose your Christmas picture";
     return "e.g. This is where the photo of the house goes";
   }
+  /* The prompt a row starts with (Danielle, 25 Nov), written from what the
+     row holds so the same ones aren't typed on every template: anything the
+     brand kit fills in asks to be checked. Not saved on the design: it is
+     there until the author types their own, and comes back if they clear it. */
+  var TAG_PROMPT_NOUN = {
+    "company name": "company name", "area": "area", "slogan": "slogan", "website": "website",
+    "agent name": "name", "agent first name": "first name", "agent surname": "surname",
+    "job title": "job title", "local expert": "local expert line", "telephone": "telephone number", "email": "email address",
+  };
+  function checkPrompt(nouns) {
+    const list = nouns.length > 1 ? nouns.slice(0, -1).join(", ") + " and " + nouns[nouns.length - 1] : nouns[0];
+    return "Check that your " + list + (nouns.length > 1 ? " have" : " has") + " been auto-populated correctly.";
+  }
+  function fieldDefaultPrompt(el) {
+    if (!el) return "";
+    if (el.brandRole === "logo") return checkPrompt(["company logo"]);
+    if (el.type === "text") {
+      // The tags as written, which a filled-in copy keeps in mergeSrc.
+      const tags = tagsInText(el.mergeSrc != null ? el.mergeSrc : el.text);
+      if (tags.length) return checkPrompt(tags.map(function (t) { return TAG_PROMPT_NOUN[t] || t; }));
+    }
+    return "";
+  }
+  // The background's: a card's own colours keep "Card colour".
+  function bgDefaultPrompt() {
+    if (!hasBgPattern() && cardColours()) return "";
+    if (state.canvas.backgroundImage && !hasBgPattern()) return "Select a background image.";
+    return "Choose your background colour, pattern or texture.";
+  }
+  /* The author's prompt box. It wraps and grows to show the whole prompt,
+     now that most rows start with a sentence in them (it was one line, which
+     cut them off). Return finishes it, as it did. */
+  function promptBox(value, placeholder) {
+    const box = document.createElement("textarea");
+    box.className = "ed-field-name";
+    box.rows = 1;
+    box.value = value || "";
+    box.placeholder = placeholder || "";
+    const fit = function () { if (!box.scrollHeight) return; box.style.height = "auto"; box.style.height = (box.scrollHeight + 2) + "px"; };
+    box.addEventListener("input", fit);
+    box.addEventListener("focus", fit);
+    box.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); box.blur(); } });
+    requestAnimationFrame(fit);
+    return box;
+  }
   function fieldLabelFor(el) {
     const named = (el.fieldLabel || "").trim();
     if (named) return named;
-    if (el.brandRole === "logo") return "Your logo goes here";
+    const starts = fieldDefaultPrompt(el);
+    if (starts) return starts;
     if (el.type === "text") {
       const words = (el.text || "").replace(/\s+/g, " ").trim();
       if (words) return words.length > 42 ? words.slice(0, 42) + "…" : words;
@@ -16770,13 +16816,10 @@ import { createResizeEngine } from "./resize-engine.js";
       head.className = "ed-field-head";
       if (admin) {
         // The author writes the guidance the agent will read.
-        const name = document.createElement("input");
-        name.type = "text";
-        name.className = "ed-field-name";
-        name.value = el.fieldLabel || (el.brandRole === "logo" ? "Your logo goes here" : "");
-        name.placeholder = fieldPlaceholderFor(el);
+        const name = promptBox(el.fieldLabel || fieldDefaultPrompt(el), fieldPlaceholderFor(el));
         name.addEventListener("change", function () {
-          el.fieldLabel = name.value.trim() || null;
+          const typed = name.value.trim();
+          el.fieldLabel = typed && typed !== fieldDefaultPrompt(el) ? typed : null;
           pushHistory();
           renderFieldsPane();
         });
@@ -17114,13 +17157,11 @@ import { createResizeEngine } from "./resize-engine.js";
     const head = document.createElement("div");
     head.className = "ed-field-head";
     if (admin) {
-      const name = document.createElement("input");
-      name.type = "text";
-      name.className = "ed-field-name";
-      name.value = state.canvas.bgFieldLabel || "";
+      const name = promptBox(state.canvas.bgFieldLabel || bgDefaultPrompt(), "");
       name.placeholder = hasBgPattern() ? "e.g. Pick your background" : cardColours() ? "e.g. Pick the colour of your card" : state.canvas.backgroundImage ? "e.g. This is where the photo of the house goes" : "e.g. Change the background to suit your brand";
       name.addEventListener("change", function () {
-        state.canvas.bgFieldLabel = name.value.trim() || null;
+        const typed = name.value.trim();
+        state.canvas.bgFieldLabel = typed && typed !== bgDefaultPrompt() ? typed : null;
         pushHistory();
         renderFieldsPane();
       });
@@ -17133,15 +17174,16 @@ import { createResizeEngine } from "./resize-engine.js";
     } else {
       const lbl = document.createElement("label");
       lbl.className = "ed-field-label";
-      lbl.textContent = state.canvas.bgFieldLabel || (hasBgPattern() ? "Your background" : cardColours() ? "Card colour" : state.canvas.backgroundImage ? "The background picture" : "Background");
+      lbl.textContent = state.canvas.bgFieldLabel || bgDefaultPrompt() || (hasBgPattern() ? "Your background" : cardColours() ? "Card colour" : state.canvas.backgroundImage ? "The background picture" : "Background");
       head.appendChild(lbl);
     }
     row.appendChild(head);
     /* A patterned background (Danielle, 18 Nov): the patterns and their
        colour schemes, not the card colours, which the pattern covers. */
     if (state.canvas.bgPattern) {
-      const pick = isTexture(state.canvas.bgPattern) ? txPicker : xpPicker;
-      row.appendChild(pick(bgPatGet, function (v, live) { bgPatSet(v, live); if (!live) renderFieldsPane(); }, { compact: true, removable: false }));
+      const patSet = function (v, live) { bgPatSet(v, live); if (!live) renderFieldsPane(); };
+      if (isTexture(state.canvas.bgPattern)) row.appendChild(txFieldControls(bgPatGet, patSet));
+      else row.appendChild(xpPicker(bgPatGet, patSet, { compact: true, removable: false }));
       return row;
     }
     /* A Christmas card or postcard: its four colours, with the same rules
@@ -17165,6 +17207,19 @@ import { createResizeEngine } from "./resize-engine.js";
       return row;
     }
 
+    /* A plain colour (Danielle, 25 Nov): the brand's colours and their own,
+       here in the row. A picture or a gradient keeps the button below. */
+    if (!state.canvas.backgroundImage && normHex(state.canvas.background)) {
+      row.appendChild(bgColourRow(function () { return state.canvas.background; }, function (hex, live) {
+        state.canvas.background = hex;
+        retoneLogos(function () { fullRender(); });
+        fullRender();
+        pushHistory();
+        if (!live) { if (typeof refreshPageThumbs === "function") refreshPageThumbs(); renderFieldsPane(); }
+      }));
+      return row;
+    }
+
     const box = document.createElement("div");
     box.className = "ed-field-pic";
     const thumb = document.createElement("span");
@@ -17184,6 +17239,123 @@ import { createResizeEngine } from "./resize-engine.js";
     box.appendChild(btn);
     row.appendChild(box);
     return row;
+  }
+
+  /* The background's colour in the Edit list (Danielle, 25 Nov): the brand's
+     own colours, then one button for any other colour, which opens the
+     colour panel. The same on a plain background and on a textured one, so
+     nobody is offered our palette names in place of their brand. A colour
+     that isn't one of the brand's (ours, to begin with) shows on the button.
+     apply(hex, live): live while the colour panel is open, when the list is
+     left as it is and this row keeps itself in step. */
+  function bgColourRow(getHex, apply) {
+    const wrap = document.createElement("div");
+    wrap.className = "ed-bgc";
+    const seen = {};
+    const brand = (BRAND && Array.isArray(BRAND.colors) ? BRAND.colors : [])
+      .map(function (c) { return { hex: normHex(c && (c.hex || c)), name: (c && c.name) || "" }; })
+      .filter(function (c) { if (!c.hex || seen[c.hex]) return false; seen[c.hex] = 1; return true; });
+    const line = document.createElement("div");
+    line.className = "ed-bgc-line";
+    const own = document.createElement("button");
+    own.type = "button";
+    own.className = "ed-bgc-own";
+    own.innerHTML = "<i></i><span>Your own colour</span>";
+    const paint = function () {
+      const cur = normHex(getHex());
+      let hit = false;
+      line.querySelectorAll(".ed-cp-sw").forEach(function (b) { const on = b.dataset.hex === cur; if (on) hit = true; b.classList.toggle("is-current", on); });
+      own.setAttribute("aria-pressed", String(!hit && !!cur));
+      own.firstChild.style.background = !hit && cur ? cur : "";
+    };
+    brand.forEach(function (c) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ed-cp-sw";
+      b.dataset.hex = c.hex;
+      b.style.background = c.hex;
+      b.title = c.name ? c.name + " \u2014 " + c.hex : c.hex;
+      b.setAttribute("aria-label", c.name || c.hex);
+      b.addEventListener("click", function () { apply(c.hex, false); });
+      line.appendChild(b);
+    });
+    if (brand.length) wrap.appendChild(line);
+    own.addEventListener("click", function (e) {
+      e.stopPropagation();
+      openColorPanel({
+        title: "Background colour",
+        current: normHex(getHex()) || "#EAE5E1",
+        onSolid: function (hex) { apply(normHex(hex) || hex, true); paint(); },
+      });
+    });
+    wrap.appendChild(own);
+    paint();
+    return wrap;
+  }
+
+  /* A textured background in the Edit list (Danielle, 25 Nov): its colour
+     first, then the texture as a drop-down showing the one it has (the one
+     we set, to begin with), then how strong. The Background pane keeps the
+     full picker (txPicker), with the size as well. */
+  var _txDropOpen = false;   // left open while they try a few; shut again with its own button
+  function txFieldControls(get, set) {
+    const wrap = document.createElement("div");
+    wrap.className = "ed-xp ed-txf";
+    const cur = get();
+    const p = cur && xpPattern(cur.key);
+    if (!cur || !p) return wrap;
+    const k = function (text) { const h = document.createElement("div"); h.className = "ed-xp-k"; h.textContent = text; return h; };
+    wrap.appendChild(k("Colour"));
+    wrap.appendChild(bgColourRow(function () { const v = get(); return (v && v.cols && v.cols.ground) || state.canvas.background; }, function (hex, live) {
+      const v = get(); if (!v) return;
+      v.cols = { ground: hex };
+      delete v.route; delete v.scheme;
+      set(v, live);
+      if (live) pushHistory();   // set leaves a live change for whoever made it to record
+    }));
+    wrap.appendChild(k("Texture"));
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "ed-txf-drop";
+    drop.setAttribute("aria-expanded", String(_txDropOpen));
+    drop.innerHTML = '<span class="pic" style="background-image:url(/textures/' + p.file + '-thumb.jpg)"></span><span class="nm">' + escapeHtml(p.name) + '</span><svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    wrap.appendChild(drop);
+    const grid = document.createElement("div");
+    grid.className = "ed-xp-grid";
+    grid.hidden = !_txDropOpen;
+    XP_TEXTURES.forEach(function (t) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ed-xp-pat";
+      b.setAttribute("aria-pressed", String(t === p));
+      b.innerHTML = '<span class="pic" style="background-image:url(/textures/' + t.file + '-thumb.jpg);background-size:cover"></span>' + t.name;
+      b.addEventListener("click", function () {
+        const v = get(); if (!v) return;
+        v.key = t.key;   // the colour, strength and size stay as they are
+        set(v);
+      });
+      grid.appendChild(b);
+    });
+    wrap.appendChild(grid);
+    drop.addEventListener("click", function () {
+      _txDropOpen = !_txDropOpen;
+      grid.hidden = !_txDropOpen;
+      drop.setAttribute("aria-expanded", String(_txDropOpen));
+    });
+    wrap.appendChild(k("Strength"));
+    const steps = document.createElement("div");
+    steps.className = "ed-xp-area";
+    steps.style.marginTop = "0";
+    TX_STRENGTH_NAMES.forEach(function (st) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = st[1];
+      b.setAttribute("aria-pressed", String((cur.strength || "standard") === st[0]));
+      b.addEventListener("click", function () { const v = get(); if (!v) return; v.strength = st[0]; set(v); });
+      steps.appendChild(b);
+    });
+    wrap.appendChild(steps);
+    return wrap;
   }
 
   // The card colours, where Illustrate offers them (a folded card or a postcard).
