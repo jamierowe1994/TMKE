@@ -116,6 +116,31 @@ export async function track(name, props = {}) {
   }
 }
 
+/**
+ * A save from the admin Studio that didn't reach the database (Danielle,
+ * 25 Nov 2026): which design, whose sign-in and why. The Catalogue reads
+ * these at Creation, so a design with changes stuck in someone's browser is
+ * flagged before the pack is published. The team's own work, so it isn't
+ * analytics and doesn't wait on a cookie choice. Never from a test copy.
+ * @param {object} props  { template, why }
+ */
+export async function reportSaveFailed(props = {}) {
+  if (!isConfigured || !props || !props.template || onTestCopy()) return;
+  try {
+    let userId = null;
+    try { const { data } = await supabase.auth.getSession(); userId = data?.session?.user?.id ?? null; } catch (_) {}
+    await supabase.from('site_events').insert({
+      name: 'studio_save_failed',
+      path: typeof location !== 'undefined' ? location.pathname : null,
+      user_id: userId,
+      props: {
+        template: String(props.template).slice(0, 80),
+        why: String(props.why || '').replace(/(?:https?:|data:|blob:)\S+/gi, '[link]').replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email]').slice(0, 300) || null,
+      },
+    });
+  } catch (_) { /* best-effort */ }
+}
+
 /** This page is a test copy of the site running on this computer, not tmke.co.uk. */
 export function onTestCopy() {
   return typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);

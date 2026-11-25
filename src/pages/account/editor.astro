@@ -7039,7 +7039,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     setTimeout(() => { try { freeStudioDrafts(Infinity); } catch (_) {} }, 4000);
     // Uploaded brand fonts, from the start, before any design is drawn.
     loadBrandFonts(supabase);
-    import { track, reportStudioFault } from '../../lib/track.js';
+    import { track, reportStudioFault, reportSaveFailed } from '../../lib/track.js';
     import { logUsage } from '../../lib/usage-log.js';
     import { installTimePicker } from '../../lib/time-picker.js';
     installTimePicker();
@@ -7615,6 +7615,27 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           }
           return { ok: false, reason };
         };
+        /* A save that doesn't go through is reported (Danielle, 25 Nov), so
+           the Catalogue can flag the design at Creation: changes that are
+           only in someone's browser shouldn't reach a published pack. Once
+           for each design and reason a visit; autosave tries again by itself,
+           and a save that then works puts the design's saved time past it. */
+        {
+          const adminSave = window.__TMKE_ADMIN_SAVE__, told = new Set();
+          window.__TMKE_ADMIN_SAVE__ = async (payload) => {
+            const tell = (why) => {
+              const id = payload && payload.templateId, key = `${id}|${String(why).slice(0, 40)}`;
+              if (!id || String(id).indexOf('draft-') === 0 || told.has(key)) return;
+              told.add(key);
+              reportSaveFailed({ template: id, why });
+            };
+            let res;
+            try { res = await adminSave(payload); }
+            catch (e) { tell(`Couldn't reach the server${e && e.message ? ': ' + e.message : ''}`); throw e; }
+            if (!(res === true || (res && res.ok))) tell((res && res.reason) || 'The save was refused.');
+            return res;
+          };
+        }
         /* Save the layout on show against the size it is at, on the template
            row itself. Not a copy: the master design is untouched, and a member
            who resizes to this size gets this layout instead of the automatic

@@ -683,6 +683,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
     const $ = (id) => document.getElementById(id);
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
     import { initMonthInsights } from '../../lib/month-insights.js';
+    import { editRows } from '../../lib/edit-prompts.js';
     import { writeXlsx, readXlsx } from '../../lib/xlsx-lite.js';
     const INS = initMonthInsights({ host: document.getElementById('cc-insights'), supabase, WORKER });
     // The Insights step: a view of a live month, not a stage that's saved.
@@ -745,7 +746,28 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         const { data: more } = await supabase.from('templates').select('id, name, thumb_url, status, updated_at').in('id', missing);
         (more || []).forEach((t) => TPLS.set(t.id, t));
       }
+      await loadEditRows();
     }
+    /* Does every row a member sees on a design's Edit tab have a prompt?
+       (Danielle, 25 Nov.) Worked out from the month's own designs, by the
+       Studio's rules (src/lib/edit-prompts.js): a prompt she typed, or one
+       the row starts with. Shown at Captioning and guidance. */
+    let EDIT_ROWS = new Map();   // template id -> { total, missing, pages }
+    async function loadEditRows() {
+      EDIT_ROWS = new Map();
+      const ids = [...new Set(POSTS.map((p) => p.template_id).filter(Boolean))];
+      if (!ids.length) return;
+      const { data } = await supabase.from('templates').select('id, canvas, elements, pages').in('id', ids);
+      (data || []).forEach((t) => { const r = editRows(t); if (r) EDIT_ROWS.set(t.id, r); });
+    }
+    // Back from the Studio without the page loading again: check the prompts afresh.
+    window.addEventListener('pageshow', async (e) => {
+      if (!e.persisted || !CUR) return;
+      await loadEditRows();
+      if (stageOf() === 3 && !INSIGHTS) { renderProgress(); renderRows(); }
+    });
+    const promptsOf = (p) => (p.template_id ? EDIT_ROWS.get(p.template_id) : null) || null;
+    const promptsOk = (p) => { const r = promptsOf(p); return !!r && r.missing.length === 0; };
 
     // ---- One month: the card, the steps and the table ----
     const STAGES = [[1, 'Initial planning'], [2, 'Creation'], [3, 'Captioning and guidance'], [4, 'Final checks']];
@@ -856,9 +878,9 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         btn('fill', 'Create calendar template') + btn('copy', 'Copy posts from') + btn('add', 'Add a post'),
         "Create calendar template gives you a blank post for every Monday to Friday, ready to fill with your ideas. Posts you've already started aren't touched.");
       else if (st === 2) html = box('Creation', [item(n > 0 && d === n, `${d} of ${n} designs linked`)], btn('design', 'Create a design') + boards);
-      else if (st === 3) html = box('Captioning and guidance', [...(reels ? [item(film === reels, `${film} of ${reels} reels say what to film`)] : []), item(n > 0 && h === n, `${h} of ${n} how to edit written`), item(n > 0 && c === n, `${c} of ${n} captions written`)],
+      else if (st === 3) html = box('Captioning and guidance', [...(reels ? [item(film === reels, `${film} of ${reels} reels say what to film`)] : []), item(n > 0 && h === n, `${h} of ${n} how to edit written`), item(n > 0 && c === n, `${c} of ${n} captions written`), item(d > 0 && countOf(promptsOk) === d, `${countOf(promptsOk)} of ${d} designs with edit prompts set up`)],
         `<button type="button" class="mbtn primary" data-call="claude-all"${DRAFTING ? ' disabled' : ''}>${DRAFTING ? `Drafting ${DRAFTING.done} of ${DRAFTING.total}` : 'Draft the empty ones with Claude'}</button>` + excel + boards,
-        "Claude reads each post's design, title and notes, then writes a first draft for you to check and edit. Anything already written stays as it is.");
+        "Claude reads each post's design, title and notes, then writes a first draft for you to check and edit. Anything already written stays as it is. Edit prompts ticks itself once every row a member sees on the design's Edit tab has a prompt; point at one that's to do to see which rows need one.");
       else {
         const all = checks(), ready = n > 0 && all.every(([, a, b]) => a === b), live = CUR.status === 'published';
         // The go-live date (Danielle, 18 Nov): publish ahead, and members see the month
@@ -882,11 +904,20 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       const state = (ok, yes, no) => `<td><span class="chip ${ok ? 'good' : 'wait'}">${ok ? yes : no}</span></td>`;
       // Images required (Dani, 10 Nov): a tick for Sam, for the designs she puts the pictures in.
       const imgReq = (p) => `<td class="cc-imgreq"><input type="checkbox" data-imgreq title="Images required" aria-label="Images required for ${esc(p.title || 'this post')}"${p.images_required ? ' checked' : ''} /></td>`;
+      // Edit prompts: set up, or how many rows on the Edit tab still need one (named on hover).
+      const prompts = (p) => {
+        const r = promptsOf(p);
+        if (!p.template_id) return '<td class="tx">No design</td>';
+        if (!r) return '<td class="tx">Not checked</td>';
+        if (!r.missing.length) return '<td><span class="chip good">Set up</span></td>';
+        const names = r.missing.map((m) => (r.pages > 1 ? `Page ${m.page}: ` : '') + m.name).join('\n');
+        return `<td title="${esc('No prompt yet on:\n' + names)}"><span class="chip wait">${r.missing.length} to add</span></td>`;
+      };
       const cap = (p) => { const c = (p.captions || []).find((x) => x && x.trim()); return `<td class="cc-clip">${c ? esc(c) : 'No caption yet'}</td>`; };
       const LAYOUT = {
         1: [['', 'Date', 'Post', 'Type', 'Pillar', 'Tied to a day', 'Note'], (p) => grip() + date(p) + post(p) + type(p) + pillar(p) + `<td class="tx">${p.date_tied ? esc(p.occasion || 'Yes') : '—'}</td><td class="cc-clip">${p.note ? esc(p.note) : '—'}</td>`],
         2: [['', 'Date', 'Design', 'Post', 'Pillar', 'Type', 'Status', 'Images required'], (p) => grip() + date(p) + thumb(p) + post(p) + pillar(p) + type(p) + state(p.template_id, 'Design linked', 'To design') + imgReq(p)],
-        3: [['', 'Date', 'Design', 'Post', 'What to film', 'How to edit', 'Caption'], (p) => grip() + date(p) + thumb(p) + post(p) + (p.post_type === 'reel' ? state(p.reel_prompt, 'Written', 'To write') : '<td class="tx">Not a reel</td>') + state(p.how_to_edit, 'Written', 'To write') + cap(p)],
+        3: [['', 'Date', 'Design', 'Post', 'What to film', 'How to edit', 'Edit prompts', 'Caption'], (p) => grip() + date(p) + thumb(p) + post(p) + (p.post_type === 'reel' ? state(p.reel_prompt, 'Written', 'To write') : '<td class="tx">Not a reel</td>') + state(p.how_to_edit, 'Written', 'To write') + prompts(p) + cap(p)],
         4: [['', 'Date', 'Design', 'Post', 'Type', 'Pillar', 'Caption'], (p) => grip() + date(p) + thumb(p) + post(p) + type(p) + pillar(p) + cap(p)],
       }[st];
       // Creation's last four columns evenly spaced, the post taking the slack (Dani, 10 Nov).

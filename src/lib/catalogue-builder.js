@@ -15,6 +15,7 @@
  */
 import { BRAND_ORDER, brandRank } from "../data/brands.js";
 import { PILLARS } from "./content-months.js";
+import { editRows } from "./edit-prompts.js";
 
 const PACK_IMAGES_BUCKET = "pack-images";
 const STAGES = [[1, "Initial planning"], [2, "Creation"], [3, "Prompts and guidance"], [4, "Final checks"], [5, "Shop listing"]];
@@ -24,13 +25,15 @@ const DESIGNER_STAGES = [...STAGES.slice(0, 4), [5, "Details and approval"]];
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 const TYPES = { single: "Single image", carousel: "Carousel", story: "Story", reel: "Reel" };
 const CATEGORIES = ["On the Market", "Educate and Inform", "Behind the Brand", "In Season", "Local Life", "Service and Standards", "Starter Pack", "Complimentary"];
-const TPL_COLS = "id, name, thumb_url, status, canvas, pages, pack_id, sort_order, collection";
+// elements and updated_at: what the Edit tab asks for, and whether the last changes saved.
+const TPL_COLS = "id, name, thumb_url, status, canvas, elements, pages, pack_id, sort_order, collection, updated_at";
 const COPY_COLS = "id, name, category, thumb_url, render_url, canvas, elements, pages, size_variants, status, kind, block_variant, block_box";
 const GRIP = '<svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="2" cy="14" r="1.5"/><circle cx="8" cy="14" r="1.5"/></svg>';
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const tplId = () => "tmpl-" + Math.random().toString(36).slice(2, 8);
 const slugify = (s) => String(s || "").toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 70) || "pack";
+const whenLabel = (ms) => new Date(ms).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
 const dayLabel = (iso) => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" }) : ""; };
 
 export function initBuilder(ctx) {
@@ -192,8 +195,71 @@ export function initBuilder(ctx) {
       ids.length ? supabase.from("templates").select(TPL_COLS).in("id", ids) : Promise.resolve({ data: [] }),
     ]);
     [...(a.data || []), ...(b.data || [])].forEach((t) => TPL.set(t.id, t));
+    await loadUnsaved();
   }
   const tplFor = (r) => (r && r.template_id ? TPL.get(r.template_id) : null);
+
+  /* Has every design saved? (Danielle, 25 Nov: flagged at Creation, before
+     a pack gets as far as publishing.) Four things can be seen from here:
+       - changes kept in THIS browser that are newer than the saved design,
+         by the Studio's own rule (loadTemplate in public/scripts/editor.js),
+         so this says what the Studio would say on opening it;
+       - a save from anyone's Studio that didn't go through, with nothing
+         saved since (site_events 'studio_save_failed', sent by editor.astro);
+       - a design with nothing on it;
+       - a design with no preview picture, so its picture never uploaded.
+     Changes sitting in someone else's browser with no failed save (a tab
+     shut mid-edit and offline) can't be seen from here. */
+  let UNSAVED = new Map();   // template id -> [a few words for the table, the whole of it for the pop-out]
+  async function loadUnsaved() {
+    UNSAVED = new Map();
+    const made = [...new Set(ROWS.map((r) => r.template_id).filter((id) => id && TPL.has(id)))];
+    if (!made.length) return;
+    const savedAt = (t) => (t.updated_at ? Date.parse(t.updated_at) : NaN);
+    made.forEach((id) => {
+      const t = TPL.get(id);
+      try {
+        const kept = JSON.parse(localStorage.getItem("tmke.editor." + id) || "null");
+        const at = kept && Number(kept.savedAt);
+        if (at && (!isFinite(savedAt(t)) || at > savedAt(t) + 2000)) return UNSAVED.set(id, ["Changes in this browser haven't saved", `Changes in this browser haven't saved, last edited ${whenLabel(at)}. Open it in the Studio and save.`, "here"]);
+      } catch (_) {}
+      const pages = Array.isArray(t.pages) && t.pages.length ? t.pages : [{ canvas: t.canvas, elements: t.elements }];
+      const drawn = pages.some((pg) => pg && (((pg.elements || []).length) || (pg.canvas && pg.canvas.backgroundImage)));
+      if (!drawn) UNSAVED.set(id, ["Nothing on it yet", "There's nothing on this design yet."]);
+      else if (!t.thumb_url) UNSAVED.set(id, ["No preview picture yet", "This design has no preview picture yet. Open it in the Studio and save."]);
+    });
+    try {
+      const since = new Date(Date.now() - 14 * 864e5).toISOString();
+      const { data } = await supabase.from("site_events").select("user_id, props, created_at")
+        .eq("name", "studio_save_failed").in("props->>template", made).gte("created_at", since)
+        .order("created_at", { ascending: false }).limit(300);
+      const last = new Map();
+      (data || []).forEach((e) => { const id = e.props && e.props.template; if (id && !last.has(id)) last.set(id, e); });
+      const stuck = [...last.entries()].filter(([id, e]) => {
+        const t = TPL.get(id), at = Date.parse(e.created_at);
+        return t && !(UNSAVED.has(id) && UNSAVED.get(id)[2] === "here") && (!isFinite(savedAt(t)) || at > savedAt(t) + 2000);
+      });
+      if (!stuck.length) return;
+      const who = new Map();
+      const uids = [...new Set(stuck.map(([, e]) => e.user_id).filter(Boolean))];
+      if (uids.length) {
+        const { data: cs } = await supabase.from("contacts").select("user_id, first_name").in("user_id", uids);
+        (cs || []).forEach((c) => { if (c.first_name) who.set(c.user_id, c.first_name); });
+      }
+      stuck.forEach(([id, e]) => {
+        const name = e.user_id === myId() ? "Your" : who.get(e.user_id) ? `${who.get(e.user_id)}'s` : "Someone's";
+        const why = String((e.props && e.props.why) || "").trim();
+        UNSAVED.set(id, [`${name} changes didn't save`, `${name} changes didn't save at ${whenLabel(Date.parse(e.created_at))}, and nothing has saved since.${why ? " " + why : ""}`]);
+      });
+    } catch (_) { /* the list of failed saves couldn't be read: the checks above still stand */ }
+  }
+  const unsavedOf = (r, whole) => { const u = r && r.template_id && UNSAVED.get(r.template_id); return u ? u[whole ? 1 : 0] : ""; };
+
+  /* Editing fields set up: worked out from the design, where it was a tick
+     box (Danielle, 25 Nov). Done once every row a member sees on the Edit tab
+     has a prompt, typed or one the row starts with (src/lib/edit-prompts.js). */
+  const fieldsOf = (r) => editRows(tplFor(r));
+  const fieldsOk = (r) => { const f = fieldsOf(r); return !!f && f.missing.length === 0; };
   // copied_from holds a pack's or month's name; a duplicate made inside the pack marks it with the design's.
   const DUPE_OF = "dup:";
   const fromLine = (r) => (String(r.copied_from).startsWith(DUPE_OF) ? "Duplicated from " + esc(String(r.copied_from).slice(DUPE_OF.length)) : "Copied from " + esc(r.copied_from));
@@ -232,12 +298,12 @@ export function initBuilder(ctx) {
       return box("Initial planning", [item(!!(PLAN && PLAN.about), "What the pack is about"), item(n > 0 && planned === n, `${planned} of ${n} designs planned`)], add + copy, "A row for each design the pack will have: its name, content pillar, format and a note for whoever makes it.");
     }
     if (st === 2) {
-      const made = cnt((r) => r.template_id);
-      return box("Creation", [item(n > 0 && made === n, `${made} of ${n} designs made`)], add + copy + set, D() ? "Make each design in the Studio, or choose one you've already made that isn't in a pack." : "Make each design in the Studio, choose one you already have, or copy one from another pack or a Content Calendar month.");
+      const made = cnt((r) => r.template_id), bad = cnt((r) => unsavedOf(r));
+      return box("Creation", [item(n > 0 && made === n, `${made} of ${n} designs made`), ...(made ? [item(!bad, bad ? `${bad} design${bad === 1 ? "" : "s"} not saved properly` : "Every design saved")] : [])], add + copy + set, (bad ? "The designs marked Not saved or Empty say what's wrong underneath. " : "") + (D() ? "Make each design in the Studio, or choose one you've already made that isn't in a pack." : "Make each design in the Studio, choose one you already have, or copy one from another pack or a Content Calendar month."));
     }
     if (st === 3) {
-      const f = cnt((r) => r.fields_ok), c = cnt((r) => capOf(tplFor(r))), a = cnt((r) => aiOf(tplFor(r)) && aiOf(tplFor(r)).on);
-      return box("Prompts and guidance", [item(n > 0 && f === n, `${f} of ${n} with editing fields set up`), item(true, `${c} with a caption prompt (optional)`), item(true, `AI helper on ${a} design${a === 1 ? "" : "s"}`)], "", "Each design's editing fields are what members fill in on the Edit tab, so every text box needs naming. The caption prompt and AI helper are optional and come from the design itself: change them in the Studio and they show here.");
+      const f = cnt(fieldsOk), c = cnt((r) => capOf(tplFor(r))), a = cnt((r) => aiOf(tplFor(r)) && aiOf(tplFor(r)).on);
+      return box("Prompts and guidance", [item(n > 0 && f === n, `${f} of ${n} with editing fields set up`), item(true, `${c} with a caption prompt (optional)`), item(true, `AI helper on ${a} design${a === 1 ? "" : "s"}`)], "", "Editing fields ticks itself once every row a member sees on the design's Edit tab has a prompt, whether you wrote it or the row came with one. Open a design to see which rows still need one. The caption prompt and AI helper are optional and come from the design itself: change them in the Studio and they show here.");
     }
     if (st === 4 && D()) {
       const t = cnt((r) => r.preview_ok);
@@ -282,10 +348,10 @@ export function initBuilder(ctx) {
       body = ROWS.map((r, i) => `<tr data-row="${esc(r.id)}">${grip}<td class="pb-num">${i + 1}</td><td>${esc(r.idea) || '<span class="pb-tx">Untitled</span>'}</td><td>${esc(r.pillar) || '<span class="pb-tx">None</span>'}</td><td>${TYPES[r.post_type] || "Single image"}</td><td class="pb-note">${esc(r.note) || '<span class="pb-tx">None</span>'}</td></tr>`);
     } else if (st === 2) {
       head = "<th></th><th>#</th><th></th><th>Design</th><th>Format</th><th>Made</th>";
-      body = ROWS.map((r, i) => `<tr data-row="${esc(r.id)}">${grip}<td class="pb-num">${i + 1}</td><td>${thumb(r)}</td><td>${esc(r.idea) || '<span class="pb-tx">Untitled</span>'}${r.copied_from ? `<small>${fromLine(r)}</small>` : ""}</td><td>${TYPES[r.post_type] || "Single image"}</td><td>${r.template_id ? '<span class="chip good">Made</span>' : '<span class="chip wait">To make</span>'}</td></tr>`);
+      body = ROWS.map((r, i) => `<tr data-row="${esc(r.id)}">${grip}<td class="pb-num">${i + 1}</td><td>${thumb(r)}</td><td>${esc(r.idea) || '<span class="pb-tx">Untitled</span>'}${unsavedOf(r) ? `<small class="pb-warn">${esc(unsavedOf(r))}</small>` : r.copied_from ? `<small>${fromLine(r)}</small>` : ""}</td><td>${TYPES[r.post_type] || "Single image"}</td><td>${!r.template_id ? '<span class="chip wait">To make</span>' : unsavedOf(r) ? `<span class="chip wait">${unsavedOf(r) === "Nothing on it yet" ? "Empty" : "Not saved"}</span>` : '<span class="chip good">Made</span>'}</td></tr>`);
     } else if (st === 3) {
       head = "<th>#</th><th></th><th>Design</th><th>Editing fields</th><th>Caption prompt <span class='pb-tx'>(optional)</span></th><th>AI helper</th>";
-      body = ROWS.map((r, i) => { const t = tplFor(r), ai = aiOf(t); return `<tr data-row="${esc(r.id)}"><td class="pb-num">${i + 1}</td><td>${thumb(r)}</td><td>${esc(r.idea)}</td><td>${yes(r.fields_ok)}</td><td class="pb-note">${esc(capOf(t)) || '<span class="pb-tx">None</span>'}</td><td>${ai && ai.on ? '<span class="chip plain">On</span>' : '<span class="chip off">Off</span>'}</td></tr>`; });
+      body = ROWS.map((r, i) => { const t = tplFor(r), ai = aiOf(t); return `<tr data-row="${esc(r.id)}"><td class="pb-num">${i + 1}</td><td>${thumb(r)}</td><td>${esc(r.idea)}</td><td>${yes(fieldsOk(r))}</td><td class="pb-note">${esc(capOf(t)) || '<span class="pb-tx">None</span>'}</td><td>${ai && ai.on ? '<span class="chip plain">On</span>' : '<span class="chip off">Off</span>'}</td></tr>`; });
     } else {
       head = "<th>#</th><th></th><th>Design</th><th>Preview made</th><th>Tested as a member</th><th></th>";
       body = ROWS.map((r, i) => { const ok = r.preview_ok && r.member_ok; return `<tr data-row="${esc(r.id)}"><td class="pb-num">${i + 1}</td><td>${thumb(r)}</td><td>${esc(r.idea)}</td><td>${yes(r.preview_ok)}</td><td>${yes(r.member_ok)}</td><td>${ok ? '<span class="chip good">Ready</span>' : '<span class="chip wait">To check</span>'}</td></tr>`; });
@@ -387,10 +453,12 @@ export function initBuilder(ctx) {
         <div class="pb-dz-acts">${!t ? '<button type="button" class="mbtn primary" data-make>Create a design</button><button type="button" class="mbtn" data-choose>Choose a design</button>' + (own ? '<button type="button" class="mbtn" data-dupe>Duplicate one from this pack</button>' : "") + (D() ? "" : '<button type="button" class="mbtn" data-copy>Copy from another pack</button>')
           : `<a class="mbtn primary" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Open in the Studio</a><button type="button" class="mbtn" data-unlink>Choose a different one</button>`}</div></div></div>`;
     }
+    if (st >= 2 && unsavedOf(r)) b += `<p class="pb-warn">${esc(unsavedOf(r, true))}</p>`;
     b += `<label class="pb-field"><span>Note <em>(team only)</em></span><textarea data-f="note" rows="3" placeholder="Anything whoever makes it needs to know">${esc(r.note)}</textarea></label>`;
     if (st === 3) {
       const ai = aiOf(t);
-      b += `<label class="pb-check"><input type="checkbox" data-f="fields_ok"${r.fields_ok ? " checked" : ""}> Editing fields set up: every text box named, the way members see it on the Edit tab</label>
+      b += fieldsBox(r);
+      b += `
       <div class="pb-field"><span>Caption prompt <em>(optional, from the design)</em></span><p class="pb-ro">${esc(capOf(t)) || "None on this design."}</p></div>
       <div class="pb-field"><span>AI helper <em>(from the design)</em></span><p class="pb-ro">${ai && ai.on ? "On." + (ai.brief ? " " + esc(ai.brief) : "") : "Off."}</p></div>
       <p class="pb-hint">To change the caption prompt or the AI helper, open the design in the Studio. What you save there shows here.</p>`;
@@ -399,6 +467,18 @@ export function initBuilder(ctx) {
     const foot = `<button type="button" class="mbtn" data-remove style="margin-right:auto">Remove from pack</button>${st === 3 && t ? `<a class="mbtn" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Open in the Studio</a>` : ""}<button type="button" class="mbtn" data-go="${i - 1}"${i ? "" : " disabled"}>&lsaquo; Previous</button><button type="button" class="mbtn" data-go="${i + 1}"${i < ROWS.length - 1 ? "" : " disabled"}>Next &rsaquo;</button><button type="button" class="mbtn primary" data-close>Done</button>`;
     showPop(esc(r.idea || "Untitled design"), `Design ${i + 1} of ${ROWS.length} · ${stages()[st - 1][1]}`, b, foot);
     pop.dataset.row = r.id;
+  }
+  // The Editing fields line of a design's pop-out: ticked by the design, not by hand.
+  function fieldsBox(r) {
+    const f = fieldsOf(r), line = (ok, t) => `<div class="pb-check is-auto"><span class="pb-tick${ok ? " ok" : ""}"></span><span>${t}</span></div>`;
+    if (!tplFor(r)) return line(false, "Editing fields: no design yet.");
+    if (!f) return line(false, "Editing fields: this design's contents couldn't be read. Open it in the Studio and save it.");
+    if (!f.total) return line(true, "Editing fields set up: there's nothing on this design for members to change.");
+    if (!f.missing.length) return line(true, `Editing fields set up: ${f.total === 1 ? "the one row" : `all ${f.total} rows`} on the Edit tab ${f.total === 1 ? "has" : "have"} a prompt.`);
+    const n = f.missing.length;
+    return line(false, `Editing fields: ${n} of ${f.total} row${f.total === 1 ? "" : "s"} on the Edit tab ${n === 1 ? "has" : "have"} no prompt yet.`)
+      + `<ul class="pb-missing">${f.missing.map((m) => `<li>${f.pages > 1 ? `Page ${m.page}: ` : ""}${esc(m.name)}</li>`).join("")}</ul>
+      <p class="pb-hint">Open the design in the Studio and write a prompt on each of these, or take it off the list. This ticks itself once they all have one.</p>`;
   }
   const openRowObj = () => ROWS.find((r) => r.id === pop.dataset.row);
 
@@ -607,8 +687,37 @@ export function initBuilder(ctx) {
     const list = who.length
       ? `<p class="pb-hint">It's in these Studios now:</p><ul class="pb-sendto-list">${who.map((w) => `<li><span>${esc(w.name)}${w.email && w.email !== w.name ? ` <em>${esc(w.email)}</em>` : ""}</span><button type="button" class="mbtn" data-unsend="${esc(w.id)}">Take it back</button></li>`).join("")}</ul>`
       : '<p class="pb-hint">Nobody has it yet.</p>';
-    showPop("Send to a team member", "Final checks", `${list}<label class="pb-field"><span>Their email</span><input type="email" id="pb-sendto-email" placeholder="e.g. sam@tmke.co.uk" autocomplete="off"></label><p class="pb-hint">It goes in their own Studio as a test pack, so they can look through it before it's in the shop. Nobody else sees it.</p>`, '<button type="button" class="mbtn primary" data-dosendto>Send it</button>');
+    showPop("Send to a team member", "Final checks", `${list}<div id="pb-quick"></div><label class="pb-field"><span>Their email</span><input type="email" id="pb-sendto-email" placeholder="e.g. sam@tmke.co.uk" autocomplete="off"></label><p class="pb-hint">It goes in their own Studio as a test pack, so they can look through it before it's in the shop. Nobody else sees it.</p>`, '<button type="button" class="mbtn primary" data-dosendto>Send it</button>');
     const f = pop.querySelector("#pb-sendto-email"); if (f) f.focus();
+    drawQuick(ids);
+  }
+  /* One press for the two it's nearly always sent to (Danielle, 25 Nov):
+     Samantha and Abigail, found in Contacts by first name among the team's
+     own addresses, so no address is written here and a changed one still
+     works. Only shown once they have a Hub login, and not when they
+     already have the pack. */
+  const QUICK = [["Samantha", /^sam(antha)?$/i], ["Abigail", /^(abigail|abbie|abby)$/i]];
+  let quickTeam = null;
+  async function drawQuick(have) {
+    if (!quickTeam) {
+      const { data, error } = await supabase.from("contacts").select("user_id, first_name, email")
+        .or("email.ilike.*@themarketingexperts.co.uk,email.ilike.*@tmke.co.uk").not("user_id", "is", null).limit(200);
+      if (error) return;
+      quickTeam = data || [];
+    }
+    const box = pop.querySelector("#pb-quick");
+    if (!box) return;
+    const btns = QUICK.flatMap(([label, re]) => {
+      const found = quickTeam.filter((c) => re.test(String(c.first_name || "").trim()) && !have.includes(c.user_id));
+      // Two logins under one name: say which is which.
+      return found.map((c) => `<button type="button" class="mbtn" data-quick="${esc(c.user_id)}" data-name="${label}">${label}${found.length > 1 ? ` <em>${esc(c.email)}</em>` : ""}</button>`);
+    });
+    box.innerHTML = btns.length ? `<p class="pb-hint">Quick add</p><div class="pb-quick">${btns.join("")}</div>` : "";
+  }
+  async function quickSend(b) {
+    b.disabled = true;
+    const ids = [...new Set([...(P.test_user_ids || []), b.dataset.quick])];
+    if (await setTestIds(ids, `Sent. ${P.title} is in ${b.dataset.name}'s Studio as a test pack.`)) openSendTo(); else b.disabled = false;
   }
   async function setTestIds(ids, msg) {
     const tids = ROWS.map((r) => r.template_id).filter(Boolean);
@@ -892,6 +1001,13 @@ export function initBuilder(ctx) {
   function closePop() { flushAll(); pop.innerHTML = ""; document.documentElement.style.overflow = ""; }
 
   /* ---------------- Events ---------------- */
+  // Back from the Studio without the page loading again: read the designs afresh,
+  // so what's saved and which prompts are written is as it stands now.
+  window.addEventListener("pageshow", async (e) => {
+    if (!e.persisted || !S.packId || !P || pop.innerHTML) return;
+    await loadTemplates();
+    drawPack();
+  });
   main.addEventListener("click", async (e) => {
     const c = (s) => e.target.closest(s);
     let b;
@@ -945,6 +1061,7 @@ export function initBuilder(ctx) {
     if (c("[data-close]") || e.target.matches("[data-scrim]")) return closePop();
     if (c("[data-create]")) return createPack();
     if (c("[data-dosendto]")) return doSendTo();
+    if ((b = c("[data-quick]"))) return quickSend(b);
     if ((b = c("[data-unsend]"))) { const ids = (P.test_user_ids || []).filter((x) => x !== b.dataset.unsend); if (await setTestIds(ids, "Taken back from that Studio.")) openSendTo(); return; }
     if (c("[data-tickall]")) { pop.querySelectorAll("#pb-copy-grid input").forEach((x) => { x.checked = true; }); return; }
     if (c("[data-docopy]")) return doCopy();
