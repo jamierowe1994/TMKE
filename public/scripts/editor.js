@@ -17259,14 +17259,17 @@ import { createResizeEngine } from "./resize-engine.js";
     line.className = "ed-bgc-line";
     const own = document.createElement("button");
     own.type = "button";
-    own.className = "ed-bgc-own";
-    own.innerHTML = "<i></i><span>Your own colour</span>";
+    // A rainbow square, the colour panel's swatch shape, and no words (Danielle, 25 Nov).
+    own.className = "ed-cp-sw ed-bgc-own";
+    own.title = "Choose your own colour";
+    own.setAttribute("aria-label", "Choose your own colour");
     const paint = function () {
       const cur = normHex(getHex());
       let hit = false;
       line.querySelectorAll(".ed-cp-sw").forEach(function (b) { const on = b.dataset.hex === cur; if (on) hit = true; b.classList.toggle("is-current", on); });
+      // Ringed when the colour in use is one of their own choosing (ours, to begin with).
       own.setAttribute("aria-pressed", String(!hit && !!cur));
-      own.firstChild.style.background = !hit && cur ? cur : "";
+      own.classList.toggle("is-current", !hit && !!cur);
     };
     brand.forEach(function (c) {
       const b = document.createElement("button");
