@@ -20,7 +20,7 @@ import "../../../styles/money-os.css";
         <div>
           <p class="mo-eye">Email</p>
           <div class="mo-title">Campaigns</div>
-          <p class="mo-sub">More than one email about the same thing, sent to a group. Open one to change its steps, or to see who is in it and what they did.</p>
+          <p class="mo-sub">More than one email about the same thing, sent to a group. Plan it, write the emails, approve the schedule, then see how it does.</p>
         </div>
         <div class="mo-acts"><button type="button" class="mbtn primary" id="ec-new">New campaign</button></div>
       </section>
@@ -97,7 +97,7 @@ import "../../../styles/money-os.css";
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase } from "../../../lib/supabase.js";
     import { TRIGGER_LABELS, emptyGraph } from "../../../lib/automations.js";
-    import { AREAS, kindOf, isSingle, areaOf, sendSteps, isWritten, isPrevious, stepWhen, audienceLine, todayLondon } from "../../../lib/email-campaigns.js";
+    import { AREAS, isCampaign, areaOf, sendSteps, isWritten, isPrevious, stepWhen, sentToLine, todayLondon } from "../../../lib/email-campaigns.js";
 
     const DEV = import.meta.env.DEV;
     const $ = (id) => document.getElementById(id);
@@ -187,11 +187,11 @@ import "../../../styles/money-os.css";
       const blk = draft ? ["plan", "Being planned"] : a.status === "paused" ? ["pause", "Paused"] : ["run", "Running"];
       const emails = !st.length ? "None yet" : draft ? `${written} of ${st.length} written` : `${sent} of ${st.length} sent`;
       const segs = st.map((s) => `<i class="${s.sent ? "" : s.written ? "ready" : "todo"}"></i>`).join("");
-      const open = `/admin/automations/edit?id=${encodeURIComponent(a.id)}`;
+      const open = `/admin/email/campaign?id=${encodeURIComponent(a.id)}`;
       return `
         <article class="ec-card">
           <div class="ec-top">${areaSelect(a)}<span class="blk ${blk[0]}">${blk[1]}</span></div>
-          <div class="ec-id"><a class="ec-name" href="${open}">${esc(a.name)}</a><span class="ec-who">${esc(audienceLine(a, TRIGGER_LABELS))}</span></div>
+          <div class="ec-id"><a class="ec-name" href="${open}">${esc(a.name)}</a><span class="ec-who">${esc(sentToLine(a, TRIGGER_LABELS))}</span></div>
           <div class="ec-segs" role="img" aria-label="${esc(emails)}">${segs}</div>
           <div class="ec-facts">
             <div><span>Emails</span>${esc(emails)}</div>
@@ -225,12 +225,12 @@ import "../../../styles/money-os.css";
       const people = PEOPLE.get(a.id);
       const id = encodeURIComponent(a.id);
       return `<tr>
-        <td><div class="ec-rowname"><a href="/admin/automations/audit?id=${id}">${esc(a.name)}</a><span>${esc(plural(st.length, "email", "emails"))}${a.status === "archived" ? " · archived" : ""}</span></div></td>
+        <td><div class="ec-rowname"><a href="/admin/email/campaign?id=${id}&step=insights">${esc(a.name)}</a><span>${esc(plural(st.length, "email", "emails"))}${a.status === "archived" ? " · archived" : ""}</span></div></td>
         <td>${areaSelect(a)}</td>
         <td class="tx">${esc(ran(a))}</td>
         <td>${people == null ? "" : esc(plural(people, "person", "people"))}</td>
         <td class="ec-acts">
-          <a class="mbtn small" href="/admin/automations/audit?id=${id}">Insights</a><a class="mbtn small" href="/admin/automations/edit?id=${id}">Open</a><button type="button" class="mbtn small" data-dup="${esc(a.id)}">Duplicate</button>
+          <a class="mbtn small" href="/admin/email/campaign?id=${id}&step=insights">Insights</a><a class="mbtn small" href="/admin/automations/audit?id=${id}">Full report</a><button type="button" class="mbtn small" data-dup="${esc(a.id)}">Duplicate</button>
         </td>
       </tr>`;
     }
@@ -238,14 +238,14 @@ import "../../../styles/money-os.css";
     function draftRow(a) {
       const id = encodeURIComponent(a.id);
       return `<tr>
-        <td><div class="ec-rowname"><a href="/admin/automations/edit?id=${id}">${esc(a.name)}</a></div></td>
+        <td><div class="ec-rowname"><a href="/admin/email/campaign?id=${id}">${esc(a.name)}</a></div></td>
         <td class="tx">Edited ${esc(fmtDate(a.updated_at))}</td>
-        <td class="ec-acts"><a class="mbtn small" href="/admin/automations/edit?id=${id}">Open</a><button type="button" class="mbtn small danger" data-del="${esc(a.id)}">Delete</button></td>
+        <td class="ec-acts"><a class="mbtn small" href="/admin/email/campaign?id=${id}">Open</a><button type="button" class="mbtn small danger" data-del="${esc(a.id)}">Delete</button></td>
       </tr>`;
     }
 
     function render() {
-      const match = (a) => (!q || (a.name || "").toLowerCase().includes(q) || audienceLine(a, TRIGGER_LABELS).toLowerCase().includes(q))
+      const match = (a) => (!q || (a.name || "").toLowerCase().includes(q) || sentToLine(a, TRIGGER_LABELS).toLowerCase().includes(q))
         && (area === "all" || (area === "none" ? !areaOf(a) : areaOf(a) === area));
       const cutoff = Date.now() - OLD_DRAFT_DAYS * 864e5;
       const isOld = (a) => a.status === "draft" && new Date(a.updated_at).getTime() < cutoff;
@@ -308,7 +308,7 @@ import "../../../styles/money-os.css";
       const { data, error } = await supabase.from("automations").select("*").order("updated_at", { ascending: false });
       if (error) { $("ec-state").textContent = "Couldn't read the campaigns: " + error.message; $("ec-state").classList.add("bad"); return; }
       // One email to one group is a one-off send, on its own tab.
-      ALL = (data || []).filter((a) => kindOf(a) === "marketing" && !isSingle(a));
+      ALL = (data || []).filter(isCampaign);
       if (DEV && !ALL.length && new URLSearchParams(location.search).has("demo")) demo();
       else { try { await loadEnrollments(); } catch (_) {} try { await loadCounts(); } catch (_) {} }
       $("ec-state").hidden = true;
@@ -378,7 +378,7 @@ import "../../../styles/money-os.css";
       await load();
     }
 
-    // New campaign: a name and an area, then straight into the step builder.
+    // New campaign: a name and an area, then straight into its plan.
     function openNew() {
       $("ec-pop").innerHTML = `<div class="scrim" id="ec-scrim"><div class="pop" role="dialog" aria-modal="true" aria-labelledby="ec-pop-t">
         <div class="pop-h"><div><p class="mo-eye">Email</p><div class="pop-title" id="ec-pop-t">New campaign</div></div><button type="button" class="x" data-close aria-label="Close">×</button></div>
@@ -387,7 +387,7 @@ import "../../../styles/money-os.css";
           <label class="field"><span>What area of the business is it about?</span><select id="ec-n-area"><option value="">Choose an area</option>${AREAS.map((x) => `<option>${esc(x)}</option>`).join("")}</select></label>
           <p class="err" id="ec-n-err" hidden></p>
         </div>
-        <div class="pop-f"><button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" id="ec-n-go">Create and build the steps</button></div>
+        <div class="pop-f"><button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" id="ec-n-go">Create and plan it</button></div>
       </div></div>`;
       const close = () => { $("ec-pop").innerHTML = ""; $("ec-new").focus(); };
       $("ec-scrim").addEventListener("click", (e) => { if (e.target === e.currentTarget || e.target.closest("[data-close]")) close(); });
@@ -397,12 +397,12 @@ import "../../../styles/money-os.css";
         const name = $("ec-n-name").value.trim();
         const err = $("ec-n-err");
         if (!name) { err.textContent = "Give the campaign a name."; err.hidden = false; $("ec-n-name").focus(); return; }
-        const meta = { kind: "marketing" };
+        const meta = { kind: "marketing", campaign: true };
         if ($("ec-n-area").value) meta.area = $("ec-n-area").value;
         $("ec-n-go").disabled = true;
         const { data, error } = await supabase.from("automations").insert({ name, graph: { ...emptyGraph(), meta } }).select("id").single();
         if (error) { err.textContent = "Couldn't create it: " + error.message; err.hidden = false; $("ec-n-go").disabled = false; return; }
-        location.href = `/admin/automations/edit?id=${data.id}`;
+        location.href = `/admin/email/campaign?id=${data.id}&step=plan`;
       });
     }
 

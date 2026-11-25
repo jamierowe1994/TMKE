@@ -1,0 +1,876 @@
+---
+// Email › a campaign, in four steps (Danielle, 25 Nov 2026; agreed on the
+// "TMKE OS Email" mock-up): Plan, Emails, Schedule, Insights. The same shape
+// as the Catalogue and Content Calendar builders: plan it, make it, check it.
+//
+// A campaign is an `automations` row. Its emails are the send steps of its
+// graph, in order; the plan lives beside them in graph.meta (area, who it
+// goes to, the cadence, a note per email). Nothing here replaces the step
+// builder: it reads and writes the same graph, and anything this page can't
+// show as a list (branches that both carry on, other step types) is left to
+// the builder untouched.
+//
+// Who gets it: the group is fixed when the campaign is approved. People are
+// enrolled by hand then (as One-off sends does), because the engine sends a
+// past-dated email straight away to anyone who arrives after it, so a tag
+// trigger would hand a late joiner every earlier email at once.
+import AdminShell from "../../../components/admin/AdminShell.astro";
+import EmailTabs from "../../../components/admin/EmailTabs.astro";
+import "../../../styles/money-os.css";
+---
+
+<AdminShell active="campaigns" title="Campaign" skin="hub">
+  <div class="ash-panel ash-page">
+    <div class="mo" id="cp">
+      <EmailTabs active="campaigns" />
+      <a class="cp-back" href="/admin/email/campaigns">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7.5 2.5 4 6l3.5 3.5"/></svg>All campaigns
+      </a>
+      <p class="state" id="cp-state">Reading the campaign.</p>
+      <div id="cp-shell" hidden>
+        <header class="cp-ban">
+          <div>
+            <p class="cp-eye" id="cp-eye"></p>
+            <h1 class="cp-name" id="cp-name"></h1>
+            <p class="cp-line" id="cp-line"></p>
+          </div>
+          <div class="cp-ban-acts" id="cp-ban-acts"></div>
+        </header>
+        <nav class="cp-steps" id="cp-steps" aria-label="Campaign steps"></nav>
+        <div id="cp-main"></div>
+      </div>
+      <div id="cp-pop"></div>
+      <div class="toast" id="cp-toast" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <style is:global>
+    #cp .em-tabs { margin-bottom: 14px; }
+    #cp .cp-back { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; color: var(--tx); text-decoration: none; }
+    #cp .cp-back:hover { color: var(--wine); }
+    #cp .cp-back svg { width: 12px; height: 12px; }
+    #cp .cp-ban { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 14px 20px; padding: 22px 22px 20px; border-radius: 4px; background: var(--wine); color: #fff; }
+    #cp .cp-ban > div:first-child { flex: 1 1 420px; min-width: 0; }
+    #cp .cp-eye { margin: 0 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+    #cp .cp-name { margin: 0 0 8px; font-family: var(--serif); font-weight: 300; font-size: 32px; line-height: 1.05; letter-spacing: -0.04em; color: #fff; overflow-wrap: anywhere; }
+    #cp .cp-line { margin: 0; }
+    #cp .cp-ban-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+    #cp .cp-ban-acts .mbtn { background: transparent; border-color: #fff; color: #fff; }
+    #cp .cp-ban-acts .mbtn:hover { background: rgba(255,255,255,.14); color: #fff; }
+    #cp .cp-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 0 22px; }
+    #cp .cp-steps button { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 14px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; color: var(--ink); cursor: pointer; text-align: left; }
+    #cp .cp-steps button:hover { border-color: var(--wine); }
+    #cp .cp-steps button[aria-current="step"] { border-color: var(--wine); background: var(--linen); color: var(--wine); }
+    #cp .cp-steps i { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--wine); color: #fff; font-style: normal; font-size: 13px; }
+    #cp .cp-steps b { flex: 1; font-weight: 400; font-size: 16px; }
+    #cp .cp-steps span { font-size: 13px; color: var(--tx); text-align: right; }
+    #cp .cp-steps button[aria-current="step"] span { color: var(--wine); }
+    #cp .mbtn.small { height: 26px; padding: 0 10px; }
+    #cp .section { margin-bottom: 24px; }
+    #cp .cp-lab { display: block; margin: 0 0 5px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--tx); }
+    #cp label { margin: 0; font-size: inherit; font-weight: 400; letter-spacing: 0; text-transform: none; color: inherit; }
+    #cp .cp-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 14px; }
+    #cp .cp-form .wide { grid-column: span 2; }
+    #cp input[type="text"], #cp input[type="number"], #cp input[type="date"], #cp input[type="time"], #cp input[type="search"], #cp select, #cp textarea {
+      width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--stone); border-radius: 4px; background-color: #fff; color: var(--ink); font-family: var(--sans); font-size: 14px; box-shadow: none; }
+    #cp textarea { height: auto; min-height: 74px; padding: 8px 10px; resize: vertical; line-height: 1.35; }
+    #cp input:focus, #cp select:focus, #cp textarea:focus { border-color: var(--wine); outline: 0; box-shadow: none; }
+    #cp input:disabled, #cp select:disabled { background-color: #f7f4f2; color: var(--tx); }
+    #cp select { appearance: none; -webkit-appearance: none; padding-right: 28px; cursor: pointer; background-repeat: no-repeat; background-position: right 8px center;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23371e28' stroke-width='1.5'><path d='M2.5 4.5 6 8l3.5-3.5'/></svg>"); }
+    #cp input[type="radio"] { width: 16px; height: 16px; margin: 0; padding: 0; border: 0; flex: none; accent-color: var(--wine); }
+    #cp .cp-box { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 34px; padding: 3px 10px; border: 1px solid var(--stone); border-radius: 4px; }
+    #cp .cp-box select { flex: 1 1 160px; width: auto; min-width: 0; height: 26px; border: 1px dashed var(--stone); }
+    #cp .cp-chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 4px 0 10px; border-radius: 4px; background: var(--linen); color: var(--wine); }
+    #cp .cp-chip button { width: 20px; height: 20px; border: 0; background: none; padding: 0; color: inherit; cursor: pointer; font-size: 16px; line-height: 1; }
+    #cp .cp-hint { margin: 6px 0 0; color: var(--tx); }
+    #cp .cp-note { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; align-items: start; padding: 12px 2px; border-bottom: 1px solid var(--linen); }
+    #cp .cp-note b { display: block; font-weight: 400; font-size: 16px; }
+    #cp .cp-note span { font-size: 13px; color: var(--tx); }
+    #cp .cp-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+    #cp .cp-foot.split { justify-content: space-between; }
+    #cp .cp-msg { margin: 10px 0 0; text-align: right; color: var(--tx); min-height: 1.35em; }
+    #cp .cp-msg.bad { color: var(--bad); }
+    #cp .cp-told { margin: 0 0 16px; padding: 12px 14px; border: 1px dashed var(--stone); border-radius: 4px; }
+
+    #cp .cp-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    #cp .cp-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 14px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; }
+    #cp .cp-thumb { display: flex; flex-direction: column; gap: 7px; height: 130px; padding: 14px 12px; border-radius: 3px; background: var(--linen); }
+    #cp .cp-thumb i { display: block; height: 4px; background: var(--stone); }
+    #cp .cp-thumb i:first-child { height: 46px; border-radius: 2px; }
+    #cp .cp-thumb i:last-child { width: 60%; }
+    #cp .cp-thumb.todo { background: #fff; border: 1px dashed var(--stone); }
+    #cp .cp-thumb.todo i { background: none; }
+    #cp .cp-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    #cp .blk { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 104px; height: 24px; border-radius: 4px; font-size: 13px; white-space: nowrap; }
+    #cp .cp-card .blk { width: 84px; height: 22px; }
+    #cp .blk.sent { background: var(--good-l); color: var(--good); }
+    #cp .blk.wait { background: var(--stone); color: var(--wine); }
+    #cp .blk.bad { background: var(--bad-l); color: var(--bad); }
+    #cp .blk.plain { background: #fff; color: var(--tx); box-shadow: inset 0 0 0 1px var(--edge); }
+    #cp .cp-card-id { display: grid; gap: 3px; min-height: 88px; align-content: start; }
+    #cp .cp-card-id b { font-weight: 400; font-size: 16px; line-height: 1.2; overflow-wrap: anywhere; }
+    #cp .cp-card-id span { font-size: 13px; color: var(--tx); }
+    #cp .cp-card-acts { display: grid; gap: 6px; margin-top: auto; }
+    #cp .cp-card-acts .mbtn { height: 28px; padding: 0 8px; width: 100%; }
+
+    #cp .cp-two { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+    #cp .cp-two > section { flex: 999 1 560px; min-width: 0; }
+    #cp .cp-two > aside { flex: 1 1 320px; min-width: 0; display: grid; gap: 14px; }
+    #cp .cp-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 56px; padding: 6px 10px; border-bottom: 1px solid var(--linen); }
+    #cp .cp-row.branch { margin-left: 24px; padding-left: 14px; border-left: 2px solid var(--taupe); background: #f7f4f2; }
+    #cp .cp-row.soft { min-height: 40px; color: var(--tx); }
+    #cp .cp-dot { justify-self: center; width: 14px; height: 14px; border-radius: 50%; background: var(--wine); }
+    #cp .cp-dot.start { background: var(--taupe); }
+    #cp .cp-dot.wait { background: #fff; box-shadow: inset 0 0 0 2px var(--stone); }
+    #cp .cp-dot.check { width: 12px; height: 12px; border-radius: 0; transform: rotate(45deg); background: var(--taupe); }
+    #cp .cp-dot.none { background: none; }
+    #cp .cp-rt { display: grid; gap: 2px; min-width: 0; }
+    #cp .cp-rt b { display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 16px; overflow-wrap: anywhere; }
+    #cp .cp-rt span { font-size: 13px; color: var(--tx); }
+    #cp .cp-yn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 22px; border-radius: 4px; font-size: 13px; background: var(--wine); color: #fff; }
+    #cp .cp-yn.no { background: var(--stone); color: var(--wine); }
+    #cp .cp-edit { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; padding: 12px 10px; border-bottom: 1px solid var(--linen); background: #f7f4f2; }
+    #cp .cp-edit label { flex: 0 1 190px; }
+    #cp .cp-edit label.grow { flex: 1 1 240px; }
+    #cp .cp-side { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--edge); border-radius: 4px; }
+    #cp .cp-side.fill { border: 0; background: var(--linen); color: var(--wine); }
+    #cp .cp-side h2 { margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--tx); }
+    #cp .cp-side.fill h2 { color: var(--wine); }
+    #cp .cp-side b { font-weight: 400; font-size: 18px; }
+    #cp .cp-side p { margin: 0; }
+    #cp .cp-side ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+    #cp .cp-side li { display: flex; gap: 8px; align-items: baseline; }
+    #cp .cp-side li::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+    #cp .cp-side li.todo::before { background: var(--bad); }
+    #cp .cp-side .mbtn { height: 34px; width: 100%; }
+    #cp .cp-link { padding: 0; border: 0; background: none; color: var(--wine); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; justify-self: start; }
+    #cp table.cp-tbl td { height: 60px; }
+    #cp .cp-tname { display: grid; gap: 2px; line-height: 1.2; padding: 8px 0; white-space: normal; }
+    #cp .cp-tname b { font-weight: 400; font-size: 16px; }
+    #cp .cp-tname span { font-size: 13px; color: var(--tx); }
+    #cp .figs { margin-bottom: 20px; }
+    #cp .fig { cursor: default; min-height: 0; }
+    #cp .fig:hover { transform: none; box-shadow: none; }
+    #cp .pop.tall { height: 640px; }
+    #cp .pop-b p { margin: 0; color: var(--tx); }
+    #cp .pop-b p.err { color: var(--bad); }
+    #cp .cp-opt { display: grid; gap: 2px; width: 100%; padding: 12px 14px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; text-align: left; cursor: pointer; }
+    #cp .cp-opt:hover, #cp .cp-opt[aria-expanded="true"] { border-color: var(--wine); }
+    #cp .cp-opt b { font-weight: 400; font-size: 17px; }
+    #cp .cp-opt span { font-size: 13px; color: var(--tx); }
+    #cp .cp-pick { display: grid; margin-top: -8px; border: 1px solid var(--edge); border-top: 0; border-radius: 0 0 4px 4px; max-height: 230px; overflow: auto; }
+    #cp .cp-pick button { display: flex; justify-content: space-between; gap: 10px; align-items: center; min-height: 40px; padding: 4px 12px; border: 0; border-bottom: 1px solid var(--linen); background: #fff; text-align: left; cursor: pointer; }
+    #cp .cp-pick button:hover { background: #f7f4f2; }
+    #cp .cp-pick span { font-size: 13px; color: var(--tx); white-space: nowrap; }
+    #cp .cp-pick p { padding: 10px 12px; }
+    @media (max-width: 1100px) { #cp .cp-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } #cp .cp-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 720px) { #cp .cp-cards, #cp .cp-form, #cp .cp-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } #cp .cp-form .wide { grid-column: span 2; } #cp .cp-note { grid-template-columns: minmax(0, 1fr); } #cp .cp-steps span { display: none; } }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+    import { supabase } from "../../../lib/supabase.js";
+    import { TAG_NOTES, loadPackTagGroup, withPackTags } from "../../../lib/contact-tags.js";
+    import { AREAS, areaOf, stepWhen, todayLondon } from "../../../lib/email-campaigns.js";
+    import { loadEmails, copyAsEmail, saveAsTemplate } from "../../../lib/email-library.js";
+    import { renderTemplate, mergeContextFor, defaultBrand, SAMPLE_RECIPIENT } from "../../../lib/email-render.js";
+
+    const DEV = import.meta.env.DEV;
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
+    const isTime = (v) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || ""));
+    const fmtWhen = (iso) => { try { return new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }); } catch (_) { return ""; } };
+    const tagText = (t) => (TAG_NOTES[t] ? `${t} (${TAG_NOTES[t]})` : t);
+    const newId = () => "s" + Math.random().toString(36).slice(2, 10);
+    const ENROL_BATCH = 100;
+    const EVERY = [["week", "Every week", 7], ["fortnight", "Every two weeks", 14], ["days3", "Every three days", 3], ["day", "Every day", 1], ["custom", "I will set each date", 0]];
+    const STEPS = [["plan", "Plan"], ["emails", "Emails"], ["schedule", "Schedule"], ["insights", "Insights"]];
+
+    const params = new URLSearchParams(location.search);
+    const ID = params.get("id") || "";
+    let step = STEPS.some(([k]) => k === params.get("step")) ? params.get("step") : "";
+    let A = null;            // the campaign (an automations row)
+    let ITEMS = [];          // its steps in order: { kind: send | check | wait | other, node, leaves? }
+    let SIMPLE = true;       // false when the graph has shapes a list can't show
+    let EMAILS = [];         // every email and template, for names and pickers
+    let TAGS = [];           // [group, [tags]] for the tag pickers
+    let LIVE = 0;            // people in it now
+    let SENT = new Map();    // step id -> emails sent
+    let SENT_ALL = 0;        // emails sent, any step
+    let STATS = null;        // step id -> { sent, opened, clicked }, read for Insights
+    let WHO = { total: null, ok: null };
+    let DEMO = false;
+    let editing = null;      // the Schedule row being changed
+
+    function toast(msg) { const t = $("cp-toast"); if (!t) return; t.textContent = msg; t.classList.add("on"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("on"), 3200); }
+    async function workerPost(path, body) {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess && sess.session && sess.session.access_token;
+      const r = await fetch(`${WORKER}${path}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" }, body: JSON.stringify(body) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "Something went wrong.");
+      return d;
+    }
+    async function count(table, build) {
+      try { const { count: c, error } = await build(supabase.from(table).select("id", { count: "exact", head: true })); return error ? null : (c || 0); } catch (_) { return null; }
+    }
+
+    // ---- The campaign as a list ----------------------------------------------
+    const meta = () => { A.graph = A.graph || {}; A.graph.meta = A.graph.meta || {}; return A.graph.meta; };
+    const sends = () => ITEMS.filter((i) => i.kind === "send");
+    const emailOf = (node) => EMAILS.find((t) => t.id === (node.config && node.config.template_id)) || null;
+    const draft = () => A.status === "draft";
+    // Who and when can be planned here while it is a draft made of a plain run of emails and checks.
+    const planned = () => draft() && SIMPLE && (!A.trigger_type || A.trigger_type === "manual" || A.trigger_type === "audience");
+    const tags = () => { const to = meta().to; if (to && Array.isArray(to.tags)) return to.tags; const c = A.trigger_config || {}; return Array.isArray(c.tags) ? c.tags : []; };
+    const kind = () => (meta().kind === "service" ? "service" : "marketing");
+
+    // Walk the graph from the trigger. A check with one way on is a check; one
+    // whose Yes and No both carry on, and anything off the main line, is more
+    // than a list can show, so the campaign is left to the step builder.
+    function parse() {
+      const g = A.graph || {}; const nodes = g.nodes || []; const edges = g.edges || [];
+      const byId = new Map(nodes.map((n) => [n.id, n]));
+      const out = []; const seen = new Set(); let simple = true;
+      const first = edges.find((e) => e.from === "trigger");
+      let cur = first ? first.to : null;
+      while (cur) {
+        if (seen.has(cur)) { simple = false; break; }
+        const n = byId.get(cur); if (!n) break;
+        seen.add(cur);
+        const outs = edges.filter((e) => e.from === cur);
+        if (n.type === "send_email") { out.push({ kind: "send", node: n }); if (outs.length > 1) simple = false; cur = (outs[0] || {}).to || null; }
+        else if (n.type === "if_else") {
+          const yes = outs.find((e) => e.branch === "yes"), no = outs.find((e) => e.branch === "no");
+          if (yes && no) simple = false;
+          out.push({ kind: "check", node: n, leaves: yes && !no ? "no" : "yes" });
+          cur = ((no || yes) || {}).to || null;
+        }
+        else if (n.type === "wait") { out.push({ kind: "wait", node: n }); cur = (outs[0] || {}).to || null; }
+        else { simple = false; out.push({ kind: "other", node: n }); cur = (outs[0] || {}).to || null; }
+      }
+      if (nodes.filter((n) => n.type !== "trigger").length !== seen.size) simple = false;
+      ITEMS = out; SIMPLE = simple;
+    }
+    // The list back into a graph: one line from the trigger.
+    function rebuild() {
+      const nodes = [{ id: "trigger", type: "trigger", x: 360, y: 40, config: {} }]; const edges = [];
+      let prev = "trigger", branch = "next";
+      ITEMS.forEach((it, i) => {
+        it.node.x = 360; it.node.y = 190 + i * 150; nodes.push(it.node);
+        edges.push({ from: prev, to: it.node.id, branch });
+        prev = it.node.id; branch = it.kind === "check" ? (it.leaves === "yes" ? "no" : "yes") : "next";
+      });
+      A.graph = { ...(A.graph || {}), nodes, edges };
+    }
+    async function save(retime) {
+      if (DEMO) return;
+      const { error } = await supabase.from("automations").update({ name: A.name, trigger_type: A.trigger_type || null, trigger_config: A.trigger_config || {}, graph: A.graph }).eq("id", A.id);
+      if (error) throw error;
+      if (retime && A.status === "active" && WORKER) { try { await workerPost("/automations/retime", { automation_id: A.id }); } catch (_) {} }
+    }
+
+    // What each email has done. Sends logged before each event knew its step
+    // have no step, so an email also counts as sent when a later one has gone,
+    // or, where no send knows its step, once its date has passed.
+    function progress() {
+      const list = sends(); let last = -1;
+      list.forEach((it, i) => { if ((SENT.get(it.node.id) || 0) > 0) last = i; });
+      const byDate = last < 0 && SENT_ALL > 0; const today = todayLondon();
+      return list.map((it, i) => {
+        const c = it.node.config || {}; const n = SENT.get(it.node.id) || 0;
+        const passed = isDate(c.send_on) && c.send_on < today;
+        return { it, n: i + 1, count: n, sent: n > 0 || i < last || (byDate && passed), email: emailOf(it.node) };
+      });
+    }
+    const stateOf = (p) => (p.sent ? ["sent", "Sent"] : p.email ? (draft() ? ["wait", "Written"] : ["wait", "Scheduled"]) : ["bad", "To write"]);
+
+    // ---- The frame -------------------------------------------------------------
+    function frame() {
+      const m = meta(); const pr = progress();
+      const status = { draft: "Being planned", active: "Running", paused: "Paused", archived: "Finished" }[A.status] || "";
+      $("cp-eye").textContent = ["Campaign", areaOf(A), status].filter(Boolean).join(" · ");
+      $("cp-name").textContent = A.name || "Untitled campaign";
+      const t = tags(); const dated = pr.map((p) => p.it.node.config || {}).filter((c) => isDate(c.send_on)).sort((x, y) => x.send_on.localeCompare(y.send_on));
+      $("cp-line").textContent = [plural(pr.length, "email", "emails"), dated.length ? `from ${stepWhen({ config: dated[0] })}` : "", t.length ? `to everyone tagged ${t.join(" or ")}` : ""].filter(Boolean).join(", ") + ".";
+      $("cp-ban-acts").innerHTML = `${A.status === "active" ? `<button type="button" class="mbtn" data-do="pause">Pause</button>` : ""}<button type="button" class="mbtn" data-do="dupe">Duplicate</button><a class="mbtn" href="/admin/automations/edit?id=${encodeURIComponent(A.id)}">Step builder</a>`;
+      const written = pr.filter((p) => p.email).length, sent = pr.filter((p) => p.sent).length;
+      const side = {
+        plan: draft() ? (pr.length ? "Done" : "Start here") : "Done",
+        emails: pr.length ? `${written} of ${pr.length} written` : "None yet",
+        schedule: draft() ? "Check and approve" : A.status === "paused" ? "Paused" : A.status === "archived" ? "Finished" : "Approved",
+        insights: sent ? `${sent} of ${pr.length} sent` : "After the first send",
+      };
+      $("cp-steps").innerHTML = STEPS.map(([k, label], i) => `<button type="button" data-step="${k}" ${k === step ? 'aria-current="step"' : ""}><i>${i + 1}</i><b>${label}</b><span>${esc(side[k])}</span></button>`).join("");
+      if (m.area !== areaOf(A)) { /* an area no longer on the list shows as none */ }
+    }
+    function go(next) {
+      step = next; editing = null;
+      const u = new URL(location.href); u.searchParams.set("step", step); history.replaceState({}, "", u.toString());
+      draw();
+    }
+    function draw() {
+      frame();
+      if (step === "plan") drawPlan(); else if (step === "emails") drawEmails(); else if (step === "schedule") drawSchedule(); else drawInsights();
+    }
+    const told = () => (SIMPLE ? "" : `<p class="cp-told">This campaign has steps a list can't show (a check where both answers carry on, or a step that isn't an email). It still runs as built. Change its steps in the <a href="/admin/automations/edit?id=${encodeURIComponent(A.id)}">step builder</a>.</p>`);
+
+    // ---- 1 Plan ----------------------------------------------------------------
+    let PLAN = null;   // the form's answers, until Save
+    function planStart() {
+      const m = meta(); const p = m.plan || {}; const list = sends();
+      const firstDated = list.map((it) => it.node.config || {}).find((c) => isDate(c.send_on));
+      const d = new Date(Date.now() + 7 * 864e5); const pad = (n) => String(n).padStart(2, "0");
+      PLAN = {
+        name: A.name || "", area: areaOf(A), count: Math.max(list.length, 0) || 3, tags: [...tags()], kind: kind(),
+        start_on: p.start_on || (firstDated && firstDated.send_on) || `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+        start_at: p.start_at || (firstDated && firstDated.send_at) || "07:00",
+        every: p.every || (list.length ? "custom" : "week"),
+        notes: list.map((it) => (m.notes && m.notes[it.node.id]) || ""),
+      };
+      if (!list.length) PLAN.every = "week";
+    }
+    function planDates() {
+      const gap = (EVERY.find(([k]) => k === PLAN.every) || [])[2] || 0;
+      const list = sends();
+      return Array.from({ length: PLAN.count }, (_, i) => {
+        if (!gap || !isDate(PLAN.start_on)) { const c = (list[i] && list[i].node.config) || {}; return isDate(c.send_on) ? { on: c.send_on, at: c.send_at || "" } : null; }
+        const d = new Date(`${PLAN.start_on}T12:00:00`); d.setDate(d.getDate() + i * gap);
+        return { on: d.toLocaleDateString("en-CA"), at: PLAN.start_at };
+      });
+    }
+    function drawPlan() {
+      if (!PLAN) planStart();
+      const can = planned(); const dis = can ? "" : "disabled";
+      const dates = planDates();
+      while (PLAN.notes.length < PLAN.count) PLAN.notes.push("");
+      $("cp-main").innerHTML = `${told()}
+        <div class="section"><div class="strip"><span class="strip-t">The plan</span></div>
+          ${can ? "" : `<p class="cp-hint">${draft() ? "Who it goes to and when are set in the step builder for this campaign." : "This campaign has started, so who it goes to is fixed. Change a date under Schedule. The name, area and notes can still be changed here."}</p>`}
+          <div class="cp-form">
+            <label><span class="cp-lab">Campaign name</span><input type="text" id="pl-name" maxlength="120" value="${esc(PLAN.name)}" /></label>
+            <label><span class="cp-lab">What area of the business is it about?</span><select id="pl-area"><option value="">Choose an area</option>${AREAS.map((x) => `<option${x === PLAN.area ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></label>
+            <label><span class="cp-lab">How many emails?</span><input type="number" id="pl-count" min="1" max="20" value="${PLAN.count}" ${dis} /></label>
+            <div class="wide"><span class="cp-lab">Who is it going to?</span>
+              <div class="cp-box">${PLAN.tags.map((t) => `<span class="cp-chip">${esc(tagText(t))}${can ? `<button type="button" data-untag="${esc(t)}" aria-label="Remove ${esc(t)}">×</button>` : ""}</span>`).join("")}
+                ${can ? `<select id="pl-tag" aria-label="Add a tag"><option value="">Add a tag</option>${TAGS.map(([g, list]) => `<optgroup label="${esc(g)}">${list.filter((t) => !PLAN.tags.includes(t)).map((t) => `<option value="${esc(t)}">${esc(tagText(t))}</option>`).join("")}</optgroup>`).join("")}</select>` : (PLAN.tags.length ? "" : `<span class="cp-hint" style="margin:0">Set in the step builder</span>`)}
+              </div>
+              <p class="cp-hint" id="pl-who">${PLAN.tags.length > 1 ? "Anyone with any one of these tags. " : ""}</p>
+            </div>
+            <label><span class="cp-lab">Marketing or service message?</span><select id="pl-kind" ${dis}><option value="marketing"${PLAN.kind === "marketing" ? " selected" : ""}>Marketing (opted-in people only)</option><option value="service"${PLAN.kind === "service" ? " selected" : ""}>Service message (everyone)</option></select></label>
+            <label><span class="cp-lab">First email goes on</span><input type="date" id="pl-on" value="${esc(PLAN.start_on)}" min="${todayLondon()}" ${dis} /></label>
+            <label><span class="cp-lab">At</span><input type="time" id="pl-at" value="${esc(PLAN.start_at)}" ${dis} /></label>
+            <label><span class="cp-lab">Then one</span><select id="pl-every" ${dis}>${EVERY.map(([k, l]) => `<option value="${k}"${k === PLAN.every ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+          </div>
+        </div>
+        <div class="section"><div class="strip"><span class="strip-t">Notes and copy ideas, email by email</span></div>
+          ${Array.from({ length: PLAN.count }, (_, i) => `<div class="cp-note"><div><b>Email ${i + 1}</b><span>${dates[i] ? esc(stepWhen({ config: { send_on: dates[i].on, send_at: dates[i].at } })) : "No date yet"}</span></div>
+            <textarea data-note="${i}" aria-label="Notes for email ${i + 1}" placeholder="What is this email about? Copy ideas, links, anything to remember.">${esc(PLAN.notes[i] || "")}</textarea></div>`).join("")}
+        </div>
+        <div class="cp-foot"><button type="button" class="mbtn" id="pl-save">Save plan</button><button type="button" class="mbtn primary" id="pl-next">Next: write the emails</button></div>
+        <p class="cp-msg" id="pl-msg" role="status"></p>`;
+      planWho();
+    }
+    const okFor = (x, k) => { let y = x.eq("dnd", false).eq("dnd_email", false).not("tags", "cs", "{Unsubscribed}"); if (k === "marketing") y = y.eq("marketing_opt_in", true); return y; };
+    let whoRun = 0;
+    async function whoCount(list, k) {
+      if (!list.length) return { total: 0, ok: 0 };
+      if (DEMO) return { total: 126, ok: k === "marketing" ? 112 : 124 };
+      const [total, ok] = await Promise.all([count("contacts", (x) => x.overlaps("tags", list)), count("contacts", (x) => okFor(x.overlaps("tags", list), k))]);
+      return { total: total || 0, ok: ok || 0 };
+    }
+    async function planWho() {
+      const el = $("pl-who"); if (!el || !PLAN.tags.length) return;
+      const run = ++whoRun; const base = PLAN.tags.length > 1 ? "Anyone with any one of these tags. " : "";
+      el.textContent = base + "Counting…";
+      const w = await whoCount(PLAN.tags, PLAN.kind);
+      if (run !== whoRun || !$("pl-who")) return;
+      $("pl-who").textContent = `${base}${plural(w.ok, "person", "people")} now${w.total > w.ok ? `, ${w.total - w.ok} left out (${PLAN.kind === "marketing" ? "not opted in, unsubscribed or do-not-contact" : "unsubscribed or do-not-contact"})` : ""}.`;
+    }
+    async function planSave(then) {
+      const msg = $("pl-msg"); const say = (t, bad) => { msg.textContent = t; msg.classList.toggle("bad", !!bad); };
+      const name = PLAN.name.trim();
+      if (!name) { say("Give the campaign a name.", true); return; }
+      const m = meta();
+      A.name = name;
+      if (PLAN.area) m.area = PLAN.area; else delete m.area;
+      if (planned()) {
+        const list = sends(); const pr = progress();
+        // More emails: new steps on the end. Fewer: the last ones go, never one that has been sent.
+        if (PLAN.count > list.length) for (let i = list.length; i < PLAN.count; i++) ITEMS.push({ kind: "send", node: { id: newId(), type: "send_email", config: { body_mode: "template", template_id: "" } } });
+        else if (PLAN.count < list.length) {
+          const drop = new Set(list.slice(PLAN.count).filter((it) => !(pr.find((p) => p.it === it) || {}).sent).map((it) => it.node.id));
+          ITEMS = ITEMS.filter((it) => !drop.has(it.node.id));
+          while (ITEMS.length && ITEMS[ITEMS.length - 1].kind !== "send") ITEMS.pop();
+        }
+        const dates = planDates();
+        sends().forEach((it, i) => {
+          const c = (it.node.config = it.node.config || {});
+          c.send_kind = PLAN.kind === "marketing" ? "marketing" : "transactional";
+          if (PLAN.every !== "custom" && dates[i]) { c.send_on = dates[i].on; c.send_at = dates[i].at; }
+        });
+        m.kind = PLAN.kind; m.campaign = true;
+        m.to = { mode: "tags", tags: [...PLAN.tags] };
+        m.plan = { every: PLAN.every, start_on: PLAN.start_on, start_at: PLAN.start_at };
+        A.trigger_type = "manual"; A.trigger_config = {};
+        rebuild(); parse();
+      }
+      m.notes = {}; sends().forEach((it, i) => { const t = (PLAN.notes[i] || "").trim(); if (t) m.notes[it.node.id] = t; });
+      say("Saving.");
+      try { await save(true); PLAN = null; if (then) go(then); else { draw(); toast("Plan saved."); } }
+      catch (e) { say("Couldn't save: " + ((e && e.message) || e), true); }
+    }
+
+    // ---- 2 Emails --------------------------------------------------------------
+    function drawEmails() {
+      const pr = progress(); const m = meta();
+      const editor = (id) => `/admin/email/editor?id=${encodeURIComponent(id)}&back=${encodeURIComponent(`/admin/email/campaign?id=${A.id}&step=emails`)}`;
+      const card = (p) => {
+        const c = p.it.node.config || {}; const st = stateOf(p); const id = esc(p.it.node.id);
+        const note = (m.notes && m.notes[p.it.node.id]) || "";
+        const acts = p.email
+          ? `<a class="mbtn" href="${editor(p.email.id)}">${p.sent ? "View email" : "Edit email"}</a>${p.sent ? "" : `<button type="button" class="mbtn" data-test="${id}">Send me a test</button>`}<button type="button" class="mbtn" data-keep="${id}">Save as a template</button>${p.sent ? "" : `<button type="button" class="mbtn" data-create="${id}">Swap the email</button>`}`
+          : `<button type="button" class="mbtn primary" data-create="${id}">Create email</button>`;
+        return `<article class="cp-card">
+          <div class="cp-thumb${p.email ? "" : " todo"}" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="cp-card-top"><span class="cp-lab" style="margin:0">Email ${p.n}</span><span class="blk ${st[0]}">${st[1]}</span></div>
+          <div class="cp-card-id"><b>${esc(p.email ? p.email.name : "Not written yet")}</b><span>${esc(stepWhen(p.it.node) || "No date yet")}</span><span>${esc(note ? "Plan: " + note : "No notes in the plan.")}</span></div>
+          <div class="cp-card-acts">${acts}</div>
+        </article>`;
+      };
+      $("cp-main").innerHTML = `${told()}
+        <div class="section"><div class="strip"><span class="strip-t">A space for each email in your plan</span></div>
+          ${pr.length ? `<div class="cp-cards">${pr.map(card).join("")}</div>` : `<div class="empty">There are no emails in the plan yet. Go back to Plan and say how many.</div>`}
+        </div>
+        <div class="cp-foot split"><button type="button" class="mbtn" data-step="plan">Back to the plan</button><button type="button" class="mbtn primary" data-step="schedule">Next: check the schedule</button></div>
+        <p class="cp-msg" id="em-msg" role="status"></p>`;
+    }
+    const sendName = (it) => `${A.name}: email ${sends().indexOf(it) + 1}`;
+    async function assign(it, emailId) {
+      const c = (it.node.config = it.node.config || {});
+      c.body_mode = "template"; c.template_id = emailId;
+      if (!c.send_kind) c.send_kind = kind() === "marketing" ? "marketing" : "transactional";
+      await save(false);
+    }
+    // The four ways to start an email (Danielle, 25 Nov): from scratch, from a
+    // template, from a previous email, or a duplicate of one already made here.
+    // Each of the last three is a copy, so the original stays as it is.
+    function openCreate(it) {
+      const n = sends().indexOf(it) + 1;
+      const mine = sends().filter((x) => x !== it && emailOf(x.node)).map((x) => ({ e: emailOf(x.node), label: `Email ${sends().indexOf(x) + 1}` }));
+      const used = new Set(sends().map((x) => x.node.config && x.node.config.template_id).filter(Boolean));
+      const templates = EMAILS.filter((t) => t.is_template && t.status !== "archived");
+      const previous = EMAILS.filter((t) => !t.is_template && t.status !== "archived" && !used.has(t.id));
+      const pick = (rows, what) => rows.length
+        ? rows.map((r) => `<button type="button" data-copy="${esc(r.e.id)}">${esc(r.e.name)}<span>${esc(r.label || "")} ${what}</span></button>`).join("")
+        : `<p>Nothing to choose from yet.</p>`;
+      $("cp-pop").innerHTML = `<div class="scrim" id="cp-scrim"><div class="pop tall" role="dialog" aria-modal="true" aria-labelledby="cp-c-t">
+        <div class="pop-h"><div><p class="mo-eye">${esc(A.name)} · Email ${n}${stepWhen(it.node) ? " · " + esc(stepWhen(it.node)) : ""}</p><div class="pop-title" id="cp-c-t">Create this email</div></div><button type="button" class="x" data-close aria-label="Close">×</button></div>
+        <div class="pop-b">
+          <p>How do you want to start?</p>
+          <button type="button" class="cp-opt" data-new="1"><b>Start from scratch</b><span>A blank email in the editor.</span></button>
+          <button type="button" class="cp-opt" data-open="tpl" aria-expanded="false"><b>Start from a template</b><span>Pick one of your saved templates. You work on a copy, so the template stays as it is.</span></button>
+          <div class="cp-pick" data-list="tpl" hidden>${pick(templates.map((e) => ({ e, label: e.area || "" })), "Use")}</div>
+          <button type="button" class="cp-opt" data-open="prev" aria-expanded="false"><b>Copy a previous email</b><span>Any email from another campaign or a one-off send. You work on a copy.</span></button>
+          <div class="cp-pick" data-list="prev" hidden>${pick(previous.map((e) => ({ e, label: "" })), "Copy")}</div>
+          <button type="button" class="cp-opt" data-open="mine" aria-expanded="${mine.length ? "true" : "false"}"><b>Duplicate one from this campaign</b><span>Keeps the layout of an email you have already made for ${esc(A.name)}.</span></button>
+          <div class="cp-pick" data-list="mine" ${mine.length ? "" : "hidden"}>${pick(mine, "Duplicate")}</div>
+          <p class="err" id="cp-c-err" hidden></p>
+        </div>
+      </div></div>`;
+      const scrim = $("cp-scrim"); const close = () => { $("cp-pop").innerHTML = ""; };
+      const fail = (t) => { const e = $("cp-c-err"); e.textContent = t; e.hidden = false; };
+      const done = async (row) => { await assign(it, row.id); location.href = `/admin/email/editor?id=${encodeURIComponent(row.id)}&back=${encodeURIComponent(`/admin/email/campaign?id=${A.id}&step=emails`)}`; };
+      scrim.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+      scrim.addEventListener("click", async (e) => {
+        const t = e.target instanceof HTMLElement ? e.target : null; if (!t) return;
+        if (t === scrim || t.closest("[data-close]")) { close(); return; }
+        const open = t.closest("[data-open]");
+        if (open) { const l = scrim.querySelector(`[data-list="${open.dataset.open}"]`); l.hidden = !l.hidden; open.setAttribute("aria-expanded", String(!l.hidden)); return; }
+        if (DEMO && (t.closest("[data-new]") || t.closest("[data-copy]"))) { fail("This is the example copy: nothing is made from here."); return; }
+        try {
+          if (t.closest("[data-new]")) {
+            const { data, error } = await supabase.from("email_templates").insert({ name: sendName(it), subject: "", mode: "blocks", blocks: [], branding: {}, status: "active" }).select().single();
+            if (error) throw error;
+            await done(data);
+          } else if (t.closest("[data-copy]")) {
+            const src = EMAILS.find((x) => x.id === t.closest("[data-copy]").dataset.copy);
+            const r = await copyAsEmail(supabase, src, { name: sendName(it), status: "active" });
+            if (r.error) throw r.error;
+            await done(r.data);
+          }
+        } catch (err) { fail("Couldn't make the email: " + ((err && err.message) || err)); }
+      });
+      scrim.querySelector(".x").focus();
+    }
+    async function sendTest(emailId) {
+      const { data: sess } = await supabase.auth.getSession();
+      const me = sess && sess.session && sess.session.user && sess.session.user.email;
+      if (!me) throw new Error("Please sign in again.");
+      const { data: t, error } = await supabase.from("email_templates").select("*").eq("id", emailId).single();
+      if (error) throw error;
+      const brand = { ...defaultBrand(), ...(t.branding || {}) };
+      const ctx = mergeContextFor({ name: me.split("@")[0], email: me, company: SAMPLE_RECIPIENT.company }, brand);
+      const { subject, html } = renderTemplate({ subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding }, { brand, mergeCtx: ctx });
+      await workerPost("/email/send", { to: me, subject: "[Test] " + (subject || t.name), html });
+      return me;
+    }
+    function openKeep(email) {
+      $("cp-pop").innerHTML = `<div class="scrim" id="cp-scrim"><div class="pop" style="height:500px" role="dialog" aria-modal="true" aria-labelledby="cp-k-t">
+        <div class="pop-h"><div><p class="mo-eye">Templates</p><div class="pop-title" id="cp-k-t">Save as a template</div></div><button type="button" class="x" data-close aria-label="Close">×</button></div>
+        <div class="pop-b">
+          <p>A copy goes into Templates. The email in this campaign stays as it is.</p>
+          <label class="field"><span>Title</span><input type="text" id="cp-k-title" maxlength="120" value="${esc(email.name || "")}" /></label>
+          <label class="field"><span>What area of the business is this for?</span><select id="cp-k-area"><option value="">Choose an area</option>${AREAS.map((x) => `<option${x === areaOf(A) ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></label>
+          <label class="field"><span>Description</span><textarea id="cp-k-desc" maxlength="400" placeholder="What is it for, and when would you use it?"></textarea></label>
+          <p class="err" id="cp-k-err" hidden></p>
+        </div>
+        <div class="pop-f"><button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" id="cp-k-go">Save template</button></div>
+      </div></div>`;
+      const scrim = $("cp-scrim"); const close = () => { $("cp-pop").innerHTML = ""; };
+      scrim.addEventListener("click", (e) => { if (e.target === scrim || (e.target instanceof HTMLElement && e.target.closest("[data-close]"))) close(); });
+      scrim.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+      $("cp-k-title").focus();
+      $("cp-k-go").addEventListener("click", async () => {
+        const err = $("cp-k-err"), say = (t) => { err.textContent = t; err.hidden = false; };
+        const fields = { title: $("cp-k-title").value.trim(), area: $("cp-k-area").value, description: $("cp-k-desc").value };
+        if (!fields.title) { say("Give the template a title."); return; }
+        if (!fields.area) { say("Choose the area of the business it is for."); return; }
+        if (DEMO) { say("This is the example copy: nothing is saved from here."); return; }
+        const full = await supabase.from("email_templates").select("*").eq("id", email.id).single();
+        if (full.error) { say("Couldn't read the email: " + full.error.message); return; }
+        const r = await saveAsTemplate(supabase, full.data, fields);
+        if (r.error) { say(r.needsSql ? "Templates need one database step first: run supabase/email_templates_library.sql." : "Couldn't save: " + r.error.message); return; }
+        close(); toast("Saved to Templates.");
+      });
+    }
+
+    // ---- 3 Schedule ------------------------------------------------------------
+    const gapText = (a, b) => {
+      const days = Math.round((new Date(`${b}T12:00:00`) - new Date(`${a}T12:00:00`)) / 864e5);
+      if (days <= 0) return ""; if (days === 7) return "Wait a week"; if (days === 14) return "Wait two weeks"; return `Wait ${plural(days, "day", "days")}`;
+    };
+    function problems() {
+      const pr = progress(); const out = []; const now = new Date();
+      if (!pr.length) out.push("There are no emails in the plan.");
+      if (!tags().length) out.push("Nobody is chosen yet: add a tag in the plan.");
+      const unwritten = pr.filter((p) => !p.email).length;
+      if (unwritten) out.push(`${plural(unwritten, "email is", "emails are")} not written yet.`);
+      const undated = pr.filter((p) => !isDate((p.it.node.config || {}).send_on) || !isTime((p.it.node.config || {}).send_at)).length;
+      if (undated) out.push(`${plural(undated, "email has", "emails have")} no date and time.`);
+      const past = pr.filter((p) => { const c = p.it.node.config || {}; return isDate(c.send_on) && isTime(c.send_at) && new Date(`${c.send_on}T${c.send_at}`) <= now; }).length;
+      if (past) out.push(`${plural(past, "email is", "emails are")} dated in the past, and would go straight away.`);
+      if (WHO.ok === 0) out.push("Nobody in that group can be sent this.");
+      return out;
+    }
+    function drawSchedule() {
+      const pr = progress(); const can = SIMPLE && A.status !== "archived"; const t = tags();
+      let rows = `<div class="cp-row"><span class="cp-dot start"></span><div class="cp-rt"><b>Start: ${t.length ? `everyone tagged ${esc(t.join(" or "))}` : "nobody chosen yet"}</b><span>${draft() ? "They are added on the day you approve it" : `${plural(LIVE, "person is", "people are")} in it now`}</span></div><span></span></div>`;
+      let prevDate = "";
+      ITEMS.forEach((it) => {
+        const id = esc(it.node.id); const c = it.node.config || {};
+        if (it.kind === "send") {
+          const p = pr.find((x) => x.it === it);
+          if (prevDate && isDate(c.send_on)) { const g = gapText(prevDate, c.send_on); if (g) rows += `<div class="cp-row soft"><span class="cp-dot wait"></span><div class="cp-rt"><span>${g}</span></div><span></span></div>`; }
+          if (isDate(c.send_on)) prevDate = c.send_on;
+          rows += `<div class="cp-row"><span class="cp-dot"></span><div class="cp-rt"><b>Send email ${p.n}${p.email ? ": " + esc(p.email.name) : ""}</b><span>${esc(stepWhen(it.node) || "No date yet")}${p.sent ? ` · sent${p.count ? " to " + p.count : ""}` : p.email ? "" : " · not written yet"}</span></div>${can && !p.sent ? `<button type="button" class="mbtn small" data-change="${id}">Change</button>` : "<span></span>"}</div>`;
+          if (editing === it.node.id) rows += `<div class="cp-edit"><label><span class="cp-lab">Date</span><input type="date" id="sc-on" value="${esc(c.send_on || "")}" min="${todayLondon()}" /></label><label><span class="cp-lab">Time</span><input type="time" id="sc-at" value="${esc(c.send_at || "")}" /></label><button type="button" class="mbtn primary" data-savewhen="${id}">Save</button><button type="button" class="mbtn" data-cancel>Cancel</button></div>`;
+        } else if (it.kind === "check") {
+          const want = Array.isArray(c.values) && c.values.length ? c.values : (c.value ? [c.value] : []);
+          const isTag = (c.field || "has_tag") === "has_tag" || c.field === "tag";
+          const tagQ = (c.op || "is") === "is_not" ? "are they without" : "do they have";
+          const q = isTag ? `${tagQ} ${want.length ? "the tag " + esc(want.join(" or ")) : "a tag (none chosen)"}?` : `${esc(c.field)} ${esc(c.op || "is")} ${esc(c.value || "")}?`;
+          rows += `<div class="cp-row"><span class="cp-dot check"></span><div class="cp-rt"><b>Check: ${q}</b><span>Looked at for each person just before the next email</span></div>${can && draft() ? `<button type="button" class="mbtn small" data-change="${id}">Change</button>` : "<span></span>"}</div>`;
+          const line = (yes) => `<div class="cp-row branch"><span class="cp-dot none"></span><div class="cp-rt"><b><span class="cp-yn${yes ? "" : " no"}">${yes ? "Yes" : "No"}</span>${(it.leaves === "yes") === yes ? "They leave the campaign" : "They carry on"}</b><span>${(it.leaves === "yes") === yes ? "No more of these emails" : "On to the next email below"}</span></div><span></span></div>`;
+          rows += line(true) + line(false);
+          if (editing === it.node.id) rows += `<div class="cp-edit"><label class="grow"><span class="cp-lab">Leave the campaign if they have the tag</span><select id="sc-tag">${tagOptions(want[0] || "")}</select></label><button type="button" class="mbtn primary" data-savecheck="${id}">Save</button><button type="button" class="mbtn danger" data-dropcheck="${id}">Remove the check</button><button type="button" class="mbtn" data-cancel>Cancel</button></div>`;
+        } else if (it.kind === "wait") {
+          const amt = c.amount || c.value || ""; const unit = c.unit || "";
+          rows += `<div class="cp-row soft"><span class="cp-dot wait"></span><div class="cp-rt"><span>Wait ${esc(String(amt))} ${esc(String(unit))}</span></div><span></span></div>`;
+        } else {
+          rows += `<div class="cp-row soft"><span class="cp-dot wait"></span><div class="cp-rt"><span>A step from the step builder (${esc(it.node.type)})</span></div><span></span></div>`;
+        }
+      });
+      rows += `<div class="cp-row"><span class="cp-dot start"></span><div class="cp-rt"><b>Finish</b><span>The campaign moves to Previous</span></div><span></span></div>`;
+      const adding = editing === "+check";
+      const tools = can && draft() ? `<div class="cp-foot" style="justify-content:flex-start;margin-top:12px"><button type="button" class="mbtn small" data-addcheck>Add a check</button><a class="mbtn small" href="/admin/automations/edit?id=${encodeURIComponent(A.id)}">Open the full step builder</a></div>
+        ${adding ? `<div class="cp-edit" style="margin-top:10px"><label><span class="cp-lab">Before</span><select id="sc-before">${pr.filter((p) => !p.sent && p.n > 1).map((p) => `<option value="${esc(p.it.node.id)}">Email ${p.n}</option>`).join("")}</select></label><label class="grow"><span class="cp-lab">Leave the campaign if they have the tag</span><select id="sc-tag">${tagOptions("")}</select></label><button type="button" class="mbtn primary" data-newcheck>Add</button><button type="button" class="mbtn" data-cancel>Cancel</button></div>` : ""}` : "";
+
+      const probs = draft() ? problems() : [];
+      let side = `<div class="cp-side"><h2>Who gets it</h2>
+          <div><b id="sc-who">${t.length ? "Counting…" : "Nobody yet"}</b><p id="sc-out" style="color:var(--tx)"></p></div>
+          <p style="color:var(--tx)">${draft() ? "The group is fixed when you approve. Anyone given the tag after that is not added, so nobody is sent emails that have already gone." : "The group was fixed when it was approved. Anyone given the tag since is not in it."}</p>
+          ${draft() ? "" : `<a class="cp-link" href="/admin/automations/audit?id=${encodeURIComponent(A.id)}">See who is in it</a>`}</div>`;
+      if (draft()) side += `<div class="cp-side fill"><h2>Before it starts</h2>
+          ${probs.length ? `<ul>${probs.map((p) => `<li class="todo">${esc(p)}</li>`).join("")}</ul>` : `<p>Everything is ready. Approving adds the group and lines up every email for its date.</p>`}
+          <button type="button" class="mbtn primary" id="sc-go" ${probs.length || !SIMPLE ? "disabled" : ""}>Approve and start</button>
+          <button type="button" class="mbtn" id="sc-tests">Send every email to me first</button>
+          <p id="sc-msg" role="status"></p></div>`;
+      else side += `<div class="cp-side fill"><h2>${A.status === "active" ? "Running" : A.status === "paused" ? "Paused" : "Finished"}</h2>
+          <p>${A.status === "active" ? `Approved ${meta().went_live_at ? fmtWhen(meta().went_live_at) : ""}. Emails that have gone are locked; change the date of one still to come with Change.` : A.status === "paused" ? "Nothing sends and nobody moves while it is paused. Reactivate it in the step builder, which shows anything that fell due meanwhile." : "This campaign has ended."}</p>
+          ${A.status === "active" ? `<button type="button" class="mbtn" data-do="pause">Pause the campaign</button><button type="button" class="mbtn danger" data-do="end">End the campaign</button>` : A.status === "paused" ? `<a class="mbtn" href="/admin/automations/edit?id=${encodeURIComponent(A.id)}">Open the step builder</a>` : ""}
+          <p id="sc-msg" role="status"></p></div>`;
+      $("cp-main").innerHTML = `${told()}<div class="cp-two"><section><div class="strip"><span class="strip-t">${draft() ? "Suggested from your plan" : "The schedule"}</span></div>${rows}${tools}</section><aside>${side}</aside></div>`;
+      scheduleWho();
+    }
+    function tagOptions(cur) {
+      return `<option value="">Choose a tag</option>${TAGS.map(([g, list]) => `<optgroup label="${esc(g)}">${list.map((t) => `<option value="${esc(t)}"${t === cur ? " selected" : ""}>${esc(tagText(t))}</option>`).join("")}</optgroup>`).join("")}`;
+    }
+    async function scheduleWho() {
+      const t = tags(); if (!t.length || !$("sc-who")) return;
+      const run = ++whoRun;
+      const w = await whoCount(t, kind());
+      if (run !== whoRun || !$("sc-who")) return;
+      const first = WHO.ok == null; WHO = w;
+      $("sc-who").textContent = draft() ? `${plural(w.ok, "person", "people")} would get it today` : `${plural(w.ok, "person", "people")} carry that tag today`;
+      $("sc-out").textContent = w.total > w.ok ? `${w.total - w.ok} left out: ${kind() === "marketing" ? "not opted in, unsubscribed or do-not-contact" : "unsubscribed or do-not-contact"}` : "";
+      if (first && draft() && w.ok === 0) drawSchedule();
+    }
+    async function everyoneIds() {
+      const ids = [];
+      for (let from = 0; from < 100000; from += 1000) {
+        const { data, error } = await supabase.from("contacts").select("id").overlaps("tags", tags()).order("id", { ascending: true }).range(from, from + 999);
+        if (error) throw error;
+        ids.push(...(data || []).map((r) => r.id));
+        if ((data || []).length < 1000) break;
+      }
+      return ids;
+    }
+    async function approve(btn) {
+      const say = (t, bad) => { const m = $("sc-msg"); if (m) { m.textContent = t; m.style.color = bad ? "var(--bad)" : ""; } };
+      if (DEMO) { say("This is the example copy: nothing starts from here.", true); return; }
+      if (!WORKER) { say("The Worker isn't connected, so nothing can be sent.", true); return; }
+      if (problems().length) { drawSchedule(); return; }
+      if (btn.dataset.armed !== "1") { btn.dataset.armed = "1"; btn.textContent = `Press again to start it for ${plural(WHO.ok || 0, "person", "people")}`; say("You can pause or end it afterwards, but an email that has gone can't be taken back."); return; }
+      btn.disabled = true; let enrolled = 0, total = 0;
+      try {
+        say("Saving.");
+        const group = [...tags()];
+        meta().campaign = true; meta().to = { mode: "tags", tags: group };
+        A.trigger_type = "manual"; A.trigger_config = {};
+        await save(false);
+        const ids = await everyoneIds(); total = ids.length;
+        if (!total) throw new Error("Nobody matches that group any more.");
+        await workerPost("/automations/set-status", { automation_id: A.id, status: "active" });
+        for (let i = 0; i < ids.length; i += ENROL_BATCH) {
+          say(`Adding people: ${Math.min(i + ENROL_BATCH, total)} of ${total}.`);
+          const d = await workerPost("/automations/enroll-contacts", { automation_id: A.id, contact_ids: ids.slice(i, i + ENROL_BATCH) });
+          enrolled += d.enrolled || 0;
+        }
+        toast(`Started. ${plural(enrolled, "person is", "people are")} in the campaign.`);
+        await load(); go("insights");
+      } catch (e) {
+        say(`${enrolled ? `${enrolled} of ${total} were added before it stopped. ` : ""}Couldn't finish: ${(e && e.message) || e}`, true);
+        try { await load(); draw(); } catch (_) {}
+      }
+    }
+
+    // ---- 4 Insights ------------------------------------------------------------
+    // Sent, opened and clicked for each email, each person once and a click
+    // counting as an open. These are the figures as reported: the full report
+    // (the audit page) is where email security scanners are told apart.
+    async function readStats() {
+      const out = new Map();
+      if (DEMO) { sends().slice(0, 2).forEach((it, i) => out.set(it.node.id, { sent: 112, opened: 35 - i * 3, clicked: 5 + i })); return out; }
+      const ev = [];
+      for (let from = 0; from < 50000; from += 1000) {
+        const r = await supabase.from("email_events").select("event, contact_id, email, node_id, message_id").eq("automation_id", A.id).order("occurred_at", { ascending: true }).order("id", { ascending: true }).range(from, from + 999);
+        if (r.error) break;
+        ev.push(...(r.data || []));
+        if ((r.data || []).length < 1000) break;
+      }
+      const byMsg = new Map(); ev.forEach((e) => { if (e.event === "sent" && e.message_id && e.node_id) byMsg.set(e.message_id, e.node_id); });
+      const sets = new Map(); const get = (id) => { if (!sets.has(id)) sets.set(id, { sent: new Set(), opened: new Set(), clicked: new Set() }); return sets.get(id); };
+      ev.forEach((e) => {
+        const node = e.node_id || (e.message_id && byMsg.get(e.message_id)); const who = e.contact_id || e.email;
+        if (!node || !who) return;
+        const s = get(node);
+        if (e.event === "sent") s.sent.add(who);
+        else if (e.event === "opened") s.opened.add(who);
+        else if (e.event === "clicked") { s.clicked.add(who); s.opened.add(who); }
+      });
+      sets.forEach((s, id) => out.set(id, { sent: s.sent.size, opened: s.opened.size, clicked: s.clicked.size }));
+      return out;
+    }
+    function drawInsights() {
+      const pr = progress(); const sent = pr.filter((p) => p.sent).length;
+      const pct = (a, b) => (b ? Math.round((a / b) * 100) + "%" : "");
+      let o = 0, c = 0, s = 0;
+      if (STATS) pr.forEach((p) => { const x = STATS.get(p.it.node.id); if (x && x.sent) { s += x.sent; o += x.opened; c += x.clicked; } });
+      const next = pr.find((p) => !p.sent && isDate((p.it.node.config || {}).send_on));
+      const todo = pr.filter((p) => !p.email && !p.sent).length;
+      const row = (p) => {
+        const st = stateOf(p); const x = STATS && STATS.get(p.it.node.id);
+        return `<tr><td class="tx">${p.n}</td><td><div class="cp-tname"><b>${esc(p.email ? p.email.name : "Not written yet")}</b><span>${esc((p.email && p.email.subject) || "")}</span></div></td>
+          <td>${esc(stepWhen(p.it.node) || "No date")}</td><td><span class="blk ${st[0]}">${st[1]}</span></td>
+          <td>${x && x.sent ? x.sent : p.sent && p.count ? p.count : ""}</td><td>${x && x.sent ? pct(x.opened, x.sent) : ""}</td><td>${x && x.sent ? pct(x.clicked, x.sent) : ""}</td></tr>`;
+      };
+      $("cp-main").innerHTML = `${told()}
+        <div class="figs">
+          <div class="fig lin static"><span>Emails sent</span><b>${sent} of ${pr.length}</b><small>${next ? "Next: " + esc(stepWhen(next.it.node)) : sent === pr.length && pr.length ? "All sent" : "Nothing scheduled"}</small></div>
+          <div class="fig lin static"><span>Opened</span><b>${STATS ? (s ? pct(o, s) : "No sends yet") : "Reading…"}</b><small>Across the emails sent</small></div>
+          <div class="fig lin static"><span>Clicked</span><b>${STATS ? (s ? pct(c, s) : "No sends yet") : "Reading…"}</b><small>Across the emails sent</small></div>
+          <div class="fig ${todo ? "dark" : "lin"} static"><span>${todo ? "Needs attention" : "In it now"}</span><b>${todo ? todo : LIVE}</b><small>${todo ? `${plural(todo, "email is", "emails are")} not written yet` : plural(LIVE, "person", "people")}</small></div>
+        </div>
+        <div class="section"><div class="strip"><span class="strip-t">Email by email</span><a class="aside" style="color:#fff;text-underline-offset:3px" href="/admin/automations/audit?id=${encodeURIComponent(A.id)}">Full report</a></div>
+          <div class="tablewrap"><table class="cp-tbl"><thead><tr><th>No.</th><th>Email</th><th>When</th><th>Status</th><th>People</th><th>Opened</th><th>Clicked</th></tr></thead><tbody>${pr.map(row).join("")}</tbody></table></div>
+          <p class="cp-hint">Opened and clicked are as reported, each person once, and can include email security scanners. The full report tells them apart and shows who did what.</p>
+        </div>`;
+      if (!STATS) readStats().then((m) => { STATS = m; if (step === "insights") drawInsights(); });
+    }
+
+    // ---- Loading ---------------------------------------------------------------
+    async function load() {
+      const [auto, lib] = await Promise.all([supabase.from("automations").select("*").eq("id", ID).maybeSingle(), loadEmails(supabase, { light: true })]);
+      if (DEV && !auto.data && params.has("demo")) demo();
+      else {
+        if (auto.error || !auto.data) { $("cp-state").textContent = "That campaign couldn't be found."; $("cp-state").classList.add("bad"); return false; }
+        A = auto.data; EMAILS = lib.rows;
+      }
+      A.graph = A.graph && typeof A.graph === "object" ? A.graph : { nodes: [{ id: "trigger", type: "trigger", x: 360, y: 40, config: {} }], edges: [] };
+      parse();
+      STATS = null; WHO = { total: null, ok: null }; PLAN = null;
+      if (!DEMO && A.status !== "draft") {
+        SENT = new Map();
+        const jobs = sends().map((it) => count("email_events", (x) => x.eq("automation_id", A.id).eq("node_id", it.node.id).eq("event", "sent")).then((c) => { if (c) SENT.set(it.node.id, c); }));
+        jobs.push(count("email_events", (x) => x.eq("automation_id", A.id).eq("event", "sent")).then((c) => { SENT_ALL = c || 0; }));
+        jobs.push(count("automation_enrollments", (x) => x.eq("automation_id", A.id).in("status", ["active", "waiting"])).then((c) => { LIVE = c || 0; }));
+        await Promise.all(jobs);
+      }
+      return true;
+    }
+    // An example campaign for a development copy, where a signed-out visitor
+    // is handed nothing. Never runs on the live site; nothing is saved from it.
+    function demo() {
+      DEMO = true;
+      const day = (n) => new Date(Date.now() + n * 864e5).toLocaleDateString("en-CA");
+      const s = (id, on, tpl) => ({ id, type: "send_email", config: { body_mode: "template", template_id: tpl, send_on: on, send_at: "07:00", send_kind: "marketing" } });
+      const live = params.get("demo") === "live";
+      const nodes = [{ id: "trigger", type: "trigger" }, s("a", day(live ? -13 : 2), "e1"), s("b", day(live ? -6 : 9), "e2"), { id: "k", type: "if_else", config: { field: "has_tag", op: "is", values: ["Pack-Purchased"] } }, s("c", day(live ? 1 : 16), "e3"), s("d", day(live ? 8 : 23), "e4"), s("e", day(live ? 15 : 30), "")];
+      const edges = [{ from: "trigger", to: "a", branch: "next" }, { from: "a", to: "b", branch: "next" }, { from: "b", to: "k", branch: "next" }, { from: "k", to: "c", branch: "no" }, { from: "c", to: "d", branch: "next" }, { from: "d", to: "e", branch: "next" }];
+      A = { id: "demo", name: "The Winter Edit", status: live ? "active" : "draft", trigger_type: "manual", trigger_config: {}, updated_at: new Date().toISOString(),
+        graph: { nodes, edges, meta: { kind: "marketing", campaign: true, area: "The Edit", to: { mode: "tags", tags: ["Network: TEG"] }, plan: { every: "week", start_on: day(live ? -13 : 2), start_at: "07:00" }, notes: { a: "Introduce the Winter Edit and what is in it.", b: "Three ways to use the templates this month." }, went_live_at: live ? new Date(Date.now() - 14 * 864e5).toISOString() : undefined } } };
+      EMAILS = [1, 2, 3, 4].map((n) => ({ id: "e" + n, name: `The Winter Edit: email ${n}`, subject: "Example subject line", status: "active" }))
+        .concat([{ id: "t1", name: "Launch announcement", is_template: true, area: "The Studio", status: "active" }, { id: "p1", name: "TMKE - Halloween Member Email", subject: "Something spooky has landed in your Studio", status: "active" }]);
+      if (live) { SENT = new Map([["a", 112], ["b", 112]]); SENT_ALL = 224; LIVE = 111; }
+    }
+
+    // ---- Wiring ----------------------------------------------------------------
+    const main = $("cp-main");
+    document.getElementById("cp").addEventListener("click", async (e) => {
+      const t = e.target instanceof HTMLElement ? e.target : null; if (!t || !A) return;
+      const stepBtn = t.closest("[data-step]");
+      // Leaving the plan saves it, so a note is never lost by moving on.
+      if (stepBtn) { if (step === "plan" && PLAN && stepBtn.dataset.step !== "plan") { await planSave(stepBtn.dataset.step); } else go(stepBtn.dataset.step); return; }
+      const act = t.closest("[data-do]");
+      if (act) { doAct(act.dataset.do, act); return; }
+      if (!main.contains(t)) return;
+      // Plan
+      if (t.dataset.untag) { PLAN.tags = PLAN.tags.filter((x) => x !== t.dataset.untag); drawPlan(); return; }
+      if (t.id === "pl-save") { planSave(""); return; }
+      if (t.id === "pl-next") { planSave("emails"); return; }
+      // Emails
+      const find = (id) => ITEMS.find((it) => it.node.id === id);
+      const create = t.closest("[data-create]"); if (create) { openCreate(find(create.dataset.create)); return; }
+      const keep = t.closest("[data-keep]"); if (keep) { const em = emailOf(find(keep.dataset.keep).node); if (em) openKeep(em); return; }
+      const test = t.closest("[data-test]");
+      if (test) {
+        const em = emailOf(find(test.dataset.test).node); const msg = $("em-msg");
+        if (DEMO || !WORKER) { msg.textContent = "A test can't be sent from this copy."; return; }
+        msg.classList.remove("bad"); msg.textContent = "Sending you a test.";
+        try { const me = await sendTest(em.id); msg.textContent = `Test sent to ${me}.`; } catch (err) { msg.classList.add("bad"); msg.textContent = "Couldn't send the test: " + ((err && err.message) || err); }
+        return;
+      }
+      // Schedule
+      if (t.closest("[data-change]")) { editing = t.closest("[data-change]").dataset.change; drawSchedule(); return; }
+      if (t.closest("[data-cancel]")) { editing = null; drawSchedule(); return; }
+      if (t.closest("[data-addcheck]")) { editing = "+check"; drawSchedule(); return; }
+      try {
+        if (t.closest("[data-savewhen]")) {
+          const it = find(t.closest("[data-savewhen]").dataset.savewhen); const on = $("sc-on").value, at = $("sc-at").value;
+          if (!isDate(on) || !isTime(at)) { toast("Set both the date and the time."); return; }
+          if (new Date(`${on}T${at}`) <= new Date()) { toast("That time has already passed. Pick a later one."); return; }
+          it.node.config = { ...(it.node.config || {}), send_on: on, send_at: at };
+          if (meta().plan) meta().plan.every = "custom";
+          editing = null; await save(true); draw(); toast("Date changed."); return;
+        }
+        if (t.closest("[data-savecheck]")) {
+          const it = find(t.closest("[data-savecheck]").dataset.savecheck); const tag = $("sc-tag").value;
+          if (!tag) { toast("Choose a tag."); return; }
+          it.node.config = { field: "has_tag", op: "is", values: [tag] }; it.leaves = "yes";
+          editing = null; rebuild(); parse(); await save(false); draw(); return;
+        }
+        if (t.closest("[data-dropcheck]")) {
+          const id = t.closest("[data-dropcheck]").dataset.dropcheck; ITEMS = ITEMS.filter((it) => it.node.id !== id);
+          editing = null; rebuild(); parse(); await save(false); draw(); return;
+        }
+        if (t.closest("[data-newcheck]")) {
+          const before = $("sc-before").value, tag = $("sc-tag").value;
+          if (!before || !tag) { toast("Choose the email and the tag."); return; }
+          const at = ITEMS.findIndex((it) => it.node.id === before);
+          ITEMS.splice(at, 0, { kind: "check", leaves: "yes", node: { id: newId(), type: "if_else", config: { field: "has_tag", op: "is", values: [tag] } } });
+          editing = null; rebuild(); parse(); await save(false); draw(); return;
+        }
+      } catch (err) { toast("Couldn't save: " + ((err && err.message) || err)); return; }
+      if (t.id === "sc-go") { approve(t); return; }
+      if (t.id === "sc-tests") {
+        const msg = $("sc-msg"); const written = progress().filter((p) => p.email && !p.sent);
+        if (DEMO || !WORKER) { msg.textContent = "Tests can't be sent from this copy."; return; }
+        if (!written.length) { msg.textContent = "There are no written emails to send yet."; return; }
+        t.disabled = true;
+        try { let me = ""; for (const p of written) { msg.textContent = `Sending email ${p.n} to you.`; me = await sendTest(p.email.id); } msg.textContent = `${plural(written.length, "test", "tests")} sent to ${me}.`; }
+        catch (err) { msg.textContent = "Couldn't send the tests: " + ((err && err.message) || err); }
+        t.disabled = false;
+      }
+    });
+    main.addEventListener("input", (e) => {
+      const t = e.target; if (step !== "plan" || !PLAN) return;
+      if (t instanceof HTMLTextAreaElement && t.dataset.note != null) { PLAN.notes[Number(t.dataset.note)] = t.value; return; }
+      if (t instanceof HTMLInputElement && t.id === "pl-name") PLAN.name = t.value;
+    });
+    main.addEventListener("change", (e) => {
+      const t = e.target; if (step !== "plan" || !PLAN) return;
+      if (!(t instanceof HTMLInputElement || t instanceof HTMLSelectElement)) return;
+      if (t.id === "pl-area") PLAN.area = t.value;
+      else if (t.id === "pl-count") { PLAN.count = Math.min(20, Math.max(1, parseInt(t.value, 10) || 1)); drawPlan(); }
+      else if (t.id === "pl-tag" && t.value) { PLAN.tags.push(t.value); drawPlan(); }
+      else if (t.id === "pl-kind") { PLAN.kind = t.value; planWho(); }
+      else if (t.id === "pl-on") { PLAN.start_on = t.value; drawPlan(); }
+      else if (t.id === "pl-at") { PLAN.start_at = t.value; drawPlan(); }
+      else if (t.id === "pl-every") { PLAN.every = t.value; drawPlan(); }
+    });
+    async function doAct(what, btn) {
+      if (DEMO) { toast("This is the example copy: nothing is changed from here."); return; }
+      try {
+        if (what === "dupe") {
+          const copy = JSON.parse(JSON.stringify(A.graph || {}));
+          if (copy.meta) ["went_live_at", "paused_at", "archived_at", "reactivated_at"].forEach((k) => delete copy.meta[k]);
+          const { data, error } = await supabase.from("automations").insert({ name: A.name + " (copy)", trigger_type: A.trigger_type, trigger_config: A.trigger_config, graph: copy, status: "draft" }).select("id").single();
+          if (error) throw error;
+          location.href = `/admin/email/campaign?id=${data.id}&step=plan`;
+        } else if (what === "pause" || what === "end") {
+          const label = what === "pause" ? "pause it" : "end it for good";
+          if (btn.dataset.armed !== "1") { const old = btn.textContent; btn.dataset.armed = "1"; btn.textContent = `Press again to ${label}`; setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = old; } }, 5000); return; }
+          btn.disabled = true;
+          const d = await workerPost("/automations/set-status", { automation_id: A.id, status: what === "pause" ? "paused" : "archived" });
+          toast(what === "pause" ? "Paused. Nothing sends until it is reactivated." : `Ended.${d.taken_out ? ` ${plural(d.taken_out, "person was", "people were")} taken out.` : ""}`);
+          await load(); draw();
+        }
+      } catch (err) { toast("Couldn't do that: " + ((err && err.message) || err)); }
+    }
+
+    (async () => {
+      if (!DEV) { const s = await requireAdmin(); if (!s) return; }
+      try { TAGS = withPackTags(await loadPackTagGroup(supabase)); } catch (_) { TAGS = withPackTags(null); }
+      if (!(await load())) return;
+      document.title = `${A.name || "Campaign"} — TMKE admin`;
+      if (!step) step = A.status === "draft" ? (sends().length ? "emails" : "plan") : "insights";
+      $("cp-state").hidden = true; $("cp-shell").hidden = false;
+      draw();
+    })();
+  </script>
+</AdminShell>

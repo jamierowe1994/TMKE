@@ -34,9 +34,18 @@ export function kindOf(a) {
 export function isSingle(a) {
   const g = (a && a.graph) || {};
   if (g.meta && g.meta.single === true) return true;
+  if (g.meta && g.meta.campaign === true) return false;   // planned as a campaign, however many emails
   if (kindOf(a) !== "marketing") return false;
   const nodes = (g.nodes || []).filter((n) => n.type !== "trigger");
   return nodes.length === 1 && nodes[0].type === "send_email" && (a.trigger_type === "manual" || a.trigger_type === "audience");
+}
+
+// A campaign: planned as one on the campaign page (graph.meta.campaign, which
+// can be a service message too), or any marketing funnel that isn't a one-off.
+export function isCampaign(a) {
+  const m = a && a.graph && a.graph.meta;
+  if (m && m.single === true) return false;
+  return !!(m && m.campaign === true) || (kindOf(a) === "marketing" && !isSingle(a));
 }
 
 export function areaOf(a) {
