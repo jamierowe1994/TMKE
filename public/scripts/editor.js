@@ -10974,7 +10974,9 @@ import { createResizeEngine } from "./resize-engine.js";
       b.type = "button";
       b.className = "ed-xp-chip";
       b.setAttribute("aria-pressed", String(on));
-      b.innerHTML = xpChipPair(p, pr).map(function (c) { return '<i style="background:' + c + '"></i>'; }).join("") + "<span>" + escapeHtml(pr.name) + "</span>";
+      // One dot, split between the two: two dots made three chips too wide for the row.
+      const pair = xpChipPair(p, pr);
+      b.innerHTML = '<i style="background:' + (pair.length > 1 ? "linear-gradient(135deg," + pair[0] + " 50%," + pair[1] + " 50%)" : pair[0]) + '"></i><span>' + escapeHtml(pr.name) + "</span>";
       b.addEventListener("click", function () {
         const v = { key: cur.key, cols: Object.assign({}, p.cols, pr.cols), scale: Math.round((pr.scale || cur.scale || 100) * xpPostcardK()), scheme: pr.name };
         if (pr.route) v.route = pr.route;
