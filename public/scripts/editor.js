@@ -5832,6 +5832,21 @@ import { createResizeEngine } from "./resize-engine.js";
     selectedElements().forEach((e) => { const m = shapeOfText(e) || e; if (movers.indexOf(m) === -1) movers.push(m); });
     const initial = movers.filter((e) => !isPinned(e)).map((e) => ({ id: e.id, x: e.x, y: e.y }));
     let moved = false;
+    /* A picture dragged over a frame and let go fills the frame (Danielle,
+       25 Nov), as a photo dragged in from Images does. One plain picture
+       only: not a logo, an agent photo or an illustration. */
+    const pic = initial.length === 1 ? getEl(initial[0].id) : null;
+    const canFill = !!(pic && pic.type === "image" && pic.src && !pic.brandRole && !pic.svgKey);
+    let frameHit = null;
+    const frameAt = function (cx, cy) {
+      for (const n of document.elementsFromPoint(cx, cy)) {
+        const node = n.closest && n.closest(".ed-element[data-id]");
+        if (!node || !canvasEl.contains(node) || node.dataset.id === pic.id) continue;
+        const f = getEl(node.dataset.id);
+        if (f && f.type === "frame" && !f.hidden && memberLock(f) !== "dead") return { el: f, node: node };
+      }
+      return null;
+    };
 
     function onMove(e) {
       /* Nothing moves until the pointer has actually travelled. A click used to
@@ -5857,6 +5872,15 @@ import { createResizeEngine } from "./resize-engine.js";
         partialRenderElement(el);
       });
 
+      if (canFill) {
+        const hit = frameAt(e.clientX, e.clientY);
+        if ((hit && hit.node) !== (frameHit && frameHit.node)) {
+          if (frameHit) frameHit.node.classList.remove("is-drop-target");
+          if (hit) hit.node.classList.add("is-drop-target");
+        }
+        frameHit = hit;
+      }
+
       // Snap + smart distance guides. One item snaps itself; several snap as
       // one box and move together, so a group behaves like a single item.
       if (initial.length === 1) {
@@ -5876,6 +5900,17 @@ import { createResizeEngine } from "./resize-engine.js";
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
       document.removeEventListener("pointercancel", onUp);
+      if (frameHit) {
+        const f = frameHit.el;
+        frameHit.node.classList.remove("is-drop-target");
+        frameHit = null;
+        const at = state.elements.indexOf(pic);
+        if (at !== -1) state.elements.splice(at, 1);
+        state.selectedIds = [f.id];
+        clearGuides();
+        fillFrame(f, pic.src);   // records history and renders
+        return;
+      }
       clearGuides();
       if (moved) pushHistory();
     }
