@@ -4,12 +4,12 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/email_templates_library.sql (25 Nov): Email › Templates. Lets an email be saved as a template with a title, the area of the business and a description. Changes no email and sends nothing. Until it runs, Templates lists every email as before and Save as a template says it needs this file.
 - [ ] supabase/designers.sql (24 Nov): brand designers. Lets you add someone from a brand's own marketing team in Settings › Access, who gets the Catalogue and the Design studio only, makes packs for the brands you tick, and can't put anything live. Also closes an old gap: until it runs, any signed-in account could change designs through the database's own address (no screen allowed it). Until it runs, Settings says designers aren't set up and nobody can be added. It ends by listing the rules on designs and packs: send Claude that list.
 - [ ] supabase/guides_kind_article.sql (23 Nov): Guides › Details › Type gains Article beside Guide and Course. Until it runs, saving a guide as an Article is refused and the editor says so.
 
 ## Done
 
+- [x] supabase/email_templates_library.sql (25 Nov): Email › Templates. Lets an email be saved as a template with a title, the area of the business and a description. Ran 25 Nov; saving a template checked on the live site.
 - [x] supabase/member_broadcasts_audience_calendar.sql (23 Nov): Hub notifications › Who gets it gains Content Calendar subscribers (everyone with the calendar, on any level). Until it runs, sending to them is refused and the page says so; the other choices work as before. Changes no notification and sends nothing. Ran 23 Nov.
 - [x] supabase/member_broadcasts_audience.sql — Hub notifications can go to TEG, F&C or External, not only every member. Run 23 Nov; checked on the live database.
 - [x] supabase/library_social_shares.sql (23 Nov): Creative Studio › Library › Mark as shared. Keeps which files have been shared on social and where. Until it runs, the button says it needs this file. Ran 23 Nov.
