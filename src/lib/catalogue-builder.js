@@ -715,7 +715,9 @@ export function initBuilder(ctx) {
      has never signed in to the Hub has no Studio to send it to, and it
      says so rather than leaving them out without a word (on the day this
      went live, Abigail was one). */
-  const QUICK = [["Samantha", /^sam(antha)?$/i], ["Abigail", /^(abigail|abbie|abby)$/i]];
+  /* Danielle's own account too (26 Nov), by its address: she has more than
+     one login among the team's, and asked for this one. */
+  const QUICK = [["Danielle", null, /^danielle@themarketingexperts\.co\.uk$/i], ["Samantha", /^sam(antha)?$/i], ["Abigail", /^(abigail|abbie|abby)$/i]];
   let quickTeam = null;
   async function drawQuick(have) {
     if (!quickTeam) {
@@ -727,14 +729,14 @@ export function initBuilder(ctx) {
     const box = pop.querySelector("#pb-quick");
     if (!box) return;
     const notYet = [];
-    const btns = QUICK.flatMap(([label, re]) => {
-      const named = quickTeam.filter((c) => re.test(String(c.first_name || "").trim())), logins = named.filter((c) => c.user_id);
+    const btns = QUICK.flatMap(([label, re, mail]) => {
+      const named = quickTeam.filter((c) => (mail ? mail.test(String(c.email || "").trim()) : re.test(String(c.first_name || "").trim()))), logins = named.filter((c) => c.user_id);
       if (named.length && !logins.length) notYet.push(label);
       const found = logins.filter((c) => !have.includes(c.user_id));
       // Two logins under one name: say which is which.
       return found.map((c) => `<button type="button" class="mbtn" data-quick="${esc(c.user_id)}" data-name="${label}">${label}${found.length > 1 ? ` <em>${esc(c.email)}</em>` : ""}</button>`);
     });
-    const waiting = notYet.length ? `<p class="pb-hint">${notYet.join(" and ")} ${notYet.length === 1 ? "hasn't" : "haven't"} signed in to the Hub yet, so there's no Studio to send it to. A quick add button appears here once they've signed in.</p>` : "";
+    const waiting = notYet.length ? `<p class="pb-hint">${notYet.length > 1 ? notYet.slice(0, -1).join(", ") + " and " + notYet[notYet.length - 1] : notYet[0]} ${notYet.length === 1 ? "hasn't" : "haven't"} signed in to the Hub yet, so there's no Studio to send it to. A quick add button appears here once they've signed in.</p>` : "";
     box.innerHTML = (btns.length ? `<p class="pb-hint">Quick add</p><div class="pb-quick">${btns.join("")}</div>` : "") + waiting;
   }
   async function quickSend(b) {
