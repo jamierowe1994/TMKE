@@ -15037,6 +15037,8 @@ import { createResizeEngine } from "./resize-engine.js";
   function fillTemplateMergeTags() {
     everyElement().forEach(function (el) {
       if (el.type !== "text") return;
+      // Noted while the template's own words are still there (see keepEntryPrompt).
+      if (!(el.fieldLabel || "").trim()) keepEntryPrompt(el);
       if (el.text) {
         const src = (el.mergeSrc != null && el.text === el.mergeOut) ? el.mergeSrc : el.text;
         const replaced = applyMergeTags(src);
@@ -16670,6 +16672,32 @@ import { createResizeEngine } from "./resize-engine.js";
     const list = nouns.length > 1 ? nouns.slice(0, -1).join(", ") + " and " + nouns[nouns.length - 1] : nouns[0];
     return "Check that your " + list + (nouns.length > 1 ? " have" : " has") + " been auto-populated correctly.";
   }
+  /* Words a member types over, known by what the template has standing in
+     for them (Danielle, 25 Nov): a price led by its pricing term ("Guide
+     Price \u00a3000,000", "Offers over \u00a3xxx,xxx"; a sale price is its own
+     thing), and a street with the first part of a postcode ("Street Name,
+     Post Code", "Hartley Green, AW4"). */
+  var ENTRY_PRICE = "Enter the property\u2019s asking price, including the applicable pricing term, such as Guide Price, Offers Over or Offers in Excess of.";
+  var ENTRY_ADDRESS = "Enter the property\u2019s street name and the first part of its postcode.";
+  function entryPrompt(el) {
+    if (!el || el.type !== "text") return "";
+    const t = String(el.text || "").replace(/\s+/g, " ").trim();
+    if (!t || t.length > 60) return "";
+    if (/^\W*(guide price|offers?\s+(over|in excess of|in the region of|around)|oieo|oiro|asking price)\b/i.test(t) && t.indexOf("\u00a3") !== -1) return ENTRY_PRICE;
+    if (/street/i.test(t) && /post\s?code/i.test(t)) return ENTRY_ADDRESS;
+    if (/^[\s\-\u2013\u2014]*[A-Za-z][A-Za-z'\u2019. ]*,\s*[A-Z]{1,2}\d{1,2}[A-Z]?\s*$/.test(t)) return ENTRY_ADDRESS;
+    return "";
+  }
+  /* A member's copy keeps that prompt on the item (fieldPrompt), because
+     once they have typed their own price the words no longer say what the
+     row is for. The author's view always reads the template as it stands. */
+  function keepEntryPrompt(el) {
+    if (isAdminMode() || !el || el.type !== "text") return "";
+    if (el.fieldPrompt) return el.fieldPrompt;
+    const p = entryPrompt(el);
+    if (p) el.fieldPrompt = p;
+    return p;
+  }
   function fieldDefaultPrompt(el) {
     if (!el) return "";
     if (el.brandRole === "logo") return checkPrompt(["company logo"]);
@@ -16677,6 +16705,7 @@ import { createResizeEngine } from "./resize-engine.js";
       // The tags as written, which a filled-in copy keeps in mergeSrc.
       const tags = tagsInText(el.mergeSrc != null ? el.mergeSrc : el.text);
       if (tags.length) return checkPrompt(tags.map(function (t) { return TAG_PROMPT_NOUN[t] || t; }));
+      return isAdminMode() ? entryPrompt(el) : keepEntryPrompt(el);
     }
     return "";
   }
