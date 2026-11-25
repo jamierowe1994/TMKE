@@ -78,6 +78,9 @@ const builtInTotal = builtIn.reduce((n, g) => n + g.count, 0);
     #ea td.ea-acts .mbtn { margin-left: 6px; }
     #ea .mbtn.small { height: 26px; padding: 0 10px; }
     #ea .state { padding: 26px 0; }
+    #ea .ea-old { border-bottom: 1px solid var(--linen); }
+    #ea .ea-old summary { display: flex; align-items: center; min-height: 42px; padding: 0 2px; cursor: pointer; list-style: none; color: var(--wine); text-decoration: underline; text-underline-offset: 3px; }
+    #ea .ea-old summary::-webkit-details-marker { display: none; }
   </style>
 
   <script>
@@ -91,6 +94,7 @@ const builtInTotal = builtIn.reduce((n, g) => n + g.count, 0);
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     const fmtDate = (d) => { try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
 
+    const OLD_DRAFT_DAYS = 30;
     let ALL = [];           // system workflows only
     let LIVE = new Map();   // automation id -> how many are in it now
 
@@ -120,10 +124,21 @@ const builtInTotal = builtIn.reduce((n, g) => n + g.count, 0);
     function render() {
       const rank = { active: 0, paused: 1, draft: 2, archived: 3 };
       const rows = [...ALL].sort((x, y) => (rank[x.status] ?? 4) - (rank[y.status] ?? 4) || String(y.updated_at).localeCompare(String(x.updated_at)));
-      $("ea-n").textContent = String(rows.length);
-      $("ea-main").innerHTML = rows.length
-        ? `<div class="tablewrap"><table class="ea-tbl"><tbody>${rows.map(row).join("")}</tbody></table></div>`
+      // Drafts nobody has touched for a month are tests and false starts:
+      // one line to open, so they never bury the ones that run.
+      const cutoff = Date.now() - OLD_DRAFT_DAYS * 864e5;
+      const isOld = (a) => a.status === "draft" && new Date(a.updated_at).getTime() < cutoff;
+      const main = rows.filter((a) => !isOld(a));
+      const old = rows.filter(isOld);
+      $("ea-n").textContent = String(main.length);
+      let html = main.length
+        ? `<div class="tablewrap"><table class="ea-tbl"><tbody>${main.map(row).join("")}</tbody></table></div>`
         : `<div class="empty">No automations yet. Press New automation to build one, for example a welcome email when someone signs up.</div>`;
+      if (old.length) {
+        html += `<details class="ea-old"><summary>${old.length} old ${old.length === 1 ? "draft" : "drafts"}, not touched for ${OLD_DRAFT_DAYS} days or more. Tidy them up</summary>
+          <div class="tablewrap"><table class="ea-tbl"><tbody>${old.map(row).join("")}</tbody></table></div></details>`;
+      }
+      $("ea-main").innerHTML = html;
     }
 
     async function load() {

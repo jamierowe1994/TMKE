@@ -68,17 +68,19 @@ export function isWritten(n) {
   return !!(c.template_id || String(c.note || "").trim() || String(c.subject || "").trim());
 }
 
-// Every email has a date and every date has passed: nothing more will go out,
-// even to someone who joins now.
+// The campaign has dated emails and every one of those dates has passed. An
+// undated first email (sent the moment the campaign started, as The Autumn
+// Edit's was) doesn't keep it open: the dated ones are what make it a run with
+// an end.
 export function allDatesPassed(a) {
-  const sends = sendSteps(a);
-  if (!sends.length) return false;
+  const dated = sendSteps(a).filter((n) => isDate(n.config && n.config.send_on));
+  if (!dated.length) return false;
   const today = todayLondon();
-  return sends.every((n) => isDate(n.config && n.config.send_on) && n.config.send_on < today);
+  return dated.every((n) => n.config.send_on < today);
 }
 
 // A campaign is "previous" once it is archived, or once it is live with every
-// dated email behind it and nobody left inside. A funnel with undated steps
+// dated email behind it and nobody left inside. A funnel with no dates at all
 // (wait three days, then send) stays active for as long as it is switched on,
 // because the next person to join still gets it.
 export function isPrevious(a, liveCount) {

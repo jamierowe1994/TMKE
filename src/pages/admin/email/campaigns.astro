@@ -122,18 +122,22 @@ import "../../../styles/money-os.css";
 
     // What each email in a campaign has done so far. Sends are counted per
     // step from email_events. Sends logged before each event knew its step
-    // (email_events_step.sql) have no step, so for those a dated email counts
-    // as sent once its date has passed.
+    // (email_events_step.sql) have no step, so an email also counts as sent
+    // when a later one in the run has gone (people got there by passing it:
+    // The Autumn Edit's email 1), or, where no send knows its step at all,
+    // once its date has passed.
     function steps(a) {
       const m = SENT.get(a.id) || new Map();
-      const anyByStep = [...m.values()].some((c) => c > 0);
-      const byDate = !anyByStep && (AUTO_SENT.get(a.id) || 0) > 0;
+      const list = sendSteps(a);
+      let lastSent = -1;
+      list.forEach((n, i) => { if ((m.get(n.id) || 0) > 0) lastSent = i; });
+      const byDate = lastSent < 0 && (AUTO_SENT.get(a.id) || 0) > 0;
       const today = todayLondon();
-      return sendSteps(a).map((n) => {
+      return list.map((n, i) => {
         const c = m.get(n.id) || 0;
         const on = String((n.config && n.config.send_on) || "");
         const passed = /^\d{4}-\d{2}-\d{2}$/.test(on) && on < today;
-        return { n, count: c, sent: c > 0 || (byDate && passed), written: isWritten(n) };
+        return { n, count: c, sent: c > 0 || i < lastSent || (byDate && passed), written: isWritten(n) };
       });
     }
 
