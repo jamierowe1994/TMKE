@@ -10412,6 +10412,60 @@ import { createResizeEngine } from "./resize-engine.js";
 
   // Traditional painted stripes taken off the list (Danielle, 20 Nov); designs using it keep their colours.
   var XP_PRESETS = [{"p":"stripes","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","ground":"#FFF3EF"},"scale":100,"main":"#FFF3EF","accent":"#612520"},{"p":"stripes","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stripes","name":"Neutral","route":null,"cols":{"c1":"#C9BCB7","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#7F444C"},{"p":"flower","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#5C5E31","c3":"#430E18","ground":"#430E18"},"scale":85,"main":"#EAE5E1","accent":"#7F444C"},{"p":"flower","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#767154","c3":"#767154","ground":"#EAE5E1"},"scale":90,"main":"#EAE5E1","accent":"#612520"},{"p":"tartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#E4C7C1","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"tartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#3B3B3C"},{"p":"tartan","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#612520"},"scale":100,"main":"#EAE5E1","accent":"#5C5E31"},{"p":"fir","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#5C5E31","c2":"#5C5E31","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#5C5E31"},{"p":"fir","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#767154","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"fir","name":"Candy Cane","route":"candy","cols":{"c1":"#F1F1F1","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"fir","name":"Cranberry","route":null,"cols":{"c1":"#6E7B47","c2":"#6E7B47","ground":"#371E28"},"scale":100,"main":"#EAE5E1","accent":"#6E7B47"},{"p":"bows","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"bows","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#E8DCC6","ground":"#767154"},"scale":100,"main":"#EAE5E1","accent":"#6F171F"},{"p":"bows","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#FFFFFF","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"bows","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#EAE5E1","ground":"#EAE5E1"},"scale":100,"main":"#EAE5E1","accent":"#612520"},{"p":"stars","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#7F444C","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#7F444C"},{"p":"stars","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#F1F1F1","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stars","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","c2":"#BF9B7A","ground":"#191E16"},"scale":100,"main":"#EAE5E1","accent":"#612520"},{"p":"fstripe","name":"Cocoa & Sky","route":null,"cols":{"c1":"#4B2E22","c2":"#F1EBDF","ground":"#A9BDC9"},"scale":100,"main":"#F1EBDF","accent":"#4B2E22"},{"p":"fstripe","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"fstripe","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#EAE5E1","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"fstripe","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#F1F1F1","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"ftartan","name":"Olive","route":null,"cols":{"c1":"#2E2A1D","c2":"#7C7A55","ground":"#4E4C33"},"scale":100,"main":"#EAE5E1","accent":"#4E4C33"},{"p":"ftartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#E4C7C1","ground":"#612520"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"ftartan","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#767154"},"scale":100,"main":"#F5EDDA","accent":"#191E16"},{"p":"ftartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#3B3B3C"},{"p":"fcheck","name":"Charcoal","route":null,"cols":{"c1":"#5A4F47","c2":"#3A322D","ground":"#2C2622"},"scale":100,"main":"#EAE5E1","accent":"#2C2622"},{"p":"fcheck","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#612520","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"fcheck","name":"Traditional","route":"traditional","cols":{"c1":"#767154","c2":"#6F171F","ground":"#191E16"},"scale":100,"main":"#F5EDDA","accent":"#191E16"},{"p":"fcheck","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#E31F36","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"wtartan","name":"Wine & Oat","route":null,"cols":{"ground":"#4C1917","c1":"#2B1E16","c2":"#AE8E76","c3":"#CDB69A"},"scale":100,"main":"#EAE5E1","accent":"#6B1F24"},{"p":"wtartan","name":"Sweet Wonderland","route":"sweet","cols":{"ground":"#430E18","c1":"#2A0B12","c2":"#E4C7C1","c3":"#FFF3EF"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"wtartan","name":"Traditional","route":"traditional","cols":{"ground":"#6F171F","c1":"#191E16","c2":"#767154","c3":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"wtartan","name":"Candy Cane","route":"candy","cols":{"ground":"#E31F36","c1":"#3B3B3C","c2":"#F1F1F1","c3":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"}];
+  /* The woven three (Danielle, 25 Nov) are the only patterns offered on a
+     digital design; the painted six are for the print cards. They share one
+     set of schemes, so a scheme follows from one to the next: Charcoal,
+     Olive, Sweet Wonderland, Traditional (the Christmas tartan's wine red,
+     brown and oat) and Neutral (the beiges). Candy Cane stays for print
+     only. def marks the one a pattern starts in; two, the pair of colours
+     its chip shows. */
+  var XP_DIGITAL = ["ftartan", "fcheck", "wtartan"];
+  (function () {
+    const S = {
+      Charcoal: { route: null, main: "#EAE5E1", accent: "#2C2622" },
+      Olive: { route: null, main: "#EAE5E1", accent: "#4E4C33" },
+      "Sweet Wonderland": { route: "sweet", main: "#FFF3EF", accent: "#430E18" },
+      Traditional: { route: "traditional", main: "#F5EDDA", accent: "#6B1F24" },
+      Neutral: { route: null, main: "#FBF6EC", accent: "#5A4638" },
+    };
+    const C = {
+      ftartan: {
+        Charcoal: { ground: "#3A3532", c1: "#171412", c2: "#9A8F86" },
+        Olive: { ground: "#4E4C33", c1: "#2E2A1D", c2: "#7C7A55", def: true },
+        "Sweet Wonderland": { ground: "#612520", c1: "#430E18", c2: "#E4C7C1" },
+        Traditional: { ground: "#6B1F24", c1: "#2B1E16", c2: "#CDB69A" },
+        Neutral: { ground: "#D6C9B6", c1: "#A08C74", c2: "#FBF6EC" },
+      },
+      fcheck: {
+        Charcoal: { ground: "#2C2622", c1: "#5A4F47", c2: "#3A322D", def: true },
+        Olive: { ground: "#45432D", c1: "#8F8C66", c2: "#5C5A3F" },
+        "Sweet Wonderland": { ground: "#430E18", c1: "#7F444C", c2: "#612520" },
+        Traditional: { ground: "#6B1F24", c1: "#CDB69A", c2: "#2B1E16" },
+        Neutral: { ground: "#D9CEBE", c1: "#FBF6EC", c2: "#B8A58C" },
+      },
+      wtartan: {
+        Charcoal: { ground: "#34302D", c1: "#171412", c2: "#857A70", c3: "#C4B9AE" },
+        Olive: { ground: "#4E4C33", c1: "#25221A", c2: "#A29A76", c3: "#DDD5BC" },
+        "Sweet Wonderland": { ground: "#430E18", c1: "#2A0B12", c2: "#E4C7C1", c3: "#FFF3EF" },
+        Traditional: { ground: "#4C1917", c1: "#2B1E16", c2: "#AE8E76", c3: "#CDB69A", def: true },
+        Neutral: { ground: "#C9B79E", c1: "#8E7960", c2: "#EADFCB", c3: "#FBF6EC" },
+      },
+    };
+    const candy = XP_PRESETS.filter(function (x) { return XP_DIGITAL.indexOf(x.p) !== -1 && x.route === "candy"; })
+      .map(function (x) { return Object.assign({}, x, { printOnly: true }); });
+    const made = [];
+    XP_DIGITAL.forEach(function (key) {
+      Object.keys(S).forEach(function (name) {
+        const cols = Object.assign({}, C[key][name]);
+        const pr = Object.assign({ p: key, name: name, scale: 100 }, S[name]);
+        if (cols.def) { pr.def = true; delete cols.def; }
+        if (key === "wtartan") pr.two = ["ground", "c2"];
+        pr.cols = cols;
+        made.push(pr);
+      });
+    });
+    XP_PRESETS = XP_PRESETS.filter(function (x) { return XP_DIGITAL.indexOf(x.p) === -1; }).concat(made, candy);
+  })();
   var XP_ROUTE_NAMES = { sweet: "Sweet Wonderland", traditional: "Traditional", candy: "Candy Cane" };
   function xpPattern(key) {
     if (TX_ALIAS[key]) key = TX_ALIAS[key];
@@ -10564,6 +10618,30 @@ import { createResizeEngine } from "./resize-engine.js";
     return out;
   }
   function xpPresets(key) { return XP_PRESETS.filter(function (x) { return x.p === key; }); }
+  // The ones offered on this design: a print-only scheme (Candy Cane on the woven three) is left off a digital one.
+  function xpOffered(key) { const print = isPrintDesign(); return xpPresets(key).filter(function (x) { return print || !x.printOnly; }); }
+  // A scheme's chip shows its main two colours (Danielle, 25 Nov): the ground and the one that stands out most from it.
+  function xpChipPair(p, pr) {
+    const cols = Object.assign({}, p.cols, pr.cols);
+    if (pr.two) return pr.two.map(function (k) { return cols[k]; });
+    const second = xpAccent({ key: p.key, cols: cols });
+    return second ? [cols.ground, second] : [cols.ground];
+  }
+  /* Scheme chips never run past two lines: more than two are split across
+     two rows, each filling the width (three and two, for five). */
+  function xpChipRows(buttons) {
+    const wrap = document.createElement("div");
+    wrap.className = "ed-xp-chips";
+    const first = buttons.length > 2 ? Math.ceil(buttons.length / 2) : buttons.length;
+    [buttons.slice(0, first), buttons.slice(first)].forEach(function (set) {
+      if (!set.length) return;
+      const row = document.createElement("div");
+      row.className = "ed-xp-chiprow";
+      set.forEach(function (b) { row.appendChild(b); });
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
   function xpUnit(cv) { return isPrintDesign() ? 300 / 25.4 : ((cv && cv.width) || 1080) / 148; }
   /* A woven pattern's tile, k pixels to a unit: each thread drawn, warp up
      and down, weft across, in a 2/2 twill (each thread passes over two and
@@ -10773,7 +10851,7 @@ import { createResizeEngine } from "./resize-engine.js";
     (state.pages || []).forEach(function (pg) {
       const v = pg && pg.canvas && pg.canvas.bgPattern;
       if (!v || v.memberPicked || v.route === "candy") return;
-      const pr = xpPresets(v.key).find(function (x) { return x.route === "candy"; });
+      const pr = xpOffered(v.key).find(function (x) { return x.route === "candy"; });
       const pt = xpPattern(v.key);
       if (!pr || !pt) return;
       const nv = { key: v.key, cols: Object.assign({}, pt.cols, pr.cols), scale: Math.round((pr.scale || v.scale || 100) * (isPostcard(pg.canvas) ? 0.5 : 1)), route: "candy", scheme: pr.name };
@@ -10851,17 +10929,20 @@ import { createResizeEngine } from "./resize-engine.js";
       return hit ? { route: hit.route || null, name: hit.name } : null;
     };
     const presetFor = function (key, sc) {
-      const list = xpPresets(key);
+      const list = xpOffered(key);
       return (sc && sc.route && list.find(function (x) { return x.route === sc.route; }))
         || (sc && sc.name && list.find(function (x) { return x.name === sc.name; }))
         || (!isAdminMode() && isTpeKit() && list.find(function (x) { return x.route === "candy"; }))
+        || list.find(function (x) { return x.def; })
         || list[0];
     };
+    const digital = !isPrintDesign();
     const curScheme = cur0 && isTexture(cur0) ? (cur0.route || cur0.scheme ? { route: cur0.route || null, name: cur0.scheme || null } : null) : schemeOf(cur);
     const grid = document.createElement("div");
     grid.className = "ed-xp-grid";
     XP_PATTERNS.forEach(function (p) {
       if (p.hidden && !(cur && cur.key === p.key)) return;   // off the list, unless this design uses it
+      if (digital && XP_DIGITAL.indexOf(p.key) === -1 && !(cur && cur.key === p.key)) return;   // the painted six are for print
       const first = presetFor(p.key, curScheme);
       const look = { key: p.key, cols: first ? Object.assign({}, p.cols, first.cols) : p.cols, scale: 100 };
       const t = xpTile(look, 1.6);
@@ -10887,23 +10968,21 @@ import { createResizeEngine } from "./resize-engine.js";
     head.className = "ed-xp-k";
     head.textContent = "Colours";
     wrap.appendChild(head);
-    const chips = document.createElement("div");
-    chips.className = "ed-xp-chips";
-    xpPresets(cur.key).forEach(function (pr) {
-      const on = JSON.stringify(Object.assign({}, p.cols, pr.cols)) === JSON.stringify(Object.assign({}, p.cols, cur.cols));
+    const chipBtns = xpOffered(cur.key).map(function (pr) {
+      const on = sameCols(Object.assign({}, p.cols, pr.cols), Object.assign({}, p.cols, cur.cols));
       const b = document.createElement("button");
       b.type = "button";
       b.className = "ed-xp-chip";
       b.setAttribute("aria-pressed", String(on));
-      b.innerHTML = Object.keys(p.cols).map(function (k) { return '<i style="background:' + (pr.cols[k] || p.cols[k]) + '"></i>'; }).join("") + "<span>" + escapeHtml(pr.name) + "</span>";
+      b.innerHTML = xpChipPair(p, pr).map(function (c) { return '<i style="background:' + c + '"></i>'; }).join("") + "<span>" + escapeHtml(pr.name) + "</span>";
       b.addEventListener("click", function () {
         const v = { key: cur.key, cols: Object.assign({}, p.cols, pr.cols), scale: Math.round((pr.scale || cur.scale || 100) * xpPostcardK()), scheme: pr.name };
         if (pr.route) v.route = pr.route;
         set(v);
       });
-      chips.appendChild(b);
+      return b;
     });
-    wrap.appendChild(chips);
+    wrap.appendChild(xpChipRows(chipBtns));
     if (opts.compact) return wrap;   // the Edit list: patterns and schemes only
     // Each colour on its own, for anything the presets don't cover.
     const own = document.createElement("div");
@@ -10936,7 +11015,7 @@ import { createResizeEngine } from "./resize-engine.js";
   /* The texture controls (Danielle, 24 Nov): the four textures, then for the
      one chosen its colour (the palette chips' grounds, or Ground for brand
      colours and Custom), its strength and its size. */
-  var TX_CHIPS_FROM = "ftartan";   // Olive, Sweet Wonderland, Traditional, Candy Cane
+  var TX_CHIPS_FROM = "ftartan";   // the woven tartan's schemes, as their ground colour
   function txPicker(get, set, opts) {
     opts = opts || {};
     const wrap = document.createElement("div");
@@ -10979,9 +11058,7 @@ import { createResizeEngine } from "./resize-engine.js";
       set(v);
     };
     // The palette chips, as their ground colour.
-    const chips = document.createElement("div");
-    chips.className = "ed-xp-chips";
-    xpPresets(TX_CHIPS_FROM).forEach(function (pr) {
+    wrap.appendChild(xpChipRows(xpOffered(TX_CHIPS_FROM).map(function (pr) {
       const g = normHex(pr.cols.ground);
       const b = document.createElement("button");
       b.type = "button";
@@ -10989,9 +11066,8 @@ import { createResizeEngine } from "./resize-engine.js";
       b.setAttribute("aria-pressed", String(normHex(cur.cols && cur.cols.ground) === g));
       b.innerHTML = '<i style="background:' + g + '"></i><span>' + escapeHtml(pr.name) + "</span>";
       b.addEventListener("click", function () { recolour(g, pr.route ? { route: pr.route, scheme: pr.name } : { scheme: pr.name }); });
-      chips.appendChild(b);
-    });
-    wrap.appendChild(chips);
+      return b;
+    })));
     // Ground: the colour panel, with the brand's colours and Custom.
     const own = document.createElement("div");
     own.className = "ed-xp-own";
@@ -16679,10 +16755,15 @@ import { createResizeEngine } from "./resize-engine.js";
      Post Code", "Hartley Green, AW4"). */
   var ENTRY_PRICE = "Enter the property\u2019s asking price, including the applicable pricing term, such as Guide Price, Offers Over or Offers in Excess of.";
   var ENTRY_ADDRESS = "Enter the property\u2019s street name and the first part of its postcode.";
+  // A stand-in in square brackets, when it is all the box says: [Location]; [Business Name], [Event Name], [Attraction Name].
+  var ENTRY_PLACE = "Enter the location of your recommendation.";
+  var ENTRY_NAMED = "Enter the name of the event, attraction or business you\u2019re recommending.";
   function entryPrompt(el) {
     if (!el || el.type !== "text") return "";
     const t = String(el.text || "").replace(/\s+/g, " ").trim();
     if (!t || t.length > 60) return "";
+    if (/^\[\s*location\s*\]$/i.test(t)) return ENTRY_PLACE;
+    if (/^\[\s*(business|event|attraction)\s+name\s*\]$/i.test(t)) return ENTRY_NAMED;
     if (/^\W*(guide price|offers?\s+(over|in excess of|in the region of|around)|oieo|oiro|asking price)\b/i.test(t) && t.indexOf("\u00a3") !== -1) return ENTRY_PRICE;
     if (/street/i.test(t) && /post\s?code/i.test(t)) return ENTRY_ADDRESS;
     if (/^[\s\-\u2013\u2014]*[A-Za-z][A-Za-z'\u2019. ]*,\s*[A-Z]{1,2}\d{1,2}[A-Z]?\s*$/.test(t)) return ENTRY_ADDRESS;
