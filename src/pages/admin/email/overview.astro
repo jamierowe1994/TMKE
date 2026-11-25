@@ -167,7 +167,8 @@ import "../../../styles/money-os.css";
           out.push({ title: `Nobody is in ${a.name}`, text: `Email ${upcoming[0].i + 1} is due ${stepWhen(upcoming[0].n)}.${tops ? " The group is checked again half an hour before it." : " Nobody will get it unless people are added."}`, href: isSingle(a) ? "/admin/email/sends" : openOf(a, "schedule"), act: "Open" });
         }
       });
-      rows.filter((r) => r.stats.failed > 0).forEach((r) => out.push({ title: `${plural(r.stats.failed, "send", "sends")} failed`, text: `${r.email ? r.email.name : "An email"} in ${r.a.name}. The full report can send them again.`, href: `/admin/automations/audit?id=${encodeURIComponent(r.a.id)}`, act: "Report" }));
+      // A failed send needs someone while it is fresh; one from months ago was dealt with or let go at the time.
+      rows.filter((r) => r.stats.failed > 0 && Date.now() - new Date(r.first).getTime() < SOON_DAYS * 864e5).forEach((r) => out.push({ title: `${plural(r.stats.failed, "send", "sends")} failed`, text: `${r.email ? r.email.name : "An email"} in ${r.a.name}. The full report can send them again.`, href: `/admin/automations/audit?id=${encodeURIComponent(r.a.id)}`, act: "Report" }));
       const cutoff = Date.now() - OLD_DRAFT_DAYS * 864e5;
       const old = ALL.filter((a) => a.status === "draft" && new Date(a.updated_at).getTime() < cutoff).length;
       if (old && type !== "single" && one === "all") out.push({ title: `${plural(old, "draft", "drafts")} not touched for ${OLD_DRAFT_DAYS} days`, text: "Clear them out, or carry on with them.", href: "/admin/email/campaigns", act: "Tidy" });
