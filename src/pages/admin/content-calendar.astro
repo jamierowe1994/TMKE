@@ -1216,6 +1216,9 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       $('cc-d-occ-hint').hidden = !tied;
       $('cc-d-occ-name').textContent = $('cc-d-occ').value.trim() || 'that day';
     }
+    /* The designs this month's posts already use, in date order (Dani, 25 Nov:
+       duplicate one made in the same month). */
+    const monthDesigns = () => [...new Set(POSTS.map((p) => p.template_id).filter(Boolean))].map((id) => TPLS.get(id)).filter(Boolean);
     function renderDrawerTemplate() {
       const t = OPEN.template_id ? TPLS.get(OPEN.template_id) : null;
       $('cc-d-tpl').innerHTML = t
@@ -1227,7 +1230,8 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
         : `<div class="cc-thumb is-none">+</div>
            <div class="cc-d-tpl-b">No design yet
            <div class="cc-d-tpl-acts"><button type="button" class="mbtn" data-act="pick">Choose a design</button>
-           <button type="button" class="mbtn" data-act="new">Create a design</button></div></div>`;
+           <button type="button" class="mbtn" data-act="new">Create a design</button>
+           ${monthDesigns().length ? '<button type="button" class="mbtn" data-act="dupe">Duplicate one from this month</button>' : ''}</div></div>`;
     }
 
     /* A design used in another month gets its own copy the first time it's
@@ -1406,19 +1410,27 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       if (!b) return;
       PICK_SRC = b.dataset.src;
       document.querySelectorAll('#cc-pick-src [data-src]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-      $('cc-pick-note').hidden = PICK_SRC !== 'all';
+      pickNote();
       if (PICK_SRC === 'all') await loadAllTemplates();
       renderPicker();
     });
 
-    /* One picker, three jobs: a design for a post, the month's shortlist, the month's image. */
+    /* One picker, four jobs: a design for a post, a duplicate of one from this
+       month, the month's shortlist, the month's image. */
     let PICK_MODE = 'post';
+    const PICK_NOTE = $('cc-pick-note').textContent;
+    const DUPE_NOTE = 'Click a design to make a copy for this post. The copy is named after the post, linked to it and opens in the Studio straight away. The original, and the post using it, stay as they are.';
+    function pickNote() {
+      const dupe = PICK_MODE === 'dupe';
+      $('cc-pick-note').textContent = dupe ? DUPE_NOTE : PICK_NOTE;
+      $('cc-pick-note').hidden = !dupe && (PICK_MODE !== 'post' || PICK_SRC !== 'all');
+    }
     function openPicker(mode = 'post') {
       PICK_MODE = mode;
-      if (mode !== 'post') PICK_SRC = 'calendar';
-      $('cc-pick-title').textContent = { post: 'Choose a design', short: 'Add to the shortlist', image: 'Choose a month image' }[mode];
+      if (mode === 'short' || mode === 'image') PICK_SRC = 'calendar';
+      $('cc-pick-title').textContent = { post: 'Choose a design', dupe: 'Duplicate a design from this month', short: 'Add to the shortlist', image: 'Choose a month image' }[mode];
       $('cc-pick-src').hidden = mode !== 'post';
-      $('cc-pick-note').hidden = mode !== 'post' || PICK_SRC !== 'all';
+      pickNote();
       $('cc-pick-q').value = '';
       renderPicker();
       $('cc-pick').hidden = false;
@@ -1430,6 +1442,12 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       if (PICK_MODE === 'image') {
         const list = [...new Set(POSTS.map((p) => p.template_id).filter(Boolean))].map((id) => TPLS.get(id)).filter((t) => t && t.thumb_url && (!q || (t.name || '').toLowerCase().includes(q)));
         $('cc-pick-grid').innerHTML = `<button type="button" class="cc-pick-new" data-img="">Use the month's first design</button>` + list.map((t) => tile(t, `data-img="${esc(t.thumb_url)}"`, CUR.image_url === t.thumb_url)).join('');
+        return;
+      }
+      if (PICK_MODE === 'dupe') {
+        const list = monthDesigns().filter((t) => !q || (t.name || '').toLowerCase().includes(q));
+        $('cc-pick-grid').innerHTML = list.map((t) => tile(t, `data-dupe="${esc(t.id)}"`, false)).join('')
+          || `<p class="cc-note">${q ? 'No design in this month matches that.' : 'No post in this month has a design yet. Once one does, you can duplicate it from here.'}</p>`;
         return;
       }
       const short = (CUR && CUR.shortlist) || [];
@@ -1695,6 +1713,7 @@ import { EDITIONS, POST_TYPES, PLATFORMS, MAX_CAPTIONS, CAPTION_TAGS, CAPTION_FI
       const a = e.target.closest('[data-act]');
       if (!a) return;
       if (a.dataset.act === 'pick') openPicker();
+      if (a.dataset.act === 'dupe') openPicker('dupe');
       if (a.dataset.act === 'new') { flushSave(); openNewTemplate(OPEN); }
       if (a.dataset.act === 'unlink') setTemplate(null);
       if (a.dataset.act === 'open') openDesign(OPEN);

@@ -194,6 +194,9 @@ export function initBuilder(ctx) {
     [...(a.data || []), ...(b.data || [])].forEach((t) => TPL.set(t.id, t));
   }
   const tplFor = (r) => (r && r.template_id ? TPL.get(r.template_id) : null);
+  // copied_from holds a pack's or month's name; a duplicate made inside the pack marks it with the design's.
+  const DUPE_OF = "dup:";
+  const fromLine = (r) => (String(r.copied_from).startsWith(DUPE_OF) ? "Duplicated from " + esc(String(r.copied_from).slice(DUPE_OF.length)) : "Copied from " + esc(r.copied_from));
   const capOf = (t) => { const c = (t && (t.canvas || (t.pages && t.pages[0] && t.pages[0].canvas))) || {}; return c.captionPrompt || ""; };
   const aiOf = (t) => { const c = (t && t.pages && t.pages[0] && t.pages[0].canvas) || (t && t.canvas) || {}; return c.aiHelper || null; };
   const thumb = (r, big) => { const t = tplFor(r); return t && t.thumb_url ? `<span class="pb-thumb${big ? " big" : ""}" style="background-image:url('${esc(t.thumb_url)}')"></span>` : t ? `<span class="pb-thumb${big ? " big" : ""} none">${esc((t.name || "").slice(0, 1))}</span>` : `<span class="pb-thumb${big ? " big" : ""} none">+</span>`; };
@@ -279,7 +282,7 @@ export function initBuilder(ctx) {
       body = ROWS.map((r, i) => `<tr data-row="${esc(r.id)}">${grip}<td class="pb-num">${i + 1}</td><td>${esc(r.idea) || '<span class="pb-tx">Untitled</span>'}</td><td>${esc(r.pillar) || '<span class="pb-tx">None</span>'}</td><td>${TYPES[r.post_type] || "Single image"}</td><td class="pb-note">${esc(r.note) || '<span class="pb-tx">None</span>'}</td></tr>`);
     } else if (st === 2) {
       head = "<th></th><th>#</th><th></th><th>Design</th><th>Format</th><th>Made</th>";
-      body = ROWS.map((r, i) => `<tr data-row="${esc(r.id)}">${grip}<td class="pb-num">${i + 1}</td><td>${thumb(r)}</td><td>${esc(r.idea) || '<span class="pb-tx">Untitled</span>'}${r.copied_from ? `<small>Copied from ${esc(r.copied_from)}</small>` : ""}</td><td>${TYPES[r.post_type] || "Single image"}</td><td>${r.template_id ? '<span class="chip good">Made</span>' : '<span class="chip wait">To make</span>'}</td></tr>`);
+      body = ROWS.map((r, i) => `<tr data-row="${esc(r.id)}">${grip}<td class="pb-num">${i + 1}</td><td>${thumb(r)}</td><td>${esc(r.idea) || '<span class="pb-tx">Untitled</span>'}${r.copied_from ? `<small>${fromLine(r)}</small>` : ""}</td><td>${TYPES[r.post_type] || "Single image"}</td><td>${r.template_id ? '<span class="chip good">Made</span>' : '<span class="chip wait">To make</span>'}</td></tr>`);
     } else if (st === 3) {
       head = "<th>#</th><th></th><th>Design</th><th>Editing fields</th><th>Caption prompt <span class='pb-tx'>(optional)</span></th><th>AI helper</th>";
       body = ROWS.map((r, i) => { const t = tplFor(r), ai = aiOf(t); return `<tr data-row="${esc(r.id)}"><td class="pb-num">${i + 1}</td><td>${thumb(r)}</td><td>${esc(r.idea)}</td><td>${yes(r.fields_ok)}</td><td class="pb-note">${esc(capOf(t)) || '<span class="pb-tx">None</span>'}</td><td>${ai && ai.on ? '<span class="chip plain">On</span>' : '<span class="chip off">Off</span>'}</td></tr>`; });
@@ -374,13 +377,14 @@ export function initBuilder(ctx) {
     const i = ROWS.findIndex((r) => r.id === id);
     if (i < 0 || MISSING) return;
     const r = ROWS[i], st = stage(), t = tplFor(r);
+    const own = ROWS.some((x) => x !== r && tplFor(x));   // something in this pack to duplicate
     let b = "";
     if (st <= 2) b += `<label class="pb-field"><span>Design name</span><input data-f="idea" value="${esc(r.idea)}" placeholder="e.g. Christmas countdown"></label>
       <div class="pb-two"><label class="pb-field"><span>Content pillar</span><select data-f="pillar"><option value="">Choose a pillar</option>${PILLARS.map((x) => `<option${x === r.pillar ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></label><label class="pb-field"><span>Format</span><select data-f="post_type">${Object.entries(TYPES).map(([k, l]) => `<option value="${k}"${k === r.post_type ? " selected" : ""}>${l}</option>`).join("")}</select></label></div>`;
     if (st >= 2) {
       b += `<div class="pb-dz">${t && t.thumb_url ? `<div class="pb-dz-pic" style="background-image:url('${esc(t.thumb_url)}')"></div>` : `<div class="pb-dz-pic none">${t ? esc(t.name) : "No design yet"}</div>`}
-        <div class="pb-dz-r"><p class="pb-hint">${!t ? (D() ? "Make it in the Studio, or choose one you've already made." : "Make it in the Studio, choose one you already have, or copy one from another pack.") : r.copied_from ? `${esc(t.name)}. Copied from ${esc(r.copied_from)}; changes here don't touch the original.` : esc(t.name)}</p>
-        <div class="pb-dz-acts">${!t ? '<button type="button" class="mbtn primary" data-make>Create a design</button><button type="button" class="mbtn" data-choose>Choose a design</button>' + (D() ? "" : '<button type="button" class="mbtn" data-copy>Copy from another pack</button>')
+        <div class="pb-dz-r"><p class="pb-hint">${!t ? (D() ? (own ? "Make it in the Studio, choose one you've already made, or duplicate one from this pack." : "Make it in the Studio, or choose one you've already made.") : (own ? "Make it in the Studio, choose one you already have, duplicate one from this pack, or copy one from another pack." : "Make it in the Studio, choose one you already have, or copy one from another pack.")) : r.copied_from ? `${esc(t.name)}. ${fromLine(r)}; changes here don't touch the original.` : esc(t.name)}</p>
+        <div class="pb-dz-acts">${!t ? '<button type="button" class="mbtn primary" data-make>Create a design</button><button type="button" class="mbtn" data-choose>Choose a design</button>' + (own ? '<button type="button" class="mbtn" data-dupe>Duplicate one from this pack</button>' : "") + (D() ? "" : '<button type="button" class="mbtn" data-copy>Copy from another pack</button>')
           : `<a class="mbtn primary" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Open in the Studio</a><button type="button" class="mbtn" data-unlink>Choose a different one</button>`}</div></div></div>`;
     }
     b += `<label class="pb-field"><span>Note <em>(team only)</em></span><textarea data-f="note" rows="3" placeholder="Anything whoever makes it needs to know">${esc(r.note)}</textarea></label>`;
@@ -448,15 +452,22 @@ export function initBuilder(ctx) {
   /* Copy designs from another pack or a Content Calendar month. Each comes in
      as a copy, so the original stays as it is where it was. */
   let COPY_SRC = [];
-  async function openCopy(forRow) {
-    showPop("Copy designs from", esc(P.title), '<p class="pb-hint">Loading…</p>', '<button type="button" class="mbtn" data-tickall>Tick all</button><button type="button" class="mbtn primary" data-docopy>Copy designs</button>', true);
+  const ownSrc = () => ({ id: P.id, title: "This pack", group: "", own: true });
+  const copyGo = (own) => (own ? "Duplicate designs" : "Copy designs");
+  /* own: only this pack's designs, to duplicate into another row (Danielle,
+     25 Nov). Open to brand designers too, as nothing leaves their pack. */
+  async function openCopy(forRow, own) {
+    showPop(own ? "Duplicate designs in this pack" : "Copy designs from", esc(P.title), '<p class="pb-hint">Loading…</p>', `<button type="button" class="mbtn" data-tickall>Tick all</button><button type="button" class="mbtn primary" data-docopy>${copyGo(own)}</button>`, true);
     pop.dataset.row = forRow ? forRow.id : "";
+    if (own) { COPY_SRC = [ownSrc()]; pop.dataset.own = "1"; return drawCopy(P.id); }
+    pop.dataset.own = "";
     // The same sections as the Design studio's pack menu (Danielle, 12 Nov).
     let demo = [];
     try { const { data } = await supabase.from("packs").select("id, title").eq("demo", true); demo = data || []; } catch (_) {}
     const has = (p) => p.id !== P.id && (COUNTS.get(p.id) || 0) > 0;
     const byTitle = (a, b) => String(a.title).localeCompare(String(b.title));
     const packs = [
+      ...(ROWS.some((r) => tplFor(r)) ? [ownSrc()] : []),
       ...demo.filter(has).map((p) => ({ id: p.id, title: p.title, group: "" })),
       { id: "loose", title: "Not in a pack", group: "", loose: true },
       ...PACKS.filter((p) => has(p) && p.kind !== "print").sort(byTitle).map((p) => ({ id: p.id, title: p.title, group: "The Edit packs" })),
@@ -479,9 +490,14 @@ export function initBuilder(ctx) {
     const body = pop.querySelector(".pb-pop-b");
     const o = (s) => `<option value="${esc(s.id)}"${s === src ? " selected" : ""}>${esc(s.title)}</option>`;
     const groups = COPY_SRC.filter((s) => !s.group).map(o).join("") + ["The Edit packs", "Print packs", "Content Calendar"].map((g) => { const l = COPY_SRC.filter((s) => s.group === g); return l.length ? `<optgroup label="${g}">${l.map(o).join("")}</optgroup>` : ""; }).join("");
-    body.innerHTML = `<label class="pb-field"><span>From</span><select id="pb-copy-from">${groups}</select></label><p class="pb-hint">Each one comes in as a copy, with its editing fields and caption prompt, so the original stays as it is${src.loose ? "" : " in " + esc(src.title)}.</p><div class="pb-pick" id="pb-copy-grid"><p class="pb-hint">Loading…</p></div>`;
+    const from = pop.dataset.own ? "" : `<label class="pb-field"><span>From</span><select id="pb-copy-from">${groups}</select></label>`;
+    body.innerHTML = `${from}<p class="pb-hint">${src.own ? "Each one comes in as a separate copy, with its editing fields and caption prompt, so changing it never changes the original." : `Each one comes in as a copy, with its editing fields and caption prompt, so the original stays as it is${src.loose ? "" : " in " + esc(src.title)}.`}</p><div class="pb-pick" id="pb-copy-grid"><p class="pb-hint">Loading…</p></div>`;
+    const go = pop.querySelector("[data-docopy]"); if (go) go.textContent = copyGo(src.own);
     let list = [];
-    if (src.loose) {
+    if (src.own) {
+      // In the pack's own order.
+      list = [...new Set(ROWS.map((r) => r.template_id).filter(Boolean))].map((id) => TPL.get(id)).filter(Boolean);
+    } else if (src.loose) {
       const { data } = await supabase.from("templates").select("id, name, thumb_url, collection").is("pack_id", null).neq("status", "archived").order("updated_at", { ascending: false }).limit(300);
       list = (data || []).filter((t) => t.collection !== "calendar");
     } else if (src.month) {
@@ -499,34 +515,47 @@ export function initBuilder(ctx) {
   async function doCopy() {
     const src = COPY_SRC.find((s) => s.id === pop.dataset.src);
     const ids = [...pop.querySelectorAll("#pb-copy-grid input:checked")].map((x) => x.value);
-    if (!src || !ids.length) return toast("Tick the designs to copy first.");
-    const btn = pop.querySelector("[data-docopy]"); if (btn) { btn.disabled = true; btn.textContent = "Copying…"; }
+    const own = !!src && !!src.own;
+    if (!src || !ids.length) return toast(own ? "Tick the designs to duplicate first." : "Tick the designs to copy first.");
+    const btn = pop.querySelector("[data-docopy]"); if (btn) { btn.disabled = true; btn.textContent = own ? "Duplicating…" : "Copying…"; }
+    const again = () => { if (btn) { btn.disabled = false; btn.textContent = copyGo(own); } };
     const { data: tpls, error } = await supabase.from("templates").select(COPY_COLS).in("id", ids);
-    if (error) { toast("Couldn't read those designs: " + error.message); if (btn) { btn.disabled = false; btn.textContent = "Copy designs"; } return; }
+    if (error) { toast("Couldn't read those designs: " + error.message); again(); return; }
     const ordered = ids.map((id) => (tpls || []).find((t) => t.id === id)).filter(Boolean);
+    const forRow = ROWS.find((r) => r.id === pop.dataset.row && !r.template_id);
     const copies = ordered.map((t, i) => {
       const row = { ...t, id: tplId(), pack_id: P.id, status: "draft", sort_order: ROWS.length + i };
       // Names run "Design - Pack - Static": the middle part becomes this pack.
       const parts = String(t.name || "").split(" - ");
-      if (parts.length >= 3) { parts[1] = P.title; row.name = parts.join(" - "); }
+      if (own) {
+        // A duplicate takes its row's name, so two designs in a pack never share one.
+        const mine = i === 0 && forRow ? (forRow.idea || "").trim() : "";
+        if (mine) { if (parts.length >= 3) parts[0] = mine; else parts.splice(0, parts.length, mine); }
+        else parts[0] = (parts[0] || "Untitled design") + " copy";
+        row.name = parts.join(" - ");
+      } else if (parts.length >= 3) { parts[1] = P.title; row.name = parts.join(" - "); }
       Object.keys(row).forEach((k) => { if (row[k] === undefined) delete row[k]; });
       return row;
     });
     const { error: e2 } = await supabase.from("templates").insert(copies);
-    if (e2) { toast("Couldn't copy them: " + e2.message); if (btn) { btn.disabled = false; btn.textContent = "Copy designs"; } return; }
+    if (e2) { toast(`Couldn't ${own ? "duplicate" : "copy"} them: ` + e2.message); again(); return; }
     // The open row takes the first copy; the rest get rows of their own.
-    const forRow = ROWS.find((r) => r.id === pop.dataset.row && !r.template_id);
-    let rest = copies;
-    if (forRow) { patchRow(forRow, { template_id: copies[0].id, copied_from: src.title, ...(forRow.idea ? {} : { idea: copies[0].name }) }, true); rest = copies.slice(1); }
+    // A duplicate says which design it came from, and its new row keeps that row's format and pillar.
+    const from = (i) => (own ? DUPE_OF + (ordered[i].name || "Untitled design") : src.title);
+    const srcRow = (i) => (own ? ROWS.find((r) => r.template_id === ordered[i].id) : null) || {};
+    let rest = copies.map((c, i) => ({ c, i }));
+    if (forRow) { patchRow(forRow, { template_id: copies[0].id, copied_from: from(0), ...(forRow.idea ? {} : { idea: copies[0].name }) }, true); rest = rest.slice(1); }
     if (rest.length) {
-      const ins = rest.map((c, i) => ({ pack_id: P.id, sort_order: ROWS.length + i, idea: c.name, post_type: "single", template_id: c.id, copied_from: src.title }));
+      const ins = rest.map(({ c, i }, n) => ({ pack_id: P.id, sort_order: ROWS.length + n, idea: c.name, post_type: srcRow(i).post_type || "single", ...(srcRow(i).pillar ? { pillar: srcRow(i).pillar } : {}), template_id: c.id, copied_from: from(i) }));
       const { data, error: e3 } = await supabase.from("pack_plan_rows").insert(ins).select("*");
-      if (e3) toast("The designs were copied, but their rows couldn't be added: " + e3.message);
+      if (e3) toast(`The designs were ${own ? "duplicated" : "copied"}, but their rows couldn't be added: ` + e3.message);
       else ROWS.push(...(data || []));
     }
     if (!PLAN) await setStage(stage());
+    const openAgain = forRow ? forRow.id : "";
     await loadTemplates(); closePop(); drawPack();
-    toast(`${copies.length} design${copies.length === 1 ? "" : "s"} copied from ${src.title}.`);
+    if (own && openAgain) openRow(openAgain);   // back on the row, with Open in the Studio
+    toast(own ? (copies.length === 1 ? "1 design duplicated in this pack." : `${copies.length} designs duplicated in this pack.`) : `${copies.length} design${copies.length === 1 ? "" : "s"} copied from ${src.title}.`);
   }
 
   function openSet() {
@@ -913,6 +942,7 @@ export function initBuilder(ctx) {
     if (c("[data-make]")) return makeDesign(r);
     if (c("[data-choose]")) return openChoose(r);
     if (c("[data-copy]")) return openCopy(r);
+    if (c("[data-dupe]")) return openCopy(r, true);
     if (c("[data-unlink]")) return unlink(r);
     if (c("[data-remove]")) return removeRow(r);
     if ((b = c("[data-go]")) && !b.disabled) return openRow(ROWS[+b.dataset.go].id);
