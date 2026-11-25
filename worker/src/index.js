@@ -6280,6 +6280,7 @@ async function runAutomationsTick(env) {
   const paused = ((await sbGet(env, "automations", "status=eq.paused&select=id")) || []).map((a) => a.id);
   const notPaused = paused.length ? `&automation_id=not.in.(${paused.map(encodeURIComponent).join(",")})` : "";
   try { await retimeDatedSends(env); } catch (_) {}
+  try { await topUpCampaigns(env); } catch (_) {}
   const due = (await sbGet(env, "automation_enrollments", `status=eq.active&next_run_at=lte.${encodeURIComponent(nowISO())}${notPaused}&select=*&order=next_run_at.asc&limit=50`)) || [];
   for (const enr of due) {
     try { await advanceEnrollment(env, enr); }
@@ -6287,6 +6288,72 @@ async function runAutomationsTick(env) {
   }
   if (due.length) await notifyCampaignSends(env);
   return due.length;
+}
+
+/* Late joiners (Danielle, 25 Nov 2026). A campaign planned on the campaign
+   page, or a one-off send, fixes its group when it is approved, so someone
+   given the tag a week later was never in it. About half an hour before each
+   dated email, the group is read again and anyone with the tag who has never
+   been in it is added AT THAT EMAIL (or at the check in front of it): they get
+   it and the ones after it, and none of the earlier ones. Someone who has been
+   in it and left (a check, taken out, finished) is not put back.
+
+   Only funnels that say who they are for (graph.meta.campaign or .single,
+   with graph.meta.to.tags) are touched; every other funnel is left exactly as
+   it was. Each email is topped up once, noted in graph.meta.topped_up, which
+   the campaign page clears for an email whose date is changed. */
+const CAMPAIGN_TOP_UP_MS = 35 * 60e3;
+async function topUpCampaigns(env) {
+  const autos = (await sbGet(env, "automations", "status=eq.active&select=id,graph")) || [];
+  for (const a of autos) {
+    const g = a.graph || {};
+    const meta = g.meta || {};
+    const to = meta.to || {};
+    if ((meta.campaign !== true && meta.single !== true) || to.mode !== "tags" || !Array.isArray(to.tags)) continue;
+    const tags = to.tags.filter(Boolean);
+    if (!tags.length) continue;
+    const nodes = g.nodes || [], edges = g.edges || [];
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    // The funnel's line, in order from the trigger.
+    const line = [], seen = new Set();
+    let cur = (edges.find((e) => e.from === "trigger") || {}).to;
+    while (cur && !seen.has(cur) && byId.has(cur)) {
+      seen.add(cur); line.push(byId.get(cur));
+      cur = (edges.find((e) => e.from === cur) || {}).to;
+    }
+    const done = meta.topped_up || {};
+    const at = line.findIndex((n) => {
+      if (n.type !== "send_email" || !n.config || done[n.id]) return false;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(n.config.send_on || ""))) return false;
+      const ms = msUntilSendMoment(n.config.send_on, n.config.send_at);
+      return ms > 0 && ms <= CAMPAIGN_TOP_UP_MS;
+    });
+    if (at < 0) continue;
+    // They start at the check in front of this email, if there is one.
+    let entry = at;
+    while (entry > 0 && line[entry - 1].type === "if_else") entry--;
+    const list = `{${tags.map((t) => `"${String(t).replace(/"/g, "")}"`).join(",")}}`;
+    const matched = await sbGetAll(env, "contacts", `tags=ov.${encodeURIComponent(list)}&select=id&order=id.asc`);
+    const been = await sbGetAll(env, "automation_enrollments", `automation_id=eq.${encodeURIComponent(a.id)}&select=id,contact_id&order=id.asc`);
+    if (!matched || !been) continue;   // couldn't read the group: the next run tries again
+    const had = new Set(been.map((r) => r.contact_id));
+    const fresh = matched.filter((c) => !had.has(c.id));
+    let added = 0;
+    for (let i = 0; i < fresh.length; i += 500) {
+      const batch = fresh.slice(i, i + 500).map((c) => ({
+        automation_id: a.id, contact_id: c.id, status: "active",
+        current_node_id: line[entry].id, next_run_at: nowISO(), context: { audience: tags, late: true },
+      }));
+      const res = await sbPost(env, "automation_enrollments", batch);
+      if (res && res.ok) added += batch.length;
+    }
+    // Read the graph again before writing, so an edit made a moment ago isn't lost.
+    const again = ((await sbGet(env, "automations", `id=eq.${encodeURIComponent(a.id)}&select=graph`)) || [])[0];
+    const graph = (again && again.graph) || g;
+    const m = graph.meta || {};
+    graph.meta = { ...m, topped_up: { ...(m.topped_up || {}), [line[at].id]: { at: nowISO(), added } } };
+    await sbPatch(env, "automations", `id=eq.${encodeURIComponent(a.id)}`, { graph });
+  }
 }
 
 /* A dated email's date or time changed after people reached it (Danielle,

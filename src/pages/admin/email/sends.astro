@@ -93,7 +93,7 @@ import "../../../styles/money-os.css";
     #es .es-tpl { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; text-align: left; cursor: pointer; }
     #es .es-tpl:hover { border-color: var(--wine); }
     #es .es-tpl[aria-pressed="true"] { border-color: var(--wine); box-shadow: inset 0 0 0 1px var(--wine); }
-    #es .es-thumb { display: flex; flex-direction: column; gap: 6px; height: 96px; padding: 12px 10px; border-radius: 3px; background: var(--linen); }
+    #es .es-thumb { display: flex; flex-direction: column; gap: 6px; height: 150px; padding: 12px 10px; border-radius: 3px; background: var(--linen); }
     #es .es-thumb i { display: block; height: 4px; background: var(--stone); }
     #es .es-thumb i:first-child { height: 34px; border-radius: 2px; }
     #es .es-thumb i:last-child { width: 60%; }
@@ -135,6 +135,7 @@ import "../../../styles/money-os.css";
     import { isSingle, sendSteps, stepWhen, sentToLine, todayLondon } from "../../../lib/email-campaigns.js";
     import { renderTemplate, mergeContextFor, defaultBrand, SAMPLE_RECIPIENT } from "../../../lib/email-render.js";
     import { loadEmails, copyAsEmail } from "../../../lib/email-library.js";
+    import { mountThumbs } from "../../../lib/email-thumb.js";
 
     const DEV = import.meta.env.DEV;
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -362,8 +363,9 @@ import "../../../styles/money-os.css";
       list.sort((x, y) => rank(x) - rank(y));
       const shown = P.allTpls || P.tq ? list : list.slice(0, 6);
       $("es-tpls").innerHTML = shown.length ? shown.map((t) => `<button type="button" class="es-tpl" data-tpl="${esc(t.id)}" aria-pressed="${t.id === P.tpl}">
-          <div class="es-thumb" aria-hidden="true"><i></i><i></i><i></i><i></i></div><b>${esc(t.name)}</b><span>${t.is_template ? `Template${t.area ? " · " + esc(t.area) : ""}` : esc(t.subject || "No subject yet") + (t.status === "draft" ? " · draft" : "")}</span>
+          <div class="es-thumb em-thumb" data-thumb="${esc(t.id)}" aria-hidden="true"><i></i><i></i><i></i><i></i></div><b>${esc(t.name)}</b><span>${t.is_template ? `Template${t.area ? " · " + esc(t.area) : ""}` : esc(t.subject || "No subject yet") + (t.status === "draft" ? " · draft" : "")}</span>
         </button>`).join("") : `<p class="es-note">${TPLS.length ? "No template matches that." : "There are no emails yet. Design one under Templates first."}</p>`;
+      if (!DEMO) mountThumbs($("es-tpls"), supabase);
       const chosen = TPLS.find((t) => t.id === P.tpl);
       const note = chosen && chosen.is_template ? "That one is a template. The send uses its own copy, so the template stays as it is."
         : (!P.allTpls && !P.tq && list.length > 6) ? `Showing 6 of ${list.length}: your templates first, then your latest emails.` : "";

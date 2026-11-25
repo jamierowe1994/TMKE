@@ -95,7 +95,7 @@ import "../../../styles/money-os.css";
 
     #cp .cp-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
     #cp .cp-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 14px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; }
-    #cp .cp-thumb { display: flex; flex-direction: column; gap: 7px; height: 130px; padding: 14px 12px; border-radius: 3px; background: var(--linen); }
+    #cp .cp-thumb { display: flex; flex-direction: column; gap: 7px; height: 230px; padding: 14px 12px; border-radius: 3px; background: var(--linen); }
     #cp .cp-thumb i { display: block; height: 4px; background: var(--stone); }
     #cp .cp-thumb i:first-child { height: 46px; border-radius: 2px; }
     #cp .cp-thumb i:last-child { width: 60%; }
@@ -113,6 +113,12 @@ import "../../../styles/money-os.css";
     #cp .cp-card-id span { font-size: 13px; color: var(--tx); }
     #cp .cp-card-acts { display: grid; gap: 6px; margin-top: auto; }
     #cp .cp-card-acts .mbtn { height: 28px; padding: 0 8px; width: 100%; }
+    #cp .cp-nums { display: grid; margin-top: auto; }
+    #cp .cp-nums div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-height: 30px; border-top: 1px solid var(--linen); }
+    #cp .cp-nums div > span:first-child { color: var(--tx); }
+    #cp .cp-nums small { display: block; font-size: 12px; color: var(--tx); text-align: right; }
+    #cp .cp-nums .v { text-align: right; }
+    #cp .cp-wait { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--linen); font-size: 13px; color: var(--tx); }
 
     #cp .cp-two { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
     #cp .cp-two > section { flex: 999 1 560px; min-width: 0; }
@@ -175,6 +181,8 @@ import "../../../styles/money-os.css";
     import { AREAS, areaOf, stepWhen, todayLondon, isPrevious } from "../../../lib/email-campaigns.js";
     import { loadEmails, copyAsEmail, saveAsTemplate } from "../../../lib/email-library.js";
     import { renderTemplate, mergeContextFor, defaultBrand, SAMPLE_RECIPIENT } from "../../../lib/email-render.js";
+    import { mountThumbs } from "../../../lib/email-thumb.js";
+    import { readFunnelEvents, stepKeyer, scannerJudge, statsFor, TRAP_SINCE } from "../../../lib/email-insights.js";
 
     const DEV = import.meta.env.DEV;
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -463,7 +471,7 @@ import "../../../styles/money-os.css";
           ? `<a class="mbtn" href="${editor(p.email.id)}">${p.sent ? "View email" : "Edit email"}</a>${p.sent ? "" : `<button type="button" class="mbtn" data-test="${id}">Send me a test</button>`}<button type="button" class="mbtn" data-keep="${id}">Save as a template</button>${p.sent ? "" : `<button type="button" class="mbtn" data-create="${id}">Swap the email</button>`}`
           : `<button type="button" class="mbtn primary" data-create="${id}">Create email</button>`;
         return `<article class="cp-card">
-          <div class="cp-thumb${p.email ? "" : " todo"}" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          ${thumbOf(p)}
           <div class="cp-card-top"><span class="cp-lab" style="margin:0">Email ${p.n}</span><span class="blk ${st[0]}">${st[1]}</span></div>
           <div class="cp-card-id"><b>${esc(p.email ? p.email.name : "Not written yet")}</b><span>${esc(stepWhen(p.it.node) || "No date yet")}</span><span>${esc(note ? "Plan: " + note : "No notes in the plan.")}</span></div>
           <div class="cp-card-acts">${acts}</div>
@@ -475,7 +483,10 @@ import "../../../styles/money-os.css";
         </div>
         <div class="cp-foot split"><button type="button" class="mbtn" data-step="plan">Back to the plan</button><button type="button" class="mbtn primary" data-step="schedule">Next: check the schedule</button></div>
         <p class="cp-msg" id="em-msg" role="status"></p>`;
+      if (!DEMO) mountThumbs($("cp-main"), supabase);
     }
+    // The email itself, small, where there is one; a dashed space where there isn't.
+    const thumbOf = (p) => `<div class="cp-thumb em-thumb${p.email ? "" : " todo"}"${p.email ? ` data-thumb="${esc(p.email.id)}"` : ""} aria-hidden="true"><i></i><i></i><i></i><i></i></div>`;
     const sendName = (it) => `${A.name}: email ${sends().indexOf(it) + 1}`;
     async function assign(it, emailId) {
       const c = (it.node.config = it.node.config || {});
@@ -596,7 +607,7 @@ import "../../../styles/money-os.css";
     }
     function drawSchedule() {
       const pr = progress(); const can = SIMPLE && A.status !== "archived"; const t = tags();
-      let rows = `<div class="cp-row"><span class="cp-dot start"></span><div class="cp-rt"><b>Start: ${t.length ? `everyone tagged ${esc(t.join(" or "))}` : "nobody chosen yet"}</b><span>${draft() ? "They are added on the day you approve it" : `${plural(LIVE, "person is", "people are")} in it now`}</span></div><span></span></div>`;
+      let rows = `<div class="cp-row"><span class="cp-dot start"></span><div class="cp-rt"><b>Start: ${t.length ? `everyone tagged ${esc(t.join(" or "))}` : "nobody chosen yet"}</b><span>${draft() ? "They are added on the day you approve it" : `${plural(LIVE, "person is", "people are")} in it now`}. The group is checked again before each email</span></div><span></span></div>`;
       let prevDate = "", gapDue = false;
       const nextDate = (from) => { for (let j = from; j < ITEMS.length; j++) if (ITEMS[j].kind === "send") { const d = (ITEMS[j].node.config || {}).send_on; return isDate(d) ? d : ""; } return ""; };
       ITEMS.forEach((it, idx) => {
@@ -637,7 +648,7 @@ import "../../../styles/money-os.css";
       const probs = draft() ? problems() : [];
       let side = `<div class="cp-side"><h2>Who gets it</h2>
           <div><b id="sc-who">${t.length ? "Counting…" : "Nobody yet"}</b><p id="sc-out" style="color:var(--tx)"></p></div>
-          <p style="color:var(--tx)">${draft() ? "The group is fixed when you approve. Anyone given the tag after that is not added, so nobody is sent emails that have already gone." : "The group was fixed when it was approved. Anyone given the tag since is not in it."}</p>
+          <p style="color:var(--tx)">About half an hour before each email, the group is checked again. Anyone given the tag since is added then, and gets that email and the ones after it, never the earlier ones. Someone who has left the campaign is not put back.</p>
           ${draft() ? "" : `<a class="cp-link" href="/admin/automations/audit?id=${encodeURIComponent(A.id)}">See who is in it</a>`}</div>`;
       if (draft()) side += `<div class="cp-side fill"><h2>Before it starts</h2>
           ${probs.length ? `<ul>${probs.map((p) => `<li class="todo">${esc(p)}</li>`).join("")}</ul>` : `<p>Everything is ready. Approving adds the group and lines up every email for its date.</p>`}
@@ -725,57 +736,71 @@ import "../../../styles/money-os.css";
     }
 
     // ---- 4 Insights ------------------------------------------------------------
-    // Sent, opened and clicked for each email, each person once and a click
-    // counting as an open. These are the figures as reported: the full report
-    // (the audit page) is where email security scanners are told apart.
+    // The same counting as the funnel audit (src/lib/email-insights.js): each
+    // person once, a click counting as an open, and beside each figure how many
+    // look like an email security scanner. Laid out like the Emails step, a
+    // card for each email with the email itself on it (Danielle, 25 Nov 2026).
     async function readStats() {
       const out = new Map();
-      if (DEMO) { sends().slice(0, 2).forEach((it, i) => out.set(it.node.id, { sent: 112, opened: 35 - i * 3, clicked: 5 + i })); return out; }
-      const ev = [];
-      for (let from = 0; from < 50000; from += 1000) {
-        const r = await supabase.from("email_events").select("event, contact_id, email, node_id, message_id").eq("automation_id", A.id).order("occurred_at", { ascending: true }).order("id", { ascending: true }).range(from, from + 999);
-        if (r.error) break;
-        ev.push(...(r.data || []));
-        if ((r.data || []).length < 1000) break;
+      if (DEMO) {
+        sends().slice(0, 2).forEach((it, i) => out.set(it.node.id, { sent: 112, delivered: 112, base: 112, opened: 35 - i * 3, clicked: 5 + i, botOpened: 9 - i, botClicked: 3, first: new Date(Date.now() - (13 - i * 7) * 864e5).toISOString() }));
+        out.all = { sent: 224, delivered: 224, base: 224, opened: 67, clicked: 11, botOpened: 17, botClicked: 6 };
+        return out;
       }
-      const byMsg = new Map(); ev.forEach((e) => { if (e.event === "sent" && e.message_id && e.node_id) byMsg.set(e.message_id, e.node_id); });
-      const sets = new Map(); const get = (id) => { if (!sets.has(id)) sets.set(id, { sent: new Set(), opened: new Set(), clicked: new Set() }); return sets.get(id); };
-      ev.forEach((e) => {
-        const node = e.node_id || (e.message_id && byMsg.get(e.message_id)); const who = e.contact_id || e.email;
-        if (!node || !who) return;
-        const s = get(node);
-        if (e.event === "sent") s.sent.add(who);
-        else if (e.event === "opened") s.opened.add(who);
-        else if (e.event === "clicked") { s.clicked.add(who); s.opened.add(who); }
+      const ev = await readFunnelEvents(supabase, A.id);
+      const keyOf = stepKeyer(ev); const { isMachine } = scannerJudge(ev);
+      // Sends logged before each event knew its step are known by their subject:
+      // tie those to the email in the campaign with that subject.
+      const bySubject = new Map();
+      sends().forEach((it) => { const e = emailOf(it.node); const subj = ((it.node.config || {}).subject || (e && e.subject) || "").trim(); if (subj && !bySubject.has(subj)) bySubject.set(subj, it.node.id); });
+      const ids = new Set(sends().map((it) => it.node.id));
+      const stepOf = (e) => { const k = keyOf(e); if (k.startsWith("n:")) return ids.has(k.slice(2)) ? k.slice(2) : ""; if (k.startsWith("s:")) return bySubject.get(k.slice(2).trim()) || ""; return ""; };
+      const lists = new Map(); const mine = [];
+      ev.forEach((e) => { const id = stepOf(e); if (!id) return; mine.push(e); (lists.get(id) || lists.set(id, []).get(id)).push(e); });
+      lists.forEach((list, id) => {
+        const first = list.filter((e) => e.event === "sent").map((e) => e.occurred_at).sort()[0] || null;
+        out.set(id, { ...statsFor(list, keyOf, isMachine), first });
       });
-      sets.forEach((s, id) => out.set(id, { sent: s.sent.size, opened: s.opened.size, clicked: s.clicked.size }));
+      out.all = statsFor(mine, keyOf, isMachine);
       return out;
     }
     function drawInsights() {
       const pr = progress(); const sent = pr.filter((p) => p.sent).length;
-      const pct = (a, b) => (b ? Math.round((a / b) * 100) + "%" : "");
-      let o = 0, c = 0, s = 0;
-      if (STATS) pr.forEach((p) => { const x = STATS.get(p.it.node.id); if (x && x.sent) { s += x.sent; o += x.opened; c += x.clicked; } });
+      const pct = (a, b) => (b ? Math.round((a / b) * 100) + "%" : "0%");
+      const all = STATS && STATS.all;
       const next = pr.find((p) => !p.sent && isDate((p.it.node.config || {}).send_on));
       const todo = pr.filter((p) => !p.email && !p.sent).length;
-      const row = (p) => {
+      const old = (x) => !!(x && x.first && x.first.slice(0, 10) < TRAP_SINCE);
+      const anyOld = !!STATS && pr.some((p) => old(STATS.get(p.it.node.id)));
+      const maybe = (n) => (n ? `${n} may be scanners` : "");
+      const card = (p) => {
         const st = stateOf(p); const x = STATS && STATS.get(p.it.node.id);
-        return `<tr><td class="tx">${p.n}</td><td><div class="cp-tname"><b>${esc(p.email ? p.email.name : "Not written yet")}</b><span>${esc((p.email && p.email.subject) || "")}</span></div></td>
-          <td>${esc(stepWhen(p.it.node) || "No date")}</td><td><span class="blk ${st[0]}">${st[1]}</span></td>
-          <td>${x && x.sent ? x.sent : p.sent && p.count ? p.count : ""}</td><td>${x && x.sent ? pct(x.opened, x.sent) : ""}</td><td>${x && x.sent ? pct(x.clicked, x.sent) : ""}</td></tr>`;
+        const when = x && x.first ? "Sent " + new Date(x.first).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : (stepWhen(p.it.node) || "No date yet");
+        const num = (label, v, small) => `<div><span>${label}</span><span class="v">${v}${small ? `<small>${esc(small)}</small>` : ""}</span></div>`;
+        const nums = x && x.sent
+          ? `<div class="cp-nums">${num("Sent to", x.sent, x.delivered && x.delivered !== x.sent ? `${x.delivered} delivered` : "")}${num("Opened", `${pct(x.opened, x.base)} · ${x.opened}`, maybe(x.botOpened))}${num("Clicked", `${pct(x.clicked, x.base)} · ${x.clicked}`, maybe(x.botClicked))}${x.unsub ? num("Unsubscribed", x.unsub, "") : ""}</div>`
+          : `<p class="cp-wait">${!STATS ? "Reading the figures." : p.sent ? "This one went out before sends were recorded email by email, so it has no figures of its own." : "Figures appear here once it has gone."}</p>`;
+        return `<article class="cp-card">
+          ${thumbOf(p)}
+          <div class="cp-card-top"><span class="cp-lab" style="margin:0">Email ${p.n}</span><span class="blk ${st[0]}">${st[1]}</span></div>
+          <div class="cp-card-id" style="min-height:70px"><b>${esc(p.email ? p.email.name : "Not written yet")}</b><span>${esc(when)}</span>${old(x) ? `<span>Before the scanner check</span>` : ""}</div>
+          ${nums}
+        </article>`;
       };
       $("cp-main").innerHTML = `${told()}
         <div class="figs">
           <div class="fig lin static"><span>Emails sent</span><b>${sent} of ${pr.length}</b><small>${next ? "Next: " + esc(stepWhen(next.it.node)) : sent === pr.length && pr.length ? "All sent" : "Nothing scheduled"}</small></div>
-          <div class="fig lin static"><span>Opened</span><b>${STATS ? (s ? pct(o, s) : "No sends yet") : "Reading…"}</b><small>Across the emails sent</small></div>
-          <div class="fig lin static"><span>Clicked</span><b>${STATS ? (s ? pct(c, s) : "No sends yet") : "Reading…"}</b><small>Across the emails sent</small></div>
+          <div class="fig lin static"><span>Opened</span><b>${all ? (all.sent ? pct(all.opened, all.base) : "No sends yet") : "Reading…"}</b><small>${all && all.sent ? [`${all.opened} of ${all.base}`, maybe(all.botOpened)].filter(Boolean).join(", ") : "Across the emails sent"}</small></div>
+          <div class="fig lin static"><span>Clicked</span><b>${all ? (all.sent ? pct(all.clicked, all.base) : "No sends yet") : "Reading…"}</b><small>${all && all.sent ? [`${all.clicked} of ${all.base}`, maybe(all.botClicked)].filter(Boolean).join(", ") : "Across the emails sent"}</small></div>
           <div class="fig ${todo ? "dark" : "lin"} static"><span>${todo ? "Needs attention" : "In it now"}</span><b>${todo ? todo : LIVE}</b><small>${todo ? `${plural(todo, "email is", "emails are")} not written yet` : plural(LIVE, "person", "people")}</small></div>
         </div>
-        <div class="section"><div class="strip"><span class="strip-t">Email by email</span><a class="aside" style="color:#fff;text-underline-offset:3px" href="/admin/automations/audit?id=${encodeURIComponent(A.id)}">Full report</a></div>
-          <div class="tablewrap"><table class="cp-tbl"><thead><tr><th>No.</th><th>Email</th><th>When</th><th>Status</th><th>People</th><th>Opened</th><th>Clicked</th></tr></thead><tbody>${pr.map(row).join("")}</tbody></table></div>
-          <p class="cp-hint">Opened and clicked are as reported, each person once, and can include email security scanners. The full report tells them apart and shows who did what.</p>
+        ${anyOld ? `<p class="cp-told">Some of these emails went out before 10 Nov 2026, when a hidden check for email security scanners was added to every marketing email. For those, more of the opens and clicks may be scanners than are marked, so read their figures as a ceiling. Emails sent since then are checked properly.</p>` : ""}
+        <div class="section"><div class="strip"><span class="strip-t">Email by email</span><a class="aside" style="color:#fff;text-underline-offset:3px" href="/admin/automations/audit?id=${encodeURIComponent(A.id)}">Who did what</a></div>
+          ${pr.length ? `<div class="cp-cards">${pr.map(card).join("")}</div>` : `<div class="empty">There are no emails in this campaign yet.</div>`}
+          <p class="cp-hint">Each person counts once, and a click counts as an open. "May be scanners" are opens and clicks that look like a work email filter checking the email, not a person; they are in the figure, shown beside it. Who did what lists the people behind each number.</p>
         </div>`;
-      if (!STATS) readStats().then((m) => { STATS = m; if (step === "insights") drawInsights(); });
+      if (!DEMO) mountThumbs($("cp-main"), supabase);
+      if (!STATS) readStats().then((m) => { STATS = m; if (step === "insights") drawInsights(); }).catch(() => { STATS = new Map(); if (step === "insights") drawInsights(); });
     }
 
     // ---- Loading ---------------------------------------------------------------
@@ -851,6 +876,8 @@ import "../../../styles/money-os.css";
           if (new Date(`${on}T${at}`) <= new Date()) { toast("That time has already passed. Pick a later one."); return; }
           it.node.config = { ...(it.node.config || {}), send_on: on, send_at: at };
           if (meta().plan) meta().plan.every = "custom";
+          // Its new date gets its own check for late joiners.
+          if (meta().topped_up) delete meta().topped_up[it.node.id];
           if (SIMPLE) { rebuild(); parse(); }
           editing = null; await save(true); await retimeHolds(); draw(); toast("Date changed."); return;
         }
