@@ -558,8 +558,21 @@ export function initBuilder(ctx) {
     toast(own ? (copies.length === 1 ? "1 design duplicated in this pack." : `${copies.length} designs duplicated in this pack.`) : `${copies.length} design${copies.length === 1 ? "" : "s"} copied from ${src.title}.`);
   }
 
+  /* See them together: four to a row as the Studio lists them, or three to a
+     row cropped the way an Instagram profile shows them (Danielle, 25 Nov). */
+  let SET_VIEW = "rows";
+  const IG_ICON = { carousel: '<svg class="pb-ig-type" viewBox="0 0 16 16" fill="#fff" stroke="#371e28" stroke-width="1" aria-label="Carousel"><rect x="5" y="1" width="10" height="10" rx="1.5"/><rect x="1" y="5" width="10" height="10" rx="1.5"/></svg>', reel: '<svg class="pb-ig-type" viewBox="0 0 16 16" fill="#fff" stroke="#371e28" stroke-width="1" aria-label="Reel"><path d="M3 1.5v13l11-6.5z"/></svg>' };
+  function setBody() {
+    const ig = SET_VIEW === "ig";
+    const on = (v) => `aria-pressed="${SET_VIEW === v}"`;
+    const tile = (r) => { const t = tplFor(r); return t && t.thumb_url ? `<div style="background-image:url('${esc(t.thumb_url)}')">${ig ? IG_ICON[r.post_type] || "" : ""}</div>` : `<div class="none">${esc(r.idea || (t && t.name) || "To make")}</div>`; };
+    const rows = ig ? ROWS.filter((r) => r.post_type !== "story") : ROWS;   // stories never reach a profile grid
+    return `<div class="chips pb-set-views" role="group" aria-label="View"><button type="button" data-setview="rows" ${on("rows")}>All designs</button><button type="button" data-setview="ig" ${on("ig")}>Instagram grid</button></div>
+      <p class="pb-hint">${ig ? "In the pack's order from the top left, each cropped to the shape Instagram's profile grid uses, so a little is trimmed off the sides. Stories are left out, because they don't appear on a profile grid. Rows still to make show as gaps." : "In the order members will see them in the Studio. Rows still to make show as gaps."}</p>
+      <div class="${ig ? "pb-ig" : "pb-set"}">${rows.map(tile).join("")}</div>`;
+  }
   function openSet() {
-    showPop("How the pack looks", esc(P.title), `<p class="pb-hint">In the order members will see them in the Studio. Rows still to make show as gaps.</p><div class="pb-set">${ROWS.map((r) => { const t = tplFor(r); return t && t.thumb_url ? `<div style="background-image:url('${esc(t.thumb_url)}')"></div>` : `<div class="none">${esc(r.idea || (t && t.name) || "To make")}</div>`; }).join("")}</div>`, '<button type="button" class="mbtn primary" data-close>Done</button>', true);
+    showPop("How the pack looks", esc(P.title), setBody(), '<button type="button" class="mbtn primary" data-close>Done</button>', true);
   }
 
   /* ---------------- Test pack ---------------- */
@@ -935,6 +948,7 @@ export function initBuilder(ctx) {
     if ((b = c("[data-unsend]"))) { const ids = (P.test_user_ids || []).filter((x) => x !== b.dataset.unsend); if (await setTestIds(ids, "Taken back from that Studio.")) openSendTo(); return; }
     if (c("[data-tickall]")) { pop.querySelectorAll("#pb-copy-grid input").forEach((x) => { x.checked = true; }); return; }
     if (c("[data-docopy]")) return doCopy();
+    if ((b = c("[data-setview]"))) { SET_VIEW = b.dataset.setview; pop.querySelector(".pb-pop-b").innerHTML = setBody(); pop.querySelector(".pb-pop-b").scrollTop = 0; return; }
     if ((b = c("[data-img]"))) { if (pop.dataset.mode === "img-cover") L.cover = b.dataset.img; else if (!L.gallery.includes(b.dataset.img)) L.gallery.push(b.dataset.img); closePop(); return drawPack(); }
     const r = openRowObj();
     if ((b = c("[data-pick]")) && r) return choose(r, b.dataset.pick);
