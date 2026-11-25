@@ -256,8 +256,33 @@ import "../../../styles/money-os.css";
       if (nodes.filter((n) => n.type !== "trigger").length !== seen.size) simple = false;
       ITEMS = out; SIMPLE = simple;
     }
+    // A check is answered the moment someone reaches it, and they reach it
+    // straight after the email before. So a check is given a wait in front of
+    // it that lasts until half an hour before the next email: "have they
+    // bought it?" is then asked a week later, not a second later. The wait
+    // keeps its id when dates change, because people may be standing on it.
+    const HOLD_MARGIN = 30;   // minutes before the next email
+    const momentOf = (c) => (isDate(c && c.send_on) && isTime(c && c.send_at) ? new Date(`${c.send_on}T${c.send_at}`).getTime() : null);
+    const isHold = (it) => !!it && it.kind === "wait" && !!(it.node.config && it.node.config.for_check);
+    function holdChecks() {
+      const out = [];
+      ITEMS.forEach((it, i) => {
+        if (isHold(it)) { if (ITEMS[i + 1] && ITEMS[i + 1].kind === "check") out.push(it); return; }
+        if (it.kind === "check") { const prev = out[out.length - 1]; if (!isHold(prev) && !(prev && prev.kind === "check")) out.push({ kind: "wait", node: { id: newId(), type: "wait", config: { amount: 0, unit: "minutes", for_check: true } } }); }
+        out.push(it);
+      });
+      out.forEach((it, i) => {
+        if (!isHold(it)) return;
+        let before = null, after = null;
+        for (let j = i - 1; j >= 0; j--) if (out[j].kind === "send") { before = momentOf(out[j].node.config); break; }
+        for (let j = i + 1; j < out.length; j++) if (out[j].kind === "send") { after = momentOf(out[j].node.config); break; }
+        it.node.config.amount = before != null && after != null && after > before ? Math.max(0, Math.round((after - before) / 60000) - HOLD_MARGIN) : 0;
+      });
+      ITEMS = out;
+    }
     // The list back into a graph: one line from the trigger.
     function rebuild() {
+      holdChecks();
       const nodes = [{ id: "trigger", type: "trigger", x: 360, y: 40, config: {} }]; const edges = [];
       let prev = "trigger", branch = "next";
       ITEMS.forEach((it, i) => {
@@ -570,13 +595,20 @@ import "../../../styles/money-os.css";
     function drawSchedule() {
       const pr = progress(); const can = SIMPLE && A.status !== "archived"; const t = tags();
       let rows = `<div class="cp-row"><span class="cp-dot start"></span><div class="cp-rt"><b>Start: ${t.length ? `everyone tagged ${esc(t.join(" or "))}` : "nobody chosen yet"}</b><span>${draft() ? "They are added on the day you approve it" : `${plural(LIVE, "person is", "people are")} in it now`}</span></div><span></span></div>`;
-      let prevDate = "";
-      ITEMS.forEach((it) => {
+      let prevDate = "", gapDue = false;
+      const nextDate = (from) => { for (let j = from; j < ITEMS.length; j++) if (ITEMS[j].kind === "send") { const d = (ITEMS[j].node.config || {}).send_on; return isDate(d) ? d : ""; } return ""; };
+      ITEMS.forEach((it, idx) => {
         const id = esc(it.node.id); const c = it.node.config || {};
+        if (isHold(it)) return;   // shown as the wait row below
+        // The wait between two dated emails, placed before whatever comes next: a check or the email.
+        if ((it.kind === "send" || it.kind === "check") && gapDue && prevDate) {
+          const nd = nextDate(idx); const g = nd ? gapText(prevDate, nd) : "";
+          if (g) rows += `<div class="cp-row soft"><span class="cp-dot wait"></span><div class="cp-rt"><span>${g}</span></div><span></span></div>`;
+          gapDue = false;
+        }
         if (it.kind === "send") {
           const p = pr.find((x) => x.it === it);
-          if (prevDate && isDate(c.send_on)) { const g = gapText(prevDate, c.send_on); if (g) rows += `<div class="cp-row soft"><span class="cp-dot wait"></span><div class="cp-rt"><span>${g}</span></div><span></span></div>`; }
-          if (isDate(c.send_on)) prevDate = c.send_on;
+          if (isDate(c.send_on)) { prevDate = c.send_on; gapDue = true; }
           rows += `<div class="cp-row"><span class="cp-dot"></span><div class="cp-rt"><b>Send email ${p.n}${p.email ? ": " + esc(p.email.name) : ""}</b><span>${esc(stepWhen(it.node) || "No date yet")}${p.sent ? ` · sent${p.count ? " to " + p.count : ""}` : p.email ? "" : " · not written yet"}</span></div>${can && !p.sent ? `<button type="button" class="mbtn small" data-change="${id}">Change</button>` : "<span></span>"}</div>`;
           if (editing === it.node.id) rows += `<div class="cp-edit"><label><span class="cp-lab">Date</span><input type="date" id="sc-on" value="${esc(c.send_on || "")}" min="${todayLondon()}" /></label><label><span class="cp-lab">Time</span><input type="time" id="sc-at" value="${esc(c.send_at || "")}" /></label><button type="button" class="mbtn primary" data-savewhen="${id}">Save</button><button type="button" class="mbtn" data-cancel>Cancel</button></div>`;
         } else if (it.kind === "check") {
@@ -584,7 +616,7 @@ import "../../../styles/money-os.css";
           const isTag = (c.field || "has_tag") === "has_tag" || c.field === "tag";
           const tagQ = (c.op || "is") === "is_not" ? "are they without" : "do they have";
           const q = isTag ? `${tagQ} ${want.length ? "the tag " + esc(want.join(" or ")) : "a tag (none chosen)"}?` : `${esc(c.field)} ${esc(c.op || "is")} ${esc(c.value || "")}?`;
-          rows += `<div class="cp-row"><span class="cp-dot check"></span><div class="cp-rt"><b>Check: ${q}</b><span>Looked at for each person just before the next email</span></div>${can && draft() ? `<button type="button" class="mbtn small" data-change="${id}">Change</button>` : "<span></span>"}</div>`;
+          rows += `<div class="cp-row"><span class="cp-dot check"></span><div class="cp-rt"><b>Check: ${q}</b><span>${isHold(ITEMS[idx - 1]) || (ITEMS[idx - 1] && ITEMS[idx - 1].kind === "check") ? "Looked at for each person about half an hour before the next email" : "Looked at for each person straight after the email before it"}</span></div>${can && draft() ? `<button type="button" class="mbtn small" data-change="${id}">Change</button>` : "<span></span>"}</div>`;
           const line = (yes) => `<div class="cp-row branch"><span class="cp-dot none"></span><div class="cp-rt"><b><span class="cp-yn${yes ? "" : " no"}">${yes ? "Yes" : "No"}</span>${(it.leaves === "yes") === yes ? "They leave the campaign" : "They carry on"}</b><span>${(it.leaves === "yes") === yes ? "No more of these emails" : "On to the next email below"}</span></div><span></span></div>`;
           rows += line(true) + line(false);
           if (editing === it.node.id) rows += `<div class="cp-edit"><label class="grow"><span class="cp-lab">Leave the campaign if they have the tag</span><select id="sc-tag">${tagOptions(want[0] || "")}</select></label><button type="button" class="mbtn primary" data-savecheck="${id}">Save</button><button type="button" class="mbtn danger" data-dropcheck="${id}">Remove the check</button><button type="button" class="mbtn" data-cancel>Cancel</button></div>`;
@@ -629,6 +661,27 @@ import "../../../styles/money-os.css";
       $("sc-who").textContent = draft() ? `${plural(w.ok, "person", "people")} would get it today` : `${plural(w.ok, "person", "people")} carry that tag today`;
       $("sc-out").textContent = w.total > w.ok ? `${w.total - w.ok} left out: ${kind() === "marketing" ? "not opted in, unsubscribed or do-not-contact" : "unsubscribed or do-not-contact"}` : "";
       if (first && draft() && w.ok === 0) drawSchedule();
+    }
+    // A UK date and time as a moment, whatever clock this browser keeps.
+    function ukMoment(on, at) {
+      const [y, m, d] = on.split("-").map(Number); const [hh, mm] = at.split(":").map(Number);
+      const guess = Date.UTC(y, m - 1, d, hh, mm);
+      const shown = new Date(new Date(guess).toLocaleString("en-US", { timeZone: "Europe/London" }));
+      const utc = new Date(new Date(guess).toLocaleString("en-US", { timeZone: "UTC" }));
+      return guess - (shown - utc);
+    }
+    // On a running campaign, people held before a check were given their
+    // moment when they arrived. After a date change, move them to the new one.
+    async function retimeHolds() {
+      if (DEMO || A.status !== "active") return;
+      for (let i = 0; i < ITEMS.length; i++) {
+        if (!isHold(ITEMS[i]) || !ITEMS[i + 1]) continue;
+        const next = ITEMS.slice(i + 1).find((x) => x.kind === "send"); const c = next && next.node.config;
+        if (!c || !isDate(c.send_on) || !isTime(c.send_at)) continue;
+        const target = ukMoment(c.send_on, c.send_at) - HOLD_MARGIN * 60000;
+        if (target <= Date.now()) continue;
+        try { await supabase.from("automation_enrollments").update({ next_run_at: new Date(target).toISOString() }).eq("automation_id", A.id).eq("current_node_id", ITEMS[i + 1].node.id).eq("status", "active").gt("next_run_at", new Date().toISOString()); } catch (_) {}
+      }
     }
     async function everyoneIds() {
       const ids = [];
@@ -796,7 +849,8 @@ import "../../../styles/money-os.css";
           if (new Date(`${on}T${at}`) <= new Date()) { toast("That time has already passed. Pick a later one."); return; }
           it.node.config = { ...(it.node.config || {}), send_on: on, send_at: at };
           if (meta().plan) meta().plan.every = "custom";
-          editing = null; await save(true); draw(); toast("Date changed."); return;
+          if (SIMPLE) { rebuild(); parse(); }
+          editing = null; await save(true); await retimeHolds(); draw(); toast("Date changed."); return;
         }
         if (t.closest("[data-savecheck]")) {
           const it = find(t.closest("[data-savecheck]").dataset.savecheck); const tag = $("sc-tag").value;
