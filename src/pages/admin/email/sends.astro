@@ -134,6 +134,7 @@ import "../../../styles/money-os.css";
     import { TAG_NOTES, loadPackTagGroup, withPackTags } from "../../../lib/contact-tags.js";
     import { isSingle, sendSteps, stepWhen, sentToLine, todayLondon } from "../../../lib/email-campaigns.js";
     import { renderTemplate, mergeContextFor, defaultBrand, SAMPLE_RECIPIENT } from "../../../lib/email-render.js";
+    import { loadEmails, copyAsEmail } from "../../../lib/email-library.js";
 
     const DEV = import.meta.env.DEV;
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -210,7 +211,7 @@ import "../../../styles/money-os.css";
       else if (st === "scheduled") who = plural(live, "person", "people");
       if (open) who += `${who ? ". " : ""}New people with the tag still get it`;
       let acts = "";
-      if (st === "draft") acts = `<button type="button" class="mbtn small primary" data-edit="${esc(a.id)}">Carry on</button><button type="button" class="mbtn small danger" data-del="${esc(a.id)}">Delete</button>`;
+      if (st === "draft") acts = `<button type="button" class="mbtn small primary" data-edit="${esc(a.id)}">Carry on</button>${t ? `<a class="mbtn small" href="/admin/email/editor?id=${encodeURIComponent(t.id)}">Edit email</a>` : ""}<button type="button" class="mbtn small danger" data-del="${esc(a.id)}">Delete</button>`;
       else if (st === "scheduled" || st === "paused" || st === "empty") acts = `<a class="mbtn small" href="/admin/automations/audit?id=${id}">Who gets it</a><a class="mbtn small" href="/admin/automations/edit?id=${id}">Change</a><button type="button" class="mbtn small danger" data-cancel="${esc(a.id)}">Cancel send</button>`;
       else acts = `<a class="mbtn small" href="/admin/automations/audit?id=${id}">Report</a><button type="button" class="mbtn small" data-again="${esc(a.id)}">Send again</button>`;
       return `<tr>
@@ -236,10 +237,11 @@ import "../../../styles/money-os.css";
     }
 
     async function load() {
-      const [autos, tpls] = await Promise.all([
+      const [autos, lib] = await Promise.all([
         supabase.from("automations").select("*").order("updated_at", { ascending: false }),
-        supabase.from("email_templates").select("id, name, subject, status, updated_at").neq("status", "archived").order("updated_at", { ascending: false }),
+        loadEmails(supabase, { light: true }),
       ]);
+      const tpls = { data: lib.rows.filter((t) => t.status !== "archived") };
       if (autos.error) { $("es-state").textContent = "Couldn't read the sends: " + autos.error.message; $("es-state").classList.add("bad"); return; }
       ALL = (autos.data || []).filter(isSingle);
       TPLS = tpls.data || [];
@@ -297,7 +299,7 @@ import "../../../styles/money-os.css";
           <div class="es-pb">
             <section class="es-sec">
               <div class="strip"><span class="strip-t">1 Which email</span></div>
-              <div class="es-row"><input type="search" class="grow" id="es-tq" placeholder="Search your templates" aria-label="Search your templates" /></div>
+              <div class="es-row"><input type="search" class="grow" id="es-tq" placeholder="Search your templates and emails" aria-label="Search your templates and emails" /></div>
               <div class="es-tpls" id="es-tpls"></div>
               <div class="es-row" id="es-tmore"></div>
             </section>
@@ -355,14 +357,17 @@ import "../../../styles/money-os.css";
 
     function drawTpls() {
       const list = TPLS.filter((t) => !P.tq || (t.name || "").toLowerCase().includes(P.tq) || (t.subject || "").toLowerCase().includes(P.tq));
-      // The chosen email leads, so it is always on show.
-      list.sort((x, y) => (y.id === P.tpl ? 1 : 0) - (x.id === P.tpl ? 1 : 0));
+      // The chosen email leads, so it is always on show; then saved templates, then the rest.
+      const rank = (t) => (t.id === P.tpl ? 0 : t.is_template ? 1 : 2);
+      list.sort((x, y) => rank(x) - rank(y));
       const shown = P.allTpls || P.tq ? list : list.slice(0, 6);
       $("es-tpls").innerHTML = shown.length ? shown.map((t) => `<button type="button" class="es-tpl" data-tpl="${esc(t.id)}" aria-pressed="${t.id === P.tpl}">
-          <div class="es-thumb" aria-hidden="true"><i></i><i></i><i></i><i></i></div><b>${esc(t.name)}</b><span>${esc(t.subject || "No subject yet")}${t.status === "draft" ? " · draft" : ""}</span>
-        </button>`).join("") : `<p class="es-note">${TPLS.length ? "No template matches that." : "There are no templates yet. Make one under Templates first."}</p>`;
-      $("es-tmore").innerHTML = (!P.allTpls && !P.tq && list.length > 6)
-        ? `<span class="es-note grow">Showing your 6 most recent of ${list.length}.</span><button type="button" class="es-link" id="es-tall">See every template</button>` : "";
+          <div class="es-thumb" aria-hidden="true"><i></i><i></i><i></i><i></i></div><b>${esc(t.name)}</b><span>${t.is_template ? `Template${t.area ? " · " + esc(t.area) : ""}` : esc(t.subject || "No subject yet") + (t.status === "draft" ? " · draft" : "")}</span>
+        </button>`).join("") : `<p class="es-note">${TPLS.length ? "No template matches that." : "There are no emails yet. Design one under Templates first."}</p>`;
+      const chosen = TPLS.find((t) => t.id === P.tpl);
+      const note = chosen && chosen.is_template ? "That one is a template. The send uses its own copy, so the template stays as it is."
+        : (!P.allTpls && !P.tq && list.length > 6) ? `Showing 6 of ${list.length}: your templates first, then your latest emails.` : "";
+      $("es-tmore").innerHTML = `<span class="es-note grow">${note}</span>${(!P.allTpls && !P.tq && list.length > 6) ? `<button type="button" class="es-link" id="es-tall">See every email</button>` : ""}`;
     }
 
     function drawWho() {
@@ -462,7 +467,18 @@ import "../../../styles/money-os.css";
         graph: { nodes: [{ id: "trigger", type: "trigger", x: 360, y: 40, config: {} }, { id: nodeId, type: "send_email", x: 360, y: 200, config: cfg }], edges: [{ from: "trigger", to: nodeId, branch: "next" }], meta },
       };
     }
+    // A template is never sent itself: the send gets its own copy, made the
+    // first time the send is saved, so the template stays as it is.
+    async function ownCopy() {
+      const t = TPLS.find((x) => x.id === P.tpl);
+      if (!t || !t.is_template) return;
+      const r = await copyAsEmail(supabase, t, { name: t.name, status: "active" });
+      if (r.error) throw r.error;
+      TPLS.unshift({ id: r.data.id, name: r.data.name, subject: r.data.subject, status: r.data.status, updated_at: r.data.updated_at });
+      P.tpl = r.data.id;
+    }
     async function saveDraft() {
+      await ownCopy();
       const rec = record();
       if (P.id) { const { error } = await supabase.from("automations").update(rec).eq("id", P.id).eq("status", "draft"); if (error) throw error; return P.id; }
       const { data, error } = await supabase.from("automations").insert({ ...rec, status: "draft" }).select("id").single();

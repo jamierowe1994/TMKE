@@ -2,6 +2,7 @@
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import "../../../styles/admin.css";
 import { FONT_STACKS } from "../../../lib/email-render.js";
+import { AREAS } from "../../../lib/email-campaigns.js";
 
 // "" is a real choice here, not a placeholder: it means "leave it to the block
 // / the built-in default", which is what an untouched base should do.
@@ -30,6 +31,7 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-preview">Preview</button>
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-sendtest">Send test</button>
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-copyhtml" title="The rendered HTML, exactly as it goes out — for a spam-score checker or a client preview">Copy HTML</button>
+      <button type="button" class="eb-btn eb-btn-ghost" id="eb-savetpl" title="Keep a copy of this email in Templates, to use again">Save as template</button>
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-save">Save</button>
       <button type="button" class="eb-btn eb-btn-solid" id="eb-activate">Activate</button>
     </div>
@@ -137,6 +139,26 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
         </label>
       </div>
       <p class="eb-note">Tagging a trigger reserves this template for that event (one active template per trigger). Automatic sending on these events is the next phase — for now templates are sent manually.</p>
+    </div>
+  </div>
+
+  <!-- Save as a template (Danielle, 25 Nov 2026): a copy goes into Email ›
+       Templates with a title, the area of the business and a description.
+       On a template itself, the same pop-out edits those three. -->
+  <div class="eb-modal" id="eb-modal-tpl" hidden>
+    <div class="eb-modal-card">
+      <div class="eb-modal-head"><h3 id="tpl-h">Save as a template</h3><button type="button" class="eb-modal-x" data-close>✕</button></div>
+      <p class="eb-note" id="tpl-note" style="margin:0 0 14px;">A copy goes into Templates. The email you are working on stays as it is.</p>
+      <label class="eb-f"><span>Title</span><input id="tpl-title" maxlength="120" autocomplete="off" /></label>
+      <label class="eb-f"><span>What area of the business is this for?</span>
+        <select id="tpl-area"><option value="">Choose an area</option>{AREAS.map((a) => <option value={a}>{a}</option>)}</select>
+      </label>
+      <label class="eb-f"><span>Description</span><textarea id="tpl-desc" rows="3" maxlength="400" placeholder="What is it for, and when would you use it?"></textarea></label>
+      <p class="eb-note" id="tpl-err" style="color:#8a3f3f;margin:0 0 10px;" hidden></p>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" class="eb-btn eb-btn-ghost" data-close>Cancel</button>
+        <button type="button" class="eb-btn eb-btn-solid" id="tpl-go">Save template</button>
+      </div>
     </div>
   </div>
 
@@ -517,6 +539,7 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
   <script>
     import { supabase, isConfigured } from "../../../lib/supabase.js";
     import { requireAdmin } from "../../../lib/admin-gate.js";
+    import { saveAsTemplate, updateTemplateDetails } from "../../../lib/email-library.js";
     import {
       renderTemplate, renderBlock, mergeContextFor, defaultBrand,
       BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT, COLUMN_LAYOUTS,
@@ -1749,6 +1772,39 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     }
     $("#eb-save").addEventListener("click", ()=>save());
     $("#eb-activate").addEventListener("click", ()=>save({activate:true}));
+
+    /* ─────────── save as a template ─────────── */
+    // An email only goes into Templates when someone says so, and as a copy:
+    // the one being worked on carries on as it is. Open on a template, the
+    // same pop-out changes its title, area and description instead.
+    const isTemplate=()=>!!(loaded&&loaded.is_template);
+    function syncTplButton(){ $("#eb-savetpl").textContent=isTemplate()?"Template details":"Save as template"; }
+    $("#eb-savetpl").addEventListener("click", ()=>{
+      const t=isTemplate();
+      $("#tpl-h").textContent=t?"Template details":"Save as a template";
+      $("#tpl-note").textContent=t?"This is a template. Emails made from it are copies, so changing it never changes an email that has gone out."
+        :"A copy goes into Templates. The email you are working on stays as it is.";
+      $("#tpl-title").value=(state.name||"").trim();
+      $("#tpl-area").value=t?(loaded.area||""):"";
+      $("#tpl-desc").value=t?(loaded.description||""):"";
+      $("#tpl-go").textContent=t?"Save details":"Save template";
+      $("#tpl-err").hidden=true;
+      openModal("#eb-modal-tpl"); $("#tpl-title").focus();
+    });
+    $("#tpl-go").addEventListener("click", async ()=>{
+      const err=$("#tpl-err"), say=(m)=>{ err.textContent=m; err.hidden=false; };
+      const fields={ title:$("#tpl-title").value.trim(), area:$("#tpl-area").value, description:$("#tpl-desc").value };
+      if(!fields.title){ say("Give the template a title."); $("#tpl-title").focus(); return; }
+      if(!fields.area){ say("Choose the area of the business it is for."); $("#tpl-area").focus(); return; }
+      if(!isConfigured){ say("Connect Supabase to save (works on the live site)."); return; }
+      const t=isTemplate(), btn=$("#tpl-go"); btn.disabled=true;
+      const r=t ? await updateTemplateDetails(supabase,id,fields) : await saveAsTemplate(supabase,gather(),fields);
+      btn.disabled=false;
+      if(r.error){ say(r.needsSql ? "Templates need one database step first: run supabase/email_templates_library.sql in the Supabase SQL editor." : `Couldn't save: ${r.error.message}`); return; }
+      if(t){ loaded=r.data; state.name=r.data.name||""; nameEl.value=state.name; $("#s-name").value=state.name; }
+      closeModal($("#eb-modal-tpl"));
+      toast(t?"Template details saved ✓":"Saved to Templates ✓");
+    });
     $("#eb-undo").addEventListener("click", undo);
     $("#eb-redo").addEventListener("click", redo);
     document.addEventListener("keydown",(e)=>{
@@ -1908,6 +1964,7 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
       } else { seedSample(); }
       await loadBrandKit();   // pull the shared brand colours (→ swatches) + logo
       fillMeta();
+      syncTplButton();
       booted = true;   // now user edits count as dirty (enables autosave)
       history=[]; histIndex=-1; pushHistory();  // baseline = the loaded/seeded state
     })();
