@@ -172,7 +172,7 @@ import "../../../styles/money-os.css";
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase } from "../../../lib/supabase.js";
     import { TAG_NOTES, loadPackTagGroup, withPackTags } from "../../../lib/contact-tags.js";
-    import { AREAS, areaOf, stepWhen, todayLondon } from "../../../lib/email-campaigns.js";
+    import { AREAS, areaOf, stepWhen, todayLondon, isPrevious } from "../../../lib/email-campaigns.js";
     import { loadEmails, copyAsEmail, saveAsTemplate } from "../../../lib/email-library.js";
     import { renderTemplate, mergeContextFor, defaultBrand, SAMPLE_RECIPIENT } from "../../../lib/email-render.js";
 
@@ -317,17 +317,19 @@ import "../../../styles/money-os.css";
     // ---- The frame -------------------------------------------------------------
     function frame() {
       const m = meta(); const pr = progress();
-      const status = { draft: "Being planned", active: "Running", paused: "Paused", archived: "Finished" }[A.status] || "";
+      // Live with every dated email gone and nobody left in it: finished, as the Campaigns list has it.
+      const over = A.status === "active" && isPrevious(A, LIVE);
+      const status = over ? "Finished" : ({ draft: "Being planned", active: "Running", paused: "Paused", archived: "Finished" }[A.status] || "");
       $("cp-eye").textContent = ["Campaign", areaOf(A), status].filter(Boolean).join(" · ");
       $("cp-name").textContent = A.name || "Untitled campaign";
       const t = tags(); const dated = pr.map((p) => p.it.node.config || {}).filter((c) => isDate(c.send_on)).sort((x, y) => x.send_on.localeCompare(y.send_on));
       $("cp-line").textContent = [plural(pr.length, "email", "emails"), dated.length ? `from ${stepWhen({ config: dated[0] })}` : "", t.length ? `to everyone tagged ${t.join(" or ")}` : ""].filter(Boolean).join(", ") + ".";
-      $("cp-ban-acts").innerHTML = `${A.status === "active" ? `<button type="button" class="mbtn" data-do="pause">Pause</button>` : ""}<button type="button" class="mbtn" data-do="dupe">Duplicate</button><a class="mbtn" href="/admin/automations/edit?id=${encodeURIComponent(A.id)}">Step builder</a>`;
+      $("cp-ban-acts").innerHTML = `${A.status === "active" && !over ? `<button type="button" class="mbtn" data-do="pause">Pause</button>` : ""}<button type="button" class="mbtn" data-do="dupe">Duplicate</button><a class="mbtn" href="/admin/automations/edit?id=${encodeURIComponent(A.id)}">Step builder</a>`;
       const written = pr.filter((p) => p.email).length, sent = pr.filter((p) => p.sent).length;
       const side = {
         plan: draft() ? (pr.length ? "Done" : "Start here") : "Done",
         emails: pr.length ? `${written} of ${pr.length} written` : "None yet",
-        schedule: draft() ? "Check and approve" : A.status === "paused" ? "Paused" : A.status === "archived" ? "Finished" : "Approved",
+        schedule: draft() ? "Check and approve" : A.status === "paused" ? "Paused" : A.status === "archived" || over ? "Finished" : "Approved",
         insights: sent ? `${sent} of ${pr.length} sent` : "After the first send",
       };
       $("cp-steps").innerHTML = STEPS.map(([k, label], i) => `<button type="button" data-step="${k}" ${k === step ? 'aria-current="step"' : ""}><i>${i + 1}</i><b>${label}</b><span>${esc(side[k])}</span></button>`).join("");
@@ -609,7 +611,7 @@ import "../../../styles/money-os.css";
         if (it.kind === "send") {
           const p = pr.find((x) => x.it === it);
           if (isDate(c.send_on)) { prevDate = c.send_on; gapDue = true; }
-          rows += `<div class="cp-row"><span class="cp-dot"></span><div class="cp-rt"><b>Send email ${p.n}${p.email ? ": " + esc(p.email.name) : ""}</b><span>${esc(stepWhen(it.node) || "No date yet")}${p.sent ? ` · sent${p.count ? " to " + p.count : ""}` : p.email ? "" : " · not written yet"}</span></div>${can && !p.sent ? `<button type="button" class="mbtn small" data-change="${id}">Change</button>` : "<span></span>"}</div>`;
+          rows += `<div class="cp-row"><span class="cp-dot"></span><div class="cp-rt"><b>Send email ${p.n}${p.email ? ": " + esc(p.email.name) : ""}</b><span>${esc(stepWhen(it.node) || "No date yet")}${p.sent ? " · sent" : p.email ? "" : " · not written yet"}</span></div>${can && !p.sent ? `<button type="button" class="mbtn small" data-change="${id}">Change</button>` : "<span></span>"}</div>`;
           if (editing === it.node.id) rows += `<div class="cp-edit"><label><span class="cp-lab">Date</span><input type="date" id="sc-on" value="${esc(c.send_on || "")}" min="${todayLondon()}" /></label><label><span class="cp-lab">Time</span><input type="time" id="sc-at" value="${esc(c.send_at || "")}" /></label><button type="button" class="mbtn primary" data-savewhen="${id}">Save</button><button type="button" class="mbtn" data-cancel>Cancel</button></div>`;
         } else if (it.kind === "check") {
           const want = Array.isArray(c.values) && c.values.length ? c.values : (c.value ? [c.value] : []);
