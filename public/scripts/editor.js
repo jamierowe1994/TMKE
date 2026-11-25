@@ -7277,6 +7277,12 @@ import { createResizeEngine } from "./resize-engine.js";
   async function addImage(src) {
     // Choosing a background from the Images panel (Background › Search the gallery).
     if (_bgPick) { setCanvasBackgroundImage(src); return; }
+    // Choosing a picture for a row of the Edit list (its Choose from the gallery or your uploads).
+    if (_fieldPick) {
+      // The item has gone (deleted, or another page): back to the list rather than a loose picture.
+      if (!putFieldPicture(_fieldPick, src)) { showFieldPick(null); openTool("fields"); }
+      return;
+    }
     // If exactly one frame is selected, treat this as a "fill the frame"
     // action rather than adding a new floating image. This matches the
     // user's mental model: pick a frame, then pick a photo.
@@ -16580,6 +16586,7 @@ import { createResizeEngine } from "./resize-engine.js";
   const _paneScroll = {};
   function showPane(name) {
     if (name !== "photos" && _bgPick) showBgPick(false);
+    if (name !== "photos" && _fieldPick) showFieldPick(null);
     const scroller = document.querySelector(".ed-panel");
     const was = document.querySelector(".ed-panel-pane.is-active");
     const wasName = was && was.dataset.pane;
@@ -17505,6 +17512,46 @@ import { createResizeEngine } from "./resize-engine.js";
     renderFieldsPane();
   }
 
+  // A picture into a row's item: a frame is filled, a photo slot placed, anything else swapped.
+  function putFieldPicture(id, chosen) {
+    const tgt = getEl(id);
+    if (!tgt || !chosen) return false;
+    if (tgt.type === "frame") fillFrame(tgt, chosen);
+    else if (tgt.brandRole === "photo") { tgt.src = chosen; delete tgt.autoPhoto; placeBrandPhoto(tgt, chosen); fullRender(); }
+    else { tgt.src = chosen; fullRender(); }
+    rememberPrintPic(chosen);
+    pushHistory();
+    renderProps();
+    return true;
+  }
+  /* Edit, a picture row, Choose from the gallery or your uploads (Danielle,
+     25 Nov): opens Images the way Background's Search the gallery does.
+     While the note at the top of Images shows, any photo picked there (a
+     search result or an upload) goes into that row's picture, so several
+     can be tried. Leaving Images, or Back to Edit, ends it. A print member
+     has no Images tab of their own, so this is their one way in, and the
+     rail lets them stay there while it lasts (syncPrintRail). */
+  var _fieldPick = null;
+  function showFieldPick(id) {
+    _fieldPick = id || null;
+    const note = $("ed-fieldpick");
+    if (note) note.hidden = !_fieldPick;
+  }
+  function startFieldPick(el) {
+    if (_bgPick) showBgPick(false);
+    _fieldPick = el.id;   // before the pane opens, so the print rail keeps it open
+    openTool("photos");
+    showFieldPick(el.id);
+    const tab = document.querySelector('[data-itab="search"]');
+    if (tab) tab.click();
+    const input = $("ed-stock-input");
+    if (input) { try { input.focus({ preventScroll: true }); } catch (_) { input.focus(); } }
+  }
+  (function () {
+    const back = $("ed-fieldpick-done");
+    if (back) back.addEventListener("click", function () { showFieldPick(null); openTool("fields"); });
+  })();
+
   // The thing you actually change: words for text, a picture for a picture.
   function fieldControlFor(el, admin) {
     if (el.type === "text" && el.brandRole !== "logo") {
@@ -17626,16 +17673,7 @@ import { createResizeEngine } from "./resize-engine.js";
       panel.className = "ed-field-pick";
       panel.hidden = true;
 
-      const put = function (chosen) {
-        const tgt = getEl(el.id);
-        if (!tgt || !chosen) return;
-        if (tgt.type === "frame") fillFrame(tgt, chosen);
-        else if (tgt.brandRole === "photo") { tgt.src = chosen; delete tgt.autoPhoto; placeBrandPhoto(tgt, chosen); fullRender(); }
-        else { tgt.src = chosen; fullRender(); }
-        rememberPrintPic(chosen);
-        pushHistory();
-        renderProps();
-      };
+      const put = function (chosen) { putFieldPicture(el.id, chosen); };
       const takeFiles = function (files) {
         const file = files && files[0];
         if (!file) return;
@@ -17657,6 +17695,13 @@ import { createResizeEngine } from "./resize-engine.js";
         takeFiles(e.dataTransfer && e.dataTransfer.files);
       });
       panel.appendChild(drop);
+      // Or from Images: the gallery search and their uploads (Danielle, 25 Nov).
+      const lib = document.createElement("button");
+      lib.type = "button";
+      lib.className = "ed-bg-imgmenu-search";
+      lib.textContent = "Choose from the gallery or your uploads";
+      lib.addEventListener("click", function () { startFieldPick(el); });
+      panel.appendChild(lib);
 
       const previous = printPicsList();
       if (previous.length) {
@@ -17794,7 +17839,8 @@ import { createResizeEngine } from "./resize-engine.js";
       }
     }
     // Landing on a pane that is no longer there leaves an empty panel.
-    if (on && PRINT_MEMBER_HIDDEN.indexOf(activeToolPane) !== -1) openTool("fields");
+    // (Images stays open while a picture is being chosen for a row.)
+    if (on && PRINT_MEMBER_HIDDEN.indexOf(activeToolPane) !== -1 && !(activeToolPane === "photos" && _fieldPick)) openTool("fields");
   }
   // Where the assistant sits when it is not on the rail.
   var _askHome = null, _askHomeAt = null;
@@ -18784,6 +18830,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (note) note.hidden = !on;
   }
   function startBgPick() {
+    if (_fieldPick) showFieldPick(null);
     openTool("photos");
     showBgPick(true);
     const tab = document.querySelector('[data-itab="search"]');
