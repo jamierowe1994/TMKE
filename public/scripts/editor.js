@@ -10394,7 +10394,7 @@ import { createResizeEngine } from "./resize-engine.js";
        mirrored. ground is the wine, c1 the dark brown blocks and fine lines,
        c2 the oat, c3 the cream line. Drawn on a canvas (xpWovenTile). */
     { key: "wtartan", name: "Christmas tartan", raster: true,
-      cols: { ground: "#5A1B1B", c1: "#2E2119", c2: "#B9987D", c3: "#DCC7A8" },
+      cols: { ground: "#4C1917", c1: "#2B1E16", c2: "#AE8E76", c3: "#CDB69A" },
       warp: [["c1", 13.2], ["c3", 1.3], ["c1", 1.05], ["c3", 1.3], ["c1", 5.3], ["ground", 23], ["c1", 15.2], ["c2", 5.3], ["c1", 1], ["c2", 1.6], ["c1", 1], ["c2", 20.4],
         ["ground", 4], ["c3", 1], ["ground", 5.3], ["c1", 13.8], ["c3", 1.3], ["c1", 1.3], ["c3", 1.3], ["c1", 4], ["ground", 23.5]],
       weft: [["ground", 11.2], ["c3", 1.3], ["c1", 1.3], ["c3", 1.3], ["c1", 15.2], ["ground", 5.3], ["c3", 1.3], ["ground", 2.6], ["c2", 19.1], ["c1", 1], ["c2", 1.3], ["c1", 1.3], ["c2", 6.6],
@@ -10404,11 +10404,14 @@ import { createResizeEngine } from "./resize-engine.js";
   XP_PATTERNS.forEach(function (p) {
     if (!p.raster) return;
     const sum = function (l) { return l.reduce(function (a, b) { return a + b[1]; }, 0); };
+    // 20% bigger than measured (Danielle, 25 Nov: "slightly too small").
+    p.warp = p.warp.map(function (b) { return [b[0], b[1] * 1.2]; });
+    p.weft = p.weft.map(function (b) { return [b[0], b[1] * 1.2]; });
     p.tw = sum(p.warp); p.th = sum(p.weft);
   });
 
   // Traditional painted stripes taken off the list (Danielle, 20 Nov); designs using it keep their colours.
-  var XP_PRESETS = [{"p":"stripes","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","ground":"#FFF3EF"},"scale":100,"main":"#FFF3EF","accent":"#612520"},{"p":"stripes","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stripes","name":"Neutral","route":null,"cols":{"c1":"#C9BCB7","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#7F444C"},{"p":"flower","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#5C5E31","c3":"#430E18","ground":"#430E18"},"scale":85,"main":"#EAE5E1","accent":"#7F444C"},{"p":"flower","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#767154","c3":"#767154","ground":"#EAE5E1"},"scale":90,"main":"#EAE5E1","accent":"#612520"},{"p":"tartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#E4C7C1","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"tartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#3B3B3C"},{"p":"tartan","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#612520"},"scale":100,"main":"#EAE5E1","accent":"#5C5E31"},{"p":"fir","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#5C5E31","c2":"#5C5E31","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#5C5E31"},{"p":"fir","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#767154","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"fir","name":"Candy Cane","route":"candy","cols":{"c1":"#F1F1F1","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"fir","name":"Cranberry","route":null,"cols":{"c1":"#6E7B47","c2":"#6E7B47","ground":"#371E28"},"scale":100,"main":"#EAE5E1","accent":"#6E7B47"},{"p":"bows","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"bows","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#E8DCC6","ground":"#767154"},"scale":100,"main":"#EAE5E1","accent":"#6F171F"},{"p":"bows","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#FFFFFF","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"bows","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#EAE5E1","ground":"#EAE5E1"},"scale":100,"main":"#EAE5E1","accent":"#612520"},{"p":"stars","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#7F444C","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#7F444C"},{"p":"stars","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#F1F1F1","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stars","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","c2":"#BF9B7A","ground":"#191E16"},"scale":100,"main":"#EAE5E1","accent":"#612520"},{"p":"fstripe","name":"Cocoa & Sky","route":null,"cols":{"c1":"#4B2E22","c2":"#F1EBDF","ground":"#A9BDC9"},"scale":100,"main":"#F1EBDF","accent":"#4B2E22"},{"p":"fstripe","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"fstripe","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#EAE5E1","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"fstripe","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#F1F1F1","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"ftartan","name":"Olive","route":null,"cols":{"c1":"#2E2A1D","c2":"#7C7A55","ground":"#4E4C33"},"scale":100,"main":"#EAE5E1","accent":"#4E4C33"},{"p":"ftartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#E4C7C1","ground":"#612520"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"ftartan","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#767154"},"scale":100,"main":"#F5EDDA","accent":"#191E16"},{"p":"ftartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#3B3B3C"},{"p":"fcheck","name":"Charcoal","route":null,"cols":{"c1":"#5A4F47","c2":"#3A322D","ground":"#2C2622"},"scale":100,"main":"#EAE5E1","accent":"#2C2622"},{"p":"fcheck","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#612520","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"fcheck","name":"Traditional","route":"traditional","cols":{"c1":"#767154","c2":"#6F171F","ground":"#191E16"},"scale":100,"main":"#F5EDDA","accent":"#191E16"},{"p":"fcheck","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#E31F36","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"wtartan","name":"Wine & Oat","route":null,"cols":{"ground":"#5A1B1B","c1":"#2E2119","c2":"#B9987D","c3":"#DCC7A8"},"scale":100,"main":"#EAE5E1","accent":"#6B1F24"},{"p":"wtartan","name":"Sweet Wonderland","route":"sweet","cols":{"ground":"#430E18","c1":"#2A0B12","c2":"#E4C7C1","c3":"#FFF3EF"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"wtartan","name":"Traditional","route":"traditional","cols":{"ground":"#6F171F","c1":"#191E16","c2":"#767154","c3":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"wtartan","name":"Candy Cane","route":"candy","cols":{"ground":"#E31F36","c1":"#3B3B3C","c2":"#F1F1F1","c3":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"}];
+  var XP_PRESETS = [{"p":"stripes","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","ground":"#FFF3EF"},"scale":100,"main":"#FFF3EF","accent":"#612520"},{"p":"stripes","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stripes","name":"Neutral","route":null,"cols":{"c1":"#C9BCB7","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#7F444C"},{"p":"flower","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#5C5E31","c3":"#430E18","ground":"#430E18"},"scale":85,"main":"#EAE5E1","accent":"#7F444C"},{"p":"flower","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#767154","c3":"#767154","ground":"#EAE5E1"},"scale":90,"main":"#EAE5E1","accent":"#612520"},{"p":"tartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#E4C7C1","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"tartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#3B3B3C"},{"p":"tartan","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#612520"},"scale":100,"main":"#EAE5E1","accent":"#5C5E31"},{"p":"fir","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#5C5E31","c2":"#5C5E31","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#5C5E31"},{"p":"fir","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#767154","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"fir","name":"Candy Cane","route":"candy","cols":{"c1":"#F1F1F1","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"fir","name":"Cranberry","route":null,"cols":{"c1":"#6E7B47","c2":"#6E7B47","ground":"#371E28"},"scale":100,"main":"#EAE5E1","accent":"#6E7B47"},{"p":"bows","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"bows","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#E8DCC6","ground":"#767154"},"scale":100,"main":"#EAE5E1","accent":"#6F171F"},{"p":"bows","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#FFFFFF","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"bows","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#EAE5E1","ground":"#EAE5E1"},"scale":100,"main":"#EAE5E1","accent":"#612520"},{"p":"stars","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#7F444C","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#7F444C"},{"p":"stars","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#F1F1F1","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stars","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","c2":"#BF9B7A","ground":"#191E16"},"scale":100,"main":"#EAE5E1","accent":"#612520"},{"p":"fstripe","name":"Cocoa & Sky","route":null,"cols":{"c1":"#4B2E22","c2":"#F1EBDF","ground":"#A9BDC9"},"scale":100,"main":"#F1EBDF","accent":"#4B2E22"},{"p":"fstripe","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"fstripe","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#EAE5E1","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"fstripe","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#F1F1F1","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"ftartan","name":"Olive","route":null,"cols":{"c1":"#2E2A1D","c2":"#7C7A55","ground":"#4E4C33"},"scale":100,"main":"#EAE5E1","accent":"#4E4C33"},{"p":"ftartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#E4C7C1","ground":"#612520"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"ftartan","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#767154"},"scale":100,"main":"#F5EDDA","accent":"#191E16"},{"p":"ftartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#3B3B3C"},{"p":"fcheck","name":"Charcoal","route":null,"cols":{"c1":"#5A4F47","c2":"#3A322D","ground":"#2C2622"},"scale":100,"main":"#EAE5E1","accent":"#2C2622"},{"p":"fcheck","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#612520","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"fcheck","name":"Traditional","route":"traditional","cols":{"c1":"#767154","c2":"#6F171F","ground":"#191E16"},"scale":100,"main":"#F5EDDA","accent":"#191E16"},{"p":"fcheck","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#E31F36","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"wtartan","name":"Wine & Oat","route":null,"cols":{"ground":"#4C1917","c1":"#2B1E16","c2":"#AE8E76","c3":"#CDB69A"},"scale":100,"main":"#EAE5E1","accent":"#6B1F24"},{"p":"wtartan","name":"Sweet Wonderland","route":"sweet","cols":{"ground":"#430E18","c1":"#2A0B12","c2":"#E4C7C1","c3":"#FFF3EF"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"wtartan","name":"Traditional","route":"traditional","cols":{"ground":"#6F171F","c1":"#191E16","c2":"#767154","c3":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"wtartan","name":"Candy Cane","route":"candy","cols":{"ground":"#E31F36","c1":"#3B3B3C","c2":"#F1F1F1","c3":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"}];
   var XP_ROUTE_NAMES = { sweet: "Sweet Wonderland", traditional: "Traditional", candy: "Candy Cane" };
   function xpPattern(key) {
     if (TX_ALIAS[key]) key = TX_ALIAS[key];
@@ -10571,11 +10574,15 @@ import { createResizeEngine } from "./resize-engine.js";
   var _wovenTiles = new Map();
   function xpWovenTile(p, cols, k) {
     const W = Math.max(8, Math.round(p.tw * k)), H = Math.max(8, Math.round(p.th * k));
-    // The wool's soft fuzz, from the felt scan, once it has loaded.
-    const felt = XP_TEXTURES.find(function (t) { return t.key === "txfelt"; });
-    const fuzz = felt ? txMap(felt) : null;
-    if (felt && !fuzz && !p._waiting) { p._waiting = true; _txMaps[felt.key].then(function (m) { p._waiting = false; if (m) fullRender(); }); }
-    const id = p.key + "|" + JSON.stringify(cols) + "|" + W + "x" + H + (fuzz ? "|f" : "");
+    // Real cloth on top, once the scans have loaded: the felt's uneven
+    // patches across the whole repeat, the suede's fine fibre at its own size.
+    const scans = ["txfelt", "txsuede"].map(function (k2) { return XP_TEXTURES.find(function (t) { return t.key === k2; }); });
+    const felt = txMap(scans[0]), fibre = txMap(scans[1]);
+    if ((!felt || !fibre) && !p._waiting) {
+      p._waiting = true;
+      Promise.all(scans.map(txMapReady)).then(function () { p._waiting = false; fullRender(); });
+    }
+    const id = p.key + "|" + JSON.stringify(cols) + "|" + W + "x" + H + (felt && fibre ? "|f" : "");
     if (_wovenTiles.has(id)) return _wovenTiles.get(id);
     // Each band's colour along one side, at a sub-pixel step (two samples a pixel).
     const lineOf = function (bands, n) {
@@ -10588,19 +10595,16 @@ import { createResizeEngine } from "./resize-engine.js";
       return out;
     };
     // Two by two samples a pixel softens thread edges (Danielle, 25 Nov: "soften the weave a little"); the download draws at twice the size and shrinks it, which does the same.
-    const SS = 0.26 * k >= 3 ? 1 : 2;
+    const SS = 0.31 * k >= 3.6 ? 1 : 2;
     const lx = lineOf(p.warp, W * SS), ly = lineOf(p.weft, H * SS);
     // Threads in a repeat, each a multiple of the twill's four so it tiles.
-    const N = Math.max(4, 4 * Math.round(p.tw / 0.26 / 4)), M = Math.max(4, 4 * Math.round(p.th / 0.26 / 4));
+    const N = Math.max(4, 4 * Math.round(p.tw / 0.31 / 4)), M = Math.max(4, 4 * Math.round(p.th / 0.31 / 4));
     const tx = W * SS / N, ty = H * SS / M, woven = tx >= 2.4 && ty >= 2.4;
     const r = xpRng(91), tnx = [], tny = [];
     for (let i = 0; i < N; i++) tnx.push(0.97 + r() * 0.06);
     for (let j = 0; j < M; j++) tny.push(0.97 + r() * 0.06);
     const round = function (f) { return 0.94 + 0.09 * Math.sin(Math.PI * f); };
-    const fz = fuzz ? function (x, y) { return 1 + 0.07 * fuzz.s[Math.floor(y / H * fuzz.h) * fuzz.w + Math.floor(x / W * fuzz.w)]; } : null;
-    const c = document.createElement("canvas");
-    c.width = W; c.height = H;
-    const g = c.getContext("2d"), img = g.createImageData(W, H), o = img.data;
+    const buf = new Float32Array(W * H * 3), BR = 0.4;
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         let R = 0, G = 0, B = 0;
@@ -10610,14 +10614,50 @@ import { createResizeEngine } from "./resize-engine.js";
             const X = x * SS + sx, wx = lx[X];
             if (!woven) { R += (wx[0] + wy[0]) / 2; G += (wx[1] + wy[1]) / 2; B += (wx[2] + wy[2]) / 2; continue; }
             const xf = X / tx, i = Math.floor(xf);
-            if (((i + j) & 3) < 2) { const t = tnx[i % N] * round(xf - i); R += wx[0] * t; G += wx[1] * t; B += wx[2] * t; }
-            else { const t = tny[j % M] * round(jf - j); R += wy[0] * t; G += wy[1] * t; B += wy[2] * t; }
+            /* Brushed wool: the fibres of the two threads mingle, so the one
+               on top shows at about 40% over the mix of both. Measured off
+               her photo, where a crossing shows about a third of the contrast
+               clean threads would (Danielle, 25 Nov: "it just feels too clean"). */
+            const top = ((i + j) & 3) < 2, t = top ? tnx[i % N] * round(xf - i) : tny[j % M] * round(jf - j), a = top ? wx : wy;
+            R += (a[0] * BR + (wx[0] + wy[0]) / 2 * (1 - BR)) * t; G += (a[1] * BR + (wx[1] + wy[1]) / 2 * (1 - BR)) * t; B += (a[2] * BR + (wx[2] + wy[2]) / 2 * (1 - BR)) * t;
           }
         }
-        let f = 1 / (SS * SS);
-        if (fz) f *= fz(x, y);
-        const at = (y * W + x) * 4;
-        o[at] = R * f; o[at + 1] = G * f; o[at + 2] = B * f; o[at + 3] = 255;
+        const f = 1 / (SS * SS), at = (y * W + x) * 3;
+        buf[at] = R * f; buf[at + 1] = G * f; buf[at + 2] = B * f;
+      }
+    }
+    /* Brushed: a light blur, under half a thread, wrapping round the edges
+       so the repeat stays seamless (Danielle, 25 Nov: "that sort of brushed
+       look that the original has"). Enough to melt thread edges, not the
+       twill: a wider one read as out of focus. One box pass each way. */
+    const rad = Math.max(1, Math.round(0.14 * k));
+    const pass = function (horiz) {
+      const n = horiz ? W : H, m = horiz ? H : W, line = new Float32Array(n * 3), win = 2 * rad + 1;
+      for (let a = 0; a < m; a++) {
+        const idx = function (b) { b = ((b % n) + n) % n; return (horiz ? a * W + b : b * W + a) * 3; };
+        for (let b = 0; b < n; b++) { const q = idx(b); line[b * 3] = buf[q]; line[b * 3 + 1] = buf[q + 1]; line[b * 3 + 2] = buf[q + 2]; }
+        let r0 = 0, g0 = 0, b0 = 0;
+        for (let d = -rad; d <= rad; d++) { const q = (((d % n) + n) % n) * 3; r0 += line[q]; g0 += line[q + 1]; b0 += line[q + 2]; }
+        for (let b = 0; b < n; b++) {
+          const q = idx(b); buf[q] = r0 / win; buf[q + 1] = g0 / win; buf[q + 2] = b0 / win;
+          const out = (((b - rad) % n) + n) % n * 3, inn = ((b + rad + 1) % n) * 3;
+          r0 += line[inn] - line[out]; g0 += line[inn + 1] - line[out + 1]; b0 += line[inn + 2] - line[out + 2];
+        }
+      }
+    };
+    pass(true); pass(false);
+    // The cloth: felt patches stretched over the repeat, suede fibre at its own size, a whole number of times so it tiles.
+    const fn = fibre ? Math.max(1, Math.round(W / (74 * k))) : 0, fm = fibre ? Math.max(1, Math.round(H / (74 * k))) : 0;
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const g = c.getContext("2d"), img = g.createImageData(W, H), o = img.data;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        let f = 1;
+        if (felt) f += 0.12 * felt.s[Math.floor(y / H * felt.h) * felt.w + Math.floor(x / W * felt.w)];
+        if (fibre) f += 0.22 * fibre.s[Math.floor(((y * fm) % H) / H * fibre.h) * fibre.w + Math.floor(((x * fn) % W) / W * fibre.w)];
+        const q = (y * W + x) * 3, at = (y * W + x) * 4;
+        o[at] = buf[q] * f; o[at + 1] = buf[q + 1] * f; o[at + 2] = buf[q + 2] * f; o[at + 3] = 255;
       }
     }
     g.putImageData(img, 0, 0);
@@ -10769,7 +10809,7 @@ import { createResizeEngine } from "./resize-engine.js";
       return tp;
     }
     const pr = xpPattern(fill && fill.key);
-    if (pr && pr.raster) { const felt = XP_TEXTURES.find(function (x) { return x.key === "txfelt"; }); if (felt) await txMapReady(felt); }   // the same wool fuzz as the screen
+    if (pr && pr.raster) await Promise.all(["txfelt", "txsuede"].map(function (k2) { return txMapReady(XP_TEXTURES.find(function (x) { return x.key === k2; })); }));   // the same cloth as the screen
     const t = xpTile(fill, xpScaleK(fill, cv) * 2, cv);
     if (!t) return null;
     if (t.canvas) {   // a woven pattern is a canvas already
