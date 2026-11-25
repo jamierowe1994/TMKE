@@ -588,6 +588,22 @@ import { createResizeEngine } from "./resize-engine.js";
     if (el.lock === "dead" || el.lock === "light") return el.lock;
     return el.locked ? "dead" : null;
   }
+  /* Words that fit their box rather than the box growing round them: a
+     "Fixed" box, and any box a merge tag has filled (Danielle, 25 Nov:
+     "Christmas in {area}" filled as Christmas in Cornwall shrinks to fit,
+     it never goes onto another row). */
+  function fitsItsBox(el) {
+    if (!el || el.type !== "text" || el.curve) return false;
+    return lockState(el) === "light" || el.mergeSrc != null;
+  }
+  // The rows a merge-filled box may use: as many as it held as drawn, or as the words' own line breaks ask for.
+  function fitRowsFor(el) {
+    if (el.mergeSrc == null || !el.h) return Infinity;
+    const lh = (el.lockSize || el.size || 16) * (el.lineHeight || 1.3);
+    const drawn = Math.max(1, Math.round(el.h / lh));
+    const breaks = String(el.text || "").split("\n").length;
+    return Math.max(drawn, breaks);
+  }
   function isTemplateLock(el) { return !!lockState(el) && el.lockBy !== "member"; }
   // The lock that binds a member right now: a template's.
   function memberLock(el) { return !isAdminMode() && isTemplateLock(el) ? lockState(el) : null; }
@@ -650,11 +666,13 @@ import { createResizeEngine } from "./resize-engine.js";
 
   const _lockFit = new WeakMap();
   function fitLockedText(el, inner, force) {
-    if (!inner || lockState(el) !== "light" || el.type !== "text" || !el.h) return;
+    if (!inner || !fitsItsBox(el) || !el.h) return;
     const key = [el.text, el.w, el.h, el.lockSize, el.font, el.weight, el.lineHeight, el.letterSpacing].join("|");
     if (!force && _lockFit.get(el) === key) return;
     if (!el.lockSize) el.lockSize = el.size || 16;
-    const fits = () => inner.offsetHeight <= el.h + 1 && inner.scrollWidth <= inner.clientWidth + 1;
+    const rows = fitRowsFor(el), lhK = el.lineHeight || 1.3;
+    const fits = () => inner.offsetHeight <= el.h + 1 && inner.scrollWidth <= inner.clientWidth + 1
+      && (rows === Infinity || Math.round(inner.offsetHeight / ((parseFloat(inner.style.fontSize) || el.size) * lhK)) <= rows);
     /* The floor. On screen, 6px. On paper, 6pt: the canvas is 300dpi, so 6px
        there is under 1.5pt and an email shrank until it could not be read
        (Dani, 13 Oct: "we don't want the font size to go smaller than 6"). */
@@ -3584,7 +3602,7 @@ import { createResizeEngine } from "./resize-engine.js";
     canvasEl.style.height = state.canvas.height + "px";
     canvasEl.style.background = state.canvas.background;
     // A Christmas pattern on the background, over its colour (xpTile).
-    const _xpBg = state.canvas.bgPattern && xpTile(state.canvas.bgPattern, xpScaleK(state.canvas.bgPattern, state.canvas));
+    const _xpBg = state.canvas.bgPattern && xpTile(state.canvas.bgPattern, xpScaleK(state.canvas.bgPattern, state.canvas), state.canvas);
     if (_xpBg) {
       // Front or back only on a folded card's outside: the other half keeps its plain colour.
       const area = isFolded(state.canvas) && state.canvas.fold !== "inside" ? (state.canvas.bgPattern.area || "both") : "both";
@@ -3696,7 +3714,7 @@ import { createResizeEngine } from "./resize-engine.js";
     });
     // Light-locked words fitted to their box, now they can be measured.
     state.elements.forEach((el) => {
-      if (lockState(el) !== "light" || el.type !== "text") return;
+      if (!fitsItsBox(el)) return;
       const inner = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"] .ed-text-inner');
       fitLockedText(el, inner);
     });
@@ -3754,12 +3772,17 @@ import { createResizeEngine } from "./resize-engine.js";
      the line colour that goes with it. */
   var _xpBgSig = null;
   function xpBgSig() { return state.currentPage + "|" + JSON.stringify(state.canvas.bgPattern || null); }
+  // A plain colour or a gradient picked for the page replaces a texture (a pattern stays, as before).
+  function dropTexture() { if (isTexture(state.canvas.bgPattern)) { delete state.canvas.bgPattern; _xpBgSig = null; syncBgPatterns(true); } }
   function bgPatGet() { return state.canvas.bgPattern ? JSON.parse(JSON.stringify(state.canvas.bgPattern)) : null; }
   function bgPatSet(v, live) {
     const was = state.canvas.bgPattern;
     if (v && !isAdminMode()) v.memberPicked = true;   // theirs now: tpeCandyDefault leaves it
     if (v) { if (was && was.area && !v.area) v.area = was.area; state.canvas.bgPattern = v; } else delete state.canvas.bgPattern;
-    if (v && !live && !applyPatternRoles(v)) {
+    // A texture's colour is the page's colour too, so the plain colour under it matches.
+    const tex = v && isTexture(v);
+    if (tex && v.cols && normHex(v.cols.ground)) state.canvas.background = normHex(v.cols.ground);
+    if (v && !tex && !live && !applyPatternRoles(v)) {
       const a = (xpTwo(v) || {}).accent || xpAccent(v);
       if (a) (state.elements || []).forEach(function (o) { if (o && o.type === "wframe" && !o.fillPattern) o.stroke = a; });
     }
@@ -3778,13 +3801,23 @@ import { createResizeEngine } from "./resize-engine.js";
     // The Patterns fold: open on a page that has one, shut on one that
     // doesn't. Only when the page or design changes, never under a click.
     const fold = document.getElementById("ed-bg-pattern-fold");
-    if (fold && !force) fold.open = !!state.canvas.bgPattern;
+    const texOn = isTexture(state.canvas.bgPattern);
+    if (fold && !force) fold.open = !!state.canvas.bgPattern && !texOn;
     const get = bgPatGet, set = bgPatSet;
+    // Textures, in their own fold under Patterns (Background pane only).
+    const txMount = document.getElementById("ed-bg-texture-mount");
+    const txFold = document.getElementById("ed-bg-texture-fold");
+    if (txFold && !force) txFold.open = texOn;
+    if (txMount) { txMount.innerHTML = ""; txMount.appendChild(txPicker(get, set)); }
     mounts.forEach(function (mount) {
       mount.innerHTML = "";
       mount.appendChild(xpPicker(get, set));
-      const cur = state.canvas.bgPattern;
-      if (!cur) return;
+    });
+    const cur0 = state.canvas.bgPattern;
+    if (!cur0) return;
+    // The front/back row goes under whichever picker holds the background.
+    (texOn ? (txMount ? [txMount] : []) : mounts).forEach(function (mount) {
+      const cur = cur0;
       const cv = state.canvas;
       const row = document.createElement("div");
       row.className = "ed-xp-area";
@@ -3916,7 +3949,7 @@ import { createResizeEngine } from "./resize-engine.js";
   function autosizeTextElements() {
     state.elements.forEach(function (el) {
       if (el.type !== "text") return;
-      if (lockState(el) === "light") {        // a field keeps its box; the words fit it
+      if (fitsItsBox(el)) {        // a field keeps its box; the words fit it
         const inner = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"] .ed-text-inner');
         fitLockedText(el, inner, true);
         return;
@@ -5859,8 +5892,8 @@ import { createResizeEngine } from "./resize-engine.js";
     const inner = node.querySelector(".ed-text-inner");
     if (!inner) return;
     if (el.curve) return;   // a curve's box is its own shape (curveFitBox)
-    // A light-locked box keeps its height; the words fit it instead.
-    if (lockState(el) === "light") { fitLockedText(el, inner, true); return; }
+    // A light-locked or merge-filled box keeps its height; the words fit it instead.
+    if (fitsItsBox(el)) { fitLockedText(el, inner, true); return; }
     const h = Math.ceil(inner.offsetHeight);
     if (h > 0) { el.h = h; node.style.height = h + "px"; }
   }
@@ -6958,7 +6991,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // selection outline glued to it.
     function grow() {
       if (el.curve) return;   // edited straight, drawn curved: the box stays the curve's
-      if (lockState(el) === "light") { fitLockedText(el, inner, true); return; }
+      if (fitsItsBox(el)) { fitLockedText(el, inner, true); return; }
       const h = Math.ceil(inner.offsetHeight);
       if (h > 0 && h !== el.h) {
         el.h = h;
@@ -9276,13 +9309,15 @@ import { createResizeEngine } from "./resize-engine.js";
      rendering must not alter the design. Dani, 10 Oct. */
   function lockedCanvasSize(ctx, el, font) {
     if (!el || el.type !== "text" || !el.h) return el.size;
-    if (lockState(el) !== "light") return el.size;
+    if (!fitsItsBox(el)) return el.size;
     const cap = Math.round(el.lockSize || el.size || 16);
     const ls = Number(el.letterSpacing) || 0;
+    const rows = fitRowsFor(el);
     const fits = function (sz) {
       ctx.font = (el.italic ? "italic " : "") + el.weight + " " + sz + "px " + font;
       try { ctx.letterSpacing = ls + "px"; } catch (_) {}
       const lines = wrapText(ctx, el.text || "", el.w);
+      if (lines.length > rows) return false;
       if (lines.length * (sz * (el.lineHeight || 1.3)) > el.h + 1) return false;
       for (const ln of lines) if (ctx.measureText(ln).width > el.w + 1) return false;
       return true;
@@ -10319,7 +10354,107 @@ import { createResizeEngine } from "./resize-engine.js";
   // Traditional painted stripes taken off the list (Danielle, 20 Nov); designs using it keep their colours.
   var XP_PRESETS = [{"p":"stripes","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","ground":"#FFF3EF"},"scale":100,"main":"#FFF3EF","accent":"#612520"},{"p":"stripes","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stripes","name":"Neutral","route":null,"cols":{"c1":"#C9BCB7","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#7F444C"},{"p":"flower","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#5C5E31","c3":"#430E18","ground":"#430E18"},"scale":85,"main":"#EAE5E1","accent":"#7F444C"},{"p":"flower","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#767154","c3":"#767154","ground":"#EAE5E1"},"scale":90,"main":"#EAE5E1","accent":"#612520"},{"p":"tartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#E4C7C1","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"tartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#3B3B3C"},{"p":"tartan","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#612520"},"scale":100,"main":"#EAE5E1","accent":"#5C5E31"},{"p":"fir","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#5C5E31","c2":"#5C5E31","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#5C5E31"},{"p":"fir","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#767154","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"fir","name":"Candy Cane","route":"candy","cols":{"c1":"#F1F1F1","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"fir","name":"Cranberry","route":null,"cols":{"c1":"#6E7B47","c2":"#6E7B47","ground":"#371E28"},"scale":100,"main":"#EAE5E1","accent":"#6E7B47"},{"p":"bows","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"bows","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#E8DCC6","ground":"#767154"},"scale":100,"main":"#EAE5E1","accent":"#6F171F"},{"p":"bows","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#FFFFFF","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"bows","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#EAE5E1","ground":"#EAE5E1"},"scale":100,"main":"#EAE5E1","accent":"#612520"},{"p":"stars","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#7F444C","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#7F444C"},{"p":"stars","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#F1F1F1","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stars","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","c2":"#BF9B7A","ground":"#191E16"},"scale":100,"main":"#EAE5E1","accent":"#612520"},{"p":"fstripe","name":"Cocoa & Sky","route":null,"cols":{"c1":"#4B2E22","c2":"#F1EBDF","ground":"#A9BDC9"},"scale":100,"main":"#F1EBDF","accent":"#4B2E22"},{"p":"fstripe","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"fstripe","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#EAE5E1","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"fstripe","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#F1F1F1","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"ftartan","name":"Olive","route":null,"cols":{"c1":"#2E2A1D","c2":"#7C7A55","ground":"#4E4C33"},"scale":100,"main":"#EAE5E1","accent":"#4E4C33"},{"p":"ftartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#E4C7C1","ground":"#612520"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"ftartan","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#767154"},"scale":100,"main":"#F5EDDA","accent":"#191E16"},{"p":"ftartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#3B3B3C"},{"p":"fcheck","name":"Charcoal","route":null,"cols":{"c1":"#5A4F47","c2":"#3A322D","ground":"#2C2622"},"scale":100,"main":"#EAE5E1","accent":"#2C2622"},{"p":"fcheck","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#612520","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"fcheck","name":"Traditional","route":"traditional","cols":{"c1":"#767154","c2":"#6F171F","ground":"#191E16"},"scale":100,"main":"#F5EDDA","accent":"#191E16"},{"p":"fcheck","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#E31F36","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"}];
   var XP_ROUTE_NAMES = { sweet: "Sweet Wonderland", traditional: "Traditional", candy: "Candy Cane" };
-  function xpPattern(key) { return XP_PATTERNS.find(function (p) { return p.key === key; }) || null; }
+  function xpPattern(key) { return XP_PATTERNS.find(function (p) { return p.key === key; }) || XP_TEXTURES.find(function (p) { return p.key === key; }) || null; }
+
+  /* ---------- Textures (Danielle, 24 Nov) ----------
+     Four plain backgrounds with a printed-stock surface: fine paper, woven
+     cloth, limewash plaster and suede. One colour each (the ground), drawn in
+     code like the patterns so they stay sharp at any size.
+
+     The surface is one definition per texture, never a colour. Each layer is
+     stitched noise (feTurbulence, seamless on its tile) that lightens the
+     ground where the noise is high and darkens it where it is low, by the
+     same amount either way, so the average stays the colour picked. The
+     amount is measured in lightness (CIE L*), so a step reads the same on
+     plum as on blush; on very dark colours more of it goes into the
+     highlights, where the eye sees it, and on very light ones into the
+     shadows. Every texture's tile is the whole page, so none of them ever
+     shows a repeat. A texture is { key, cols: { ground },
+     scale, strength } on canvas.bgPattern; canvas.background keeps the same
+     colour underneath. */
+  var TX_STRENGTH = { subtle: 0.55, standard: 1, strong: 1.7 };
+  var TX_STRENGTH_NAMES = [["subtle", "Subtle"], ["standard", "Standard"], ["strong", "Strong"]];
+  var XP_TEXTURES = [
+    { key: "txpaper", name: "Fine paper", texture: true, fit: true, tw: 32, th: 32, thumbK: 5, cols: { ground: "#EAE5E1" },
+      // A fine, even tooth, and under it the faintest cloudiness of card stock.
+      layers: [{ f: "2.6 2.6", oct: 2, seed: 3, k: 4.2, g: 1 }, { f: "0.12 0.12", oct: 2, seed: 5, k: 2.5, g: 0.25 }] },
+    { key: "txcloth", name: "Woven cloth", texture: true, fit: true, tw: 24, th: 24, thumbK: 6, cols: { ground: "#EAE5E1" },
+      // The twill of Woven tartan and Wool check, a soft grain and a little slub in the thread.
+      twill: { s: 1, g: 0.9 },
+      layers: [{ f: "1.1 1.1", oct: 2, seed: 7, k: 4, g: 0.55 }, { f: "0.08 0.9", oct: 2, seed: 9, k: 4, g: 0.3 }] },
+    { key: "txplaster", name: "Limewash plaster", texture: true, fit: true, tw: 160, th: 160, thumbK: 0.62, cols: { ground: "#EAE5E1" },
+      // Broad soft clouds, a faint sideways brush, and the wall's own fine tooth.
+      layers: [{ f: "0.014 0.014", oct: 4, seed: 21, k: 4.5, g: 1.9 }, { f: "0.035 0.07", oct: 3, seed: 23, k: 4, g: 0.45 }, { f: "0.7 0.7", oct: 2, seed: 25, k: 3, g: 0.2 }] },
+    { key: "txsuede", name: "Suede", texture: true, fit: true, tw: 160, th: 160, thumbK: 0.62, cols: { ground: "#EAE5E1" },
+      // A gentle drift of light and dark, and a soft nap brushed one way.
+      layers: [{ f: "0.02 0.02", oct: 3, seed: 31, k: 4, g: 1.3 }, { f: "0.05 0.17", oct: 2, seed: 33, k: 4, g: 0.6 }, { f: "1.6 1.6", oct: 1, seed: 35, k: 3, g: 0.25 }] },
+  ];
+  function isTexture(v) { const p = v && xpPattern(v.key); return !!(p && p.texture); }
+  // sRGB hex <-> CIE Lab (D65).
+  function txLab(hex) {
+    const lin = hexToRgb(hex).map(function (v) { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    const X = (lin[0] * 0.4124 + lin[1] * 0.3576 + lin[2] * 0.1805) / 0.95047;
+    const Y = lin[0] * 0.2126 + lin[1] * 0.7152 + lin[2] * 0.0722;
+    const Z = (lin[0] * 0.0193 + lin[1] * 0.1192 + lin[2] * 0.9505) / 1.08883;
+    const f = function (t) { return t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116; };
+    return [116 * f(Y) - 16, 500 * (f(X) - f(Y)), 200 * (f(Y) - f(Z))];
+  }
+  function txRgb(L, a, b) {
+    const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200;
+    const inv = function (t) { return t * t * t > 0.008856 ? t * t * t : (t - 16 / 116) / 7.787; };
+    const X = inv(fx) * 0.95047, Y = inv(fy), Z = inv(fz) * 1.08883;
+    return [X * 3.2406 - Y * 1.5372 - Z * 0.4986, -X * 0.9689 + Y * 1.8758 + Z * 0.0415, X * 0.0557 - Y * 0.2040 + Z * 1.0570]
+      .map(function (v) { v = v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(Math.max(0, v), 1 / 2.4) - 0.055; return Math.max(0, Math.min(1, v)); });
+  }
+  /* The lighter and darker shade a layer moves the ground towards, D units
+     of lightness either side. Darker grounds lean to the highlight and
+     lighter ones a little to the shadow, so the texture shows on both. */
+  function txShades(ground, D) {
+    const lab = txLab(normHex(ground) || "#EAE5E1"), L = lab[0];
+    const lean = 0.45 * Math.max(0, Math.min(1, (35 - L) / 35)) - 0.2 * Math.max(0, Math.min(1, (L - 85) / 15));
+    const f = function (v) { return v.map(function (x) { return x.toFixed(4); }); };
+    return { light: f(txRgb(Math.min(100, L + D * (1 + lean)), lab[1], lab[2])), dark: f(txRgb(Math.max(0, L - D * (1 - lean)), lab[1], lab[2])) };
+  }
+  // A texture's tile as SVG markup, tw x th units of the ground with its layers.
+  function txSvg(p, ground, strength, tw, th, stitch) {
+    const D = 6 * (TX_STRENGTH[strength] || 1);
+    const id = p.key + Math.round(tw) + "x" + Math.round(th);
+    let defs = "", body = "";
+    (p.layers || []).forEach(function (o, i) {
+      const sh = txShades(ground, D * o.g), fid = id + "n" + i;
+      defs += '<filter id="' + fid + '" x="0" y="0" width="' + tw + '" height="' + th + '" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">' +
+        '<feTurbulence type="fractalNoise" baseFrequency="' + o.f + '" numOctaves="' + o.oct + '" seed="' + o.seed + '" stitchTiles="' + (stitch ? "stitch" : "noStitch") + '" result="n"/>' +
+        '<feColorMatrix in="n" result="l" values="0 0 0 0 ' + sh.light[0] + ' 0 0 0 0 ' + sh.light[1] + ' 0 0 0 0 ' + sh.light[2] + ' ' + o.k + ' 0 0 0 ' + (-o.k / 2) + '"/>' +
+        '<feColorMatrix in="n" result="d" values="0 0 0 0 ' + sh.dark[0] + ' 0 0 0 0 ' + sh.dark[1] + ' 0 0 0 0 ' + sh.dark[2] + ' ' + (-o.k) + ' 0 0 0 ' + (o.k / 2) + '"/>' +
+        '<feMerge><feMergeNode in="l"/><feMergeNode in="d"/></feMerge></filter>';
+      body += '<rect width="' + tw + '" height="' + th + '" filter="url(#' + fid + ')"/>';
+    });
+    if (p.twill) {
+      // Diagonal threads: a darker and a lighter line in each repeat, the same width, so they balance.
+      const s = p.twill.s, sh = txShades(ground, D * p.twill.g), w = s * 0.3;
+      const rgb = function (v) { return "rgb(" + v.map(function (x) { return Math.round(x * 255); }).join(",") + ")"; };
+      const line = function (o, col) {
+        return '<path d="M' + (o - s) + ',' + s + ' L' + o + ',0 M' + o + ',' + s + ' L' + (o + s) + ',0" stroke="' + col + '" stroke-width="' + w + '" stroke-opacity="0.5"/>';
+      };
+      defs += '<pattern id="' + id + 'tw" width="' + s + '" height="' + s + '" patternUnits="userSpaceOnUse">' + line(0, rgb(sh.dark)) + line(s / 2, rgb(sh.light)) + line(s, rgb(sh.dark)) + '</pattern>';
+      body = '<rect width="' + tw + '" height="' + th + '" fill="url(#' + id + 'tw)"/>' + body;
+    }
+    return '<rect width="' + tw + '" height="' + th + '" fill="' + ground + '"/>' + (defs ? "<defs>" + defs + "</defs>" : "") + body;
+  }
+  /* The tile for a texture, k canvas pixels to a unit. A texture that fits
+     the page gets a tile the size of the page (cv), so nothing repeats. */
+  function txTile(fill, k, cv) {
+    const p = xpPattern(fill && fill.key);
+    if (!p || !p.texture) return null;
+    const ground = normHex(fill.cols && fill.cols.ground) || p.cols.ground;
+    // The page-sized tile never repeats, so it isn't stitched (stitching bent the noise at the right and bottom edges).
+    let tw = p.tw, th = p.th, stitch = true;
+    if (p.fit && cv && cv.width && cv.height) { tw = cv.width / k; th = cv.height / k; stitch = false; }
+    const w = Math.max(1, Math.round(tw * k)), h = Math.max(1, Math.round(th * k));
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + tw + ' ' + th + '" preserveAspectRatio="none">' +
+      txSvg(p, ground, fill.strength || "standard", tw, th, stitch) + '</svg>';
+    return { svg: svg, w: w, h: h, url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg) };
+  }
   // Every colour in the three Christmas routes, in route order, once each:
   // a "Christmas" row in the colour panels so odd bits can be matched to the
   // patterns without typing hex (Danielle, 18 Nov).
@@ -10339,9 +10474,10 @@ import { createResizeEngine } from "./resize-engine.js";
   function xpPresets(key) { return XP_PRESETS.filter(function (x) { return x.p === key; }); }
   function xpUnit(cv) { return isPrintDesign() ? 300 / 25.4 : ((cv && cv.width) || 1080) / 148; }
   // The tile as an SVG document, `k` canvas pixels to a tile unit.
-  function xpTile(fill, k) {
+  function xpTile(fill, k, cv) {
     const p = xpPattern(fill && fill.key);
     if (!p) return null;
+    if (p.texture) return txTile(fill, k, cv);
     const cols = Object.assign({}, p.cols, fill.cols || {});
     /* Whole pixels, stretched to fit exactly (Danielle, 24 Nov: "make sure the
        lines are straight"): a tile a fraction of a pixel wide got resampled at
@@ -10467,8 +10603,15 @@ import { createResizeEngine } from "./resize-engine.js";
   // For the download: a canvas pattern of the tile, drawn at twice its size for print.
   var _xpImg = new Map();
   async function xpCanvasPattern(ctx, fill, cv) {
-    const t = xpTile(fill, xpScaleK(fill, cv) * 2);
+    /* A texture is drawn at the download's own size, one tile pixel to one
+       pixel: its grain is the detail, so it isn't drawn bigger and shrunk. */
+    const tex = isTexture(fill);
+    const t = xpTile(fill, xpScaleK(fill, cv) * (tex ? 1 : 2), cv);
     if (!t) return null;
+    if (tex) {
+      const im = await loadImage(t.url);
+      return ctx.createPattern(im, "repeat");
+    }
     let img = _xpImg.get(t.url);
     if (!img) { img = await loadImage(t.url); if (_xpImg.size > 30) _xpImg.clear(); _xpImg.set(t.url, img); }
     const pat = ctx.createPattern(img, "repeat");
@@ -10484,7 +10627,8 @@ import { createResizeEngine } from "./resize-engine.js";
     opts = opts || {};
     const wrap = document.createElement("div");
     wrap.className = "ed-xp";
-    const cur = get();
+    const cur0 = get();
+    const cur = cur0 && !isTexture(cur0) ? cur0 : null;   // a texture has its own picker
     /* The colour scheme travels with you (Danielle, 18 Nov): people pick the
        scheme first, then flick through the patterns. The scheme is kept on the
        value (route, plus the preset's name for the one-off extras); older
@@ -10508,7 +10652,7 @@ import { createResizeEngine } from "./resize-engine.js";
         || (!isAdminMode() && isTpeKit() && list.find(function (x) { return x.route === "candy"; }))
         || list[0];
     };
-    const curScheme = schemeOf(cur);
+    const curScheme = cur0 && isTexture(cur0) ? (cur0.route || cur0.scheme ? { route: cur0.route || null, name: cur0.scheme || null } : null) : schemeOf(cur);
     const grid = document.createElement("div");
     grid.className = "ed-xp-grid";
     XP_PATTERNS.forEach(function (p) {
@@ -10577,6 +10721,109 @@ import { createResizeEngine } from "./resize-engine.js";
       off.className = "ed-btn-ghost ed-bg-btn";
       off.style.cssText = "background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px";
       off.textContent = opts.offLabel || "No pattern";
+      off.addEventListener("click", function () { set(null); });
+      wrap.appendChild(off);
+    }
+    return wrap;
+  }
+
+  /* The texture controls (Danielle, 24 Nov): the four textures, then for the
+     one chosen its colour (the palette chips' grounds, or Ground for brand
+     colours and Custom), its strength and its size. */
+  var TX_CHIPS_FROM = "ftartan";   // Olive, Sweet Wonderland, Traditional, Candy Cane
+  function txPicker(get, set, opts) {
+    opts = opts || {};
+    const wrap = document.createElement("div");
+    wrap.className = "ed-xp";
+    const cur0 = get();
+    const cur = cur0 && isTexture(cur0) ? cur0 : null;
+    // A new texture keeps the colour already there: the texture's, the pattern's ground, or the page's.
+    const startColour = function () {
+      if (cur0 && cur0.cols && normHex(cur0.cols.ground)) return normHex(cur0.cols.ground);
+      return normHex(state.canvas.background) || "#EAE5E1";
+    };
+    const grid = document.createElement("div");
+    grid.className = "ed-xp-grid";
+    XP_TEXTURES.forEach(function (p) {
+      // Thumbnails in one mid colour at Strong, so the four surfaces are easy to tell apart.
+      const t = txTile({ key: p.key, cols: { ground: "#B9AAA4" }, strength: "strong" }, p.thumbK);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ed-xp-pat";
+      b.setAttribute("aria-pressed", String(!!cur && cur.key === p.key));
+      b.innerHTML = '<span class="pic" style="background-image:url(&quot;' + t.url.replace(/"/g, "%22") + '&quot;)"></span>' + p.name;
+      b.addEventListener("click", function () {
+        const v = { key: p.key, cols: { ground: startColour() }, scale: cur ? (cur.scale || 100) : 100, strength: cur ? (cur.strength || "standard") : "standard" };
+        if (cur0 && cur0.route) v.route = cur0.route;
+        if (cur0 && cur0.scheme) v.scheme = cur0.scheme;
+        set(v);
+      });
+      grid.appendChild(b);
+    });
+    wrap.appendChild(grid);
+    if (!cur) return wrap;
+    const head = document.createElement("div");
+    head.className = "ed-xp-k";
+    head.textContent = "Colour";
+    wrap.appendChild(head);
+    const recolour = function (hex, extra) {
+      const v = get(); if (!v) return;
+      v.cols = { ground: normHex(hex) || hex };
+      delete v.route; delete v.scheme;
+      if (extra) Object.assign(v, extra);
+      set(v);
+    };
+    // The palette chips, as their ground colour.
+    const chips = document.createElement("div");
+    chips.className = "ed-xp-chips";
+    xpPresets(TX_CHIPS_FROM).forEach(function (pr) {
+      const g = normHex(pr.cols.ground);
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ed-xp-chip";
+      b.setAttribute("aria-pressed", String(normHex(cur.cols && cur.cols.ground) === g));
+      b.innerHTML = '<i style="background:' + g + '"></i><span>' + escapeHtml(pr.name) + "</span>";
+      b.addEventListener("click", function () { recolour(g, pr.route ? { route: pr.route, scheme: pr.name } : { scheme: pr.name }); });
+      chips.appendChild(b);
+    });
+    wrap.appendChild(chips);
+    // Ground: the colour panel, with the brand's colours and Custom.
+    const own = document.createElement("div");
+    own.className = "ed-xp-own";
+    const cell = document.createElement("span");
+    cell.className = "ed-xp-cell";
+    cell.appendChild(colorSwatchButton(function () { const v = get(); return (v && v.cols && v.cols.ground) || "#EAE5E1"; }, {
+      title: "Ground", key: "tx-ground",
+      onSolid: function (hex) { const v = get(); if (!v) return; v.cols = { ground: normHex(hex) || hex }; delete v.route; delete v.scheme; set(v, true); },
+    }));
+    const lab = document.createElement("span"); lab.textContent = "Ground"; cell.appendChild(lab);
+    own.appendChild(cell);
+    wrap.appendChild(own);
+    // Strength: three steps.
+    const sHead = document.createElement("div");
+    sHead.className = "ed-xp-k";
+    sHead.textContent = "Strength";
+    wrap.appendChild(sHead);
+    const steps = document.createElement("div");
+    steps.className = "ed-xp-area";
+    steps.style.marginTop = "0";
+    TX_STRENGTH_NAMES.forEach(function (st) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = st[1];
+      b.setAttribute("aria-pressed", String((cur.strength || "standard") === st[0]));
+      b.addEventListener("click", function () { const v = get(); if (!v) return; v.strength = st[0]; set(v); });
+      steps.appendChild(b);
+    });
+    wrap.appendChild(steps);
+    if (opts.compact) return wrap;
+    wrap.appendChild(sliderNumberRow("Pattern size", "%", 40, 250, 5, function () { return get().scale || 100; }, function (v) { const x = get(); x.scale = v; set(x, true); }, function () { fullRender(); }));
+    if (opts.removable !== false) {
+      const off = document.createElement("button");
+      off.type = "button";
+      off.className = "ed-btn-ghost ed-bg-btn";
+      off.style.cssText = "background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px";
+      off.textContent = "No texture";
       off.addEventListener("click", function () { set(null); });
       wrap.appendChild(off);
     }
@@ -15005,7 +15252,7 @@ import { createResizeEngine } from "./resize-engine.js";
            about that ceiling, so move the ceiling with it. The words still
            shrink from there if they do not fit. Dani, 9 Oct. */
         el.size = v;
-        if (el.type === "text" && lockState(el) === "light") {
+        if (fitsItsBox(el)) {
           el.lockSize = v;
           _lockFit.delete(el);   // drop the memo, or the refit is skipped as unchanged
         }
@@ -15849,6 +16096,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const sel = all.filter((el) => !memberLock(el));
     if (all.length && !sel.length) { lockBlocks(all); return; }
     if (!sel.length) {
+      dropTexture();
       state.canvas.background = hex;
       retoneLogos(function () { fullRender(); }); 
       pushHistory();
@@ -16686,7 +16934,8 @@ import { createResizeEngine } from "./resize-engine.js";
     /* A patterned background (Danielle, 18 Nov): the patterns and their
        colour schemes, not the card colours, which the pattern covers. */
     if (state.canvas.bgPattern) {
-      row.appendChild(xpPicker(bgPatGet, function (v, live) { bgPatSet(v, live); if (!live) renderFieldsPane(); }, { compact: true, removable: false }));
+      const pick = isTexture(state.canvas.bgPattern) ? txPicker : xpPicker;
+      row.appendChild(pick(bgPatGet, function (v, live) { bgPatSet(v, live); if (!live) renderFieldsPane(); }, { compact: true, removable: false }));
       return row;
     }
     /* A Christmas card or postcard: its four colours, with the same rules
@@ -17694,10 +17943,37 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!detachBgBtn) return;
     detachBgBtn.hidden = !state.canvas.backgroundImage;
   }
-  detachBgBtn?.addEventListener("click", () => {
-    if (!state.canvas.backgroundImage) return;
-    setCanvasBackgroundImage(null);
+  /* Detach turns the background photo into a picture of its own, in the
+     same place, at the back, selected (Danielle, 25 Nov: "if I detach it,
+     it's just gone"). It fills the page cropped just as it was, so it can be
+     moved, resized or chosen for a frame from the pictures in the design. */
+  detachBgBtn?.addEventListener("click", async () => {
+    const C = state.canvas, src = C.backgroundImage;
+    if (!src) return;
+    const el = { id: uid("image"), type: "image", src: src, x: 0, y: 0, w: C.width, h: C.height, rotation: 0,
+      opacity: C.backgroundOpacity != null ? C.backgroundOpacity : 1 };
+    if (C.bgRotate) {
+      // Turned: a picture the photo's own shape, turned the same way, where it sat.
+      let nw = C.bgNatW, nh = C.bgNatH;
+      if (!nw || !nh) { try { const im = await loadImage(src); nw = im.naturalWidth; nh = im.naturalHeight; } catch (_) {} }
+      const lay = bgLayout(nw, nh, C);
+      if (lay) { el.x = Math.round(lay.ox); el.y = Math.round(lay.oy); el.w = Math.round(lay.sw); el.h = Math.round(lay.sh); el.rotation = lay.deg; }
+    } else {
+      if (C.bgFit === "contain") el.imgFit = "contain";
+      el.imgPosX = C.bgPosX != null ? C.bgPosX : 50;
+      el.imgPosY = C.bgPosY != null ? C.bgPosY : 50;
+      if (C.bgScale > 1) el.imgZoom = C.bgScale;
+    }
+    if (C.bgNatW && C.bgNatH) { el.imgNaturalW = C.bgNatW; el.imgNaturalH = C.bgNatH; }
+    state.elements.unshift(el);
+    state.canvas.backgroundImage = null;
+    delete C.bgNatW; delete C.bgNatH; delete C.bgScale; delete C.bgRotate; delete C.bgFit;
+    C.bgPosX = 50; C.bgPosY = 50;
+    state.selectedIds = [el.id];
+    pushHistory();
+    fullRender();
     syncDetachBgBtn();
+    toast("The photo is a picture of its own now.");
   });
   // Background-image transparency — slider + typable %, kept in sync. Lets you
   // dim a photo set as the background (then stack overlays/text on top).
@@ -17726,6 +18002,7 @@ import { createResizeEngine } from "./resize-engine.js";
     btn.addEventListener("click", () => {
       // The custom fade swatch has no colour of its own; it opens the pop-out.
       if (!btn.dataset.color) return;
+      dropTexture();
       state.canvas.background = btn.dataset.color;
       retoneLogos(function () { fullRender(); }); 
       pushHistory();
@@ -17747,7 +18024,7 @@ import { createResizeEngine } from "./resize-engine.js";
       openColorPanel({
         title: "Background colour",
         current: isGradient(bg) ? "#F4F2F1" : bg,
-        onSolid: function (hex) { state.canvas.background = hex; retoneLogos(function () { fullRender(); }); fullRender(); pushHistory(); },   // the swatch stays the spectrum
+        onSolid: function (hex) { dropTexture(); state.canvas.background = hex; retoneLogos(function () { fullRender(); }); fullRender(); pushHistory(); },   // the swatch stays the spectrum
       });
     });
   })();
@@ -17767,6 +18044,7 @@ import { createResizeEngine } from "./resize-engine.js";
         currentGradient: (typeof bg === "string" && bg.indexOf("gradient") !== -1) ? bg : null,
         onGradient: function (g) {
           const css = gradCss(g);
+          dropTexture();
           state.canvas.background = css;
           gwrap.style.background = css;
           fullRender();
