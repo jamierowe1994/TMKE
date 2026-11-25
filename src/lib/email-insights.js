@@ -34,6 +34,22 @@ export async function readFunnelEvents(supabase, automationId) {
   return res.data || [];
 }
 
+// Every funnel's events in a period, for the Overview. Each row carries its
+// automation_id so the caller can group by campaign.
+export async function readEventsBetween(supabase, sinceIso, untilIso) {
+  const cols = "automation_id, event, contact_id, email, node_id, subject, message_id, provider, detail, occurred_at, raw";
+  const out = [];
+  for (let from = 0; from < 60000; from += 1000) {
+    let q = supabase.from("email_events").select(cols).not("automation_id", "is", null).gte("occurred_at", sinceIso);
+    if (untilIso) q = q.lt("occurred_at", untilIso);
+    const r = await q.order("occurred_at", { ascending: true }).order("id", { ascending: true }).range(from, from + 999);
+    if (r.error) return { data: out, error: r.error };
+    out.push(...(r.data || []));
+    if ((r.data || []).length < 1000) break;
+  }
+  return { data: out };
+}
+
 // Which email each event belongs to. Our own "sent" row knows the step (and
 // the subject); the provider's delivered/opened/clicked reports are tied back
 // to it through the message id. Returns keyOf(event) -> "n:<step id>",

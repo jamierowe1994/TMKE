@@ -1,0 +1,294 @@
+---
+// Email › Overview (Danielle, 25 Nov 2026; agreed on the "TMKE OS Email"
+// mock-up): what has gone out, what goes next and anything that needs you,
+// across every campaign and one-off send. Filter by period, by campaigns or
+// one-off sends, by area of the business and by one campaign.
+//
+// The figures are counted by src/lib/email-insights.js, the same as the funnel
+// audit and a campaign's Insights: each person once, a click counting as an
+// open, and how many may be email security scanners beside each figure.
+// Automations (emails that send themselves) are not counted here.
+import AdminShell from "../../../components/admin/AdminShell.astro";
+import EmailTabs from "../../../components/admin/EmailTabs.astro";
+import "../../../styles/money-os.css";
+---
+
+<AdminShell active="email-overview" title="Email overview" skin="hub">
+  <div class="ash-panel ash-page">
+    <div class="mo" id="eo">
+      <section class="mo-head">
+        <div>
+          <p class="mo-eye">Email</p>
+          <div class="mo-title">Overview</div>
+          <p class="mo-sub">What has gone out, what goes next, and anything that needs you.</p>
+        </div>
+        <div class="mo-acts"><a class="mbtn" href="/admin/email/campaigns?new=1">New campaign</a><a class="mbtn primary" href="/admin/email/sends?new=">New send</a></div>
+      </section>
+      <EmailTabs active="overview" />
+      <div class="bar">
+        <select id="eo-period" class="eo-pick" aria-label="Period">
+          <option value="30">Last 30 days</option><option value="month">This month</option><option value="last">Last month</option><option value="90">Last 90 days</option><option value="year">This year</option>
+        </select>
+        <select id="eo-type" class="eo-pick" aria-label="Campaigns or one-off sends">
+          <option value="all">Campaigns and one-off sends</option><option value="campaign">Campaigns only</option><option value="single">One-off sends only</option>
+        </select>
+        <select id="eo-area" class="eo-pick" aria-label="Area of the business"></select>
+        <select id="eo-one" class="eo-pick" aria-label="One campaign or send"></select>
+      </div>
+      <p class="state" id="eo-state">Reading your emails.</p>
+      <div id="eo-main" hidden></div>
+    </div>
+  </div>
+
+  <style is:global>
+    #eo .mo-head { margin-bottom: 14px; }
+    #eo select.eo-pick { appearance: none; -webkit-appearance: none; height: 30px; max-width: 260px; padding: 0 28px 0 12px; border: 1px solid var(--edge); border-radius: 4px; background-color: #fff; color: var(--ink);
+      font-family: var(--sans); font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; cursor: pointer; background-repeat: no-repeat; background-position: right 8px center;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23371e28' stroke-width='1.5'><path d='M2.5 4.5 6 8l3.5-3.5'/></svg>"); }
+    #eo select.eo-pick.has { border-color: var(--wine); color: var(--wine); }
+    #eo .figs { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 20px; }
+    #eo .fig { min-height: 0; cursor: default; }
+    #eo .fig:hover { transform: none; box-shadow: none; }
+    #eo a.fig { text-decoration: none; cursor: pointer; }
+    #eo .eo-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-bottom: 24px; align-items: start; }
+    #eo .eo-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; gap: 14px; min-height: 60px; padding: 8px 10px; border-bottom: 1px solid var(--linen); }
+    #eo .eo-row.plain { grid-template-columns: minmax(0, 1fr) auto; }
+    #eo .eo-date { display: grid; justify-items: center; padding: 6px 4px; border-radius: 4px; background: var(--linen); color: var(--wine); }
+    #eo .eo-date small { font-size: 13px; }
+    #eo .eo-t { display: grid; gap: 2px; min-width: 0; }
+    #eo .eo-t b { font-weight: 400; font-size: 16px; overflow-wrap: anywhere; }
+    #eo .eo-t span { font-size: 13px; color: var(--tx); }
+    #eo .eo-none { padding: 18px 10px; color: var(--tx); border-bottom: 1px solid var(--linen); }
+    #eo .mbtn.small { height: 26px; padding: 0 10px; }
+    #eo table.eo-tbl td { height: 98px; }
+    #eo td.eo-th { width: 76px; padding-right: 0; }
+    #eo .eo-thumb { display: flex; flex-direction: column; gap: 5px; width: 62px; height: 80px; padding: 8px 7px; border-radius: 3px; background: var(--linen); }
+    #eo .eo-thumb i { display: block; height: 3px; background: var(--stone); }
+    #eo .eo-thumb i:first-child { height: 24px; border-radius: 2px; }
+    #eo .eo-thumb i:last-child { width: 60%; }
+    #eo .eo-name { display: grid; gap: 2px; line-height: 1.2; padding: 8px 0; white-space: normal; max-width: 420px; }
+    #eo .eo-name a { font-size: 16px; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+    #eo .eo-name a:hover { color: var(--wine); text-decoration: underline; text-underline-offset: 3px; }
+    #eo .eo-name span { font-size: 13px; color: var(--tx); }
+    #eo td.eo-num small { display: block; font-size: 12px; color: var(--tx); }
+    #eo td.eo-part { white-space: normal; max-width: 220px; }
+    #eo .eo-told { margin: 0 0 16px; padding: 12px 14px; border: 1px dashed var(--stone); border-radius: 4px; }
+    #eo .eo-hint { margin: 8px 0 0; color: var(--tx); }
+    @media (max-width: 900px) { #eo .eo-two { grid-template-columns: minmax(0, 1fr); } #eo .figs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+    import { supabase } from "../../../lib/supabase.js";
+    import { AREAS, isCampaign, isSingle, areaOf, sendSteps, isWritten, stepWhen } from "../../../lib/email-campaigns.js";
+    import { loadEmails } from "../../../lib/email-library.js";
+    import { readEventsBetween, stepKeyer, scannerJudge, statsFor, TRAP_SINCE } from "../../../lib/email-insights.js";
+    import { mountThumbs } from "../../../lib/email-thumb.js";
+
+    const DEV = import.meta.env.DEV;
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const pct = (a, b) => (b ? Math.round((a / b) * 100) + "%" : "0%");
+    const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
+    const moment = (c) => (isDate(c && c.send_on) ? new Date(`${c.send_on}T${(c && c.send_at) || "09:00"}`) : null);
+    const OLD_DRAFT_DAYS = 30, SOON_DAYS = 14;
+
+    let ALL = [];            // campaigns and one-off sends
+    let EMAILS = [];         // names and subjects
+    let LIVE = new Map();    // automation id -> people in it now
+    let ROWS = [];           // every email sent in the period: { a, node, n, email, list, stats, first }
+    let DEMO = false;
+    let period = "30", type = "all", area = "all", one = "all";
+    let run = 0;
+
+    const kindOf = (a) => (isSingle(a) ? "single" : "campaign");
+    const match = (a) => (type === "all" || kindOf(a) === type) && (area === "all" || areaOf(a) === area) && (one === "all" || a.id === one);
+    const emailOf = (node) => EMAILS.find((t) => t.id === (node.config && node.config.template_id)) || null;
+    const openOf = (a, step) => (isSingle(a) ? "/admin/email/sends" : `/admin/email/campaign?id=${encodeURIComponent(a.id)}${step ? "&step=" + step : ""}`);
+    const partOf = (a) => (isSingle(a) ? "One-off send" : a.name);
+
+    function range() {
+      const now = new Date(); const y = now.getFullYear(), m = now.getMonth();
+      if (period === "month") return { from: new Date(y, m, 1), to: null, label: "this month" };
+      if (period === "last") return { from: new Date(y, m - 1, 1), to: new Date(y, m, 1), label: "last month" };
+      if (period === "year") return { from: new Date(y, 0, 1), to: null, label: "this year" };
+      const days = Number(period) || 30;
+      return { from: new Date(Date.now() - days * 864e5), to: null, label: `in the last ${days} days` };
+    }
+
+    // Every email of a campaign or one-off send that went out in the period, with its figures.
+    async function readSent() {
+      if (DEMO) return demoRows();
+      const r = range();
+      const res = await readEventsBetween(supabase, r.from.toISOString(), r.to ? r.to.toISOString() : null);
+      const ev = res.data || [];
+      const byId = new Map(ALL.map((a) => [a.id, a]));
+      const mine = ev.filter((e) => byId.has(e.automation_id));
+      const keyOf = stepKeyer(mine); const { isMachine } = scannerJudge(mine);
+      const groups = new Map();
+      mine.forEach((e) => {
+        const a = byId.get(e.automation_id); const steps = sendSteps(a);
+        const k = keyOf(e); let node = null;
+        if (k.startsWith("n:")) node = steps.find((n) => n.id === k.slice(2)) || null;
+        else if (k.startsWith("s:")) node = steps.find((n) => { const em = emailOf(n); return (((n.config || {}).subject || (em && em.subject) || "").trim() === k.slice(2).trim()); }) || null;
+        if (!node) return;
+        const g = groups.get(a.id + "|" + node.id) || groups.set(a.id + "|" + node.id, { a, node, n: steps.indexOf(node) + 1, email: emailOf(node), list: [] }).get(a.id + "|" + node.id);
+        g.list.push(e);
+      });
+      const out = [];
+      groups.forEach((g) => {
+        const stats = statsFor(g.list, keyOf, isMachine);
+        if (!stats.sent) return;   // opens trailing in from an email sent before the period
+        const first = g.list.filter((e) => e.event === "sent").map((e) => e.occurred_at).sort()[0];
+        out.push({ ...g, stats, first, keyOf, isMachine });
+      });
+      return out.sort((x, y) => String(y.first).localeCompare(String(x.first)));
+    }
+
+    function comingUp() {
+      const now = new Date(); const out = [];
+      ALL.filter((a) => a.status === "active" && match(a)).forEach((a) => {
+        sendSteps(a).forEach((n, i) => { const at = moment(n.config); if (at && at > now) out.push({ a, node: n, n: i + 1, at, email: emailOf(n) }); });
+      });
+      return out.sort((x, y) => x.at - y.at).slice(0, 6);
+    }
+
+    function needs(rows) {
+      const now = new Date(); const soon = new Date(Date.now() + SOON_DAYS * 864e5); const out = [];
+      ALL.filter(match).forEach((a) => {
+        if (a.status !== "active" && a.status !== "draft") return;
+        const steps = sendSteps(a);
+        const upcoming = steps.map((n, i) => ({ n, i, at: moment(n.config) })).filter((x) => x.at && x.at > now);
+        const blank = upcoming.find((x) => x.at <= soon && !isWritten(x.n));
+        if (blank) out.push({ title: `Email ${blank.i + 1} is not written yet`, text: `${a.name}${a.status === "draft" ? " (not approved yet)" : ""} sends it on ${stepWhen(blank.n)}.`, href: openOf(a, "emails"), act: "Open" });
+        if (a.status === "active" && upcoming.length && !(LIVE.get(a.id) || 0)) {
+          const to = a.graph && a.graph.meta && a.graph.meta.to; const tops = !!(to && to.mode === "tags");
+          out.push({ title: `Nobody is in ${a.name}`, text: `Email ${upcoming[0].i + 1} is due ${stepWhen(upcoming[0].n)}.${tops ? " The group is checked again half an hour before it." : " Nobody will get it unless people are added."}`, href: isSingle(a) ? "/admin/email/sends" : openOf(a, "schedule"), act: "Open" });
+        }
+      });
+      rows.filter((r) => r.stats.failed > 0).forEach((r) => out.push({ title: `${plural(r.stats.failed, "send", "sends")} failed`, text: `${r.email ? r.email.name : "An email"} in ${r.a.name}. The full report can send them again.`, href: `/admin/automations/audit?id=${encodeURIComponent(r.a.id)}`, act: "Report" }));
+      const cutoff = Date.now() - OLD_DRAFT_DAYS * 864e5;
+      const old = ALL.filter((a) => a.status === "draft" && new Date(a.updated_at).getTime() < cutoff).length;
+      if (old && type !== "single" && one === "all") out.push({ title: `${plural(old, "draft", "drafts")} not touched for ${OLD_DRAFT_DAYS} days`, text: "Clear them out, or carry on with them.", href: "/admin/email/campaigns", act: "Tidy" });
+      return out;
+    }
+
+    function render() {
+      const rows = ROWS.filter((r) => match(r.a));
+      // The totals are counted over the same events, so they are the rows added up person by person, not an average of averages.
+      const allEv = []; rows.forEach((r) => allEv.push(...r.list));
+      const tot = rows.length ? statsFor(allEv, rows[0].keyOf, rows[0].isMachine) : null;
+      const next = comingUp(); const todo = needs(rows);
+      const maybe = (n) => (n ? `${n} may be scanners` : "");
+      const funnels = new Set(rows.map((r) => r.a.id)).size;
+      const anyOld = rows.some((r) => r.first && r.first.slice(0, 10) < TRAP_SINCE);
+      const label = range().label;
+
+      const figs = `<div class="figs">
+        <div class="fig lin static"><span>Emails sent</span><b>${tot ? tot.sent : 0}</b><small>${rows.length ? `${plural(rows.length, "email", "emails")} from ${plural(funnels, "campaign or send", "campaigns and sends")}` : `Nothing went out ${esc(label)}`}</small></div>
+        <div class="fig lin static"><span>Opened</span><b>${tot && tot.sent ? pct(tot.opened, tot.base) : "0%"}</b><small>${tot && tot.sent ? [`${tot.opened} of ${tot.base}`, maybe(tot.botOpened)].filter(Boolean).join(", ") : "No sends to count"}</small></div>
+        <div class="fig lin static"><span>Clicked</span><b>${tot && tot.sent ? pct(tot.clicked, tot.base) : "0%"}</b><small>${tot && tot.sent ? [`${tot.clicked} of ${tot.base}`, maybe(tot.botClicked)].filter(Boolean).join(", ") : "No sends to count"}</small></div>
+        <div class="fig ${todo.length ? "dark" : "lin"} static"><span>Needs attention</span><b>${todo.length}</b><small>${todo.length ? esc(todo[0].title) : "Nothing needs you"}</small></div>
+      </div>`;
+
+      const coming = next.length ? next.map((c) => `<div class="eo-row">
+          <div class="eo-date"><span>${esc(c.at.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }))}</span><small>${esc((c.node.config || {}).send_at || "09:00")}</small></div>
+          <div class="eo-t"><b>${esc(c.email ? c.email.name : `Email ${c.n}, not written yet`)}</b><span>${esc(isSingle(c.a) ? "One-off send" : `${c.a.name}, email ${c.n}`)}</span></div>
+          <span style="color:var(--tx);white-space:nowrap">${esc(plural(LIVE.get(c.a.id) || 0, "person", "people"))}</span>
+        </div>`).join("") : `<p class="eo-none">Nothing is scheduled.</p>`;
+      const attention = todo.length ? todo.map((t) => `<div class="eo-row plain">
+          <div class="eo-t"><b>${esc(t.title)}</b><span>${esc(t.text)}</span></div>
+          <a class="mbtn small" href="${t.href}">${esc(t.act)}</a>
+        </div>`).join("") : `<p class="eo-none">Nothing needs you.</p>`;
+
+      const row = (r) => `<tr>
+        <td class="eo-th">${r.email ? `<div class="eo-thumb em-thumb" data-thumb="${esc(r.email.id)}" aria-hidden="true"><i></i><i></i><i></i><i></i></div>` : `<div class="eo-thumb" aria-hidden="true"><i></i><i></i><i></i><i></i></div>`}</td>
+        <td><div class="eo-name"><a href="${openOf(r.a, "insights")}">${esc(r.email ? r.email.name : `Email ${r.n}`)}</a><span>${esc((r.email && r.email.subject) || "")}</span></div></td>
+        <td class="eo-part">${esc(partOf(r.a))}${areaOf(r.a) ? `<br><span class="tx" style="color:var(--tx);font-size:13px">${esc(areaOf(r.a))}</span>` : ""}</td>
+        <td>${esc(new Date(r.first).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }))}</td>
+        <td class="eo-num">${r.stats.sent}${r.stats.delivered && r.stats.delivered !== r.stats.sent ? `<small>${r.stats.delivered} delivered</small>` : ""}</td>
+        <td class="eo-num">${pct(r.stats.opened, r.stats.base)} · ${r.stats.opened}<small>${esc(maybe(r.stats.botOpened))}</small></td>
+        <td class="eo-num">${pct(r.stats.clicked, r.stats.base)} · ${r.stats.clicked}<small>${esc(maybe(r.stats.botClicked))}</small></td>
+      </tr>`;
+      const sentTable = rows.length
+        ? `<div class="tablewrap"><table class="eo-tbl"><thead><tr><th></th><th>Email</th><th>Part of</th><th>Sent</th><th>People</th><th>Opened</th><th>Clicked</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table></div>
+           <p class="eo-hint">Each person counts once, and a click counts as an open. "May be scanners" are opens and clicks that look like a work email filter checking the email, not a person; they are in the figure, shown beside it.</p>`
+        : `<div class="empty">Nothing went out ${esc(label)}${type !== "all" || area !== "all" || one !== "all" ? " that matches those filters" : ""}.</div>`;
+
+      $("eo-main").innerHTML = `${figs}
+        <div class="eo-two">
+          <div class="section"><div class="strip"><span class="strip-t">Coming up</span></div>${coming}</div>
+          <div class="section" style="margin-top:0"><div class="strip"><span class="strip-t">Needs attention</span></div>${attention}</div>
+        </div>
+        ${anyOld ? `<p class="eo-told">Some of these emails went out before 10 Nov 2026, when a hidden check for email security scanners was added to every marketing email. For those, more of the opens and clicks may be scanners than are marked, so read their figures as a ceiling.</p>` : ""}
+        <div class="section"><div class="strip"><span class="strip-t">Sent ${esc(label)}</span></div>${sentTable}</div>`;
+      if (!DEMO) mountThumbs($("eo-main"), supabase);
+    }
+
+    async function refresh() {
+      const mine = ++run;
+      $("eo-state").hidden = false; $("eo-state").textContent = "Reading what went out."; $("eo-main").hidden = true;
+      let rows = [];
+      try { rows = await readSent(); } catch (_) { rows = []; }
+      if (mine !== run) return;
+      ROWS = rows;
+      $("eo-state").hidden = true; $("eo-main").hidden = false;
+      render();
+    }
+
+    function fillFilters() {
+      $("eo-area").innerHTML = `<option value="all">All areas</option>${AREAS.map((x) => `<option>${esc(x)}</option>`).join("")}`;
+      const list = ALL.filter((a) => a.status !== "draft").sort((x, y) => String(y.updated_at).localeCompare(String(x.updated_at)));
+      $("eo-one").innerHTML = `<option value="all">Every campaign and send</option>${list.map((a) => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("")}`;
+    }
+
+    // Example data for a development copy, where a signed-out visitor is handed nothing.
+    function demoRows() {
+      const mk = (a, node, n, s) => ({ a, node, n, email: emailOf(node), list: [], stats: s, first: new Date(Date.now() - n * 5 * 864e5).toISOString(), keyOf: () => "", isMachine: () => false });
+      const st = (sent, o, c, bo, bc) => ({ sent, delivered: sent, base: sent, opened: o, clicked: c, botOpened: bo, botClicked: bc, failed: 0 });
+      return [mk(ALL[0], ALL[0].graph.nodes[1], 1, st(112, 35, 5, 9, 3)), mk(ALL[0], ALL[0].graph.nodes[2], 2, st(112, 32, 6, 8, 3)), mk(ALL[1], ALL[1].graph.nodes[1], 1, st(183, 46, 4, 11, 2))];
+    }
+    function demo() {
+      DEMO = true;
+      const day = (n) => new Date(Date.now() + n * 864e5).toLocaleDateString("en-CA");
+      const s = (id, on, tpl) => ({ id, type: "send_email", config: { body_mode: "template", template_id: tpl, send_on: on, send_at: "07:00" } });
+      EMAILS = [1, 2, 3, 4].map((n) => ({ id: "e" + n, name: `The Winter Edit: email ${n}`, subject: "Example subject line" })).concat([{ id: "h", name: "TMKE - Halloween Member Email", subject: "Something spooky has landed in your Studio" }]);
+      ALL = [
+        { id: "w", name: "The Winter Edit", status: "active", trigger_type: "manual", updated_at: new Date().toISOString(), graph: { meta: { kind: "marketing", campaign: true, area: "The Edit", to: { mode: "tags", tags: ["Network: TEG"] } }, nodes: [{ id: "trigger", type: "trigger" }, s("a", day(-13), "e1"), s("b", day(-6), "e2"), s("c", day(1), "e3"), s("d", day(8), "e4"), s("e", day(12), "")], edges: [] } },
+        { id: "h", name: "TMKE - Halloween Member Email", status: "active", trigger_type: "manual", updated_at: new Date().toISOString(), graph: { meta: { kind: "marketing", single: true, to: { mode: "tags", tags: ["TMKE-Account-Member"] } }, nodes: [{ id: "trigger", type: "trigger" }, s("x", day(-20), "h")], edges: [] } },
+      ];
+      LIVE = new Map([["w", 111]]);
+    }
+
+    async function load() {
+      const [autos, lib] = await Promise.all([supabase.from("automations").select("*"), loadEmails(supabase, { light: true })]);
+      ALL = (autos.data || []).filter((a) => isCampaign(a) || isSingle(a));
+      EMAILS = lib.rows;
+      if (DEV && !ALL.length && new URLSearchParams(location.search).has("demo")) demo();
+      else {
+        try {
+          for (let from = 0; from < 20000; from += 1000) {
+            const r = await supabase.from("automation_enrollments").select("automation_id").in("status", ["active", "waiting"]).order("id", { ascending: true }).range(from, from + 999);
+            if (r.error) break;
+            (r.data || []).forEach((e) => LIVE.set(e.automation_id, (LIVE.get(e.automation_id) || 0) + 1));
+            if ((r.data || []).length < 1000) break;
+          }
+        } catch (_) {}
+      }
+      fillFilters();
+      await refresh();
+    }
+
+    const pick = (id, set, reread) => $(id).addEventListener("change", (e) => { set(e.target.value); e.target.classList.toggle("has", e.target.selectedIndex > 0); if (reread) refresh(); else render(); });
+    pick("eo-period", (v) => { period = v; }, true);
+    pick("eo-type", (v) => { type = v; }, false);
+    pick("eo-area", (v) => { area = v; }, false);
+    pick("eo-one", (v) => { one = v; }, false);
+
+    (async () => {
+      if (!DEV) { const s = await requireAdmin(); if (!s) return; }
+      await load();
+    })();
+  </script>
+</AdminShell>

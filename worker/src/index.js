@@ -6333,11 +6333,32 @@ async function topUpCampaigns(env) {
     let entry = at;
     while (entry > 0 && line[entry - 1].type === "if_else") entry--;
     const list = `{${tags.map((t) => `"${String(t).replace(/"/g, "")}"`).join(",")}}`;
-    const matched = await sbGetAll(env, "contacts", `tags=ov.${encodeURIComponent(list)}&select=id&order=id.asc`);
+    const matched = await sbGetAll(env, "contacts", `tags=ov.${encodeURIComponent(list)}&select=*&order=id.asc`);
     const been = await sbGetAll(env, "automation_enrollments", `automation_id=eq.${encodeURIComponent(a.id)}&select=id,contact_id&order=id.asc`);
     if (!matched || !been) continue;   // couldn't read the group: the next run tries again
     const had = new Set(been.map((r) => r.contact_id));
-    const fresh = matched.filter((c) => !had.has(c.id));
+    /* The campaign's own exclusions count for a late joiner too (Danielle, 25
+       Nov 2026): being in the target group is not enough. Every check that
+       sits before this email is put to them now, and anyone it would already
+       have let go (they own the pack the campaign is selling, say) is not
+       added, however new they are. A check that can't be answered leaves them
+       out for this email; the next email's top-up asks again. */
+    const earlier = [];
+    for (let i = 0; i < at; i++) {
+      if (line[i].type !== "if_else") continue;
+      const outs = edges.filter((e) => e.from === line[i].id);
+      earlier.push({ cfg: line[i].config || {}, yesOn: outs.some((e) => e.branch === "yes"), noOn: outs.some((e) => e.branch === "no") });
+    }
+    const stays = async (c) => {
+      for (const k of earlier) {
+        let yes;
+        try { yes = await autoEvalCondition(env, k.cfg, c); } catch (_) { return false; }
+        if (yes ? !k.yesOn : !k.noOn) return false;
+      }
+      return true;
+    };
+    const fresh = [];
+    for (const c of matched) { if (!had.has(c.id) && (await stays(c))) fresh.push(c); }
     let added = 0;
     for (let i = 0; i < fresh.length; i += 500) {
       const batch = fresh.slice(i, i + 500).map((c) => ({
