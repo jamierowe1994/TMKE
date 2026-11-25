@@ -10389,41 +10389,41 @@ import { createResizeEngine } from "./resize-engine.js";
   // Traditional painted stripes taken off the list (Danielle, 20 Nov); designs using it keep their colours.
   var XP_PRESETS = [{"p":"stripes","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","ground":"#FFF3EF"},"scale":100,"main":"#FFF3EF","accent":"#612520"},{"p":"stripes","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stripes","name":"Neutral","route":null,"cols":{"c1":"#C9BCB7","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#7F444C"},{"p":"flower","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#5C5E31","c3":"#430E18","ground":"#430E18"},"scale":85,"main":"#EAE5E1","accent":"#7F444C"},{"p":"flower","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#767154","c3":"#767154","ground":"#EAE5E1"},"scale":90,"main":"#EAE5E1","accent":"#612520"},{"p":"tartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#E4C7C1","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"tartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#3B3B3C"},{"p":"tartan","name":"Cranberry & Coal","route":null,"cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#612520"},"scale":100,"main":"#EAE5E1","accent":"#5C5E31"},{"p":"fir","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#5C5E31","c2":"#5C5E31","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#5C5E31"},{"p":"fir","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#767154","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"fir","name":"Candy Cane","route":"candy","cols":{"c1":"#F1F1F1","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"fir","name":"Cranberry","route":null,"cols":{"c1":"#6E7B47","c2":"#6E7B47","ground":"#371E28"},"scale":100,"main":"#EAE5E1","accent":"#6E7B47"},{"p":"bows","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"bows","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#E8DCC6","ground":"#767154"},"scale":100,"main":"#EAE5E1","accent":"#6F171F"},{"p":"bows","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#FFFFFF","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"bows","name":"Cranberry & Coal","route":null,"cols":{"c1":"#612520","c2":"#EAE5E1","ground":"#EAE5E1"},"scale":100,"main":"#EAE5E1","accent":"#612520"},{"p":"stars","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#E4C7C1","c2":"#7F444C","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#7F444C"},{"p":"stars","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#F1F1F1","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"stars","name":"Cranberry & Coal","route":null,"cols":{"c1":"#E8DCC6","c2":"#BF9B7A","ground":"#191E16"},"scale":100,"main":"#EAE5E1","accent":"#612520"},{"p":"fstripe","name":"Cocoa & Sky","route":null,"cols":{"c1":"#4B2E22","c2":"#F1EBDF","ground":"#A9BDC9"},"scale":100,"main":"#F1EBDF","accent":"#4B2E22"},{"p":"fstripe","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#FFF3EF","ground":"#E4C7C1"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"fstripe","name":"Traditional","route":"traditional","cols":{"c1":"#6F171F","c2":"#EAE5E1","ground":"#F5EDDA"},"scale":100,"main":"#F5EDDA","accent":"#6F171F"},{"p":"fstripe","name":"Candy Cane","route":"candy","cols":{"c1":"#E31F36","c2":"#F1F1F1","ground":"#FFFFFF"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"},{"p":"ftartan","name":"Olive","route":null,"cols":{"c1":"#2E2A1D","c2":"#7C7A55","ground":"#4E4C33"},"scale":100,"main":"#EAE5E1","accent":"#4E4C33"},{"p":"ftartan","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#430E18","c2":"#E4C7C1","ground":"#612520"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"ftartan","name":"Traditional","route":"traditional","cols":{"c1":"#191E16","c2":"#E8DCC6","ground":"#767154"},"scale":100,"main":"#F5EDDA","accent":"#191E16"},{"p":"ftartan","name":"Candy Cane","route":"candy","cols":{"c1":"#3B3B3C","c2":"#FFFFFF","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#3B3B3C"},{"p":"fcheck","name":"Charcoal","route":null,"cols":{"c1":"#5A4F47","c2":"#3A322D","ground":"#2C2622"},"scale":100,"main":"#EAE5E1","accent":"#2C2622"},{"p":"fcheck","name":"Sweet Wonderland","route":"sweet","cols":{"c1":"#7F444C","c2":"#612520","ground":"#430E18"},"scale":100,"main":"#FFF3EF","accent":"#430E18"},{"p":"fcheck","name":"Traditional","route":"traditional","cols":{"c1":"#767154","c2":"#6F171F","ground":"#191E16"},"scale":100,"main":"#F5EDDA","accent":"#191E16"},{"p":"fcheck","name":"Candy Cane","route":"candy","cols":{"c1":"#FFFFFF","c2":"#E31F36","ground":"#E31F36"},"scale":100,"main":"#FFFFFF","accent":"#E31F36"}];
   var XP_ROUTE_NAMES = { sweet: "Sweet Wonderland", traditional: "Traditional", candy: "Candy Cane" };
-  function xpPattern(key) { return XP_PATTERNS.find(function (p) { return p.key === key; }) || XP_TEXTURES.find(function (p) { return p.key === key; }) || null; }
+  function xpPattern(key) {
+    if (TX_ALIAS[key]) key = TX_ALIAS[key];
+    return XP_PATTERNS.find(function (p) { return p.key === key; }) || XP_TEXTURES.find(function (p) { return p.key === key; }) || null;
+  }
 
-  /* ---------- Textures (Danielle, 24 Nov) ----------
-     Four plain backgrounds with a printed-stock surface: fine paper, woven
-     cloth, limewash plaster and suede. One colour each (the ground), drawn in
-     code like the patterns so they stay sharp at any size.
+  /* ---------- Textures (Danielle, 24-25 Nov) ----------
+     Plain backgrounds with a real surface: smooth card, kraft paper, linen,
+     trowelled plaster, suede and felt. Picked on the Texture Lab
+     (claude.ai/artifact/1RnFBSh9vjHvpMPZ3cz3m8) on 25 Nov, after the first
+     four, drawn in code, looked fake.
 
-     The surface is one definition per texture, never a colour. Each layer is
-     stitched noise (feTurbulence, seamless on its tile) that lightens the
-     ground where the noise is high and darkens it where it is low, by the
-     same amount either way, so the average stays the colour picked. The
-     amount is measured in lightness (CIE L*), so a step reads the same on
-     plum as on blush; on very dark colours more of it goes into the
-     highlights, where the eye sees it, and on very light ones into the
-     shadows. Every texture's tile is the whole page, so none of them ever
-     shows a repeat. A texture is { key, cols: { ground },
+     Each is a real scan from ambientCG (CC0: free for commercial use, no
+     credit needed), turned into colourless light and shade: a greyscale
+     tile in /public/textures where 128 changes nothing, brighter lightens and
+     darker darkens. Over the colour picked it moves each pixel towards a
+     lighter or darker shade of that same colour, by equal steps of
+     lightness (CIE L*), so the colour stays the colour and the texture reads
+     the same on plum as on blush; on very dark colours a little more goes
+     into the highlights. The scans tile without a seam. tile is the repeat
+     in units (a 148th of the width, a millimetre on print) at 100%; gain
+     evens out how strong each scan is. A texture is { key, cols: { ground },
      scale, strength } on canvas.bgPattern; canvas.background keeps the same
      colour underneath. */
-  var TX_STRENGTH = { subtle: 0.55, standard: 1, strong: 1.7 };
+  var TX_STRENGTH = { subtle: 5, standard: 8, strong: 12 };   // L* at full detail
   var TX_STRENGTH_NAMES = [["subtle", "Subtle"], ["standard", "Standard"], ["strong", "Strong"]];
   var XP_TEXTURES = [
-    { key: "txpaper", name: "Fine paper", texture: true, fit: true, tw: 32, th: 32, thumbK: 5, cols: { ground: "#EAE5E1" },
-      // A fine, even tooth, and under it the faintest cloudiness of card stock.
-      layers: [{ f: "2.6 2.6", oct: 2, seed: 3, k: 4.2, g: 1 }, { f: "0.12 0.12", oct: 2, seed: 5, k: 2.5, g: 0.25 }] },
-    { key: "txcloth", name: "Woven cloth", texture: true, fit: true, tw: 24, th: 24, thumbK: 6, cols: { ground: "#EAE5E1" },
-      // The twill of Woven tartan and Wool check, a soft grain and a little slub in the thread.
-      twill: { s: 1, g: 0.9 },
-      layers: [{ f: "1.1 1.1", oct: 2, seed: 7, k: 4, g: 0.55 }, { f: "0.08 0.9", oct: 2, seed: 9, k: 4, g: 0.3 }] },
-    { key: "txplaster", name: "Limewash plaster", texture: true, fit: true, tw: 160, th: 160, thumbK: 0.62, cols: { ground: "#EAE5E1" },
-      // Broad soft clouds, a faint sideways brush, and the wall's own fine tooth.
-      layers: [{ f: "0.014 0.014", oct: 4, seed: 21, k: 4.5, g: 1.9 }, { f: "0.035 0.07", oct: 3, seed: 23, k: 4, g: 0.45 }, { f: "0.7 0.7", oct: 2, seed: 25, k: 3, g: 0.2 }] },
-    { key: "txsuede", name: "Suede", texture: true, fit: true, tw: 160, th: 160, thumbK: 0.62, cols: { ground: "#EAE5E1" },
-      // A gentle drift of light and dark, and a soft nap brushed one way.
-      layers: [{ f: "0.02 0.02", oct: 3, seed: 31, k: 4, g: 1.3 }, { f: "0.05 0.17", oct: 2, seed: 33, k: 4, g: 0.6 }, { f: "1.6 1.6", oct: 1, seed: 35, k: 3, g: 0.25 }] },
-  ];
+    { key: "txcard", name: "Smooth card", file: "card", tile: 74, gain: 0.8 },
+    { key: "txkraft", name: "Kraft paper", file: "kraft", tile: 74, gain: 0.8 },
+    { key: "txlinen", name: "Linen", file: "linen", tile: 57.5, gain: 0.9 },
+    { key: "txplaster", name: "Trowelled plaster", file: "plaster", tile: 148, gain: 1 },
+    { key: "txsuede", name: "Suede", file: "suede", tile: 74, gain: 0.9 },
+    { key: "txfelt", name: "Felt", file: "felt", tile: 148, gain: 1 },
+  ].map(function (t) { return Object.assign({ texture: true, tw: t.tile, th: t.tile, cols: { ground: "#EAE5E1" } }, t); });
+  // The drawn textures of 24 Nov, for anything saved with one.
+  var TX_ALIAS = { txpaper: "txcard", txcloth: "txlinen" };
   function isTexture(v) { const p = v && xpPattern(v.key); return !!(p && p.texture); }
   // sRGB hex <-> CIE Lab (D65).
   function txLab(hex) {
@@ -10450,45 +10450,78 @@ import { createResizeEngine } from "./resize-engine.js";
     const f = function (v) { return v.map(function (x) { return x.toFixed(4); }); };
     return { light: f(txRgb(Math.min(100, L + D * (1 + lean)), lab[1], lab[2])), dark: f(txRgb(Math.max(0, L - D * (1 - lean)), lab[1], lab[2])) };
   }
-  // A texture's tile as SVG markup, tw x th units of the ground with its layers.
-  function txSvg(p, ground, strength, tw, th, stitch) {
-    const D = 6 * (TX_STRENGTH[strength] || 1);
-    const id = p.key + Math.round(tw) + "x" + Math.round(th);
-    let defs = "", body = "";
-    (p.layers || []).forEach(function (o, i) {
-      const sh = txShades(ground, D * o.g), fid = id + "n" + i;
-      defs += '<filter id="' + fid + '" x="0" y="0" width="' + tw + '" height="' + th + '" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">' +
-        '<feTurbulence type="fractalNoise" baseFrequency="' + o.f + '" numOctaves="' + o.oct + '" seed="' + o.seed + '" stitchTiles="' + (stitch ? "stitch" : "noStitch") + '" result="n"/>' +
-        '<feColorMatrix in="n" result="l" values="0 0 0 0 ' + sh.light[0] + ' 0 0 0 0 ' + sh.light[1] + ' 0 0 0 0 ' + sh.light[2] + ' ' + o.k + ' 0 0 0 ' + (-o.k / 2) + '"/>' +
-        '<feColorMatrix in="n" result="d" values="0 0 0 0 ' + sh.dark[0] + ' 0 0 0 0 ' + sh.dark[1] + ' 0 0 0 0 ' + sh.dark[2] + ' ' + (-o.k) + ' 0 0 0 ' + (o.k / 2) + '"/>' +
-        '<feMerge><feMergeNode in="l"/><feMergeNode in="d"/></feMerge></filter>';
-      body += '<rect width="' + tw + '" height="' + th + '" filter="url(#' + fid + ')"/>';
-    });
-    if (p.twill) {
-      // Diagonal threads: a darker and a lighter line in each repeat, the same width, so they balance.
-      const s = p.twill.s, sh = txShades(ground, D * p.twill.g), w = s * 0.3;
-      const rgb = function (v) { return "rgb(" + v.map(function (x) { return Math.round(x * 255); }).join(",") + ")"; };
-      const line = function (o, col) {
-        return '<path d="M' + (o - s) + ',' + s + ' L' + o + ',0 M' + o + ',' + s + ' L' + (o + s) + ',0" stroke="' + col + '" stroke-width="' + w + '" stroke-opacity="0.5"/>';
-      };
-      defs += '<pattern id="' + id + 'tw" width="' + s + '" height="' + s + '" patternUnits="userSpaceOnUse">' + line(0, rgb(sh.dark)) + line(s / 2, rgb(sh.light)) + line(s, rgb(sh.dark)) + '</pattern>';
-      body = '<rect width="' + tw + '" height="' + th + '" fill="url(#' + id + 'tw)"/>' + body;
+  // Each scan as signed detail, -1 to 1, once loaded.
+  var _txMaps = {};
+  function txMap(p) {
+    const m = _txMaps[p.key];
+    if (m && !(m instanceof Promise)) return m;
+    if (!m) {
+      _txMaps[p.key] = new Promise(function (resolve) {
+        const im = new Image();
+        im.crossOrigin = "anonymous";
+        im.onload = function () {
+          try {
+            const c = document.createElement("canvas");
+            c.width = im.naturalWidth; c.height = im.naturalHeight;
+            const g = c.getContext("2d");
+            g.drawImage(im, 0, 0);
+            const d = g.getImageData(0, 0, c.width, c.height).data, sv = new Float32Array(c.width * c.height);
+            for (let i = 0; i < sv.length; i++) sv[i] = (d[i * 4] - 128) / 127;
+            _txMaps[p.key] = { w: c.width, h: c.height, s: sv };
+            resolve(_txMaps[p.key]);
+          } catch (_) { delete _txMaps[p.key]; resolve(null); }
+        };
+        im.onerror = function () { delete _txMaps[p.key]; resolve(null); };
+        im.src = "/textures/" + p.file + ".jpg";
+      });
     }
-    return '<rect width="' + tw + '" height="' + th + '" fill="' + ground + '"/>' + (defs ? "<defs>" + defs + "</defs>" : "") + body;
+    return null;
   }
-  /* The tile for a texture, k canvas pixels to a unit. A texture that fits
-     the page gets a tile the size of the page (cv), so nothing repeats. */
-  function txTile(fill, k, cv) {
+  async function txMapReady(p) { return txMap(p) || (await _txMaps[p.key]) || null; }
+  /* The scan in a colour: a canvas, and a short address for the screen's
+     background once it has been made. Kept for the last few colours. */
+  var _txTiles = new Map();
+  function txTileCanvas(p, ground, strength) {
+    const map = txMap(p);
+    if (!map) return null;
+    const id = p.key + "|" + ground + "|" + strength;
+    let t = _txTiles.get(id);
+    if (t) return t;
+    const sh = txShades(ground, (TX_STRENGTH[strength] || TX_STRENGTH.standard) * p.gain);
+    const C = hexToRgb(ground), Lt = sh.light.map(function (v) { return v * 255; }), Dk = sh.dark.map(function (v) { return v * 255; });
+    const c = document.createElement("canvas");
+    c.width = map.w; c.height = map.h;
+    const g = c.getContext("2d"), img = g.createImageData(map.w, map.h), o = img.data, sv = map.s;
+    for (let i = 0, j = 0; i < sv.length; i++, j += 4) {
+      const a = sv[i], T = a >= 0 ? Lt : Dk, k = a >= 0 ? (a > 1 ? 1 : a) : (a < -1 ? 1 : -a);
+      o[j] = C[0] + (T[0] - C[0]) * k; o[j + 1] = C[1] + (T[1] - C[1]) * k; o[j + 2] = C[2] + (T[2] - C[2]) * k; o[j + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    t = { canvas: c, url: null };
+    c.toBlob(function (b) { if (!b) return; t.url = URL.createObjectURL(b); fullRender(); }, "image/jpeg", 0.92);
+    _txTiles.set(id, t);
+    if (_txTiles.size > 8) {
+      const first = _txTiles.keys().next().value, old = _txTiles.get(first);
+      if (old && old.url) URL.revokeObjectURL(old.url);
+      _txTiles.delete(first);
+    }
+    return t;
+  }
+  /* For the screen: { url, w, h } with the repeat k pixels to a unit, or
+     null while the scan loads (the page shows its plain colour meanwhile and
+     redraws when it arrives). */
+  function txTile(fill, k) {
     const p = xpPattern(fill && fill.key);
     if (!p || !p.texture) return null;
     const ground = normHex(fill.cols && fill.cols.ground) || p.cols.ground;
-    // The page-sized tile never repeats, so it isn't stitched (stitching bent the noise at the right and bottom edges).
-    let tw = p.tw, th = p.th, stitch = true;
-    if (p.fit && cv && cv.width && cv.height) { tw = cv.width / k; th = cv.height / k; stitch = false; }
-    const w = Math.max(1, Math.round(tw * k)), h = Math.max(1, Math.round(th * k));
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + tw + ' ' + th + '" preserveAspectRatio="none">' +
-      txSvg(p, ground, fill.strength || "standard", tw, th, stitch) + '</svg>';
-    return { svg: svg, w: w, h: h, url: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg) };
+    if (!txMap(p)) {
+      if (!p._waiting) { p._waiting = true; _txMaps[p.key].then(function (m) { p._waiting = false; if (m) fullRender(); }); }
+      return null;
+    }
+    const t = txTileCanvas(p, ground, fill.strength || "standard");
+    if (!t || !t.url) return null;
+    const w = Math.max(1, p.tile * k);
+    return { url: t.url, w: w, h: w };
   }
   // Every colour in the three Christmas routes, in route order, once each:
   // a "Christmas" row in the colour panels so odd bits can be matched to the
@@ -10640,13 +10673,17 @@ import { createResizeEngine } from "./resize-engine.js";
   async function xpCanvasPattern(ctx, fill, cv) {
     /* A texture is drawn at the download's own size, one tile pixel to one
        pixel: its grain is the detail, so it isn't drawn bigger and shrunk. */
-    const tex = isTexture(fill);
-    const t = xpTile(fill, xpScaleK(fill, cv) * (tex ? 1 : 2), cv);
-    if (!t) return null;
-    if (tex) {
-      const im = await loadImage(t.url);
-      return ctx.createPattern(im, "repeat");
+    if (isTexture(fill)) {
+      const p = xpPattern(fill.key);
+      if (!(await txMapReady(p))) return null;
+      const tc = txTileCanvas(p, normHex(fill.cols && fill.cols.ground) || p.cols.ground, fill.strength || "standard");
+      if (!tc) return null;
+      const tp = ctx.createPattern(tc.canvas, "repeat");
+      if (tp && tp.setTransform && typeof DOMMatrix === "function") tp.setTransform(new DOMMatrix().scale(p.tile * xpScaleK(fill, cv) / tc.canvas.width));
+      return tp;
     }
+    const t = xpTile(fill, xpScaleK(fill, cv) * 2, cv);
+    if (!t) return null;
     let img = _xpImg.get(t.url);
     if (!img) { img = await loadImage(t.url); if (_xpImg.size > 30) _xpImg.clear(); _xpImg.set(t.url, img); }
     const pat = ctx.createPattern(img, "repeat");
@@ -10780,13 +10817,12 @@ import { createResizeEngine } from "./resize-engine.js";
     const grid = document.createElement("div");
     grid.className = "ed-xp-grid";
     XP_TEXTURES.forEach(function (p) {
-      // Thumbnails in one mid colour at Strong, so the four surfaces are easy to tell apart.
-      const t = txTile({ key: p.key, cols: { ground: "#B9AAA4" }, strength: "strong" }, p.thumbK);
+      // Thumbnails in one mid colour at Strong, made from the same scans.
       const b = document.createElement("button");
       b.type = "button";
       b.className = "ed-xp-pat";
-      b.setAttribute("aria-pressed", String(!!cur && cur.key === p.key));
-      b.innerHTML = '<span class="pic" style="background-image:url(&quot;' + t.url.replace(/"/g, "%22") + '&quot;)"></span>' + p.name;
+      b.setAttribute("aria-pressed", String(!!cur && xpPattern(cur.key) === p));
+      b.innerHTML = '<span class="pic" style="background-image:url(/textures/' + p.file + '-thumb.jpg);background-size:cover"></span>' + p.name;
       b.addEventListener("click", function () {
         const v = { key: p.key, cols: { ground: startColour() }, scale: cur ? (cur.scale || 100) : 100, strength: cur ? (cur.strength || "standard") : "standard" };
         if (cur0 && cur0.route) v.route = cur0.route;
@@ -13908,6 +13944,7 @@ import { createResizeEngine } from "./resize-engine.js";
   function patternTone(fill, after) {
     const p = fill && xpPattern(fill.key);
     if (!p) return null;
+    if (p.texture) return hexTone((fill.cols && fill.cols.ground) || p.cols.ground);   // its average is its colour
     const cols = Object.assign({}, p.cols, fill.cols || {});
     const sig = fill.key + "|" + JSON.stringify(cols);
     const got = _patTone[sig];
