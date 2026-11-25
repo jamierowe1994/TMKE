@@ -1,0 +1,645 @@
+---
+// Email › One-off sends (Danielle, 25 Nov 2026; agreed on the "TMKE OS Email"
+// mock-up). One email, one group, now or at a set time, without building a
+// campaign: New send asks which email, who gets it and when.
+//
+// Under the bonnet a send is an `automations` row with one send step
+// (graph.meta.single), so the opt-in gate, the unsubscribe link, the event
+// log and the audit page are the ones campaigns use. The people are enrolled
+// by hand when you press send (the "Chosen contacts" start), not by a tag
+// trigger: someone given the tag next month must not be sent an old email.
+// The tags a send was aimed at are kept in graph.meta.to for the list.
+import AdminShell from "../../../components/admin/AdminShell.astro";
+import EmailTabs from "../../../components/admin/EmailTabs.astro";
+import "../../../styles/money-os.css";
+---
+
+<AdminShell active="sends" title="One-off sends" skin="hub">
+  <div class="ash-panel ash-page">
+    <div class="mo" id="es">
+      <section class="mo-head">
+        <div>
+          <p class="mo-eye">Email</p>
+          <div class="mo-title">One-off sends</div>
+          <p class="mo-sub">One email, one group, now or at a set time. No steps to build.</p>
+        </div>
+        <div class="mo-acts"><button type="button" class="mbtn primary" id="es-new">New send</button></div>
+      </section>
+      <EmailTabs active="sends" />
+      <div class="bar">
+        <label class="find">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
+          <input type="search" id="es-q" placeholder="Search sends" aria-label="Search sends" />
+        </label>
+        <select id="es-status" class="es-pick" aria-label="Filter by status">
+          <option value="all">Any status</option><option value="scheduled">Scheduled</option><option value="sent">Sent</option><option value="draft">Draft</option>
+        </select>
+        <span class="es-count" id="es-count"></span>
+      </div>
+      <p class="state" id="es-state">Reading the sends.</p>
+      <div id="es-main" hidden></div>
+      <div id="es-panel"></div>
+      <div class="toast" id="es-toast" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <style is:global>
+    #es .mo-head { margin-bottom: 14px; }
+    #es .es-count { margin-left: auto; color: var(--tx); }
+    #es select.es-pick, #es .es-pan select {
+      appearance: none; -webkit-appearance: none; cursor: pointer; font-family: var(--sans); font-weight: 400; letter-spacing: 0; text-transform: none;
+      background-color: #fff; background-repeat: no-repeat; background-position: right 8px center; color: var(--ink);
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23371e28' stroke-width='1.5'><path d='M2.5 4.5 6 8l3.5-3.5'/></svg>");
+    }
+    #es select.es-pick { height: 30px; padding: 0 28px 0 12px; border: 1px solid var(--edge); border-radius: 4px; font-size: 14px; }
+    #es select.es-pick.has { border-color: var(--wine); color: var(--wine); }
+    #es .blk { display: inline-flex; align-items: center; justify-content: center; width: 104px; height: 24px; border-radius: 4px; font-size: 13px; white-space: nowrap; }
+    #es .blk.sent { background: var(--good-l); color: var(--good); }
+    #es .blk.wait { background: var(--stone); color: var(--wine); }
+    #es .blk.plain { background: #fff; color: var(--tx); box-shadow: inset 0 0 0 1px var(--edge); }
+    #es .blk.bad { background: var(--bad-l); color: var(--bad); }
+    #es table.es-tbl td { height: 60px; }
+    #es table.es-tbl thead th { height: 34px; background: var(--wine); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; border: 0; }
+    #es table.es-tbl thead th:first-child { border-radius: 4px 0 0 4px; }
+    #es table.es-tbl thead th:last-child { border-radius: 0 4px 4px 0; }
+    #es .es-two { display: grid; gap: 2px; line-height: 1.2; padding: 8px 0; white-space: normal; min-width: 0; }
+    #es .es-two b { font-size: 16px; font-weight: 400; overflow-wrap: anywhere; }
+    #es .es-two span { font-size: 13px; color: var(--tx); }
+    #es td.es-acts { text-align: right; }
+    #es td.es-acts .mbtn { margin-left: 6px; }
+    #es .mbtn.small { height: 26px; padding: 0 10px; }
+
+    /* New send: a wide panel from the right, one size always. */
+    #es .es-scrim { position: fixed; inset: 0; z-index: 200; background: rgba(55,30,40,.35); }
+    #es .es-pan { position: fixed; z-index: 210; top: 0; right: 0; bottom: 0; width: min(760px, 100%); display: flex; flex-direction: column; background: #fff; box-shadow: -24px 0 60px -30px rgba(55,30,40,.6); font-size: 15px; }
+    #es .es-pan label { display: block; margin: 0; font-size: inherit; font-weight: 400; letter-spacing: 0; text-transform: none; color: inherit; }
+    #es .es-ph { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 26px 14px; }
+    #es .es-ph .pop-title { margin: 0; font-size: 28px; }
+    #es .es-ph .x { width: 30px; height: 30px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; cursor: pointer; flex: none; }
+    #es .es-pb { flex: 1; overflow: hidden auto; padding: 0 26px 22px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; align-content: start; }
+    #es .es-pf { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 14px 26px; border-top: 1px solid var(--linen); }
+    #es .es-pf > div { display: flex; gap: 8px; flex-wrap: wrap; }
+    #es .es-msg { margin: 0; padding: 0 26px 10px; color: var(--tx); min-height: 1.35em; }
+    #es .es-msg.bad { color: var(--bad); }
+    #es .es-sec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+    #es .es-pan input[type="search"], #es .es-pan input[type="text"], #es .es-pan input[type="date"], #es .es-pan input[type="time"], #es .es-pan select {
+      height: 34px; padding: 0 10px; border: 1px solid var(--stone); border-radius: 4px; font-size: 15px; font-family: var(--sans); box-shadow: none; }
+    #es .es-pan select { padding-right: 28px; }
+    #es .es-pan input:focus, #es .es-pan select:focus { border-color: var(--wine); outline: 0; box-shadow: none; }
+    #es .es-pan input[type="radio"] { width: 16px; height: 16px; margin: 0; padding: 0; border: 0; flex: none; accent-color: var(--wine); box-shadow: none; }
+    #es .es-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    #es .es-row .grow { flex: 1 1 220px; min-width: 0; }
+    #es .es-tpls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    #es .es-tpl { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--edge); border-radius: 4px; background: #fff; text-align: left; cursor: pointer; }
+    #es .es-tpl:hover { border-color: var(--wine); }
+    #es .es-tpl[aria-pressed="true"] { border-color: var(--wine); box-shadow: inset 0 0 0 1px var(--wine); }
+    #es .es-thumb { display: flex; flex-direction: column; gap: 6px; height: 96px; padding: 12px 10px; border-radius: 3px; background: var(--linen); }
+    #es .es-thumb i { display: block; height: 4px; background: var(--stone); }
+    #es .es-thumb i:first-child { height: 34px; border-radius: 2px; }
+    #es .es-thumb i:last-child { width: 60%; }
+    #es .es-tpl b { font-weight: 400; line-height: 1.2; overflow-wrap: anywhere; }
+    #es .es-tpl span { font-size: 13px; color: var(--tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #es .es-note { color: var(--tx); }
+    #es .es-radios { display: flex; gap: 22px; flex-wrap: wrap; }
+    #es .es-radios label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    #es .es-box { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 50px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 4px; }
+    #es .es-box select { flex: 1 1 180px; min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+    #es .es-chip { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 4px 0 10px; border-radius: 4px; background: var(--linen); color: var(--wine); }
+    #es .es-chip button { width: 22px; height: 22px; border: 0; background: none; padding: 0; color: inherit; cursor: pointer; font-size: 16px; line-height: 1; }
+    #es .es-found { display: grid; border: 1px solid var(--edge); border-radius: 4px; max-height: 190px; overflow: auto; }
+    #es .es-found button { display: flex; justify-content: space-between; gap: 10px; min-height: 36px; padding: 0 12px; border: 0; border-bottom: 1px solid var(--linen); background: #fff; text-align: left; cursor: pointer; align-items: center; }
+    #es .es-found button:hover { background: #f7f4f2; }
+    #es .es-found span { color: var(--tx); }
+    #es .es-kinds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    #es .es-kinds label { display: flex; align-items: flex-start; gap: 8px; padding: 12px; border: 1px solid var(--edge); border-radius: 4px; cursor: pointer; }
+    #es .es-kinds label.on { border-color: var(--wine); }
+    #es .es-kinds input { margin-top: 3px; }
+    #es .es-kinds small { display: block; font-size: 13px; color: var(--tx); }
+    #es .es-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 66px; padding: 12px 16px; border-radius: 4px; background: var(--linen); color: var(--wine); }
+    #es .es-total b { display: block; font-size: 18px; font-weight: 400; }
+    #es .es-total span { font-size: 13px; }
+    #es .es-link { padding: 0; border: 0; background: none; color: var(--wine); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+    #es .es-names { max-height: 170px; overflow: auto; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 4px; columns: 2; column-gap: 20px; }
+    #es .es-names div { break-inside: avoid; padding: 2px 0; }
+    #es .es-when { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    #es .es-when label span { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--tx); }
+    #es .es-when input { width: 100%; }
+    @media (max-width: 640px) { #es .es-tpls { grid-template-columns: repeat(2, minmax(0, 1fr)); } #es .es-kinds, #es .es-when { grid-template-columns: minmax(0, 1fr); } #es .es-names { columns: 1; } #es .es-count { margin-left: 0; flex: 1 0 100%; } #es .es-ph { padding: 18px 16px 12px; } #es .es-pb { padding: 0 16px 18px; } #es .es-pf { padding: 12px 16px; } #es .es-msg { padding: 0 16px 8px; } }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../../lib/admin-gate.js";
+    import { supabase } from "../../../lib/supabase.js";
+    import { TRIGGER_LABELS } from "../../../lib/automations.js";
+    import { TAG_NOTES, loadPackTagGroup, withPackTags } from "../../../lib/contact-tags.js";
+    import { isSingle, sendSteps, stepWhen, sentToLine, todayLondon } from "../../../lib/email-campaigns.js";
+    import { renderTemplate, mergeContextFor, defaultBrand, SAMPLE_RECIPIENT } from "../../../lib/email-render.js";
+
+    const DEV = import.meta.env.DEV;
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const fmtWhen = (iso) => { try { return new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }); } catch (_) { return ""; } };
+    const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
+    const ENROL_BATCH = 100;   // people handed to the Worker per request
+
+    let ALL = [];              // one-off sends
+    let TPLS = [];             // email templates that can be sent
+    let LIVE = new Map();      // send id -> people waiting in it now
+    let SENTN = new Map();     // send id -> emails sent
+    let PEOPLE = new Map();    // send id -> everyone it was aimed at
+    let TAGS = [];             // [group, [tags]] for the tag picker
+    let DEMO = false;
+    let q = "", statusFilter = "all";
+
+    function toast(msg) {
+      const t = $("es-toast"); if (!t) return;
+      t.textContent = msg; t.classList.add("on");
+      clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("on"), 3200);
+    }
+    async function workerPost(path, body) {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess && sess.session && sess.session.access_token;
+      const r = await fetch(`${WORKER}${path}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" }, body: JSON.stringify(body) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "Something went wrong.");
+      return d;
+    }
+    // Counts are asked for as counts: Supabase stops every read at 1,000 rows.
+    async function count(table, build) {
+      try { const { count: c, error } = await build(supabase.from(table).select("id", { count: "exact", head: true })); return error ? null : (c || 0); }
+      catch (_) { return null; }
+    }
+    const tagText = (t) => (TAG_NOTES[t] ? `${t} (${TAG_NOTES[t]})` : t);
+
+    // ---- The list -----------------------------------------------------------
+    const step = (a) => sendSteps(a)[0] || null;
+    const tplOf = (a) => { const n = step(a); return (n && n.config && TPLS.find((t) => t.id === n.config.template_id)) || null; };
+
+    // Draft, then Scheduled while anyone is still waiting for it, then Sent.
+    function statusOf(a) {
+      const live = LIVE.get(a.id) || 0, sent = SENTN.get(a.id) || 0;
+      if (a.status === "draft") return "draft";
+      if (a.status === "paused") return "paused";
+      if (a.status === "active" && live > 0) return "scheduled";
+      if (sent > 0) return "sent";
+      if (a.status === "archived") return "cancelled";
+      return "empty";
+    }
+    const BLK = { draft: ["plain", "Draft"], paused: ["wait", "Paused"], scheduled: ["wait", "Scheduled"], sent: ["sent", "Sent"], cancelled: ["plain", "Cancelled"], empty: ["bad", "Nobody in it"] };
+
+    function whenOf(a, st) {
+      const n = step(a);
+      if (n && isDate(n.config && n.config.send_on)) return stepWhen(n);
+      const meta = (a.graph && a.graph.meta) || {};
+      if (st === "sent" || st === "cancelled") return meta.went_live_at ? fmtWhen(meta.went_live_at) : "";
+      if (st === "scheduled") return "On the next run, within five minutes";
+      return "Not set";
+    }
+
+    function row(a) {
+      const st = statusOf(a);
+      const blk = BLK[st];
+      const t = tplOf(a);
+      const sent = SENTN.get(a.id) || 0, people = PEOPLE.get(a.id) || 0, live = LIVE.get(a.id) || 0;
+      const id = encodeURIComponent(a.id);
+      const open = a.trigger_type === "audience" && a.status === "active" && !(a.graph && a.graph.meta && a.graph.meta.single);
+      let who = "";
+      if (st === "sent") who = `${sent} sent${people > sent ? `, ${people - sent} left out or still to go` : ""}`;
+      else if (st === "scheduled") who = plural(live, "person", "people");
+      if (open) who += `${who ? ". " : ""}New people with the tag still get it`;
+      let acts = "";
+      if (st === "draft") acts = `<button type="button" class="mbtn small primary" data-edit="${esc(a.id)}">Carry on</button><button type="button" class="mbtn small danger" data-del="${esc(a.id)}">Delete</button>`;
+      else if (st === "scheduled" || st === "paused" || st === "empty") acts = `<a class="mbtn small" href="/admin/automations/audit?id=${id}">Who gets it</a><a class="mbtn small" href="/admin/automations/edit?id=${id}">Change</a><button type="button" class="mbtn small danger" data-cancel="${esc(a.id)}">Cancel send</button>`;
+      else acts = `<a class="mbtn small" href="/admin/automations/audit?id=${id}">Report</a><button type="button" class="mbtn small" data-again="${esc(a.id)}">Send again</button>`;
+      return `<tr>
+        <td><div class="es-two"><b>${esc(a.name)}</b><span>${esc((t && t.subject) || (t ? "" : "No email chosen yet"))}</span></div></td>
+        <td><span class="blk ${blk[0]}">${blk[1]}</span></td>
+        <td>${esc(whenOf(a, st))}</td>
+        <td><div class="es-two"><span style="font-size:14px;color:var(--ink)">${esc(sentToLine(a, TRIGGER_LABELS))}</span><span>${esc(who)}</span></div></td>
+        <td class="es-acts">${acts}</td>
+      </tr>`;
+    }
+
+    function render() {
+      const order = { scheduled: 0, paused: 0, empty: 0, draft: 1, sent: 2, cancelled: 3 };
+      const rows = ALL.map((a) => ({ a, st: statusOf(a) }))
+        .filter(({ a, st }) => (statusFilter === "all" || st === statusFilter || (statusFilter === "scheduled" && (st === "paused" || st === "empty")))
+          && (!q || (a.name || "").toLowerCase().includes(q) || ((tplOf(a) || {}).subject || "").toLowerCase().includes(q) || sentToLine(a, TRIGGER_LABELS).toLowerCase().includes(q)))
+        .sort((x, y) => (order[x.st] - order[y.st]) || String(y.a.updated_at).localeCompare(String(x.a.updated_at)));
+      const n = (s) => ALL.filter((a) => statusOf(a) === s).length;
+      $("es-count").textContent = `${n("scheduled")} scheduled · ${n("sent")} sent · ${plural(n("draft"), "draft", "drafts")}`;
+      $("es-main").innerHTML = rows.length
+        ? `<div class="tablewrap"><table class="es-tbl"><thead><tr><th>Email</th><th>Status</th><th>When</th><th>Sent to</th><th></th></tr></thead><tbody>${rows.map(({ a }) => row(a)).join("")}</tbody></table></div>`
+        : `<div class="empty">${ALL.length ? "No send matches that." : "Nothing sent this way yet. Press New send to email a group without building a campaign."}</div>`;
+    }
+
+    async function load() {
+      const [autos, tpls] = await Promise.all([
+        supabase.from("automations").select("*").order("updated_at", { ascending: false }),
+        supabase.from("email_templates").select("id, name, subject, status, updated_at").neq("status", "archived").order("updated_at", { ascending: false }),
+      ]);
+      if (autos.error) { $("es-state").textContent = "Couldn't read the sends: " + autos.error.message; $("es-state").classList.add("bad"); return; }
+      ALL = (autos.data || []).filter(isSingle);
+      TPLS = tpls.data || [];
+      LIVE = new Map(); SENTN = new Map(); PEOPLE = new Map();
+      if (DEV && !ALL.length && !TPLS.length && new URLSearchParams(location.search).has("demo")) demo();
+      else {
+        const jobs = [];
+        ALL.filter((a) => a.status !== "draft").forEach((a) => {
+          jobs.push(count("automation_enrollments", (x) => x.eq("automation_id", a.id).in("status", ["active", "waiting"])).then((c) => { if (c) LIVE.set(a.id, c); }));
+          jobs.push(count("email_events", (x) => x.eq("automation_id", a.id).eq("event", "sent")).then((c) => { if (c) SENTN.set(a.id, c); }));
+          jobs.push(count("automation_enrollments", (x) => x.eq("automation_id", a.id)).then((c) => { if (c) PEOPLE.set(a.id, c); }));
+        });
+        await Promise.all(jobs);
+      }
+      $("es-state").hidden = true;
+      $("es-main").hidden = false;
+      render();
+    }
+
+    // Example rows for a development copy, where a signed-out visitor is
+    // handed nothing. Never runs on the live site; nothing can be sent from it.
+    function demo() {
+      DEMO = true;
+      TPLS = [
+        { id: "t1", name: "TMKE - Halloween Member Email", subject: "Something spooky has landed in your Studio", status: "active" },
+        { id: "t2", name: "TMKE - TPE-PPE Print Studio Launch", subject: "Introducing The Studio. Your print marketing just got easier.", status: "active" },
+        { id: "t3", name: "TMKE - Autumn Edit Email #2", subject: "Template Content Doesn't Have to Look Templated", status: "active" },
+        { id: "t4", name: "TMKE - Autumn Edit Email #4", subject: "Your Autumn Content Window is Getting Shorter", status: "active" },
+      ];
+      const day = (n) => new Date(Date.now() + n * 864e5).toLocaleDateString("en-CA");
+      const g = (tpl, on, to) => ({ meta: { kind: "marketing", single: true, to, went_live_at: "2026-10-30T08:00:00Z" }, nodes: [{ id: "trigger", type: "trigger" }, { id: "s", type: "send_email", config: { body_mode: "template", template_id: tpl, send_on: on, send_at: on ? "09:00" : "" } }], edges: [{ from: "trigger", to: "s", branch: "next" }] });
+      ALL = [
+        { id: "x1", name: "Christmas opening hours", status: "active", trigger_type: "manual", trigger_config: {}, updated_at: new Date().toISOString(), graph: g("t2", day(5), { mode: "tags", tags: ["TMKE-Account-Member"] }) },
+        { id: "x2", name: "December pack reminder", status: "draft", trigger_type: "manual", trigger_config: {}, updated_at: new Date().toISOString(), graph: g("", "", { mode: "contacts" }) },
+        { id: "x3", name: "TMKE - Halloween Member Email", status: "active", trigger_type: "manual", trigger_config: {}, updated_at: "2026-10-30T08:00:00Z", graph: g("t1", "2026-10-30", { mode: "tags", tags: ["TMKE-Account-Member"] }) },
+        { id: "x4", name: "THE AUTUMN EDIT - Email #4 catch-up", status: "active", trigger_type: "manual", trigger_config: { contacts: [] }, updated_at: "2026-10-16T08:00:00Z", graph: { ...g("t4", "", null), meta: { kind: "marketing", went_live_at: "2026-10-16T07:00:00Z" } } },
+      ];
+      LIVE = new Map([["x1", 214]]); SENTN = new Map([["x3", 183], ["x4", 44]]); PEOPLE = new Map([["x1", 214], ["x3", 214], ["x4", 44]]);
+    }
+
+    // ---- New send -----------------------------------------------------------
+    let P = null;   // the panel's answers
+    const pad = (n) => String(n).padStart(2, "0");
+    function blank() {
+      const d = new Date(Date.now() + 864e5);
+      return { id: null, nodeId: null, tpl: "", tq: "", allTpls: false, mode: "tags", tags: [], contacts: [], kind: "marketing", when: "at",
+        date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, time: "09:00", total: null, ok: null, names: false, armed: false, busy: false };
+    }
+
+    function openPanel(start) {
+      P = { ...blank(), ...(start || {}) };
+      $("es-panel").innerHTML = `<div class="es-scrim" data-close></div>
+        <aside class="es-pan" role="dialog" aria-modal="true" aria-labelledby="es-p-t">
+          <div class="es-ph"><div><p class="mo-eye">One-off send</p><div class="pop-title" id="es-p-t">New send</div></div><button type="button" class="x" data-close aria-label="Close">×</button></div>
+          <div class="es-pb">
+            <section class="es-sec">
+              <div class="strip"><span class="strip-t">1 Which email</span></div>
+              <div class="es-row"><input type="search" class="grow" id="es-tq" placeholder="Search your templates" aria-label="Search your templates" /></div>
+              <div class="es-tpls" id="es-tpls"></div>
+              <div class="es-row" id="es-tmore"></div>
+            </section>
+            <section class="es-sec">
+              <div class="strip"><span class="strip-t">2 Who gets it</span></div>
+              <div class="es-radios" role="radiogroup" aria-label="Who gets it">
+                <label><input type="radio" name="es-mode" value="tags" /> A group, by tag</label>
+                <label><input type="radio" name="es-mode" value="contacts" /> Chosen contacts</label>
+              </div>
+              <div id="es-who"></div>
+              <div class="es-kinds" role="radiogroup" aria-label="Marketing or service message">
+                <label><input type="radio" name="es-kind" value="marketing" /><span>Marketing<small>Leaves out anyone who has not opted in.</small></span></label>
+                <label><input type="radio" name="es-kind" value="service" /><span>Service message<small>Goes to everyone in the group. Account or Studio changes only.</small></span></label>
+              </div>
+              <div id="es-total"></div>
+            </section>
+            <section class="es-sec">
+              <div class="strip"><span class="strip-t">3 When</span></div>
+              <div class="es-radios" role="radiogroup" aria-label="When">
+                <label><input type="radio" name="es-when" value="now" /> Send now</label>
+                <label><input type="radio" name="es-when" value="at" /> At a set time</label>
+              </div>
+              <div class="es-when">
+                <label><span>Date</span><input type="date" id="es-date" /></label>
+                <label><span>Time</span><input type="time" id="es-time" /></label>
+              </div>
+            </section>
+          </div>
+          <p class="es-msg" id="es-msg" role="status"></p>
+          <div class="es-pf">
+            <button type="button" class="mbtn" id="es-test">Send a test to me</button>
+            <div><button type="button" class="mbtn" id="es-draft">Save as draft</button><button type="button" class="mbtn primary" id="es-go"></button></div>
+          </div>
+        </aside>`;
+      const pan = $("es-panel");
+      pan.querySelector(`input[name="es-mode"][value="${P.mode}"]`).checked = true;
+      pan.querySelector(`input[name="es-kind"][value="${P.kind}"]`).checked = true;
+      pan.querySelector(`input[name="es-when"][value="${P.when}"]`).checked = true;
+      $("es-date").value = P.date; $("es-time").value = P.time; $("es-date").min = todayLondon();
+      drawTpls(); drawWho(); drawKind(); drawWhen(); drawGo(); recount();
+      fitPanel();
+      pan.querySelector(".x").focus();
+    }
+    // The admin's top bar sits above the page, so the panel starts under it
+    // rather than losing its heading behind it.
+    function fitPanel() {
+      const bar = document.querySelector(".ash-top");
+      const top = bar ? Math.max(0, Math.round(bar.getBoundingClientRect().bottom)) : 0;
+      $("es-panel").querySelectorAll(".es-scrim, .es-pan").forEach((el) => { el.style.top = top + "px"; });
+    }
+    window.addEventListener("resize", () => { if (P) fitPanel(); });
+    function closePanel() { P = null; $("es-panel").innerHTML = ""; $("es-new").focus(); }
+    function say(msg, bad) { const m = $("es-msg"); if (!m) return; m.textContent = msg || ""; m.classList.toggle("bad", !!bad); }
+    function disarm() { if (P && P.armed) { P.armed = false; drawGo(); } }
+
+    function drawTpls() {
+      const list = TPLS.filter((t) => !P.tq || (t.name || "").toLowerCase().includes(P.tq) || (t.subject || "").toLowerCase().includes(P.tq));
+      // The chosen email leads, so it is always on show.
+      list.sort((x, y) => (y.id === P.tpl ? 1 : 0) - (x.id === P.tpl ? 1 : 0));
+      const shown = P.allTpls || P.tq ? list : list.slice(0, 6);
+      $("es-tpls").innerHTML = shown.length ? shown.map((t) => `<button type="button" class="es-tpl" data-tpl="${esc(t.id)}" aria-pressed="${t.id === P.tpl}">
+          <div class="es-thumb" aria-hidden="true"><i></i><i></i><i></i><i></i></div><b>${esc(t.name)}</b><span>${esc(t.subject || "No subject yet")}${t.status === "draft" ? " · draft" : ""}</span>
+        </button>`).join("") : `<p class="es-note">${TPLS.length ? "No template matches that." : "There are no templates yet. Make one under Templates first."}</p>`;
+      $("es-tmore").innerHTML = (!P.allTpls && !P.tq && list.length > 6)
+        ? `<span class="es-note grow">Showing your 6 most recent of ${list.length}.</span><button type="button" class="es-link" id="es-tall">See every template</button>` : "";
+    }
+
+    function drawWho() {
+      if (P.mode === "tags") {
+        $("es-who").innerHTML = `<div class="es-box">${P.tags.map((t) => `<span class="es-chip">${esc(tagText(t))}<button type="button" data-untag="${esc(t)}" aria-label="Remove ${esc(t)}">×</button></span>`).join("")}
+          <select id="es-tagadd" aria-label="Add a tag"><option value="">Add a tag</option>${TAGS.map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.filter((t) => !P.tags.includes(t)).map((t) => `<option value="${esc(t)}">${esc(tagText(t))}</option>`).join("")}</optgroup>`).join("")}</select></div>
+          ${P.tags.length > 1 ? `<p class="es-note" style="margin:8px 0 0">Anyone with any one of these tags.</p>` : ""}`;
+      } else {
+        $("es-who").innerHTML = `<div class="es-sec" style="gap:8px"><input type="search" id="es-cq" placeholder="Search contacts by name or email" aria-label="Search contacts by name or email" />
+          <div id="es-found"></div>
+          <div class="es-box">${P.contacts.length ? P.contacts.map((c) => `<span class="es-chip">${esc(c.name || c.email)}<button type="button" data-unpick="${esc(c.id)}" aria-label="Remove ${esc(c.name || c.email)}">×</button></span>`).join("") : `<span class="es-note">Nobody chosen yet.</span>`}</div></div>`;
+      }
+    }
+    function drawKind() { $("es-panel").querySelectorAll(".es-kinds label").forEach((l) => l.classList.toggle("on", l.querySelector("input").value === P.kind)); }
+    function drawWhen() { const at = P.when === "at"; $("es-date").disabled = !at; $("es-time").disabled = !at; }
+    function drawGo() {
+      const b = $("es-go"); if (!b) return;
+      const n = P.ok;
+      b.disabled = P.busy;
+      b.textContent = P.busy ? "Working…" : P.armed ? `Press again to ${P.when === "now" ? "send" : "schedule"} for ${plural(n || 0, "person", "people")}` : P.when === "now" ? "Send now" : "Schedule send";
+    }
+    function drawTotal() {
+      const box = $("es-total"); if (!box) return;
+      const none = P.mode === "tags" ? !P.tags.length : !P.contacts.length;
+      if (none) { box.innerHTML = `<div class="es-total"><div><b>Nobody yet</b><span>${P.mode === "tags" ? "Add a tag to choose the group." : "Search for the people to send it to."}</span></div></div>`; return; }
+      if (P.total == null) { box.innerHTML = `<div class="es-total"><div><b>Counting…</b><span>&nbsp;</span></div></div>`; return; }
+      const out = P.total - P.ok;
+      const why = P.kind === "marketing" ? "not opted in, unsubscribed or do-not-contact" : "unsubscribed from everything or do-not-contact";
+      box.innerHTML = `<div class="es-total"><div><b>${esc(plural(P.ok, "person", "people"))} will get it</b><span>${out > 0 ? `${out} left out: ${why}` : "Nobody is left out"}</span></div><button type="button" class="es-link" id="es-see">${P.names ? "Hide" : "See who"}</button></div>
+        ${P.names ? `<div class="es-names" id="es-names">Reading…</div>` : ""}`;
+      if (P.names) fillNames();
+    }
+
+    // Who can be emailed. Marketing needs the opt-in; nothing goes to anyone
+    // marked do-not-contact or unsubscribed. The Worker's own gate has the
+    // last word when it sends (it also knows bounced addresses), so the count
+    // here can be a person or two high.
+    const okFor = (x, kind) => { let y = x.eq("dnd", false).eq("dnd_email", false).not("tags", "cs", "{Unsubscribed}"); if (kind === "marketing") y = y.eq("marketing_opt_in", true); return y; };
+    const okRow = (c, kind) => !c.dnd && !c.dnd_email && !(c.tags || []).includes("Unsubscribed") && (kind !== "marketing" || !!c.marketing_opt_in);
+    let countRun = 0;
+    async function recount() {
+      if (!P) return;
+      const run = ++countRun;
+      P.total = null; P.ok = null; drawTotal(); drawGo();
+      let total = 0, ok = 0;
+      if (P.mode === "contacts") { total = P.contacts.length; ok = P.contacts.filter((c) => okRow(c, P.kind)).length; }
+      else if (P.tags.length) {
+        if (DEMO) { total = 214; ok = P.kind === "marketing" ? 183 : 212; }
+        else {
+          [total, ok] = await Promise.all([
+            count("contacts", (x) => x.overlaps("tags", P.tags)),
+            count("contacts", (x) => okFor(x.overlaps("tags", P.tags), P.kind)),
+          ]);
+        }
+      }
+      if (!P || run !== countRun) return;
+      P.total = total || 0; P.ok = ok || 0;
+      drawTotal(); drawGo();
+    }
+    async function fillNames() {
+      const box = $("es-names"); if (!box) return;
+      let rows = [];
+      if (P.mode === "contacts") rows = P.contacts.filter((c) => okRow(c, P.kind));
+      else if (!DEMO) {
+        const { data } = await okFor(supabase.from("contacts").select("first_name, last_name, email").overlaps("tags", P.tags), P.kind).order("first_name", { ascending: true }).limit(300);
+        rows = (data || []).map((c) => ({ name: [c.first_name, c.last_name].filter(Boolean).join(" "), email: c.email }));
+      }
+      if (!$("es-names")) return;
+      $("es-names").innerHTML = rows.length ? rows.map((c) => `<div>${esc(c.name || c.email)}</div>`).join("") + (P.ok > rows.length ? `<div>and ${P.ok - rows.length} more</div>` : "") : "Nobody to show.";
+    }
+
+    let findTimer = null;
+    async function findContacts(term) {
+      const box = $("es-found"); if (!box) return;
+      if (term.length < 2) { box.innerHTML = ""; return; }
+      const safe = term.replace(/[%,()]/g, " ");
+      const { data } = await supabase.from("contacts").select("id, first_name, last_name, email, marketing_opt_in, dnd, dnd_email, tags")
+        .or(`first_name.ilike.%${safe}%,last_name.ilike.%${safe}%,email.ilike.%${safe}%`).order("first_name", { ascending: true }).limit(8);
+      if (!$("es-found")) return;
+      const have = new Set(P.contacts.map((c) => c.id));
+      const rows = (data || []).filter((c) => !have.has(c.id));
+      $("es-found").innerHTML = rows.length ? `<div class="es-found">${rows.map((c) => `<button type="button" data-pick='${esc(JSON.stringify({ id: c.id, name: [c.first_name, c.last_name].filter(Boolean).join(" "), email: c.email, marketing_opt_in: !!c.marketing_opt_in, dnd: !!c.dnd, dnd_email: !!c.dnd_email, tags: (c.tags || []).filter((t) => t === "Unsubscribed") }))}'>${esc([c.first_name, c.last_name].filter(Boolean).join(" ") || c.email)}<span>${esc(c.email || "")}</span></button>`).join("")}</div>` : `<p class="es-note">Nobody found.</p>`;
+    }
+
+    // What gets saved: a trigger and one send step, marked as a one-off.
+    function record() {
+      const t = TPLS.find((x) => x.id === P.tpl);
+      const nodeId = P.nodeId || ("s" + Math.random().toString(36).slice(2, 10));
+      P.nodeId = nodeId;
+      const cfg = { body_mode: "template", template_id: P.tpl || "", send_kind: P.kind === "marketing" ? "marketing" : "transactional" };
+      if (P.when === "at") { cfg.send_on = P.date; cfg.send_at = P.time; }
+      const meta = { ...(P.meta || {}), kind: P.kind === "marketing" ? "marketing" : "service", single: true, to: P.mode === "tags" ? { mode: "tags", tags: P.tags } : { mode: "contacts" } };
+      return {
+        name: (t && t.name) || P.name || "Untitled send",
+        trigger_type: "manual",
+        trigger_config: P.mode === "contacts" ? { contacts: P.contacts.map((c) => ({ id: c.id, name: c.name, email: c.email })) } : {},
+        graph: { nodes: [{ id: "trigger", type: "trigger", x: 360, y: 40, config: {} }, { id: nodeId, type: "send_email", x: 360, y: 200, config: cfg }], edges: [{ from: "trigger", to: nodeId, branch: "next" }], meta },
+      };
+    }
+    async function saveDraft() {
+      const rec = record();
+      if (P.id) { const { error } = await supabase.from("automations").update(rec).eq("id", P.id).eq("status", "draft"); if (error) throw error; return P.id; }
+      const { data, error } = await supabase.from("automations").insert({ ...rec, status: "draft" }).select("id").single();
+      if (error) throw error;
+      P.id = data.id;
+      return P.id;
+    }
+    function problems(sending) {
+      if (!P.tpl) return "Choose the email to send.";
+      if (P.mode === "tags" && !P.tags.length) return sending ? "Add at least one tag, so there is a group to send to." : "";
+      if (P.mode === "contacts" && !P.contacts.length) return sending ? "Choose at least one contact." : "";
+      if (sending && P.when === "at") {
+        if (!isDate(P.date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(P.time)) return "Set the date and the time.";
+        if (new Date(`${P.date}T${P.time}`) <= new Date()) return "That time has already passed. Pick a later one, or choose Send now.";
+      }
+      if (sending && !P.ok) return "Nobody in that group can be sent this email.";
+      return "";
+    }
+    // Everyone the send is aimed at: the gate leaves out who it must when it sends, and the audit shows them.
+    async function everyoneIds() {
+      if (P.mode === "contacts") return P.contacts.map((c) => c.id);
+      const ids = [];
+      for (let from = 0; from < 100000; from += 1000) {
+        const { data, error } = await supabase.from("contacts").select("id").overlaps("tags", P.tags).order("id", { ascending: true }).range(from, from + 999);
+        if (error) throw error;
+        ids.push(...(data || []).map((r) => r.id));
+        if ((data || []).length < 1000) break;
+      }
+      return ids;
+    }
+    async function go() {
+      const bad = problems(true);
+      if (bad) { say(bad, true); return; }
+      if (DEMO) { say("This is the example copy: nothing is sent from here.", true); return; }
+      if (!WORKER) { say("The Worker isn't connected, so nothing can be sent.", true); return; }
+      if (!P.armed) { P.armed = true; drawGo(); say(P.when === "now" ? "This sends straight away and can't be taken back." : "You can cancel it any time before it goes."); return; }
+      P.busy = true; P.armed = false; drawGo(); say("Saving.");
+      let enrolled = 0, total = 0;
+      try {
+        const id = await saveDraft();
+        const ids = await everyoneIds();
+        total = ids.length;
+        if (!total) throw new Error("Nobody matches that group any more.");
+        await workerPost("/automations/set-status", { automation_id: id, status: "active" });
+        for (let i = 0; i < ids.length; i += ENROL_BATCH) {
+          say(`Adding people: ${Math.min(i + ENROL_BATCH, total)} of ${total}.`);
+          const d = await workerPost("/automations/enroll-contacts", { automation_id: id, contact_ids: ids.slice(i, i + ENROL_BATCH) });
+          enrolled += d.enrolled || 0;
+        }
+        const when = P.when === "now" ? "It goes on the next run, within five minutes." : `It goes ${stepWhen({ config: { send_on: P.date, send_at: P.time } })}.`;
+        closePanel();
+        toast(`${plural(enrolled, "person", "people")} lined up. ${when}`);
+        await load();
+      } catch (e) {
+        P.busy = false; drawGo();
+        say(`${enrolled ? `${enrolled} of ${total} were added before it stopped. ` : ""}Couldn't finish: ${(e && e.message) || e}`, true);
+        load();
+      }
+    }
+    async function draft() {
+      const bad = problems(false);
+      if (bad) { say(bad, true); return; }
+      if (DEMO) { say("This is the example copy: nothing is saved from here.", true); return; }
+      try { await saveDraft(); closePanel(); toast("Saved as a draft."); await load(); }
+      catch (e) { say("Couldn't save: " + ((e && e.message) || e), true); }
+    }
+    async function test() {
+      if (!P.tpl) { say("Choose the email first.", true); return; }
+      if (DEMO || !WORKER) { say("A test can't be sent from this copy.", true); return; }
+      say("Sending you a test.");
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const me = sess && sess.session && sess.session.user && sess.session.user.email;
+        if (!me) throw new Error("Please sign in again.");
+        const { data: t, error } = await supabase.from("email_templates").select("*").eq("id", P.tpl).single();
+        if (error) throw error;
+        const brand = { ...defaultBrand(), ...(t.branding || {}) };
+        const ctx = mergeContextFor({ name: me.split("@")[0], email: me, company: SAMPLE_RECIPIENT.company }, brand);
+        const { subject, html } = renderTemplate({ subject: t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding }, { brand, mergeCtx: ctx });
+        await workerPost("/email/send", { to: me, subject: "[Test] " + subject, html });
+        say(`Test sent to ${me}.`);
+      } catch (e) { say("Couldn't send the test: " + ((e && e.message) || e), true); }
+    }
+
+    // A saved send back into the panel: a draft to carry on with, or a sent one to send again as new.
+    async function reopen(a, asNew) {
+      const n = step(a) || { config: {} };
+      const c = n.config || {};
+      const meta = (a.graph && a.graph.meta) || {};
+      const to = meta.to || {};
+      const legacyTags = Array.isArray((a.trigger_config || {}).tags) ? a.trigger_config.tags : [];
+      const tags = to.mode === "tags" ? (to.tags || []) : legacyTags;
+      let contacts = [];
+      const picked = Array.isArray((a.trigger_config || {}).contacts) ? a.trigger_config.contacts : [];
+      if (picked.length && !DEMO) {
+        const { data } = await supabase.from("contacts").select("id, first_name, last_name, email, marketing_opt_in, dnd, dnd_email, tags").in("id", picked.map((p) => p.id).slice(0, 500));
+        contacts = (data || []).map((x) => ({ id: x.id, name: [x.first_name, x.last_name].filter(Boolean).join(" "), email: x.email, marketing_opt_in: !!x.marketing_opt_in, dnd: !!x.dnd, dnd_email: !!x.dnd_email, tags: (x.tags || []).filter((t) => t === "Unsubscribed") }));
+      }
+      const future = isDate(c.send_on) && new Date(`${c.send_on}T${c.send_at || "09:00"}`) > new Date();
+      const start = { tpl: TPLS.some((t) => t.id === c.template_id) ? c.template_id : "", mode: tags.length || !picked.length ? "tags" : "contacts", tags: [...tags], contacts,
+        kind: meta.kind === "marketing" || c.send_kind === "marketing" ? "marketing" : "service", name: a.name };
+      if (future) Object.assign(start, { when: "at", date: c.send_on, time: c.send_at || "09:00" });
+      if (!asNew) Object.assign(start, { id: a.id, nodeId: n.id || null, meta: { ...meta } });
+      openPanel(start);
+    }
+
+    async function cancelSend(a, btn) {
+      // A second press, not a pop-up question.
+      if (btn.dataset.armed !== "1") { btn.dataset.armed = "1"; btn.textContent = "Press again to cancel it"; setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = "Cancel send"; } }, 5000); return; }
+      btn.disabled = true;
+      try { const d = await workerPost("/automations/set-status", { automation_id: a.id, status: "archived" }); toast(`Cancelled.${d.taken_out ? ` ${plural(d.taken_out, "person was", "people were")} taken out, and nothing was sent to them.` : ""}`); }
+      catch (e) { toast("Couldn't cancel: " + ((e && e.message) || e)); }
+      await load();
+    }
+    async function remove(a) {
+      if (!confirm(`Delete the draft "${a.name}"? This can't be undone.`)) return;
+      const { error } = await supabase.from("automations").delete().eq("id", a.id).eq("status", "draft");
+      if (error) { toast("Couldn't delete: " + error.message); return; }
+      toast("Deleted.");
+      await load();
+    }
+
+    // ---- Wiring -------------------------------------------------------------
+    $("es-q").addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); render(); });
+    $("es-status").addEventListener("change", (e) => { statusFilter = e.target.value; e.target.classList.toggle("has", statusFilter !== "all"); render(); });
+    $("es-new").addEventListener("click", () => openPanel());
+    $("es-main").addEventListener("click", (e) => {
+      const t = e.target instanceof HTMLElement ? e.target.closest("[data-edit], [data-del], [data-again], [data-cancel]") : null;
+      if (!t) return;
+      const a = ALL.find((x) => x.id === (t.dataset.edit || t.dataset.del || t.dataset.again || t.dataset.cancel));
+      if (!a) return;
+      if (t.dataset.edit) reopen(a, false); else if (t.dataset.again) reopen(a, true); else if (t.dataset.del) remove(a); else cancelSend(a, t);
+    });
+    const pan = $("es-panel");
+    pan.addEventListener("click", (e) => {
+      if (!P) return;
+      const t = e.target instanceof HTMLElement ? e.target : null; if (!t) return;
+      if (t.closest("[data-close]")) { closePanel(); return; }
+      const tpl = t.closest("[data-tpl]");
+      if (tpl) { P.tpl = tpl.dataset.tpl; disarm(); drawTpls(); say(""); return; }
+      if (t.id === "es-tall") { P.allTpls = true; drawTpls(); return; }
+      if (t.dataset.untag) { P.tags = P.tags.filter((x) => x !== t.dataset.untag); disarm(); drawWho(); recount(); return; }
+      if (t.dataset.unpick) { P.contacts = P.contacts.filter((c) => c.id !== t.dataset.unpick); disarm(); drawWho(); recount(); return; }
+      const pick = t.closest("[data-pick]");
+      if (pick) { try { P.contacts.push(JSON.parse(pick.dataset.pick)); } catch (_) {} disarm(); drawWho(); recount(); const cq = $("es-cq"); if (cq) cq.focus(); return; }
+      if (t.id === "es-see") { P.names = !P.names; drawTotal(); return; }
+      if (t.id === "es-go") { go(); return; }
+      if (t.id === "es-draft") { draft(); return; }
+      if (t.id === "es-test") { test(); return; }
+    });
+    pan.addEventListener("change", (e) => {
+      if (!P) return;
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement || t instanceof HTMLSelectElement)) return;
+      if (t.name === "es-mode") { P.mode = t.value; P.names = false; disarm(); drawWho(); recount(); }
+      else if (t.name === "es-kind") { P.kind = t.value; disarm(); drawKind(); recount(); }
+      else if (t.name === "es-when") { P.when = t.value; disarm(); drawWhen(); drawGo(); }
+      else if (t.id === "es-tagadd" && t.value) { P.tags.push(t.value); disarm(); drawWho(); recount(); }
+      else if (t.id === "es-date") { P.date = t.value; disarm(); }
+      else if (t.id === "es-time") { P.time = t.value; disarm(); }
+    });
+    pan.addEventListener("input", (e) => {
+      if (!P) return;
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement)) return;
+      if (t.id === "es-tq") { P.tq = t.value.trim().toLowerCase(); drawTpls(); }
+      else if (t.id === "es-cq") { clearTimeout(findTimer); const v = t.value.trim(); findTimer = setTimeout(() => findContacts(v), 250); }
+    });
+    pan.addEventListener("keydown", (e) => { if (e.key === "Escape" && P && !P.busy) closePanel(); });
+
+    (async () => {
+      if (!DEV) { const s = await requireAdmin(); if (!s) return; }
+      try { TAGS = withPackTags(await loadPackTagGroup(supabase)); } catch (_) { TAGS = withPackTags(null); }
+      await load();
+      // Templates' Send button lands here with the email already chosen.
+      const want = new URLSearchParams(location.search).get("new");
+      if (want != null) openPanel(TPLS.some((t) => t.id === want) ? { tpl: want } : {});
+    })();
+  </script>
+</AdminShell>

@@ -20,7 +20,7 @@ import "../../../styles/money-os.css";
         <div>
           <p class="mo-eye">Email</p>
           <div class="mo-title">Campaigns</div>
-          <p class="mo-sub">Emails we plan and send to a group. Open one to change its steps, or to see who is in it and what they did.</p>
+          <p class="mo-sub">More than one email about the same thing, sent to a group. Open one to change its steps, or to see who is in it and what they did.</p>
         </div>
         <div class="mo-acts"><button type="button" class="mbtn primary" id="ec-new">New campaign</button></div>
       </section>
@@ -97,7 +97,7 @@ import "../../../styles/money-os.css";
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase } from "../../../lib/supabase.js";
     import { TRIGGER_LABELS, emptyGraph } from "../../../lib/automations.js";
-    import { AREAS, kindOf, areaOf, sendSteps, isWritten, isPrevious, stepWhen, audienceLine, todayLondon } from "../../../lib/email-campaigns.js";
+    import { AREAS, kindOf, isSingle, areaOf, sendSteps, isWritten, isPrevious, stepWhen, audienceLine, todayLondon } from "../../../lib/email-campaigns.js";
 
     const DEV = import.meta.env.DEV;
     const $ = (id) => document.getElementById(id);
@@ -307,7 +307,8 @@ import "../../../styles/money-os.css";
     async function load() {
       const { data, error } = await supabase.from("automations").select("*").order("updated_at", { ascending: false });
       if (error) { $("ec-state").textContent = "Couldn't read the campaigns: " + error.message; $("ec-state").classList.add("bad"); return; }
-      ALL = (data || []).filter((a) => kindOf(a) === "marketing");
+      // One email to one group is a one-off send, on its own tab.
+      ALL = (data || []).filter((a) => kindOf(a) === "marketing" && !isSingle(a));
       if (DEV && !ALL.length && new URLSearchParams(location.search).has("demo")) demo();
       else { try { await loadEnrollments(); } catch (_) {} try { await loadCounts(); } catch (_) {} }
       $("ec-state").hidden = true;

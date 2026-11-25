@@ -2,8 +2,11 @@
 // The Email section's shared rules (Danielle, 25 Nov 2026; agreed on the
 // "TMKE OS Email" mock-up). One table, `automations`, feeds two pages:
 //
-//   Campaigns   (/admin/email/campaigns)  marketing funnels: emails we plan
-//               and send to a group.
+//   Campaigns   (/admin/email/campaigns)  marketing funnels: more than one
+//               email, planned and sent to a group.
+//   One-off sends (/admin/email/sends)    one email to one group, now or at a
+//               set time (graph.meta.single, or an older marketing funnel
+//               that is nothing but one send to a group or chosen people).
 //   Automations (/admin/automations)      system workflows: emails that send
 //               themselves when something happens. Nobody presses send.
 //
@@ -23,6 +26,17 @@ export function kindOf(a) {
   if (meta && meta.kind === "marketing") return "marketing";
   const nodes = (a && a.graph && a.graph.nodes) || [];
   return nodes.some((n) => n.type === "send_email" && n.config && n.config.send_kind === "marketing") ? "marketing" : "system";
+}
+
+// One email, one group: made by New send (graph.meta.single), or an older
+// marketing funnel that is only a trigger and one send, started from a group
+// of tags or from chosen contacts.
+export function isSingle(a) {
+  const g = (a && a.graph) || {};
+  if (g.meta && g.meta.single === true) return true;
+  if (kindOf(a) !== "marketing") return false;
+  const nodes = (g.nodes || []).filter((n) => n.type !== "trigger");
+  return nodes.length === 1 && nodes[0].type === "send_email" && (a.trigger_type === "manual" || a.trigger_type === "audience");
 }
 
 export function areaOf(a) {
@@ -105,4 +119,14 @@ export function audienceLine(a, triggerLabels) {
   if (t === "manual") { const n = Array.isArray(cfg.contacts) ? cfg.contacts.length : 0; return n ? `${n} chosen ${n === 1 ? "contact" : "contacts"}` : "Chosen contacts"; }
   if (t === "tag_added" || t === "tag_removed") return `${t === "tag_added" ? "Anyone given the tag" : "Anyone who loses the tag"}${tags.length ? " " + tags.join(" or ") : ""}`;
   return (triggerLabels && triggerLabels[t]) || "Not set up yet";
+}
+
+// Who a one-off send goes to. New send keeps the tags it was aimed at in
+// graph.meta.to, because the people themselves are enrolled by hand (so nobody
+// who gains the tag afterwards is sent an old email).
+export function sentToLine(a, triggerLabels) {
+  const to = a && a.graph && a.graph.meta && a.graph.meta.to;
+  if (to && to.mode === "tags" && Array.isArray(to.tags) && to.tags.length) return `Everyone tagged ${to.tags.join(" or ")}`;
+  if (to && to.mode === "contacts") return "Chosen contacts";
+  return audienceLine(a, triggerLabels);
 }

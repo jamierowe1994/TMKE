@@ -87,7 +87,7 @@ const builtInTotal = builtIn.reduce((n, g) => n + g.count, 0);
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase } from "../../../lib/supabase.js";
     import { TRIGGER_LABELS, emptyGraph } from "../../../lib/automations.js";
-    import { kindOf } from "../../../lib/email-campaigns.js";
+    import { kindOf, isSingle } from "../../../lib/email-campaigns.js";
 
     const DEV = import.meta.env.DEV;
     const $ = (id) => document.getElementById(id);
@@ -144,7 +144,8 @@ const builtInTotal = builtIn.reduce((n, g) => n + g.count, 0);
     async function load() {
       const { data, error } = await supabase.from("automations").select("*").order("updated_at", { ascending: false });
       if (error) { $("ea-state").textContent = "Couldn't read the automations: " + error.message; $("ea-state").classList.add("bad"); return; }
-      ALL = (data || []).filter((a) => kindOf(a) !== "marketing");
+      // A one-off service message is on Email › One-off sends, not here.
+      ALL = (data || []).filter((a) => kindOf(a) !== "marketing" && !isSingle(a));
       LIVE = new Map();
       try {
         // Only the ids come back, a thousand at a time, so a busy workflow is still counted in full.
