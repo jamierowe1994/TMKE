@@ -201,15 +201,33 @@ export function initBuilder(ctx) {
 
   /* Has every design saved? (Danielle, 25 Nov: flagged at Creation, before
      a pack gets as far as publishing.) Four things can be seen from here:
-       - changes kept in THIS browser that are newer than the saved design,
-         by the Studio's own rule (loadTemplate in public/scripts/editor.js),
-         so this says what the Studio would say on opening it;
+       - changes kept in THIS browser that are newer than the saved design
+         AND not the same as it. Newer alone isn't enough: the Studio writes
+         its browser copy again a few seconds after every save, so on the
+         day this went live 7 of The Christmas Edit's 12 designs read as
+         unsaved while matching the database exactly;
        - a save from anyone's Studio that didn't go through, with nothing
          saved since (site_events 'studio_save_failed', sent by editor.astro);
        - a design with nothing on it;
        - a design with no preview picture, so its picture never uploaded.
      Changes sitting in someone else's browser with no failed save (a tab
      shut mid-edit and offline) can't be seen from here. */
+  // A design's pages, from a templates row or a browser copy: the same shape either way.
+  const pagesOf = (d) => (Array.isArray(d.pages) && d.pages.length ? d.pages : [{ canvas: d.canvas, elements: d.elements }]).map((pg) => ({ canvas: (pg && pg.canvas) || {}, elements: (pg && pg.elements) || [] }));
+  /* Is the browser's copy the design that's saved? Compared value by value,
+     whatever order the database keeps a row's keys in. A measurement within
+     a pixel is the same (boxes that fit their words are measured again on
+     opening), and a picture still held in the browser (data:) stands for
+     the address it was saved under. */
+  function sameDesign(a, b) {
+    if (a === b || (a == null && b == null)) return true;
+    if (a == null || b == null) return false;
+    if (typeof a === "number" && typeof b === "number") return Math.abs(a - b) <= 1;
+    if (typeof a === "string" && typeof b === "string") return a.startsWith("data:") && b.length > 0;
+    if (typeof a !== typeof b || typeof a !== "object" || Array.isArray(a) !== Array.isArray(b)) return false;
+    if (Array.isArray(a)) return a.length === b.length && a.every((x, i) => sameDesign(x, b[i]));
+    return [...new Set([...Object.keys(a), ...Object.keys(b)])].every((k) => sameDesign(a[k], b[k]));
+  }
   let UNSAVED = new Map();   // template id -> [a few words for the table, the whole of it for the pop-out]
   async function loadUnsaved() {
     UNSAVED = new Map();
@@ -221,10 +239,9 @@ export function initBuilder(ctx) {
       try {
         const kept = JSON.parse(localStorage.getItem("tmke.editor." + id) || "null");
         const at = kept && Number(kept.savedAt);
-        if (at && (!isFinite(savedAt(t)) || at > savedAt(t) + 2000)) return UNSAVED.set(id, ["Changes in this browser haven't saved", `Changes in this browser haven't saved, last edited ${whenLabel(at)}. Open it in the Studio and save.`, "here"]);
+        if (at && (!isFinite(savedAt(t)) || at > savedAt(t) + 2000) && !sameDesign(pagesOf(kept), pagesOf(t))) return UNSAVED.set(id, ["Changes in this browser haven't saved", `Changes in this browser haven't saved, last edited ${whenLabel(at)}. Open it in the Studio and save.`, "here"]);
       } catch (_) {}
-      const pages = Array.isArray(t.pages) && t.pages.length ? t.pages : [{ canvas: t.canvas, elements: t.elements }];
-      const drawn = pages.some((pg) => pg && (((pg.elements || []).length) || (pg.canvas && pg.canvas.backgroundImage)));
+      const drawn = pagesOf(t).some((pg) => pg && (((pg.elements || []).length) || (pg.canvas && pg.canvas.backgroundImage)));
       if (!drawn) UNSAVED.set(id, ["Nothing on it yet", "There's nothing on this design yet."]);
       else if (!t.thumb_url) UNSAVED.set(id, ["No preview picture yet", "This design has no preview picture yet. Open it in the Studio and save."]);
     });
