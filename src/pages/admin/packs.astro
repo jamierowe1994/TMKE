@@ -22,8 +22,11 @@ import "../../styles/catalogue-builder.css";
       <nav class="pb-tabs" aria-label="Catalogue" data-team-only>
         <button type="button" data-tab="packs" class="on">Packs</button>
         <button type="button" data-tab="demo">Demo pack</button>
+        <button type="button" data-tab="offers">Offers</button>
       </nav>
       <div id="pb-tab-packs"><div id="pb-main"><p class="pb-state">Loading the packs…</p></div></div>
+      <!-- Offers (26 Nov): the basket's switch and every discount. src/lib/shop-offers-admin.js draws it. -->
+      <div id="pb-tab-offers" hidden></div>
       <div id="pb-pop"></div>
     </div>
   </div>
@@ -670,6 +673,7 @@ import "../../styles/catalogue-builder.css";
     import { giftPack } from "../../lib/pack-gift.js";
 
     import { initBuilder } from "../../lib/catalogue-builder.js";
+    import { initOffers } from "../../lib/shop-offers-admin.js";
 
     /** @type {any[]} */
     let allPacks = [];   // every pack, the demo too, for Gift and Insights
@@ -695,9 +699,11 @@ import "../../styles/catalogue-builder.css";
     // The tabs: Packs, Demo pack. Hub notifications moved to Member hub on
     // 20 Nov; an old link to its tab goes there.
     if (new URLSearchParams(location.search).get("tab") === "notices") location.replace("/admin/hub-notifications");
-    const TAB_PANELS = { packs: "pb-tab-packs", demo: "demo-pack" };
+    const TAB_PANELS = { packs: "pb-tab-packs", demo: "demo-pack", offers: "pb-tab-offers" };
+    const offers = initOffers({ supabase, toast, gbp: gbpFromPence });
     function showTab(tab) {
       if (!TAB_PANELS[tab]) tab = "packs";
+      if (tab === "offers") offers.show();
       document.querySelectorAll(".pb-tabs [data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
       Object.entries(TAB_PANELS).forEach(([k, id]) => { const el = document.getElementById(id); if (el) el.hidden = k !== tab; });
       const u = new URL(location.href);
