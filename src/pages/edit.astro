@@ -1780,7 +1780,9 @@ import ShopBasket from "../components/ShopBasket.astro";
     /* A phone: the Edit line in a box on the page's margins, matching the sale's box above. */
     @media (max-width: 760px) {
       /* Wine with light words, to break the page up (Danielle, 26 Nov). */
-      body.stk-on .how-intro { background: var(--english-violet); padding: 30px 22px; margin-bottom: 48px; max-width: none; }
+      /* As the sale's box: a fine wine line on the margins, the wine box 6px inside it. */
+      body.stk-on .how-intro { background: var(--english-violet); padding: 30px 22px; margin: 7px 7px 55px; max-width: none;
+        box-shadow: 0 0 0 6px var(--paper), 0 0 0 7px var(--english-violet); }
       body.stk-on .stk-sec-how .how-eyebrow { color: rgba(244,242,241,0.7); }
       body.stk-on .stk-sec-how .how-quote { font-size: 19px; color: var(--paper); }
       body.stk-on .stk-sec-how .how-intro .stk-quote-offer { color: var(--paper); border-color: rgba(244,242,241,0.55); }
@@ -1794,13 +1796,29 @@ import ShopBasket from "../components/ShopBasket.astro";
          of a phone, and the stack already clears 56 of it. */
       body.stk-on .stk > .stk-sec-promo { order: -1; padding-top: 39px; }
       /* The same 20px between the box, the top row and the first pack. */
-      body.stk-on .stk-p[data-i="0"] .stk-body--pack { padding-top: 20px !important; padding-bottom: 20px !important; }
+      body.stk-on .stk-p[data-i="0"] .stk-body--pack { padding-top: 20px !important; padding-bottom: 40px !important; }
       body.stk-on .stk-p[data-i="2"] { padding-top: 0; }
       /* Shorter, with the button closer to the words (Danielle, 26 Nov). */
       body.stk-on .promo-left { aspect-ratio: 4 / 4.3; }
       body.stk-on .promo-card { top: 40%; height: 60%; }
       body.stk-on .promo-caption { bottom: 62px; }
     }
+
+    /* A phone: the two boxes come in rather than sitting still (Danielle, 26 Nov).
+       The sale opens down from its top edge as the page loads, its card rising
+       into place; the Edit box does the same as it scrolls into view. */
+    @media (max-width: 760px) and (prefers-reduced-motion: no-preference) {
+      body.stk-on .promo { animation: box-open 0.9s cubic-bezier(.2,.75,.2,1) 0.15s both; }
+      body.stk-on .promo-card { animation: card-rise 0.9s cubic-bezier(.2,.75,.2,1) 0.55s both; }
+      body.stk-on .promo-caption, body.stk-on .promo-btn--phone { animation: words-in 0.6s ease 0.95s both; }
+      body.stk-on .how-intro { clip-path: inset(0 0 100% 0); transition: clip-path 0.9s cubic-bezier(.2,.75,.2,1); }
+      body.stk-on .how-intro > * { opacity: 0; transform: translateY(10px); transition: opacity 0.6s ease 0.45s, transform 0.6s ease 0.45s; }
+      body.stk-on .how-intro.is-shown { clip-path: inset(-8px); }
+      body.stk-on .how-intro.is-shown > * { opacity: 1; transform: none; }
+    }
+    @keyframes box-open { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0); } }
+    @keyframes card-rise { from { opacity: 0; transform: translate(-50%, calc(-50% + 18px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
+    @keyframes words-in { from { opacity: 0; } to { opacity: 1; } }
   </style>
 
   <script>
@@ -2920,6 +2938,13 @@ import ShopBasket from "../components/ShopBasket.astro";
            once it has come a little over half way up, every step between as
            you go. The whole page changes, so there is no edge. --lit, on the
            body, runs 0 to 1 and the CSS mixes the colours from it. */
+        const introBox = howSec && howSec.querySelector('.how-intro');
+        if (introBox && 'IntersectionObserver' in window) {
+          const io = new IntersectionObserver((es) => es.forEach((en) => {
+            if (en.isIntersecting) { introBox.classList.add('is-shown'); io.disconnect(); }
+          }), { rootMargin: '0px 0px -15% 0px' });
+          io.observe(introBox);
+        } else if (introBox) introBox.classList.add('is-shown');
         if (howSec) {
           const PHONE_FADE = window.matchMedia('(max-width: 760px)');
           const lit = () => {
