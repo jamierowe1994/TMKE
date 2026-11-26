@@ -53,6 +53,20 @@ import ShopBasket from "../components/ShopBasket.astro";
     </div>
   </header>
 
+  <!-- Arriving at the packs (/edit#shop, Danielle, 26 Nov): the page is held
+       out of sight until it has been placed on Shop the Packs, then fades in
+       there, rather than showing the top and jumping down. Never longer than
+       4 seconds, whatever happens. -->
+  <script is:inline>
+    if (location.hash === '#shop') {
+      document.documentElement.classList.add('edit-arrive');
+      setTimeout(function () { document.documentElement.classList.remove('edit-arrive'); }, 4000);
+    }
+  </script>
+  <style is:inline>
+    html.edit-arrive #edit-stack, html.edit-arrive #edit-catalogue, html.edit-arrive #edit-hero-grid, html.edit-arrive .edit-jump { opacity: 0 !important; }
+    #edit-stack, #edit-catalogue { transition: opacity 0.35s ease; }
+  </style>
   <!-- EXPERIMENTAL alternative hero — a full-screen archive grid lifted from the
        Insights page (light theme, 6-col off-white tiles that reveal an image on
        hover), fed with pack content. Hidden by default; only shown with
@@ -2522,6 +2536,7 @@ import ShopBasket from "../components/ShopBasket.astro";
       const params = new URLSearchParams(location.search);
       if (params.get('layout') === 'classic') {   // opt back to the old page
         if (location.hash === '#shop') document.getElementById('edit-catalogue')?.scrollIntoView();
+        document.documentElement.classList.remove('edit-arrive');
         return;
       }
       const wrap = document.getElementById('edit-stack');
@@ -2645,8 +2660,10 @@ import ShopBasket from "../components/ShopBasket.astro";
           caption: 'Black Friday weekend<br>20% off The Christmas Edit',
           kicker: 'Black Friday Weekend', title: 'The Christmas Edit, 20% Off.',
           line: 'Twelve festive designs for your social media. &pound;12, was &pound;15, +VAT.',
-          note: 'Until Monday 30 November. No code needed.', btn: 'Shop the pack', href: '/edit/the-christmas-edit',
+          note: 'Until Monday 30 November. No code needed.', btn: 'Shop the Sale', href: '/edit/the-christmas-edit',
         },
+        /* The sales' buttons read Shop the Sale (Danielle, 26 Nov); this one
+           is no sale, so it keeps Shop the pack. */
         /* The rest of the season, the Christmas Edit as the new pack
            (Danielle, 26 Nov): in the page on a laptop only, no pop-up, no
            offer. The two sales above take its place on their days, being
@@ -2667,7 +2684,7 @@ import ShopBasket from "../components/ShopBasket.astro";
           caption: 'Cyber Monday<br>Buy one, get one free on every pack in The Edit',
           kicker: 'Cyber Monday', title: 'Buy One, Get One Free.',
           line: 'Any two packs. The second one is on us.',
-          note: 'Monday 30 November only. No code needed.', btn: 'Shop the packs', href: '#shop',
+          note: 'Monday 30 November only. No code needed.', btn: 'Shop the Sale', href: '#shop',
         },
       };
       const asked = params.get('promo');
@@ -3187,7 +3204,8 @@ import ShopBasket from "../components/ShopBasket.astro";
         try { history.scrollRestoration = 'manual'; } catch (_) {}
         // After the panels have their heights, and again once Lenis has settled in.
         requestAnimationFrame(() => requestAnimationFrame(toShop));
-        setTimeout(toShop, 600);
+        // Once it is in place, the page shows (it was held out of sight from the first paint).
+        setTimeout(() => { toShop(); requestAnimationFrame(() => document.documentElement.classList.remove('edit-arrive')); }, 600);
       }
       addEventListener('hashchange', () => { if (location.hash === '#shop') toShop(); });
     }
