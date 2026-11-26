@@ -108,6 +108,8 @@ export function initOffers(ctx) {
      can each be checked before they begin, without touching their dates. */
   const TRY = new Set();
   let TRY_AT = "";
+  // The Edit as it will be on that day (an empty as_of goes back to now).
+  const tryShopHref = () => `/edit?as_of=${encodeURIComponent(fromBox(TRY_AT) || "")}`;
   function tryOut() {
     const packs = PACKS.filter((p) => TRY.has(p.id));
     if (!packs.length) return "Tick the packs to put in the basket.";
@@ -135,7 +137,9 @@ export function initOffers(ctx) {
       <p class="pb-hint">A pack gets one discount, whichever leaves it cheapest. They never add together, and a bundle price is never reduced further.</p>
       <div class="pb-two">${field("Try a basket on <em>(empty for now)</em>", `<input type="datetime-local" id="so-try-at" value="${esc(TRY_AT)}">`)}<span></span></div>
       <div class="pb-field"><span>Try a basket</span><div class="so-ticks">${PACKS.map((p) => `<label class="pb-check"><input type="checkbox" data-try="${esc(p.id)}"${TRY.has(p.id) ? " checked" : ""}> ${esc(p.title)}</label>`).join("")}</div></div>
-      <p class="so-try" id="so-try-out">${tryOut()}</p></div></div>`;
+      <p class="so-try" id="so-try-out">${tryOut()}</p>
+      <div class="so-acts so-acts--left"><a class="mbtn" id="so-try-open" href="${esc(tryShopHref())}" target="_blank" rel="noopener">Open the shop on this day</a></div>
+      <p class="pb-hint">Opens The Edit with prices as they'll be on the day above, for you and the test logins only, paying in Stripe's test mode. Packs you already have can go in the basket again there, so any basket can be tried. Customers aren't affected.</p></div></div>`;
   }
 
   function draw() {
@@ -204,7 +208,7 @@ export function initOffers(ctx) {
   // Try a basket: only its answer is redrawn, so nothing typed in the boxes below is lost.
   root.addEventListener("change", (e) => {
     const t = e.target;
-    if (t instanceof HTMLInputElement && t.id === "so-try-at") { TRY_AT = t.value; const out = document.getElementById("so-try-out"); if (out) out.innerHTML = tryOut(); return; }
+    if (t instanceof HTMLInputElement && t.id === "so-try-at") { TRY_AT = t.value; const out = document.getElementById("so-try-out"); if (out) out.innerHTML = tryOut(); const a = document.getElementById("so-try-open"); if (a) a.href = tryShopHref(); return; }
     if (!(t instanceof HTMLInputElement) || !t.dataset.try) return;
     if (t.checked) TRY.add(t.dataset.try); else TRY.delete(t.dataset.try);
     const out = document.getElementById("so-try-out"); if (out) out.innerHTML = tryOut();

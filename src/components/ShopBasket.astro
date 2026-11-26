@@ -92,6 +92,12 @@
 
   /* ---- The panel ---- */
   .sb[hidden] { display: none !important; }
+  /* Trying another day: a small wine tag in the corner, only ever in test mode. */
+  .shop-asof {
+    position: fixed; left: 16px; bottom: 16px; z-index: 9650; padding: 8px 12px; background: var(--english-violet); color: var(--paper);
+    font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; box-shadow: 0 10px 30px -12px rgba(0,0,0,0.5);
+  }
+  .shop-asof a { color: var(--paper); margin-left: 8px; text-decoration: underline; text-underline-offset: 3px; }
   /* Over everything, the cookie notice (9600) included: it sat on top of Checkout. It's still there once the basket closes. */
   .sb { position: fixed; inset: 0; z-index: 9700; }
   .sb-scrim { position: absolute; inset: 0; background: rgba(28,29,34,0.55); }
@@ -186,6 +192,19 @@
 
   const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').trim().replace(/\/+$/, '');
   const KEY = 'tmke.basket';
+  /* Trying the shop as it will be on another day (Offers › Try a basket ›
+     Open the shop on this day): ?as_of= on the page, kept for the visit so
+     every page of the shop agrees. The Worker only honours it in test mode,
+     so it never changes what a real customer pays. ?as_of= with nothing
+     after it goes back to now. */
+  const AS_OF = (() => {
+    try {
+      const q = new URLSearchParams(location.search);
+      if (q.has('as_of')) { const v = q.get('as_of') || ''; if (v) sessionStorage.setItem('tmke.shop.asOf', v); else sessionStorage.removeItem('tmke.shop.asOf'); }
+      return sessionStorage.getItem('tmke.shop.asOf') || '';
+    } catch (_) { return ''; }
+  })();
+  const whenWords = (iso) => new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const gbp = (p) => gbpFromPence(p);
   const $ = (id) => document.getElementById(id);
@@ -336,7 +355,7 @@
         <div><dt>Subtotal</dt><dd>${esc(gbp(q.net_pence))}</dd></div>
         <div><dt>VAT at ${esc(q.vat_rate)}%</dt><dd>${esc(gbp(q.vat_pence))}</dd></div>
         <div class="is-total"><dt>Total</dt><dd>${esc(gbp(q.total_pence))}</dd></div></dl>` : '';
-    const test = S.shop.test ? '<p class="sb-test">Test login: this pays in Stripe’s test mode. Use a test card; no money is taken.</p>' : '';
+    const test = S.shop.test ? `<p class="sb-test">Test: this pays in Stripe’s test mode. Use the card 4242 4242 4242 4242 with any future date; no money is taken.${S.shop.as_of ? ` Prices are as they will be on ${esc(whenWords(S.shop.as_of))}.` : ''}</p>` : '';
 
     if (S.view === 'basket') {
       body.innerHTML = rows + hint;
@@ -362,7 +381,7 @@
   async function requote() {
     const ids = lines().slice(), run = ++quoteRun;
     if (!ids.length) { S.quote = null; draw(); return; }
-    const { ok, out } = await call('/shop/quote', { pack_ids: ids });
+    const { ok, out } = await call('/shop/quote', { pack_ids: ids, as_of: AS_OF || undefined });
     if (run !== quoteRun) return;   // the basket changed while this was on its way
     S.quote = ok ? out : null;
     if (!ok) S.error = out.error || 'We couldn’t price your basket just now. Please try again.';
@@ -416,7 +435,7 @@
     S.error = ''; S.busy = true; S.view = 'going'; draw();
     const ids = lines().slice();
     try {
-      const { ok, out } = await call('/shop/checkout', { pack_ids: ids, ...c });
+      const { ok, out } = await call('/shop/checkout', { pack_ids: ids, ...c, as_of: AS_OF || undefined });
       if (ok && out.url) {
         // What's being paid for comes out of the basket once the thank-you page has the order.
         try { sessionStorage.setItem('tmke.basket.paying', JSON.stringify(ids)); } catch (_) {}
@@ -461,10 +480,16 @@
       if (u) { S.token = data.session.access_token; S.me = u; S.contact = { name: (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || '', email: u.email || '', phone: '', company: (u.user_metadata && u.user_metadata.company) || '' }; }
     } catch (_) {}
     try {
-      const { ok, out } = await call('/shop/offers');
+      const { ok, out } = await call('/shop/offers' + (AS_OF ? `?as_of=${encodeURIComponent(AS_OF)}` : ''));
       S.shop = ok && out && out.on ? out : { on: false };
     } catch (_) { S.shop = { on: false }; }
     if (!S.shop.on) return S.shop;
+    if (S.shop.as_of) {
+      const tag = document.createElement('div');
+      tag.className = 'shop-asof';
+      tag.innerHTML = `Test: the shop as on ${esc(whenWords(S.shop.as_of))} <a href="${esc(location.pathname)}?as_of=">Back to now</a>`;
+      document.body.appendChild(tag);
+    }
     // What we already hold on someone signed in fills the checkout's boxes (26 Nov): the Worker
     // reads their contact card and their last order. What their sign-in carries is the fallback.
     if (S.shop.me) { const m = S.shop.me, c = S.contact || {}; S.contact = { name: m.name || c.name || '', email: m.email || c.email || '', phone: m.phone || c.phone || '', company: m.company || c.company || '' }; }

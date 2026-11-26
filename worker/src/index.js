@@ -4044,30 +4044,45 @@ async function shopSettings(env) {
   const rows = await sbGet(env, "shop_settings", "id=eq.1&select=*");
   return (rows && rows[0]) || null;
 }
-// The offers that count right now: switched on, and inside their dates.
-async function shopOffers(env) {
+// The offers that count right now (or at `at`, a moment a test is trying): switched on, and inside their dates.
+async function shopOffers(env, at) {
   const rows = (await sbGet(env, "shop_offers", "active=is.true&select=*&order=created_at.asc")) || [];
-  const t = Date.now();
+  const t = at || Date.now();
   return rows.filter((o) => (!o.starts_at || Date.parse(o.starts_at) <= t) && (!o.ends_at || Date.parse(o.ends_at) > t));
 }
-// Who gets the basket: everyone once it's live; before that, the team and the test logins.
+/* Who gets the basket: everyone once it's live; before that, the team and the
+   test logins. Who pays in Stripe's test mode: a test login, always; and the
+   team too while the basket is still being tried, since nobody buys through
+   it for real until it's switched on (Danielle, 26 Nov: she was testing on
+   her own team account and couldn't). Once it's on, the team pays for real. */
 async function shopAccess(env, user) {
   const S = await shopSettings(env);
-  let test = false;
-  if (S && user) { try { test = (await ccSettings(env)).test_user_ids.includes(user.id); } catch (_) {} }
-  return { ready: !!S, settings: S, live: !!(S && S.basket_live), on: !!S && (!!S.basket_live || !!(user && (user._isAdmin || test))), test, mode: test ? "test" : "live" };
+  let testLogin = false;
+  if (S && user) { try { testLogin = (await ccSettings(env)).test_user_ids.includes(user.id); } catch (_) {} }
+  const live = !!(S && S.basket_live), team = !!(user && user._isAdmin);
+  const test = testLogin || (!!S && !live && team);
+  return { ready: !!S, settings: S, live, on: !!S && (live || team || testLogin), test, mode: test ? "test" : "live" };
+}
+/* A test can try the shop as it will be on another day (?as_of= on the page,
+   from Offers › Try a basket), so Friday's and Monday's offers can be tried
+   without moving their dates. Only ever in test mode: a real payment always
+   uses the offers that count now. */
+function shopAsOf(a, v) {
+  if (!a || a.mode !== "test" || !v) return null;
+  const t = Date.parse(String(v));
+  return isFinite(t) ? t : null;
 }
 // What each pack costs, and the rules for which discount it gets, are in
 // src/lib/shop-price.js (shopPrice), so they can be tested on their own.
 /* A basket, priced: each pack's line and the totals. VAT is added a line at a
    time, so the orders add up to exactly what Stripe takes. */
-async function shopQuote(env, packIds, user) {
+async function shopQuote(env, packIds, user, at) {
   const ids = [...new Set((Array.isArray(packIds) ? packIds : []).map((x) => String(x || "").trim()).filter((x) => SHOP_ID.test(x)))].slice(0, 30);
   if (!ids.length) return { lines: [], gone: [], list_pence: 0, net_pence: 0, vat_pence: 0, total_pence: 0, saving_pence: 0, vat_rate: 20 };
   const found = ((await sbGet(env, "packs", `id=in.(${ids.join(",")})&status=eq.active&select=id,slug,title,price_pence,cover_image_url,kind,access,demo`)) || []).filter(shopSells);
   const packs = ids.map((id) => found.find((p) => p.id === id)).filter(Boolean);
   const { rate } = await vatBreakdown(env, 0);
-  const lines = shopPrice(packs, await shopOffers(env), !!user).map((l) => {
+  const lines = shopPrice(packs, await shopOffers(env, at), !!user).map((l) => {
     const vat = Math.round(l.pence * rate / 100);
     return { ...l, vat_pence: vat, total_pence: l.pence + vat };
   });
@@ -11192,9 +11207,10 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const a = await shopAccess(env, user);
         // Not switched on for this visitor: the shop stays as it was.
         if (!a.on) return json({ on: false }, 200, request, env);
-        const S = a.settings, now = Date.now();
+        const asOf = shopAsOf(a, new URL(request.url).searchParams.get("as_of"));
+        const S = a.settings, now = asOf || Date.now();
         const all = ((await sbGet(env, "packs", "status=eq.active&select=id,slug,title,price_pence,cover_image_url,kind,access,demo")) || []).filter(shopSells);
-        const offers = await shopOffers(env);
+        const offers = await shopOffers(env, asOf);
         const prices = {};
         // Each pack by itself: a bundle only shows once both are in the basket.
         all.forEach((p) => { const l = shopPrice([p], offers, !!user)[0]; prices[p.id] = { slug: p.slug, title: p.title, cover_image_url: p.cover_image_url || null, list_pence: l.list_pence, pence: l.pence, kind: l.kind, label: l.label }; });
@@ -11202,13 +11218,14 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           && (!S.banner_starts_at || Date.parse(S.banner_starts_at) <= now) && (!S.banner_ends_at || Date.parse(S.banner_ends_at) > now) ? String(S.banner_text).trim() : null;
         const memberOffer = offers.find((o) => o.kind === "member" && o.percent);
         return json({
-          on: true, preview: !a.live, test: a.test, member: !!user, banner, prices,
+          on: true, preview: !a.live, test: a.test, as_of: asOf ? new Date(asOf).toISOString() : null, member: !!user, banner, prices,
           bundles: offers.filter((o) => o.kind === "bundle" && o.pack_id && o.price_pence != null && all.some((p) => p.id === o.pack_id))
             .map((o) => ({ pack_id: o.pack_id, price_pence: o.price_pence, with: (o.pack_ids || []).filter((id) => id !== o.pack_id && all.some((p) => p.id === id)), label: o.label || null, ends_at: o.ends_at || null })),
           member_percent: memberOffer ? Number(memberOffer.percent) : null,
           // Buy one, get one free (26 Nov): no pack's own price changes, so the pages are told it's on, to say so.
           deals: offers.filter((o) => o.kind === "bogof").slice(0, 1).map((o) => ({ kind: "bogof", label: o.label || "Buy one, get one free", ends_at: o.ends_at || null, left_out: (o.pack_ids || []) })),
-          owned: user ? await shopOwned(env, user, user.email) : [],
+          // In test mode a pack you already have can go in the basket again, so any basket can be tried.
+          owned: user && !a.test ? await shopOwned(env, user, user.email) : [],
           me: await shopBuyer(env, user),
           vat_rate: (await vatBreakdown(env, 0)).rate,
         }, 200, request, env);
@@ -11221,8 +11238,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const a = await shopAccess(env, user);
         if (!a.on) return json({ error: "The basket isn't open yet." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
-        const q = await shopQuote(env, b && b.pack_ids, user);
-        const owned = user ? await shopOwned(env, user, user.email) : [];
+        const q = await shopQuote(env, b && b.pack_ids, user, shopAsOf(a, b && b.as_of));
+        const owned = user && !a.test ? await shopOwned(env, user, user.email) : [];
         return json({ ...q, owned: q.lines.map((l) => l.pack_id).filter((id) => owned.includes(id)), member: !!user, test: a.test }, 200, request, env);
       }
 
@@ -11242,10 +11259,10 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         if (!name || !email) return json({ error: "Please complete your details." }, 400, request, env);
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "That email doesn't look right." }, 400, request, env);
 
-        const q = await shopQuote(env, body.pack_ids, user);
+        const q = await shopQuote(env, body.pack_ids, user, shopAsOf(a, body.as_of));
         if (!q.lines.length) return json({ error: "Your basket is empty." }, 400, request, env);
         if (q.gone.length) return json({ error: "A pack in your basket isn't available any more. Take it out to carry on.", gone: q.gone }, 409, request, env);
-        const have = await shopOwned(env, user, email);
+        const have = a.test ? [] : await shopOwned(env, user, email);
         const dupes = q.lines.filter((l) => have.includes(l.pack_id));
         if (dupes.length) return json({ error: `You already have ${shopNames(dupes.map((l) => l.title))}. Take ${dupes.length > 1 ? "them" : "it"} out of your basket to carry on.`, owned: dupes.map((l) => l.pack_id) }, 409, request, env);
         if (q.total_pence > 0 && !ccStripeKey(env, a.mode)) return json({ error: "Payments aren't set up yet." }, 503, request, env);
