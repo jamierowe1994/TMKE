@@ -1835,6 +1835,26 @@ import ShopBasket from "../components/ShopBasket.astro";
     .promo-pop .promo-btn--phone { height: 28px; padding: 0 14px; font-size: 10px; letter-spacing: 0.16em; gap: 8px; }
     .promo-pop .promo-caption { bottom: 56px; }
     .promo-pop-x { position: absolute; top: 14px; right: 14px; z-index: 5; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(244,242,241,0.92); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; }
+
+    /* ---- The filter above the packs ---- */
+    .edit-filter { display: flex; gap: 22px; overflow-x: auto; scrollbar-width: none; padding: 0 0 18px; margin-bottom: 22px; border-bottom: 1px solid rgba(28,29,34,0.12); }
+    .edit-filter::-webkit-scrollbar { display: none; }
+    .edit-filter button { all: unset; cursor: pointer; flex: none; padding-bottom: 3px; border-bottom: 1px solid transparent;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.5); transition: color 0.2s, border-color 0.2s; }
+    .edit-filter button:hover { color: var(--ink); }
+    .edit-filter button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+    .edit-filter button:focus-visible { outline: 1px solid var(--ink); outline-offset: 4px; }
+    .pcard[hidden] { display: none !important; }
+    @media (max-width: 760px) { .edit-filter { margin: 0 20px 20px; gap: 18px; } }
+
+    /* ---- A phone: the Edit box over a blurred, darkened photograph, as the pop-up has ---- */
+    @media (max-width: 760px) {
+      body.stk-on .how-intro { position: relative; overflow: hidden; isolation: isolate; }
+      body.stk-on .how-intro::before { content: ""; position: absolute; inset: -30px; z-index: -2; background: var(--intro-bg) center / cover no-repeat; filter: blur(16px) saturate(0.8); }
+      body.stk-on .how-intro::after { content: ""; position: absolute; inset: 0; z-index: -1; background: rgba(55,30,40,0.72); }
+      /* Closer lines in How it works and The TMKE Studio. */
+      body.stk-on .how-tx p { line-height: 1.55; }
+    }
   </style>
 
   <script>
@@ -1955,7 +1975,7 @@ import ShopBasket from "../components/ShopBasket.astro";
           ).join('')}</div>`
         : '';
       return `
-        <article class="pcard" data-id="${p.id}" data-slug="${escapeHtml(p.slug)}">
+        <article class="pcard" data-id="${p.id}" data-slug="${escapeHtml(p.slug)}" data-cat="${escapeHtml(p.category || '')}">
           <div class="pcard-media">
             <a class="pcard-frames" href="${href}" aria-label="Discover ${escapeHtml(p.title)}">${frames}</a>
             <span class="pcard-sale" data-shop-sale="${p.id}" hidden>Sale</span>
@@ -2601,7 +2621,7 @@ import ShopBasket from "../components/ShopBasket.astro";
       html += `<section class="stk-p stk-sec-how" data-i="3">`
         + bar('The Studio', 'Design Studio', 'What You Can Do')
         + `<div class="stk-body stk-body--how">`
-        +   `<div class="how-intro"><span class="how-eyebrow">The Edit &middot; Our template shop</span>`
+        +   `<div class="how-intro" style="--intro-bg:url('${edImg(howPics[1] || howPics[0] || '', 900)}')"><span class="how-eyebrow">The Edit &middot; Our template shop</span>`
         // The shop's offer (Catalogue › Offers › Shop banner) still has its place here.
         +   `<p class="stk-quote-offer" data-shop-offer-line hidden></p>`
         +   `<p class="how-quote">Great marketing shouldn&rsquo;t need a design degree. Every pack in The Edit is built by our studio and ready to go &mdash; open it, make it yours, post it. Looking the part in minutes, not hours.</p></div>`
@@ -2733,6 +2753,27 @@ import ShopBasket from "../components/ShopBasket.astro";
       const shopBody = document.getElementById('stk-body-shop');
       const cat = document.getElementById('edit-grid');
       if (shopBody && cat) shopBody.appendChild(cat);
+      /* A plain filter above the packs (Danielle, 26 Nov): All and each
+         category that has a pack, in small caps; the chosen one underlined. */
+      if (FLOW && shopBody && cat) {
+        const cats = [];
+        cat.querySelectorAll('.pcard[data-cat]').forEach((c) => { const k = c.dataset.cat; if (k && cats.indexOf(k) === -1) cats.push(k); });
+        if (cats.length > 1) {
+          const bar = document.createElement('div');
+          bar.className = 'edit-filter';
+          bar.setAttribute('role', 'group');
+          bar.setAttribute('aria-label', 'Filter the packs');
+          bar.innerHTML = ['All'].concat(cats).map((k, i) => `<button type="button" data-f="${i ? escapeHtml(k) : ''}" aria-pressed="${i === 0}">${escapeHtml(k)}</button>`).join('');
+          bar.addEventListener('click', (e) => {
+            const b = e.target.closest('button[data-f]');
+            if (!b) return;
+            const want = b.dataset.f;
+            bar.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            cat.querySelectorAll('.pcard').forEach((c) => { c.hidden = !!want && c.dataset.cat !== want; });
+          });
+          shopBody.insertBefore(bar, cat);
+        }
+      }
 
       // Studio panel — text tiles, image on hover.
       // (Images are pack designs for now — swap for real feature shots / video.)
