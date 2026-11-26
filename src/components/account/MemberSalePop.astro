@@ -44,7 +44,7 @@ const HREF = "/edit#shop";
       <a class="msp-half msp-left" href={HREF} aria-label="Shop the Sale">
         <span class="msp-back" style={`background-image:url('${L0.back}')`}></span>
         <span class="msp-card" style={`background-image:url('${L0.card}')`}></span>
-        <span class="msp-caption">Black Friday<br>Members save <span data-msp-pct></span>% on every pack in The Edit</span>
+        <span class="msp-caption" data-msp-caption>Black Friday weekend<br><span data-msp-pct></span>% off sitewide until <span data-msp-end></span></span>
         <span class="msp-btn msp-btn--phone" aria-hidden="true">Shop the Sale <span>&rarr;</span></span>
       </a>
       <div class="msp-half msp-right" style={`background-image:url('${L0.right}')`}>
@@ -62,7 +62,9 @@ const HREF = "/edit#shop";
   .msp.is-in { pointer-events: auto; }
   .msp.is-in .msp-dim { opacity: 1; }
   .msp.is-in .msp-in { transform: none; opacity: 1; }
-  .msp-x { position: absolute; top: 14px; right: 14px; z-index: 5; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(244,242,241,0.92); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; padding: 0; }
+  .msp-x { position: absolute; top: 14px; right: 14px; z-index: 5; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(244,242,241,0.5); color: rgba(28,29,34,0.55); font-size: 20px; line-height: 1; cursor: pointer; padding: 0; transition: background 0.2s, color 0.2s; }
+  /* Quieter, so the eye goes to the words and the button; full strength on hover (Danielle, 26 Nov). */
+  .msp-x:hover, .msp-x:focus-visible { background: rgba(244,242,241,0.92); color: var(--ink); }
 
   .msp-promo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; height: min(720px, 80vh); box-sizing: border-box; }
   .msp-half { position: relative; display: block; min-width: 0; overflow: hidden; background: rgba(28,29,34,0.06) center / cover no-repeat; text-decoration: none; }
@@ -133,14 +135,22 @@ const HREF = "/edit#shop";
     const bg = (sel: string, u: string) => { const el = pop.querySelector(sel) as HTMLElement | null; if (el) el.style.backgroundImage = `url('${u}')`; };
     bg(".msp-back", l.back); bg(".msp-card", l.card); bg(".msp-right", l.right);
   }
-  function setPct(pct: number) {
-    pop && pop.querySelectorAll("[data-msp-pct]").forEach((el) => { el.textContent = String(pct); });
+  /* The words (Danielle, 26 Nov). Friday to Sunday: Black Friday weekend,
+     the members' percentage off sitewide until the last day. Monday, when buy
+     one, get one free is on: Cyber Monday, that or the percentage. */
+  function setWords(pct: number, monday: boolean) {
+    const cap = pop && pop.querySelector("[data-msp-caption]");
+    if (!cap) return;
+    const last = new Date(Date.parse(pop!.dataset.to || "") - 1).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" });
+    cap.innerHTML = monday
+      ? `Cyber Monday<br>Buy one, get one free on all Edit packs, or ${pct}% off sitewide`
+      : `Black Friday weekend<br>${pct}% off sitewide until ${last}`;
   }
 
   async function start() {
     if (!pop) return;
     const q = new URLSearchParams(location.search);
-    // ?pop=blackfriday (and &look=1, 2 or 3) shows it on any day, to check the look.
+    // ?pop=blackfriday (and &look=1, 2 or 3, &day=monday) shows it on any day, to check the look.
     const forced = q.get("pop") === "blackfriday";
     const now = Date.now();
     const inDates = now >= Date.parse(pop.dataset.from || "") && now < Date.parse(pop.dataset.to || "");
@@ -151,15 +161,18 @@ const HREF = "/edit#shop";
     // The members' percentage is the shop's own (Catalogue › Offers), so the
     // pop-up never promises what the basket won't charge. No members' offer
     // on for this person (or the basket not open): no pop-up.
-    let pct = 0;
+    let pct = 0, bogof = false;
     try {
       const r = await fetch(`${pop.dataset.worker}/shop/offers`, { headers: session ? { Authorization: `Bearer ${session.access_token}` } : {} });
       const out = r.ok ? await r.json() : null;
       if (out && out.on && out.member && out.member_percent) pct = Number(out.member_percent);
+      bogof = !!(out && out.on && Array.isArray(out.deals) && out.deals.some((d: any) => d && d.kind === "bogof"));
     } catch (_) {}
     if (!pct && !forced) return;
+    // Monday's words only when the shop really has buy one, get one free on.
+    const monday = forced ? q.get("day") === "monday" : (bogof && now >= Date.parse("2026-11-30T00:00:00Z"));
     // A preview with no live offer behind it takes its figure from &pct=.
-    setPct(pct || Number(q.get("pct")) || 0);
+    setWords(pct || Number(q.get("pct")) || 0, monday);
     if (forced) { setLook(Number(q.get("look") || 1) - 1); later(); return; }
     const sid = sessionIdOf(session!.access_token) || session!.user.id + ":" + (session!.user.last_sign_in_at || "");
     let seen = "", n = 0;
