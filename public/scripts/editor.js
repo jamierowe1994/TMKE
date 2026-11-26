@@ -15119,8 +15119,9 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   /* The brand's own lines in the brand's own typeface (Danielle, 26 Nov): a
-     box that is the company name, the local expert line or the slogan and
-     nothing else takes the kit's Body font when the kit fills it in (then its
+     box that is the company name, the agent's name, the local expert line,
+     the slogan or the area and job title, and nothing else, takes the kit's
+     Body font when the kit fills it in (then its
      Subheading font, then its Heading font, whichever the kit has first).
      For The Property Experts that is Unitext. Every other text keeps the
      designer's font: AUTO_BRAND_FONTS stays off.
@@ -15129,13 +15130,28 @@ import { createResizeEngine } from "./resize-engine.js";
      design drawn for one brand, which is in that brand's typeface already.
      el.kitFont is the font put there, so a font the member then chooses by
      hand is left alone, and a change of brand moves it to the new kit's. */
-  const KIT_FONT_TAGS = ["company name", "local expert", "slogan"];
+  const KIT_FONT_TAGS = ["company name", "local expert", "slogan", "agent name", "agent first name", "agent surname", "job title", "area"];
+  /* Is this box nothing but the brand's own details? One or more of the tags
+     above with only spaces or a divider between them: {company name},
+     {agent name}, "{area} {job title}", "{agent name} | {job title}". These
+     are the lines that run along the top and foot of a design (Danielle,
+     26 Nov), told by what they hold, not by where they sit. An area by
+     itself is not one: that is a place name, often the design's title. */
   function soleKitFontTag(src) {
-    const m = /^\s*([{(])\s*([a-zA-Z][a-zA-Z ]*?)\s*([})])\s*$/.exec(String(src || ""));
-    if (!m || !((m[1] === "{" && m[3] === "}") || (m[1] === "(" && m[3] === ")"))) return false;
-    let k = m[2].toLowerCase().replace(/\s+/g, " ").trim();
-    k = TAG_SYNONYM_OF[k] || k;
-    return KIT_FONT_TAGS.indexOf(k) !== -1;
+    const text = String(src || "");
+    const found = [];
+    let bad = false;
+    const rest = text.replace(/([{(])\s*([a-zA-Z][a-zA-Z ]*?)\s*([})])/g, function (all, open, name, close) {
+      if (!((open === "{" && close === "}") || (open === "(" && close === ")"))) { bad = true; return all; }
+      let k = name.toLowerCase().replace(/\s+/g, " ").trim();
+      k = TAG_SYNONYM_OF[k] || k;
+      if (KIT_FONT_TAGS.indexOf(k) === -1) { bad = true; return all; }
+      found.push(k);
+      return "";
+    });
+    if (bad || !found.length) return false;
+    if (/[^\s|\u00b7\u2022,\/&\-\u2013\u2014]/.test(rest)) return false;   // other words round the tags: a sentence
+    return !found.every(function (k) { return k === "area"; });
   }
   function kitFontForBrandLines() {
     return kitFontFor("body") || kitFontFor("subheading") || kitFontFor("heading") || null;
