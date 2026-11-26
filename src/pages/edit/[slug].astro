@@ -418,7 +418,9 @@ function gbp(pence) {
 
     /* The rule along the top runs over the panel only: across the strip it
        showed through the gaps between the moving templates. */
-    .pd-panel { background: var(--paper); border-left: 1px solid rgba(28,29,34,0.1); border-top: 1px solid rgba(28,29,34,0.08); }
+    /* No rule down its left side (Danielle, 26 Nov): it showed in the gaps
+       between the templates and between the mockups. */
+    .pd-panel { background: var(--paper); border-top: 1px solid rgba(28,29,34,0.08); }
     .pd-panel-in {
       position: sticky; top: 78px;
       padding: 28px max(36px, calc((100vw - 1280px) / 2 + 36px)) 36px 44px;
@@ -524,8 +526,16 @@ function gbp(pence) {
     .pd-mocks-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .pd-mocks-grid.n1 { grid-template-columns: minmax(0, 1fr); }
     .pd-mock { margin: 0; aspect-ratio: 4 / 5; overflow: hidden; background: #e7e0dc; cursor: zoom-in; }
-    .pd-mock img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); }
+    .pd-mock img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(.2,.7,.2,1), opacity 0.35s ease; }
     .pd-mock:hover img { transform: scale(1.03); }
+    /* Faded until pointed at (Danielle, 26 Nov), so the mockups read as a
+       separate set from the templates above them. Only side by side and with
+       a mouse: stacked, the panel already sits between the two, and a touch
+       screen has no hover to bring them back. */
+    @media (min-width: 961px) and (hover: hover) {
+      .pd-mock img { opacity: 0.55; }
+      .pd-mock:hover img, .pd-mock:focus-visible img { opacity: 1; }
+    }
     .pd-mock:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
 
     /* Stacked: the strip, the panel, then the mockups. */
@@ -534,7 +544,7 @@ function gbp(pence) {
       .pd-left { display: contents; }
       .pd-reel { order: 1; }
       .pd-reel-item { width: calc((100cqw - 14px) / 1.5); }
-      .pd-panel { order: 2; border-left: 0; }
+      .pd-panel { order: 2; }
       .pd-panel-in { position: static; padding: 22px 16px 10px; }
       .pd-story { order: 3; padding: 36px 20px 32px; }
       .pd-mocks { order: 4; padding: 0 0 28px; }
