@@ -1819,6 +1819,22 @@ import ShopBasket from "../components/ShopBasket.astro";
     @keyframes box-open { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0); } }
     @keyframes card-rise { from { opacity: 0; transform: translate(-50%, calc(-50% + 18px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
     @keyframes words-in { from { opacity: 0; } to { opacity: 1; } }
+
+    /* With the sale in a pop-up, the top row is first again: 40px above it, as below it. */
+    @media (max-width: 760px) { body.stk-on .stk:has(.stk-sec-promo.is-empty) .stk-p[data-i="0"] .stk-body--pack { padding-top: 40px !important; } }
+    /* The sale as a pop-up on a phone. */
+    .promo-pop { position: fixed; inset: 0; z-index: 9400; display: grid; place-items: center; padding: 20px; pointer-events: none; }
+    .promo-pop-dim { position: absolute; inset: 0; background: rgba(28,29,34,0.55); opacity: 0; transition: opacity 0.45s ease; }
+    .promo-pop-in { position: relative; width: 100%; max-width: 420px; background: var(--paper); transform: translateY(24px) scale(0.98); opacity: 0; transition: transform 0.6s cubic-bezier(.2,.8,.2,1), opacity 0.45s ease; box-shadow: 0 30px 70px -28px rgba(0,0,0,0.6); }
+    .promo-pop.is-in { pointer-events: auto; }
+    .promo-pop.is-in .promo-pop-dim { opacity: 1; }
+    .promo-pop.is-in .promo-pop-in { transform: none; opacity: 1; }
+    .promo-pop .promo { animation: none !important; border: 0 !important; }
+    .promo-pop .promo-card, .promo-pop .promo-caption, .promo-pop .promo-btn--phone { animation: none !important; }
+    /* A quieter button in the pop-up, so the words above it lead (Danielle, 26 Nov). */
+    .promo-pop .promo-btn--phone { height: 28px; padding: 0 14px; font-size: 10px; letter-spacing: 0.16em; gap: 8px; }
+    .promo-pop .promo-caption { bottom: 56px; }
+    .promo-pop-x { position: absolute; top: 14px; right: 14px; z-index: 5; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(244,242,241,0.92); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; }
   </style>
 
   <script>
@@ -2917,6 +2933,27 @@ import ShopBasket from "../components/ShopBasket.astro";
       }
       (window as any).__editToShop = toShop;
       stk.querySelectorAll('[data-to-shop]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); toShop(); }));
+      /* A phone: the sale comes up as a pop-up when you first arrive, once a
+         visit, instead of sitting at the top of the page (Danielle, 26 Nov).
+         Closed, the page starts at the top row. */
+      const promoBox = stk.querySelector('.stk-sec-promo .promo:not(.promo--quote)');
+      if (FLOW && promoBox && window.matchMedia('(max-width: 760px)').matches) {
+        stk.querySelector('.stk-sec-promo').classList.add('is-empty');
+        let seen = false;
+        try { seen = sessionStorage.getItem('tmke_edit_promo_' + promoKey) === '1'; } catch (_) {}
+        if (!seen || params.get('promo')) {
+          const pop = document.createElement('div');
+          pop.className = 'promo-pop';
+          pop.innerHTML = '<div class="promo-pop-dim" data-pop-close></div><div class="promo-pop-in"><button type="button" class="promo-pop-x" data-pop-close aria-label="Close">&times;</button></div>';
+          pop.querySelector('.promo-pop-in').appendChild(promoBox);
+          const shut = () => { pop.classList.remove('is-in'); setTimeout(() => pop.remove(), 450); };
+          pop.querySelectorAll('[data-pop-close]').forEach((b) => b.addEventListener('click', shut));
+          promoBox.querySelectorAll('[data-to-shop]').forEach((a) => a.addEventListener('click', shut));
+          document.body.appendChild(pop);
+          setTimeout(() => pop.classList.add('is-in'), 700);
+          try { sessionStorage.setItem('tmke_edit_promo_' + promoKey, '1'); } catch (_) {}
+        }
+      }
       if (FLOW) {
         /* A small Shop The Edit at the foot of the screen (Danielle, 26 Nov),
            only until the packs come into view: it takes you straight there. */
