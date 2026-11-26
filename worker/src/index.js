@@ -4082,6 +4082,29 @@ async function shopOwned(env, user, email) {
   const rows = (await sbGet(env, "orders", `status=eq.paid&or=(${who.join(",")})&select=pack_id&limit=1000`)) || [];
   return [...new Set(rows.map((r) => r.pack_id).filter(Boolean))];
 }
+/* What we already hold on someone signed in, to fill the checkout's boxes for
+   them (Danielle, 27 Nov): their contact card first, then the details they
+   gave on their last order. Only ever sent to their own sign-in. */
+async function shopBuyer(env, user) {
+  if (!user) return null;
+  const meta = user.user_metadata || {}, out = { name: String(meta.full_name || meta.name || "").trim(), email: lc(user.email), phone: "", company: String(meta.company || "").trim() };
+  try {
+    const cs = (await sbGet(env, "contacts", `or=(user_id.eq.${user.id},email.eq.${encodeURIComponent(lc(user.email))})&select=first_name,last_name,phone,company,user_id&limit=5`)) || [];
+    const c = cs.find((x) => x.user_id === user.id) || cs[0];
+    if (c) {
+      const full = [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
+      if (full) out.name = full;
+      if (c.phone) out.phone = String(c.phone).trim();
+      if (c.company) out.company = String(c.company).trim();
+    }
+    if (!out.name || !out.phone || !out.company) {
+      const o = ((await sbGet(env, "orders", `or=(user_id.eq.${user.id},buyer_email.eq.${encodeURIComponent(lc(user.email))})&select=buyer_name,buyer_phone,buyer_company&order=created_at.desc&limit=1`)) || [])[0];
+      if (o) { out.name = out.name || o.buyer_name || ""; out.phone = out.phone || o.buyer_phone || ""; out.company = out.company || o.buyer_company || ""; }
+    }
+  } catch (_) { /* the boxes are simply left for them to fill */ }
+  return out;
+}
+
 /* Stripe says a basket is paid: every pack in it goes into the buyer's
    library, then the team is told and the purchase email starts, once for the
    whole basket. Safe for Stripe to send twice. */
@@ -11184,6 +11207,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             .map((o) => ({ pack_id: o.pack_id, price_pence: o.price_pence, with: (o.pack_ids || []).filter((id) => id !== o.pack_id && all.some((p) => p.id === id)), label: o.label || null, ends_at: o.ends_at || null })),
           member_percent: memberOffer ? Number(memberOffer.percent) : null,
           owned: user ? await shopOwned(env, user, user.email) : [],
+          me: await shopBuyer(env, user),
           vat_rate: (await vatBreakdown(env, 0)).rate,
         }, 200, request, env);
       }

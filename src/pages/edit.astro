@@ -1123,10 +1123,11 @@ import ShopBasket from "../components/ShopBasket.astro";
     }
     .checkout {
       position: relative;
-      width: min(1080px, 100%);
+      /* A little wider, most of it to the left panel, which read as cramped (Danielle, 27 Nov). */
+      width: min(1180px, 100%);
       max-height: calc(100vh - 48px);
       display: grid;
-      grid-template-columns: 360px 1fr;
+      grid-template-columns: 430px 1fr;
       background: var(--paper);
       border-radius: 4px;
       overflow: hidden;
@@ -1218,6 +1219,10 @@ import ShopBasket from "../components/ShopBasket.astro";
       color: var(--paper);
     }
 
+    .checkout-aside-vat {
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase;
+      font-weight: 700; color: rgba(244, 242, 241,0.6); margin-left: 4px;
+    }
     .checkout-main {
       padding: 40px 44px 44px;
       display: flex;
@@ -2493,7 +2498,8 @@ import ShopBasket from "../components/ShopBasket.astro";
       pkgTitleEl.textContent = pack.title;
       pkgDescEl.textContent = pack.description ?? '';
       pkgListEl.innerHTML = (pack.contents ?? []).slice(0, 4).map((c) => `<li>${escapeHtml(c)}</li>`).join('');
-      pkgPriceEl.textContent = gbpFromPence(pack.price_pence) + ' +VAT';
+      // The price in the heading face; "+VAT" in the small capitals of "Total today" beside it (Danielle, 27 Nov).
+      pkgPriceEl.innerHTML = `${escapeHtml(gbpFromPence(pack.price_pence))} <span class="checkout-aside-vat">+VAT</span>`;
       coverEl.style.backgroundImage = pack.cover_image_url ? `url('${edImg(pack.cover_image_url, 700)}')` : '';
 
       // Update £ amount on payment step in two places

@@ -75,7 +75,8 @@ export function initOffers(ctx) {
       <div class="pb-field"><span>Packs left out of it</span>${ticks(o)}</div>`;
     if (o.kind === "member") body = `${onTick(o, "On")}
       <div class="pb-two">${field("Percentage off", `<input type="number" data-k="percent" min="1" max="100" step="0.5" value="${esc(o.percent)}" placeholder="e.g. 10">`)}${nameBox(o, "e.g. Members' price")}</div>
-      <p class="pb-hint">For anyone signed in to a member account, on every pack. It's checked by their sign-in, so it can't be had from a shared link.</p>`;
+      ${dates(o)}
+      <p class="pb-hint">For anyone signed in to a member account, on every pack. It's checked by their sign-in, so it can't be had from a shared link. Leave the dates empty for a price that's always on.</p>`;
     if (o.kind === "bundle") body = `${onTick(o, "On")}
       <div class="pb-two">${field("The pack that drops in price", packSelect(o))}${field("Its price in the bundle, before VAT", `<input type="text" inputmode="decimal" data-k="price_pence" value="${esc(pounds(o.price_pence))}" placeholder="e.g. 6">`)}</div>
       <div class="pb-field"><span>When the basket also holds any one of</span>${ticks(o, o.pack_id)}</div>

@@ -274,7 +274,9 @@ function gbp(pence) {
         {pack.category && <div class="pd-cat">{pack.category}</div>}
         <h1 class="pd-title">{pack.title}</h1>
         {/* The price, and the offer on it when there is one: src/components/ShopBasket.astro redraws data-shop-amount. */}
-        <div class="pd-price"><bdi data-shop-amount={pack.id}>{gbp(pack.price_pence)}</bdi> <span>+VAT · one-time payment</span><span class="shop-tag" data-shop-label={pack.id} hidden></span></div>
+        {/* The price and its offer's name on one row; what the price means underneath (Danielle, 27 Nov). */}
+        <div class="pd-price"><bdi data-shop-amount={pack.id}>{gbp(pack.price_pence)}</bdi><span class="shop-tag" data-shop-label={pack.id} hidden></span></div>
+        <div class="pd-price-note">+VAT · one-time payment</div>
         {pack.description && <p class="pd-desc">{pack.description}</p>}
 
         {/* Two ways to buy once the basket is on (Danielle, 26 Nov): Add to
@@ -440,9 +442,11 @@ function gbp(pence) {
       font-family: var(--serif); font-size: 18px; color: var(--ink);
       display: flex; align-items: baseline; gap: 10px;
     }
-    .pd-price span {
+    .pd-price { flex-wrap: wrap; align-items: center; }
+    .pd-price-note {
       font-family: var(--sans); font-size: 10px; font-weight: 700;
       letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.5);
+      margin-top: -4px;
     }
     .pd-desc {
       font-family: var(--sans); font-size: 14px; line-height: 1.6;
