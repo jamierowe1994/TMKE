@@ -1719,7 +1719,9 @@ import ShopBasket from "../components/ShopBasket.astro";
     .how-tx > :nth-child(1) { grid-row: 1; } .how-tx > :nth-child(2) { grid-row: 2; } .how-tx > :nth-child(3) { grid-row: 3; }
     .how-tx > :nth-child(4) { grid-row: 1; } .how-tx > :nth-child(5) { grid-row: 2; } .how-tx > :nth-child(6) { grid-row: 3; }
     .how-tx > .promo-btn { grid-column: 1; grid-row: 4; justify-self: start; }
-    .how-wide { margin-top: clamp(56px, 6vw, 90px); width: 100%; aspect-ratio: 21 / 9; background: rgba(28,29,34,0.06) center / cover no-repeat; }
+    .how-wide { position: relative; overflow: hidden; margin-top: clamp(56px, 6vw, 90px); width: 100%; aspect-ratio: 7 / 3; background: rgba(28,29,34,0.06); }
+    .how-wide img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity 0.45s ease; }
+    .how-wide img.is-on { opacity: 1; }
 
 
     .how-tx h3 { font-family: var(--sans); font-size: 16px; font-weight: 700; color: var(--gunmetal); margin: 0 0 12px; letter-spacing: 0; line-height: normal; }
@@ -1927,6 +1929,13 @@ import ShopBasket from "../components/ShopBasket.astro";
     @media (min-width: 761px) { .promo-caption { line-height: 1.7; bottom: clamp(30px, 4.2svh, 48px); } }
     /* The closing picture on a laptop only. */
     @media (max-width: 760px) { .how-wide { display: none; } }
+
+    /* ---- The holiday pop-ups (Danielle, 26 Nov): the words in wine, and
+       the button a solid box so it shows. ---- */
+    .promo-pop .promo-caption { color: var(--english-violet); }
+    .promo-pop .promo-right .promo-btn--on-dark { background: var(--paper); border-color: var(--paper); color: var(--english-violet); }
+    .promo-pop .promo-right .promo-btn--on-dark:hover { background: #fff; }
+    .promo-pop .promo-btn--phone { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
   </style>
 
   <script>
@@ -2711,8 +2720,13 @@ import ShopBasket from "../components/ShopBasket.astro";
         +     `</div></details>`
         +     `<a class="promo-btn promo-btn--ink how-acc-btn" href="/join">Create your free account <span aria-hidden="true">&rarr;</span></a>`
         +   `</div>`
-        // A laptop: one wide picture to close the page (Danielle, 26 Nov); a phone does without it.
-        +   `<div class="how-wide" style="background-image:url('${edImg(howPics[3] || howPics[0] || '', 2400)}')"></div>`
+        /* A laptop: the page closes on Danielle's five Hub screens on a laptop
+           (26 Nov), one after another, the screen changing as if clicked
+           through; the laptop and room round it stay the same. A phone does
+           without it. */
+        +   `<div class="how-wide" aria-label="The Member Hub: your packs, the Studio, your content calendar, the training studio" role="img">`
+        +     [2, 3, 4, 1, 5].map((n, k) => `<img src="/images/edit/hub-tour-${n}.webp" alt="" loading="lazy" decoding="async"${k === 0 ? ' class="is-on"' : ''}>`).join('')
+        +   `</div>`
         + `</div></section>`;
       html += '<div class="stk-foot" aria-hidden="true"></div>';
       stk.innerHTML = html;
@@ -3138,6 +3152,16 @@ import ShopBasket from "../components/ShopBasket.astro";
             requestAnimationFrame(lit);
           };
           requestAnimationFrame(lit);
+        }
+        // The Hub screens, one after another, while the picture is on screen.
+        const tour = stk.querySelector('.how-wide');
+        if (tour) {
+          const frames = [...tour.querySelectorAll('img')];
+          let at = 0, timer = 0;
+          const step = () => { frames[at].classList.remove('is-on'); at = (at + 1) % frames.length; frames[at].classList.add('is-on'); };
+          const run = (on) => { clearInterval(timer); if (on && frames.length > 1 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) timer = setInterval(step, 3200); };
+          if ('IntersectionObserver' in window) new IntersectionObserver((es) => es.forEach((en) => run(en.isIntersecting)), { threshold: 0.3 }).observe(tour);
+          else run(true);
         }
       }
       if (location.hash === '#shop') {
