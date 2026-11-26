@@ -1731,6 +1731,41 @@ import ShopBasket from "../components/ShopBasket.astro";
       .stk-sec-how .how-tx h3 { font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: color-mix(in oklab, rgba(244,242,241,0.7) calc(var(--lit) * 100%), rgba(28,29,34,0.6)); }
       .how-tx h3:not(:first-child) { margin-top: 26px; }
     }
+
+    /* ---- A phone's top row (Danielle, 26 Nov) ----------------------------
+       Still eight tiles in two rows of four, a little larger, so the outer
+       columns run about a fifth off each side of the screen. The pack's name
+       is second in the top row; Next Pack goes, and Shop the Pack is second
+       from the right in the bottom row, with one more design to fill the row. */
+    .egh-tile--phone { display: none; }
+    @media (max-width: 760px) {
+      body.stk-on .stk-p[data-i="0"] .stk-body--pack { padding-left: 0; padding-right: 0; }
+      body.stk-on .stk-slide { overflow: hidden; }
+      body.stk-on .stk-p[data-i="0"] .stk-pgrid {
+        --tw: calc((100vw - 18px) / 3.6);
+        grid-template-columns: repeat(4, var(--tw)); justify-content: center;
+        width: 100%;
+      }
+      body.stk-on .stk-pgrid > :nth-child(2) { order: 1; }   /* design */
+      body.stk-on .stk-pgrid > :nth-child(1) { order: 2; }   /* the pack's name */
+      body.stk-on .stk-pgrid > :nth-child(3) { order: 3; }
+      body.stk-on .stk-pgrid > :nth-child(4) { order: 4; }
+      body.stk-on .stk-pgrid > :nth-child(5) { order: 5; }
+      body.stk-on .stk-pgrid > :nth-child(7) { order: 6; }
+      body.stk-on .stk-pgrid > :nth-child(6) { order: 7; }   /* Shop the Pack */
+      body.stk-on .stk-pgrid > :nth-child(8) { display: none; }   /* Next Pack */
+      body.stk-on .stk-pgrid > .egh-tile--phone { display: flex; order: 8; }
+    }
+
+    /* ---- A phone's sale: in a box on the page's margins, not full width ---- */
+    @media (max-width: 760px) {
+      body.stk-on .stk-body--promo { padding: 0 20px; }
+      body.stk-on .promo { border: 1px solid rgba(28,29,34,0.16); padding: 6px; }
+      body.stk-on .promo-back, body.stk-on .promo-left::after { -webkit-mask-image: none; mask-image: none; }
+      body.stk-on .promo-left { aspect-ratio: 4 / 5.2; }
+      body.stk-on .promo-caption { left: 16px; right: 16px; }
+      body.stk-on .promo-btn--phone { left: 16px; bottom: 16px; }
+    }
   </style>
 
   <script>
@@ -2398,7 +2433,9 @@ import ShopBasket from "../components/ShopBasket.astro";
           + design(4)                                     // 7
           + `<button type="button" class="egh-tile egh-tile--next" data-nextpack>`
           +   `<span class="egh-tile-cap"><span class="egh-tile-num">Next Pack</span>`
-          +   `<span class="egh-tile-name">${escapeHtml(nextName)}</span></span></button>`; // 8
+          +   `<span class="egh-tile-name">${escapeHtml(nextName)}</span></span></button>` // 8
+          // A phone's extra design: it takes Next Pack's place there (Danielle, 26 Nov).
+          + design(5).replace('egh-tile--image', 'egh-tile--image egh-tile--phone');
       }
 
       // ONE packs panel — every pack in a single frame, dots slide between them.
