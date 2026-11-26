@@ -3040,19 +3040,30 @@ import ShopBasket from "../components/ShopBasket.astro";
       const promoBox = stk.querySelector('.stk-sec-promo .promo:not(.promo--quote)');
       if (FLOW && promoBox && window.matchMedia('(max-width: 760px)').matches) {
         stk.querySelector('.stk-sec-promo').classList.add('is-empty');
-        let seen = false;
-        try { seen = sessionStorage.getItem('tmke_edit_promo_' + promoKey) === '1'; } catch (_) {}
-        if (!seen || params.get('promo')) {
+        /* Every time the page is opened (Danielle, 26 Nov), but not when
+           coming back to the packs from a pack (#shop). */
+        if (location.hash !== '#shop') {
           const pop = document.createElement('div');
           pop.className = 'promo-pop';
           pop.innerHTML = '<div class="promo-pop-dim" data-pop-close></div><div class="promo-pop-in"><button type="button" class="promo-pop-x" data-pop-close aria-label="Close">&times;</button></div>';
           pop.querySelector('.promo-pop-in').appendChild(promoBox);
-          const shut = () => { pop.classList.remove('is-in'); setTimeout(() => pop.remove(), 450); };
-          pop.querySelectorAll('[data-pop-close]').forEach((b) => b.addEventListener('click', shut));
-          promoBox.querySelectorAll('[data-to-shop]').forEach((a) => a.addEventListener('click', shut));
+          /* The page holds still at its top while the pop-up is up, and is
+             still at its top when it closes, unless its button was used. */
+          const L = window.__lenis;
+          const hold = () => { document.documentElement.style.overflow = 'hidden'; try { L && L.stop && L.stop(); } catch (_) {} };
+          const release = () => { document.documentElement.style.overflow = ''; try { L && L.start && L.start(); } catch (_) {} };
+          const shut = (toTop) => {
+            pop.classList.remove('is-in');
+            release();
+            if (toTop) { try { L && L.scrollTo ? L.scrollTo(0, { immediate: true, force: true }) : window.scrollTo(0, 0); } catch (_) { window.scrollTo(0, 0); } }
+            setTimeout(() => pop.remove(), 450);
+          };
+          pop.querySelectorAll('[data-pop-close]').forEach((b) => b.addEventListener('click', () => shut(true)));
+          promoBox.querySelectorAll('[data-to-shop]').forEach((a) => a.addEventListener('click', () => shut(false)));
+          window.scrollTo(0, 0);
+          hold();
           document.body.appendChild(pop);
           setTimeout(() => pop.classList.add('is-in'), 700);
-          try { sessionStorage.setItem('tmke_edit_promo_' + promoKey, '1'); } catch (_) {}
         }
       }
       if (FLOW) {
