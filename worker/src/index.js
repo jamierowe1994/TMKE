@@ -29,6 +29,7 @@ import { ACTIVITIES as CAL_ACTIVITIES } from "../../src/data/marketing-activitie
 import puppeteer from "@cloudflare/puppeteer";
 import { isVideographyInvoicer } from "../../src/lib/team-roles.js";
 import { MASTER_BRIEF, BUILDER_NOTES } from "./caption-brief.js";
+import { shopPrice, shopSells, shopNames } from "../../src/lib/shop-price.js";
 
 const PART_PREFIX = "deliverables";
 
@@ -4024,6 +4025,93 @@ async function vatBreakdown(env, netPence) {
   const net = Math.round(Number(netPence) || 0);
   const vat = Math.round(net * rate / 100);
   return { net, vat, gross: net + vat, rate };
+}
+
+/* ---- The shop: a basket, offers, and one payment for several packs ---------
+   (Danielle, 26 Nov 2026.) Every price a customer is shown or charged is
+   worked out here, from the packs and the offers in the database, never from
+   what the browser sends: the browser only ever says WHICH packs.
+
+   An order stays one row per pack, so the library and Your orders keep
+   working as they are; packs paid for together share a checkout_id.
+
+   Nothing here runs for the public until shop_settings.basket_live is on.
+   Until then the team and the test logins get the basket, to try it, and a
+   test login pays in Stripe's test mode. Before supabase/shop_basket.sql has
+   run there are no settings at all, and the shop is exactly as it was. */
+const SHOP_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function shopSettings(env) {
+  const rows = await sbGet(env, "shop_settings", "id=eq.1&select=*");
+  return (rows && rows[0]) || null;
+}
+// The offers that count right now: switched on, and inside their dates.
+async function shopOffers(env) {
+  const rows = (await sbGet(env, "shop_offers", "active=is.true&select=*&order=created_at.asc")) || [];
+  const t = Date.now();
+  return rows.filter((o) => (!o.starts_at || Date.parse(o.starts_at) <= t) && (!o.ends_at || Date.parse(o.ends_at) > t));
+}
+// Who gets the basket: everyone once it's live; before that, the team and the test logins.
+async function shopAccess(env, user) {
+  const S = await shopSettings(env);
+  let test = false;
+  if (S && user) { try { test = (await ccSettings(env)).test_user_ids.includes(user.id); } catch (_) {} }
+  return { ready: !!S, settings: S, live: !!(S && S.basket_live), on: !!S && (!!S.basket_live || !!(user && (user._isAdmin || test))), test, mode: test ? "test" : "live" };
+}
+// What each pack costs, and the rules for which discount it gets, are in
+// src/lib/shop-price.js (shopPrice), so they can be tested on their own.
+/* A basket, priced: each pack's line and the totals. VAT is added a line at a
+   time, so the orders add up to exactly what Stripe takes. */
+async function shopQuote(env, packIds, user) {
+  const ids = [...new Set((Array.isArray(packIds) ? packIds : []).map((x) => String(x || "").trim()).filter((x) => SHOP_ID.test(x)))].slice(0, 30);
+  if (!ids.length) return { lines: [], gone: [], list_pence: 0, net_pence: 0, vat_pence: 0, total_pence: 0, saving_pence: 0, vat_rate: 20 };
+  const found = ((await sbGet(env, "packs", `id=in.(${ids.join(",")})&status=eq.active&select=id,slug,title,price_pence,cover_image_url,kind,access,demo`)) || []).filter(shopSells);
+  const packs = ids.map((id) => found.find((p) => p.id === id)).filter(Boolean);
+  const { rate } = await vatBreakdown(env, 0);
+  const lines = shopPrice(packs, await shopOffers(env), !!user).map((l) => {
+    const vat = Math.round(l.pence * rate / 100);
+    return { ...l, vat_pence: vat, total_pence: l.pence + vat };
+  });
+  const sum = (k) => lines.reduce((n, l) => n + l[k], 0);
+  return { lines, gone: ids.filter((id) => !packs.some((p) => p.id === id)), list_pence: sum("list_pence"), net_pence: sum("pence"),
+    vat_pence: sum("vat_pence"), total_pence: sum("total_pence"), saving_pence: sum("list_pence") - sum("pence"), vat_rate: rate };
+}
+// The packs this buyer already has, by their sign-in or the email they gave.
+async function shopOwned(env, user, email) {
+  const who = [user ? `user_id.eq.${user.id}` : null, email ? `buyer_email.ilike.${encodeURIComponent(String(email).replace(/[%_*,()\\]/g, ""))}` : null].filter(Boolean);
+  if (!who.length) return [];
+  const rows = (await sbGet(env, "orders", `status=eq.paid&or=(${who.join(",")})&select=pack_id&limit=1000`)) || [];
+  return [...new Set(rows.map((r) => r.pack_id).filter(Boolean))];
+}
+/* Stripe says a basket is paid: every pack in it goes into the buyer's
+   library, then the team is told and the purchase email starts, once for the
+   whole basket. Safe for Stripe to send twice. */
+async function shopBasketPaid(env, s, pi) {
+  const cid = String((s.metadata && s.metadata.checkout_id) || "");
+  if (!SHOP_ID.test(cid)) return;
+  const sel = "id,pack_title,pack_slug,buyer_name,buyer_email,buyer_company,buyer_phone,amount_pence,total_pence,user_id,status,is_test,invoice_number,list_price_pence,discount_label,vat_pence";
+  const rows = (await sbGet(env, "orders", `checkout_id=eq.${cid}&select=${sel}&order=invoice_number.asc`)) || [];
+  if (!rows.length || rows.every((r) => r.status === "paid")) return;   // not ours, or Stripe trying again
+  await sbPatch(env, "orders", `checkout_id=eq.${cid}&status=neq.paid`, { status: "paid", payment_ref: pi || null });
+  for (const r of rows) await contactFromOrder(env, r);
+  const o = rows[0], titles = rows.map((r) => r.pack_title).filter(Boolean), total = rows.reduce((n, r) => n + (r.total_pence || 0), 0);
+  try {
+    await notifyAdmins(env, {
+      area: "money", event: "pack_paid",
+      title: `${o.is_test ? "Test: " : ""}${rows.length > 1 ? `${rows.length} packs bought` : "Pack bought"} — ${shopNames(titles) || "a pack"}`,
+      body: [o.buyer_name || o.buyer_email, o.buyer_company, gbpW(total)].filter(Boolean).join(" · "),
+      href: "/admin/orders", key: cid, meta: { order_id: o.id, checkout_id: cid, email: o.buyer_email || null },
+    });
+  } catch (_) {}
+  if (!o.buyer_email) return;
+  const parts = String(o.buyer_name || "").trim().split(/\s+/);
+  try {
+    await fireTrigger(env, "order_placed", {
+      email: o.buyer_email, first_name: parts.shift() || o.buyer_name || null, last_name: parts.join(" ") || null,
+      phone: o.buyer_phone || null, company: o.buyer_company || null, source: "pack_purchase", lifecycle: "customer",
+      tags: crmTags(o.buyer_email, ["Pack-Purchased", ...titles.map((t) => `Pack Name: ${t}`)], { member: !!o.user_id }),
+      user_id: o.user_id || null,
+    }, { pack: shopNames(titles) || null, pack_slug: o.pack_slug || null, amount_pence: total, pack_count: rows.length });
+  } catch (e) { console.error("order_placed trigger (basket)", String((e && e.message) || e).slice(0, 200)); }
 }
 
 // email -> last reset-link send (ms). See /auth/reset-link for why this is only
@@ -8158,10 +8246,14 @@ async function runSetupReminders(env) {
         `&select=id,buyer_email,buyer_name,pack_title&order=created_at.asc&limit=50`
     );
     if (!rows || !rows.length) return;
+    // A basket is several orders for one person (26 Nov): one reminder, not one for each pack.
+    const told = new Set();
     for (const o of rows) {
       if (!o.buyer_email) continue;
       // Stamp first so a slow/failed send can't double-email on the next tick.
       await sbPatch(env, "orders", `id=eq.${o.id}`, { setup_reminder_sent_at: new Date().toISOString() });
+      if (told.has(lc(o.buyer_email))) continue;
+      told.add(lc(o.buyer_email));
       // Skip if an account already exists for this email — they can just sign in.
       const hasAccount = !!(await findUserByEmail(env, o.buyer_email));
       if (hasAccount) continue;
@@ -11028,9 +11120,26 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
       if (path.endsWith("/orders/receipt") && request.method === "GET") {
         const id = String(new URL(request.url).searchParams.get("id") || "").trim();
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Order not found." }, 404, request, env);
-        const rows = await sbGet(env, "orders", `id=eq.${id}&select=id,pack_id,pack_title,amount_pence,vat_pence,total_pence,status,payment_method,invoice_number,buyer_name,buyer_email,buyer_company,buyer_phone,created_at&limit=1`);
+        const cols = "id,pack_id,pack_title,amount_pence,vat_pence,total_pence,status,payment_method,invoice_number,buyer_name,buyer_email,buyer_company,buyer_phone,created_at";
+        // The basket columns arrive with supabase/shop_basket.sql; before it has run, the order as it always was.
+        const more = ",checkout_id,list_price_pence,discount_kind,discount_label,is_test,pack_slug";
+        let rows = await sbGet(env, "orders", `id=eq.${id}&select=${cols}${more}&limit=1`);
+        if (!rows) rows = await sbGet(env, "orders", `id=eq.${id}&select=${cols}&limit=1`);
         if (!rows || !rows[0]) return json({ error: "Order not found." }, 404, request, env);
-        return json(rows[0], 200, request, env);
+        const o = rows[0];
+        /* Bought in a basket (26 Nov): every pack paid for with it, in the
+           order they were added, so the thank-you page and the invoice show
+           the whole purchase. The order asked for is always among them. */
+        if (o.checkout_id) {
+          const all = (await sbGet(env, "orders", `checkout_id=eq.${o.checkout_id}&select=id,pack_id,pack_slug,pack_title,amount_pence,vat_pence,total_pence,status,invoice_number,list_price_pence,discount_kind,discount_label&order=invoice_number.asc`)) || [];
+          if (all.length) {
+            const sum = (k) => all.reduce((n, r) => n + (Number(r[k]) || 0), 0);
+            o.lines = all;
+            o.basket = { packs: all.length, list_pence: all.reduce((n, r) => n + (r.list_price_pence != null ? r.list_price_pence : (r.amount_pence || 0)), 0),
+              amount_pence: sum("amount_pence"), vat_pence: sum("vat_pence"), total_pence: sum("total_pence"), invoice_number: all[0].invoice_number };
+          }
+        }
+        return json(o, 200, request, env);
       }
 
       // ---- Admin: the email for a gifted pack ----------------------------------
@@ -11050,6 +11159,121 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const sent = await sendEmail(env, { to: o.buyer_email, subject: mail.subject, html: mail.html });
         if (!sent.ok) return json({ error: "The email didn't send." }, 502, request, env);
         return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- The shop: prices, the banner and the basket (Danielle, 26 Nov) -----
+      // GET /shop/offers: what the shop pages need to draw themselves. Open to
+      // anyone; a sign-in adds the members' price and the packs they own.
+      if (path.endsWith("/shop/offers") && request.method === "GET") {
+        const user = await getUser(request, env);
+        const a = await shopAccess(env, user);
+        // Not switched on for this visitor: the shop stays as it was.
+        if (!a.on) return json({ on: false }, 200, request, env);
+        const S = a.settings, now = Date.now();
+        const all = ((await sbGet(env, "packs", "status=eq.active&select=id,slug,title,price_pence,cover_image_url,kind,access,demo")) || []).filter(shopSells);
+        const offers = await shopOffers(env);
+        const prices = {};
+        // Each pack by itself: a bundle only shows once both are in the basket.
+        all.forEach((p) => { const l = shopPrice([p], offers, !!user)[0]; prices[p.id] = { slug: p.slug, title: p.title, cover_image_url: p.cover_image_url || null, list_pence: l.list_pence, pence: l.pence, kind: l.kind, label: l.label }; });
+        const banner = S.banner_on && String(S.banner_text || "").trim()
+          && (!S.banner_starts_at || Date.parse(S.banner_starts_at) <= now) && (!S.banner_ends_at || Date.parse(S.banner_ends_at) > now) ? String(S.banner_text).trim() : null;
+        const memberOffer = offers.find((o) => o.kind === "member" && o.percent);
+        return json({
+          on: true, preview: !a.live, test: a.test, member: !!user, banner, prices,
+          bundles: offers.filter((o) => o.kind === "bundle" && o.pack_id && o.price_pence != null && all.some((p) => p.id === o.pack_id))
+            .map((o) => ({ pack_id: o.pack_id, price_pence: o.price_pence, with: (o.pack_ids || []).filter((id) => id !== o.pack_id && all.some((p) => p.id === id)), label: o.label || null, ends_at: o.ends_at || null })),
+          member_percent: memberOffer ? Number(memberOffer.percent) : null,
+          owned: user ? await shopOwned(env, user, user.email) : [],
+          vat_rate: (await vatBreakdown(env, 0)).rate,
+        }, 200, request, env);
+      }
+
+      // POST /shop/quote { pack_ids }: the basket, priced. What it says is what
+      // /shop/checkout charges.
+      if (path.endsWith("/shop/quote") && request.method === "POST") {
+        const user = await getUser(request, env);
+        const a = await shopAccess(env, user);
+        if (!a.on) return json({ error: "The basket isn't open yet." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const q = await shopQuote(env, b && b.pack_ids, user);
+        const owned = user ? await shopOwned(env, user, user.email) : [];
+        return json({ ...q, owned: q.lines.map((l) => l.pack_id).filter((id) => owned.includes(id)), member: !!user, test: a.test }, 200, request, env);
+      }
+
+      // POST /shop/checkout { pack_ids, name, email, phone, company }: one
+      // payment for the basket. An order is made for each pack, all with the
+      // same checkout_id, and Stripe is handed a line for each.
+      if (path.endsWith("/shop/checkout") && request.method === "POST") {
+        const user = await getUser(request, env);
+        const a = await shopAccess(env, user);
+        if (!a.on) return json({ error: "The basket isn't open yet." }, 403, request, env);
+        let body;
+        try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        const name = String(body.name || "").trim();
+        const email = String(body.email || "").trim().toLowerCase();
+        const phone = String(body.phone || "").trim();
+        const company = String(body.company || "").trim();
+        if (!name || !email) return json({ error: "Please complete your details." }, 400, request, env);
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "That email doesn't look right." }, 400, request, env);
+
+        const q = await shopQuote(env, body.pack_ids, user);
+        if (!q.lines.length) return json({ error: "Your basket is empty." }, 400, request, env);
+        if (q.gone.length) return json({ error: "A pack in your basket isn't available any more. Take it out to carry on.", gone: q.gone }, 409, request, env);
+        const have = await shopOwned(env, user, email);
+        const dupes = q.lines.filter((l) => have.includes(l.pack_id));
+        if (dupes.length) return json({ error: `You already have ${shopNames(dupes.map((l) => l.title))}. Take ${dupes.length > 1 ? "them" : "it"} out of your basket to carry on.`, owned: dupes.map((l) => l.pack_id) }, 409, request, env);
+        if (q.total_pence > 0 && !ccStripeKey(env, a.mode)) return json({ error: "Payments aren't set up yet." }, 503, request, env);
+
+        const origin = request.headers.get("Origin") || "";
+        const allowed = String(env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim());
+        const base = allowed.includes(origin) ? origin : (env.SITE_URL || "https://tmke.co.uk");
+
+        const checkoutId = crypto.randomUUID(), free = q.total_pence === 0;
+        const ins = await sbPost(env, "orders", q.lines.map((l) => ({
+          pack_id: l.pack_id, pack_slug: l.slug, pack_title: l.title,
+          amount_pence: l.pence, vat_pence: l.vat_pence, total_pence: l.total_pence,
+          buyer_name: name, buyer_email: email, buyer_phone: phone || null, buyer_company: company || null,
+          payment_method: "card", status: free ? "paid" : "pending", user_id: user ? user.id : null,
+          checkout_id: checkoutId, list_price_pence: l.list_pence, discount_kind: l.kind, discount_label: l.label, is_test: a.mode === "test",
+        })), "return=representation");
+        const made = await ins.json().catch(() => null);
+        // In the order they were put in the basket, whatever order the database answers in.
+        const orders = Array.isArray(made) ? q.lines.map((l) => made.find((o) => o.pack_id === l.pack_id)).filter(Boolean) : [];
+        if (orders.length !== q.lines.length) {
+          console.log("basket order insert failed", ins.status, JSON.stringify(made).slice(0, 400));
+          return json({ error: "Couldn't start your order. Please try again." }, 500, request, env);
+        }
+        const first = orders[0];
+        if (free) { for (const o of orders) await contactFromOrder(env, o); return json({ url: `${base}/edit/thanks?order=${first.id}` }, 200, request, env); }
+
+        try {
+          const params = {
+            mode: "payment", "payment_method_types[0]": "card",
+            success_url: `${base}/edit/thanks?order=${first.id}`,
+            cancel_url: `${base}/edit?canceled=1`,
+            customer_email: email, client_reference_id: first.id,
+            "metadata[order_id]": first.id, "metadata[checkout_id]": checkoutId,
+            "payment_intent_data[description]": payLabel(q.lines.length > 1 ? "Studio packs" : "Studio pack", shopNames(q.lines.map((l) => l.title))),
+            "payment_intent_data[metadata][kind]": "pack", "payment_intent_data[metadata][order_id]": first.id, "payment_intent_data[metadata][checkout_id]": checkoutId,
+            // Stripe's receipt is the buyer's confirmation email: it lists every pack and what was paid for each.
+            "payment_intent_data[receipt_email]": email,
+          };
+          // A pack that costs nothing still goes in their library; Stripe is only told about the ones with a price.
+          q.lines.filter((l) => l.total_pence > 0).forEach((l, i) => {
+            params[`line_items[${i}][quantity]`] = 1;
+            params[`line_items[${i}][price_data][currency]`] = "gbp";
+            params[`line_items[${i}][price_data][unit_amount]`] = l.total_pence;
+            params[`line_items[${i}][price_data][product_data][name]`] = l.title;
+            if (l.label) params[`line_items[${i}][price_data][product_data][description]`] = `${l.label}. Usually ${gbpW(l.list_pence)} + VAT.`;
+          });
+          const session = await ccStripe(env, a.mode, "POST", "checkout/sessions", params);
+          await sbPatch(env, "orders", `checkout_id=eq.${checkoutId}`, { stripe_session_id: session.id });
+          return json({ url: session.url }, 200, request, env);
+        } catch (e) {
+          console.error("basket checkout", String((e && e.message) || e).slice(0, 300));
+          await sbPatch(env, "orders", `checkout_id=eq.${checkoutId}`, { status: "failed" });
+          return json({ error: "Couldn't reach the payment provider. Please try again." }, 502, request, env);
+        }
       }
 
       // ---- Stripe: create a hosted Checkout Session ---------------------------
@@ -11297,7 +11521,14 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         if (!ok) return json({ error: "Bad signature" }, 400, request, env);
         let event;
         try { event = JSON.parse(raw); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
-        try { await ccBillingEvent(env, event, "test"); }
+        try {
+          const handled = await ccBillingEvent(env, event, "test");
+          // A test login's basket (26 Nov): paid with a test card, so Stripe's test mode confirms it here.
+          const s = event.data && event.data.object;
+          if (!handled && event.type === "checkout.session.completed" && s && s.metadata && s.metadata.checkout_id) {
+            await shopBasketPaid(env, s, typeof s.payment_intent === "string" ? s.payment_intent : (s.payment_intent && s.payment_intent.id));
+          }
+        }
         catch (e) { console.error("cc billing (test)", e && e.message); return json({ error: "Not handled" }, 500, request, env); }
         return json({ received: true }, 200, request, env);
       }
@@ -11379,6 +11610,13 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
               status: "paid", paid_at: new Date().toISOString(), stripe_session_id: s.id || null,
             });
             await notifyEditRequest(env, editRequestId);
+            return json({ received: true }, 200, request, env);
+          }
+
+          // A basket: several packs, one payment (26 Nov). A pack bought the old
+          // way carries no checkout_id and goes on as it always has, below.
+          if (s && s.metadata && s.metadata.checkout_id) {
+            await shopBasketPaid(env, s, pi);
             return json({ received: true }, 200, request, env);
           }
 
@@ -11958,6 +12196,24 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             fetchSplits("invoice", "invoices", "id,number,booking_source,subtotal_pence,vat_pence,total_pence"),
             fetchSplits("videography", "videography_edit_requests", "id,booking_id,twilight_items,extra_images_qty,vat_pence,total_pence"),
           ]);
+
+          /* A basket is one payment for several packs (26 Nov). The payment
+             names its first order, so the rest of the basket is added to it
+             here: every pack's name, and the figures for all of them. Before
+             supabase/shop_basket.sql has run there are no baskets to find. */
+          try {
+            const firsts = idsFor("pack").length ? ((await sbGet(env, "orders", `id=in.${inList(idsFor("pack"))}&checkout_id=not.is.null&select=id,checkout_id`)) || []) : [];
+            if (firsts.length) {
+              const all = (await sbGet(env, "orders", `checkout_id=in.${inList(firsts.map((f) => f.checkout_id))}&select=checkout_id,pack_title,amount_pence,vat_pence,total_pence&order=invoice_number.asc`)) || [];
+              firsts.forEach((f) => {
+                const r = orderById.get(String(f.id)), mine = all.filter((x) => x.checkout_id === f.checkout_id);
+                if (!r || mine.length < 2) return;
+                const sum = (k) => mine.reduce((n, x) => n + (Number(x[k]) || 0), 0);
+                orderById.set(String(f.id), { ...r, pack_title: shopNames(mine.map((x) => x.pack_title).filter(Boolean)),
+                  amount_pence: sum("amount_pence"), vat_pence: mine.every((x) => x.vat_pence != null) ? sum("vat_pence") : null, total_pence: sum("total_pence") });
+              });
+            }
+          } catch (_) { /* the payment still shows, under its first pack */ }
 
           // The rate only matters for payments we hold no split for - Pixieset
           // quotes tax-inclusive, so its gross is worked backwards at the same

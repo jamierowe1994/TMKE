@@ -1,0 +1,452 @@
+---
+// The shop's basket and checkout (Danielle, 26 Nov 2026).
+//
+// One of these on every shop page (The Edit, each pack page, the thank-you
+// page). It keeps the basket in the browser, asks the Worker what everything
+// costs (never works a price out itself), and takes the buyer to Stripe with
+// one payment for the lot.
+//
+// Until the Worker says the basket is on for this visitor (GET /shop/offers →
+// on: true) this does nothing at all and the page behaves as it always has.
+// "On" is everyone once Offers › The basket is switched on; before that, the
+// team and the test logins, so it can be tried first.
+//
+// What a page does to join in:
+//   data-shop-amount="<pack id>"   a price: redrawn with the offer price, the
+//                                  usual price struck through beside it
+//   data-shop-label="<pack id>"    filled with the offer's name, e.g. "20% off"
+//   data-basket-add="<pack id>"    an Add to basket button (hidden until on)
+//   data-buy="<pack id>"           a Buy now button: opens the checkout for
+//                                  that pack alone, here, without leaving
+//   data-buy-now-label             on a data-buy button: its words once on
+//   data-shop-banner               where the shop's banner goes
+// and, from script: window.tmkeShop { ready, on, add, remove, has, buyNow,
+// open, paint }.
+//
+// The look is the pack page's (src/pages/edit/[slug].astro): wine buttons
+// with square corners, small spaced capitals, the heading face for titles.
+---
+
+<div class="sb" id="sb" hidden>
+  <div class="sb-scrim" data-sb-close></div>
+  <aside class="sb-panel" role="dialog" aria-modal="true" aria-labelledby="sb-title" data-lenis-prevent>
+    <header class="sb-head">
+      <div>
+        <p class="sb-eyebrow">The Edit</p>
+        <p class="sb-title" id="sb-title">Your basket</p>
+      </div>
+      <button type="button" class="sb-x" data-sb-close aria-label="Close the basket">&times;</button>
+    </header>
+    <div class="sb-body" id="sb-body"></div>
+    <footer class="sb-foot" id="sb-foot"></footer>
+  </aside>
+</div>
+
+<style is:global>
+  /* Nothing of the basket shows until the Worker says it's on. */
+  [data-basket-add], .nav-basket { display: none; }
+  html.shop-on [data-basket-add] { display: inline-flex; align-items: center; justify-content: center; }
+
+  /* A price with an offer on it: the usual price struck through, then today's. */
+  .shop-was { color: rgba(28,29,34,0.45); text-decoration: line-through; text-decoration-thickness: 1px; margin-right: 0.4em; font-weight: inherit; }
+  .shop-tag {
+    display: inline-block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--english-violet); border: 1px solid rgba(var(--violet-rgb), 0.35); padding: 3px 7px; line-height: 1.3;
+  }
+  .shop-tag:empty, .shop-tag[hidden] { display: none; }
+  /* On a pack page the tag sits in the price line, whose own rule would grey it. */
+  html.shop-on .pd-price span.shop-tag { color: var(--english-violet); letter-spacing: 0.18em; }
+  .pd-price bdi { white-space: nowrap; }
+
+  /* The shop's banner: one line on the wine, under the nav. */
+  .shop-banner {
+    background: var(--english-violet); color: var(--paper); text-align: center;
+    font-family: var(--sans); font-size: 11.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; line-height: 1.5;
+    padding: 12px 20px;
+  }
+  .shop-banner[hidden] { display: none; }
+
+  /* The basket in the site's header: only there once something's in it. */
+  html.shop-on .nav-basket.has-items {
+    display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+    background: none; border: 1px solid currentColor; color: inherit; padding: 9px 14px;
+    font-family: var(--sans); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600; line-height: 1.2;
+  }
+  .nav-basket b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  @media (max-width: 900px) { html.shop-on .nav-basket.has-items { padding: 7px 10px; font-size: 11px; margin-right: 12px; } }
+
+  /* The second button on a pack page: the Buy button's outline twin. */
+  /* Named this heavily because the pack page's own .pd-buy rule is scoped to it, and would win. */
+  html.shop-on button.pd-buy.pd-buy--line { background: transparent; color: var(--english-violet); }
+  html.shop-on button.pd-buy.pd-buy--line:hover { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
+  html.shop-on button.pd-buy.is-in, html.shop-on button.pd-buy.is-in:hover { background: transparent; color: rgba(28,29,34,0.55); border-color: rgba(28,29,34,0.2); cursor: default; }
+
+  /* ---- The panel ---- */
+  .sb[hidden] { display: none !important; }
+  /* Over everything, the cookie notice (9600) included: it sat on top of Checkout. It's still there once the basket closes. */
+  .sb { position: fixed; inset: 0; z-index: 9700; }
+  .sb-scrim { position: absolute; inset: 0; background: rgba(28,29,34,0.55); }
+  .sb-panel {
+    position: absolute; top: 0; right: 0; bottom: 0; width: min(460px, 100%);
+    display: flex; flex-direction: column; background: var(--paper); color: var(--ink);
+    box-shadow: -30px 0 80px rgba(0,0,0,0.25);
+  }
+  .sb-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+    padding: 26px 28px 20px; border-bottom: 1px solid rgba(28,29,34,0.1);
+  }
+  .sb-eyebrow {
+    margin: 0 0 8px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.24em;
+    text-transform: uppercase; color: var(--english-violet);
+  }
+  .sb-title { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 28px; line-height: 1.08; letter-spacing: -0.05em; color: var(--ink); }
+  .sb-x {
+    flex: none; width: 34px; height: 34px; border: 1px solid rgba(var(--violet-rgb), 0.25); background: transparent;
+    color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; border-radius: 0;
+  }
+  .sb-x:hover { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
+  .sb-body { flex: 1; overflow-y: auto; padding: 6px 28px 20px; }
+  .sb-foot { padding: 18px 28px 26px; border-top: 1px solid rgba(28,29,34,0.1); background: var(--paper); }
+  .sb-foot:empty { display: none; }
+
+  .sb-line { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 16px 0; border-bottom: 1px solid rgba(28,29,34,0.1); }
+  .sb-thumb { width: 64px; aspect-ratio: 3 / 4; background: #e7e0dc center / cover no-repeat; }
+  .sb-name { margin: 0 0 6px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; line-height: 1.4; color: var(--ink); }
+  .sb-note { margin: 6px 0 0; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.68); }
+  .sb-note.is-bad { color: var(--english-violet); font-weight: 600; }
+  .sb-remove {
+    margin-top: 8px; padding: 0; border: 0; background: none; cursor: pointer;
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: rgba(28,29,34,0.6); text-decoration: underline; text-underline-offset: 3px;
+  }
+  .sb-remove:hover { color: var(--english-violet); }
+  .sb-price { font-family: var(--serif); font-size: 17px; color: var(--ink); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .sb-price .shop-was { display: block; margin: 0 0 2px; font-size: 13px; }
+
+  .sb-hint {
+    margin: 16px 0 0; padding: 14px 16px; background: #e7e0dc;
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: var(--ink);
+  }
+  .sb-hint p { margin: 0; }
+  .sb-empty { padding: 34px 0 10px; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.68); }
+
+  .sb-sums { margin: 0 0 16px; }
+  .sb-sums div { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.72); font-variant-numeric: tabular-nums; }
+  .sb-sums dt, .sb-sums dd { margin: 0; }
+  .sb-sums .is-saving { color: var(--english-violet); font-weight: 600; }
+  .sb-sums .is-total { margin-top: 8px; padding-top: 12px; border-top: 1px solid rgba(28,29,34,0.12); color: var(--ink); align-items: baseline; }
+  .sb-sums .is-total dt { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+  .sb-sums .is-total dd { font-family: var(--serif); font-size: 24px; }
+
+  .sb-btn {
+    width: 100%; padding: 14px 18px; border: 1px solid var(--english-violet); background: var(--english-violet); color: var(--paper);
+    font-family: var(--sans); font-size: 11.5px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer;
+    border-radius: 0; transition: background 0.25s, border-color 0.25s, color 0.25s;
+  }
+  .sb-btn:hover { background: #4d2b39; border-color: #4d2b39; }
+  .sb-btn:disabled { background: rgba(28,29,34,0.12); border-color: transparent; color: rgba(28,29,34,0.45); cursor: default; }
+  .sb-btn--line { width: auto; flex: none; padding: 10px 14px; background: transparent; color: var(--english-violet); }
+  .sb-btn--line:hover { background: var(--english-violet); color: var(--paper); }
+  .sb-link {
+    display: block; width: 100%; margin-top: 12px; padding: 0; border: 0; background: none; cursor: pointer; text-align: center;
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: rgba(28,29,34,0.6); text-decoration: underline; text-underline-offset: 3px;
+  }
+  .sb-link:hover { color: var(--english-violet); }
+  .sb-mini { margin: 12px 0 0; font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); text-align: center; }
+  .sb-test { margin: 0 0 14px; padding: 10px 12px; border: 1px solid rgba(var(--violet-rgb), 0.35); font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: var(--english-violet); }
+
+  .sb-form { display: grid; gap: 14px; padding-top: 18px; }
+  .sb-lead { margin: 0; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.68); }
+  .sb-field { display: grid; gap: 6px; }
+  .sb-field span { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); }
+  .sb-field input {
+    width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid rgba(var(--violet-rgb), 0.28); border-radius: 0; background: #fff;
+    font-family: var(--sans); font-size: 15px; color: var(--ink);
+  }
+  .sb-field input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb), 0.12); }
+  .sb-error { margin: 0; font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: var(--english-violet); font-weight: 600; }
+  .sb-error[hidden] { display: none; }
+  .sb-going { padding: 60px 0; text-align: center; }
+  .sb-going p { margin: 0 0 8px; }
+  @media (max-width: 520px) { .sb-head { padding: 20px 20px 16px; } .sb-body { padding: 4px 20px 16px; } .sb-foot { padding: 16px 20px 20px; } }
+</style>
+
+<script>
+  import { supabase, isConfigured, gbpFromPence } from '../lib/supabase.js';
+  import { track } from '../lib/track.js';
+
+  const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').trim().replace(/\/+$/, '');
+  const KEY = 'tmke.basket';
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const gbp = (p) => gbpFromPence(p);
+  const $ = (id) => document.getElementById(id);
+
+  const S = {
+    shop: null,          // what the Worker said: { on, prices, bundles, banner, owned, member, test, ... }
+    token: null,         // the visitor's sign-in, when they have one
+    me: null,
+    items: [],           // pack ids in the basket
+    now: null,           // a Buy now: [pack id], paid for by itself, the basket left alone
+    view: 'basket',      // basket | details | going
+    quote: null,
+    busy: false,
+    error: '',
+  };
+  const read = () => { try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch (_) { return []; } };
+  const write = () => { try { localStorage.setItem(KEY, JSON.stringify(S.items)); } catch (_) {} };
+  const packOf = (id) => (S.shop && S.shop.prices && S.shop.prices[id]) || null;
+  // A pack by its id or its slug: links from the Studio name it either way.
+  const idFor = (ref) => { if (!S.shop || !S.shop.prices) return null; if (S.shop.prices[ref]) return ref; return Object.keys(S.shop.prices).find((id) => S.shop.prices[id].slug === ref) || null; };
+  const lines = () => (S.now || S.items);
+  const call = async (path, body) => {
+    const res = await fetch(`${WORKER}${path}`, {
+      method: body ? 'POST' : 'GET',
+      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(S.token ? { Authorization: `Bearer ${S.token}` } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const out = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, out };
+  };
+
+  /* ---- Prices, labels, buttons and the banner on the page itself ---- */
+  function paint() {
+    if (!S.shop || !S.shop.on) return;
+    document.querySelectorAll('[data-shop-amount]').forEach((el) => {
+      const p = packOf(el.getAttribute('data-shop-amount'));
+      if (!p) return;
+      el.innerHTML = p.pence < p.list_pence ? `<s class="shop-was">${esc(gbp(p.list_pence))}</s>${esc(gbp(p.pence))}` : esc(gbp(p.list_pence));
+    });
+    document.querySelectorAll('[data-shop-label]').forEach((el) => {
+      const p = packOf(el.getAttribute('data-shop-label'));
+      const label = p && p.pence < p.list_pence ? p.label : '';
+      el.textContent = label || ''; el.hidden = !label;
+    });
+    const owned = new Set(S.shop.owned || []);
+    document.querySelectorAll('[data-basket-add]').forEach((el) => {
+      const id = el.getAttribute('data-basket-add'), has = owned.has(id), inIt = S.items.includes(id);
+      el.textContent = has ? 'In your library' : inIt ? 'In your basket' : 'Add to basket';
+      el.classList.toggle('is-in', has);
+      el.disabled = has;
+    });
+    document.querySelectorAll('[data-buy][data-buy-now-label]').forEach((el) => {
+      const has = owned.has(el.getAttribute('data-buy'));
+      el.textContent = has ? 'Open in the Studio' : el.getAttribute('data-buy-now-label');
+    });
+    document.querySelectorAll('[data-shop-banner]').forEach((el) => { el.textContent = S.shop.banner || ''; el.hidden = !S.shop.banner; });
+    paintNav();
+  }
+  function paintNav() {
+    let b = document.querySelector('.nav-basket');
+    if (!b) {
+      const actions = document.querySelector('.nav .nav-actions');
+      if (!actions) return;
+      b = document.createElement('button');
+      b.type = 'button'; b.className = 'nav-basket';
+      b.addEventListener('click', () => open());
+      actions.insertBefore(b, actions.firstChild);
+    }
+    const n = S.items.length;
+    b.classList.toggle('has-items', n > 0);
+    b.setAttribute('aria-label', `Open your basket, ${n} ${n === 1 ? 'pack' : 'packs'}`);
+    b.innerHTML = `Basket <b>${n}</b>`;
+  }
+
+  /* ---- The panel ---- */
+  // What the basket could save: a bundle that's one pack short.
+  function hints() {
+    const ids = lines(), out = [];
+    (S.shop.bundles || []).forEach((b) => {
+      const t = packOf(b.pack_id);
+      if (!t || b.price_pence >= t.pence) return;
+      const hasT = ids.includes(b.pack_id), partners = (b.with || []).filter((id) => packOf(id));
+      const hasP = partners.some((id) => ids.includes(id));
+      if (hasP && !hasT && !(S.shop.owned || []).includes(b.pack_id)) out.push({ add: b.pack_id, text: `Add ${t.title} for ${gbp(b.price_pence)}. It's usually ${gbp(t.list_pence)}.` });
+      else if (hasT && !hasP && partners.length) {
+        const names = partners.map((id) => packOf(id).title);
+        out.push({ add: partners.length === 1 ? partners[0] : null, text: `${t.title} is ${gbp(b.price_pence)} when you buy it with ${names.length === 1 ? names[0] : names.length === 2 ? names.join(' or ') : 'another pack from The Edit'}.` });
+      }
+    });
+    return out;
+  }
+  function draw() {
+    const body = $('sb-body'), foot = $('sb-foot'), q = S.quote, single = !!S.now;
+    $('sb-title').textContent = S.view === 'basket' ? 'Your basket' : 'Checkout';
+    if (S.view === 'going') {
+      body.innerHTML = '<div class="sb-going"><p class="sb-title">Taking you to secure checkout.</p><p class="sb-lead">You’ll pay on Stripe’s secure page.</p></div>';
+      foot.innerHTML = '';
+      return;
+    }
+    if (!lines().length) {
+      body.innerHTML = '<p class="sb-empty">Your basket is empty. Packs you add from The Edit wait here until you’re ready to pay.</p>';
+      foot.innerHTML = '<button type="button" class="sb-btn" data-sb-close>Back to The Edit</button>';
+      return;
+    }
+    const owned = new Set((q && q.owned) || []);
+    const rows = lines().map((id) => {
+      const l = (q && q.lines.find((x) => x.pack_id === id)) || null, p = packOf(id);
+      const title = (l && l.title) || (p && p.title) || 'A pack', cover = (l && l.cover_image_url) || (p && p.cover_image_url) || '';
+      const gone = q && q.gone && q.gone.includes(id);
+      const price = l ? (l.pence < l.list_pence ? `<s class="shop-was">${esc(gbp(l.list_pence))}</s>${esc(gbp(l.pence))}` : esc(gbp(l.pence))) : gone ? '' : '&hellip;';
+      const note = gone ? '<p class="sb-note is-bad">This pack isn’t available any more.</p>'
+        : owned.has(id) ? '<p class="sb-note is-bad">This pack is already in your library.</p>'
+        : l && l.label && l.pence < l.list_pence ? `<span class="shop-tag">${esc(l.label)}</span>` : '';
+      return `<div class="sb-line"><span class="sb-thumb"${cover ? ` style="background-image:url('${esc(cover)}')"` : ''}></span>
+        <div><p class="sb-name">${esc(title)}</p>${note}${S.view === 'basket' ? `<div><button type="button" class="sb-remove" data-sb-remove="${esc(id)}">Remove</button></div>` : ''}</div>
+        <div class="sb-price">${price}</div></div>`;
+    }).join('');
+    const hint = S.view === 'basket' && !single ? hints().map((h) => `<div class="sb-hint"><p>${esc(h.text)}</p>${h.add ? `<button type="button" class="sb-btn sb-btn--line" data-sb-add="${esc(h.add)}">Add</button>` : ''}</div>`).join('') : '';
+    const blocked = !q || (q.gone && q.gone.length > 0) || owned.size > 0;
+    const sums = q ? `<dl class="sb-sums">
+        ${q.saving_pence > 0 ? `<div><dt>Usual price</dt><dd>${esc(gbp(q.list_pence))}</dd></div><div class="is-saving"><dt>You save</dt><dd>${esc(gbp(q.saving_pence))}</dd></div>` : ''}
+        <div><dt>Subtotal</dt><dd>${esc(gbp(q.net_pence))}</dd></div>
+        <div><dt>VAT at ${esc(q.vat_rate)}%</dt><dd>${esc(gbp(q.vat_pence))}</dd></div>
+        <div class="is-total"><dt>Total</dt><dd>${esc(gbp(q.total_pence))}</dd></div></dl>` : '';
+    const test = S.shop.test ? '<p class="sb-test">Test login: this pays in Stripe’s test mode. Use a test card; no money is taken.</p>' : '';
+
+    if (S.view === 'basket') {
+      body.innerHTML = rows + hint;
+      foot.innerHTML = `${sums}${S.error ? `<p class="sb-error">${esc(S.error)}</p>` : ''}<button type="button" class="sb-btn" data-sb-checkout${blocked ? ' disabled' : ''}>Checkout</button>
+        <button type="button" class="sb-link" data-sb-close>Keep browsing</button>`;
+      return;
+    }
+    // Your details, kept as typed while the panel redraws.
+    const v = S.contact || {};
+    body.innerHTML = `${rows}<form class="sb-form" id="sb-form" novalidate>
+      <p class="sb-lead">Your library link and invoice go to the email address below.</p>
+      <label class="sb-field"><span>Full name</span><input name="name" type="text" required autocomplete="name" value="${esc(v.name)}"></label>
+      <label class="sb-field"><span>Email</span><input name="email" type="email" required autocomplete="email" value="${esc(v.email)}"></label>
+      <label class="sb-field"><span>Phone</span><input name="phone" type="tel" required autocomplete="tel" value="${esc(v.phone)}"></label>
+      <label class="sb-field"><span>Company or brand</span><input name="company" type="text" required autocomplete="organization" value="${esc(v.company)}"></label>
+      <p class="sb-error" id="sb-error"${S.error ? '' : ' hidden'}>${esc(S.error)}</p>
+    </form>`;
+    foot.innerHTML = `${sums}${test}<button type="submit" form="sb-form" class="sb-btn"${blocked || S.busy ? ' disabled' : ''}>${q ? `Pay ${esc(gbp(q.total_pence))}` : 'Pay'}</button>
+      <button type="button" class="sb-link" data-sb-back>${single ? 'Cancel' : 'Back to your basket'}</button>
+      <p class="sb-mini">You’ll pay on Stripe’s secure page. By continuing you agree to our terms.</p>`;
+  }
+  let quoteRun = 0;
+  async function requote() {
+    const ids = lines().slice(), run = ++quoteRun;
+    if (!ids.length) { S.quote = null; draw(); return; }
+    const { ok, out } = await call('/shop/quote', { pack_ids: ids });
+    if (run !== quoteRun) return;   // the basket changed while this was on its way
+    S.quote = ok ? out : null;
+    if (!ok) S.error = out.error || 'We couldn’t price your basket just now. Please try again.';
+    draw();
+  }
+  function keepForm() {
+    const f = $('sb-form');
+    if (f) S.contact = Object.fromEntries(new FormData(f).entries());
+  }
+  function open(view) {
+    if (!S.shop || !S.shop.on) return;
+    S.view = view || 'basket'; S.error = '';
+    $('sb').hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    draw(); requote();
+  }
+  function close() {
+    keepForm();
+    $('sb').hidden = true; S.now = null; S.view = 'basket'; S.error = '';
+    document.documentElement.style.overflow = '';
+  }
+  function add(ref, quiet) {
+    const id = idFor(ref);
+    if (!id || (S.shop.owned || []).includes(id)) return false;
+    if (!S.items.includes(id)) { S.items.push(id); write(); track('add_to_cart', { pack_id: id, pack: packOf(id).title, amount_pence: packOf(id).pence }); }
+    S.now = null;
+    paint();
+    if (!quiet) open('basket');
+    return true;
+  }
+  function remove(id) {
+    if (S.now) { close(); return; }
+    S.items = S.items.filter((x) => x !== id); write();
+    S.error = ''; paint(); draw(); requote();
+  }
+  function buyNow(ref) {
+    const id = idFor(ref);
+    if (!id) return false;
+    if ((S.shop.owned || []).includes(id)) { location.href = `/account/editor?pack=${encodeURIComponent(id)}`; return true; }
+    S.now = [id];
+    track('checkout_started', { pack_id: id, pack: packOf(id).title, amount_pence: packOf(id).pence });
+    open('details');
+    return true;
+  }
+  async function pay(form) {
+    const fd = new FormData(form);
+    const c = { name: String(fd.get('name') || '').trim(), email: String(fd.get('email') || '').trim(), phone: String(fd.get('phone') || '').trim(), company: String(fd.get('company') || '').trim() };
+    S.contact = c;
+    if (!c.name || !c.email || !c.phone || !c.company) { S.error = 'Please fill in every box so we can email your library link.'; return draw(); }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.email)) { S.error = 'That email doesn’t look right. Please check it.'; return draw(); }
+    S.error = ''; S.busy = true; S.view = 'going'; draw();
+    const ids = lines().slice();
+    try {
+      const { ok, out } = await call('/shop/checkout', { pack_ids: ids, ...c });
+      if (ok && out.url) {
+        // What's being paid for comes out of the basket once the thank-you page has the order.
+        try { sessionStorage.setItem('tmke.basket.paying', JSON.stringify(ids)); } catch (_) {}
+        location.href = out.url;
+        return;
+      }
+      S.error = out.error || 'We couldn’t start your checkout. Please try again.';
+    } catch (_) { S.error = 'We couldn’t reach the checkout. Please check your connection and try again.'; }
+    S.busy = false; S.view = 'details'; draw(); requote();
+  }
+
+  $('sb').addEventListener('click', (e) => {
+    const t = e.target instanceof Element ? e.target : null;
+    if (!t) return;
+    let b;
+    if (t.closest('[data-sb-close]')) return close();
+    if ((b = t.closest('[data-sb-remove]'))) return remove(b.getAttribute('data-sb-remove'));
+    if ((b = t.closest('[data-sb-add]'))) { add(b.getAttribute('data-sb-add'), true); S.error = ''; draw(); requote(); return; }
+    if (t.closest('[data-sb-checkout]')) { S.view = 'details'; S.error = ''; track('checkout_started', { packs: S.items.length, amount_pence: S.quote ? S.quote.net_pence : null }); draw(); const f = $('sb-form'); if (f && !f.elements.name.value) f.elements.name.focus(); return; }
+    if (t.closest('[data-sb-back]')) { keepForm(); if (S.now) return close(); S.view = 'basket'; S.error = ''; draw(); return; }
+  });
+  $('sb').addEventListener('submit', (e) => { e.preventDefault(); if (!S.busy) pay(e.target); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('sb').hidden && S.view !== 'going') close(); });
+
+  // Add to basket and Buy now, wherever a page puts them. Caught before the
+  // page's own handler, which is the old checkout and still runs when this is off.
+  document.addEventListener('click', (e) => {
+    if (!S.shop || !S.shop.on || !(e.target instanceof Element)) return;
+    const a = e.target.closest('[data-basket-add]'), b = e.target.closest('[data-buy]');
+    if (a) { e.preventDefault(); e.stopImmediatePropagation(); if (S.items.includes(idFor(a.getAttribute('data-basket-add')))) open('basket'); else add(a.getAttribute('data-basket-add')); return; }
+    if (b && idFor(b.getAttribute('data-buy'))) { e.preventDefault(); e.stopImmediatePropagation(); buyNow(b.getAttribute('data-buy')); }
+  }, true);
+
+  // Another tab changed the basket.
+  addEventListener('storage', (e) => { if (e.key === KEY && S.shop && S.shop.on) { S.items = read().filter((id) => packOf(id)); paint(); if (!$('sb').hidden && !S.now) { draw(); requote(); } } });
+
+  const ready = (async () => {
+    if (!WORKER || !isConfigured) return { on: false };
+    try {
+      const { data } = await supabase.auth.getSession();
+      const u = data && data.session && data.session.user;
+      if (u) { S.token = data.session.access_token; S.me = u; S.contact = { name: (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name)) || '', email: u.email || '', phone: '', company: (u.user_metadata && u.user_metadata.company) || '' }; }
+    } catch (_) {}
+    try {
+      const { ok, out } = await call('/shop/offers');
+      S.shop = ok && out && out.on ? out : { on: false };
+    } catch (_) { S.shop = { on: false }; }
+    if (!S.shop.on) return S.shop;
+    document.documentElement.classList.add('shop-on');
+    // Packs that have left the shop, or that they now own, leave the basket.
+    const kept = read().filter((id) => packOf(id) && !(S.shop.owned || []).includes(id));
+    S.items = kept; write();
+    paint();
+    return S.shop;
+  })();
+
+  (window as any).tmkeShop = {
+    ready,
+    add: (ref) => add(ref),
+    remove: (id) => remove(id),
+    has: (ref) => S.items.includes(idFor(ref) || ''),
+    buyNow: (ref) => buyNow(ref),
+    open: () => open('basket'),
+    paint: () => paint(),
+    // The thank-you page: these packs are bought, so they leave the basket.
+    bought: (ids) => { S.items = read().filter((id) => !(ids || []).includes(id)); write(); paintNav(); },
+  };
+</script>

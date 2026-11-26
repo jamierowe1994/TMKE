@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import ShopBasket from "../../components/ShopBasket.astro";
 import { supabase, isConfigured } from "../../lib/supabase.js";
 
 // Build-time enumeration of every active pack. New packs need a rebuild
@@ -272,10 +273,15 @@ function gbp(pence) {
         <a href="/edit" class="pd-back">&larr; The Edit</a>
         {pack.category && <div class="pd-cat">{pack.category}</div>}
         <h1 class="pd-title">{pack.title}</h1>
-        <div class="pd-price">{gbp(pack.price_pence)} <span>+VAT · one-time payment</span></div>
+        {/* The price, and the offer on it when there is one: src/components/ShopBasket.astro redraws data-shop-amount. */}
+        <div class="pd-price"><bdi data-shop-amount={pack.id}>{gbp(pack.price_pence)}</bdi> <span>+VAT · one-time payment</span><span class="shop-tag" data-shop-label={pack.id} hidden></span></div>
         {pack.description && <p class="pd-desc">{pack.description}</p>}
 
-        <button type="button" class="pd-buy" data-buy={pack.id}>Buy this pack · {gbp(pack.price_pence)}</button>
+        {/* Two ways to buy once the basket is on (Danielle, 26 Nov): Add to
+            basket, or Buy now for this pack alone. Until then only Buy shows,
+            as it always has. */}
+        <button type="button" class="pd-buy pd-buy--line" data-basket-add={pack.id}>Add to basket</button>
+        <button type="button" class="pd-buy" data-buy={pack.id} data-buy-now-label="Buy now">Buy this pack · {gbp(pack.price_pence)}</button>
         <a href="#pack-previews" class="pd-see">See inside the pack &darr;</a>
 
         <div class="pd-acc">
@@ -291,7 +297,7 @@ function gbp(pence) {
               <div><dt>Templates</dt><dd>{templates.length} editable</dd></div>
               {sizes.length > 0 && <div><dt>Size</dt><dd>{sizes.join(" / ")}</dd></div>}
               <div><dt>Edited in</dt><dd>The TMKE Studio, in your browser</dd></div>
-              <div><dt>Payment</dt><dd>Once, {gbp(pack.price_pence)} + VAT</dd></div>
+              <div><dt>Payment</dt><dd>Once, <bdi data-shop-amount={pack.id}>{gbp(pack.price_pence)}</bdi> + VAT</dd></div>
             </dl>
           </details>
         </div>
@@ -924,4 +930,5 @@ function gbp(pence) {
     })();
 
   </script>
+  <ShopBasket />
 </BaseLayout>

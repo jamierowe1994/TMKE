@@ -63,6 +63,7 @@ import "../../styles/money-os.css";
     import { supabase } from "../../lib/supabase.js";
     import { fitScrim, gbp } from "../../lib/revenue.js";
     import { giftPack } from "../../lib/pack-gift.js";
+    import { invoiceFor } from "../../lib/order-receipt.js";
 
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -90,8 +91,13 @@ import "../../styles/money-os.css";
     let ALL = [], PACKS = [], READY = false;
 
     const isGift = (o) => o.payment_method === "gift";
+    /* A test login's purchase in Stripe's test mode (26 Nov): no money moved,
+       so it's listed, marked Test, and kept out of every figure and chart. */
+    const isTest = (o) => o.is_test === true;
     const orders = () => ALL.filter((o) => !isGift(o));
-    const paidOrders = () => orders().filter((o) => o.status === "paid");
+    // The packs paid for together in one basket, this one among them, first one first.
+    const basketOf = (o) => (o.checkout_id ? ALL.filter((x) => x.checkout_id === o.checkout_id).sort((a, b) => String(a.invoice_number).localeCompare(String(b.invoice_number))) : [o]);
+    const paidOrders = () => orders().filter((o) => o.status === "paid" && !isTest(o));
     const gifts = () => ALL.filter((o) => isGift(o) && o.status === "paid");
     // Older orders carry only what the card was charged, so their VAT is worked backwards.
     function split(o) {
@@ -171,7 +177,7 @@ import "../../styles/money-os.css";
       ${drawCharts()}
       <div class="bar"><div class="bar-l">${find("oq", "Search buyer, email, invoice", S.oq)}<div class="chips" role="group" aria-label="Status">${chips.map(([k, l, c]) => `<button type="button" data-status="${k}" aria-pressed="${S.status === k}">${l} <i>${c}</i></button>`).join("")}</div></div></div>
       <div class="section"><div class="strip"><div class="strip-t">Orders</div><span class="aside">${plural(rows.length)}</span></div>
-      ${rows.length ? `<div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Date</th><th>Invoice</th><th>Buyer</th><th>Company</th><th>Pack</th><th class="num">Net</th><th>Status</th></tr></thead><tbody>${rows.map((o) => `<tr class="click" data-order="${esc(o.id)}" tabindex="0"><td class="tx">${when(o.created_at)}</td><td class="tx">${esc(o.invoice_number || "—")}</td><td>${esc(o.buyer_name)}</td><td class="tx">${esc(o.buyer_company || "—")}</td><td>${esc(o.pack_title)}</td><td class="num">${gbp(net(o))}</td><td><span class="chip ${(STATUS[o.status] || ["", "plain"])[1]}">${esc((STATUS[o.status] || [o.status])[0])}</span></td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No orders match that.</div>'}</div>`;
+      ${rows.length ? `<div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Date</th><th>Invoice</th><th>Buyer</th><th>Company</th><th>Pack</th><th class="num">Net</th><th>Status</th></tr></thead><tbody>${rows.map((o) => `<tr class="click" data-order="${esc(o.id)}" tabindex="0"><td class="tx">${when(o.created_at)}</td><td class="tx">${esc(o.invoice_number || "—")}</td><td>${esc(o.buyer_name)}</td><td class="tx">${esc(o.buyer_company || "—")}</td><td>${esc(o.pack_title)}</td><td class="num">${gbp(net(o))}</td><td><span class="chip ${(STATUS[o.status] || ["", "plain"])[1]}">${esc((STATUS[o.status] || [o.status])[0])}</span>${isTest(o) ? ' <span class="chip plain">Test</span>' : ""}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No orders match that.</div>'}</div>`;
     }
 
     function drawTop() {
@@ -231,7 +237,7 @@ import "../../styles/money-os.css";
       const m = split(o), line = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`, st = STATUS[o.status] || [o.status, "plain"];
       const acts = { paid: [["refunded", "Mark refunded", "danger"]], pending: [["failed", "Mark failed", "danger"], ["paid", "Mark paid", ""]], refunded: [["paid", "Mark paid", ""]], failed: [["paid", "Mark paid", ""]] }[o.status] || [];
       const note = { paid: "Paid, so this pack is in their library. Marking it refunded takes it out.", pending: "Not paid yet, so this pack isn't in their library.", refunded: "Refunded, so this pack is no longer in their library.", failed: "The payment failed, so this pack isn't in their library." }[o.status] || "";
-      pop("Order", o.invoice_number || "Order", `<dl class="rows">${line("Placed", when(o.created_at))}${line("Pack", esc(o.pack_title))}${line("Net", gbp(m.net))}${line("VAT", gbp(m.vat))}${line("Total", gbp(m.gross))}${line("Status", `<span class="chip ${st[1]}">${esc(st[0])}</span>`)}${line("Buyer", esc(o.buyer_name))}${line("Email", esc(o.buyer_email))}${line("Phone", esc(o.buyer_phone || "—"))}${line("Company", esc(o.buyer_company || "—"))}${line("Payment", esc(PAY[o.payment_method] || o.payment_method || "—") + (o.payment_ref ? ` · ${esc(o.payment_ref)}` : ""))}</dl><p>${note}</p>`,
+      pop("Order", o.invoice_number || "Order", `<dl class="rows">${line("Placed", when(o.created_at))}${line("Pack", esc(o.pack_title))}${basketOf(o).length > 1 ? line("Bought with", esc(basketOf(o).filter((x) => x.id !== o.id).map((x) => x.pack_title).join(", "))) : ""}${o.list_price_pence != null && o.list_price_pence > m.net ? line("Usual price", gbp(o.list_price_pence)) + line("Offer", esc(o.discount_label || "Offer price")) : ""}${line("Net", gbp(m.net))}${line("VAT", gbp(m.vat))}${line("Total", gbp(m.gross))}${line("Status", `<span class="chip ${st[1]}">${esc(st[0])}</span>`)}${line("Buyer", esc(o.buyer_name))}${line("Email", esc(o.buyer_email))}${line("Phone", esc(o.buyer_phone || "—"))}${line("Company", esc(o.buyer_company || "—"))}${line("Payment", esc(PAY[o.payment_method] || o.payment_method || "—") + (o.payment_ref ? ` · ${esc(o.payment_ref)}` : ""))}</dl><p>${note}</p>`,
         acts.map(([k, l, c]) => `<button type="button" class="mbtn ${c}" data-set="${k}" data-id="${esc(o.id)}">${l}</button>`).join("") + (o.status === "paid" ? `<button type="button" class="mbtn primary" data-invoice="${esc(o.id)}">Download invoice</button>` : ""));
     }
     async function setStatus(o, status, done) {
@@ -248,11 +254,9 @@ import "../../styles/money-os.css";
       try {
         const { renderInvoiceHtml } = await import("../../lib/invoice-render.js");
         const { data: settings } = await supabase.from("invoice_settings").select("*").limit(1).maybeSingle();
-        const issued = new Date(o.created_at).toISOString().slice(0, 10), m = split(o);
-        w.document.write(renderInvoiceHtml({
-          settings: { ...(settings || {}), show_bank: false },
-          invoice: { number: o.invoice_number || "", issued_date: issued, paid_date: issued, status: o.status, payment_method: o.payment_method, bill_to_name: o.buyer_name || "", bill_to_email: o.buyer_email || "", bill_to_address: o.buyer_company || "", line_items: [{ description: o.pack_title || "TMKE pack", qty: 1, unit_pence: m.net }], subtotal_pence: m.net, vat_pence: m.vat, total_pence: m.gross },
-        }));
+        // One invoice for the whole purchase, every pack on its own line: the one the buyer downloads (src/lib/order-receipt.js).
+        const rows = basketOf(o).filter((x) => x.status === "paid");
+        w.document.write(renderInvoiceHtml({ settings: { ...(settings || {}), show_bank: false }, invoice: invoiceFor(rows.length ? rows : [o], o) }));
         w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
       } catch (_) { w.close(); toast("Couldn't build the invoice. Please try again."); }
     }

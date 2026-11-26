@@ -61,14 +61,15 @@ import "../../../styles/account-sections.css";
               </div>
             </header>
 
-            <div class="rcp-line">
-              <span class="rcp-thumb" id="rcp-cover"></span>
-              <span class="rcp-line-tx">
-                <strong id="rcp-pack">&hellip;</strong>
-                <span id="rcp-desc"></span>
-              </span>
-              <span class="rcp-line-amt" id="rcp-amount">&mdash;</span>
+            <!-- One line a pack: a basket's packs are all listed (26 Nov). -->
+            <div id="rcp-lines">
+              <div class="rcp-line">
+                <span class="rcp-thumb"></span>
+                <span class="rcp-line-tx"><strong>&hellip;</strong><span></span></span>
+                <span class="rcp-line-amt">&mdash;</span>
+              </div>
             </div>
+            <dl class="rcp-sums" id="rcp-sums" hidden></dl>
 
             <dl class="rcp-facts">
               <div><dt>Billed to</dt><dd id="rcp-billto">&mdash;</dd></div>
@@ -121,6 +122,16 @@ import "../../../styles/account-sections.css";
     .rcp-line-tx span { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.5; color: var(--ws-tx); }
     .rcp-line-amt { font-family: var(--serif); font-size: var(--ws-t-title); font-weight: 400; font-variant-numeric: tabular-nums; }
 
+    /* A basket and a pack bought on offer (26 Nov): the usual price struck
+       through, the offer's name, and the sums under the packs. */
+    .rcp-line-amt s { display: block; font-size: var(--ws-t-meta); color: var(--ws-tx); text-decoration-thickness: 1px; }
+    .rcp-line-tx .rcp-offer { align-self: flex-start; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 7px; border: 1px solid var(--ws-line); color: var(--ws-accent); }
+    .rcp-sums { margin: 0; padding: 16px 24px; border-bottom: 1px solid var(--ws-line); display: grid; gap: 4px; }
+    .rcp-sums[hidden] { display: none; }
+    .rcp-sums div { display: flex; justify-content: space-between; gap: 16px; font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-tx); font-variant-numeric: tabular-nums; }
+    .rcp-sums dt, .rcp-sums dd { margin: 0; }
+    .rcp-sums .is-saving { color: var(--ws-accent); font-weight: 600; }
+
     .rcp-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; padding: 22px 24px; margin: 0; border-bottom: 1px solid var(--ws-line); }
     @media (max-width: 620px) { .rcp-facts { grid-template-columns: 1fr; } .rcp-line { grid-template-columns: 56px minmax(0,1fr); } .rcp-line-amt { grid-column: 2; } }
     .rcp-facts > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -145,6 +156,7 @@ import "../../../styles/account-sections.css";
 
   <script>
     import { supabase, gbpFromPence } from '../../../lib/supabase.js';
+    import { receiptOf, invoiceFor } from '../../../lib/order-receipt.js';
 
     const orderId = new URLSearchParams(location.search).get('order');
 
@@ -164,6 +176,9 @@ import "../../../styles/account-sections.css";
     }
 
     let orderRow = null;
+    // Every order of this purchase: one for a pack bought on its own, all of a basket's.
+    let orderRows = [];
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     (async () => {
       const isDemo = import.meta.env.DEV;
@@ -196,30 +211,48 @@ import "../../../styles/account-sections.css";
       if (!data) return fail("We couldn't find that order on your account.");
 
       orderRow = data;
+      orderRows = [data];
+      // Bought in a basket: the other packs paid for with it (26 Nov).
+      if (data.checkout_id) {
+        const { data: all } = await supabase.from('orders').select('*').eq('checkout_id', data.checkout_id)
+          .or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`).order('invoice_number', { ascending: true });
+        if (all && all.length) orderRows = all;
+      }
+      const receipt = receiptOf(orderRows);
+      const names = receipt.lines.map((l) => l.title);
 
-      $('rcp-no').textContent = data.invoice_number ?? '—';
+      $('rcp-no').textContent = receipt.number || '—';
       $('rcp-date').textContent = formatDate(data.created_at);
-      $('rcp-pack').textContent = data.pack_title ?? 'Your order';
       $('rcp-billto').textContent = data.buyer_name || '—';
       $('rcp-company').textContent = data.buyer_company || '—';
       $('rcp-email').textContent = data.buyer_email || '—';
       $('rcp-phone').textContent = data.buyer_phone || '—';
       $('rcp-method').textContent = METHOD[data.payment_method] || data.payment_method || '—';
-      $('rcp-amount').textContent = gbpFromPence(data.amount_pence);
-      $('rcp-total').textContent = gbpFromPence(data.amount_pence);
-      $('rcp-sub').textContent = `${data.pack_title || 'Your order'} — ${formatDate(data.created_at)}.`;
+      $('rcp-total').textContent = gbpFromPence(receipt.gross);
+      $('rcp-sub').textContent = `${names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0] || 'Your order'} — ${formatDate(data.created_at)}.`;
+      const drawLines = (packs) => {
+        $('rcp-lines').innerHTML = receipt.lines.map((l) => {
+          const pk = (packs || []).find((x) => x.id === l.pack_id) || {};
+          return `<div class="rcp-line">
+            <span class="rcp-thumb"${pk.cover_image_url ? ` style="background-image:url('${esc(pk.cover_image_url)}')"` : ''}></span>
+            <span class="rcp-line-tx"><strong>${esc(l.title)}</strong>${receipt.lines.length === 1 && pk.description ? `<span>${esc(pk.description)}</span>` : ''}${l.label ? `<span class="rcp-offer">${esc(l.label)}</span>` : ''}</span>
+            <span class="rcp-line-amt">${l.was != null ? `<s>${esc(gbpFromPence(l.was))}</s>` : ''}${esc(gbpFromPence(l.net))}</span>
+          </div>`;
+        }).join('');
+      };
+      drawLines([]);
+      const row = (k, v, cls) => `<div${cls ? ` class="${cls}"` : ''}><dt>${k}</dt><dd>${esc(gbpFromPence(v))}</dd></div>`;
+      $('rcp-sums').innerHTML = (receipt.saving > 0 ? row('Usual price', receipt.usual) + row('You saved', receipt.saving, 'is-saving') : '') + row('Subtotal', receipt.net) + row('VAT', receipt.vat);
+      $('rcp-sums').hidden = false;
 
       const st = $('rcp-status');
       st.textContent = STATUS[data.status] || data.status;
       st.dataset.status = data.status;
 
-      if (data.pack_id) {
-        const { data: pack } = await supabase
-          .from('packs').select('description, cover_image_url').eq('id', data.pack_id).maybeSingle();
-        if (pack) {
-          if (pack.description) $('rcp-desc').textContent = pack.description;
-          if (pack.cover_image_url) $('rcp-cover').style.backgroundImage = `url('${pack.cover_image_url}')`;
-        }
+      const packIds = receipt.lines.map((l) => l.pack_id).filter(Boolean);
+      if (packIds.length) {
+        const { data: packs } = await supabase.from('packs').select('id, description, cover_image_url').in('id', packIds);
+        if (packs && packs.length) drawLines(packs);
       }
     })();
 
@@ -232,16 +265,6 @@ import "../../../styles/account-sections.css";
     // as-is. Orders from before it carry only amount_pence — and that IS what
     // the card was charged — so the split is worked backwards out of it rather
     // than adding VAT that was never taken.
-    function vatSplit(o) {
-      const rate = 20;
-      if (o.total_pence != null && o.vat_pence != null) {
-        return { net: o.amount_pence || 0, vat: o.vat_pence, gross: o.total_pence };
-      }
-      const gross = o.amount_pence || 0;
-      const net = Math.round(gross / (1 + rate / 100));
-      return { net, vat: gross - net, gross };
-    }
-
     $('rcp-print')?.addEventListener('click', async () => {
       if (!orderRow) return;
       const { renderInvoiceHtml } = await import('../../../lib/invoice-render.js');
@@ -252,26 +275,8 @@ import "../../../styles/account-sections.css";
         if (data) settings = data;
       } catch (_) { /* renderer defaults cover a member who cannot read it */ }
 
-      const ymd = (iso) => { try { return new Date(iso).toISOString().slice(0, 10); } catch (_) { return ''; } };
-      const issued = ymd(orderRow.created_at);
-
-      const html = renderInvoiceHtml({
-        settings: { ...settings, show_bank: false },
-        invoice: {
-          number: orderRow.invoice_number || '',
-          issued_date: issued,
-          paid_date: orderRow.status === 'paid' ? issued : null,
-          status: orderRow.status,
-          payment_method: orderRow.payment_method,
-          bill_to_name: orderRow.buyer_name || '',
-          bill_to_email: orderRow.buyer_email || '',
-          bill_to_address: orderRow.buyer_company || '',
-          line_items: [{ description: orderRow.pack_title || 'TMKE pack', qty: 1, unit_pence: vatSplit(orderRow).net }],
-          subtotal_pence: vatSplit(orderRow).net,
-          vat_pence: vatSplit(orderRow).vat,
-          total_pence: vatSplit(orderRow).gross,
-        },
-      });
+      // One invoice for the whole purchase: every pack on its own line (src/lib/order-receipt.js).
+      const html = renderInvoiceHtml({ settings: { ...settings, show_bank: false }, invoice: invoiceFor(orderRows, orderRow) });
 
       const w = window.open('', '_blank', 'width=880,height=1000');
       if (!w) return;

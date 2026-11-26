@@ -45,14 +45,15 @@ import "../../styles/ws-system.css";
           </div>
         </header>
 
-        <div class="thanks-receipt-row">
-          <div class="thanks-receipt-thumb" id="thanks-cover"></div>
-          <div class="thanks-receipt-info">
-            <h3 id="thanks-pack-title">&hellip;</h3>
-            <p id="thanks-pack-desc"></p>
+        <!-- One row a pack: a basket's packs are all listed (26 Nov). -->
+        <div id="thanks-lines">
+          <div class="thanks-receipt-row">
+            <div class="thanks-receipt-thumb"></div>
+            <div class="thanks-receipt-info"><h3>&hellip;</h3><p></p></div>
+            <div class="thanks-receipt-amount">&mdash;</div>
           </div>
-          <div class="thanks-receipt-amount" id="thanks-amount">&mdash;</div>
         </div>
+        <dl class="thanks-sums" id="thanks-sums" hidden></dl>
 
         <dl class="thanks-receipt-list">
           <div><dt>Billed to</dt><dd id="thanks-billto">&mdash;</dd></div>
@@ -156,7 +157,8 @@ import "../../styles/ws-system.css";
        top with the title and the price, so the three read as one line. */
     .thanks-receipt-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 20px; align-items: start; padding: 22px 24px; border-bottom: 1px solid var(--ws-line); }
     .thanks-receipt-thumb { width: 96px; aspect-ratio: 3 / 4; border-radius: var(--ws-r); background: #e9e6e2 center/cover no-repeat; }
-    .thanks-receipt-info h3 { font-family: var(--serif); font-size: 17px; font-weight: 600; letter-spacing: -0.05em; margin: 0 0 5px; }
+    /* The heading face by name: on an h3, var(--serif) quietly becomes The Seasons (global.css). */
+    .thanks-receipt-info h3 { font-family: "TMKE Serif", Georgia, serif; font-size: 17px; font-weight: 400; letter-spacing: -0.05em; margin: 0 0 5px; }
     .thanks-receipt-info p { font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: var(--ws-tx); margin: 0; }
     .thanks-receipt-amount { font-family: var(--serif); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
@@ -203,12 +205,22 @@ import "../../styles/ws-system.css";
 
     /* The [hidden] attribute must win over the flex/grid rules above. */
     .thanks-grid[hidden], .thanks-form[hidden], .thanks-success[hidden] { display: none !important; }
+    /* A basket and a pack bought on offer (26 Nov): the usual price struck
+       through, the offer's name, and the sums under the packs. */
+    .thanks-was { display: block; font-size: 13px; color: var(--ws-tx); text-decoration: line-through; text-decoration-thickness: 1px; }
+    .thanks-offer { display: inline-block; margin-top: 6px; font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 7px; border: 1px solid var(--ws-line); color: var(--ws-accent); }
+    .thanks-sums { margin: 0; padding: 16px 24px; border-bottom: 1px solid var(--ws-line); display: grid; gap: 4px; }
+    .thanks-sums[hidden] { display: none; }
+    .thanks-sums div { display: flex; justify-content: space-between; gap: 16px; font-family: var(--sans); font-size: 13.5px; color: var(--ws-tx); font-variant-numeric: tabular-nums; }
+    .thanks-sums dt, .thanks-sums dd { margin: 0; }
+    .thanks-sums .is-saving { color: var(--ws-accent); font-weight: 600; }
   </style>
 
   <script>
     import { supabase, gbpFromPence } from '../../lib/supabase.js';
     import { track } from '../../lib/track.js';
     import { signUpMember } from '../../lib/member-signup.js';
+    import { receiptOf, invoiceFor } from '../../lib/order-receipt.js';
 
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('order');
@@ -222,12 +234,11 @@ import "../../styles/ws-system.css";
     const elCompany = document.getElementById('thanks-company');
     const elPhone = document.getElementById('thanks-phone');
     const elMethod = document.getElementById('thanks-method');
-    const elAmount = document.getElementById('thanks-amount');
     const elTotal = document.getElementById('thanks-total');
     const elDate = document.getElementById('thanks-date');
-    const elCover = document.getElementById('thanks-cover');
-    const elPackTitle = document.getElementById('thanks-pack-title');
-    const elPackDesc = document.getElementById('thanks-pack-desc');
+    const elLines = document.getElementById('thanks-lines');
+    const elSums = document.getElementById('thanks-sums');
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const form = document.getElementById('password-form');
     const formError = document.getElementById('password-error');
     const submitBtn = document.getElementById('password-submit');
@@ -245,7 +256,8 @@ import "../../styles/ws-system.css";
     }
 
     let orderRow = null;
-    let packRow = null;
+    // Every order of this purchase: one for a pack bought on its own, all of a basket's.
+    let orderRows = [];
 
     // The buyer usually has no account yet, so the order comes through the
     // Worker, which opens this one order by its id. The orders table itself is
@@ -278,6 +290,14 @@ import "../../styles/ws-system.css";
       }
 
       orderRow = data;
+      // A basket's packs each have their own order; the buyer's details are the same on all of them.
+      orderRows = Array.isArray(data.lines) && data.lines.length ? data.lines.map((l) => ({ ...data, lines: undefined, basket: undefined, ...l })) : [data];
+      const receipt = receiptOf(orderRows);
+      // They're bought, so they come out of the basket.
+      try {
+        const left = JSON.parse(localStorage.getItem('tmke.basket') || '[]').filter((id) => !orderRows.some((o) => o.pack_id === id));
+        localStorage.setItem('tmke.basket', JSON.stringify(left));
+      } catch (_) {}
 
       // The sale itself. Recorded once an order really exists, from the page
       // Stripe sends people back to - and only once, however many times the
@@ -285,15 +305,15 @@ import "../../styles/ws-system.css";
       try {
         const seen = JSON.parse(sessionStorage.getItem('tmke.tracked.orders') || '[]');
         if (!seen.includes(orderId)) {
-          track('pack_purchased', { order_id: orderId, pack_id: data.pack_id || null, amount_pence: data.amount_pence ?? data.total_pence ?? null });
+          track('pack_purchased', { order_id: orderId, pack_id: data.pack_id || null, amount_pence: receipt.net, packs: orderRows.length });
           seen.push(orderId);
           sessionStorage.setItem('tmke.tracked.orders', JSON.stringify(seen.slice(-20)));
         }
       } catch (_) { track('pack_purchased', { order_id: orderId }); }
 
       // Hydrate
-      elInvoice.textContent = data.invoice_number ?? '—';
-      elInvoice2.textContent = data.invoice_number ?? '—';
+      elInvoice.textContent = receipt.number || '—';
+      elInvoice2.textContent = receipt.number || '—';
       elName.textContent = (data.buyer_name || 'friend').split(' ')[0];
       elEmail.textContent = data.buyer_email;
       elEmail2.textContent = data.buyer_email;
@@ -301,10 +321,22 @@ import "../../styles/ws-system.css";
       elCompany.textContent = data.buyer_company || '—';
       elPhone.textContent = data.buyer_phone || '—';
       elMethod.textContent = formatMethod(data.payment_method);
-      elAmount.textContent = gbpFromPence(data.amount_pence);
-      elTotal.textContent = gbpFromPence(data.amount_pence);
+      elTotal.textContent = gbpFromPence(receipt.gross);
       elDate.textContent = formatDate(data.created_at);
-      elPackTitle.textContent = data.pack_title;
+      const drawLines = (packs) => {
+        elLines.innerHTML = receipt.lines.map((l) => {
+          const pk = (packs || []).find((x) => x.id === l.pack_id) || {};
+          return `<div class="thanks-receipt-row">
+            <div class="thanks-receipt-thumb"${pk.cover_image_url ? ` style="background-image:url('${esc(pk.cover_image_url)}')"` : ''}></div>
+            <div class="thanks-receipt-info"><h3>${esc(l.title)}</h3>${receipt.lines.length === 1 && pk.description ? `<p>${esc(pk.description)}</p>` : ''}${l.label ? `<span class="thanks-offer">${esc(l.label)}</span>` : ''}</div>
+            <div class="thanks-receipt-amount">${l.was != null ? `<span class="thanks-was">${esc(gbpFromPence(l.was))}</span>` : ''}${esc(gbpFromPence(l.net))}</div>
+          </div>`;
+        }).join('');
+      };
+      drawLines([]);
+      const row = (k, v, cls) => `<div${cls ? ` class="${cls}"` : ''}><dt>${k}</dt><dd>${esc(gbpFromPence(v))}</dd></div>`;
+      elSums.innerHTML = (receipt.saving > 0 ? row('Usual price', receipt.usual) + row('You saved', receipt.saving, 'is-saving') : '') + row('Subtotal', receipt.net) + row('VAT', receipt.vat);
+      elSums.hidden = false;
 
       // Status pill. With Stripe, the webhook flips the order to 'paid' a moment
       // after the redirect lands here — so if it's still 'pending', poll briefly.
@@ -330,18 +362,11 @@ import "../../styles/ws-system.css";
         }, 1500);
       }
 
-      // Pull description + cover from the pack record so the receipt shows context.
-      if (data.pack_id) {
-        const { data: pack } = await supabase
-          .from('packs')
-          .select('description, cover_image_url')
-          .eq('id', data.pack_id)
-          .single();
-        if (pack) {
-          packRow = pack;
-          elPackDesc.textContent = pack.description || '';
-          if (pack.cover_image_url) elCover.style.backgroundImage = `url('${pack.cover_image_url}')`;
-        }
+      // Pull description + cover from the pack records so the receipt shows context.
+      const packIds = receipt.lines.map((l) => l.pack_id).filter(Boolean);
+      if (packIds.length) {
+        const { data: packs } = await supabase.from('packs').select('id, description, cover_image_url').in('id', packIds);
+        if (packs && packs.length) drawLines(packs);
       }
 
       // Pre-fill the form email is implicit (already shown above).
@@ -425,16 +450,6 @@ import "../../styles/ws-system.css";
     // as-is. Orders from before it carry only amount_pence — and that IS what
     // the card was charged — so the split is worked backwards out of it rather
     // than adding VAT that was never taken.
-    function vatSplit(o) {
-      const rate = 20;
-      if (o.total_pence != null && o.vat_pence != null) {
-        return { net: o.amount_pence || 0, vat: o.vat_pence, gross: o.total_pence };
-      }
-      const gross = o.amount_pence || 0;
-      const net = Math.round(gross / (1 + rate / 100));
-      return { net, vat: gross - net, gross };
-    }
-
     dlBtn.addEventListener('click', async () => {
       if (!orderRow) return;
       const [{ renderInvoiceHtml }, { supabase: sb }] = await Promise.all([
@@ -448,27 +463,8 @@ import "../../styles/ws-system.css";
         if (data) settings = data;
       } catch (_) { /* defaults */ }
 
-      const ymd = (iso) => { try { return new Date(iso).toISOString().slice(0, 10); } catch (_) { return ''; } };
-      const issued = ymd(orderRow.created_at);
-      const paid = orderRow.status === 'paid' ? issued : null;
-
-      const html = renderInvoiceHtml({
-        settings: { ...settings, show_bank: false },
-        invoice: {
-          number: orderRow.invoice_number || '',
-          issued_date: issued,
-          paid_date: paid,
-          status: orderRow.status,
-          payment_method: orderRow.payment_method,
-          bill_to_name: orderRow.buyer_name || '',
-          bill_to_email: orderRow.buyer_email || '',
-          bill_to_address: orderRow.buyer_company || '',
-          line_items: [{ description: orderRow.pack_title || 'TMKE pack', qty: 1, unit_pence: vatSplit(orderRow).net }],
-          subtotal_pence: vatSplit(orderRow).net,
-          vat_pence: vatSplit(orderRow).vat,
-          total_pence: vatSplit(orderRow).gross,
-        },
-      });
+      // One invoice for the whole purchase: every pack on its own line (src/lib/order-receipt.js).
+      const html = renderInvoiceHtml({ settings: { ...settings, show_bank: false }, invoice: invoiceFor(orderRows, orderRow) });
 
       const w = window.open('', '_blank', 'width=880,height=1000');
       if (!w) return;

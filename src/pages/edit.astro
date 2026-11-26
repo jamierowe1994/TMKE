@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import ShopBasket from "../components/ShopBasket.astro";
 ---
 
 <BaseLayout
@@ -1625,7 +1626,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           </div>
           <h3 class="pcard-title">${escapeHtml(p.title)}</h3>
           <p class="pcard-type">${type}</p>
-          <p class="pcard-price">${escapeHtml(gbpFromPence(p.price_pence))} <small>+VAT</small></p>
+          <p class="pcard-price"><bdi data-shop-amount="${p.id}">${escapeHtml(gbpFromPence(p.price_pence))}</bdi> <small>+VAT</small></p>
           <div class="pcard-actions">
             <span class="pcard-size">Pack Size: ${n}</span>
             <a class="pcard-cta" href="${href}">Discover</a>
@@ -2061,6 +2062,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       wireMotion(grid);
       wirePreviews(grid);
       maybeOpenFromQuery();
+      // Offer prices, once the basket (src/components/ShopBasket.astro) knows them.
+      const shop = (window as any).tmkeShop;
+      if (shop) shop.ready.then(() => { shop.paint(); setTimeout(() => shop.paint(), 1200); });
 
       // Rotate the hero one pack at a time (copy + that pack's flashing grid).
       setupHero(packs);
@@ -2530,17 +2534,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     // ?buy=<id> deep-link: pack-detail page sends users back here to
     // trigger the checkout modal for a specific pack.
-    function maybeOpenFromQuery() {
+    async function maybeOpenFromQuery() {
       const want = new URLSearchParams(location.search).get('buy');
       if (!want) return;
-      const pack = packsById.get(want);
-      if (pack) {
-        openCheckout(pack);
-        // Clean the URL so refreshes don't re-open the modal
-        const u = new URL(location.href);
-        u.searchParams.delete('buy');
-        history.replaceState({}, '', u.toString());
-      }
+      // Clean the URL so refreshes don't re-open the modal
+      const clean = () => { const u = new URL(location.href); u.searchParams.delete('buy'); history.replaceState({}, '', u.toString()); };
+      // With the basket on (26 Nov), Buy now opens its checkout for this pack.
+      const shop = (window as any).tmkeShop, offers = shop ? await shop.ready.catch(() => null) : null;
+      if (offers && offers.on && shop.buyNow(want)) { clean(); return; }
+      // By id, or by its slug: the Studio's shop links name the pack by slug.
+      const pack = packsById.get(want) || [...packsById.values()].find((p) => p.slug === want);
+      if (pack) { openCheckout(pack); clean(); }
     }
 
     modalClose.addEventListener('click', closeCheckout);
@@ -2711,4 +2715,5 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
   </script>
+  <ShopBasket />
 </BaseLayout>
