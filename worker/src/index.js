@@ -4083,7 +4083,7 @@ async function shopOwned(env, user, email) {
   return [...new Set(rows.map((r) => r.pack_id).filter(Boolean))];
 }
 /* What we already hold on someone signed in, to fill the checkout's boxes for
-   them (Danielle, 27 Nov): their contact card first, then the details they
+   them (Danielle, 26 Nov): their contact card first, then the details they
    gave on their last order. Only ever sent to their own sign-in. */
 async function shopBuyer(env, user) {
   if (!user) return null;

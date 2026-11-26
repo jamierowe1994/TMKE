@@ -9,7 +9,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Done
 
-- [x] supabase/shop_basket.sql (26 Nov): the shop's basket and offers. Run 27 Nov; it answered 5 of 5 order columns, 0 offers, basket_live false, and the admin rule on shop_offers and shop_settings.
+- [x] supabase/shop_basket.sql (26 Nov): the shop's basket and offers. Run 26 Nov; it answered 5 of 5 order columns, 0 offers, basket_live false, and the admin rule on shop_offers and shop_settings.
 - [x] supabase/email_templates_library.sql (25 Nov): Email › Templates. Lets an email be saved as a template with a title, the area of the business and a description. Ran 25 Nov; saving a template checked on the live site.
 - [x] supabase/member_broadcasts_audience_calendar.sql (23 Nov): Hub notifications › Who gets it gains Content Calendar subscribers (everyone with the calendar, on any level). Until it runs, sending to them is refused and the page says so; the other choices work as before. Changes no notification and sends nothing. Ran 23 Nov.
 - [x] supabase/member_broadcasts_audience.sql — Hub notifications can go to TEG, F&C or External, not only every member. Run 23 Nov; checked on the live database.
