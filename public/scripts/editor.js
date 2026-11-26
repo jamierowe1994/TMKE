@@ -3163,7 +3163,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // with the tokens visible and intact. Customers can still hand-edit any
     // text afterwards — this just gives them a personalised starting point.
     if (!isAdminMode()) {
-      fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos();
+      fillTemplateMergeTags(true); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos();
       tpeCandyDefault();
       applyBrandFontsToTemplate(tpl && tpl.id);
       nudgeIfBrandNameMissing();
@@ -15118,7 +15118,56 @@ import { createResizeEngine } from "./resize-engine.js";
     return all;
   }
 
-  function fillTemplateMergeTags() {
+  /* The brand's own lines in the brand's own typeface (Danielle, 26 Nov): a
+     box that is the company name, the local expert line or the slogan and
+     nothing else takes the kit's Body font when the kit fills it in (then its
+     Subheading font, then its Heading font, whichever the kit has first).
+     For The Property Experts that is Unitext. Every other text keeps the
+     designer's font: AUTO_BRAND_FONTS stays off.
+
+     Not a box with other words round the tag, which is a sentence, and not a
+     design drawn for one brand, which is in that brand's typeface already.
+     el.kitFont is the font put there, so a font the member then chooses by
+     hand is left alone, and a change of brand moves it to the new kit's. */
+  const KIT_FONT_TAGS = ["company name", "local expert", "slogan"];
+  function soleKitFontTag(src) {
+    const m = /^\s*([{(])\s*([a-zA-Z][a-zA-Z ]*?)\s*([})])\s*$/.exec(String(src || ""));
+    if (!m || !((m[1] === "{" && m[3] === "}") || (m[1] === "(" && m[3] === ")"))) return false;
+    let k = m[2].toLowerCase().replace(/\s+/g, " ").trim();
+    k = TAG_SYNONYM_OF[k] || k;
+    return KIT_FONT_TAGS.indexOf(k) !== -1;
+  }
+  function kitFontForBrandLines() {
+    return kitFontFor("body") || kitFontFor("subheading") || kitFontFor("heading") || null;
+  }
+  /* True when the font was changed; `fits` collects the boxes to fit again
+     once the face has loaded. `fresh` is a template just opened or reset: a
+     design of their own being reopened keeps its fonts, as it always has, and
+     only a line this rule set before follows the kit.
+
+     The size needs no rule of its own. A box a merge tag has filled keeps its
+     height and its rows, and the words come down in size until they fit it
+     (fitsItsBox, fitLockedText), so a brand font that runs bigger than the
+     designer's is made smaller, never the box taller (Danielle, 26 Nov). */
+  function fontBrandLine(el, src, fits, fresh) {
+    if (!soleKitFontTag(src) || templateIsBrandAsset()) return false;
+    if (!fresh && !el.kitFont) return false;
+    const to = kitFontForBrandLines();
+    if (!to) return false;
+    if (el.kitFont && el.font !== el.kitFont) return false;      // chosen by hand since
+    if (el.font === to) { el.kitFont = to; return false; }
+    const was = el.font;
+    if (Array.isArray(el.runs)) {
+      el.runs.forEach(function (r) { if (r && r.font && r.font === was) r.font = null; });
+      if (runsAreUniform(el.runs)) el.runs = null;
+    }
+    el.font = to; el.kitFont = to;
+    loadGoogleFont(to);
+    fits.push({ el: el, font: to });
+    return true;
+  }
+  function fillTemplateMergeTags(fresh) {
+    const fits = [];
     everyElement().forEach(function (el) {
       if (el.type !== "text") return;
       // Noted while the template's own words are still there (see keepEntryPrompt).
@@ -15131,6 +15180,8 @@ import { createResizeEngine } from "./resize-engine.js";
           el.mergeOut = replaced;
         }
         if (replaced !== el.text) el.text = replaced;
+        // Only once the kit has filled the line in: an unfilled tag stays as drawn.
+        if (replaced !== src) { try { fontBrandLine(el, src, fits, fresh === true); } catch (_) {} }
       }
       /* Formatted text keeps its wording a second time, in `runs` — one entry
          per stretch of bold/italic/underline — and the renderer prefers runs
@@ -15146,6 +15197,18 @@ import { createResizeEngine } from "./resize-engine.js";
         });
       }
     });
+    /* Fitted again once the brand's face has loaded: the first fit was
+       measured in whatever stood in for it, and is remembered by the font's
+       name, which hasn't changed. Never for an author: their fills are for a
+       picture and are put back afterwards. */
+    if (fits.length) {
+      ensureTextFontsLoaded().then(function () {
+        if (isAdminMode()) return;
+        const live = everyElement();
+        fits.forEach(function (h) { if (live.indexOf(h.el) !== -1 && h.el.font === h.font) _lockFit.delete(h.el); });
+        fullRender();
+      }).catch(function () {});
+    }
   }
 
   // ---------- Effects panel ----------
@@ -19758,7 +19821,7 @@ import { createResizeEngine } from "./resize-engine.js";
     _sizePreview = null;
     _resizeBase = null;
     preloadFontsForElements(state.elements);
-    if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); }
+    if (!isAdminMode()) { fillTemplateMergeTags(true); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); }
     normalizeLegacySize();
     // A copy saved at another size (a story made from a post) goes back to
     // the template at THAT size - laid out the way the template's own saved
@@ -22530,7 +22593,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // their plumbing on screen.
     window.__TMKE_BOOT_DESIGN__ = function (d) {
       loadDesignData(d);
-      try { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); fullRender(); } catch (_) {}
+      try { fillTemplateMergeTags(true); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); fullRender(); } catch (_) {}
     };
     if (typeof window.__TMKE_DESIGN_BOOTSTRAP_DONE__ !== "undefined") {
       window.__TMKE_BOOT_DESIGN__(window.__TMKE_DESIGN_BOOTSTRAP_DONE__);
