@@ -776,7 +776,8 @@ import "../../styles/contacts-os.css";
       const [notes, tasks, ord, vidb, smmb, profiles, consent, emails, login] = await Promise.all([
         supabase.from("contact_notes").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
         supabase.from("contact_tasks").select("*").eq("contact_id", id).order("created_at", { ascending: false }),
-        email ? supabase.from("orders").select("id, pack_title, amount_pence, status, created_at").ilike("buyer_email", email).order("created_at", { ascending: false }) : none,
+        // Paid ones only, and no test purchases (26 Nov): a checkout left unpaid or a test isn't something they bought.
+        email ? supabase.from("orders").select("id, pack_title, amount_pence, status, created_at").ilike("buyer_email", email).eq("status", "paid").not("is_test", "is", true).order("created_at", { ascending: false }) : none,
         email ? supabase.from("videography_bookings").select("id, service, service_type, kind, shoot_date, stage, created_at").ilike("client_email", email).order("created_at", { ascending: false }) : none,
         email ? supabase.from("smm_leads").select("*").ilike("email", email).order("created_at", { ascending: false }) : none,
         fetchProfiles(id),
@@ -2054,7 +2055,7 @@ import "../../styles/contacts-os.css";
     async function load() {
       const [cRes, oRes, vRes, sRes, pRes, bRes, mRes] = await Promise.all([
         readAll(() => supabase.from("contacts").select("*").order("created_at", { ascending: false }).order("id")),
-        readAll(() => supabase.from("orders").select("buyer_email").eq("status", "paid").order("id")),
+        readAll(() => supabase.from("orders").select("buyer_email").eq("status", "paid").not("is_test", "is", true).order("id")),
         readAll(() => supabase.from("videography_bookings").select("client_email, kind, service_type").order("id")),
         readAll(() => supabase.from("smm_leads").select("email, kind").eq("kind", "discovery").order("id")),
         readAll(() => supabase.from("agent_profiles").select("id, contact_id, brand, left_at, is_primary, job_title, area, postcode").order("id")),

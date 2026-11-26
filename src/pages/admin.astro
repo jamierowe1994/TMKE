@@ -534,21 +534,22 @@ import AdminShell from "../components/admin/AdminShell.astro";
         supabase.from("packs").select("*", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("templates").select("*", { count: "exact", head: true }).eq("status", "active"),
         // Gifts are packs we gave away, not purchases (they're in the chart, as gifts).
-        supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "paid").or("payment_method.is.null,payment_method.neq.gift").gte("created_at", monthStartISO),
-        supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "paid").or("payment_method.is.null,payment_method.neq.gift"),
+        // Test-mode purchases moved no money (26 Nov), so they aren't counted anywhere.
+        supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "paid").not("is_test", "is", true).or("payment_method.is.null,payment_method.neq.gift").gte("created_at", monthStartISO),
+        supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "paid").not("is_test", "is", true).or("payment_method.is.null,payment_method.neq.gift"),
         supabase.from("automations").select("id, name, graph").eq("status", "active"),
         supabase.from("videography_bookings").select("id, stage, duration_min, client_email, client_name, client_company, service_type, package").in("stage", VID_PIPELINE).gte("shoot_date", monthStartISO).lt("shoot_date", new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()),
         supabase.from("blog_posts").select("*", { count: "exact", head: true }).eq("status", "published"),
         supabase.from("enquiries").select("*", { count: "exact", head: true }).gte("created_at", monthStartISO),
         supabase.from("smm_leads").select("kind").gte("created_at", monthStartISO),
         sitePageviews(),
-        supabase.from("orders").select("amount_pence, created_at").eq("status", "paid").gte("created_at", yearStart),
+        supabase.from("orders").select("amount_pence, created_at").eq("status", "paid").not("is_test", "is", true).gte("created_at", yearStart),
         // Cumulative-growth series (CRM slide 2) needs full history, not just
         // the last 6 months — someone created 2 years ago still counts
         // toward every month's running total in the window.
         supabase.from("contacts").select("created_at, lifecycle"),
         supabase.from("smm_leads").select("created_at").eq("pipeline_stage", "active_client"),
-        supabase.from("orders").select("created_at, payment_method").eq("status", "paid").gte("created_at", sixMonthsAgoISO),
+        supabase.from("orders").select("created_at, payment_method").eq("status", "paid").not("is_test", "is", true).gte("created_at", sixMonthsAgoISO),
         supabase.from("videography_bookings").select("created_at").in("stage", VID_PIPELINE).gte("created_at", sixMonthsAgoISO),
         supabase.from("site_events").select("path").eq("name", "pageview").gte("created_at", monthStartISO).ilike("path", "/blog/%"),
         supabase.from("blog_posts").select("slug, title"),

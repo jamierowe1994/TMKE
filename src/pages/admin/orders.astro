@@ -94,7 +94,15 @@ import "../../styles/money-os.css";
     /* A test login's purchase in Stripe's test mode (26 Nov): no money moved,
        so it's listed, marked Test, and kept out of every figure and chart. */
     const isTest = (o) => o.is_test === true;
-    const orders = () => ALL.filter((o) => !isGift(o));
+    /* A checkout nobody finished (Danielle, 26 Nov). Stripe's payment page
+       stays open 24 hours, so an order still Pending after that was never
+       paid and can't be. With the test purchases, these are kept out of the
+       list and every figure; the Tests and unfinished chip shows them. */
+    const isUnfinished = (o) => o.status === "pending" && Date.now() - new Date(o.created_at).getTime() > 86400000;
+    const isAside = (o) => isTest(o) || isUnfinished(o);
+    const allOrders = () => ALL.filter((o) => !isGift(o));
+    const orders = () => allOrders().filter((o) => !isAside(o));
+    const asideOrders = () => allOrders().filter(isAside);
     // The packs paid for together in one basket, this one among them, first one first.
     const basketOf = (o) => (o.checkout_id ? ALL.filter((x) => x.checkout_id === o.checkout_id).sort((a, b) => String(a.invoice_number).localeCompare(String(b.invoice_number))) : [o]);
     const paidOrders = () => orders().filter((o) => o.status === "paid" && !isTest(o));
@@ -171,13 +179,14 @@ import "../../styles/money-os.css";
     function drawOrders() {
       const list = orders(), paid = paidOrders(), now = Date.now(), last30 = paid.filter((o) => now - new Date(o.created_at).getTime() < 30 * 86400000);
       const q = S.oq.trim().toLowerCase();
-      const rows = list.filter((o) => (S.status === "all" || o.status === S.status) && (!q || [o.buyer_name, o.buyer_company, o.buyer_email, o.invoice_number, o.pack_title].join(" ").toLowerCase().includes(q)));
-      const chips = [["all", "All", list.length], ...Object.keys(STATUS).map((k) => [k, STATUS[k][0], list.filter((o) => o.status === k).length])];
+      const aside = asideOrders();
+      const rows = (S.status === "aside" ? aside : list).filter((o) => (S.status === "all" || S.status === "aside" || o.status === S.status) && (!q || [o.buyer_name, o.buyer_company, o.buyer_email, o.invoice_number, o.pack_title].join(" ").toLowerCase().includes(q)));
+      const chips = [["all", "All", list.length], ...Object.keys(STATUS).map((k) => [k, STATUS[k][0], list.filter((o) => o.status === k).length]), ...(aside.length ? [["aside", "Tests and unfinished", aside.length]] : [])];
       return `<div class="figs">${fig("dark", gbp(sum(last30)), "Revenue, last 30 days")}${fig("lin", last30.length, "Orders, last 30 days")}${fig("lin", gbp(sum(paid)), "Revenue, all time")}${fig("lin", paid.length, "Orders, all time")}</div>
       ${drawCharts()}
       <div class="bar"><div class="bar-l">${find("oq", "Search buyer, email, invoice", S.oq)}<div class="chips" role="group" aria-label="Status">${chips.map(([k, l, c]) => `<button type="button" data-status="${k}" aria-pressed="${S.status === k}">${l} <i>${c}</i></button>`).join("")}</div></div></div>
       <div class="section"><div class="strip"><div class="strip-t">Orders</div><span class="aside">${plural(rows.length)}</span></div>
-      ${rows.length ? `<div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Date</th><th>Invoice</th><th>Buyer</th><th>Company</th><th>Pack</th><th class="num">Net</th><th>Status</th></tr></thead><tbody>${rows.map((o) => `<tr class="click" data-order="${esc(o.id)}" tabindex="0"><td class="tx">${when(o.created_at)}</td><td class="tx">${esc(o.invoice_number || "—")}</td><td>${esc(o.buyer_name)}</td><td class="tx">${esc(o.buyer_company || "—")}</td><td>${esc(o.pack_title)}</td><td class="num">${gbp(net(o))}</td><td><span class="chip ${(STATUS[o.status] || ["", "plain"])[1]}">${esc((STATUS[o.status] || [o.status])[0])}</span>${isTest(o) ? ' <span class="chip plain">Test</span>' : ""}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No orders match that.</div>'}</div>`;
+      ${rows.length ? `<div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Date</th><th>Invoice</th><th>Buyer</th><th>Company</th><th>Pack</th><th class="num">Net</th><th>Status</th></tr></thead><tbody>${rows.map((o) => `<tr class="click" data-order="${esc(o.id)}" tabindex="0"><td class="tx">${when(o.created_at)}</td><td class="tx">${esc(o.invoice_number || "—")}</td><td>${esc(o.buyer_name)}</td><td class="tx">${esc(o.buyer_company || "—")}</td><td>${esc(o.pack_title)}</td><td class="num">${gbp(net(o))}</td><td>${isUnfinished(o) ? '<span class="chip plain">Never paid</span>' : `<span class="chip ${(STATUS[o.status] || ["", "plain"])[1]}">${esc((STATUS[o.status] || [o.status])[0])}</span>`}${isTest(o) ? ' <span class="chip plain">Test</span>' : ""}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No orders match that.</div>'}</div>`;
     }
 
     function drawTop() {
