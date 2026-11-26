@@ -14,10 +14,8 @@
  */
 import { shopPrice, shopSells } from "./shop-price.js";
 
-// The banner's settings are here and saved, but the shop pages don't draw it
-// yet (it's part of "how offers show on the site"). Until they do, the card
-// stays off this page: a control that does nothing is worse than none.
-const BANNER_READY = false;
+// The banner: one line across the top of The Edit and every pack page (src/components/ShopBasket.astro, paintBanner).
+const BANNER_READY = true;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // A date and time box holds this computer's time; the database holds the moment itself.
 const toBox = (iso) => { if (!iso) return ""; const d = new Date(iso); if (isNaN(d)) return ""; const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
@@ -67,8 +65,13 @@ export function initOffers(ctx) {
 
   function card(o) {
     const key = o.id || o._draft, st = o.id ? state(o) : ["Not saved yet", "wait"];
-    const head = { sitewide: "Site-wide discount", member: "Members' price", bundle: "Bundle price", pack: "Discount on one pack" }[o.kind];
+    const head = { bogof: "Buy one, get one free", sitewide: "Site-wide discount", member: "Members' price", bundle: "Bundle price", pack: "Discount on one pack" }[o.kind];
     let body = "";
+    if (o.kind === "bogof") body = `${onTick(o, "On")}
+      <div class="pb-two">${nameBox(o, "e.g. Black Friday: buy one, get one free")}<span></span></div>
+      ${dates(o)}
+      <div class="pb-field"><span>Packs left out of it</span>${ticks(o)}</div>
+      <p class="pb-hint">The packs in a basket pair up, dearest first. In each pair the dearer is paid for at its usual price and the other is free; neither gets another discount. A pack left over, when there's an odd number, keeps its own discount. A basket never costs more this way than with the packs' own discounts.</p>`;
     if (o.kind === "sitewide") body = `${onTick(o, "On")}
       <div class="pb-two">${field("Percentage off", `<input type="number" data-k="percent" min="1" max="100" step="0.5" value="${esc(o.percent)}" placeholder="e.g. 20">`)}${nameBox(o, "e.g. Black Friday")}</div>
       ${dates(o)}
@@ -94,6 +97,21 @@ export function initOffers(ctx) {
     </div>`;
   }
 
+  /* Try a basket (26 Nov): tick packs and see what the basket comes to, for
+     anyone and for a signed-in member, by the Worker's own rules. It's how a
+     plan like "buy one, get one free, 20% off the Christmas pack, 25% for
+     members" is checked against the table it was agreed on, before it's on. */
+  const TRY = new Set();
+  function tryOut() {
+    const packs = PACKS.filter((p) => TRY.has(p.id));
+    if (!packs.length) return "Tick the packs to put in the basket.";
+    const say = (member) => {
+      const ls = shopPrice(packs, liveNow(), member), total = ls.reduce((n, l) => n + l.pence, 0);
+      const parts = ls.map((l) => `${esc(l.title)} ${l.pence === 0 ? "free" : esc(gbp(l.pence))}${l.label && l.pence > 0 && l.pence < l.list_pence ? ` <span class="pb-tx">${esc(l.label)}</span>` : ""}`);
+      return `<b>${esc(gbp(total))}</b> <span class="pb-tx">(${parts.join(", ")})</span>`;
+    };
+    return `Anyone pays ${say(false)}<br>A signed-in member pays ${say(true)}`;
+  }
   // What everything costs this minute, by the Worker's own rules.
   function pricesNow() {
     const live = liveNow();
@@ -106,7 +124,10 @@ export function initOffers(ctx) {
     return `<div class="so-card"><div class="strip"><div class="strip-t">Prices right now</div><span class="aside">Before VAT</span></div>
       <div class="so-body"><div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Pack</th><th>Usual price</th><th>Anyone</th><th>Signed-in member</th></tr></thead><tbody>${PACKS.map(row).join("") || '<tr><td colspan="4" class="tx">No packs in the shop yet.</td></tr>'}</tbody></table></div>
       ${bundles.map((b) => `<p class="pb-hint">${esc(title(b.pack_id))} is ${esc(gbp(b.price_pence))} in a basket with ${esc((b.pack_ids || []).filter((id) => id !== b.pack_id).map(title).join(", ") || "no pack chosen yet")}.</p>`).join("")}
-      <p class="pb-hint">A pack gets one discount, whichever leaves it cheapest. They never add together, and a bundle price is never reduced further.</p></div></div>`;
+      ${live.some((o) => o.kind === "bogof") ? '<p class="pb-hint">Buy one, get one free is on. It doesn\'t change a pack\'s own price, so it doesn\'t show in the table: it works across the basket. Try one below.</p>' : ""}
+      <p class="pb-hint">A pack gets one discount, whichever leaves it cheapest. They never add together, and a bundle price is never reduced further.</p>
+      <div class="pb-field"><span>Try a basket</span><div class="so-ticks">${PACKS.map((p) => `<label class="pb-check"><input type="checkbox" data-try="${esc(p.id)}"${TRY.has(p.id) ? " checked" : ""}> ${esc(p.title)}</label>`).join("")}</div></div>
+      <p class="so-try" id="so-try-out">${tryOut()}</p></div></div>`;
   }
 
   function draw() {
@@ -122,6 +143,7 @@ export function initOffers(ctx) {
           : "The shop is as it was for everyone else. The team and the test logins have the basket, so it can be tried first: a test login pays in Stripe's test mode with a test card, and no money is taken. The offers below only reach people who have the basket."}</p>
         <div class="so-acts"><button type="button" class="mbtn${SET.basket_live ? "" : " primary"}" data-so-basket="${SET.basket_live ? "0" : "1"}">${SET.basket_live ? "Take the basket away again" : "Switch the basket on for everyone"}</button></div></div></div>
       ${pricesNow()}
+      ${card(one("bogof"))}
       ${card(one("sitewide"))}
       ${many("bundle").map(card).join("")}
       <div class="so-add"><button type="button" class="mbtn" data-so-new="bundle">Add a bundle</button></div>
@@ -148,6 +170,7 @@ export function initOffers(ctx) {
     if (pct != null && !(pct > 0 && pct <= 100)) return { error: "The percentage needs to be between 1 and 100." };
     if (v("price_pence") && price == null) return { error: "That price isn't a number. Type it in pounds, such as 6 or 18.50." };
     if (row.starts_at && row.ends_at && Date.parse(row.ends_at) <= Date.parse(row.starts_at)) return { error: "The end is before the start." };
+    if (o.kind === "bogof") { row.percent = null; row.price_pence = null; }
     if (o.kind === "sitewide" || o.kind === "member") { if (pct == null) return { error: "Add the percentage off." }; row.percent = pct; if (o.kind === "member") row.pack_ids = []; }
     if (o.kind === "bundle") {
       row.pack_id = v("pack_id") || null; row.price_pence = price;
@@ -170,6 +193,13 @@ export function initOffers(ctx) {
     return { row };
   }
 
+  // Try a basket: only its answer is redrawn, so nothing typed in the boxes below is lost.
+  root.addEventListener("change", (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement) || !t.dataset.try) return;
+    if (t.checked) TRY.add(t.dataset.try); else TRY.delete(t.dataset.try);
+    const out = document.getElementById("so-try-out"); if (out) out.innerHTML = tryOut();
+  });
   root.addEventListener("click", async (e) => {
     const t = e.target instanceof Element ? e.target : null;
     if (!t) return;
@@ -215,6 +245,7 @@ export function initOffers(ctx) {
       const q = o.id ? supabase.from("shop_offers").update(row).eq("id", o.id).select("*") : supabase.from("shop_offers").insert(row).select("*");
       const { data, error } = await q;
       // "Saved" only when the database hands the row back.
+      if (error && /shop_offers_kind_check/.test(error.message || "")) return say(el, "The database doesn't know this kind of offer yet. Run supabase/shop_bogof.sql in the Supabase SQL editor, then save again.");
       if (error || !data || !data.length) return say(el, "That didn't save: " + ((error && error.message) || "nothing came back"));
       if (o.id) OFFERS = OFFERS.map((x) => (x.id === o.id ? data[0] : x)); else { OFFERS.push(data[0]); DRAFTS = DRAFTS.filter((d) => d._draft !== o._draft); }
       draw();

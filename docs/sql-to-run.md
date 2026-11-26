@@ -4,6 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
+- [ ] supabase/shop_bogof.sql (26 Nov): buy one, get one free. Lets Catalogue › Offers save that kind of offer. Until it runs, saving one is refused; nothing else in the shop is affected.
 - [ ] supabase/designers.sql (24 Nov): brand designers. Lets you add someone from a brand's own marketing team in Settings › Access, who gets the Catalogue and the Design studio only, makes packs for the brands you tick, and can't put anything live. Also closes an old gap: until it runs, any signed-in account could change designs through the database's own address (no screen allowed it). Until it runs, Settings says designers aren't set up and nobody can be added. It ends by listing the rules on designs and packs: send Claude that list.
 - [ ] supabase/guides_kind_article.sql (23 Nov): Guides › Details › Type gains Article beside Guide and Course. Until it runs, saving a guide as an Article is refused and the editor says so.
 

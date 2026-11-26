@@ -11206,6 +11206,8 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           bundles: offers.filter((o) => o.kind === "bundle" && o.pack_id && o.price_pence != null && all.some((p) => p.id === o.pack_id))
             .map((o) => ({ pack_id: o.pack_id, price_pence: o.price_pence, with: (o.pack_ids || []).filter((id) => id !== o.pack_id && all.some((p) => p.id === id)), label: o.label || null, ends_at: o.ends_at || null })),
           member_percent: memberOffer ? Number(memberOffer.percent) : null,
+          // Buy one, get one free (26 Nov): no pack's own price changes, so the pages are told it's on, to say so.
+          deals: offers.filter((o) => o.kind === "bogof").slice(0, 1).map((o) => ({ kind: "bogof", label: o.label || "Buy one, get one free", ends_at: o.ends_at || null, left_out: (o.pack_ids || []) })),
           owned: user ? await shopOwned(env, user, user.email) : [],
           me: await shopBuyer(env, user),
           vat_rate: (await vatBreakdown(env, 0)).rate,
@@ -11288,7 +11290,9 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
             params[`line_items[${i}][price_data][currency]`] = "gbp";
             params[`line_items[${i}][price_data][unit_amount]`] = l.total_pence;
             params[`line_items[${i}][price_data][product_data][name]`] = l.title;
-            if (l.label) params[`line_items[${i}][price_data][product_data][description]`] = `${l.label}. Usually ${gbpW(l.list_pence)} + VAT.`;
+            // What Stripe's page and receipt say under the pack's name: its offer, and the pack that comes free with it.
+            const about = [l.label ? `${l.label}. Usually ${gbpW(l.list_pence)} + VAT.` : "", l.pays_for ? `Comes with ${l.pays_for}, free.` : ""].filter(Boolean).join(" ");
+            if (about) params[`line_items[${i}][price_data][product_data][description]`] = about;
           });
           const session = await ccStripe(env, a.mode, "POST", "checkout/sessions", params);
           await sbPatch(env, "orders", `checkout_id=eq.${checkoutId}`, { stripe_session_id: session.id });

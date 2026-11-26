@@ -29,7 +29,7 @@ create index if not exists orders_checkout_idx on public.orders (checkout_id);
 -- and now is inside its dates.
 create table if not exists public.shop_offers (
   id          uuid primary key default gen_random_uuid(),
-  kind        text not null check (kind in ('sitewide', 'pack', 'bundle', 'member')),
+  kind        text not null check (kind in ('sitewide', 'pack', 'bundle', 'member', 'bogof')),   -- bogof: supabase/shop_bogof.sql adds it where this ran first
   active      boolean not null default false,
   label       text,
   percent     numeric(5,2) check (percent is null or (percent > 0 and percent <= 100)),

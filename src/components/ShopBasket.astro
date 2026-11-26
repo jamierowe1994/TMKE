@@ -19,7 +19,9 @@
 //   data-buy="<pack id>"           a Buy now button: opens the checkout for
 //                                  that pack alone, here, without leaving
 //   data-buy-now-label             on a data-buy button: its words once on
-//   data-shop-banner               where the shop's banner goes
+//   data-shop-deal="<pack id>"     filled with an offer that runs across the
+//                                  basket, e.g. "Buy one, get one free"
+// The shop's banner needs nothing from the page: it goes across the very top.
 // and, from script: window.tmkeShop { ready, on, add, remove, has, buyNow,
 // open, paint }.
 //
@@ -61,11 +63,17 @@
 
   /* The shop's banner: one line on the wine, under the nav. */
   .shop-banner {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 101; box-sizing: border-box;
     background: var(--english-violet); color: var(--paper); text-align: center;
     font-family: var(--sans); font-size: 11.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; line-height: 1.5;
-    padding: 12px 20px;
+    padding: 10px 20px;
+    border-bottom: 1px solid rgba(244, 242, 241, 0.18);   /* on The Edit the header under it is wine too */
   }
-  .shop-banner[hidden] { display: none; }
+  html.has-shop-banner .nav { top: var(--shop-banner-h, 0px); }
+  html.has-shop-banner body { padding-top: var(--shop-banner-h, 0px); }
+  html.has-shop-banner .pd-panel-in { top: calc(78px + var(--shop-banner-h, 0px)); }
+  /* Buy one, get one free and the like, said on the pack itself. */
+  .shop-deal { align-self: flex-start; margin-top: 2px; }
 
   /* The basket in the site's header: only there once something's in it. */
   html.shop-on .nav-basket.has-items {
@@ -146,7 +154,7 @@
   }
   .sb-btn:hover { background: #4d2b39; border-color: #4d2b39; }
   .sb-btn:disabled { background: rgba(28,29,34,0.12); border-color: transparent; color: rgba(28,29,34,0.45); cursor: default; }
-  .sb-btn--line { width: auto; flex: none; padding: 10px 14px; background: transparent; color: var(--english-violet); }
+  .sb-btn--line { width: auto; flex: none; padding: 10px 14px; background: transparent; color: var(--english-violet); text-decoration: none; white-space: nowrap; }
   .sb-btn--line:hover { background: var(--english-violet); color: var(--paper); }
   .sb-link {
     display: block; width: 100%; margin-top: 12px; padding: 0; border: 0; background: none; cursor: pointer; text-align: center;
@@ -233,8 +241,29 @@
       const has = owned.has(el.getAttribute('data-buy'));
       el.textContent = has ? 'Open in the Studio' : el.getAttribute('data-buy-now-label');
     });
-    document.querySelectorAll('[data-shop-banner]').forEach((el) => { el.textContent = S.shop.banner || ''; el.hidden = !S.shop.banner; });
+    // An offer that works across the basket (buy one, get one free) changes no pack's price, so each pack says it's on.
+    const deal = (S.shop.deals || [])[0];
+    document.querySelectorAll('[data-shop-deal]').forEach((el) => {
+      const id = el.getAttribute('data-shop-deal'), on = !!deal && !!packOf(id) && !(deal.left_out || []).includes(id) && !owned.has(id);
+      el.textContent = on ? deal.label : ''; el.hidden = !on;
+    });
+    paintBanner();
     paintNav();
+  }
+  /* The shop's banner (Catalogue › Offers): one line across the very top of
+     the shop's pages, over the site's header, which moves down by the
+     banner's height. Everything that measures from the top of the window
+     (the header, a pack page's panel) reads --shop-banner-h. */
+  function paintBanner() {
+    let b = document.getElementById('shop-banner');
+    const text = (S.shop && S.shop.on && S.shop.banner) || '';
+    if (!text) { if (b) b.remove(); document.documentElement.classList.remove('has-shop-banner'); document.documentElement.style.removeProperty('--shop-banner-h'); return; }
+    if (!b) { b = document.createElement('div'); b.id = 'shop-banner'; b.className = 'shop-banner'; b.setAttribute('role', 'status'); document.body.insertBefore(b, document.body.firstChild); }
+    b.textContent = text;
+    const fit = () => document.documentElement.style.setProperty('--shop-banner-h', b.offsetHeight + 'px');
+    document.documentElement.classList.add('has-shop-banner');
+    fit();
+    if (!b.dataset.wired) { b.dataset.wired = '1'; addEventListener('resize', fit); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit); }
   }
   function paintNav() {
     let b = document.querySelector('.nav-basket');
@@ -267,6 +296,11 @@
         out.push({ add: partners.length === 1 ? partners[0] : null, text: `${t.title} is ${gbp(b.price_pence)} when you buy it with ${names.length === 1 ? names[0] : names.length === 2 ? names.join(' or ') : 'another pack from The Edit'}.` });
       }
     });
+    // Buy one, get one free: a pack with nothing to pair with yet.
+    (S.shop.deals || []).filter((d) => d.kind === 'bogof').forEach((d) => {
+      const n = ids.filter((id) => packOf(id) && !(d.left_out || []).includes(id)).length;
+      if (n % 2 === 1) out.push({ link: '/edit', text: n === 1 ? `${d.label}. Add another pack and the cheaper of the two is free.` : 'One pack in your basket has nothing to pair with. Add another and the cheaper of those two is free.' });
+    });
     return out;
   }
   function draw() {
@@ -287,7 +321,7 @@
       const l = (q && q.lines.find((x) => x.pack_id === id)) || null, p = packOf(id);
       const title = (l && l.title) || (p && p.title) || 'A pack', cover = (l && l.cover_image_url) || (p && p.cover_image_url) || '';
       const gone = q && q.gone && q.gone.includes(id);
-      const price = l ? (l.pence < l.list_pence ? `<s class="shop-was">${esc(gbp(l.list_pence))}</s>${esc(gbp(l.pence))}` : esc(gbp(l.pence))) : gone ? '' : '&hellip;';
+      const price = l ? (l.pence < l.list_pence ? `<s class="shop-was">${esc(gbp(l.list_pence))}</s>${l.pence === 0 ? 'Free' : esc(gbp(l.pence))}` : esc(gbp(l.pence))) : gone ? '' : '&hellip;';
       const note = gone ? '<p class="sb-note is-bad">This pack isn’t available any more.</p>'
         : owned.has(id) ? '<p class="sb-note is-bad">This pack is already in your library.</p>'
         : l && l.label && l.pence < l.list_pence ? `<span class="shop-tag">${esc(l.label)}</span>` : '';
@@ -295,7 +329,7 @@
         <div><p class="sb-name">${esc(title)}</p>${note}${S.view === 'basket' ? `<div><button type="button" class="sb-remove" data-sb-remove="${esc(id)}">Remove</button></div>` : ''}</div>
         <div class="sb-price">${price}</div></div>`;
     }).join('');
-    const hint = S.view === 'basket' && !single ? hints().map((h) => `<div class="sb-hint"><p>${esc(h.text)}</p>${h.add ? `<button type="button" class="sb-btn sb-btn--line" data-sb-add="${esc(h.add)}">Add</button>` : ''}</div>`).join('') : '';
+    const hint = S.view === 'basket' && !single ? hints().map((h) => `<div class="sb-hint"><p>${esc(h.text)}</p>${h.add ? `<button type="button" class="sb-btn sb-btn--line" data-sb-add="${esc(h.add)}">Add</button>` : h.link ? `<a class="sb-btn sb-btn--line" href="${esc(h.link)}">See the packs</a>` : ''}</div>`).join('') : '';
     const blocked = !q || (q.gone && q.gone.length > 0) || owned.size > 0;
     const sums = q ? `<dl class="sb-sums">
         ${q.saving_pence > 0 ? `<div><dt>Usual price</dt><dd>${esc(gbp(q.list_pence))}</dd></div><div class="is-saving"><dt>You save</dt><dd>${esc(gbp(q.saving_pence))}</dd></div>` : ''}
