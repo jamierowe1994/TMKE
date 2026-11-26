@@ -941,10 +941,12 @@ import ShopBasket from "../components/ShopBasket.astro";
          the subheadings and prices sit on the same line across the row. One line
          won't do it: at this width the longest pack names can't fit on one without
          dropping the type size far enough to look like a different card. */
+      /* Half the space between the name, the type and the price (Danielle, 26 Nov). */
       .stk-body--pad .pcard-title {
-        font-size: 15px; line-height: 1.1; margin-top: 9px; min-height: 2.2em;
+        font-size: 15px; line-height: 1.1; margin-top: 9px;
       }
-      .stk-body--pad .pcard-type { font-size: 11px; margin-top: 3px; }
+      .stk-body--pad .pcard-type { font-size: 11px; margin-top: 2px; }
+      .stk-body--pad .pcard-price { margin-top: 3px; }
     }
 
     /* ---- Between phone and laptop (761–900px): two across, but not two
@@ -1520,6 +1522,174 @@ import ShopBasket from "../components/ShopBasket.astro";
     .ck-done-ring:nth-child(2) { inset: 10px; border-top-color: rgba(var(--violet-rgb),0.4); animation-duration: 1.7s; animation-direction: reverse; }
     .ck-done-ring:nth-child(3) { inset: 20px; border-top-color: rgba(var(--violet-rgb),0.2); animation-duration: 2.1s; }
     @keyframes ck-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+    /* ====== The Edit scrolls like any other page (Danielle, 26 Nov) =========
+       Every section open in the page, one under the next. These sit last so
+       they win over the stacking rules above, which stay until the stack is
+       taken out for good. */
+    body.stk-on .stk-wrap { height: auto !important; }
+    body.stk-on .stk { position: static; height: auto; overflow: visible; display: block; }
+    body.stk-on .stk-p, body.stk-on .stk-p.is-open { display: block; flex: none; overflow: visible; transition: none; }
+    body.stk-on .stk-bar, body.stk-on .stk-foot { display: none !important; }
+    body.stk-on .stk-body { overflow: visible; }
+    @media (max-width: 760px) { body.stk-on .footer { display: block !important; } }
+    /* The hero: a quarter less room above and below the row than before, the
+       pictures the same size, so the sale under it reads as part of one
+       opening (Danielle, 26 Nov). */
+    body.stk-on .stk-p[data-i="0"] .stk-body--pack { height: auto; min-height: 0; padding-top: clamp(96px, 17svh, 170px); padding-bottom: clamp(96px, 17svh, 170px); }
+    @media (min-width: 761px) and (hover: hover) { body.stk-on .stk-dots { display: none; } }
+    body.stk-on .stk-slider { overflow: hidden; }
+    .stk-track.is-drift { transition: none !important; animation: stk-drift var(--drift, 170s) linear infinite; }
+    .stk-track.is-drift:hover { animation-play-state: paused; }
+    /* The same 6px between one pack's row and the next as between its tiles. */
+    .stk-track.is-drift .stk-slide { padding-right: 6px; box-sizing: border-box; }
+    @keyframes stk-drift { from { transform: translateX(0); } to { transform: translateX(calc(-100% * var(--sets, 5))); } }
+    @media (prefers-reduced-motion: reduce) { .stk-track.is-drift { animation: none; } }
+    /* A phone: the row fills the first screen as it did before, the dots under it. */
+    @media (max-width: 760px) { body.stk-on .stk-p[data-i="0"] .stk-body--pack { padding: 12px; height: calc(100svh - 56px - 140px); min-height: 380px; } }
+
+    /* Section two: the hero row's width, lightly framed. A picture of the pack
+       and a photograph, the words on a card in the photograph's corner. */
+    /* Full width and no frame (Danielle, 26 Nov): two halves edge to edge. */
+    .stk-body--promo { padding: 0; }
+    .stk-sec-promo.is-empty { display: none !important; }
+    .promo {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0;
+      height: calc(100svh - 56px); min-height: 520px; box-sizing: border-box;
+    }
+    .promo .promo-half { border-radius: 0; }
+    .promo-btn--on-dark { position: absolute; z-index: 2; right: var(--page-gutter); bottom: clamp(26px, 4svh, 44px); margin: 0; border-color: rgba(244,242,241,0.75); color: var(--paper); }
+
+    .promo-half { position: relative; display: block; min-width: 0; overflow: hidden; border-radius: 2px; background: rgba(28,29,34,0.06) center / cover no-repeat; text-decoration: none; }
+    /* Left: the photograph softened and lightened, the design crisp on top. */
+    .promo-back { position: absolute; inset: -24px; background: center / cover no-repeat; filter: blur(14px) brightness(1.12) saturate(0.8); }
+    .promo-left::after { content: ""; position: absolute; inset: 0; background: rgba(244,242,241,0.38); }
+    .promo-card {
+      position: absolute; z-index: 2; left: 50%; top: 47%; transform: translate(-50%, -50%);
+      height: 58%; aspect-ratio: 4 / 5; max-width: 70%; background: #fff center / cover no-repeat;
+      box-shadow: 0 34px 60px -30px rgba(28,29,34,0.55), 0 2px 6px rgba(28,29,34,0.12);
+      transition: transform 0.6s cubic-bezier(.2,.7,.2,1);
+    }
+    .promo-left:hover .promo-card { transform: translate(-50%, calc(-50% - 6px)); }
+    .promo-caption {
+      position: absolute; z-index: 2; left: var(--page-gutter); right: 24px; bottom: clamp(26px, 4svh, 44px); line-height: 36px;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(28,29,34,0.66);
+    }
+    /* Right: the photograph darkened, the words straight on it in paper. */
+    .promo-right::before { content: ""; position: absolute; inset: 0; background: rgba(20,18,22,0.5); }
+    .promo-tx {
+      position: absolute; z-index: 2; left: clamp(22px, 3vw, 52px); right: clamp(22px, 3vw, 52px); bottom: clamp(22px, 3vw, 48px);
+      max-width: 470px; color: var(--paper); display: flex; flex-direction: column; align-items: flex-start; gap: 12px;
+    }
+    .promo-kicker { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(244,242,241,0.72); }
+    .promo-h { font-family: var(--serif); font-weight: 300; font-size: clamp(30px, 3.4vw, 52px); line-height: 1.04; letter-spacing: -0.04em; margin: 2px 0 0; color: var(--paper); text-wrap: balance; }
+    .promo-line { font-family: var(--sans); font-size: 15px; line-height: 1.55; color: rgba(244,242,241,0.86); margin: 0; }
+    .promo-note { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(244,242,241,0.62); margin: 0; }
+    /* One button height on the page (Danielle, 26 Nov): 36px, the same as the
+       pack cards' Pack size and Discover. */
+    .promo-btn {
+      display: inline-flex; align-items: center; gap: 10px; margin-top: 8px; padding: 0 24px; height: 36px; box-sizing: border-box;
+      border: 1px solid var(--ink); color: var(--ink); background: transparent; text-decoration: none;
+      font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+      transition: background 0.3s, color 0.3s;
+    }
+    .promo-btn:hover { background: var(--ink); color: var(--paper); }
+    .promo-btn--phone { display: none !important; }
+    .promo-tx .promo-btn { border-color: rgba(244,242,241,0.75); color: var(--paper); }
+    .promo-tx .promo-btn:hover { background: var(--paper); color: var(--english-violet); }
+    .promo-right .promo-btn--on-dark { border-color: rgba(244,242,241,0.8); color: var(--paper); }
+    .promo-right .promo-btn--on-dark:hover { background: var(--paper); color: var(--english-violet); }
+    body.stk-on .pcard-size, body.stk-on .pcard-cta { height: 36px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; display: inline-flex; align-items: center; justify-content: center; }
+    /* No sale: the line about great marketing, in the same frame. */
+    .promo--quote { display: grid; grid-template-columns: 1fr; place-items: center; height: auto; padding: clamp(48px, 9vw, 130px) clamp(24px, 5vw, 80px); }
+    .promo--quote .stk-quote-eyebrow { color: rgba(28,29,34,0.6); }
+    .promo--quote .stk-quote { color: var(--english-violet); }
+    .promo--quote .stk-quote-offer { color: var(--ink); border-color: rgba(28,29,34,0.5); }
+    @media (max-width: 760px) {
+      .promo { grid-template-columns: 1fr; height: auto; min-height: 0; }
+      /* A phone shows the left side only (Danielle, 26 Nov), the caption and
+         the button at its foot. */
+      .promo-right { display: none; }
+      .promo-left { aspect-ratio: 4 / 5.4; }
+      .promo-card { top: 42%; height: 58%; }
+      .promo-caption { left: 20px; right: 20px; bottom: 74px; line-height: 1.5; }
+      .promo-btn--phone { display: inline-flex !important; position: absolute; z-index: 2; left: 20px; bottom: 22px; margin: 0; }
+      .promo-half { aspect-ratio: 4 / 5; }
+      .promo-right { aspect-ratio: 4 / 3; }
+      .promo-tx { left: 20px; right: 20px; bottom: 22px; }
+      .promo--quote { padding: 48px 20px; }
+    }
+
+    /* The packs: three across and wider than the page's margins, so the
+       pictures are large, with a small gap between them. */
+    body.stk-on .stk-p[data-i="2"] { padding-top: clamp(56px, 6vw, 96px); }
+    body.stk-on .stk-body--pad { display: block; padding: 0 var(--page-gutter); overflow: visible; }
+    body.stk-on .stk-body--pad .edit-shows { max-width: none; width: 100%; margin: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(28px, 3vw, 48px) 6px; }
+    @media (max-width: 900px) { body.stk-on .stk-body--pad .edit-shows { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 560px) { body.stk-on .stk-body--pad .edit-shows { gap: 26px 8px; } }
+
+    /* The last section, on the page's own margins: pictures down one side,
+       the words beside them and held in view. */
+    /* The last section breaks the page up (Danielle, 26 Nov): the shop's
+       line opens it, and it fades from the page's paper to wine as it comes
+       into view, so it reads as the practical part, apart from the packs. */
+    /* Paper to wine as you scroll into it, by --lit (0 to 1, set from the
+       scroll). Mixed in oklab, which goes paper, blush, wine: plain RGB
+       went through a muddy grey on the way. */
+    body.stk-on { --lit: 0; background-color: color-mix(in oklab, var(--english-violet) calc(var(--lit) * 100%), var(--paper)); }
+    body.stk-on .stk, body.stk-on .stk-sec-how { background: transparent; }
+    body.stk-on .stk-sec-how { margin-top: 0; }
+    /* The packs' words go light with the page, so they read on the way past. */
+    body.stk-on .pcard-title { color: color-mix(in oklab, var(--paper) calc(var(--lit) * 100%), var(--ink)); }
+    body.stk-on .pcard-type { color: color-mix(in oklab, rgba(244,242,241,0.65) calc(var(--lit) * 100%), rgba(28,29,34,0.55)); }
+    body.stk-on .pcard-size { color: color-mix(in oklab, var(--paper) calc(var(--lit) * 100%), var(--ink)); border-color: color-mix(in oklab, rgba(244,242,241,0.6) calc(var(--lit) * 100%), rgba(28,29,34,0.3)); }
+    /* Discover turns light once the page is more wine than paper (Danielle,
+       26 Nov): a paper button with wine words. It changes over in one short
+       fade at the halfway point, so its words can always be read. */
+    body.stk-on .pcard-cta { transition: background 0.4s ease, color 0.4s ease, transform 0.4s cubic-bezier(.2,.7,.2,1); }
+    body.stk-on.edit-dark .pcard-cta { background: var(--paper); color: var(--english-violet); }
+    body.stk-on.edit-dark .pcard-cta:hover { background: var(--isabelline, #f0eeeb); color: var(--english-violet); }
+    /* Twice the gap above the packs (Danielle, 26 Nov). */
+    .stk-body--how { padding: clamp(112px, 12vw, 192px) var(--page-gutter) clamp(72px, 8vw, 120px); }
+    .stk-sec-how .how-eyebrow { color: color-mix(in oklab, rgba(244,242,241,0.7) calc(var(--lit) * 100%), rgba(28,29,34,0.6)); transition: none; }
+    .stk-sec-how .how-quote { color: color-mix(in oklab, var(--paper) calc(var(--lit) * 100%), var(--english-violet)); transition: none; }
+    .stk-sec-how .how-tx h3 { color: color-mix(in oklab, var(--paper) calc(var(--lit) * 100%), var(--gunmetal)); transition: none; }
+    .stk-sec-how .how-tx p { color: color-mix(in oklab, rgba(244,242,241,0.8) calc(var(--lit) * 100%), rgba(28,29,34,0.72)); transition: none; }
+    .stk-sec-how .promo-btn--ink { color: color-mix(in oklab, var(--paper) calc(var(--lit) * 100%), var(--ink)); border-color: color-mix(in oklab, rgba(244,242,241,0.75) calc(var(--lit) * 100%), var(--ink)); }
+    .stk-sec-how .promo-btn--ink:hover { background: var(--paper); color: var(--english-violet); }
+    .how-intro { max-width: 900px; display: flex; flex-direction: column; gap: 16px; margin-bottom: clamp(56px, 6vw, 90px); }
+    .how-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.6); transition: color 0.9s ease; }
+    .how-quote { margin: 0; font-family: var(--sans); font-weight: 400; font-size: clamp(18px, 2.1vw, 30px); line-height: 1.4; color: var(--english-violet); transition: color 0.9s ease; }
+    .stk-sec-how .stk-quote-offer { color: var(--ink); border-color: rgba(28,29,34,0.5); }
+    .stk-sec-how .stk-quote-offer { color: color-mix(in oklab, var(--paper) calc(var(--lit) * 100%), var(--ink)); border-color: color-mix(in oklab, rgba(244,242,241,0.55) calc(var(--lit) * 100%), rgba(28,29,34,0.5)); }
+    .stk-sec-how .how-tx h3, .stk-sec-how .how-tx p { transition: color 0.9s ease; }
+    .stk-sec-how .promo-btn--ink { transition: background 0.3s, color 0.3s, border-color 0.9s; }
+    /* Shop The Edit, small, at the foot of the screen until the packs arrive. */
+    .edit-jump {
+      position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 40;
+      display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 20px; box-sizing: border-box;
+      background: rgba(244,242,241,0.92); color: var(--ink); border: 1px solid rgba(28,29,34,0.28); cursor: pointer;
+      font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      transition: opacity 0.35s ease, transform 0.35s ease, background 0.25s, color 0.25s;
+    }
+    .edit-jump:hover { background: var(--ink); color: var(--paper); }
+    .edit-jump.is-gone { opacity: 0; transform: translate(-50%, 12px); pointer-events: none; }
+    .how-tx { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: clamp(32px, 5vw, 80px); align-items: start; max-width: 1100px; }
+    .how-tx h3 { grid-column: auto; }
+    .how-tx > :nth-child(1), .how-tx > :nth-child(2), .how-tx > :nth-child(3) { grid-column: 1; }
+    .how-tx > :nth-child(4), .how-tx > :nth-child(5), .how-tx > :nth-child(6) { grid-column: 2; }
+    .how-tx > :nth-child(1) { grid-row: 1; } .how-tx > :nth-child(2) { grid-row: 2; } .how-tx > :nth-child(3) { grid-row: 3; }
+    .how-tx > :nth-child(4) { grid-row: 1; } .how-tx > :nth-child(5) { grid-row: 2; } .how-tx > :nth-child(6) { grid-row: 3; }
+    .how-tx > .promo-btn { grid-column: 1; grid-row: 4; justify-self: start; }
+    .how-wide { margin-top: clamp(56px, 6vw, 90px); width: 100%; aspect-ratio: 21 / 9; background: rgba(28,29,34,0.06) center / cover no-repeat; }
+
+
+    .how-tx h3 { font-family: var(--sans); font-size: 16px; font-weight: 700; color: var(--gunmetal); margin: 0 0 12px; letter-spacing: 0; line-height: normal; }
+
+    .how-tx p { font-family: var(--sans); font-size: 14px; line-height: 1.75; color: rgba(28,29,34,0.72); margin: 0 0 12px; }
+    .promo-btn--ink { margin-top: 14px; }
+    @media (max-width: 760px) { .stk-body--how { padding: 56px 20px; } .how-tx { display: block; } .how-tx h3:not(:first-child) { margin-top: 22px; } .how-wide { aspect-ratio: 4 / 3; } }
   </style>
 
   <script>
@@ -1629,7 +1799,10 @@ import ShopBasket from "../components/ShopBasket.astro";
       const type = p.category ? `${escapeHtml(p.category)} Template Pack` : 'Template Pack';
       const href = `/edit/${encodeURIComponent(p.slug)}`;
       const frames = previews.map((src, k) =>
-        `<span class="pcard-frame${k === 0 ? ' is-active' : ''}" style="background-image:url('${escapeHtml(edImg(src, 700))}')"></span>`
+        // 1300 wide (Danielle, 26 Nov: "the image quality for the packs is not
+        // great"): at three across a card is about 420px, twice that on a
+        // retina screen, and the 700px copy was being stretched.
+        `<span class="pcard-frame${k === 0 ? ' is-active' : ''}" style="background-image:url('${escapeHtml(edImg(src, 1300))}')"></span>`
       ).join('');
       const dots = previews.length > 1
         ? `<div class="pcard-dots">${previews.map((_, k) =>
@@ -2105,6 +2278,11 @@ import ShopBasket from "../components/ShopBasket.astro";
       const wrap = document.getElementById('edit-stack');
       const stk = document.getElementById('stk');
       if (!wrap || !stk) return;
+      /* The page scrolls like any other (Danielle, 26 Nov): every section is
+         open, one under the next. No bars, no runway, no settling onto a
+         panel. The stacking code below stays for now and stands down while
+         this is on. */
+      const FLOW = true;
 
       const designsOf = (p) => (Array.isArray(p.templates) ? p.templates : []).filter((u) => typeof u === 'string' && u.trim());
       const heroOf = (p) => designsOf(p)[0] || p.cover_image_url || '';
@@ -2196,14 +2374,69 @@ import ShopBasket from "../components/ShopBasket.astro";
         + `<div class="stk-dots" id="stk-dots">`
         + list.map((p, n) => `<button type="button" class="stk-dot-btn${n === 0 ? ' is-on' : ''}" data-s="${n}" aria-label="${escapeHtml(p.title || ('Pack ' + (n + 1)))}"></button>`).join('')
         + `</div></div></div></section>`;
-      html += `<section class="stk-p" data-i="1">`
+      /* Section two (Danielle, 26 Nov): when there is a sale or something to
+         talk about, a picture of the pack on the left and a photograph on the
+         right with the words in its bottom right corner. Otherwise the line
+         about great marketing. Which one shows is by the date, UK time;
+         ?promo=xmas, monday or none looks at each. To be moved to Catalogue
+         › Offers once the look is agreed. */
+      const bySlug = (slug) => list.find((p) => p.slug === slug) || null;
+      const galleryOf = (p) => (p && Array.isArray(p.preview_images) ? p.preview_images : []).filter((u) => typeof u === 'string' && u.trim());
+      const xmasPack = bySlug('the-christmas-edit');
+      const xg = galleryOf(xmasPack);
+      const others = list.filter((p) => p !== xmasPack);
+      const og = others.map((p) => galleryOf(p)[0] || heroOf(p)).filter(Boolean);
+      const PROMOS = {
+        xmas: {
+          from: '2026-11-27T00:00:00Z', to: '2026-11-30T00:00:00Z',
+          card: (xmasPack && designsOf(xmasPack)[4]) || (xmasPack ? heroOf(xmasPack) : ''),
+          back: xg[1] || xg[0] || '', right: xg[3] || xg[2] || xg[0] || '',
+          caption: 'Black Friday weekend &middot; 20% off The Christmas Edit',
+          kicker: 'Black Friday Weekend', title: 'The Christmas Edit, 20% Off.',
+          line: 'Twelve festive designs for your social media. &pound;12, was &pound;15, +VAT.',
+          note: 'Until Monday 30 November. No code needed.', btn: 'Shop the pack', href: '/edit/the-christmas-edit',
+        },
+        /* Members' 20% off every pack, Friday to Monday. Not on a date yet:
+           ?promo=blackfriday shows it. */
+        blackfriday: {
+          from: '', to: '',
+          card: (bySlug('the-property-pack') && designsOf(bySlug('the-property-pack'))[1]) || (others[2] ? heroOf(others[2]) : ''),
+          back: galleryOf(bySlug('the-property-pack'))[1] || og[2] || '', right: og[3] || og[0] || '',
+          caption: 'Black Friday &middot; Members save 20% on every pack in The Edit',
+          kicker: '', title: '', line: '', note: '', btn: 'Shop The Edit', href: '#shop',
+        },
+        monday: {
+          from: '2026-11-30T00:00:00Z', to: '2026-12-01T00:00:00Z',
+          card: (others[0] && designsOf(others[0])[0]) || (others[0] ? heroOf(others[0]) : ''),
+          back: og[0] || '', right: og[1] || og[0] || '',
+          caption: 'Cyber Monday &middot; Buy one, get one free on every pack in The Edit',
+          kicker: 'Cyber Monday', title: 'Buy One, Get One Free.',
+          line: 'Any two packs. The second one is on us.',
+          note: 'Monday 30 November only. No code needed.', btn: 'Shop the packs', href: '#shop',
+        },
+      };
+      const asked = params.get('promo');
+      const nowMs = Date.now();
+      const promoKey = asked === 'none' ? '' : (PROMOS[asked] ? asked
+        : (Object.keys(PROMOS).find((k) => PROMOS[k].from && nowMs >= Date.parse(PROMOS[k].from) && nowMs < Date.parse(PROMOS[k].to)) || ''));
+      const pr = PROMOS[promoKey];
+      /* Left: a soft photograph with one of the pack's designs laid on it as a
+         card, and a caption along its foot. Right: a darker photograph with
+         the words on it (Danielle, 26 Nov, after Studio Standard's hero). */
+      const promoHtml = pr && pr.card
+        ? `<div class="promo">`
+          + `<a class="promo-half promo-left" href="${pr.href}"${pr.href === '#shop' ? ' data-to-shop' : ''} aria-label="${escapeHtml(pr.btn)}">`
+          +   `<span class="promo-back" style="background-image:url('${edImg(pr.back || pr.card, 1400)}')"></span>`
+          +   `<span class="promo-card" style="background-image:url('${edImg(pr.card, 900)}')"></span>`
+          +   `<span class="promo-caption">${pr.caption}</span>`
+          +   `<span class="promo-btn promo-btn--phone" aria-hidden="true">${pr.btn} <span>&rarr;</span></span></a>`
+          + `<div class="promo-half promo-right" style="background-image:url('${edImg(pr.right, 1400)}')">`
+          +   `<a class="promo-btn promo-btn--on-dark" href="${pr.href}"${pr.href === '#shop' ? ' data-to-shop' : ''}>${pr.btn} <span aria-hidden="true">&rarr;</span></a>`
+          + `</div></div>`
+        : '';
+      html += `<section class="stk-p stk-sec-promo${promoHtml ? '' : ' is-empty'}" data-i="1">`
         + bar('Why The Edit', 'Our Template Shop', 'The Idea')
-        + `<div class="stk-body stk-body--wine"><div class="stk-quote-wrap">`
-        + `<span class="stk-quote-eyebrow">The Edit &middot; Our template shop</span>`
-        // The shop's offer (Catalogue › Offers › Shop banner) goes here while it's on, rather than a strip over the page (Danielle, 26 Nov).
-        + `<p class="stk-quote-offer" data-shop-offer-line hidden></p>`
-        + `<p class="stk-quote">Great marketing shouldn&rsquo;t need a design degree. Every pack in The Edit is built by our studio and ready to go &mdash; open it, make it yours, post it. Looking the part in minutes, not hours.</p>`
-        + `</div></div></section>`;
+        + `<div class="stk-body stk-body--promo">${promoHtml}</div></section>`;
       html += `<section class="stk-p" data-i="2">`
         + bar('Shop the Packs', 'Every Pack', 'Browse, Buy')
         + `<div class="stk-body stk-body--pad" id="stk-body-shop"></div></section>`;
@@ -2212,13 +2445,28 @@ import ShopBasket from "../components/ShopBasket.astro";
         'Inside the members area, you&rsquo;ll find the TMKE Design Studio. A built-in editing platform designed specifically with estate agents in mind. There&rsquo;s no Canva experience needed and no design skills required. Most of the hard work is already done. You&rsquo;re simply swapping in your own property details, your photos, and your branding. It&rsquo;s been built to be as straightforward as possible, because your time is better spent on your business than wrestling with a design tool.',
         'Your membership also gives you access to a growing library of resources, guidance, and content planning tools to help you get the most out of every template you own. And because your account is yours for life, every pack you add along the way sits in the same place, building into a complete content library that moves with your business. Purchase once, use it forever.',
       ];
-      html += `<section class="stk-p" data-i="3">`
+      /* The last section (Danielle, 26 Nov): pictures down one side and the
+         words beside them, as a pack page sets How it works. It was eight
+         boxes that parted to show the copy. The pictures are the packs' own
+         mockups for now, to be swapped for real-life ones. */
+      const howPics = [];
+      others.concat(xmasPack ? [xmasPack] : []).forEach((p) => galleryOf(p).forEach((u) => { if (howPics.indexOf(u) === -1) howPics.push(u); }));
+      html += `<section class="stk-p stk-sec-how" data-i="3">`
         + bar('The Studio', 'Design Studio', 'What You Can Do')
-        + `<div class="stk-body stk-body--pack stk-studio" id="stk-studio">`
-        +   `<div class="stk-reveal"><div class="stk-reveal-inner">`
-        +     STUDIO_COPY.map((t) => `<p>${t}</p>`).join('')
-        +   `</div></div>`
-        +   `<div class="stk-pgrid" id="stk-feat"></div>`
+        + `<div class="stk-body stk-body--how">`
+        +   `<div class="how-intro"><span class="how-eyebrow">The Edit &middot; Our template shop</span>`
+        // The shop's offer (Catalogue › Offers › Shop banner) still has its place here.
+        +   `<p class="stk-quote-offer" data-shop-offer-line hidden></p>`
+        +   `<p class="how-quote">Great marketing shouldn&rsquo;t need a design degree. Every pack in The Edit is built by our studio and ready to go &mdash; open it, make it yours, post it. Looking the part in minutes, not hours.</p></div>`
+        +   `<div class="how-tx">`
+        +     `<h3>How It Works</h3>`
+        +     `<p>Once purchased, your templates are unlocked in the TMKE Studio, ready to personalise. Change the images, text and colours to suit your business, then download your finished designs ready to post.</p>`
+        +     `<p>Each template comes in a set size, but you can easily resize it in the Studio for other formats, including Instagram Stories.</p>`
+        +     `<h3>The TMKE Studio</h3>`
+        +     `<p>The TMKE Studio is your online design space, where all your purchased packs are kept in one place. It works directly in your browser, so there&rsquo;s nothing to download or install.</p>`
+        +     `<p>Set up your brand kit with your logo, colours and fonts, then apply it across your designs to keep everything consistent.</p>`
+        +     `<a class="promo-btn promo-btn--ink" href="/join">Create your free account <span aria-hidden="true">&rarr;</span></a>`
+        +   `</div>`
         + `</div></section>`;
       html += '<div class="stk-foot" aria-hidden="true"></div>';
       stk.innerHTML = html;
@@ -2294,7 +2542,19 @@ import ShopBasket from "../components/ShopBasket.astro";
         paint(true);
         if (pos >= NPACKS) snap = setTimeout(() => { pos -= NPACKS; paint(false); }, SLIDE_MS + 40);
       }
-      function restartAuto() { clearInterval(auto); auto = setInterval(forward, AUTO_MS); }
+      /* Phones keep the top row as it was (Danielle, 26 Nov): dots, one pack
+         at a time. Only a laptop or larger gets the drift. */
+      const PHONE_ROW = window.matchMedia('(max-width: 760px), (hover: none) and (pointer: coarse)').matches;
+      const DRIFT = FLOW && !PHONE_ROW;
+      function restartAuto() { if (DRIFT) return; clearInterval(auto); auto = setInterval(forward, AUTO_MS); }
+      /* The row drifts on by itself (Danielle, 26 Nov): no dots and no step
+         from pack to pack. The track holds the packs twice, so sliding it one
+         full set along and starting again never shows a join. */
+      if (DRIFT && track) {
+        track.style.setProperty('--sets', String(NPACKS));
+        track.style.setProperty('--drift', (NPACKS * 34) + 's');
+        track.classList.add('is-drift');
+      }
 
       dots?.addEventListener('click', (e) => {
         const b = e.target.closest('.stk-dot-btn');
@@ -2302,10 +2562,10 @@ import ShopBasket from "../components/ShopBasket.astro";
       });
       // The wine Next tile in each pack → on to the next pack, same direction.
       track?.addEventListener('click', (e) => {
-        if (!e.target.closest('[data-nextpack]')) return;
+        if (!e.target.closest('[data-nextpack]') || DRIFT) return;
         forward(); restartAuto();
       });
-      paint(false);
+      if (!DRIFT) paint(false);
       restartAuto();
 
       // Re-flow the tiles when the viewport changes shape (the column count is
@@ -2375,11 +2635,12 @@ import ShopBasket from "../components/ShopBasket.astro";
       function applyRunway() {
         // Runway = the last panel's parking spot + its own screen + the tail. (Any
         // longer and you'd scroll a dead screen on the Studio before the footer.)
-        wrap.style.height = isMobile() ? '' : ((N - 1) * STEP + 100 + TAIL) + 'svh';
+        wrap.style.height = (FLOW || isMobile()) ? '' : ((N - 1) * STEP + 100 + TAIL) + 'svh';
       }
       applyRunway();
       let open = -1;
       function setOpen(i) {
+        if (FLOW) { open = i; panels.forEach((p) => p.classList.add('is-open')); return; }
         if (i === open) return;
         open = i;
         panels.forEach((p, n) => p.classList.toggle('is-open', n === i));
@@ -2484,7 +2745,7 @@ import ShopBasket from "../components/ShopBasket.astro";
         // On a phone the bars own which panel is open — there's no runway to
         // read, so letting scroll drive it would slam it back to panel 0 the
         // moment you scrolled the page.
-        if (isMobile() || jumping) return;
+        if (FLOW || isMobile() || jumping) return;
         const y = window.scrollY;
         if (Math.abs(y - lastY) > 2 && !snapping) dir = y > lastY ? 1 : -1;
         lastY = y;
@@ -2511,6 +2772,11 @@ import ShopBasket from "../components/ShopBasket.astro";
       const SHOP_PANEL = 2;
       function toShop() {
         if (!panels[SHOP_PANEL]) return;
+        if (FLOW) {
+          const top = panels[SHOP_PANEL].getBoundingClientRect().top + window.scrollY - 76, L = window.__lenis;
+          if (L && typeof L.scrollTo === 'function') L.scrollTo(top, { immediate: true, force: true }); else window.scrollTo(0, top);
+          return;
+        }
         measure();
         if (isMobile()) {
           setOpen(SHOP_PANEL);
@@ -2519,6 +2785,45 @@ import ShopBasket from "../components/ShopBasket.astro";
         } else jumpToPanel(SHOP_PANEL);
       }
       (window as any).__editToShop = toShop;
+      stk.querySelectorAll('[data-to-shop]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); toShop(); }));
+      if (FLOW) {
+        /* A small Shop The Edit at the foot of the screen (Danielle, 26 Nov),
+           only until the packs come into view: it takes you straight there. */
+        const jump = document.createElement('button');
+        jump.type = 'button'; jump.className = 'edit-jump';
+        jump.innerHTML = 'Shop The Edit <span aria-hidden="true">&darr;</span>';
+        jump.addEventListener('click', toShop);
+        document.body.appendChild(jump);
+        const shopSec = panels[SHOP_PANEL];
+        const howSec = stk.querySelector('.stk-sec-how');
+        if ('IntersectionObserver' in window) {
+          if (shopSec) new IntersectionObserver((es) => es.forEach((en) => {
+            jump.classList.toggle('is-gone', en.isIntersecting || en.boundingClientRect.top < 0);
+          }), { rootMargin: '0px 0px -30% 0px' }).observe(shopSec);
+        }
+        /* The page's colour follows the scroll into the Studio section
+           (Danielle, 26 Nov: not a flick, "a gradient fade into the new
+           color"): paper while that section's top is low on the screen, wine
+           once it has come a little over half way up, every step between as
+           you go. The whole page changes, so there is no edge. --lit, on the
+           body, runs 0 to 1 and the CSS mixes the colours from it. */
+        if (howSec) {
+          const lit = () => {
+            const top = howSec.getBoundingClientRect().top, vh = window.innerHeight || 1;
+            // Starts once the section's top is a quarter of the way up the screen (it was at the very bottom), wine by 70% of the way up.
+            const t = Math.max(0, Math.min(1, (vh * 0.75 - top) / (vh * 0.45)));
+            const eased = t * t * (3 - 2 * t);
+            document.body.style.setProperty('--lit', eased.toFixed(3));
+            document.body.classList.toggle('edit-dark', eased > 0.5);
+            // Shop The Edit is for the moment you land: once you have started
+            // scrolling it goes, so it never sits over the sale's own button.
+            if (window.scrollY > 120) jump.classList.add('is-gone');
+            else if (shopSec && shopSec.getBoundingClientRect().top > vh * 0.7) jump.classList.remove('is-gone');
+            requestAnimationFrame(lit);
+          };
+          requestAnimationFrame(lit);
+        }
+      }
       if (location.hash === '#shop') {
         try { history.scrollRestoration = 'manual'; } catch (_) {}
         // After the panels have their heights, and again once Lenis has settled in.

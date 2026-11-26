@@ -270,6 +270,11 @@ function gbp(pence) {
       </div>
     </section>
 
+      {/* On a phone, How it works, The TMKE Studio and the other packs come
+          after Inside this pack (Danielle, 26 Nov). The script at the foot
+          moves them here and back as the width crosses 960px. */}
+      <div class="pd-after" id="pd-after"></div>
+
       </div>
 
       <aside class="pd-panel"><div class="pd-panel-in">
@@ -428,6 +433,7 @@ function gbp(pence) {
     /* No rule down its left side (Danielle, 26 Nov): it showed in the gaps
        between the templates and between the mockups. */
     .pd-panel { background: var(--paper); border-top: 1px solid rgba(28,29,34,0.08); }
+    .pd-after:empty { display: none; }
     .pd-panel-in {
       position: sticky; top: 78px;
       /* Right edge on the burger's (Danielle, 26 Nov): the flat gutter the
@@ -554,12 +560,19 @@ function gbp(pence) {
       .pd-hero { grid-template-columns: 1fr; }
       .pd-left { display: contents; }
       .pd-reel { order: 1; }
-      .pd-reel-item { width: calc((100cqw - 14px) / 1.5); }
+      /* A quarter smaller on a phone (Danielle, 26 Nov), so more of the row shows as it goes by. */
+      .pd-reel-item { width: calc((100cqw - 14px) / 2); }
       .pd-panel { order: 2; }
       .pd-panel-in { position: static; padding: 22px 16px 10px; }
       .pd-story { order: 3; padding: 36px 20px 32px; }
       .pd-mocks { order: 4; padding: 0 0 28px; }
       .pack-previews { order: 5; }
+      .pd-after { order: 6; padding: 36px 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+      /* Inside this pack in the panel's section-heading type, and its button
+         under the row, level with the arrows. */
+      .pack-previews .pp-h { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; }
+      .pack-previews .pp-arrows { justify-content: space-between; align-items: center; }
+      .pp-arrows .pp-btn { margin: 0; width: auto; margin-right: auto; }
       .pp-wrap { padding: 0 16px; }
       .pd-mocks-grid { gap: 8px; }
     }
@@ -977,6 +990,31 @@ function gbp(pence) {
       document.querySelectorAll('.pd-acc details').forEach(function (d) { d.addEventListener('toggle', fit); });
     })();
 
-  </script>
+  
+    // Phones: How it works, the Studio and the other packs after Inside this
+    // pack, and Inside this pack's button under its row (Danielle, 26 Nov).
+    (function () {
+      var mq = window.matchMedia('(max-width: 960px)');
+      var panel = document.querySelector('.pd-panel-in');
+      var after = document.getElementById('pd-after');
+      if (!panel || !after) return;
+      var secs = [].slice.call(panel.querySelectorAll(':scope > .pd-section'));
+      var mark = document.createElement('span'); mark.hidden = true;
+      if (secs[0]) panel.insertBefore(mark, secs[0]);
+      var btn = document.querySelector('.pack-previews-head .pp-btn');
+      var head = btn && btn.parentNode, arrows = document.querySelector('.pp-arrows');
+      function place() {
+        if (mq.matches) {
+          secs.forEach(function (n) { after.appendChild(n); });
+          if (btn && arrows) arrows.insertBefore(btn, arrows.firstChild);
+        } else {
+          secs.forEach(function (n) { panel.insertBefore(n, mark); });
+          if (btn && head) head.appendChild(btn);
+        }
+      }
+      place();
+      if (mq.addEventListener) mq.addEventListener('change', place); else mq.addListener(place);
+    })();
+</script>
   <ShopBasket />
 </BaseLayout>
