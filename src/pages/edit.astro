@@ -1537,7 +1537,7 @@ import ShopBasket from "../components/ShopBasket.astro";
        pictures the same size, so the sale under it reads as part of one
        opening (Danielle, 26 Nov). */
     body.stk-on .stk-p[data-i="0"] .stk-body--pack { height: auto; min-height: 0; padding-top: clamp(96px, 17svh, 170px); padding-bottom: clamp(96px, 17svh, 170px); }
-    @media (min-width: 761px) and (hover: hover) { body.stk-on .stk-dots { display: none; } }
+    body.stk-on .stk-dots { display: none; }
     body.stk-on .stk-slider { overflow: hidden; }
     .stk-track.is-drift { transition: none !important; animation: stk-drift var(--drift, 170s) linear infinite; }
     .stk-track.is-drift:hover { animation-play-state: paused; }
@@ -1546,7 +1546,8 @@ import ShopBasket from "../components/ShopBasket.astro";
     @keyframes stk-drift { from { transform: translateX(0); } to { transform: translateX(calc(-100% * var(--sets, 5))); } }
     @media (prefers-reduced-motion: reduce) { .stk-track.is-drift { animation: none; } }
     /* A phone: the row fills the first screen as it did before, the dots under it. */
-    @media (max-width: 760px) { body.stk-on .stk-p[data-i="0"] .stk-body--pack { padding: 12px; height: calc(100svh - 56px - 140px); min-height: 380px; } }
+    /* A phone: no dots under the row (Danielle, 26 Nov), and the sale comes up a little. */
+    @media (max-width: 760px) { body.stk-on .stk-p[data-i="0"] .stk-body--pack { padding: 12px; height: calc(100svh - 56px - 220px); min-height: 330px; } }
 
     /* Section two: the hero row's width, lightly framed. A picture of the pack
        and a photograph, the words on a card in the photograph's corner. */
@@ -1610,6 +1611,13 @@ import ShopBasket from "../components/ShopBasket.astro";
       /* A phone shows the left side only (Danielle, 26 Nov), the caption and
          the button at its foot. */
       .promo-right { display: none; }
+      /* The photo fades in from the page's paper at the top and back out at
+         the foot, so there is no hard edge (Danielle, 26 Nov). */
+      .promo-left { background: transparent; }
+      .promo-back, .promo-left::after {
+        -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18%, #000 82%, transparent 100%);
+        mask-image: linear-gradient(180deg, transparent 0, #000 18%, #000 82%, transparent 100%);
+      }
       .promo-left { aspect-ratio: 4 / 5.4; }
       .promo-card { top: 42%; height: 58%; }
       .promo-caption { left: 20px; right: 20px; bottom: 74px; line-height: 1.5; }
