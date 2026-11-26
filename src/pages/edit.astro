@@ -1840,8 +1840,10 @@ import ShopBasket from "../components/ShopBasket.astro";
     .promo-pop .promo-btn--phone { height: 28px; padding: 0 14px; font-size: 10px; letter-spacing: 0.16em; gap: 8px; }
     .promo-pop .promo-caption { bottom: 56px; }
     /* The pop-up back to the taller size, so it takes more of the screen (Danielle, 26 Nov). */
-    .promo-pop .promo-left { aspect-ratio: 4 / 5.2 !important; }
-    .promo-pop .promo-card { top: 42% !important; height: 58% !important; }
+    @media (max-width: 760px) {
+      .promo-pop .promo-left { aspect-ratio: 4 / 5.2 !important; }
+      .promo-pop .promo-card { top: 42% !important; height: 58% !important; }
+    }
     .promo-pop-x { position: absolute; top: 14px; right: 14px; z-index: 5; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(244,242,241,0.92); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; }
 
     /* ---- The filter above the packs ---- */
@@ -1911,6 +1913,20 @@ import ShopBasket from "../components/ShopBasket.astro";
       .how-acc-in p:last-child { margin-bottom: 0; }
       .how-acc .how-acc-btn { display: flex; width: 100%; justify-content: center; margin: 36px 0 0; box-sizing: border-box; }
     }
+
+    /* ---- The sale pop-up on a laptop: both halves, not full screen ---- */
+    @media (min-width: 761px) {
+      .promo-pop { padding: 40px; }
+      .promo-pop-in { max-width: min(1180px, 88vw); }
+      .promo-pop .promo { height: min(720px, 80vh); min-height: 0; }
+      .promo-pop .promo-caption { bottom: 32px; left: 32px; line-height: 1.7; }
+      .promo-pop .promo-btn--on-dark { right: 32px; bottom: 32px; }
+      .promo-pop .promo-card { height: 64%; top: 45%; }
+    }
+    /* The caption's two lines close together, its last line level with the button. */
+    @media (min-width: 761px) { .promo-caption { line-height: 1.7; bottom: clamp(30px, 4.2svh, 48px); } }
+    /* The closing picture on a laptop only. */
+    @media (max-width: 760px) { .how-wide { display: none; } }
   </style>
 
   <script>
@@ -2619,15 +2635,8 @@ import ShopBasket from "../components/ShopBasket.astro";
           line: 'Twelve festive designs for your social media. &pound;12, was &pound;15, +VAT.',
           note: 'Until Monday 30 November. No code needed.', btn: 'Shop the pack', href: '/edit/the-christmas-edit',
         },
-        /* Members' 20% off every pack, Friday to Monday. Not on a date yet:
-           ?promo=blackfriday shows it. */
-        blackfriday: {
-          from: '', to: '',
-          card: (bySlug('the-property-pack') && designsOf(bySlug('the-property-pack'))[1]) || (others[2] ? heroOf(others[2]) : ''),
-          back: galleryOf(bySlug('the-property-pack'))[1] || og[2] || '', right: og[3] || og[0] || '',
-          caption: 'Black Friday<br>Members save 20% on every pack in The Edit',
-          kicker: '', title: '', line: '', note: '', btn: 'Shop The Edit', href: '#shop',
-        },
+        /* The members' 20% off every pack is not shown on the website
+           (Danielle, 26 Nov): it is kept for a Member Hub pop-up. */
         monday: {
           from: '2026-11-30T00:00:00Z', to: '2026-12-01T00:00:00Z',
           card: (others[0] && designsOf(others[0])[0]) || (others[0] ? heroOf(others[0]) : ''),
@@ -2702,6 +2711,8 @@ import ShopBasket from "../components/ShopBasket.astro";
         +     `</div></details>`
         +     `<a class="promo-btn promo-btn--ink how-acc-btn" href="/join">Create your free account <span aria-hidden="true">&rarr;</span></a>`
         +   `</div>`
+        // A laptop: one wide picture to close the page (Danielle, 26 Nov); a phone does without it.
+        +   `<div class="how-wide" style="background-image:url('${edImg(howPics[3] || howPics[0] || '', 2400)}')"></div>`
         + `</div></section>`;
       html += '<div class="stk-foot" aria-hidden="true"></div>';
       stk.innerHTML = html;
@@ -3042,11 +3053,12 @@ import ShopBasket from "../components/ShopBasket.astro";
       }
       (window as any).__editToShop = toShop;
       stk.querySelectorAll('[data-to-shop]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); toShop(); }));
-      /* A phone: the sale comes up as a pop-up when you first arrive, once a
-         visit, instead of sitting at the top of the page (Danielle, 26 Nov).
+      /* The sale comes up as a pop-up when the page opens, instead of sitting
+         in the page (Danielle, 26 Nov: phone first, then a laptop too).
          Closed, the page starts at the top row. */
       const promoBox = stk.querySelector('.stk-sec-promo .promo:not(.promo--quote)');
-      if (FLOW && promoBox && window.matchMedia('(max-width: 760px)').matches) {
+      /* On a laptop too (Danielle, 26 Nov): the sale as a pop-up, not full screen. */
+      if (FLOW && promoBox) {
         stk.querySelector('.stk-sec-promo').classList.add('is-empty');
         /* Every time the page is opened (Danielle, 26 Nov), but not when
            coming back to the packs from a pack (#shop). */
