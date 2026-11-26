@@ -471,7 +471,7 @@ export function initBuilder(ctx) {
           : `<a class="mbtn primary" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Open in the Studio</a><button type="button" class="mbtn" data-unlink>Choose a different one</button>`}</div></div></div>`;
     }
     if (st >= 2 && unsavedOf(r)) b += `<p class="pb-warn">${esc(unsavedOf(r, true))}</p>`;
-    b += `<label class="pb-field"><span>Note <em>(team only)</em></span><textarea data-f="note" rows="3" placeholder="Anything whoever makes it needs to know">${esc(r.note)}</textarea></label>`;
+    b += `<label class="pb-field pb-note-field"><span>Note <em>(team only)</em></span><textarea data-f="note" rows="3" placeholder="Anything whoever makes it needs to know">${esc(r.note)}</textarea></label>`;
     if (st === 3) {
       const ai = aiOf(t);
       b += fieldsBox(r);
@@ -484,6 +484,8 @@ export function initBuilder(ctx) {
     const foot = `<button type="button" class="mbtn" data-remove style="margin-right:auto">Remove from pack</button>${st === 3 && t ? `<a class="mbtn" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Open in the Studio</a>` : ""}<button type="button" class="mbtn" data-go="${i - 1}"${i ? "" : " disabled"}>&lsaquo; Previous</button><button type="button" class="mbtn" data-go="${i + 1}"${i < ROWS.length - 1 ? "" : " disabled"}>Next &rsaquo;</button><button type="button" class="mbtn primary" data-close>Done</button>`;
     showPop(esc(r.idea || "Untitled design"), `Design ${i + 1} of ${ROWS.length} · ${stages()[st - 1][1]}`, b, foot);
     pop.dataset.row = r.id;
+    // The note takes the room that's spare, so the ticks under it sit at the foot rather than mid-way (Danielle, 26 Nov).
+    const pb = pop.querySelector(".pb-pop-b"); if (pb) pb.classList.add("is-row");
   }
   // The Editing fields line of a design's pop-out: ticked by the design, not by hand.
   function fieldsBox(r) {

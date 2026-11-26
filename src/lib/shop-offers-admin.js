@@ -55,6 +55,8 @@ export function initOffers(ctx) {
     return [o.ends_at ? `On until ${whenWords(o.ends_at)}` : "On", "good"];
   }
   const liveNow = () => OFFERS.filter((o) => state(o)[1] === "good");
+  // The offers that count at a given moment, by the Worker's own test: on, and inside their dates.
+  const liveAt = (t) => OFFERS.filter((o) => o.active && (!o.starts_at || Date.parse(o.starts_at) <= t) && (!o.ends_at || Date.parse(o.ends_at) > t));
 
   const field = (label, inner, hint) => `<label class="pb-field"><span>${label}</span>${inner}${hint ? `<small class="so-small">${hint}</small>` : ""}</label>`;
   const dates = (o) => `<div class="pb-two">${field("Starts <em>(optional)</em>", `<input type="datetime-local" data-k="starts_at" value="${esc(toBox(o.starts_at))}">`)}${field("Ends <em>(optional)</em>", `<input type="datetime-local" data-k="ends_at" value="${esc(toBox(o.ends_at))}">`)}</div>`;
@@ -101,16 +103,21 @@ export function initOffers(ctx) {
      anyone and for a signed-in member, by the Worker's own rules. It's how a
      plan like "buy one, get one free, 20% off the Christmas pack, 25% for
      members" is checked against the table it was agreed on, before it's on. */
+  /* And on a day of your choosing (Danielle, 26 Nov): offers that start on
+     different days (members from Friday, buy one, get one free on Monday)
+     can each be checked before they begin, without touching their dates. */
   const TRY = new Set();
+  let TRY_AT = "";
   function tryOut() {
     const packs = PACKS.filter((p) => TRY.has(p.id));
     if (!packs.length) return "Tick the packs to put in the basket.";
+    const at = fromBox(TRY_AT), offers = at ? liveAt(Date.parse(at)) : liveNow();
     const say = (member) => {
-      const ls = shopPrice(packs, liveNow(), member), total = ls.reduce((n, l) => n + l.pence, 0);
+      const ls = shopPrice(packs, offers, member), total = ls.reduce((n, l) => n + l.pence, 0);
       const parts = ls.map((l) => `${esc(l.title)} ${l.pence === 0 ? "free" : esc(gbp(l.pence))}${l.label && l.pence > 0 && l.pence < l.list_pence ? ` <span class="pb-tx">${esc(l.label)}</span>` : ""}`);
       return `<b>${esc(gbp(total))}</b> <span class="pb-tx">(${parts.join(", ")})</span>`;
     };
-    return `Anyone pays ${say(false)}<br>A signed-in member pays ${say(true)}`;
+    return `${at ? `On ${esc(whenWords(at))}:<br>` : ""}Anyone pays ${say(false)}<br>A signed-in member pays ${say(true)}`;
   }
   // What everything costs this minute, by the Worker's own rules.
   function pricesNow() {
@@ -126,6 +133,7 @@ export function initOffers(ctx) {
       ${bundles.map((b) => `<p class="pb-hint">${esc(title(b.pack_id))} is ${esc(gbp(b.price_pence))} in a basket with ${esc((b.pack_ids || []).filter((id) => id !== b.pack_id).map(title).join(", ") || "no pack chosen yet")}.</p>`).join("")}
       ${live.some((o) => o.kind === "bogof") ? '<p class="pb-hint">Buy one, get one free is on. It doesn\'t change a pack\'s own price, so it doesn\'t show in the table: it works across the basket. Try one below.</p>' : ""}
       <p class="pb-hint">A pack gets one discount, whichever leaves it cheapest. They never add together, and a bundle price is never reduced further.</p>
+      <div class="pb-two">${field("Try a basket on <em>(empty for now)</em>", `<input type="datetime-local" id="so-try-at" value="${esc(TRY_AT)}">`)}<span></span></div>
       <div class="pb-field"><span>Try a basket</span><div class="so-ticks">${PACKS.map((p) => `<label class="pb-check"><input type="checkbox" data-try="${esc(p.id)}"${TRY.has(p.id) ? " checked" : ""}> ${esc(p.title)}</label>`).join("")}</div></div>
       <p class="so-try" id="so-try-out">${tryOut()}</p></div></div>`;
   }
@@ -196,6 +204,7 @@ export function initOffers(ctx) {
   // Try a basket: only its answer is redrawn, so nothing typed in the boxes below is lost.
   root.addEventListener("change", (e) => {
     const t = e.target;
+    if (t instanceof HTMLInputElement && t.id === "so-try-at") { TRY_AT = t.value; const out = document.getElementById("so-try-out"); if (out) out.innerHTML = tryOut(); return; }
     if (!(t instanceof HTMLInputElement) || !t.dataset.try) return;
     if (t.checked) TRY.add(t.dataset.try); else TRY.delete(t.dataset.try);
     const out = document.getElementById("so-try-out"); if (out) out.innerHTML = tryOut();
