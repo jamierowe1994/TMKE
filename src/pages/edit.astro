@@ -2098,7 +2098,10 @@ import ShopBasket from "../components/ShopBasket.astro";
     // catalogue by moving them into their panels.
     function setupStack(packs) {
       const params = new URLSearchParams(location.search);
-      if (params.get('layout') === 'classic') return;   // opt back to the old page
+      if (params.get('layout') === 'classic') {   // opt back to the old page
+        if (location.hash === '#shop') document.getElementById('edit-catalogue')?.scrollIntoView();
+        return;
+      }
       const wrap = document.getElementById('edit-stack');
       const stk = document.getElementById('stk');
       if (!wrap || !stk) return;
@@ -2499,7 +2502,37 @@ import ShopBasket from "../components/ShopBasket.astro";
         if ((tries || 0) > 40) { window.addEventListener('scroll', onScroll, { passive: true }); return; }
         setTimeout(() => hookLenis((tries || 0) + 1), 100);
       })();
+
+      /* Back to the packs (Danielle, 26 Nov): coming back from a pack, by the
+         browser's back button, the pack page's X or "The Edit", lands on Shop
+         the Packs, not the top of the page. /edit#shop says so; leaving for a
+         pack puts #shop on this page's own address first, so the browser's
+         back button comes here too. */
+      const SHOP_PANEL = 2;
+      function toShop() {
+        if (!panels[SHOP_PANEL]) return;
+        measure();
+        if (isMobile()) {
+          setOpen(SHOP_PANEL);
+          const top = wrap.getBoundingClientRect().top + window.scrollY, L = window.__lenis;
+          if (L && typeof L.scrollTo === 'function') L.scrollTo(top, { immediate: true, force: true }); else window.scrollTo(0, top);
+        } else jumpToPanel(SHOP_PANEL);
+      }
+      (window as any).__editToShop = toShop;
+      if (location.hash === '#shop') {
+        try { history.scrollRestoration = 'manual'; } catch (_) {}
+        // After the panels have their heights, and again once Lenis has settled in.
+        requestAnimationFrame(() => requestAnimationFrame(toShop));
+        setTimeout(toShop, 600);
+      }
+      addEventListener('hashchange', () => { if (location.hash === '#shop') toShop(); });
     }
+    // Leaving The Edit for a pack: mark this page's address, so Back returns to Shop the Packs.
+    document.addEventListener('click', (e) => {
+      const a = e.target instanceof Element ? e.target.closest('a[href^="/edit/"]') : null;
+      if (!a || a.getAttribute('href') === '/edit/thanks' || location.hash === '#shop') return;
+      try { history.replaceState(history.state, '', location.pathname + location.search + '#shop'); } catch (_) {}
+    }, true);
 
     // ============== Modal helpers ==============
     function showStep(step) {

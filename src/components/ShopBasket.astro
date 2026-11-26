@@ -338,7 +338,7 @@
     // Buy one, get one free: a pack with nothing to pair with yet.
     (S.shop.deals || []).filter((d) => d.kind === 'bogof').forEach((d) => {
       const n = ids.filter((id) => packOf(id) && !(d.left_out || []).includes(id)).length;
-      if (n % 2 === 1) out.push({ link: '/edit', text: n === 1 ? `${d.label}. Add another pack and the cheaper of the two is free.` : 'One pack in your basket has nothing to pair with. Add another and the cheaper of those two is free.' });
+      if (n % 2 === 1) out.push({ link: '/edit#shop', text: n === 1 ? `${d.label}. Add another pack and the cheaper of the two is free.` : 'One pack in your basket has nothing to pair with. Add another and the cheaper of those two is free.' });
     });
     return out;
   }
@@ -352,7 +352,7 @@
     }
     if (!lines().length) {
       body.innerHTML = '<p class="sb-empty">Your basket is empty. Packs you add from The Edit wait here until you’re ready to pay.</p>';
-      foot.innerHTML = '<button type="button" class="sb-btn" data-sb-close>Back to The Edit</button>';
+      foot.innerHTML = '<a class="sb-btn" href="/edit#shop" style="display:block;text-align:center;text-decoration:none;box-sizing:border-box">Back to the packs</a>';
       return;
     }
     const owned = new Set((q && q.owned) || []);
@@ -380,7 +380,7 @@
     if (S.view === 'basket') {
       body.innerHTML = rows + hint;
       foot.innerHTML = `${sums}${S.error ? `<p class="sb-error">${esc(S.error)}</p>` : ''}<button type="button" class="sb-btn" data-sb-checkout${blocked ? ' disabled' : ''}>Checkout</button>
-        <button type="button" class="sb-link" data-sb-close>Keep browsing</button>`;
+        <a class="sb-link" href="/edit#shop">Keep browsing</a>`;
       return;
     }
     // Your details, kept as typed while the panel redraws.
@@ -472,6 +472,8 @@
     if (!t) return;
     let b;
     if (t.closest('[data-sb-close]')) return close();
+    // Back to Shop the Packs: on The Edit itself, close the basket and go there; anywhere else, the link does it.
+    if (t.closest('a[href="/edit#shop"]') && typeof (window as any).__editToShop === 'function') { e.preventDefault(); close(); (window as any).__editToShop(); return; }
     if ((b = t.closest('[data-sb-remove]'))) return remove(b.getAttribute('data-sb-remove'));
     if ((b = t.closest('[data-sb-add]'))) { add(b.getAttribute('data-sb-add'), true); S.error = ''; draw(); requote(); return; }
     if (t.closest('[data-sb-checkout]')) { S.view = 'details'; S.error = ''; track('checkout_started', { packs: S.items.length, amount_pence: S.quote ? S.quote.net_pence : null }); draw(); const f = $('sb-form'); if (f && !f.elements.name.value) f.elements.name.focus(); return; }
