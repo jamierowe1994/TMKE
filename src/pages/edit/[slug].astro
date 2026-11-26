@@ -196,20 +196,8 @@ function gbp(pence) {
         </div>
       )}
 
-      {mockups.length > 0 && (
-        <div class="pd-mocks" aria-label="The pack in use">
-          <div class={`pd-mocks-grid n${mockups.length}`}>
-            {mockups.map((src, i) => (
-              <figure class="pd-mock" data-zoom data-set="mock" data-full={sized(src, 1600)} data-name={pack.title} tabindex="0" role="button" aria-label={`Enlarge image ${i + 1}`}>
-                <img src={sized(src, 1400)} alt="" loading="lazy" />
-              </figure>
-            ))}
-          </div>
-        </div>
-      )}
-
       <!-- ============================== PREVIEWS: in the left column, so
-           the panel runs beside it to the foot of the page (25 Oct) -->
+           the panel runs beside it (25 Oct); above the mockups since 26 Nov -->
     <section class="pack-previews" id="pack-previews">
       <div class="pp-wrap">
         <header class="pack-previews-head">
@@ -266,6 +254,20 @@ function gbp(pence) {
         </div>
       </div>
     </section>
+
+      {/* Under Inside this pack (Danielle, 26 Nov), so the wine sits between
+          the sliding templates and these four and the two sets read apart. */}
+      {mockups.length > 0 && (
+        <div class="pd-mocks" aria-label="The pack in use">
+          <div class={`pd-mocks-grid n${mockups.length}`}>
+            {mockups.map((src, i) => (
+              <figure class="pd-mock" data-zoom data-set="mock" data-full={sized(src, 1600)} data-name={pack.title} tabindex="0" role="button" aria-label={`Enlarge image ${i + 1}`}>
+                <img src={sized(src, 1400)} alt="" loading="lazy" />
+              </figure>
+            ))}
+          </div>
+        </div>
+      )}
 
       </div>
 
@@ -526,19 +528,11 @@ function gbp(pence) {
     .pd-mocks-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .pd-mocks-grid.n1 { grid-template-columns: minmax(0, 1fr); }
     .pd-mock { margin: 0; aspect-ratio: 4 / 5; overflow: hidden; background: #e7e0dc; cursor: zoom-in; }
-    .pd-mock img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(.2,.7,.2,1), opacity 0.35s ease; }
+    .pd-mock img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); }
     .pd-mock:hover img { transform: scale(1.03); }
-    /* Faded until pointed at (Danielle, 26 Nov), so the mockups read as a
-       separate set from the templates above them. Only side by side and with
-       a mouse: stacked, the panel already sits between the two, and a touch
-       screen has no hover to bring them back. */
-    @media (min-width: 961px) and (hover: hover) {
-      .pd-mock img { opacity: 0.55; }
-      .pd-mock:hover img, .pd-mock:focus-visible img { opacity: 1; }
-    }
     .pd-mock:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
 
-    /* Stacked: the strip, the panel, then the mockups. */
+    /* Stacked: the strip, the panel, the story, Inside this pack, then the mockups. */
     @media (max-width: 960px) {
       .pd-hero { grid-template-columns: 1fr; }
       .pd-left { display: contents; }
@@ -547,8 +541,8 @@ function gbp(pence) {
       .pd-panel { order: 2; }
       .pd-panel-in { position: static; padding: 22px 16px 10px; }
       .pd-story { order: 3; padding: 36px 20px 32px; }
-      .pd-mocks { order: 4; padding: 0 0 28px; }
-      .pack-previews { order: 5; }
+      .pack-previews { order: 4; }
+      .pd-mocks { order: 5; padding: 8px 0 28px; }
       .pp-wrap { padding: 0 16px; }
       .pd-mocks-grid { gap: 8px; }
     }
@@ -556,6 +550,9 @@ function gbp(pence) {
     /* The whole pack on the wine (Danielle, 24 Oct), headed the way Moyo
        Studio heads its collection: a small label, the count, one button. */
     .pack-previews { background: var(--english-violet); color: var(--paper); padding: 56px 0 56px; }
+    /* Straight under the strip on a pack with no story: the same gap the
+       strip and the mockups keep, so the wine never butts up against it. */
+    .pd-reel + .pack-previews { margin-top: 14px; }
     /* Left edge on the same line as the TMKE wordmark in the nav. */
     .pp-wrap { padding: 0 40px 0 var(--page-gutter); }
     @media (max-width: 720px) { .pp-wrap { padding: 0 16px; } }
