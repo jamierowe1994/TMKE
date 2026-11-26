@@ -2644,6 +2644,17 @@ import ShopBasket from "../components/ShopBasket.astro";
           line: 'Twelve festive designs for your social media. &pound;12, was &pound;15, +VAT.',
           note: 'Until Monday 30 November. No code needed.', btn: 'Shop the pack', href: '/edit/the-christmas-edit',
         },
+        /* The rest of the season, the Christmas Edit as the new pack
+           (Danielle, 26 Nov): in the page on a laptop only, no pop-up, no
+           offer. The two sales above take its place on their days, being
+           found first. */
+        new: {
+          from: '2026-11-26T00:00:00Z', to: '2027-01-01T00:00:00Z',
+          card: (xmasPack && designsOf(xmasPack)[4]) || (xmasPack ? heroOf(xmasPack) : ''),
+          back: xg[1] || xg[0] || '', right: xg[3] || xg[2] || xg[0] || '',
+          caption: 'New<br>The Christmas Edit',
+          kicker: '', title: '', line: '', note: '', btn: 'Shop the pack', href: '/edit/the-christmas-edit',
+        },
         /* The members' 20% off every pack is not shown on the website
            (Danielle, 26 Nov): it is kept for a Member Hub pop-up. */
         monday: {
@@ -3071,16 +3082,20 @@ import ShopBasket from "../components/ShopBasket.astro";
          in the page (Danielle, 26 Nov: phone first, then a laptop too).
          Closed, the page starts at the top row. */
       const promoBox = stk.querySelector('.stk-sec-promo .promo:not(.promo--quote)');
-      /* On a laptop too (Danielle, 26 Nov): the sale as a pop-up, not full screen. */
-      if (FLOW && promoBox) {
-        stk.querySelector('.stk-sec-promo').classList.add('is-empty');
+      /* A sale (not the plain New pack) is a pop-up on any screen, not full
+         screen. On a laptop the section also stays in the page, as it breaks
+         the page up; a phone has the pop-up only (Danielle, 26 Nov). */
+      const SALE = promoKey === 'xmas' || promoKey === 'monday';
+      if (FLOW && promoBox && window.matchMedia('(max-width: 760px)').matches) stk.querySelector('.stk-sec-promo').classList.add('is-empty');
+      if (FLOW && promoBox && SALE) {
         /* Every time the page is opened (Danielle, 26 Nov), but not when
            coming back to the packs from a pack (#shop). */
         if (location.hash !== '#shop') {
+          const popBox = promoBox.cloneNode(true);
           const pop = document.createElement('div');
           pop.className = 'promo-pop';
           pop.innerHTML = '<div class="promo-pop-dim" data-pop-close></div><div class="promo-pop-in"><button type="button" class="promo-pop-x" data-pop-close aria-label="Close">&times;</button></div>';
-          pop.querySelector('.promo-pop-in').appendChild(promoBox);
+          pop.querySelector('.promo-pop-in').appendChild(popBox);
           /* The page holds still at its top while the pop-up is up, and is
              still at its top when it closes, unless its button was used. */
           const L = window.__lenis;
@@ -3093,7 +3108,8 @@ import ShopBasket from "../components/ShopBasket.astro";
             setTimeout(() => pop.remove(), 450);
           };
           pop.querySelectorAll('[data-pop-close]').forEach((b) => b.addEventListener('click', () => shut(true)));
-          promoBox.querySelectorAll('[data-to-shop]').forEach((a) => a.addEventListener('click', () => shut(false)));
+          popBox.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => shut(false)));
+          popBox.querySelectorAll('[data-to-shop]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); toShop(); }));
           window.scrollTo(0, 0);
           hold();
           document.body.appendChild(pop);
