@@ -16720,8 +16720,15 @@ import { createResizeEngine } from "./resize-engine.js";
     /* Print is opt in for the background too: the author adds it (Dani,
        18 Nov, for the Christmas cards). */
     if (isPrintDesign()) return !!state.canvas.bgField && !state.canvas.bgFieldHidden;
-    return !state.canvas.bgFieldHidden
-      && (!!state.canvas.backgroundImage || isAdminMode());
+    if (state.canvas.bgFieldHidden) return false;
+    /* A member gets the row for a photo, a pattern or a texture (Danielle,
+       26 Nov). It was photos only, so The Christmas Edit's linen and tartan
+       backgrounds had a row in the author's list and none in a member's. A
+       plain colour is still the author's row alone, and "See it the way a
+       member does" now leaves it out, as a member's list does. Copied in
+       src/lib/edit-prompts.js: change both. */
+    if (state.canvas.backgroundImage || hasBgPattern()) return true;
+    return isAdminMode() && !_previewAsMember;
   }
   // Items the author has taken off the list, so they can put one back.
   function hiddenFieldCount() {

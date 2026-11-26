@@ -120,7 +120,7 @@ export function editRows(t) {
   pages.forEach((pg, i) => {
     const cv = (pg && pg.canvas) || {}, els = (pg && pg.elements) || [], print = isPrint(cv);
     // backgroundIsField, for a member; bgDefaultPrompt
-    const bg = print ? !!cv.bgField && !cv.bgFieldHidden : !cv.bgFieldHidden && !!cv.backgroundImage;
+    const bg = print ? !!cv.bgField && !cv.bgFieldHidden : !cv.bgFieldHidden && (!!cv.backgroundImage || !!cv.bgPattern);
     if (bg) {
       total++;
       const starts = !(card && !cv.bgPattern);   // a card's own colours keep "Card colour", which isn't a prompt
