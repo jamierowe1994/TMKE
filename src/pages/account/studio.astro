@@ -263,14 +263,14 @@ const inspo = [
     .st-pk-tile { all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 6px; padding: 5px; border: 1px solid rgba(28,29,34,0.13); border-radius: 4px; transition: border-color 0.2s; }
     .st-pk-tile:hover { border-color: rgba(28,29,34,0.35); }
     .st-pk-tile.is-on { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
-    .st-pk-tile-img { display: block; aspect-ratio: 1080 / 1440; border-radius: 2px; background: #eae5e1 center / cover no-repeat; }
+    .st-pk-tile-img { display: block; aspect-ratio: 1080 / 1350; border-radius: 2px; background: #eae5e1 center / cover no-repeat; }
     .st-pk-tile-img--shop { display: grid; place-items: center; font-size: 28px; color: var(--english-violet); }
     .st-pk-tile-name { font-size: 12.5px; font-weight: 600; line-height: 1.25; color: var(--ws-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .st-pk-detail { margin-top: 22px; padding-top: 20px; border-top: 1px solid rgba(28,29,34,0.1); }
     .st-pk-detail-h { font-family: var(--serif); font-weight: 500; font-size: 20px; line-height: 1.2; color: var(--ws-ink); margin: 0; }
     .st-pk-detail-p { font-size: 13.5px; line-height: 1.55; color: rgba(28,29,34,0.65); margin: 8px 0 14px; max-width: 70ch; }
     .st-pk-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
-    .st-pk-thumbs span { display: block; aspect-ratio: 1080 / 1440; border-radius: 2px; background: #eae5e1 center / cover no-repeat; }
+    .st-pk-thumbs span { display: block; aspect-ratio: 1080 / 1350; border-radius: 2px; background: #eae5e1 center / cover no-repeat; }
     .st-pk-open { display: inline-flex; align-items: center; gap: 6px; height: 34px; margin-top: 16px; padding: 0 16px; border-radius: 4px; background: var(--english-violet); color: #fff; text-decoration: none; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
     .st-pk-empty { font-size: 13.5px; color: rgba(28,29,34,0.6); }
     /* Chapter 04: Explore and Latest, then the strip under them. */
@@ -318,8 +318,10 @@ const inspo = [
       transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease);
     }
     .st-pack:hover, .st-design:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
+    /* 1080 x 1350, the feed size the Studio designs to from 26 Nov (Danielle);
+       it was 1080 x 1440. */
     .st-pack-img, .st-design-img {
-      position: relative; width: 100%; aspect-ratio: 1080 / 1440; border-radius: 4px;
+      position: relative; width: 100%; aspect-ratio: 1080 / 1350; border-radius: 4px;
       background-size: cover; background-position: center; background-color: #e9e6e2; margin-bottom: 8px;
     }
     /* A design keeps its own shape. One frame for the grid, the picture whole
@@ -331,6 +333,13 @@ const inspo = [
     .st-design-img, .st-pack-img {
       background-size: contain; background-repeat: no-repeat;
     }
+    /* A taller portrait (the older 1080 x 1440 designs and covers) fills the
+       frame and loses a little off its top and bottom, where whole it sat
+       narrow with grey down both sides (Danielle, 26 Nov). A pack's cover
+       always does; a saved design only when it is that shape (--fill, from
+       its canvas), so a square or a story is still shown whole. The Print
+       tab's own rule follows below. */
+    .st-pack-img, .st-design-img--fill { background-size: cover; }
     /* The Print tab (Dani, 13 Oct): a print card is the shape of its own
        design -- landscape, mostly -- at 75% of a social card's picture
        height, so nothing grey sits around it. --st-print-h is worked out from
@@ -396,7 +405,7 @@ const inspo = [
     .st-design--new { align-items: center; justify-content: center; border-style: dashed; }
     .st-design-new { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: var(--ws-t-meta); font-weight: 600; color: var(--ws-accent); }
     /* On its own in the row (the demo, or nothing saved yet) it keeps a card's shape. */
-    .st-design--new:only-child { aspect-ratio: 1080 / 1600; }
+    .st-design--new:only-child { aspect-ratio: 1080 / 1510; }
 
     /* ---- Loading ---------------------------------------------------------
        None on the page. It used to ship six invented packs and four starter
@@ -652,7 +661,7 @@ const inspo = [
       const gap = parseFloat(cs.columnGap) || 16;
       const col = (row.clientWidth - (across - 1) * gap) / across;
       const picW = col - 26;                                    // the card's padding and border
-      row.style.setProperty('--st-print-h', Math.round(picW * (1440 / 1080) * 0.75) + 'px');
+      row.style.setProperty('--st-print-h', Math.round(picW * (1350 / 1080) * 0.75) + 'px');
       /* Resolves once every card has its shape, so the ready gate can hold
          the page until then rather than let the cards change size in view. */
       const shaped = [];
@@ -805,11 +814,17 @@ const inspo = [
           const c = d && d.canvas, w = Number(c && c.width) || 0, h = Number(c && c.height) || 0;
           return (w && h) ? ` style="--ar:${((folded(c) ? w / 2 : w) / h).toFixed(4)}"` : '';
         };
+        /* Between 1080 x 1350 and a little taller than 1080 x 1440: fills the
+           frame, cropped top and bottom. Anything else is shown whole. */
+        const fills = (d) => {
+          const c = d && d.canvas, w = Number(c && c.width) || 0, h = Number(c && c.height) || 0;
+          return !!(w && h) && w / h <= 0.805 && w / h >= 0.7;
+        };
         const card = (d) => `
           <a class="st-design" href="/account/editor?design=${encodeURIComponent(d.id)}"${shapeOf(d)}>
             ${folded(d.canvas) && d.thumb_url
               ? `<span class="st-design-img st-design-img--card"><span class="st-design-front" style="background-image:url('${esc(d.thumb_url)}')"></span><span class="st-design-tag">Saved</span></span>`
-              : `<span class="st-design-img"${d.thumb_url ? ` style="background-image:url('${esc(d.thumb_url)}')"` : ''}><span class="st-design-tag">Saved</span></span>`}
+              : `<span class="st-design-img${fills(d) ? ' st-design-img--fill' : ''}"${d.thumb_url ? ` style="background-image:url('${esc(d.thumb_url)}')"` : ''}><span class="st-design-tag">Saved</span></span>`}
             <span class="st-design-name">${esc(d.name || 'Untitled design')}</span>
             <span class="st-design-type">Your design</span>
           </a>`;
