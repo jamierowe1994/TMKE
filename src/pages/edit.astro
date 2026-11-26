@@ -1547,7 +1547,8 @@ import ShopBasket from "../components/ShopBasket.astro";
     @media (prefers-reduced-motion: reduce) { .stk-track.is-drift { animation: none; } }
     /* A phone: the row fills the first screen as it did before, the dots under it. */
     /* A phone: no dots under the row (Danielle, 26 Nov), and the sale comes up a little. */
-    @media (max-width: 760px) { body.stk-on .stk-p[data-i="0"] .stk-body--pack { padding: 12px; height: calc(100svh - 56px - 220px); min-height: 330px; } }
+    /* Half the room under the row it had (Danielle, 26 Nov), the same above. */
+    @media (max-width: 760px) { body.stk-on .stk-p[data-i="0"] .stk-body--pack { height: auto; min-height: 0; padding: clamp(110px, 19svh, 160px) 12px clamp(56px, 9.5svh, 80px); } }
 
     /* Section two: the hero row's width, lightly framed. A picture of the pack
        and a photograph, the words on a card in the photograph's corner. */
@@ -1615,8 +1616,8 @@ import ShopBasket from "../components/ShopBasket.astro";
          the foot, so there is no hard edge (Danielle, 26 Nov). */
       .promo-left { background: transparent; }
       .promo-back, .promo-left::after {
-        -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18%, #000 82%, transparent 100%);
-        mask-image: linear-gradient(180deg, transparent 0, #000 18%, #000 82%, transparent 100%);
+        -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 30%, #000 70%, transparent 100%);
+        mask-image: linear-gradient(180deg, transparent 0, #000 30%, #000 70%, transparent 100%);
       }
       .promo-left { aspect-ratio: 4 / 5.4; }
       .promo-card { top: 42%; height: 58%; }
@@ -1649,6 +1650,8 @@ import ShopBasket from "../components/ShopBasket.astro";
     body.stk-on .stk-sec-how { margin-top: 0; }
     /* The packs' words go light with the page, so they read on the way past. */
     body.stk-on .pcard-title { color: color-mix(in oklab, var(--paper) calc(var(--lit) * 100%), var(--ink)); }
+    body.stk-on .pcard-price { color: color-mix(in oklab, var(--paper) calc(var(--lit) * 100%), var(--ink)); }
+    body.stk-on .pcard-price small { color: color-mix(in oklab, rgba(244,242,241,0.6) calc(var(--lit) * 100%), rgba(28,29,34,0.5)); }
     body.stk-on .pcard-type { color: color-mix(in oklab, rgba(244,242,241,0.65) calc(var(--lit) * 100%), rgba(28,29,34,0.55)); }
     body.stk-on .pcard-size { color: color-mix(in oklab, var(--paper) calc(var(--lit) * 100%), var(--ink)); border-color: color-mix(in oklab, rgba(244,242,241,0.6) calc(var(--lit) * 100%), rgba(28,29,34,0.3)); }
     /* Discover turns light once the page is more wine than paper (Danielle,
@@ -1683,6 +1686,7 @@ import ShopBasket from "../components/ShopBasket.astro";
     }
     .edit-jump:hover { background: var(--ink); color: var(--paper); }
     .edit-jump.is-gone { opacity: 0; transform: translate(-50%, 12px); pointer-events: none; }
+    @media (max-width: 760px) { .edit-jump { display: none; } }
     .how-tx { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: clamp(32px, 5vw, 80px); align-items: start; max-width: 1100px; }
     .how-tx h3 { grid-column: auto; }
     .how-tx > :nth-child(1), .how-tx > :nth-child(2), .how-tx > :nth-child(3) { grid-column: 1; }
@@ -1697,7 +1701,14 @@ import ShopBasket from "../components/ShopBasket.astro";
 
     .how-tx p { font-family: var(--sans); font-size: 14px; line-height: 1.75; color: rgba(28,29,34,0.72); margin: 0 0 12px; }
     .promo-btn--ink { margin-top: 14px; }
-    @media (max-width: 760px) { .stk-body--how { padding: 56px 20px; } .how-tx { display: block; } .how-tx h3:not(:first-child) { margin-top: 22px; } .how-wide { aspect-ratio: 4 / 3; } }
+    @media (max-width: 760px) {
+      .stk-body--how { padding: 78px 20px 56px; }
+      .how-tx { display: block; }
+      /* Justified, with the headings in the same small caps as The Edit · Our template shop (Danielle, 26 Nov). */
+      .how-tx p { text-align: justify; hyphens: auto; }
+      .stk-sec-how .how-tx h3 { font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: color-mix(in oklab, rgba(244,242,241,0.7) calc(var(--lit) * 100%), rgba(28,29,34,0.6)); }
+      .how-tx h3:not(:first-child) { margin-top: 26px; }
+    }
   </style>
 
   <script>
