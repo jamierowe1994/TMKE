@@ -1758,6 +1758,9 @@ import ShopBasket from "../components/ShopBasket.astro";
       body.stk-on .stk-pgrid > :nth-child(6) { order: 7; }   /* Shop the Pack */
       body.stk-on .stk-pgrid > :nth-child(8) { display: none; }   /* Next Pack */
       body.stk-on .stk-pgrid > .egh-tile--phone { display: flex; order: 8; }
+      /* No empty second line under a name that fits on one (Danielle, 26 Nov):
+         the words sit together at the foot of the tile. */
+      body.stk-on .stk-p[data-i="0"] .egh-tile-name { min-height: 0; }
       /* Shop the Pack in wine on a phone (Danielle, 26 Nov). */
       body.stk-on .stk-pgrid > :nth-child(6) { background: var(--english-violet); border-color: var(--english-violet); }
       body.stk-on .stk-pgrid > :nth-child(6) .egh-tile-name { color: var(--paper); }
@@ -1776,8 +1779,18 @@ import ShopBasket from "../components/ShopBasket.astro";
 
     /* A phone: the Edit line in a box on the page's margins, matching the sale's box above. */
     @media (max-width: 760px) {
-      body.stk-on .how-intro { border: 1px solid rgba(28,29,34,0.16); padding: 28px 20px; margin-bottom: 48px; max-width: none; }
-      body.stk-on .how-quote { font-size: 19px; }
+      /* Wine with light words, to break the page up (Danielle, 26 Nov). */
+      body.stk-on .how-intro { background: var(--english-violet); padding: 30px 22px; margin-bottom: 48px; max-width: none; }
+      body.stk-on .stk-sec-how .how-eyebrow { color: rgba(244,242,241,0.7); }
+      body.stk-on .stk-sec-how .how-quote { font-size: 19px; color: var(--paper); }
+      body.stk-on .stk-sec-how .how-intro .stk-quote-offer { color: var(--paper); border-color: rgba(244,242,241,0.55); }
+    }
+
+    /* A phone: the sale first, then the top row, then the packs (Danielle, 26 Nov). */
+    @media (max-width: 760px) {
+      body.stk-on .stk { display: flex; flex-direction: column; }
+      body.stk-on .stk > .stk-p { flex: none; }
+      body.stk-on .stk > .stk-sec-promo { order: -1; padding-top: 20px; }
     }
   </style>
 
