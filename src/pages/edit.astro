@@ -1639,13 +1639,15 @@ import ShopBasket from "../components/ShopBasket.astro";
        the page's margin under it (Danielle, 26 Nov, after Moyo Studio). */
     @media (max-width: 760px) {
       body.stk-on .stk-body--pad { padding: 0; }
-      body.stk-on .stk-body--pad .edit-shows { grid-template-columns: 1fr; gap: 44px; }
+      /* Half the gap between packs, and the same room under a pack's words
+         as between its picture and its name (Danielle, 26 Nov). */
+      body.stk-on .stk-body--pad .edit-shows { grid-template-columns: 1fr; gap: 22px; }
       body.stk-on .stk-body--pad .pcard-media { border-radius: 0; }
       body.stk-on .stk-body--pad .pcard-title,
       body.stk-on .stk-body--pad .pcard-type,
       body.stk-on .stk-body--pad .pcard-price { padding: 0 20px; }
-      body.stk-on .stk-body--pad .pcard-title { font-size: 17px; margin-top: 14px; }
-      body.stk-on .stk-body--pad .pcard-type { font-size: 12px; }
+      body.stk-on .stk-body--pad .pcard-title { font-size: 17px; margin-top: 24px; }
+      body.stk-on .stk-body--pad .pcard-type { font-size: 12px; margin-top: -1px; }
       body.stk-on .stk-body--pad .pcard-price { font-size: 15px; }
       /* The price on the right, level with the name, and the pictures a
          little landscape, cropped top and bottom (Danielle, 26 Nov). */
@@ -1765,6 +1767,12 @@ import ShopBasket from "../components/ShopBasket.astro";
       body.stk-on .promo-left { aspect-ratio: 4 / 5.2; }
       body.stk-on .promo-caption { left: 16px; right: 16px; }
       body.stk-on .promo-btn--phone { left: 16px; bottom: 16px; }
+    }
+
+    /* A phone: the Edit line in a box on the page's margins, matching the sale's box above. */
+    @media (max-width: 760px) {
+      body.stk-on .how-intro { border: 1px solid rgba(28,29,34,0.16); padding: 28px 20px; margin-bottom: 48px; max-width: none; }
+      body.stk-on .how-quote { font-size: 19px; }
     }
   </style>
 
@@ -2886,8 +2894,17 @@ import ShopBasket from "../components/ShopBasket.astro";
            you go. The whole page changes, so there is no edge. --lit, on the
            body, runs 0 to 1 and the CSS mixes the colours from it. */
         if (howSec) {
+          const PHONE_FADE = window.matchMedia('(max-width: 760px)');
           const lit = () => {
             const top = howSec.getBoundingClientRect().top, vh = window.innerHeight || 1;
+            // A phone keeps the page paper (Danielle, 26 Nov); the Edit line sits in a box there instead.
+            if (PHONE_FADE.matches) {
+              document.body.style.setProperty('--lit', '0');
+              document.body.classList.remove('edit-dark');
+              if (window.scrollY > 120) jump.classList.add('is-gone');
+              requestAnimationFrame(lit);
+              return;
+            }
             // Starts once the section's top is a quarter of the way up the screen (it was at the very bottom), wine by 70% of the way up.
             const t = Math.max(0, Math.min(1, (vh * 0.75 - top) / (vh * 0.45)));
             const eased = t * t * (3 - 2 * t);
