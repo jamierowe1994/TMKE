@@ -121,7 +121,8 @@
   }
   .sb-x:hover { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
   .sb-body { flex: 1; overflow-y: auto; padding: 6px 28px 20px; }
-  .sb-foot { padding: 18px 28px 26px; border-top: 1px solid rgba(28,29,34,0.1); background: var(--paper); }
+  /* No rule over the foot: it cut through the box above it as the basket scrolled (Danielle, 26 Nov). */
+  .sb-foot { padding: 18px 28px 26px; background: var(--paper); }
   .sb-foot:empty { display: none; }
 
   .sb-line { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 16px 0; border-bottom: 1px solid rgba(28,29,34,0.1); }
@@ -192,6 +193,8 @@
 
   const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').trim().replace(/\/+$/, '');
   const KEY = 'tmke.basket';
+  // The Edit itself (not ?layout=classic) puts the banner's words in its second section, not a strip.
+  const INLINE_BANNER = /^\/edit\/?$/.test(location.pathname) && new URLSearchParams(location.search).get('layout') !== 'classic';
   /* Trying the shop as it will be on another day (Offers › Try a basket ›
      Open the shop on this day): ?as_of= on the page, kept for the visit so
      every page of the shop agrees. The Worker only honours it in test mode,
@@ -266,6 +269,13 @@
       const id = el.getAttribute('data-shop-deal'), on = !!deal && !!packOf(id) && !(deal.left_out || []).includes(id) && !owned.has(id);
       el.textContent = on ? deal.label : ''; el.hidden = !on;
     });
+    // Sale (Danielle, 26 Nov): a wine tag on a pack's picture on The Edit while it costs this visitor
+    // less than usual, or while an offer across the basket (buy one, get one free) takes it in.
+    document.querySelectorAll('[data-shop-sale]').forEach((el) => {
+      const id = el.getAttribute('data-shop-sale'), p = packOf(id);
+      const on = !!p && (p.pence < p.list_pence || (!!deal && !(deal.left_out || []).includes(id)));
+      el.hidden = !on;
+    });
     paintBanner();
     paintNav();
   }
@@ -276,6 +286,16 @@
   function paintBanner() {
     let b = document.getElementById('shop-banner');
     const text = (S.shop && S.shop.on && S.shop.banner) || '';
+    /* The Edit says it in its own wine section instead, so the page doesn't
+       grow a strip at the top (Danielle, 26 Nov). Any page with a
+       [data-shop-offer-line] does the same. */
+    const lines = document.querySelectorAll('[data-shop-offer-line]');
+    if (lines.length || INLINE_BANNER) {
+      lines.forEach((el) => { el.textContent = text; el.hidden = !text; });
+      if (b) b.remove();
+      document.documentElement.classList.remove('has-shop-banner'); document.documentElement.style.removeProperty('--shop-banner-h');
+      return;
+    }
     if (!text) { if (b) b.remove(); document.documentElement.classList.remove('has-shop-banner'); document.documentElement.style.removeProperty('--shop-banner-h'); return; }
     if (!b) { b = document.createElement('div'); b.id = 'shop-banner'; b.className = 'shop-banner'; b.setAttribute('role', 'status'); document.body.insertBefore(b, document.body.firstChild); }
     b.textContent = text;

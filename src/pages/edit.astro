@@ -749,6 +749,19 @@ import ShopBasket from "../components/ShopBasket.astro";
       font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.22em; text-transform: uppercase; color: rgba(244,242,241,0.7);
     }
+    .stk-quote-offer {
+      align-self: flex-start; margin: 0; padding: 9px 14px; border: 1px solid rgba(244,242,241,0.55);
+      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+      line-height: 1.5; color: var(--paper);
+    }
+    .stk-quote-offer[hidden] { display: none; }
+    /* Sale: a wine tag in the top left of a pack's picture while it's on offer (Danielle, 26 Nov). */
+    .pcard-sale {
+      position: absolute; top: 12px; left: 12px; z-index: 2; pointer-events: none;
+      padding: 6px 10px; background: var(--english-violet); color: var(--paper);
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; line-height: 1.2;
+    }
+    .pcard-sale[hidden] { display: none; }
     .stk-quote {
       margin: 0; font-family: var(--sans); font-style: normal; font-weight: 400;
       font-size: clamp(18px, 2.1vw, 30px); line-height: 1.4; color: var(--paper);
@@ -1627,6 +1640,7 @@ import ShopBasket from "../components/ShopBasket.astro";
         <article class="pcard" data-id="${p.id}" data-slug="${escapeHtml(p.slug)}">
           <div class="pcard-media">
             <a class="pcard-frames" href="${href}" aria-label="Discover ${escapeHtml(p.title)}">${frames}</a>
+            <span class="pcard-sale" data-shop-sale="${p.id}" hidden>Sale</span>
             ${dots}
           </div>
           <h3 class="pcard-title">${escapeHtml(p.title)}</h3>
@@ -2183,6 +2197,8 @@ import ShopBasket from "../components/ShopBasket.astro";
         + bar('Why The Edit', 'Our Template Shop', 'The Idea')
         + `<div class="stk-body stk-body--wine"><div class="stk-quote-wrap">`
         + `<span class="stk-quote-eyebrow">The Edit &middot; Our template shop</span>`
+        // The shop's offer (Catalogue › Offers › Shop banner) goes here while it's on, rather than a strip over the page (Danielle, 26 Nov).
+        + `<p class="stk-quote-offer" data-shop-offer-line hidden></p>`
         + `<p class="stk-quote">Great marketing shouldn&rsquo;t need a design degree. Every pack in The Edit is built by our studio and ready to go &mdash; open it, make it yours, post it. Looking the part in minutes, not hours.</p>`
         + `</div></div></section>`;
       html += `<section class="stk-p" data-i="2">`
@@ -2445,12 +2461,19 @@ import ShopBasket from "../components/ShopBasket.astro";
         else window.scrollTo({ top: dest, behavior: 'instant' });
         requestAnimationFrame(() => requestAnimationFrame(() => { stk.classList.remove('is-jump'); jumping = false; }));
       }
+      /* Which way you were going settles it (Danielle, 26 Nov: "still really
+         stiff"). It used to take three quarters of a panel before it would
+         carry you on, so anything less was pulled back where you came from.
+         Now a fifth of the way in the direction you're scrolling carries you
+         to the next panel, and only a nudge that small is pulled back. */
+      let lastY = window.scrollY, dir = 0;
       function doSnap() {
         const y = window.scrollY;
         const p = (y - wrapTop) / stepCache;
         if (p < -0.5 || p > N - 0.5) return;          // not on the runway
         const base = Math.floor(p), frac = p - base;
-        const i = Math.max(0, Math.min(N - 1, frac >= 0.75 ? base + 1 : base));
+        const on = dir < 0 ? frac > 0.8 : frac >= 0.2;
+        const i = Math.max(0, Math.min(N - 1, on ? base + 1 : base));
         if (Math.abs((wrapTop + i * stepCache) - y) < 4) return;   // already parked
         goToPanel(i);
       }
@@ -2459,6 +2482,9 @@ import ShopBasket from "../components/ShopBasket.astro";
         // read, so letting scroll drive it would slam it back to panel 0 the
         // moment you scrolled the page.
         if (isMobile() || jumping) return;
+        const y = window.scrollY;
+        if (Math.abs(y - lastY) > 2 && !snapping) dir = y > lastY ? 1 : -1;
+        lastY = y;
         updateOpen();                                 // which panel is showing
         if (snapping || reduced) return;
         clearTimeout(snapT);
