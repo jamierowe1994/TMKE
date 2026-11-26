@@ -1,0 +1,203 @@
+---
+/**
+ * The members' Black Friday pop-up on the Member Hub (Danielle, 26 Nov 2026).
+ *
+ * Friday 27 to Monday 30 November (UK), to anyone signed in, once per log-in:
+ * it remembers the log-in's session id, so signing in again brings it back,
+ * but moving round the Hub in the same log-in doesn't. ?pop=blackfriday on
+ * /account shows it on any day, to check the look.
+ *
+ * The look is The Edit's sale pop-up (src/pages/edit.astro, .promo-pop), with
+ * the members' wording that was taken off the website: a Property Pack design
+ * on its softened mockup on the left, the Become The Name They Know grid
+ * darkened on the right. The button goes to the packs on The Edit (#shop, so
+ * the website's own sale pop-up doesn't come up on top). The percentage is
+ * the live members' offer from the Worker (/shop/offers, Catalogue › Offers),
+ * which the basket gives to anyone signed in, on every shop page; with no
+ * members' offer on, or the basket not open, the pop-up stays away.
+ * Each new log-in gets the next look: Christmas, New to Market, Open House.
+ */
+const FROM = "2026-11-27T00:00:00Z";   // UK is on GMT in November, so midnight UK
+const TO = "2026-12-01T00:00:00Z";
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+const R = "https://tqqezhvjakohraiverei.supabase.co/storage/v1/render/image/public/";
+const img = (path: string, w: number) => `${R}${path}?width=${w}&resize=contain&quality=70`;
+const T = "calendar-assets/d1fb7525-4f2b-4ac4-86f8-47a03704dd38/templates/";
+// One look per sign-in, in turn (Danielle, 26 Nov): Christmas, then New to
+// Market, then Open House, then round again.
+const LOOKS = [
+  { card: img("calendar-assets/d5e60b76-8019-4070-8cfd-7273950cd8fa/templates/1sv1eyd-1xu0q.png", 900),   // The Christmas Edit: From Our Home to Yours
+    back: img("pack-images/gallery/1795698568043-l4qwcn.png", 1400), right: img("pack-images/gallery/1795698572604-wc4arb.png", 1400) },
+  { card: img(T + "sbdb1p-1o3mq.png", 900),   // The Property Pack: New to Market
+    back: img(T + "1ukgjcw-635j.jpg", 1400), right: img("pack-images/previews/1784073766871-ni8kjo.png", 1400) },
+  { card: img(T + "11zfj7o-1wayu.png", 900),   // The Property Pack: Open House
+    back: img(T + "1323cy-5cpz.jpg", 1400), right: img(T + "zwapqa-5mnb.jpg", 1400) },
+];
+const L0 = LOOKS[0];
+const HREF = "/edit#shop";
+---
+<div class="msp" id="msp" data-from={FROM} data-to={TO} data-worker={WORKER} data-looks={JSON.stringify(LOOKS)} hidden>
+  <div class="msp-dim" data-msp-close></div>
+  <div class="msp-in" role="dialog" aria-modal="true" aria-label="Black Friday for members">
+    <button type="button" class="msp-x" data-msp-close aria-label="Close">&times;</button>
+    <div class="msp-promo">
+      <a class="msp-half msp-left" href={HREF} aria-label="Shop The Edit">
+        <span class="msp-back" style={`background-image:url('${L0.back}')`}></span>
+        <span class="msp-card" style={`background-image:url('${L0.card}')`}></span>
+        <span class="msp-caption">Black Friday<br>Members save <span data-msp-pct></span>% on every pack in The Edit</span>
+        <span class="msp-btn msp-btn--phone" aria-hidden="true">Shop The Edit <span>&rarr;</span></span>
+      </a>
+      <div class="msp-half msp-right" style={`background-image:url('${L0.right}')`}>
+        <a class="msp-btn msp-btn--on-dark" href={HREF}>Shop The Edit <span aria-hidden="true">&rarr;</span></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .msp { position: fixed; inset: 0; z-index: 9400; display: grid; place-items: center; padding: 20px; pointer-events: none; }
+  .msp[hidden] { display: none; }
+  .msp-dim { position: absolute; inset: 0; background: rgba(28,29,34,0.55); opacity: 0; transition: opacity 0.45s ease; }
+  .msp-in { position: relative; width: 100%; max-width: 420px; background: var(--paper); transform: translateY(24px) scale(0.98); opacity: 0; transition: transform 0.6s cubic-bezier(.2,.8,.2,1), opacity 0.45s ease; box-shadow: 0 30px 70px -28px rgba(0,0,0,0.6); }
+  .msp.is-in { pointer-events: auto; }
+  .msp.is-in .msp-dim { opacity: 1; }
+  .msp.is-in .msp-in { transform: none; opacity: 1; }
+  .msp-x { position: absolute; top: 14px; right: 14px; z-index: 5; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(244,242,241,0.92); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; padding: 0; }
+
+  .msp-promo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; height: min(720px, 80vh); box-sizing: border-box; }
+  .msp-half { position: relative; display: block; min-width: 0; overflow: hidden; background: rgba(28,29,34,0.06) center / cover no-repeat; text-decoration: none; }
+  /* Left: the photograph softened and lightened, the design crisp on top. */
+  .msp-back { position: absolute; inset: -24px; background: center / cover no-repeat; filter: blur(14px) brightness(1.12) saturate(0.8); }
+  .msp-left::after { content: ""; position: absolute; inset: 0; background: rgba(244,242,241,0.38); }
+  .msp-card {
+    position: absolute; z-index: 2; left: 50%; top: 45%; transform: translate(-50%, -50%);
+    height: 64%; aspect-ratio: 4 / 5; max-width: 70%; background: #fff center / cover no-repeat;
+    box-shadow: 0 34px 60px -30px rgba(28,29,34,0.55), 0 2px 6px rgba(28,29,34,0.12);
+    transition: transform 0.6s cubic-bezier(.2,.7,.2,1);
+  }
+  .msp-left:hover .msp-card { transform: translate(-50%, calc(-50% - 6px)); }
+  .msp-caption {
+    position: absolute; z-index: 2; left: 32px; right: 24px; bottom: 32px; line-height: 1.7;
+    font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet);
+  }
+  /* Right: the photograph darkened, the button a solid paper box on it. */
+  .msp-right::before { content: ""; position: absolute; inset: 0; background: rgba(20,18,22,0.5); }
+  .msp-btn {
+    display: inline-flex; align-items: center; gap: 10px; padding: 0 24px; height: 36px; box-sizing: border-box;
+    border: 1px solid var(--paper); background: var(--paper); color: var(--english-violet); text-decoration: none;
+    font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+    transition: background 0.3s, color 0.3s;
+  }
+  .msp-btn--on-dark { position: absolute; z-index: 2; right: 32px; bottom: 32px; margin: 0; }
+  .msp-btn--on-dark:hover { background: #fff; }
+  .msp-btn--phone { display: none; }
+
+  @media (min-width: 761px) {
+    .msp { padding: 40px; }
+    .msp-in { max-width: min(1180px, 88vw); }
+  }
+  /* A phone: the left half only, the caption and a quieter wine button at its foot. */
+  @media (max-width: 760px) {
+    .msp-promo { grid-template-columns: 1fr; height: auto; }
+    .msp-right { display: none; }
+    .msp-left { aspect-ratio: 4 / 5.2; background: transparent; }
+    .msp-card { top: 42%; height: 58%; }
+    .msp-caption { left: 16px; right: 16px; bottom: 56px; line-height: 1.5; }
+    .msp-btn--phone {
+      display: inline-flex; position: absolute; z-index: 2; left: 16px; bottom: 16px; margin: 0;
+      height: 28px; padding: 0 14px; font-size: 10px; letter-spacing: 0.16em; gap: 8px;
+      background: var(--english-violet); border-color: var(--english-violet); color: var(--paper);
+    }
+  }
+</style>
+
+<script>
+  import { supabase } from "../../lib/supabase.js";
+
+  const pop = document.getElementById("msp") as HTMLElement | null;
+  const KEY = "tmke-msp-blackfriday-2026";   // holds the log-in it was last shown in
+
+  // The log-in's own id: a new one each time someone signs in.
+  function sessionIdOf(token: string) {
+    try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).session_id || ""; } catch (_) { return ""; }
+  }
+
+  const COUNT = "tmke-msp-blackfriday-2026-n";   // how many log-ins it has been shown in
+
+  function setLook(i: number) {
+    if (!pop) return;
+    let looks: any[] = [];
+    try { looks = JSON.parse(pop.dataset.looks || "[]"); } catch (_) {}
+    const l = looks[((i % looks.length) + looks.length) % looks.length];
+    if (!l) return;
+    const bg = (sel: string, u: string) => { const el = pop.querySelector(sel) as HTMLElement | null; if (el) el.style.backgroundImage = `url('${u}')`; };
+    bg(".msp-back", l.back); bg(".msp-card", l.card); bg(".msp-right", l.right);
+  }
+  function setPct(pct: number) {
+    pop && pop.querySelectorAll("[data-msp-pct]").forEach((el) => { el.textContent = String(pct); });
+  }
+
+  async function start() {
+    if (!pop) return;
+    const q = new URLSearchParams(location.search);
+    // ?pop=blackfriday (and &look=1, 2 or 3) shows it on any day, to check the look.
+    const forced = q.get("pop") === "blackfriday";
+    const now = Date.now();
+    const inDates = now >= Date.parse(pop.dataset.from || "") && now < Date.parse(pop.dataset.to || "");
+    if (!forced && !inDates) return;
+    const { data } = await supabase.auth.getSession();
+    const session = data && data.session;
+    if (!session && !forced) return;
+    // The members' percentage is the shop's own (Catalogue › Offers), so the
+    // pop-up never promises what the basket won't charge. No members' offer
+    // on for this person (or the basket not open): no pop-up.
+    let pct = 0;
+    try {
+      const r = await fetch(`${pop.dataset.worker}/shop/offers`, { headers: session ? { Authorization: `Bearer ${session.access_token}` } : {} });
+      const out = r.ok ? await r.json() : null;
+      if (out && out.on && out.member && out.member_percent) pct = Number(out.member_percent);
+    } catch (_) {}
+    if (!pct && !forced) return;
+    // A preview with no live offer behind it takes its figure from &pct=.
+    setPct(pct || Number(q.get("pct")) || 0);
+    if (forced) { setLook(Number(q.get("look") || 1) - 1); later(); return; }
+    const sid = sessionIdOf(session!.access_token) || session!.user.id + ":" + (session!.user.last_sign_in_at || "");
+    let seen = "", n = 0;
+    try { seen = localStorage.getItem(KEY) || ""; n = Number(localStorage.getItem(COUNT) || 0) || 0; } catch (_) {}
+    if (seen === sid) return;
+    try { localStorage.setItem(KEY, sid); localStorage.setItem(COUNT, String(n + 1)); } catch (_) {}
+    setLook(n);
+    later();
+  }
+
+  // After the brand kit question, if that is up first.
+  function later() {
+    const bko = document.getElementById("bko");
+    if (bko && !bko.hidden) {
+      const mo = new MutationObserver(() => { if (bko.hidden) { mo.disconnect(); show(); } });
+      mo.observe(bko, { attributes: true, attributeFilter: ["hidden"] });
+    } else setTimeout(show, 900);
+  }
+
+  function show() {
+    if (!pop) return;
+    const L = (window as any).__lenis;
+    const hold = () => { document.documentElement.style.overflow = "hidden"; try { L && L.stop && L.stop(); } catch (_) {} };
+    const release = () => { document.documentElement.style.overflow = ""; try { L && L.start && L.start(); } catch (_) {} };
+    const shut = () => {
+      pop.classList.remove("is-in");
+      release();
+      document.removeEventListener("keydown", onKey);
+      setTimeout(() => { pop.hidden = true; }, 450);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") shut(); };
+    pop.querySelectorAll("[data-msp-close]").forEach((b) => b.addEventListener("click", shut));
+    pop.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => release()));
+    document.addEventListener("keydown", onKey);
+    hold();
+    pop.hidden = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => pop.classList.add("is-in")));
+  }
+
+  start();
+</script>
