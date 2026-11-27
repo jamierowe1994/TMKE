@@ -956,6 +956,17 @@ import "../../styles/catalogue-builder.css";
       giftErrorEl.hidden = false;
     }
 
+    // Like Pack orders' pop-outs (fitScrim): the dark cover starts where the page
+    // does, so the menu stays beside it and never over the pop-up.
+    function fitGift() {
+      const panel = document.querySelector(".ash-content");
+      if (!giftModal || giftModal.hidden || !panel) return;
+      const r = panel.getBoundingClientRect();
+      giftModal.style.left = `${Math.max(0, Math.round(r.left))}px`;
+      giftModal.style.top = `${Math.max(0, Math.round(r.top))}px`;
+    }
+    addEventListener("resize", fitGift);
+
     function openGift(id) {
       const pack = allPacks.find((p) => p.id === id);
       if (!pack || !giftModal) return;
@@ -968,6 +979,7 @@ import "../../styles/catalogue-builder.css";
       giftNoteInput.value = ""; countNote();
       accFor = ""; giftNoAcc.hidden = true;
       giftModal.hidden = false;
+      fitGift();
       setTimeout(() => giftEmailInput && giftEmailInput.focus(), 40);
     }
 
