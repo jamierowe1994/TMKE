@@ -5314,8 +5314,9 @@ async function packThumbs(env, packId) {
   const rows = (await sbGet(env, "templates", `pack_id=eq.${encodeURIComponent(packId)}&status=eq.active&select=render_url,thumb_url&order=sort_order.asc&limit=3`).catch(() => null)) || [];
   return rows.map((t) => {
     const u = String(t.render_url || t.thumb_url || "");
-    // Supabase resizes on the way out (render/image): 400 wide is plenty for a third of the email.
-    return /\/storage\/v1\/object\/public\//.test(u) ? u.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/") + (u.includes("?") ? "&" : "?") + "width=400&quality=80" : u;
+    // Supabase resizes on the way out (render/image): 400 by 500, the Studio's 4:5. Given a
+    // width alone it keeps the full height and crops to a strip, so both are named.
+    return /\/storage\/v1\/object\/public\//.test(u) ? u.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/") + (u.includes("?") ? "&" : "?") + "width=400&height=500&resize=cover&quality=80" : u;
   }).filter(Boolean);
 }
 async function ensureEditsToken(env, bk) {
@@ -5423,7 +5424,7 @@ async function deliveryPreview(env, id) {
 // the test email can never drift apart. Returns { subject, html } or null.
 const DELIVERY_SAMPLE = { first: "Sarah", shoot: "Property video, 20 October", cover: "https://tmke.co.uk/email/sample-cover-16x9.jpg", pin: "7320", email: "sarah@example.com", galleryUrl: "https://tmke.co.uk", tourUrl: "https://tmke.co.uk", editsUrl: "https://tmke.co.uk", invoiceNo: "TMKE1102", payUrl: "https://tmke.co.uk", attached: true, inStudio: true, portalUrl: "https://tmke.co.uk" };
 // The Christmas Edit's own templates, so the preview shows a real pack.
-const GIFT_THUMB = (p) => `https://tqqezhvjakohraiverei.supabase.co/storage/v1/render/image/public/calendar-assets/${p}?width=400&quality=80`;
+const GIFT_THUMB = (p) => `https://tqqezhvjakohraiverei.supabase.co/storage/v1/render/image/public/calendar-assets/${p}?width=400&height=500&resize=cover&quality=80`;
 const GIFT_SAMPLE = { first: "Sarah", pack: "The Christmas Edit", hasAccount: true, note: "Thanks for a brilliant year. We thought these would be perfect for your December posts.",
   studioUrl: "https://tmke.co.uk/account/studio", joinUrl: "https://tmke.co.uk/join",
   thumbs: [GIFT_THUMB("d5e60b76-8019-4070-8cfd-7273950cd8fa/templates/ufpmqq-796b.jpg"), GIFT_THUMB("d1fb7525-4f2b-4ac4-86f8-47a03704dd38/templates/1y1s6wo-93h3.jpg"), GIFT_THUMB("d5e60b76-8019-4070-8cfd-7273950cd8fa/templates/cl1hlc-8cmr.jpg")] };
