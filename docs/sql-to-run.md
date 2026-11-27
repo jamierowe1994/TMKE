@@ -4,12 +4,12 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] supabase/pack_gift_note.sql (27 Nov): Gift a pack's message. Keeps the 90-character message on the gift, so it shows in Pack orders › Gifted and under the bell notification of someone who signs up later, and marks when each gift's notification has gone so it never goes twice. Until it runs, the message still goes in the email and a member's notification, but someone without an account gets no notification when they sign up. It ends with a count of gifts: send Claude that row.
 - [ ] supabase/designers.sql (24 Nov): brand designers. Lets you add someone from a brand's own marketing team in Settings › Access, who gets the Catalogue and the Design studio only, makes packs for the brands you tick, and can't put anything live. Also closes an old gap: until it runs, any signed-in account could change designs through the database's own address (no screen allowed it). Until it runs, Settings says designers aren't set up and nobody can be added. It ends by listing the rules on designs and packs: send Claude that list.
 - [ ] supabase/guides_kind_article.sql (23 Nov): Guides › Details › Type gains Article beside Guide and Course. Until it runs, saving a guide as an Article is refused and the editor says so.
 
 ## Done
 
+- [x] supabase/pack_gift_note.sql (27 Nov): Gift a pack's message. Keeps the 90-character message on the gift, so it shows in Pack orders › Gifted and under the bell notification of someone who signs up later, and marks when each gift's notification has gone so it never goes twice. Until it runs, the message still goes in the email and a member's notification, but someone without an account gets no notification when they sign up. Ran 27 Nov; both columns checked on the live database.
 - [x] supabase/shop_bogof.sql (26 Nov): buy one, get one free. Danielle said it ran on 26 Nov; the row it prints wasn't sent, so the first saved offer in Catalogue › Offers is the proof.
 - [x] supabase/shop_basket.sql (26 Nov): the shop's basket and offers. Run 26 Nov; it answered 5 of 5 order columns, 0 offers, basket_live false, and the admin rule on shop_offers and shop_settings.
 - [x] supabase/email_templates_library.sql (25 Nov): Email › Templates. Lets an email be saved as a template with a title, the area of the business and a description. Ran 25 Nov; saving a template checked on the live site.
