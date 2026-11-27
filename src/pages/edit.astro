@@ -1862,6 +1862,8 @@ import ShopBasket from "../components/ShopBasket.astro";
     @media (max-width: 760px) {
       .promo-pop .promo-left { aspect-ratio: 4 / 5.2 !important; }
       .promo-pop .promo-card { top: 42% !important; height: 58% !important; }
+      /* Cyber Monday's caption runs a line longer (the members' 20%), so its card sits a little higher. */
+      .promo-pop .promo--long .promo-card { top: 38% !important; height: 54% !important; }
     }
     .promo-pop-x { position: absolute; top: 14px; right: 14px; z-index: 5; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(244,242,241,0.5); color: rgba(28,29,34,0.55); font-size: 20px; line-height: 1; cursor: pointer; transition: background 0.2s, color 0.2s; }
     /* Quieter, so the eye goes to the words and the button; full strength on hover (Danielle, 26 Nov). */
@@ -2677,13 +2679,13 @@ import ShopBasket from "../components/ShopBasket.astro";
           caption: 'New<br>The Christmas Edit',
           kicker: '', title: '', line: '', note: '', btn: 'Shop the pack', href: '/edit/the-christmas-edit',
         },
-        /* The members' 20% off every pack is not shown on the website
-           (Danielle, 26 Nov): it is kept for a Member Hub pop-up. */
+        /* Cyber Monday names the members' 20% too (Danielle, 27 Nov), on
+           its own line so nobody signed out reads it as theirs. */
         monday: {
           from: '2026-11-30T00:00:00Z', to: '2026-12-01T00:00:00Z',
           card: (others[0] && designsOf(others[0])[0]) || (others[0] ? heroOf(others[0]) : ''),
           back: og[0] || '', right: og[1] || og[0] || '',
-          caption: 'Cyber Monday<br>Buy one, get one free on every pack in The Edit',
+          caption: 'Cyber Monday<br>Buy one, get one free on every pack in The Edit<br>Members: 20% off sitewide',
           kicker: 'Cyber Monday', title: 'Buy One, Get One Free.',
           line: 'Any two packs. The second one is on us.',
           note: 'Monday 30 November only. No code needed.', btn: 'Shop the Sale', href: '#shop',
@@ -2698,7 +2700,7 @@ import ShopBasket from "../components/ShopBasket.astro";
          card, and a caption along its foot. Right: a darker photograph with
          the words on it (Danielle, 26 Nov, after Studio Standard's hero). */
       const promoHtml = pr && pr.card
-        ? `<div class="promo">`
+        ? `<div class="promo${(pr.caption.match(/<br>/g) || []).length > 1 ? ' promo--long' : ''}">`
           + `<a class="promo-half promo-left" href="${pr.href}"${pr.href === '#shop' ? ' data-to-shop' : ''} aria-label="${escapeHtml(pr.btn)}">`
           +   `<span class="promo-back" style="background-image:url('${edImg(pr.back || pr.card, 1400)}')"></span>`
           +   `<span class="promo-card" style="background-image:url('${edImg(pr.card, 900)}')"></span>`
