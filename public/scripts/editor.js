@@ -10379,18 +10379,21 @@ import { createResizeEngine } from "./resize-engine.js";
       });
       return s + fxTex(26, 26, { grain: "4 4", grainK: 2, lightOp: 0.07, darkOp: 0.07, mottle: "0.5", mottleOp: 0.05 });
     } },
-    { key: "ftartan", name: "Woven tartan", tw: 44, th: 44, cols: { ground: "#4E4C33", c1: "#2E2A1D", c2: "#7C7A55" }, draw(c) {
-      // A muted sett: broad dark bands that deepen where they cross, fine pale lines over them.
-      const band = (p, w, col, op) => '<rect x="' + p + '" y="0" width="' + w + '" height="44" fill="' + col + '" opacity="' + op + '"/><rect x="0" y="' + p + '" width="44" height="' + w + '" fill="' + col + '" opacity="' + op + '"/>';
-      return band(4, 14, c.c1, 0.45) + band(9.5, 3, c.c1, 0.35) + band(26, 4, c.c1, 0.3) + band(34, 6, c.c2, 0.18) + band(36.6, 0.7, c.c2, 0.55) + band(10.6, 0.5, c.c2, 0.4) +
-        fxTex(44, 44, { twill: 1, twillOp: 0.14, grain: "1.1 1.1", grainK: 4, lightOp: 0.06, darkOp: 0.12 });
-    } },
-    { key: "fcheck", name: "Wool check", tw: 40, th: 40, cols: { ground: "#2C2622", c1: "#5A4F47", c2: "#3A322D" }, draw(c) {
-      // A windowpane check: a fine pale line on a dark wool ground, a fainter one beside it.
-      const ln = (p, w, col, op) => '<rect x="' + p + '" y="0" width="' + w + '" height="40" fill="' + col + '" opacity="' + op + '"/><rect x="0" y="' + p + '" width="40" height="' + w + '" fill="' + col + '" opacity="' + op + '"/>';
-      return ln(16, 9, c.c2, 0.16) + ln(18, 5, c.c2, 0.2) + ln(19.4, 2.2, c.c2, 0.2) + ln(20.2, 0.6, c.c1, 0.75) +
-        fxTex(40, 40, { twill: 0.6, twillOp: 0.13, grain: "1.8 1.8", grainK: 1.8, lightOp: 0.09, darkOp: 0.10, mottle: "0.5", mottleOp: 0.12 });
-    } },
+    /* The woven tartan and the wool check, woven thread by thread like the
+       Christmas tartan below (Danielle, 27 Nov: the Christmas tartan "is
+       significantly better... how realistic, and how well it adapts to
+       different colour variations"). Same setts and repeats as when they
+       were drawn (44 and 40 units). A band's third number is how much of its
+       colour the yarn carries over the ground's, so a band in a scheme's own
+       colours is always a yarn of those colours, whatever the scheme. The
+       crossing of two such yarns darkens and the twill shows, as cloth does. */
+    { key: "ftartan", name: "Woven tartan", raster: true, cols: { ground: "#4E4C33", c1: "#2E2A1D", c2: "#7C7A55" },
+      // A muted sett: a broad dark band with a deeper centre and a fine pale line in it, a narrow dark band, a faint pale stripe with a line.
+      warp: [["ground", 4], ["c1", 5.5, 0.9], ["c1", 1.1], ["c2", 0.5, 0.8], ["c1", 1.4], ["c1", 5.5, 0.9], ["ground", 8], ["c1", 4, 0.6], ["ground", 4],
+        ["c2", 2.6, 0.36], ["c2", 0.7], ["c2", 2.7, 0.36], ["ground", 4]] },
+    { key: "fcheck", name: "Wool check", raster: true, cols: { ground: "#2C2622", c1: "#5A4F47", c2: "#3A322D" },
+      // A windowpane: a fine pale line, a soft shadow of c2 either side of it, on a plain wool ground.
+      warp: [["ground", 16], ["c2", 2, 0.32], ["c2", 1.4, 0.66], ["c2", 0.8, 0.92], ["c1", 0.6], ["c2", 0.8, 0.92], ["c2", 1.4, 0.66], ["c2", 2, 0.32], ["ground", 15]] },
     /* Christmas tartan (Danielle, 25 Nov, from her photo of a wine, brown
        and oat plaid): woven thread by thread rather than drawn, so the
        diagonal twill shows and the colours mix where the bands cross, like
@@ -10399,7 +10402,7 @@ import { createResizeEngine } from "./resize-engine.js";
        So warp (across) and weft (down) are their own lists, in units, not
        mirrored. ground is the wine, c1 the dark brown blocks and fine lines,
        c2 the oat, c3 the cream line. Drawn on a canvas (xpWovenTile). */
-    { key: "wtartan", name: "Christmas tartan", raster: true,
+    { key: "wtartan", name: "Christmas tartan", raster: true, grow: 1.2,
       cols: { ground: "#4C1917", c1: "#2B1E16", c2: "#AE8E76", c3: "#CDB69A" },
       warp: [["c1", 13.2], ["c3", 1.3], ["c1", 1.05], ["c3", 1.3], ["c1", 5.3], ["ground", 23], ["c1", 15.2], ["c2", 5.3], ["c1", 1], ["c2", 1.6], ["c1", 1], ["c2", 20.4],
         ["ground", 4], ["c3", 1], ["ground", 5.3], ["c1", 13.8], ["c3", 1.3], ["c1", 1.3], ["c3", 1.3], ["c1", 4], ["ground", 23.5]],
@@ -10410,9 +10413,12 @@ import { createResizeEngine } from "./resize-engine.js";
   XP_PATTERNS.forEach(function (p) {
     if (!p.raster) return;
     const sum = function (l) { return l.reduce(function (a, b) { return a + b[1]; }, 0); };
-    // 20% bigger than measured (Danielle, 25 Nov: "slightly too small").
-    p.warp = p.warp.map(function (b) { return [b[0], b[1] * 1.2]; });
-    p.weft = p.weft.map(function (b) { return [b[0], b[1] * 1.2]; });
+    // A sett the same both ways gives only its warp.
+    if (!p.weft) p.weft = p.warp;
+    // The Christmas tartan 20% bigger than measured (Danielle, 25 Nov: "slightly too small").
+    const g = p.grow || 1;
+    p.warp = p.warp.map(function (b) { return [b[0], b[1] * g, b[2]]; });
+    p.weft = p.weft.map(function (b) { return [b[0], b[1] * g, b[2]]; });
     p.tw = sum(p.warp); p.th = sum(p.weft);
   });
 
@@ -10669,12 +10675,18 @@ import { createResizeEngine } from "./resize-engine.js";
     const id = p.key + "|" + JSON.stringify(cols) + "|" + W + "x" + H + (felt && fibre ? "|f" : "");
     if (_wovenTiles.has(id)) return _wovenTiles.get(id);
     // Each band's colour along one side, at a sub-pixel step (two samples a pixel).
+    // A band with a strength under 1 is a yarn that far from the ground's colour towards its own.
+    const g0 = hexToRgb(cols.ground || "#000000");
+    const yarn = function (b) {
+      const c = hexToRgb(cols[b[0]] || "#000000"), s = b[2] == null ? 1 : b[2];
+      return s >= 1 ? c : [g0[0] + (c[0] - g0[0]) * s, g0[1] + (c[1] - g0[1]) * s, g0[2] + (c[2] - g0[2]) * s];
+    };
     const lineOf = function (bands, n) {
-      const total = bands.reduce(function (a, b) { return a + b[1]; }, 0), out = new Array(n);
+      const total = bands.reduce(function (a, b) { return a + b[1]; }, 0), out = new Array(n), ys = bands.map(yarn);
       for (let x = 0, bi = 0, acc = 0; x < n; x++) {
         const u = (x + 0.5) / n * total;
         while (bi < bands.length - 1 && u > acc + bands[bi][1]) { acc += bands[bi][1]; bi++; }
-        out[x] = hexToRgb(cols[bands[bi][0]] || "#000000");
+        out[x] = ys[bi];
       }
       return out;
     };
