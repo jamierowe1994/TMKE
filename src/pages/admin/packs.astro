@@ -72,32 +72,33 @@ import "../../styles/catalogue-builder.css";
   </div>
 
   <!-- Gift-a-pack modal: drops a pack into someone's library as a £0 order. -->
-  <div class="gift-modal" id="gift-modal" hidden>
+  <!-- Gift a pack (Danielle, 27 Nov 2026): the Pack orders pop-out look, with the team's message. -->
+  <div class="gift-modal gp" id="gift-modal" hidden>
     <div class="gift-modal-backdrop" data-gift-close></div>
-    <div class="gift-modal-card" role="dialog" aria-modal="true" aria-labelledby="gift-modal-title">
-      <button type="button" class="gift-modal-x" data-gift-close aria-label="Close">&times;</button>
-      <p class="gift-modal-eyebrow">Gift a pack</p>
-      <h2 class="gift-modal-title" id="gift-modal-title">Gift &ldquo;<span id="gift-pack-name"></span>&rdquo;</h2>
-      <p class="gift-modal-sub">
-        Drops this pack straight into someone&rsquo;s library as a &pound;0 order &mdash;
-        no payment needed. Use it to set up an example client or comp a customer.
-      </p>
-
-      <label class="gift-field">
-        <span>Recipient email</span>
-        <input type="email" id="gift-email" list="gift-email-list" placeholder="name@company.co.uk" autocomplete="off" />
-        <datalist id="gift-email-list"></datalist>
-      </label>
-      <label class="gift-field">
-        <span>Recipient name <em>(optional)</em></span>
-        <input type="text" id="gift-name" placeholder="e.g. Danielle" autocomplete="off" />
-      </label>
-
-      <p class="gift-error" id="gift-error" hidden></p>
-
-      <div class="gift-actions">
-        <button type="button" class="admin-btn admin-btn-ghost" data-gift-close>Cancel</button>
-        <button type="button" class="admin-btn admin-btn-primary" id="gift-confirm">Gift this pack &rarr;</button>
+    <div class="gp-pop" role="dialog" aria-modal="true" aria-labelledby="gift-modal-title">
+      <div class="gp-h">
+        <div><p class="gp-eye">Gift a pack</p><h2 class="gp-title" id="gift-modal-title">Gift &ldquo;<span id="gift-pack-name"></span>&rdquo;</h2></div>
+        <button type="button" class="gp-x" data-gift-close aria-label="Close">&times;</button>
+      </div>
+      <div class="gp-b" data-lenis-prevent>
+        <p id="gift-intro"></p>
+        <label class="gp-field"><span>Their email</span>
+          <input type="email" id="gift-email" list="gift-email-list" placeholder="name@company.co.uk" autocomplete="off" />
+          <datalist id="gift-email-list"></datalist>
+        </label>
+        <p class="gp-warn" id="gift-noacc" hidden></p>
+        <label class="gp-field"><span>Their name <em>(optional)</em></span>
+          <input type="text" id="gift-name" placeholder="e.g. Sarah" autocomplete="off" />
+        </label>
+        <label class="gp-field"><span>A message <em>(optional, up to 90 characters)</em></span>
+          <textarea id="gift-note" rows="2" maxlength="90"></textarea>
+        </label>
+        <div class="gp-under"><p id="gift-note-hint"></p><span id="gift-note-count">0 / 90</span></div>
+        <p class="gp-err" id="gift-error" hidden></p>
+      </div>
+      <div class="gp-f">
+        <button type="button" class="gp-btn" data-gift-close>Cancel</button>
+        <button type="button" class="gp-btn primary" id="gift-confirm">Gift this pack</button>
       </div>
     </div>
   </div>
@@ -623,32 +624,36 @@ import "../../styles/catalogue-builder.css";
       font-family: var(--sans); font-size: 13px; line-height: 1.55;
       color: rgba(28,29,34,0.6); margin: 0 0 22px;
     }
-    .gift-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
-    .gift-field > span {
-      font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.18em; text-transform: uppercase;
-      color: rgba(28,29,34,0.55);
-    }
-    .gift-field > span em { font-style: normal; font-weight: 500; color: rgba(28,29,34,0.4); letter-spacing: 0.04em; }
-    .gift-field input {
-      font-family: var(--sans); font-size: 15px;
-      padding: 11px 13px;
-      border: 1px solid rgba(var(--violet-rgb), 0.28);
-      border-radius: 4px; background: #fff; color: var(--ink);
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .gift-field input:focus {
-      outline: none; border-color: var(--english-violet);
-      box-shadow: 0 0 0 3px rgba(var(--violet-rgb), 0.12);
-    }
-    .gift-error {
-      font-family: var(--sans); font-size: 13px;
-      color: #a23b3b; background: rgba(162, 59, 59, 0.08);
-      border: 1px solid rgba(162, 59, 59, 0.25);
-      padding: 9px 12px; border-radius: 4px; margin: 0 0 16px;
-    }
-    .gift-error[hidden] { display: none; }
-    .gift-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+    /* Gift a pack (27 Nov): the Pack orders pop-out (contacts-os.css .pop), one body
+       size, labels over full-width boxes. "html .gp" outranks the hub's input/label rules. */
+    .gp { --gp-wine: #371e28; --gp-taupe: #7e6765; --gp-stone: #c9bcb7; --gp-linen: #eae5e1; --gp-edge: #e2d9d4; --gp-ink: #2b2226; --gp-bad: #8a3f3f; }
+    .gp .gift-modal-backdrop { background: rgba(55,30,40,.45); backdrop-filter: none; }
+    .gp-pop { position: relative; width: min(620px, 100%); height: 620px; max-height: calc(100vh - 40px); display: flex; flex-direction: column; background: #fff; border-radius: 4px; overflow: hidden; box-shadow: 0 24px 60px -20px rgba(55,30,40,.6); font-family: var(--sans); font-size: 14px; font-weight: 400; color: var(--gp-ink); }
+    .gp-h { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 18px 20px; background: var(--gp-linen); flex: none; }
+    .gp-eye { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--gp-taupe); }
+    html .gp .gp-title { margin: 4px 0 0; font-family: "TMKE Serif", Georgia, serif; font-weight: 300; font-size: 24px; line-height: 1.2; letter-spacing: -0.04em; color: var(--gp-ink); }
+    html .gp .gp-x { flex: none; width: 30px; height: 30px; padding: 0; border: 1px solid var(--gp-edge); border-radius: 4px; background: #fff; font-size: 18px; line-height: 1; color: var(--gp-ink); cursor: pointer; }
+    html .gp .gp-x:hover { border-color: var(--gp-wine); color: var(--gp-wine); }
+    .gp-b { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px; display: grid; gap: 16px; align-content: start; }
+    .gp-b > p { margin: 0; color: var(--gp-taupe); }
+    html .gp label.gp-field { display: grid; gap: 6px; margin: 0; font-size: 14px; font-weight: 400; color: inherit; text-transform: none; letter-spacing: normal; }
+    .gp-field > span { color: var(--gp-taupe); }
+    .gp-field > span em { font-style: normal; }
+    html .gp .gp-field input, html .gp .gp-field textarea { box-sizing: border-box; width: 100%; min-height: 0; margin: 0; font: inherit; font-size: 14px; color: var(--gp-ink); background: #fff; border: 1px solid var(--gp-stone); border-radius: 4px; box-shadow: none; }
+    html .gp .gp-field input { height: 36px; padding: 0 10px; }
+    html .gp .gp-field textarea { height: 58px; padding: 6px 10px; line-height: 1.35; resize: none; }
+    html .gp .gp-field input:focus, html .gp .gp-field textarea:focus { outline: none; border-color: var(--gp-wine); box-shadow: none; }
+    .gp-under { display: flex; justify-content: space-between; gap: 12px; margin-top: -8px; color: var(--gp-taupe); }
+    .gp-under p { margin: 0; }
+    .gp-under span { flex: none; font-variant-numeric: tabular-nums; }
+    .gp-warn { margin: -6px 0 0; padding: 8px 10px; border-radius: 4px; background: var(--gp-linen); color: var(--gp-wine); }
+    .gp-err { margin: 0; color: var(--gp-bad); }
+    .gp-f { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--gp-linen); flex: none; }
+    html .gp .gp-btn { display: inline-flex; align-items: center; height: 30px; padding: 0 14px; border-radius: 4px; border: 1px solid var(--gp-edge); background: #fff; color: var(--gp-ink); cursor: pointer; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+    html .gp .gp-btn:hover { border-color: var(--gp-wine); color: var(--gp-wine); }
+    html .gp .gp-btn.primary { background: var(--gp-wine); border-color: var(--gp-wine); color: #fff; }
+    html .gp .gp-btn.primary:hover { background: #2a1620; color: #fff; }
+    html .gp .gp-btn:disabled { opacity: .55; cursor: default; }
 
     @media (max-width: 720px) {
       .catalogue-top { padding: 32px 22px 12px; }
@@ -670,7 +675,7 @@ import "../../styles/catalogue-builder.css";
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
     import { rebuildSite } from "../../lib/site-rebuild.js";
-    import { giftPack } from "../../lib/pack-gift.js";
+    import { giftPack, hasAccount, GIFT_COPY, NOTE_MAX } from "../../lib/pack-gift.js";
 
     import { initBuilder } from "../../lib/catalogue-builder.js";
     import { initOffers } from "../../lib/shop-offers-admin.js";
@@ -924,6 +929,26 @@ import "../../styles/catalogue-builder.css";
     const giftNameInput = document.getElementById("gift-name");
     const giftConfirmBtn = document.getElementById("gift-confirm");
     const giftErrorEl = document.getElementById("gift-error");
+    const giftNoteInput = document.getElementById("gift-note");
+    const giftNoteCount = document.getElementById("gift-note-count");
+    const giftNoAcc = document.getElementById("gift-noacc");
+    document.getElementById("gift-intro").textContent = GIFT_COPY.intro;
+    document.getElementById("gift-note-hint").textContent = GIFT_COPY.noteHint;
+    giftNoAcc.textContent = GIFT_COPY.noAccount;
+    giftNoteInput.placeholder = GIFT_COPY.notePlaceholder;
+    const countNote = () => { giftNoteCount.textContent = `${giftNoteInput.value.length} / ${NOTE_MAX}`; };
+    giftNoteInput.addEventListener("input", countNote);
+    // Says so when the address has no account, so the team knows the bell will wait.
+    let accT = 0, accFor = "";
+    async function checkAccount() {
+      const email = (giftEmailInput.value || "").trim().toLowerCase();
+      if (email === accFor) return;
+      accFor = email; giftNoAcc.hidden = true;
+      const has = await hasAccount(email);
+      if (accFor === email) giftNoAcc.hidden = has !== false;
+    }
+    giftEmailInput.addEventListener("input", () => { clearTimeout(accT); accT = setTimeout(checkAccount, 500); });
+    giftEmailInput.addEventListener("change", checkAccount);
 
     function showGiftError(msg) {
       if (!giftErrorEl) return;
@@ -940,6 +965,8 @@ import "../../styles/catalogue-builder.css";
       if (giftErrorEl) giftErrorEl.hidden = true;
       if (giftEmailInput) giftEmailInput.value = "";
       if (giftNameInput) giftNameInput.value = "";
+      giftNoteInput.value = ""; countNote();
+      accFor = ""; giftNoAcc.hidden = true;
       giftModal.hidden = false;
       setTimeout(() => giftEmailInput && giftEmailInput.focus(), 40);
     }
@@ -958,10 +985,10 @@ import "../../styles/catalogue-builder.css";
       giftConfirmBtn.disabled = true;
       giftConfirmBtn.textContent = "Gifting…";
 
-      const { error, emailFailed } = await giftPack(pack, email, name);
+      const { error, emailFailed } = await giftPack(pack, email, name, giftNoteInput.value);
 
       giftConfirmBtn.disabled = false;
-      giftConfirmBtn.textContent = "Gift this pack →";
+      giftConfirmBtn.textContent = "Gift this pack";
 
       if (error) {
         showGiftError(error);
@@ -975,7 +1002,7 @@ import "../../styles/catalogue-builder.css";
         if (list) list.innerHTML = customerEmails.map((e) => `<option value="${escapeHtml(e)}"></option>`).join("");
       }
       closeGift();
-      toast(emailFailed ? `Gifted “${pack.title}” to ${email}, but the email didn't send.` : `Gifted “${pack.title}” to ${email}. Email sent.`);
+      toast(emailFailed ? GIFT_COPY.failed(pack.title, name || email) : GIFT_COPY.done(pack.title, name || email));
     }
 
     giftConfirmBtn?.addEventListener("click", confirmGift);

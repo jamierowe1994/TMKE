@@ -5280,19 +5280,43 @@ ${cover ? `<tr><td style="padding:0 16px;"><img src="${esc(cover)}" alt="A photo
 </table></td></tr></table></body></html>`;
 }
 /* Sent when a pack is gifted (Dani, 9 Nov 2026, her wording), in place of a purchase email. */
-function packGiftedEmail({ first, pack, studioUrl }) {
+/* 27 Nov 2026 (Danielle, agreed on docs/tmke-os/gift-a-pack): the gallery
+   emails' look; a member is told it's in their library, someone without an
+   account is asked to sign up with this address; the team's message (90
+   characters at most) sits under the button in the gallery emails' grey box;
+   three of the pack's templates along the foot. */
+function packGiftedEmail({ first, pack, note, hasAccount, studioUrl, joinUrl, thumbs }) {
   const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const P = (x) => `<p style="${EM_P}text-align:left;">${x}</p>`;
-  // Titles are often "The Something" or end in "Pack", so "our The Property Pack template pack" can't happen.
-  const name = String(pack || "").trim().replace(/^the\s+/i, "");
-  const what = /\bpack$/i.test(name) ? `our ${esc(name)}` : `our ${esc(name)} template pack`;
-  const subject = `We've added ${pack} to your library in the Studio.`;
-  return { subject, html: deliveryShell({ subject, heading: "A Template Pack, On Us.", inner:
-    P(`Hi ${esc(first || "there")},`)
-    + P(`We've gifted you ${what}, and it's ready to use in your TMKE Studio library. There's nothing to pay.`)
-    + P("If you haven't created an account yet, simply sign up using this email address to access your pack.")
-    + `<p style="${EM_P}text-align:center;margin-top:4px;margin-bottom:20px;"><a href="${esc(studioUrl)}" style="${EM_BTN}">Open the Studio</a></p>`
-    + P("The TMKE Team") }) };
+  const subject = `${pack} is yours, on us.`;
+  const btn = (t, u) => `<p style="${EM_P}text-align:center;margin-top:4px;margin-bottom:20px;"><a href="${esc(u)}" style="${EM_BTN}">${esc(t)}</a></p>`;
+  // The gallery emails' box (deliveryEmail's box): grey, a small label over the words.
+  const msg = String(note || "").trim();
+  const box = msg ? `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td style="padding:0 0 ${EMS.bodyGap}px;"><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr><td bgcolor="#eae5e1" style="background:#eae5e1;padding:14px 16px;font-family:Verdana,Geneva,sans-serif;font-size:12px;line-height:1.5;color:#7e6765;">A note from the TMKE team<br><span style="font-size:14px;line-height:1.5;color:#371e28;">${esc(msg)}</span></td></tr></table></td></tr></table>` : "";
+  const pics = (thumbs || []).filter(Boolean).slice(0, 3);
+  const cell = (u) => `<td width="33%" valign="top" style="padding:0 4px;"><img src="${esc(u)}" alt="" width="190" style="display:block;border:0;width:100%;max-width:190px;height:auto;"></td>`;
+  const row = pics.length === 3 ? `<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="margin:6px 0 ${EMS.bodyGap}px;"><tr><td style="padding:0 0 8px;font-family:Verdana,Geneva,sans-serif;font-size:11px;line-height:1.5;color:#7e6765;text-align:center;">Three of the templates in your pack.</td></tr><tr><td><table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr>${pics.map(cell).join("")}</tr></table></td></tr></table>` : "";
+  const inner = P(`Hi ${esc(first || "there")},`)
+    + (hasAccount
+      ? P(`We've gifted you ${esc(pack)}, a template pack from The Edit. It's already in your Studio library and ready to use. There's nothing to pay.`) + btn("Open the Studio", studioUrl)
+      : P(`We've gifted you ${esc(pack)}, a template pack from The Edit, our template shop for estate agents. There's nothing to pay.`)
+        + P("To use it you'll need a TMKE account, which is free. Sign up with this email address and your pack will be waiting in your Studio library.")
+        + btn("Create your free account", joinUrl))
+    + box + P("The TMKE Team") + row;
+  return { subject, html: deliveryShell({ subject, heading: "Your New Template Pack, On Us.", inner }) };
+}
+// The bell's words for a gift (27 Nov): the team's message, or the standard line.
+const GIFT_BELL_BODY = "It's in your Studio library and ready to use. There's nothing to pay.";
+// Only gifts from this point get a bell: the ones before it were never promised one.
+const GIFT_BELL_SINCE = "2026-11-27T00:00:00Z";
+// Three of a pack's templates for the gift email, small enough for an inbox.
+async function packThumbs(env, packId) {
+  const rows = (await sbGet(env, "templates", `pack_id=eq.${encodeURIComponent(packId)}&status=eq.active&select=render_url,thumb_url&order=sort_order.asc&limit=3`).catch(() => null)) || [];
+  return rows.map((t) => {
+    const u = String(t.render_url || t.thumb_url || "");
+    // Supabase resizes on the way out (render/image): 400 wide is plenty for a third of the email.
+    return /\/storage\/v1\/object\/public\//.test(u) ? u.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/") + (u.includes("?") ? "&" : "?") + "width=400&quality=80" : u;
+  }).filter(Boolean);
 }
 async function ensureEditsToken(env, bk) {
   if (bk.edits_token) return bk.edits_token;
@@ -5398,6 +5422,11 @@ async function deliveryPreview(env, id) {
 // Shared by GET /email/preview and POST /email/preview/send so the preview and
 // the test email can never drift apart. Returns { subject, html } or null.
 const DELIVERY_SAMPLE = { first: "Sarah", shoot: "Property video, 20 October", cover: "https://tmke.co.uk/email/sample-cover-16x9.jpg", pin: "7320", email: "sarah@example.com", galleryUrl: "https://tmke.co.uk", tourUrl: "https://tmke.co.uk", editsUrl: "https://tmke.co.uk", invoiceNo: "TMKE1102", payUrl: "https://tmke.co.uk", attached: true, inStudio: true, portalUrl: "https://tmke.co.uk" };
+// The Christmas Edit's own templates, so the preview shows a real pack.
+const GIFT_THUMB = (p) => `https://tqqezhvjakohraiverei.supabase.co/storage/v1/render/image/public/calendar-assets/${p}?width=400&quality=80`;
+const GIFT_SAMPLE = { first: "Sarah", pack: "The Christmas Edit", hasAccount: true, note: "Thanks for a brilliant year. We thought these would be perfect for your December posts.",
+  studioUrl: "https://tmke.co.uk/account/studio", joinUrl: "https://tmke.co.uk/join",
+  thumbs: [GIFT_THUMB("d5e60b76-8019-4070-8cfd-7273950cd8fa/templates/ufpmqq-796b.jpg"), GIFT_THUMB("d1fb7525-4f2b-4ac4-86f8-47a03704dd38/templates/1y1s6wo-93h3.jpg"), GIFT_THUMB("d5e60b76-8019-4070-8cfd-7273950cd8fa/templates/cl1hlc-8cmr.jpg")] };
 function emailPreviewSample(id) {
   const SAMPLES = {
     button_test: () => {
@@ -5411,6 +5440,8 @@ function emailPreviewSample(id) {
     delivery_wrap: () => deliveryEmail("wrap", { ...DELIVERY_SAMPLE, reviewUrl: "https://tmke.co.uk/leave-a-review", hasAccount: false, joinUrl: "https://tmke.co.uk/join", bookingsUrl: "https://tmke.co.uk/account/bookings" }),
     vid_edits_complete: () => deliveryEmail("wrap", { ...DELIVERY_SAMPLE, reviewUrl: "https://tmke.co.uk/leave-a-review", hasAccount: false, joinUrl: "https://tmke.co.uk/join", bookingsUrl: "https://tmke.co.uk/account/bookings" }),
     delivery_portal: () => deliveryEmail("portal", { ...DELIVERY_SAMPLE, shoot: "Bootcamp coverage, 20 October", passcode: "BOOT26" }),
+    pack_gifted: () => packGiftedEmail(GIFT_SAMPLE),
+    pack_gifted_join: () => packGiftedEmail({ ...GIFT_SAMPLE, hasAccount: false, note: "" }),
     post_reminder: () => ({ subject: "Your Instagram post is planned for today", html: reminderHtml({ title: "Spring launch teaser", asset_url: "https://assets.tmke.co.uk/white-1.webp" }, "Instagram", "New season, new listings ✨\n\nSwipe to see what's just come to market - book a viewing before they're gone.") }),
     setup_reminder: () => ({ subject: "Set your password to unlock your TMKE pack", html: setupReminderHtml({ name: "Alex Morgan", pack: "The Spring Collection", link: "https://tmke.co.uk/set-password?token=sample" }) }),
     waitlist_register: () => ({ subject: "You're on the cancellation list - The Studio", html: waitlistHtml({ name: "Alex Morgan", service: "The Studio", pkg: "Half day", date: "2026-08-25", time: "10:00" }) }),
@@ -11188,15 +11219,37 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const b = await request.json().catch(() => ({}));
         const id = String((b && b.order_id) || "").trim();
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return json({ error: "Order not found." }, 404, request, env);
-        const rows = await sbGet(env, "orders", `id=eq.${id}&payment_method=eq.gift&status=eq.paid&select=buyer_email,buyer_name,pack_title&limit=1`);
+        const rows = await sbGet(env, "orders", `id=eq.${id}&payment_method=eq.gift&status=eq.paid&select=id,buyer_email,buyer_name,pack_id,pack_title&limit=1`);
         const o = rows && rows[0];
         if (!o || !o.buyer_email) return json({ error: "Gift not found." }, 404, request, env);
+        // The team's message (27 Nov): 90 characters at most, plain words. It's
+        // kept on the order (pack_gift_note.sql) so it can wait for someone who
+        // hasn't signed up yet; before that SQL runs, it still goes in the email.
+        const note = String((b && b.note) || "").replace(/\s+/g, " ").trim().slice(0, 90);
+        const who = await findUserByEmail(env, o.buyer_email).catch(() => null);
         await loadEmailStyles(env);
         const site = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
-        const mail = packGiftedEmail({ first: deliveryFirstName(o.buyer_name), pack: o.pack_title, studioUrl: `${site}/account/studio` });
+        const mail = packGiftedEmail({ first: deliveryFirstName(o.buyer_name), pack: o.pack_title, note, hasAccount: !!(who && who.id),
+          studioUrl: `${site}/account/studio`, joinUrl: `${site}/join`, thumbs: o.pack_id ? await packThumbs(env, o.pack_id) : [] });
         const sent = await sendEmail(env, { to: o.buyer_email, subject: mail.subject, html: mail.html });
-        if (!sent.ok) return json({ error: "The email didn't send." }, 502, request, env);
-        return json({ ok: true }, 200, request, env);
+        // A member's bell now; anyone else's the first time they sign in (/me/seen).
+        let belled = false;
+        if (who && who.id) belled = await notifyMember(env, who.id, { kind: "pack_gift", title: `We've gifted you ${o.pack_title}`, body: note || GIFT_BELL_BODY, href: "/account/studio", meta: { order_id: o.id } });
+        await sbPatch(env, "orders", `id=eq.${o.id}`, { gift_note: note || null, ...(belled ? { gift_notified_at: new Date().toISOString() } : {}) }).catch(() => null);
+        if (!sent.ok) return json({ error: "The email didn't send.", has_account: !!(who && who.id) }, 502, request, env);
+        return json({ ok: true, has_account: !!(who && who.id) }, 200, request, env);
+      }
+
+      // ---- Admin: does this address have a TMKE account? (Gift a pack, 27 Nov) ----
+      // Yes or no only, so the pop-up can say the notification will wait.
+      if (path.endsWith("/packs/gift-check") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const email = String((b && b.email) || "").trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ account: null }, 200, request, env);
+        const who = await findUserByEmail(env, email).catch(() => null);
+        return json({ account: !!(who && who.id) }, 200, request, env);
       }
 
       // ---- The shop: prices, the banner and the basket (Danielle, 26 Nov) -----
@@ -21061,6 +21114,17 @@ async function sendGalleryPinEmail(env, bookingId) {
       if (path.endsWith("/me/seen") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !user.id) return json({ ok: false }, 200, request, env);
+        /* A pack gifted before they had an account (27 Nov): its bell waits for
+           here, their first time in. Only gifts since GIFT_BELL_SINCE, only
+           once each; before pack_gift_note.sql has run the read finds nothing. */
+        try {
+          const em = String(user.email || "").trim().toLowerCase();
+          const due = em ? ((await sbGet(env, "orders", `buyer_email=ilike.${encodeURIComponent(em)}&payment_method=eq.gift&status=eq.paid&gift_notified_at=is.null&created_at=gte.${encodeURIComponent(GIFT_BELL_SINCE)}&select=id,pack_title,gift_note&limit=20`)) || []) : [];
+          for (const g of due) {
+            const claimed = await sbPatchReturn(env, "orders", `id=eq.${g.id}&gift_notified_at=is.null`, { gift_notified_at: new Date().toISOString() }).catch(() => null);
+            if (Array.isArray(claimed) && claimed.length) await notifyMember(env, user.id, { kind: "pack_gift", title: `We've gifted you ${g.pack_title}`, body: g.gift_note || GIFT_BELL_BODY, href: "/account/studio", meta: { order_id: g.id } });
+          }
+        } catch (_) { /* a missed bell costs nothing else */ }
         const last = (user.app_metadata && user.app_metadata.last_active_at) || "";
         if (last && Date.now() - new Date(last).getTime() < 25 * 60000) return json({ ok: true, skipped: true }, 200, request, env);
         await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {

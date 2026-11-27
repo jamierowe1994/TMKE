@@ -55,6 +55,12 @@ import "../../styles/money-os.css";
     #po .po-lg .tx { color: var(--tx); }
     #po .pop-b p { margin: 0; color: var(--tx); }
     #po .pop-b p.err { color: var(--bad); }
+    /* Gift a pack (27 Nov): the message box and the no-account line. */
+    #po .pop-b textarea { height: 58px; resize: none; }
+    #po .po-under { display: flex; justify-content: space-between; gap: 12px; margin-top: -10px; color: var(--tx); }
+    #po .po-under span { flex: none; font-variant-numeric: tabular-nums; }
+    #po .pop-b p.po-noacc { margin-top: -8px; padding: 8px 10px; border-radius: 4px; background: var(--linen); color: var(--wine); }
+    #po td.po-msg { color: var(--tx); max-width: 320px; }
     @media (max-width: 900px) { #po .po-charts { grid-template-columns: minmax(0, 1fr); } }
   </style>
 
@@ -62,7 +68,7 @@ import "../../styles/money-os.css";
     import { requireAdmin, isManagementUser } from "../../lib/admin-gate.js";
     import { supabase } from "../../lib/supabase.js";
     import { fitScrim, gbp } from "../../lib/revenue.js";
-    import { giftPack } from "../../lib/pack-gift.js";
+    import { giftPack, hasAccount, GIFT_COPY, NOTE_MAX } from "../../lib/pack-gift.js";
     import { invoiceFor } from "../../lib/order-receipt.js";
 
     const $ = (id) => document.getElementById(id);
@@ -218,7 +224,7 @@ import "../../styles/money-os.css";
       return `<div class="figs">${fig("dark", list.length, "Packs gifted")}${fig("lin", people, "People gifted to")}${fig("lin", month, `Gifted in ${LONG[Number(THIS_MONTH.slice(5)) - 1]}`)}</div>
       <div class="bar">${find("gq", "Search name, email, pack", S.gq)}<div class="mo-acts" style="margin-left:auto"><button type="button" class="mbtn primary" id="gift-open">Gift a pack</button></div></div>
       <div class="section"><div class="strip"><div class="strip-t">Gifted packs</div><span class="aside">${rows.length} ${rows.length === 1 ? "gift" : "gifts"}</span></div>
-      ${rows.length ? `<div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Date</th><th>Gifted to</th><th>Email</th><th>Pack</th><th class="num"></th></tr></thead><tbody>${rows.map((g) => `<tr><td class="tx">${when(g.created_at)}</td><td>${esc(g.buyer_name)}</td><td class="tx">${esc(g.buyer_email)}</td><td>${esc(g.pack_title)}</td><td class="num"><button type="button" class="mbtn danger" data-take="${esc(g.id)}">Take back</button></td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No gifts match that.</div>'}</div>`;
+      ${rows.length ? `<div class="tablewrap" data-lenis-prevent><table><thead><tr><th>Date</th><th>Gifted to</th><th>Email</th><th>Pack</th><th>Message</th><th class="num"></th></tr></thead><tbody>${rows.map((g) => `<tr><td class="tx">${when(g.created_at)}</td><td>${esc(g.buyer_name)}</td><td class="tx">${esc(g.buyer_email)}</td><td>${esc(g.pack_title)}</td><td class="po-msg">${esc(g.gift_note || "—")}</td><td class="num"><button type="button" class="mbtn danger" data-take="${esc(g.id)}">Take back</button></td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">No gifts match that.</div>'}</div>`;
     }
 
     function draw() {
@@ -272,15 +278,27 @@ import "../../styles/money-os.css";
 
     function openGift() {
       const emails = [...new Set(ALL.map((o) => String(o.buyer_email || "").toLowerCase()).filter(Boolean))].sort();
-      pop("Gifted", "Gift a pack", `<p>The pack goes straight into their library at no charge. It won't count as an order.</p><label class="field"><span>Pack</span><select id="g-pack"><option value="">Choose a pack</option>${PACKS.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join("")}</select></label><label class="field"><span>Their email</span><input type="email" id="g-email" list="g-emails" placeholder="name@company.co.uk" autocomplete="off"><datalist id="g-emails">${emails.map((e) => `<option value="${esc(e)}"></option>`).join("")}</datalist></label><label class="field"><span>Their name</span><input type="text" id="g-name" autocomplete="off"></label><p class="err" id="g-err" hidden></p>`,
+      pop("Gifted", "Gift a pack", `<p>${esc(GIFT_COPY.intro)}</p><label class="field"><span>Pack</span><select id="g-pack"><option value="">Choose a pack</option>${PACKS.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join("")}</select></label><label class="field"><span>Their email</span><input type="email" id="g-email" list="g-emails" placeholder="name@company.co.uk" autocomplete="off"><datalist id="g-emails">${emails.map((e) => `<option value="${esc(e)}"></option>`).join("")}</datalist></label><p class="po-noacc" id="g-noacc" hidden>${esc(GIFT_COPY.noAccount)}</p><label class="field"><span>Their name (optional)</span><input type="text" id="g-name" autocomplete="off"></label><label class="field"><span>A message (optional, up to ${NOTE_MAX} characters)</span><textarea id="g-note" rows="2" maxlength="${NOTE_MAX}" placeholder="${esc(GIFT_COPY.notePlaceholder)}"></textarea></label><div class="po-under"><p>${esc(GIFT_COPY.noteHint)}</p><span id="g-count">0 / ${NOTE_MAX}</span></div><p class="err" id="g-err" hidden></p>`,
         `<button type="button" class="mbtn" data-close>Cancel</button><button type="button" class="mbtn primary" id="gift-go">Gift this pack</button>`);
+      accFor = "";
+    }
+    // Says so when the address has no account, so the team knows the bell will wait.
+    let accT = 0, accFor = "";
+    async function checkAccount() {
+      const el = $("g-email"); if (!el) return;
+      const email = el.value.trim().toLowerCase();
+      if (email === accFor) return;
+      accFor = email; $("g-noacc").hidden = true;
+      const has = await hasAccount(email);
+      const line = $("g-noacc");
+      if (line && accFor === email) line.hidden = has !== false;
     }
     async function giveGift(btn) {
       const pack = PACKS.find((p) => p.id === $("g-pack").value);
       btn.disabled = true; btn.textContent = "Gifting…";
-      const { order, error, emailFailed } = await giftPack(pack, $("g-email").value, $("g-name").value);
+      const { order, error, emailFailed } = await giftPack(pack, $("g-email").value, $("g-name").value, $("g-note").value);
       if (error) { btn.disabled = false; btn.textContent = "Gift this pack"; const x = $("g-err"); x.textContent = error; x.hidden = false; return; }
-      ALL.unshift(order); closePop(); draw(); toast(emailFailed ? `${pack.title} gifted to ${order.buyer_name}, but the email didn't send.` : `${pack.title} gifted to ${order.buyer_name}. Email sent.`);
+      ALL.unshift(order); closePop(); draw(); toast(emailFailed ? GIFT_COPY.failed(pack.title, order.buyer_name) : GIFT_COPY.done(pack.title, order.buyer_name));
     }
     function askTake(id) {
       const g = ALL.find((x) => x.id === id); if (!g) return;
@@ -308,6 +326,8 @@ import "../../styles/money-os.css";
     });
     $("po").addEventListener("input", (e) => {
       const id = e.target.id;
+      if (id === "g-note") { $("g-count").textContent = `${e.target.value.length} / ${NOTE_MAX}`; return; }
+      if (id === "g-email") { clearTimeout(accT); accT = setTimeout(checkAccount, 500); return; }
       if (id !== "oq" && id !== "tq" && id !== "gq") return;
       S[id] = e.target.value; draw();
       const el = $(id); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
