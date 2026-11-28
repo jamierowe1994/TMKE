@@ -3595,6 +3595,108 @@ import { createResizeEngine } from "./resize-engine.js";
     return { sw, sh, ox: (fw - sw) * px, oy: (fh - sh) * py, deg };
   }
 
+  /* Background blur (Danielle, 28 Nov): Canva's "Whole image" blur, an
+     Intensity from 0 to 100 on the page (canvas.bgBlur), not on the photo, so
+     a new background photo comes in blurred too, by whichever route it
+     arrives. Returns the blur radius in design pixels: 100 is 3% of the
+     page's short side, about 32px on a 1080-wide post, and scales with the
+     page so a print design blurs the same amount to the eye. */
+  function bgBlurPx(src) {
+    const C = src || state.canvas;
+    const v = Math.max(0, Math.min(100, Number(C.bgBlur) || 0));
+    if (!v || !C.backgroundImage) return 0;
+    return v / 100 * 0.03 * Math.min(C.width || 0, C.height || 0);
+  }
+  /* A blurred photo fades at its own edges, and in Fill that fade would show
+     round the page as a pale rim. So a blurred Fill photo is drawn larger,
+     by two and a half times the blur on every side and about its centre,
+     which keeps the page inside the solid part (twice left a rim of 5 levels
+     on a plain dark photo; this leaves 1). Fit shows the photo's edges
+     anyway, so it is left as it is. Used by the screen, Reposition and every
+     render. */
+  function bgBlurBox(lay, r, C) {
+    if (!r || !lay || C.bgFit === "contain") return lay;
+    const k = Math.max((lay.sw + 5 * r) / lay.sw, (lay.sh + 5 * r) / lay.sh);
+    const sw = lay.sw * k, sh = lay.sh * k;
+    return { sw: sw, sh: sh, ox: lay.ox - (sw - lay.sw) / 2, oy: lay.oy - (sh - lay.sh) / 2, deg: lay.deg };
+  }
+  /* Blurs a drawn canvas in place for the renderer. ctx.filter where the
+     browser really has it (Safari has long ignored it, and setting it there
+     reads back fine while doing nothing, so it is tested by drawing); else
+     the same Gaussian made from three box blurs, done small and scaled back
+     up, which a blur can afford. Premultiplied, so the clear margin round a
+     Fit photo does not bleed dark into it. */
+  let _ctxFilterOk = null;
+  function ctxFilterWorks() {
+    if (_ctxFilterOk != null) return _ctxFilterOk;
+    try {
+      const t = document.createElement("canvas"); t.width = 9; t.height = 9;
+      const x = t.getContext("2d");
+      x.filter = "blur(2px)";
+      x.fillStyle = "#000"; x.fillRect(4, 4, 1, 1);
+      _ctxFilterOk = x.getImageData(1, 4, 1, 1).data[3] > 0;
+    } catch (_) { _ctxFilterOk = false; }
+    return _ctxFilterOk;
+  }
+  function blurCanvas(cv, r) {
+    if (!r) return cv;
+    const W = cv.width, H = cv.height;
+    const out = document.createElement("canvas"); out.width = W; out.height = H;
+    const o = out.getContext("2d");
+    if (ctxFilterWorks()) {
+      o.filter = "blur(" + r + "px)";
+      o.drawImage(cv, 0, 0);
+      return out;
+    }
+    // Work small: at most a 6px blur at the reduced size.
+    const s = Math.min(1, 6 / r);
+    const w = Math.max(1, Math.round(W * s)), h = Math.max(1, Math.round(H * s));
+    const sm = document.createElement("canvas"); sm.width = w; sm.height = h;
+    const sx = sm.getContext("2d");
+    sx.imageSmoothingQuality = "high";
+    sx.drawImage(cv, 0, 0, w, h);
+    const img = sx.getImageData(0, 0, w, h), d = img.data;
+    const n = w * h, buf = [new Float32Array(n), new Float32Array(n), new Float32Array(n), new Float32Array(n)];
+    for (let i = 0; i < n; i++) {
+      const a = d[i * 4 + 3] / 255;
+      buf[0][i] = d[i * 4] * a; buf[1][i] = d[i * 4 + 1] * a; buf[2][i] = d[i * 4 + 2] * a; buf[3][i] = d[i * 4 + 3];
+    }
+    // Box widths whose three passes make a Gaussian of this radius.
+    const sig = r * s, wIdeal = Math.sqrt(12 * sig * sig / 3 + 1);
+    let wl = Math.floor(wIdeal); if (wl % 2 === 0) wl--;
+    const mIdeal = (12 * sig * sig - 3 * wl * wl - 12 * wl - 9) / (-4 * wl - 4);
+    const m = Math.round(mIdeal);
+    const radii = [0, 1, 2].map(function (i) { return ((i < m ? wl : wl + 2) - 1) / 2; });
+    const tmp = new Float32Array(n);
+    function pass(src, dst, rad, horiz) {
+      const len = horiz ? w : h, lines = horiz ? h : w, step = horiz ? 1 : w, span = 2 * rad + 1;
+      for (let L = 0; L < lines; L++) {
+        const base = horiz ? L * w : L;
+        let acc = 0;
+        for (let k = -rad; k <= rad; k++) acc += src[base + Math.min(len - 1, Math.max(0, k)) * step];
+        for (let i = 0; i < len; i++) {
+          dst[base + i * step] = acc / span;
+          acc += src[base + Math.min(len - 1, i + rad + 1) * step] - src[base + Math.max(0, i - rad) * step];
+        }
+      }
+    }
+    for (let c = 0; c < 4; c++) {
+      for (let p = 0; p < 3; p++) {
+        if (radii[p] < 1) continue;
+        pass(buf[c], tmp, radii[p], true);
+        pass(tmp, buf[c], radii[p], false);
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      const a = buf[3][i], k = a > 0 ? 255 / a : 0;
+      d[i * 4] = buf[0][i] * k; d[i * 4 + 1] = buf[1][i] * k; d[i * 4 + 2] = buf[2][i] * k; d[i * 4 + 3] = a;
+    }
+    sx.putImageData(img, 0, 0);
+    o.imageSmoothingQuality = "high";
+    o.drawImage(sm, 0, 0, W, H);
+    return out;
+  }
+
   // ---------- Rendering ----------
   function fullRender() {
     orderShapeTexts();
@@ -3669,7 +3771,9 @@ import { createResizeEngine } from "./resize-engine.js";
       bg.style.opacity = state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1;
       bg.style.pointerEvents = "none";
       bg.style.userSelect = "none";
-      const lay = bgLayout();
+      const _blurR = bgBlurPx();
+      bg.style.filter = _blurR ? "blur(" + _blurR.toFixed(2) + "px)" : "";
+      const lay = bgBlurBox(bgLayout(), _blurR, state.canvas);
       if (lay) {
         // Explicit size + offset (supports zoom + 2-axis pan; matches the export).
         bg.style.left = lay.ox + "px"; bg.style.top = lay.oy + "px";
@@ -3841,6 +3945,7 @@ import { createResizeEngine } from "./resize-engine.js";
       }
     });
   }
+  let _bgBlurOpen = false;   // the Blur button's Intensity row, opened by hand
   function syncBgPane() {
     syncBgPatterns();
     syncXmasRail();
@@ -3854,6 +3959,19 @@ import { createResizeEngine } from "./resize-engine.js";
     if (repo) repo.hidden = !hasImg;
     const detach = document.getElementById("ed-bg-detach");
     if (detach) detach.hidden = !hasImg;
+    // Blur: the button shows with a photo; its Intensity row when opened, or
+    // whenever the photo is blurred, so a blur is never hidden from view.
+    const blurOn = Math.round(Math.max(0, Math.min(100, Number(state.canvas.bgBlur) || 0)));
+    const blurBtn = document.getElementById("ed-bg-blur-btn"), blurRow = document.getElementById("ed-bg-blur");
+    if (blurBtn) blurBtn.hidden = !hasImg;
+    if (blurRow) {
+      const open = hasImg && (_bgBlurOpen || blurOn > 0);
+      blurRow.hidden = !open;
+      if (blurBtn) blurBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      const br = document.getElementById("ed-bg-blur-range"), bn = document.getElementById("ed-bg-blur-num");
+      if (br && document.activeElement !== br) br.value = blurOn;
+      if (bn && document.activeElement !== bn) bn.value = blurOn;
+    }
     const rot = document.getElementById("ed-bg-rot");
     if (rot) {
       rot.hidden = !hasImg;
@@ -9147,14 +9265,34 @@ import { createResizeEngine } from "./resize-engine.js";
           const py = (SRC.canvas.bgPosY != null ? SRC.canvas.bgPosY : 50) / 100;
           return { sw: dw, sh: dh, ox: (cw - dw) * px, oy: (ch - dh) * py };
         })();
+        // Blurred (bgBlur): drawn sharp on a sheet of its own, blurred there,
+        // then laid on the page at the photo's transparency.
+        const blurR = bgBlurPx(SRC.canvas);
+        const box = bgBlurBox(lay, blurR, SRC.canvas);
+        const drawBg = function (g) {
+          if (box.deg) {
+            g.translate(box.ox + box.sw / 2, box.oy + box.sh / 2);
+            g.rotate(box.deg * Math.PI / 180);
+            g.drawImage(bg, -box.sw / 2, -box.sh / 2, box.sw, box.sh);
+          } else {
+            g.drawImage(bg, box.ox, box.oy, box.sw, box.sh);
+          }
+        };
         ctx.save();
         ctx.globalAlpha = SRC.canvas.backgroundOpacity != null ? SRC.canvas.backgroundOpacity : 1;
-        if (lay.deg) {
-          ctx.translate(lay.ox + lay.sw / 2, lay.oy + lay.sh / 2);
-          ctx.rotate(lay.deg * Math.PI / 180);
-          ctx.drawImage(bg, -lay.sw / 2, -lay.sh / 2, lay.sw, lay.sh);
+        if (blurR) {
+          // The sheet runs past the page by three times the blur, so the
+          // photo beyond the page edge is blurred in too and the edge does
+          // not blur into nothing (a pale rim, on the first try).
+          const pad = Math.ceil(blurR * 3);
+          const sheet = document.createElement("canvas");
+          sheet.width = c.width + 2 * pad; sheet.height = c.height + 2 * pad;
+          const sg = sheet.getContext("2d");
+          sg.translate(pad, pad);
+          drawBg(sg);
+          ctx.drawImage(blurCanvas(sheet, blurR), -pad, -pad);
         } else {
-          ctx.drawImage(bg, lay.ox, lay.oy, lay.sw, lay.sh);
+          drawBg(ctx);
         }
         ctx.restore();
       } catch (_) {}
@@ -18605,6 +18743,10 @@ import { createResizeEngine } from "./resize-engine.js";
     state.elements.unshift(el);
     state.canvas.backgroundImage = null;
     delete C.bgNatW; delete C.bgNatH; delete C.bgScale; delete C.bgRotate; delete C.bgFit;
+    /* The blur goes with it. A picture has no blur, and one left on a page
+       with no photo would land, unseen, on the next photo set there. Replacing
+       the photo keeps it (setCanvasBackgroundImage leaves bgBlur alone). */
+    delete C.bgBlur; _bgBlurOpen = false;
     C.bgPosX = 50; C.bgPosY = 50;
     state.selectedIds = [el.id];
     pushHistory();
@@ -19061,6 +19203,31 @@ import { createResizeEngine } from "./resize-engine.js";
       $("ed-bg-rot").querySelectorAll("[data-bgrot]").forEach((b) => b.addEventListener("click", () => set((state.canvas.bgRotate || 0) + Number(b.getAttribute("data-bgrot")), true)));
     })();
 
+    // Blur — the button opens Intensity, 0 to 100, slider or number (bgBlurPx).
+    (function wireBgBlur() {
+      const btn = $("ed-bg-blur-btn"), rng = $("ed-bg-blur-range"), num = $("ed-bg-blur-num");
+      if (!btn || !rng || !num) return;
+      btn.addEventListener("click", () => {
+        // Closing a blurred photo's row would hide the blur, so it stays open.
+        const blurred = (Number(state.canvas.bgBlur) || 0) > 0;
+        _bgBlurOpen = blurred ? true : !_bgBlurOpen;
+        syncBgPane();
+        if (_bgBlurOpen) { try { rng.focus({ preventScroll: true }); } catch (_) {} }
+      });
+      const set = (v, commit) => {
+        if (!state.canvas.backgroundImage) return;
+        v = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+        if (v) state.canvas.bgBlur = v; else delete state.canvas.bgBlur;
+        rng.value = v; num.value = v;
+        _bgBlurOpen = true;
+        if (commit) pushHistory();
+        fullRender();
+      };
+      rng.addEventListener("input", () => set(rng.value, false));
+      rng.addEventListener("change", () => set(rng.value, true));
+      num.addEventListener("change", () => set(num.value, true));
+    })();
+
     // Fill / Fit toggle — "cover" crops to fill, "contain" shows the whole photo.
     const fitGroup = $("ed-bg-fit");
     if (fitGroup) fitGroup.querySelectorAll(".ed-bg-fit-btn").forEach((b) => b.addEventListener("click", () => {
@@ -19303,7 +19470,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
       function applyBg() {
         const img = canvasEl.querySelector(".ed-canvas-bg");
-        const lay = bgLayout();
+        const lay = bgBlurBox(bgLayout(), bgBlurPx(), state.canvas);
         if (img && lay) {
           img.style.left = lay.ox + "px"; img.style.top = lay.oy + "px";
           img.style.width = lay.sw + "px"; img.style.height = lay.sh + "px";
